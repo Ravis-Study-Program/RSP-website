@@ -1,0 +1,130 @@
+openapi: 3.0.3
+info:
+  title: RSP API
+  version: 2.0.0
+servers:
+  - url: /api/v2
+paths:
+  /health/live:
+    get:
+      operationId: getLiveness
+      security: []
+      responses:
+        '200':
+          description: Process is alive
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Health' }
+  /health/ready:
+    get:
+      operationId: getReadiness
+      security: []
+      responses:
+        '200': { description: Dependencies are ready }
+        '503': { $ref: '#/components/responses/Problem' }
+  /me:
+    get:
+      operationId: getMe
+      responses:
+        '200':
+          description: Current user
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/User' }
+        '401': { $ref: '#/components/responses/Problem' }
+  /seasons:
+    get:
+      operationId: listSeasons
+      parameters:
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Cursor'
+      responses:
+        '200':
+          description: Season page
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SeasonPage' }
+        '400': { $ref: '#/components/responses/Problem' }
+    post:
+      operationId: createSeason
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/SeasonMutation' }
+      responses:
+        '201': { description: Created }
+        '409': { $ref: '#/components/responses/Problem' }
+components:
+  securitySchemes:
+    bearerAuth: { type: http, scheme: bearer, bearerFormat: JWT }
+  parameters:
+    Limit: { name: limit, in: query, schema: { type: integer, default: 25, minimum: 1, maximum: 100 } }
+    Cursor: { name: cursor, in: query, schema: { type: string } }
+  responses:
+    Problem:
+      description: Request failed
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+  schemas:
+    Health:
+      type: object
+      required: [status]
+      properties: { status: { type: string, enum: [ok] } }
+    User:
+      type: object
+      required: [id, name, slug, revision]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        slug: { type: string }
+        revision: { type: integer, format: int64 }
+    SeasonMutation:
+      type: object
+      required: [name, slug, revision]
+      properties:
+        name: { type: string }
+        slug: { type: string }
+        revision: { type: integer, format: int64 }
+    Season:
+      allOf:
+        - $ref: '#/components/schemas/SeasonMutation'
+        - type: object
+          required: [id, status]
+          properties:
+            id: { type: string }
+            status: { type: string, enum: [open, closed] }
+    PageInfo:
+      type: object
+      required: [hasMore]
+      properties:
+        nextCursor: { type: string, nullable: true }
+        previousCursor: { type: string, nullable: true }
+        hasMore: { type: boolean }
+    SeasonPage:
+      type: object
+      required: [items, pageInfo, totalCount]
+      properties:
+        items: { type: array, items: { $ref: '#/components/schemas/Season' } }
+        pageInfo: { $ref: '#/components/schemas/PageInfo' }
+        totalCount: { type: integer, format: int64 }
+    FieldError:
+      type: object
+      required: [field, message]
+      properties: { field: { type: string }, message: { type: string } }
+    Problem:
+      type: object
+      required: [type, title, status, code, requestId]
+      properties:
+        type: { type: string, format: uri-reference }
+        title: { type: string }
+        status: { type: integer }
+        detail: { type: string }
+        instance: { type: string }
+        code: { type: string }
+        requestId: { type: string }
+        errors: { type: array, items: { $ref: '#/components/schemas/FieldError' } }
+security:
+  - bearerAuth: []
+
