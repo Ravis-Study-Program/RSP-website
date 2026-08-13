@@ -3,6 +3,7 @@ package store
 import (
 	"context"
 	"errors"
+	"time"
 
 	"github.com/magedmg/RSP-website/backend/internal/authz"
 	"github.com/magedmg/RSP-website/backend/internal/model"
@@ -14,7 +15,15 @@ var (
 	ErrDuplicate = errors.New("duplicate")
 )
 
+type IdentityEvent struct {
+	Type, AuthUserID, Email, Reason string
+	EmailVerified                   bool
+	OccurredAt                      time.Time
+	RecoveryDeadline                *time.Time
+}
+
 type Repository interface {
+	ApplyIdentityEvent(context.Context, IdentityEvent) error
 	ResolveAuthSubject(context.Context, string) (authz.Actor, error)
 	GetUser(context.Context, string) (model.User, error)
 	ListUsers(context.Context, string, int) ([]model.User, bool, int64, error)

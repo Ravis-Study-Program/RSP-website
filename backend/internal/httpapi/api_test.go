@@ -170,3 +170,24 @@ func TestPrivilegedSeasonCreationRequiresMFACsrfAndUses201(t *testing.T) {
 		t.Fatalf("director create: %d %s", w.Code, w.Body.String())
 	}
 }
+
+func TestIdentityLifecycleRequiresServiceTokenAndCreatesLink(t *testing.T) {
+	t.Setenv("IDENTITY_SERVICE_TOKEN", "internal-secret")
+	f := newFixture()
+	body := `{"type":"auth_user_created","authUserId":"auth-new","email":"new@example.com","emailVerified":false,"occurredAt":"2026-08-13T00:00:00Z"}`
+	w := request(t, f, "POST", "/internal/auth/lifecycle-events", "", body)
+	if w.Code != 401 {
+		t.Fatalf("unauthorized lifecycle=%d", w.Code)
+	}
+	r := httptest.NewRequest("POST", "/internal/auth/lifecycle-events", strings.NewReader(body))
+	r.Header.Set("Authorization", "Bearer internal-secret")
+	r.Header.Set("Content-Type", "application/json")
+	w = httptest.NewRecorder()
+	f.handler.ServeHTTP(w, r)
+	if w.Code != 204 {
+		t.Fatalf("lifecycle=%d %s", w.Code, w.Body.String())
+	}
+	if _, ok := f.repository.AuthSubjects["auth-new"]; !ok {
+		t.Fatal("auth subject was not linked")
+	}
+}

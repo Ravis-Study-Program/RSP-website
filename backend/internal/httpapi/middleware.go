@@ -40,8 +40,8 @@ func (b BearerAuthenticator) Authenticate(r *http.Request) (authz.Actor, error) 
 	if err != nil {
 		return authz.Actor{}, err
 	}
-	if claims.MFAAt != nil {
-		at := claims.MFAAt.Time.UTC()
+	if claims.MFAVerified && claims.MFAVerifiedAt != nil {
+		at := claims.MFAVerifiedAt.Time.UTC()
 		actor.MFAAt = &at
 	}
 	return actor, nil

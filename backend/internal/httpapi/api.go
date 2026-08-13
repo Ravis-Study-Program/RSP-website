@@ -115,7 +115,10 @@ func (a *API) Handler() http.Handler {
 			a.fail(w, &http.Request{URL: &url.URL{Path: "/api/v2"}}, status, "openapi_validation_failed", "Request validation failed", message, nil)
 		},
 	})
-	return requestContext(a.logger, a.requests.Add, validator(mux))
+	root := http.NewServeMux()
+	root.HandleFunc("POST /internal/auth/lifecycle-events", a.identityLifecycle)
+	root.Handle("/", validator(mux))
+	return requestContext(a.logger, a.requests.Add, root)
 }
 func requestContext(logger *slog.Logger, increment func(uint64) uint64, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

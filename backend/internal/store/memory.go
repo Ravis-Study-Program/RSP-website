@@ -2,11 +2,14 @@ package store
 
 import (
 	"context"
+	"errors"
 	"sort"
+	"strings"
 	"sync"
 
 	"github.com/magedmg/RSP-website/backend/internal/authz"
 	"github.com/magedmg/RSP-website/backend/internal/model"
+	"github.com/magedmg/RSP-website/backend/internal/platform/id"
 )
 
 type Memory struct {
@@ -21,6 +24,60 @@ type Memory struct {
 
 func NewMemory() *Memory {
 	return &Memory{Users: map[string]model.User{}, AuthSubjects: map[string]authz.Actor{}, Seasons: map[string]model.Season{}, Problems: map[string]model.Problem{}, Attempts: map[string]model.Attempt{}}
+}
+func (m *Memory) ApplyIdentityEvent(_ context.Context, event IdentityEvent) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	actor, exists := m.AuthSubjects[event.AuthUserID]
+	switch event.Type {
+	case "auth_user_created":
+		if exists {
+			return nil
+		}
+		name := strings.TrimSpace(strings.Split(event.Email, "@")[0])
+		if name == "" {
+			name = "New member"
+		}
+		userID := id.New()
+		slug := "member-" + strings.ReplaceAll(userID, "-", "")[:12]
+		m.Users[userID] = model.User{ID: userID, Slug: slug, Name: name, Email: event.Email, Timezone: "Australia/Adelaide", AccountState: "active", Revision: 1}
+		m.AuthSubjects[event.AuthUserID] = authz.Actor{UserID: userID, EmailVerified: event.EmailVerified, AccountState: authz.AccountActive, GlobalRoles: map[authz.GlobalRole]bool{}}
+	case "email_verified":
+		if !exists {
+			return ErrNotFound
+		}
+		actor.EmailVerified = true
+		m.AuthSubjects[event.AuthUserID] = actor
+	case "deletion_requested", "deletion_cancelled", "auth_pseudonymized":
+		if !exists {
+			return ErrNotFound
+		}
+		state := authz.DeletionPending
+		if event.Type == "deletion_cancelled" {
+			state = authz.AccountActive
+		}
+		if event.Type == "auth_pseudonymized" {
+			state = authz.Deleted
+		}
+		actor.AccountState = state
+		m.AuthSubjects[event.AuthUserID] = actor
+		user := m.Users[actor.UserID]
+		user.AccountState = string(state)
+		user.Revision++
+		if state == authz.Deleted {
+			user.Name = "Deleted member"
+			user.Email = ""
+			user.AvatarURL = nil
+		}
+		m.Users[user.ID] = user
+	case "sessions_revoked":
+		if !exists {
+			return ErrNotFound
+		}
+	default:
+		return errors.New("unsupported identity event")
+	}
+	return nil
 }
 func (m *Memory) ResolveAuthSubject(_ context.Context, sub string) (authz.Actor, error) {
 	m.mu.RLock()

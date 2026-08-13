@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"strings"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
@@ -32,6 +33,59 @@ func Open(ctx context.Context, url string) (*Postgres, error) {
 }
 func (p *Postgres) Close()                         { p.Pool.Close() }
 func (p *Postgres) Ping(ctx context.Context) error { return p.Pool.Ping(ctx) }
+func (p *Postgres) ApplyIdentityEvent(ctx context.Context, event IdentityEvent) error {
+	tx, err := p.Pool.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+	var userID string
+	err = tx.QueryRow(ctx, `SELECT user_id FROM app.user_auth_links WHERE auth_subject=$1 FOR UPDATE`, event.AuthUserID).Scan(&userID)
+	if errors.Is(err, pgx.ErrNoRows) && event.Type == "auth_user_created" {
+		userID = event.AuthUserID
+		name := event.Email
+		if at := strings.IndexByte(name, '@'); at > 0 {
+			name = name[:at]
+		}
+		if strings.TrimSpace(name) == "" {
+			name = "New member"
+		}
+		slug := "member-" + strings.NewReplacer("|", "-", "_", "-").Replace(event.AuthUserID)
+		if len(slug) > 80 {
+			slug = slug[:80]
+		}
+		if _, err = tx.Exec(ctx, `INSERT INTO app.users(id,slug,display_name,email,account_state,timezone,revision) VALUES($1,$2,$3,$4,'active','Australia/Adelaide',1)`, userID, slug, name, event.Email); err != nil {
+			return err
+		}
+		if _, err = tx.Exec(ctx, `INSERT INTO app.user_auth_links(auth_subject,user_id,provider,provider_account_id,active) VALUES($1,$2,'better_auth',$1,true)`, event.AuthUserID, userID); err != nil {
+			return err
+		}
+		return tx.Commit(ctx)
+	}
+	if err != nil {
+		return noRows(err)
+	}
+	switch event.Type {
+	case "auth_user_created", "sessions_revoked":
+	case "email_verified":
+		_, err = tx.Exec(ctx, `UPDATE app.user_auth_links SET active=true,revoked_at=NULL WHERE auth_subject=$1`, event.AuthUserID)
+	case "deletion_requested":
+		_, err = tx.Exec(ctx, `UPDATE app.users SET account_state='deletion_pending',deletion_requested_at=$2,deletion_due_at=$3,revision=revision+1 WHERE id=$1`, userID, event.OccurredAt, event.RecoveryDeadline)
+	case "deletion_cancelled":
+		_, err = tx.Exec(ctx, `UPDATE app.users SET account_state='active',deletion_requested_at=NULL,deletion_due_at=NULL,revision=revision+1 WHERE id=$1`, userID)
+	case "auth_pseudonymized":
+		_, err = tx.Exec(ctx, `UPDATE app.users SET display_name='Deleted member',email=NULL,avatar_url=NULL,account_state='deleted',pseudonymized_at=$2,deleted_at=$2,revision=revision+1 WHERE id=$1`, userID, event.OccurredAt)
+		if err == nil {
+			_, err = tx.Exec(ctx, `UPDATE app.user_auth_links SET active=false,revoked_at=$2 WHERE auth_subject=$1`, event.AuthUserID, event.OccurredAt)
+		}
+	default:
+		return errors.New("unsupported identity event")
+	}
+	if err != nil {
+		return err
+	}
+	return tx.Commit(ctx)
+}
 func noRows(err error) error {
 	if errors.Is(err, pgx.ErrNoRows) {
 		return ErrNotFound

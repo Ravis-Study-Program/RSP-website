@@ -23,7 +23,7 @@ func TestValidatesIssuerAudienceSignatureKidExpiryAndVerification(t *testing.T) 
 	defer server.Close()
 	now := time.Now()
 	makeToken := func(verified bool, aud string, expires time.Time) string {
-		c := Claims{EmailVerified: verified, RegisteredClaims: jwt.RegisteredClaims{Issuer: "auth", Subject: "auth-user", Audience: jwt.ClaimStrings{aud}, IssuedAt: jwt.NewNumericDate(now), ExpiresAt: jwt.NewNumericDate(expires)}}
+		c := Claims{EmailVerified: verified, AccountState: "active", MFAVerified: true, MFAVerifiedAt: jwt.NewNumericDate(now), RegisteredClaims: jwt.RegisteredClaims{Issuer: "auth", Subject: "auth-user", Audience: jwt.ClaimStrings{aud}, IssuedAt: jwt.NewNumericDate(now), ExpiresAt: jwt.NewNumericDate(expires)}}
 		tok := jwt.NewWithClaims(jwt.SigningMethodRS256, c)
 		tok.Header["kid"] = "k1"
 		raw, _ := tok.SignedString(key)

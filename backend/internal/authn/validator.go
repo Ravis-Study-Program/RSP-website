@@ -25,7 +25,9 @@ var (
 
 type Claims struct {
 	EmailVerified bool             `json:"emailVerified"`
-	MFAAt         *jwt.NumericDate `json:"mfaAt,omitempty"`
+	AccountState  string           `json:"accountState,omitempty"`
+	MFAVerified   bool             `json:"mfaVerified,omitempty"`
+	MFAVerifiedAt *jwt.NumericDate `json:"mfaVerifiedAt,omitempty"`
 	jwt.RegisteredClaims
 }
 type jwk struct{ Kty, Kid, Alg, Use, N, E, Crv, X, Y string }
