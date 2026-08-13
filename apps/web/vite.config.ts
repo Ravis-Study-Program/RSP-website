@@ -8,8 +8,8 @@ export default defineConfig({
     port: 5173,
     strictPort: true,
     proxy: {
-      '/api/auth': { target: 'http://auth:3001', changeOrigin: true },
-      '/api/v2': { target: 'http://api:8080', changeOrigin: true },
+      '/api/auth': { target: process.env.VITE_AUTH_PROXY_TARGET ?? 'http://auth:3001', changeOrigin: true },
+      '/api/v2': { target: process.env.VITE_API_PROXY_TARGET ?? 'http://api:8080', changeOrigin: true },
     },
   },
   preview: { port: 4173, strictPort: true },
