@@ -1,0 +1,58 @@
+{
+  "capturedAt": "2026-08-13T12:00:00Z",
+  "efHistory": ["20241103101202_AddDatabaseIntegrity", "20251125131403_AddCreatedAtAndUpdatedAt"],
+  "schema": [
+    {"name":"User","primaryKey":["UserId"],"columns":[{"name":"UserId","type":"character varying","nullable":false}]},
+    {"name":"Season","primaryKey":["SeasonId"],"columns":[{"name":"SeasonId","type":"character varying","nullable":false}]}
+  ],
+  "tables": {
+    "BehaviouralMockInterviewRound": [],
+    "CustomMockInterviewRound": [],
+    "CustomProblem": [],
+    "Enrollment": [
+      {"EnrollmentId":"e-mentor","SeasonId":"season-1","UserId":"user-mentor","Role":1,"StudentRolePromotion":0,"CreatedAtUtc":"2026-07-01T00:00:00Z","UpdatedAtUtc":"2026-07-01T00:00:00Z","DeletedAtUtc":null},
+      {"EnrollmentId":"e-student","SeasonId":"season-1","UserId":"user-student","Role":0,"StudentRolePromotion":2,"CreatedAtUtc":"2026-07-01T00:00:00Z","UpdatedAtUtc":"2026-07-01T00:00:00Z","DeletedAtUtc":null}
+    ],
+    "KickStudentEvent": [],
+    "LeetcodeMockInterviewRound": [
+      {"LeetcodeMockInterviewRoundId":"lc-round-1","LeetcodeProblemId":"leetcode-1","ConfirmQuestionScore":7,"AlgorithmDesignScore":8,"ComplexityAnalysisScore":7,"CodingScore":8,"TestingScore":6,"IsReviewed":true,"CreatedAtUtc":"2026-08-01T10:00:00Z","UpdatedAtUtc":"2026-08-01T11:00:00Z","DeletedAtUtc":null}
+    ],
+    "LeetcodeProblem": [
+      {"LeetcodeProblemId":"leetcode-1","ProblemId":"problem-1","LeetcodeNumber":1,"LeetcodeProblemDifficulty":0,"IsPremium":false,"CreatedAtUtc":"2026-01-01T00:00:00Z","UpdatedAtUtc":"2026-01-01T00:00:00Z","DeletedAtUtc":null}
+    ],
+    "LeetcodeProblemCategory": [
+      {"LeetcodeProblemCategoryId":"category-1","Name":"  Dynamic   Programming ","CreatedAtUtc":"2026-01-01T00:00:00Z","UpdatedAtUtc":"2026-01-01T00:00:00Z","DeletedAtUtc":null}
+    ],
+    "LeetcodeProblemCategoryMapping": [
+      {"LeetcodeProblemCategoriesLeetcodeProblemCategoryId":"category-1","LeetcodeProblemEntityLeetcodeProblemId":"leetcode-1"}
+    ],
+    "LeetcodeProblemRecommendation": [
+      {"LeetcodeProblemRecommendationId":"recommendation-1","UserId":"user-student","LeetcodeProblemId":"leetcode-1","ProblemAttemptId":"attempt-1","CreatedAtUtc":"2026-07-15T00:00:00Z","UpdatedAtUtc":"2026-07-20T00:00:00Z","DeletedAtUtc":null}
+    ],
+    "Mentorship": [
+      {"MentorshipId":"mentorship-1","MentorEnrollmentId":"e-mentor","MenteeEnrollmentId":"e-student","CreatedAtUtc":"2026-07-01T00:00:00Z","UpdatedAtUtc":"2026-07-01T00:00:00Z","DeletedAtUtc":null}
+    ],
+    "MockInterview": [
+      {"MockInterviewId":"mock-1","IsPass":true,"StartDate":"2026-08-01T10:00:00Z","TimeTakenInMinutes":60,"Notes":"<p>Useful <strong>feedback</strong></p><script>alert(1)</script>","InterviewerUserId":"user-mentor","IntervieweeUserId":"user-student","SeasonId":"season-1","SeasonWeekId":"week-1","CreatedAtUtc":"2026-08-01T10:00:00Z","UpdatedAtUtc":"2026-08-01T11:00:00Z","DeletedAtUtc":null}
+    ],
+    "MockInterviewRound": [
+      {"MockInterviewRoundId":"mock-round-1","MockInterviewId":"mock-1","IsReviewedByInterviewee":true,"IntervieweeComment":"<p>Thanks</p>","BehaviouralMockInterviewRoundId":null,"LeetcodeMockInterviewRoundId":"lc-round-1","CustomMockInterviewRoundId":null,"CreatedAtUtc":"2026-08-01T10:00:00Z","UpdatedAtUtc":"2026-08-01T11:00:00Z","DeletedAtUtc":null}
+    ],
+    "Problem": [
+      {"ProblemId":"problem-1","Title":"Two Sum","Link":"https://leetcode.com/problems/two-sum/","CreatedAtUtc":"2026-01-01T00:00:00Z","UpdatedAtUtc":"2026-01-01T00:00:00Z","DeletedAtUtc":null}
+    ],
+    "ProblemAttempt": [
+      {"ProblemAttemptId":"attempt-1","AttemptStartDateUtc":"2026-07-20T00:00:00Z","TimeTakenInMinutes":15,"Notes":"<p>Used a map</p>","UserId":"user-student","LeetcodeProblemId":"leetcode-1","CustomProblemId":null,"EnrollmentId":"e-student","SeasonWeekId":"week-1","CreatedAtUtc":"2026-07-20T00:00:00Z","UpdatedAtUtc":"2026-07-20T00:00:00Z","DeletedAtUtc":null}
+    ],
+    "Season": [
+      {"SeasonId":"season-1","Name":"RSP 2026","Slug":"rsp-2026","StartDateInclusiveUtc":"2026-07-01T00:00:00Z","EndDateInclusiveUtc":"2026-12-01T00:00:00Z","Location":"Adelaide","ImageUrl":"/assets/rsp-logo.png","ResourcesUrl":"https://example.edu/resources","IsDataBackFilled":true,"CreatedAtUtc":"2026-06-01T00:00:00Z","UpdatedAtUtc":"2026-06-01T00:00:00Z","DeletedAtUtc":null}
+    ],
+    "SeasonWeek": [
+      {"SeasonWeekId":"week-1","SeasonId":"season-1","WeekNumber":1,"StartDate":"2026-07-01T00:00:00Z","EndDate":"2026-07-07T23:59:59Z","CreatedAtUtc":"2026-06-01T00:00:00Z","UpdatedAtUtc":"2026-06-01T00:00:00Z","DeletedAtUtc":null}
+    ],
+    "User": [
+      {"UserId":"user-mentor","DiscordId":null,"Email":"mentor@example.test","IsAdmin":false,"IsTestUser":false,"Name":"Mentor Example","Slug":"mentor-example","ProfileImage":null,"IsGraduate":false,"CreatedAtUtc":"2026-01-01T00:00:00Z","UpdatedAtUtc":"2026-01-01T00:00:00Z","DeletedAtUtc":null},
+      {"UserId":"user-student","DiscordId":null,"Email":"student@example.test","IsAdmin":false,"IsTestUser":false,"Name":"Student Example","Slug":"student-example","ProfileImage":null,"IsGraduate":false,"CreatedAtUtc":"2026-01-01T00:00:00Z","UpdatedAtUtc":"2026-01-01T00:00:00Z","DeletedAtUtc":null}
+    ]
+  }
+}
