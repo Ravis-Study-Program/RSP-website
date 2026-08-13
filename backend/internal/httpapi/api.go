@@ -5,12 +5,15 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
 
+	"github.com/getkin/kin-openapi/openapi3filter"
+	"github.com/magedmg/RSP-website/backend/internal/generated"
 	"github.com/magedmg/RSP-website/backend/internal/mockinterviews"
 	"github.com/magedmg/RSP-website/backend/internal/model"
 	"github.com/magedmg/RSP-website/backend/internal/platform/cursor"
@@ -20,6 +23,7 @@ import (
 	"github.com/magedmg/RSP-website/backend/internal/platform/sanitize"
 	"github.com/magedmg/RSP-website/backend/internal/practice"
 	"github.com/magedmg/RSP-website/backend/internal/store"
+	nethttpmiddleware "github.com/oapi-codegen/nethttp-middleware"
 )
 
 type Config struct {
@@ -100,7 +104,18 @@ func (a *API) Handler() http.Handler {
 	mux.HandleFunc("DELETE /api/v2/mock-interviews/{id}", a.protected(ratelimit.Write, a.deleteMock))
 	mux.HandleFunc("PATCH /api/v2/mock-interviews/{id}/rounds/{roundId}/review", a.protected(ratelimit.Write, a.reviewRound))
 	mux.HandleFunc("POST /api/v2/admin/leetcode/sync", a.protected(ratelimit.Sensitive, a.adminSync))
-	return requestContext(a.logger, a.requests.Add, mux)
+	spec, err := generated.GetSwagger()
+	if err != nil {
+		panic(err)
+	}
+	validator := nethttpmiddleware.OapiRequestValidatorWithOptions(spec, &nethttpmiddleware.Options{
+		Options:               openapi3filter.Options{AuthenticationFunc: openapi3filter.NoopAuthenticationFunc},
+		SilenceServersWarning: true,
+		ErrorHandler: func(w http.ResponseWriter, message string, status int) {
+			a.fail(w, &http.Request{URL: &url.URL{Path: "/api/v2"}}, status, "openapi_validation_failed", "Request validation failed", message, nil)
+		},
+	})
+	return requestContext(a.logger, a.requests.Add, validator(mux))
 }
 func requestContext(logger *slog.Logger, increment func(uint64) uint64, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -183,7 +198,11 @@ func (a *API) metrics(w http.ResponseWriter, _ *http.Request) {
 	_, _ = fmt.Fprintf(w, "# TYPE rsp_http_requests_total counter\nrsp_http_requests_total %d\n", a.requests.Load())
 }
 func (a *API) openapi(w http.ResponseWriter, _ *http.Request) {
-	writeJSON(w, 200, map[string]any{"openapi": "3.0.3", "info": map[string]string{"title": "RSP API", "version": "2.0.0"}, "externalDocs": map[string]string{"url": "/api/openapi.yaml"}})
+	spec, err := generated.GetSwagger()
+	if err != nil {
+		panic(err)
+	}
+	writeJSON(w, 200, spec)
 }
 func validation(a *API, w http.ResponseWriter, r *http.Request, detail string) {
 	a.fail(w, r, 400, "validation_failed", "Validation failed", detail, nil)

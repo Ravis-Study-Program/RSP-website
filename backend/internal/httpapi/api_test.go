@@ -93,7 +93,7 @@ func TestPrivateFieldsAndActorIDSpoofing(t *testing.T) {
 	}
 	body := `{"problemId":"problem","outcome":"independently_solved","confidence":5,"minutes":12,"attemptedAt":"2026-08-13T00:00:00Z","userId":"other"}`
 	w = request(t, f, "POST", "/api/v2/problem-attempts", "student", body)
-	if w.Code != 400 || problemCode(t, w) != "validation_failed" {
+	if w.Code != 400 || problemCode(t, w) != "openapi_validation_failed" {
 		t.Fatalf("actor id accepted: %d %s", w.Code, w.Body.String())
 	}
 }
@@ -155,7 +155,7 @@ func TestCreateStatusRateLimitAndRetryAfter(t *testing.T) {
 }
 func TestPrivilegedSeasonCreationRequiresMFACsrfAndUses201(t *testing.T) {
 	f := newFixture()
-	body := `{"name":"New","slug":"new","location":"Adelaide","imageURL":"https://example.com/image","resourcesURL":"https://example.com/resources","startAt":"2026-08-13T00:00:00Z","endAt":"2026-08-14T00:00:00Z"}`
+	body := `{"name":"New","slug":"new","location":"Adelaide","imageUrl":"https://example.com/image","resourcesUrl":"https://example.com/resources","startAt":"2026-08-13T00:00:00Z","endAt":"2026-08-14T00:00:00Z"}`
 	w := request(t, f, "POST", "/api/v2/seasons", "student", body)
 	if w.Code != 403 {
 		t.Fatalf("student created season: %d", w.Code)
@@ -163,6 +163,7 @@ func TestPrivilegedSeasonCreationRequiresMFACsrfAndUses201(t *testing.T) {
 	r := httptest.NewRequest("POST", "/api/v2/seasons", strings.NewReader(body))
 	r.Header.Set("X-Test-Actor", "director")
 	r.Header.Set("Origin", "https://rsp.test")
+	r.Header.Set("Content-Type", "application/json")
 	w = httptest.NewRecorder()
 	f.handler.ServeHTTP(w, r)
 	if w.Code != 201 {

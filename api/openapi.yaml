@@ -2,118 +2,465 @@ openapi: 3.0.3
 info:
   title: RSP API
   version: 2.0.0
+  description: Same-origin API for the Ravi's Study Program application.
 servers:
   - url: /api/v2
+security:
+  - bearerAuth: []
 paths:
   /health/live:
     get:
       operationId: getLiveness
       security: []
       responses:
-        '200':
-          description: Process is alive
-          content:
-            application/json:
-              schema: { $ref: '#/components/schemas/Health' }
+        '200': { $ref: '#/components/responses/Health' }
   /health/ready:
     get:
       operationId: getReadiness
       security: []
       responses:
-        '200': { description: Dependencies are ready }
+        '200': { $ref: '#/components/responses/Health' }
         '503': { $ref: '#/components/responses/Problem' }
+  /metrics:
+    get:
+      operationId: getMetrics
+      security: []
+      responses:
+        '200':
+          description: Internal Prometheus metrics
+          content: { text/plain: { schema: { type: string } } }
+  /openapi.json:
+    get:
+      operationId: getOpenAPI
+      security: []
+      responses:
+        '200':
+          description: This OpenAPI document as JSON
+          content: { application/json: { schema: { type: object, additionalProperties: true } } }
   /me:
     get:
       operationId: getMe
       responses:
-        '200':
-          description: Current user
-          content:
-            application/json:
-              schema: { $ref: '#/components/schemas/User' }
+        '200': { description: Current user, content: { application/json: { schema: { $ref: '#/components/schemas/UserPrivate' } } } }
         '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+    patch:
+      operationId: updateMe
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/UpdateMe' } } } }
+      responses:
+        '200': { description: Updated profile, content: { application/json: { schema: { $ref: '#/components/schemas/UserPrivate' } } } }
+        '400': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+  /users:
+    get:
+      operationId: listUsers
+      parameters: [ { $ref: '#/components/parameters/Limit' }, { $ref: '#/components/parameters/Cursor' }, { $ref: '#/components/parameters/Direction' }, { $ref: '#/components/parameters/Sort' } ]
+      responses:
+        '200': { description: User page, content: { application/json: { schema: { $ref: '#/components/schemas/UserPage' } } } }
+        '400': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+  /users/{id}:
+    parameters: [ { $ref: '#/components/parameters/ID' } ]
+    get:
+      operationId: getUser
+      responses:
+        '200': { description: Member profile, content: { application/json: { schema: { $ref: '#/components/schemas/User' } } } }
+        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Problem' }
   /seasons:
     get:
       operationId: listSeasons
-      parameters:
-        - $ref: '#/components/parameters/Limit'
-        - $ref: '#/components/parameters/Cursor'
+      parameters: [ { $ref: '#/components/parameters/Limit' }, { $ref: '#/components/parameters/Cursor' }, { $ref: '#/components/parameters/Direction' }, { $ref: '#/components/parameters/Sort' } ]
       responses:
-        '200':
-          description: Season page
-          content:
-            application/json:
-              schema: { $ref: '#/components/schemas/SeasonPage' }
+        '200': { description: Season page, content: { application/json: { schema: { $ref: '#/components/schemas/SeasonPage' } } } }
         '400': { $ref: '#/components/responses/Problem' }
     post:
       operationId: createSeason
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema: { $ref: '#/components/schemas/SeasonMutation' }
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/SeasonMutation' } } } }
       responses:
-        '201': { description: Created }
+        '201': { description: Created season, content: { application/json: { schema: { $ref: '#/components/schemas/Season' } } } }
+        '400': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
         '409': { $ref: '#/components/responses/Problem' }
+  /seasons/{id}:
+    parameters: [ { $ref: '#/components/parameters/ID' } ]
+    get:
+      operationId: getSeason
+      responses:
+        '200': { description: Season, content: { application/json: { schema: { $ref: '#/components/schemas/Season' } } } }
+        '404': { $ref: '#/components/responses/Problem' }
+    patch:
+      operationId: updateSeason
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/SeasonMutation' } } } }
+      responses:
+        '200': { description: Updated season, content: { application/json: { schema: { $ref: '#/components/schemas/Season' } } } }
+        '400': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+  /seasons/{id}/close:
+    parameters: [ { $ref: '#/components/parameters/ID' } ]
+    post:
+      operationId: closeSeason
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/ReasonedRevision' } } } }
+      responses:
+        '200': { description: Closed season, content: { application/json: { schema: { $ref: '#/components/schemas/Season' } } } }
+        '403': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+  /seasons/{id}/reopen:
+    parameters: [ { $ref: '#/components/parameters/ID' } ]
+    post:
+      operationId: reopenSeason
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/ReasonedRevision' } } } }
+      responses:
+        '200': { description: Reopened season, content: { application/json: { schema: { $ref: '#/components/schemas/Season' } } } }
+        '403': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+  /seasons/{id}/weeks:
+    parameters: [ { $ref: '#/components/parameters/ID' } ]
+    get:
+      operationId: listSeasonWeeks
+      parameters: [ { $ref: '#/components/parameters/Limit' }, { $ref: '#/components/parameters/Cursor' } ]
+      responses:
+        '200': { description: Week page, content: { application/json: { schema: { $ref: '#/components/schemas/WeekPage' } } } }
+    post:
+      operationId: createSeasonWeek
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/WeekMutation' } } } }
+      responses:
+        '201': { description: Created week, content: { application/json: { schema: { $ref: '#/components/schemas/Week' } } } }
+        '400': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+  /seasons/{id}/members:
+    parameters: [ { $ref: '#/components/parameters/ID' } ]
+    get:
+      operationId: listSeasonMembers
+      parameters: [ { $ref: '#/components/parameters/Limit' }, { $ref: '#/components/parameters/Cursor' }, { name: role, in: query, schema: { $ref: '#/components/schemas/SeasonRole' } }, { name: state, in: query, schema: { $ref: '#/components/schemas/EnrollmentState' } } ]
+      responses:
+        '200': { description: Enrollment page, content: { application/json: { schema: { $ref: '#/components/schemas/EnrollmentPage' } } } }
+        '403': { $ref: '#/components/responses/Problem' }
+    post:
+      operationId: createSeasonMember
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/EnrollmentCreate' } } } }
+      responses:
+        '201': { description: Created enrollment, content: { application/json: { schema: { $ref: '#/components/schemas/Enrollment' } } } }
+        '403': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+  /seasons/{id}/members/{memberId}/promote:
+    parameters: [ { $ref: '#/components/parameters/ID' }, { name: memberId, in: path, required: true, schema: { type: string } } ]
+    post:
+      operationId: promoteSeasonMember
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/Promotion' } } } }
+      responses:
+        '200': { description: Promoted enrollment, content: { application/json: { schema: { $ref: '#/components/schemas/Enrollment' } } } }
+        '403': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+  /seasons/{id}/members/{memberId}/remove:
+    parameters: [ { $ref: '#/components/parameters/ID' }, { name: memberId, in: path, required: true, schema: { type: string } } ]
+    post:
+      operationId: removeSeasonMember
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/ReasonedRevision' } } } }
+      responses:
+        '200': { description: Removed enrollment, content: { application/json: { schema: { $ref: '#/components/schemas/Enrollment' } } } }
+        '403': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+  /seasons/{id}/mentorships:
+    parameters: [ { $ref: '#/components/parameters/ID' } ]
+    get:
+      operationId: listSeasonMentorships
+      parameters: [ { $ref: '#/components/parameters/Limit' }, { $ref: '#/components/parameters/Cursor' } ]
+      responses:
+        '200': { description: Mentorship page, content: { application/json: { schema: { $ref: '#/components/schemas/MentorshipPage' } } } }
+    post:
+      operationId: createMentorship
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/MentorshipCreate' } } } }
+      responses:
+        '201': { description: Created mentorship, content: { application/json: { schema: { $ref: '#/components/schemas/Mentorship' } } } }
+        '403': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+  /leetcode-problems:
+    get:
+      operationId: listLeetcodeProblems
+      parameters: [ { $ref: '#/components/parameters/Limit' }, { $ref: '#/components/parameters/Cursor' }, { $ref: '#/components/parameters/Direction' }, { $ref: '#/components/parameters/Sort' }, { name: difficulty, in: query, schema: { $ref: '#/components/schemas/Difficulty' } }, { name: category, in: query, schema: { type: string } }, { name: premium, in: query, schema: { type: boolean } } ]
+      responses:
+        '200': { description: Problem page, content: { application/json: { schema: { $ref: '#/components/schemas/ProblemPage' } } } }
+        '400': { $ref: '#/components/responses/Problem' }
+  /problem-attempts:
+    get:
+      operationId: listProblemAttempts
+      parameters: [ { $ref: '#/components/parameters/Limit' }, { $ref: '#/components/parameters/Cursor' }, { $ref: '#/components/parameters/Direction' }, { $ref: '#/components/parameters/Sort' }, { name: outcome, in: query, schema: { $ref: '#/components/schemas/AttemptOutcome' } }, { name: difficulty, in: query, schema: { $ref: '#/components/schemas/Difficulty' } } ]
+      responses:
+        '200': { description: Attempt page, content: { application/json: { schema: { $ref: '#/components/schemas/AttemptPage' } } } }
+        '400': { $ref: '#/components/responses/Problem' }
+    post:
+      operationId: createProblemAttempt
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/AttemptMutation' } } } }
+      responses:
+        '201': { description: Created attempt, content: { application/json: { schema: { $ref: '#/components/schemas/Attempt' } } } }
+        '400': { $ref: '#/components/responses/Problem' }
+  /problem-attempts/{id}:
+    parameters: [ { $ref: '#/components/parameters/ID' } ]
+    patch:
+      operationId: updateProblemAttempt
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/AttemptMutation' } } } }
+      responses:
+        '200': { description: Updated attempt, content: { application/json: { schema: { $ref: '#/components/schemas/Attempt' } } } }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+    delete:
+      operationId: deleteProblemAttempt
+      parameters: [ { $ref: '#/components/parameters/Revision' } ]
+      responses:
+        '204': { description: Deleted }
+        '404': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+  /recommendations/current:
+    get:
+      operationId: getCurrentRecommendation
+      responses:
+        '200': { description: Active recommendation, content: { application/json: { schema: { $ref: '#/components/schemas/Recommendation' } } } }
+        '404': { $ref: '#/components/responses/Problem' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+  /recommendations/current/dismiss:
+    post:
+      operationId: dismissCurrentRecommendation
+      requestBody: { content: { application/json: { schema: { type: object, properties: { reason: { type: string, maxLength: 1000 } } } } } }
+      responses:
+        '204': { description: Dismissed }
+        '404': { $ref: '#/components/responses/Problem' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+  /mock-interviews:
+    get:
+      operationId: listMockInterviews
+      parameters: [ { $ref: '#/components/parameters/Limit' }, { $ref: '#/components/parameters/Cursor' }, { name: mode, in: query, schema: { type: string, enum: [received, given, all], default: received } } ]
+      responses:
+        '200': { description: Mock interview page, content: { application/json: { schema: { $ref: '#/components/schemas/MockInterviewPage' } } } }
+    post:
+      operationId: createMockInterview
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/MockInterviewCreate' } } } }
+      responses:
+        '201': { description: Created mock interview, content: { application/json: { schema: { $ref: '#/components/schemas/MockInterviewResult' } } } }
+        '400': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+  /mock-interviews/{id}:
+    parameters: [ { $ref: '#/components/parameters/ID' } ]
+    patch:
+      operationId: updateMockInterview
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/MockInterviewMutation' } } } }
+      responses:
+        '200': { description: Updated mock interview, content: { application/json: { schema: { $ref: '#/components/schemas/MockInterviewResult' } } } }
+        '403': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+    delete:
+      operationId: deleteMockInterview
+      parameters: [ { $ref: '#/components/parameters/Revision' } ]
+      responses:
+        '204': { description: Soft deleted }
+        '403': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+  /mock-interviews/{id}/rounds/{roundId}/review:
+    parameters: [ { $ref: '#/components/parameters/ID' }, { name: roundId, in: path, required: true, schema: { type: string } } ]
+    patch:
+      operationId: reviewMockInterviewRound
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/RoundReview' } } } }
+      responses:
+        '200': { description: Reviewed mock interview, content: { application/json: { schema: { $ref: '#/components/schemas/MockInterviewResult' } } } }
+        '403': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+  /admin/leetcode/sync:
+    post:
+      operationId: requestLeetcodeSync
+      responses:
+        '202': { description: Sync accepted, content: { application/json: { schema: { type: object, required: [status], properties: { status: { type: string, enum: [accepted] } } } } } }
+        '403': { $ref: '#/components/responses/Problem' }
+        '429': { $ref: '#/components/responses/RateLimited' }
 components:
   securitySchemes:
     bearerAuth: { type: http, scheme: bearer, bearerFormat: JWT }
   parameters:
+    ID: { name: id, in: path, required: true, schema: { type: string } }
     Limit: { name: limit, in: query, schema: { type: integer, default: 25, minimum: 1, maximum: 100 } }
     Cursor: { name: cursor, in: query, schema: { type: string } }
+    Direction: { name: direction, in: query, schema: { type: string, enum: [forward, backward], default: forward } }
+    Sort: { name: sort, in: query, schema: { type: string } }
+    Revision: { name: revision, in: query, required: true, schema: { type: integer, format: int64, minimum: 1 } }
   responses:
+    Health:
+      description: Health status
+      content: { application/json: { schema: { $ref: '#/components/schemas/Health' } } }
     Problem:
       description: Request failed
-      content:
-        application/problem+json:
-          schema: { $ref: '#/components/schemas/Problem' }
+      content: { application/problem+json: { schema: { $ref: '#/components/schemas/ProblemDetails' } } }
+    RateLimited:
+      description: Rate limited
+      headers: { Retry-After: { required: true, schema: { type: integer, minimum: 1 } } }
+      content: { application/problem+json: { schema: { $ref: '#/components/schemas/ProblemDetails' } } }
   schemas:
-    Health:
-      type: object
-      required: [status]
-      properties: { status: { type: string, enum: [ok] } }
-    User:
-      type: object
-      required: [id, name, slug, revision]
-      properties:
-        id: { type: string }
-        name: { type: string }
-        slug: { type: string }
-        revision: { type: integer, format: int64 }
-    SeasonMutation:
-      type: object
-      required: [name, slug, revision]
-      properties:
-        name: { type: string }
-        slug: { type: string }
-        revision: { type: integer, format: int64 }
-    Season:
-      allOf:
-        - $ref: '#/components/schemas/SeasonMutation'
-        - type: object
-          required: [id, status]
-          properties:
-            id: { type: string }
-            status: { type: string, enum: [open, closed] }
+    Revision: { type: integer, format: int64, minimum: 1 }
+    Health: { type: object, required: [status], properties: { status: { type: string, enum: [ok, ready] } } }
+    GlobalRole: { type: string, enum: [director, system_admin] }
+    SeasonRole: { type: string, enum: [student, mentor, coordinator] }
+    EnrollmentState: { type: string, enum: [active, completed, kicked, withdrawn] }
+    Difficulty: { type: string, enum: [easy, medium, hard] }
+    AttemptOutcome: { type: string, enum: [independently_solved, solved_with_hints, not_solved, unknown] }
     PageInfo:
       type: object
       required: [hasMore]
-      properties:
-        nextCursor: { type: string, nullable: true }
-        previousCursor: { type: string, nullable: true }
-        hasMore: { type: boolean }
-    SeasonPage:
+      properties: { nextCursor: { type: string, nullable: true }, previousCursor: { type: string, nullable: true }, hasMore: { type: boolean } }
+    User:
       type: object
-      required: [items, pageInfo, totalCount]
+      required: [id, slug, name, timezone, globalRoles, revision]
       properties:
-        items: { type: array, items: { $ref: '#/components/schemas/Season' } }
-        pageInfo: { $ref: '#/components/schemas/PageInfo' }
-        totalCount: { type: integer, format: int64 }
+        id: { type: string }
+        slug: { type: string }
+        name: { type: string }
+        avatarUrl: { type: string, nullable: true }
+        timezone: { type: string }
+        globalRoles: { type: array, items: { $ref: '#/components/schemas/GlobalRole' } }
+        revision: { $ref: '#/components/schemas/Revision' }
+    UserPrivate:
+      allOf:
+        - $ref: '#/components/schemas/User'
+        - type: object
+          required: [email, accountState]
+          properties: { email: { type: string, format: email }, accountState: { type: string, enum: [active, suspended, deletion_pending, deleted] } }
+    UpdateMe:
+      type: object
+      additionalProperties: false
+      required: [name, timezone, revision]
+      properties: { name: { type: string, minLength: 1, maxLength: 100 }, avatarUrl: { type: string, format: uri, nullable: true }, timezone: { type: string }, revision: { $ref: '#/components/schemas/Revision' } }
+    UserPage: { allOf: [ { $ref: '#/components/schemas/PageEnvelope' }, { type: object, required: [items], properties: { items: { type: array, items: { $ref: '#/components/schemas/User' } } } } ] }
+    Season:
+      type: object
+      required: [id, slug, name, status, startAt, endAt, location, imageUrl, resourcesUrl, revision]
+      properties:
+        id: { type: string }
+        slug: { type: string }
+        name: { type: string }
+        status: { type: string, enum: [open, closed] }
+        startAt: { type: string, format: date-time }
+        endAt: { type: string, format: date-time }
+        location: { type: string }
+        imageUrl: { type: string }
+        resourcesUrl: { type: string }
+        revision: { $ref: '#/components/schemas/Revision' }
+    SeasonMutation:
+      type: object
+      additionalProperties: false
+      required: [name, slug, startAt, endAt, location, imageUrl, resourcesUrl]
+      properties:
+        name: { type: string, minLength: 1 }
+        slug: { type: string, minLength: 1 }
+        startAt: { type: string, format: date-time }
+        endAt: { type: string, format: date-time }
+        location: { type: string }
+        imageUrl: { type: string, format: uri }
+        resourcesUrl: { type: string, format: uri }
+        revision: { $ref: '#/components/schemas/Revision' }
+    SeasonPage: { allOf: [ { $ref: '#/components/schemas/PageEnvelope' }, { type: object, required: [items], properties: { items: { type: array, items: { $ref: '#/components/schemas/Season' } } } } ] }
+    Week:
+      type: object
+      required: [id, seasonId, number, startAt, endAt, resourceUrl, revision]
+      properties: { id: { type: string }, seasonId: { type: string }, number: { type: integer, minimum: 1 }, startAt: { type: string, format: date-time }, endAt: { type: string, format: date-time }, resourceUrl: { type: string }, revision: { $ref: '#/components/schemas/Revision' } }
+    WeekMutation:
+      type: object
+      additionalProperties: false
+      required: [number, startAt, endAt]
+      properties: { number: { type: integer, minimum: 1 }, startAt: { type: string, format: date-time }, endAt: { type: string, format: date-time }, resourceUrl: { type: string, format: uri } }
+    WeekPage: { allOf: [ { $ref: '#/components/schemas/PageEnvelope' }, { type: object, required: [items], properties: { items: { type: array, items: { $ref: '#/components/schemas/Week' } } } } ] }
+    Enrollment:
+      type: object
+      required: [id, seasonId, userId, role, state, revision]
+      properties: { id: { type: string }, seasonId: { type: string }, userId: { type: string }, role: { $ref: '#/components/schemas/SeasonRole' }, state: { $ref: '#/components/schemas/EnrollmentState' }, removalReason: { type: string, nullable: true }, revision: { $ref: '#/components/schemas/Revision' } }
+    EnrollmentCreate:
+      type: object
+      additionalProperties: false
+      required: [userId, role]
+      properties: { userId: { type: string }, role: { $ref: '#/components/schemas/SeasonRole' } }
+    EnrollmentPage: { allOf: [ { $ref: '#/components/schemas/PageEnvelope' }, { type: object, required: [items], properties: { items: { type: array, items: { $ref: '#/components/schemas/Enrollment' } } } } ] }
+    Promotion:
+      type: object
+      additionalProperties: false
+      required: [role, revision]
+      properties: { role: { type: string, enum: [mentor, coordinator] }, reason: { type: string }, revision: { $ref: '#/components/schemas/Revision' } }
+    Mentorship:
+      type: object
+      required: [id, seasonId, mentorUserId, studentUserId, revision]
+      properties: { id: { type: string }, seasonId: { type: string }, mentorUserId: { type: string }, studentUserId: { type: string }, revision: { $ref: '#/components/schemas/Revision' } }
+    MentorshipCreate:
+      type: object
+      additionalProperties: false
+      required: [mentorUserId, studentUserId]
+      properties: { mentorUserId: { type: string }, studentUserId: { type: string } }
+    MentorshipPage: { allOf: [ { $ref: '#/components/schemas/PageEnvelope' }, { type: object, required: [items], properties: { items: { type: array, items: { $ref: '#/components/schemas/Mentorship' } } } } ] }
+    LeetcodeProblem:
+      type: object
+      required: [id, number, title, link, difficulty, categories, premium, revision]
+      properties: { id: { type: string }, number: { type: integer }, title: { type: string }, link: { type: string, format: uri }, difficulty: { $ref: '#/components/schemas/Difficulty' }, categories: { type: array, items: { type: string } }, premium: { type: boolean }, revision: { $ref: '#/components/schemas/Revision' } }
+    ProblemPage: { allOf: [ { $ref: '#/components/schemas/PageEnvelope' }, { type: object, required: [items], properties: { items: { type: array, items: { $ref: '#/components/schemas/LeetcodeProblem' } } } } ] }
+    Attempt:
+      type: object
+      required: [id, problemId, outcome, minutes, notes, attemptedAt, revision]
+      properties: { id: { type: string }, problemId: { type: string }, outcome: { $ref: '#/components/schemas/AttemptOutcome' }, confidence: { type: integer, minimum: 1, maximum: 5, nullable: true }, minutes: { type: integer, minimum: 1 }, notes: { type: string }, attemptedAt: { type: string, format: date-time }, seasonId: { type: string, nullable: true }, weekId: { type: string, nullable: true }, revision: { $ref: '#/components/schemas/Revision' } }
+    AttemptMutation:
+      type: object
+      additionalProperties: false
+      required: [problemId, outcome, minutes, attemptedAt]
+      properties: { problemId: { type: string }, outcome: { $ref: '#/components/schemas/AttemptOutcome' }, confidence: { type: integer, minimum: 1, maximum: 5, nullable: true }, minutes: { type: integer, minimum: 1 }, notes: { type: string, maxLength: 10000 }, attemptedAt: { type: string, format: date-time }, seasonId: { type: string, nullable: true }, weekId: { type: string, nullable: true }, revision: { $ref: '#/components/schemas/Revision' } }
+    AttemptPage: { allOf: [ { $ref: '#/components/schemas/PageEnvelope' }, { type: object, required: [items], properties: { items: { type: array, items: { $ref: '#/components/schemas/Attempt' } } } } ] }
+    Recommendation:
+      type: object
+      required: [id, userId, problem, difficulty, rationale, ruleVersion, createdAt]
+      properties: { id: { type: string }, userId: { type: string }, problem: { $ref: '#/components/schemas/LeetcodeProblem' }, difficulty: { $ref: '#/components/schemas/Difficulty' }, category: { type: string }, rationale: { type: string }, ruleVersion: { type: string }, createdAt: { type: string, format: date-time } }
+    Scores:
+      type: object
+      properties: { behavioural: { type: integer, minimum: 0, maximum: 10 }, confirmQuestions: { type: integer, minimum: 0, maximum: 10 }, algorithmDesign: { type: integer, minimum: 0, maximum: 10 }, complexityAnalysis: { type: integer, minimum: 0, maximum: 10 }, coding: { type: integer, minimum: 0, maximum: 10 }, testing: { type: integer, minimum: 0, maximum: 10 }, custom: { type: integer, minimum: 0, maximum: 10 } }
+    MockRound:
+      type: object
+      required: [id, type, scores, reviewed, intervieweeComment]
+      properties: { id: { type: string }, type: { type: string, enum: [behavioural, leetcode, custom] }, problemId: { type: string }, content: { type: string }, link: { type: string }, scores: { $ref: '#/components/schemas/Scores' }, reviewed: { type: boolean }, intervieweeComment: { type: string } }
+    Participant:
+      type: object
+      additionalProperties: false
+      required: [userId]
+      properties: { userId: { type: string }, activeMember: { type: boolean }, alumni: { type: boolean }, suspended: { type: boolean }, deleted: { type: boolean }, test: { type: boolean }, kickedOnly: { type: boolean } }
+    MockInterview:
+      type: object
+      required: [id, interviewerId, intervieweeId, occurredAt, durationMinutes, notes, rounds, revision]
+      properties: { id: { type: string }, interviewerId: { type: string }, intervieweeId: { type: string }, seasonId: { type: string, nullable: true }, occurredAt: { type: string, format: date-time }, durationMinutes: { type: integer, minimum: 1 }, notes: { type: string }, rounds: { type: array, minItems: 1, items: { $ref: '#/components/schemas/MockRound' } }, revision: { $ref: '#/components/schemas/Revision' } }
+    MockInterviewCreate:
+      type: object
+      additionalProperties: false
+      required: [interviewee, occurredAt, durationMinutes, rounds]
+      properties: { interviewee: { $ref: '#/components/schemas/Participant' }, seasonId: { type: string, nullable: true }, occurredAt: { type: string, format: date-time }, durationMinutes: { type: integer, minimum: 1 }, notes: { type: string, maxLength: 10000 }, rounds: { type: array, minItems: 1, items: { $ref: '#/components/schemas/MockRound' } } }
+    MockInterviewMutation:
+      type: object
+      additionalProperties: false
+      required: [occurredAt, durationMinutes, rounds, revision]
+      properties: { occurredAt: { type: string, format: date-time }, durationMinutes: { type: integer, minimum: 1 }, notes: { type: string, maxLength: 10000 }, rounds: { type: array, minItems: 1, items: { $ref: '#/components/schemas/MockRound' } }, revision: { $ref: '#/components/schemas/Revision' } }
+    MockInterviewResult:
+      type: object
+      required: [interview, passed]
+      properties: { interview: { $ref: '#/components/schemas/MockInterview' }, passed: { type: boolean } }
+    MockInterviewPage: { allOf: [ { $ref: '#/components/schemas/PageEnvelope' }, { type: object, required: [items], properties: { items: { type: array, items: { $ref: '#/components/schemas/MockInterview' } } } } ] }
+    RoundReview:
+      type: object
+      additionalProperties: false
+      required: [reviewed, comment, revision]
+      properties: { reviewed: { type: boolean }, comment: { type: string, maxLength: 10000 }, revision: { $ref: '#/components/schemas/Revision' } }
+    ReasonedRevision:
+      type: object
+      additionalProperties: false
+      required: [reason, revision]
+      properties: { reason: { type: string, minLength: 1, maxLength: 2000 }, revision: { $ref: '#/components/schemas/Revision' } }
+    PageEnvelope:
+      type: object
+      required: [pageInfo, totalCount]
+      properties: { pageInfo: { $ref: '#/components/schemas/PageInfo' }, totalCount: { type: integer, format: int64, minimum: 0 } }
     FieldError:
       type: object
       required: [field, message]
       properties: { field: { type: string }, message: { type: string } }
-    Problem:
+    ProblemDetails:
       type: object
       required: [type, title, status, code, requestId]
       properties:
@@ -125,6 +472,3 @@ components:
         code: { type: string }
         requestId: { type: string }
         errors: { type: array, items: { $ref: '#/components/schemas/FieldError' } }
-security:
-  - bearerAuth: []
-

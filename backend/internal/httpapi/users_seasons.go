@@ -124,9 +124,14 @@ func (a *API) season(w http.ResponseWriter, r *http.Request) {
 }
 
 type seasonInput struct {
-	Name, Slug, Location, ImageURL, ResourcesURL string
-	StartAt, EndAt                               time.Time
-	Revision                                     int64
+	Name         string    `json:"name"`
+	Slug         string    `json:"slug"`
+	Location     string    `json:"location"`
+	ImageURL     string    `json:"imageUrl"`
+	ResourcesURL string    `json:"resourcesUrl"`
+	StartAt      time.Time `json:"startAt"`
+	EndAt        time.Time `json:"endAt"`
+	Revision     int64     `json:"revision"`
 }
 
 func validSeason(in seasonInput) bool {
