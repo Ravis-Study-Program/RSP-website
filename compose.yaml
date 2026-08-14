@@ -160,8 +160,8 @@ services:
       - ./api:/workspace/api
       - ./db:/workspace/db
       - ./deploy/dev:/workspace/deploy/dev:ro
-      - go-mod-cache:/go/pkg/mod
-      - go-build-cache:/home/rsp/.cache/go-build
+      - api-go-mod-cache:/go/pkg/mod
+      - api-go-build-cache:/home/rsp/.cache/go-build
     depends_on:
       migrate-app:
         condition: service_completed_successfully
@@ -200,8 +200,8 @@ services:
       - ./backend:/workspace/backend
       - ./db:/workspace/db
       - ./deploy/dev:/workspace/deploy/dev:ro
-      - go-mod-cache:/go/pkg/mod
-      - go-build-cache:/home/rsp/.cache/go-build
+      - worker-go-mod-cache:/go/pkg/mod
+      - worker-go-build-cache:/home/rsp/.cache/go-build
     depends_on:
       migrate-app:
         condition: service_completed_successfully
@@ -530,5 +530,7 @@ volumes:
   mailpit-data:
   prometheus-data:
   grafana-data:
-  go-mod-cache:
-  go-build-cache:
+  api-go-mod-cache:
+  api-go-build-cache:
+  worker-go-mod-cache:
+  worker-go-build-cache:
