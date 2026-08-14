@@ -13,14 +13,17 @@ type Details struct {
 	Type      string       `json:"type"`
 	Title     string       `json:"title"`
 	Status    int          `json:"status"`
-	Detail    string       `json:"detail,omitempty"`
-	Instance  string       `json:"instance,omitempty"`
+	Detail    string       `json:"detail"`
+	Instance  string       `json:"instance"`
 	Code      string       `json:"code"`
-	RequestID string       `json:"requestId,omitempty"`
-	Errors    []FieldError `json:"errors,omitempty"`
+	RequestID string       `json:"requestId"`
+	Errors    []FieldError `json:"errors"`
 }
 
 func Write(w http.ResponseWriter, v Details) {
+	if v.Errors == nil {
+		v.Errors = []FieldError{}
+	}
 	w.Header().Set("Content-Type", "application/problem+json")
 	w.WriteHeader(v.Status)
 	_ = json.NewEncoder(w).Encode(v)

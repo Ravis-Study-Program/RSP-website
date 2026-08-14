@@ -717,18 +717,22 @@ type AppCustomProblem struct {
 }
 
 type AppEnrollment struct {
-	ID                 string             `db:"id" json:"id"`
-	UserID             string             `db:"user_id" json:"user_id"`
-	SeasonID           string             `db:"season_id" json:"season_id"`
-	Role               AppSeasonRole      `db:"role" json:"role"`
-	StudentLevel       AppStudentLevel    `db:"student_level" json:"student_level"`
-	State              AppEnrollmentState `db:"state" json:"state"`
-	CompletedByCloseID *string            `db:"completed_by_close_id" json:"completed_by_close_id"`
-	StateChangedAt     pgtype.Timestamptz `db:"state_changed_at" json:"state_changed_at"`
-	DeletedAt          pgtype.Timestamptz `db:"deleted_at" json:"deleted_at"`
-	Revision           int64              `db:"revision" json:"revision"`
-	CreatedAt          pgtype.Timestamptz `db:"created_at" json:"created_at"`
-	UpdatedAt          pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+	ID                   string                 `db:"id" json:"id"`
+	UserID               string                 `db:"user_id" json:"user_id"`
+	SeasonID             string                 `db:"season_id" json:"season_id"`
+	Role                 AppSeasonRole          `db:"role" json:"role"`
+	StudentLevel         AppStudentLevel        `db:"student_level" json:"student_level"`
+	State                AppEnrollmentState     `db:"state" json:"state"`
+	CompletedByCloseID   *string                `db:"completed_by_close_id" json:"completed_by_close_id"`
+	StateChangedAt       pgtype.Timestamptz     `db:"state_changed_at" json:"state_changed_at"`
+	DeletedAt            pgtype.Timestamptz     `db:"deleted_at" json:"deleted_at"`
+	Revision             int64                  `db:"revision" json:"revision"`
+	CreatedAt            pgtype.Timestamptz     `db:"created_at" json:"created_at"`
+	UpdatedAt            pgtype.Timestamptz     `db:"updated_at" json:"updated_at"`
+	AssignmentState      AppAssignmentState     `db:"assignment_state" json:"assignment_state"`
+	ActivatedAt          pgtype.Timestamptz     `db:"activated_at" json:"activated_at"`
+	CloseAssignmentState NullAppAssignmentState `db:"close_assignment_state" json:"close_assignment_state"`
+	CloseActivatedAt     pgtype.Timestamptz     `db:"close_activated_at" json:"close_activated_at"`
 }
 
 type AppEnrollmentRemovalEvent struct {
@@ -753,6 +757,15 @@ type AppGlobalRoleAssignment struct {
 	ActivatedAt     pgtype.Timestamptz `db:"activated_at" json:"activated_at"`
 	RevokedAt       pgtype.Timestamptz `db:"revoked_at" json:"revoked_at"`
 	Revision        int64              `db:"revision" json:"revision"`
+}
+
+type AppIdentityEventReceipt struct {
+	EventID         string             `db:"event_id" json:"event_id"`
+	AuthSubject     string             `db:"auth_subject" json:"auth_subject"`
+	EventType       string             `db:"event_type" json:"event_type"`
+	SecurityVersion int64              `db:"security_version" json:"security_version"`
+	ReceivedAt      pgtype.Timestamptz `db:"received_at" json:"received_at"`
+	PayloadHash     string             `db:"payload_hash" json:"payload_hash"`
 }
 
 type AppLeetcodeMockInterviewRound struct {
@@ -962,15 +975,16 @@ type AppSeasonCloseEvent struct {
 }
 
 type AppSeasonWeek struct {
-	ID         string             `db:"id" json:"id"`
-	SeasonID   string             `db:"season_id" json:"season_id"`
-	WeekNumber int32              `db:"week_number" json:"week_number"`
-	StartAt    pgtype.Timestamptz `db:"start_at" json:"start_at"`
-	EndAt      pgtype.Timestamptz `db:"end_at" json:"end_at"`
-	DeletedAt  pgtype.Timestamptz `db:"deleted_at" json:"deleted_at"`
-	Revision   int64              `db:"revision" json:"revision"`
-	CreatedAt  pgtype.Timestamptz `db:"created_at" json:"created_at"`
-	UpdatedAt  pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+	ID          string             `db:"id" json:"id"`
+	SeasonID    string             `db:"season_id" json:"season_id"`
+	WeekNumber  int32              `db:"week_number" json:"week_number"`
+	StartAt     pgtype.Timestamptz `db:"start_at" json:"start_at"`
+	EndAt       pgtype.Timestamptz `db:"end_at" json:"end_at"`
+	DeletedAt   pgtype.Timestamptz `db:"deleted_at" json:"deleted_at"`
+	Revision    int64              `db:"revision" json:"revision"`
+	CreatedAt   pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	UpdatedAt   pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+	ResourceUrl string             `db:"resource_url" json:"resource_url"`
 }
 
 type AppUser struct {
@@ -994,6 +1008,9 @@ type AppUser struct {
 	Revision             int64              `db:"revision" json:"revision"`
 	CreatedAt            pgtype.Timestamptz `db:"created_at" json:"created_at"`
 	UpdatedAt            pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+	SecurityVersion      int64              `db:"security_version" json:"security_version"`
+	TimezoneConfigured   bool               `db:"timezone_configured" json:"timezone_configured"`
+	MfaConfigured        bool               `db:"mfa_configured" json:"mfa_configured"`
 }
 
 type AppUserAuthLink struct {

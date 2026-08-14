@@ -1,0 +1,689 @@
+{
+  "version": 2,
+  "source": {
+    "repository": "/Users/maged/code/RSP-Web",
+    "commit": "8391ba51f4d56226c4ac28afd9748e83183f9016",
+    "tree": "13d4a47b2164cb3fc898ffe16383a748157fd2c6"
+  },
+  "conventions": {
+    "timestamps": "RFC3339 UTC",
+    "legacyIds": "preserved opaque strings",
+    "fixtureOnly": true,
+    "expectationIndexes": "zero-based"
+  },
+  "workflows": [
+    {
+      "id": "profile-current-and-public",
+      "family": "user_profile",
+      "actor": "active_student",
+      "setup": ["verified account", "active student enrollment"],
+      "operations": [
+        "read current profile",
+        "read another member by slug",
+        "update own slug",
+        "generate candidate slug"
+      ],
+      "expect": [
+        "the canonical current-user payload retains identity and programme roles without inventing fields",
+        "a public profile read does not expose another member's private email",
+        "account pseudonymization makes the former public slug stop resolving and removes profile PII",
+        "profile update changes only the signed-in actor and duplicate slugs are rejected",
+        "the server supplies a non-empty bounded slug suggestion that does not collide with an existing profile"
+      ],
+      "v2": [
+        "GET /api/v2/me",
+        "PATCH /api/v2/me",
+        "GET /api/v2/me/slug-suggestion",
+        "GET /api/v2/users/{id}"
+      ],
+      "evidence": [
+        {
+          "expectations": [0],
+          "path": "apps/web/src/api/adapters.test.ts",
+          "anchor": "it('maps the canonical /me payload without inventing identity fields'"
+        },
+        {
+          "expectations": [1],
+          "path": "backend/internal/httpapi/api_test.go",
+          "anchor": "func TestPrivateFieldsAndActorIDSpoofing"
+        },
+        {
+          "expectations": [2],
+          "path": "backend/internal/store/memory_test.go",
+          "anchor": "func TestMemoryIdentityReceiptsRejectAlteredReplayAndPseudonymizeProfile"
+        },
+        {
+          "expectations": [3, 4],
+          "path": "backend/internal/httpapi/api_test.go",
+          "anchor": "func TestProfileUpdateChangesOnlyActorAndUsesServerUniqueSlugSuggestion"
+        }
+      ]
+    },
+    {
+      "id": "season-weeks-and-resources",
+      "family": "seasons_weeks",
+      "actor": "active_member_or_season_coordinator",
+      "setup": ["open season", "ordered weeks"],
+      "operations": [
+        "list visible seasons",
+        "open season workspace",
+        "list weeks"
+      ],
+      "expect": [
+        "season adaptation preserves dates and location",
+        "a coordinator can update the season resource URL and the rendered link follows the saved value",
+        "a former non-student member cannot use historical membership to read a season directory or resources",
+        "weeks are returned in week-number order with their start and end dates, and an unknown season is not found"
+      ],
+      "v2": [
+        "GET /api/v2/seasons",
+        "GET /api/v2/seasons/{id}",
+        "PATCH /api/v2/seasons/{id}/resources",
+        "GET /api/v2/seasons/{id}/weeks"
+      ],
+      "evidence": [
+        {
+          "expectations": [0],
+          "path": "apps/web/src/api/adapters.test.ts",
+          "anchor": "it('maps seasons and public users while leaving unavailable aggregates unknown'"
+        },
+        {
+          "expectations": [1],
+          "path": "apps/web/e2e/smoke.spec.ts",
+          "anchor": "test('coordinator edits only season resources and mentorship forms protect dirty input'"
+        },
+        {
+          "expectations": [2],
+          "path": "backend/internal/httpapi/api_test.go",
+          "anchor": "func TestFormerNonStudentCannotReadSeasonDirectoryOrResources"
+        },
+        {
+          "expectations": [3],
+          "path": "backend/internal/httpapi/semantic_positive_test.go",
+          "anchor": "func TestSeasonWeeksOrderedRoundTripAndUnknownSeasonNotFound"
+        }
+      ]
+    },
+    {
+      "id": "enrollment-directory-and-status",
+      "family": "enrollment_mentorship",
+      "actor": "active_student",
+      "setup": ["student, mentor, and coordinator enrollments in one season"],
+      "operations": [
+        "list own enrollments",
+        "check programme access",
+        "list eligible season members"
+      ],
+      "expect": [
+        "the current-user payload retains effective season roles and enrollment states",
+        "the member directory does not widen to verified accounts that have no programme membership",
+        "alumni status derives only from a completed student enrollment",
+        "the season directory returns eligible enrollment records while the current-user response identifies the actor's active enrollment",
+        "the season directory renders Student, Mentor, and Coordinator badges from the returned enrollment roles"
+      ],
+      "v2": ["GET /api/v2/me", "GET /api/v2/seasons/{id}/members"],
+      "evidence": [
+        {
+          "expectations": [0],
+          "path": "apps/web/src/api/adapters.test.ts",
+          "anchor": "it('maps the canonical /me payload without inventing identity fields'"
+        },
+        {
+          "expectations": [1],
+          "path": "backend/internal/httpapi/api_test.go",
+          "anchor": "func TestAdminUserListIncludesNonmembersAndSuspendedWithoutWideningDirectory"
+        },
+        {
+          "expectations": [2],
+          "path": "backend/internal/authz/authz_test.go",
+          "anchor": "func TestAlumniIsDerivedOnlyFromCompletedStudent"
+        },
+        {
+          "expectations": [0, 3],
+          "path": "backend/internal/httpapi/semantic_positive_test.go",
+          "anchor": "func TestMeEnrollmentRolesAndEligibleMemberDirectory"
+        },
+        {
+          "expectations": [4],
+          "path": "apps/web/src/pages/PeoplePage.test.tsx",
+          "anchor": "it('renders Student, Mentor, and Coordinator badges from enrollment roles'"
+        }
+      ]
+    },
+    {
+      "id": "mentor-assignment-and-mentees",
+      "family": "enrollment_mentorship",
+      "actor": "mentor",
+      "setup": [
+        "active mentor",
+        "active assigned student",
+        "unassigned student"
+      ],
+      "operations": [
+        "list mentorships",
+        "use an assigned-student relationship",
+        "view mentor teams"
+      ],
+      "expect": [
+        "an active stored mentorship authorizes the mentor to read the assigned student's private practice settings",
+        "stored active mentor and student enrollments can be connected and queried as an assigned mentorship",
+        "the mentor page shows only active students assigned to the signed-in mentor",
+        "the team view renders assigned students under their mentor and presents unassigned students separately"
+      ],
+      "v2": [
+        "GET /api/v2/seasons/{id}/mentorships",
+        "GET /api/v2/seasons/{id}/members",
+        "GET /api/v2/users/{id}/practice-settings"
+      ],
+      "evidence": [
+        {
+          "expectations": [0],
+          "path": "backend/internal/httpapi/api_test.go",
+          "anchor": "func TestPracticeSettingsRequireRelationshipEnablement"
+        },
+        {
+          "expectations": [1],
+          "path": "backend/internal/store/memory_test.go",
+          "anchor": "func TestMemoryMentoringRecommendationAndMockStateSurvivesAPIRestart"
+        },
+        {
+          "expectations": [2],
+          "path": "apps/web/src/pages/MenteesPage.test.tsx",
+          "anchor": "it('shows only active students assigned to the signed-in mentor'"
+        },
+        {
+          "expectations": [3],
+          "path": "apps/web/src/pages/MentorTeamsPage.test.tsx",
+          "anchor": "it('renders stored mentor-student relationships and a separate unassigned list'"
+        },
+        {
+          "expectations": [2, 3],
+          "path": "backend/internal/httpapi/semantic_positive_test.go",
+          "anchor": "func TestMentorMenteeFilteringAndUnassignedStudents"
+        }
+      ]
+    },
+    {
+      "id": "student-promotion-and-removal",
+      "family": "enrollment_mentorship",
+      "actor": "assigned_mentor_or_season_admin",
+      "setup": ["open season", "active assigned student at beginner level"],
+      "operations": [
+        "promote assigned student",
+        "remove assigned student with a reason"
+      ],
+      "expect": [
+        "enrollment promotion is locked after the season closes",
+        "a kicked or withdrawn student loses member practice access",
+        "close and reopen do not reactivate a previously kicked enrollment",
+        "successful promotion changes the student's season role, while removal retains the reason and actor in state and audit history"
+      ],
+      "v2": [
+        "POST /api/v2/seasons/{id}/members/{memberId}/promote",
+        "POST /api/v2/seasons/{id}/members/{memberId}/remove"
+      ],
+      "evidence": [
+        {
+          "expectations": [0],
+          "path": "backend/internal/httpapi/api_test.go",
+          "anchor": "func TestSeasonSlugWeekBoundsAndClosedWriteLocks"
+        },
+        {
+          "expectations": [1],
+          "path": "backend/internal/httpapi/api_test.go",
+          "anchor": "func TestPracticePermissionMatrix"
+        },
+        {
+          "expectations": [2],
+          "path": "backend/internal/store/memory_test.go",
+          "anchor": "func TestMemoryCloseReopenRestoresOnlyCloseCompletedEnrollments"
+        },
+        {
+          "expectations": [3],
+          "path": "backend/internal/httpapi/semantic_positive_test.go",
+          "anchor": "func TestStudentPromotionAndRemovalPersistReasonAndActorAudit"
+        }
+      ]
+    },
+    {
+      "id": "practice-attempt-crud",
+      "family": "attempts_recommendation",
+      "actor": "active_or_alumni_member",
+      "setup": ["catalogue problem", "no existing attempt for fixture ID"],
+      "operations": [
+        "create attempt",
+        "list own attempts",
+        "update attempt",
+        "delete attempt"
+      ],
+      "expect": [
+        "the API rejects a caller-supplied attempt owner and derives ownership from authentication",
+        "attempt adaptation joins the stored problem identifier to canonical catalogue metadata",
+        "a stale revision cannot delete an attempt and a foreign attempt does not leak its existence",
+        "the real browser and Go-backed API complete create, edit, and delete for the signed-in student",
+        "attempt duration and allowed rich-text notes round-trip through create, update, and list while unsafe markup is removed"
+      ],
+      "v2": [
+        "POST /api/v2/problem-attempts",
+        "GET /api/v2/problem-attempts",
+        "PATCH /api/v2/problem-attempts/{id}",
+        "DELETE /api/v2/problem-attempts/{id}"
+      ],
+      "evidence": [
+        {
+          "expectations": [0],
+          "path": "backend/internal/httpapi/api_test.go",
+          "anchor": "func TestPrivateFieldsAndActorIDSpoofing"
+        },
+        {
+          "expectations": [1],
+          "path": "apps/web/src/api/adapters.test.ts",
+          "anchor": "it('joins attempt and recommendation DTOs to their catalog problem'"
+        },
+        {
+          "expectations": [2],
+          "path": "backend/internal/httpapi/api_test.go",
+          "anchor": "func TestIDORRevisionConflictAndOrigin"
+        },
+        {
+          "expectations": [3],
+          "path": "apps/web/e2e-real/real-stack.spec.ts",
+          "anchor": "test('student creates, edits, and deletes a Go-backed practice attempt'"
+        },
+        {
+          "expectations": [4],
+          "path": "backend/internal/httpapi/semantic_positive_test.go",
+          "anchor": "func TestPracticeAttemptDurationAndSanitizedRichNotesRoundTrip"
+        }
+      ]
+    },
+    {
+      "id": "problem-catalogue-and-recommendation",
+      "family": "attempts_recommendation",
+      "actor": "active_student",
+      "setup": [
+        "beginner student",
+        "catalogue problems across categories",
+        "attempt history with exposure"
+      ],
+      "operations": [
+        "filter catalogue",
+        "request recommendation",
+        "record recommended attempt"
+      ],
+      "expect": [
+        "the client joins recommendation data to canonical problem title, difficulty, and external URL",
+        "recommendation selection can raise difficulty while honoring premium eligibility and returns a rationale",
+        "an active recommendation remains stable until it is used",
+        "catalogue transport filters combine difficulty, category, and premium status without losing matching records"
+      ],
+      "v2": [
+        "GET /api/v2/leetcode-problems",
+        "GET /api/v2/recommendations/current",
+        "POST /api/v2/problem-attempts"
+      ],
+      "evidence": [
+        {
+          "expectations": [0],
+          "path": "apps/web/src/api/adapters.test.ts",
+          "anchor": "it('joins attempt and recommendation DTOs to their catalog problem'"
+        },
+        {
+          "expectations": [1],
+          "path": "backend/internal/practice/recommendation_test.go",
+          "anchor": "func TestRecommendationRaisesAndTargetsWeakCategory"
+        },
+        {
+          "expectations": [2],
+          "path": "backend/internal/practice/recommendation_test.go",
+          "anchor": "func TestRecommendationKeepsActiveAndRetestAfterNinetyDays"
+        },
+        {
+          "expectations": [2],
+          "path": "backend/internal/store/memory_test.go",
+          "anchor": "func TestMemoryMentoringRecommendationAndMockStateSurvivesAPIRestart"
+        },
+        {
+          "expectations": [3],
+          "path": "backend/internal/httpapi/semantic_positive_test.go",
+          "anchor": "func TestProblemCatalogueDifficultyCategoryAndPremiumFilters"
+        }
+      ]
+    },
+    {
+      "id": "mock-interview-create-and-expand",
+      "family": "mock_interviews",
+      "actor": "eligible_interviewer",
+      "setup": [
+        "eligible interviewer and interviewee",
+        "scored interview rounds"
+      ],
+      "operations": [
+        "create mock interview",
+        "list paginated interviews",
+        "expand interview details"
+      ],
+      "expect": [
+        "mock creation derives the interviewer from the signed-in actor and records an initial version",
+        "client adaptation preserves participant identities, score dimensions, and per-round review data",
+        "pass is true only when every applicable score is at least five",
+        "stored participant eligibility is authoritative and the created interview survives API recreation",
+        "one backed create round-trips behavioural, LeetCode, and custom rounds together with date, duration, sanitized notes, pass result, and version"
+      ],
+      "v2": [
+        "GET /api/v2/mock-interviews/participants",
+        "POST /api/v2/mock-interviews",
+        "GET /api/v2/mock-interviews"
+      ],
+      "evidence": [
+        {
+          "expectations": [0],
+          "path": "backend/internal/mockinterviews/service_test.go",
+          "anchor": "func TestOwnershipVersionsReviewAndPass"
+        },
+        {
+          "expectations": [1],
+          "path": "apps/web/src/api/adapters.test.ts",
+          "anchor": "it('maps mock interview IDs, score dimensions and per-round review data'"
+        },
+        {
+          "expectations": [2],
+          "path": "backend/internal/mockinterviews/service_test.go",
+          "anchor": "func TestAllApplicableScoresMustPass"
+        },
+        {
+          "expectations": [3],
+          "path": "backend/internal/httpapi/api_test.go",
+          "anchor": "func TestMockEligibilityComesFromRepositoryAndInterviewsSurviveAPIRecreation"
+        },
+        {
+          "expectations": [4],
+          "path": "backend/internal/httpapi/semantic_positive_test.go",
+          "anchor": "func TestMockInterviewAllThreeSubtypesDateDurationNotesAndExpandedRoundTrip"
+        }
+      ]
+    },
+    {
+      "id": "mock-received-given-all",
+      "family": "mock_interviews",
+      "actor": "eligible_member",
+      "setup": [
+        "one received interview",
+        "one given interview",
+        "one unrelated interview"
+      ],
+      "operations": [
+        "view received preset",
+        "view given preset",
+        "view all permitted interviews"
+      ],
+      "expect": [
+        "given mode returns a newly created interview after the API is recreated over the same store",
+        "completed-student participant eligibility is derived from stored relationships while kicked and test identities are excluded",
+        "received interview rows are expanded on initial desktop display",
+        "received and given modes select the actor's side, while all is their union and excludes unrelated private records"
+      ],
+      "v2": [
+        "GET /api/v2/mock-interviews?mode=received",
+        "GET /api/v2/mock-interviews?mode=given",
+        "GET /api/v2/mock-interviews?mode=all"
+      ],
+      "evidence": [
+        {
+          "expectations": [0],
+          "path": "backend/internal/httpapi/api_test.go",
+          "anchor": "func TestMockEligibilityComesFromRepositoryAndInterviewsSurviveAPIRecreation"
+        },
+        {
+          "expectations": [1],
+          "path": "backend/internal/store/memory_test.go",
+          "anchor": "func TestMemoryMockEligibilityIsDerivedFromStoredRelationships"
+        },
+        {
+          "expectations": [2],
+          "path": "apps/web/e2e/smoke.spec.ts",
+          "anchor": "test('received mock interviews start with their detail rows expanded'"
+        },
+        {
+          "expectations": [3],
+          "path": "backend/internal/httpapi/semantic_positive_test.go",
+          "anchor": "func TestMockReceivedGivenAllExcludeUnrelatedPrivateRecords"
+        }
+      ]
+    },
+    {
+      "id": "mock-edit-delete-and-reviews",
+      "family": "mock_interviews",
+      "actor": "interviewer_then_interviewee",
+      "setup": ["existing mock with current revision", "round awaiting review"],
+      "operations": [
+        "interviewer edits interview",
+        "interviewee reviews a round",
+        "interviewer deletes interview"
+      ],
+      "expect": [
+        "an interviewer update cannot overwrite review state owned by the interviewee",
+        "review advances the version and stale mutations are rejected",
+        "the browser exposes and submits named deletion after creating and editing a mock interview",
+        "successful deletion removes the interview from subsequent active lists"
+      ],
+      "v2": [
+        "PATCH /api/v2/mock-interviews/{id}",
+        "PATCH /api/v2/mock-interviews/{id}/rounds/{roundId}/review",
+        "DELETE /api/v2/mock-interviews/{id}"
+      ],
+      "evidence": [
+        {
+          "expectations": [0],
+          "path": "backend/internal/mockinterviews/service_test.go",
+          "anchor": "func TestInterviewerCannotWriteIntervieweeReview"
+        },
+        {
+          "expectations": [1],
+          "path": "backend/internal/mockinterviews/service_test.go",
+          "anchor": "func TestOwnershipVersionsReviewAndPass"
+        },
+        {
+          "expectations": [2],
+          "path": "apps/web/e2e/smoke.spec.ts",
+          "anchor": "test('mock interview create, round edit and named deletion work'"
+        },
+        {
+          "expectations": [3],
+          "path": "backend/internal/httpapi/semantic_positive_test.go",
+          "anchor": "func TestMockSuccessfulDeleteIsAbsentFromActiveLists"
+        }
+      ]
+    },
+    {
+      "id": "admin-user-account-lifecycle-and-roles",
+      "family": "admin_crud",
+      "actor": "self_registering_user_and_system_admin",
+      "setup": [
+        "Better Auth self-registration",
+        "authenticated System Admin",
+        "non-privileged target account"
+      ],
+      "operations": [
+        "self-register account",
+        "list administrative accounts",
+        "suspend or reactivate account",
+        "grant or revoke global role",
+        "request or recover account deletion"
+      ],
+      "expect": [
+        "account creation is self-registration in Better Auth and its lifecycle event creates the application identity link",
+        "the System Admin account list can return a suspended private account without widening the programme directory to active nonmembers",
+        "System Admin controls grant a pending-MFA role and suspend then reactivate an account",
+        "account deletion uses a recoverable grace period followed by credential removal and profile pseudonymization instead of an administrative hard delete",
+        "the administrative list includes an active nonmember and global-role revocation retains its audited reason"
+      ],
+      "v2": [
+        "GET /api/v2/admin/users",
+        "POST /api/v2/admin/users/{id}/account-state",
+        "POST /api/v2/admin/users/{id}/global-roles",
+        "GET /api/v2/admin/users/{id}/global-roles",
+        "DELETE /api/v2/admin/users/{id}/global-roles/{role}"
+      ],
+      "evidence": [
+        {
+          "expectations": [0],
+          "path": "apps/web/src/api/authClient.test.ts",
+          "anchor": "it('posts email sign-in and sign-up to Better Auth with same-origin cookies'"
+        },
+        {
+          "expectations": [0],
+          "path": "backend/internal/httpapi/api_test.go",
+          "anchor": "func TestIdentityLifecycleRequiresServiceTokenAndCreatesLink"
+        },
+        {
+          "expectations": [1],
+          "path": "backend/internal/httpapi/api_test.go",
+          "anchor": "func TestAdminUserListIncludesNonmembersAndSuspendedWithoutWideningDirectory"
+        },
+        {
+          "expectations": [2],
+          "path": "apps/web/e2e/smoke.spec.ts",
+          "anchor": "test('system admin can grant a pending-MFA role and suspend and reactivate an account'"
+        },
+        {
+          "expectations": [3],
+          "path": "apps/auth/test/lifecycle-service.test.ts",
+          "anchor": "it('requests deletion transactionally, revokes sessions, and sends recovery mail'"
+        },
+        {
+          "expectations": [3],
+          "path": "apps/auth/test/lifecycle-service.test.ts",
+          "anchor": "it('atomically consumes a valid recovery token before restoring the account'"
+        },
+        {
+          "expectations": [3],
+          "path": "apps/auth/test/lifecycle-service.test.ts",
+          "anchor": "it('removes credentials and PII only after the deletion grace period'"
+        },
+        {
+          "expectations": [3],
+          "path": "apps/auth/test/auth-configuration.test.ts",
+          "anchor": "it('keeps CSRF/origin checks enabled and disables hard deletion/viewing backup codes'"
+        },
+        {
+          "expectations": [3],
+          "path": "backend/internal/store/memory_test.go",
+          "anchor": "func TestMemoryIdentityReceiptsRejectAlteredReplayAndPseudonymizeProfile"
+        },
+        {
+          "expectations": [4],
+          "path": "backend/internal/httpapi/semantic_positive_test.go",
+          "anchor": "func TestAdminActiveNonmemberAndGlobalRoleRevokeAuditReason"
+        }
+      ]
+    },
+    {
+      "id": "admin-season-week-lifecycle",
+      "family": "admin_crud",
+      "actor": "director_or_season_coordinator",
+      "setup": ["recent MFA", "season definition", "week fixture"],
+      "operations": [
+        "create and update season",
+        "create, list, update, and delete week",
+        "close and reopen season instead of deleting it"
+      ],
+      "expect": [
+        "a coordinator MFA session creates, edits, and deletes a week against the real Go-backed API",
+        "a director MFA session creates, edits, closes, and reopens a season against the real stack",
+        "close and reopen restore only enrollments completed by that close and retain kicked state",
+        "season and week updates or deletes plus close and reopen are revision gated"
+      ],
+      "v2": [
+        "POST /api/v2/seasons",
+        "GET /api/v2/seasons",
+        "PATCH /api/v2/seasons/{id}",
+        "POST /api/v2/seasons/{id}/close",
+        "POST /api/v2/seasons/{id}/reopen",
+        "POST /api/v2/seasons/{id}/weeks",
+        "GET /api/v2/seasons/{id}/weeks",
+        "PATCH /api/v2/seasons/{id}/weeks/{weekId}",
+        "DELETE /api/v2/seasons/{id}/weeks/{weekId}"
+      ],
+      "evidence": [
+        {
+          "expectations": [0],
+          "path": "apps/web/e2e-real/real-stack.spec.ts",
+          "anchor": "test('coordinator MFA session creates, edits, and deletes an open-season week'"
+        },
+        {
+          "expectations": [1],
+          "path": "apps/web/e2e-real/real-stack.spec.ts",
+          "anchor": "test('director MFA session creates, edits, closes, and reopens a throwaway season'"
+        },
+        {
+          "expectations": [2],
+          "path": "backend/internal/store/memory_test.go",
+          "anchor": "func TestMemoryCloseReopenRestoresOnlyCloseCompletedEnrollments"
+        },
+        {
+          "expectations": [3],
+          "path": "backend/internal/contract/openapi_policy_test.go",
+          "anchor": "func TestMutableOperationsRequireARevision"
+        }
+      ]
+    },
+    {
+      "id": "admin-enrollment-mentorship-lifecycle",
+      "family": "admin_crud",
+      "actor": "season_coordinator",
+      "setup": ["open owned season", "eligible mentor and student"],
+      "operations": [
+        "create, list, and update enrollment",
+        "remove enrollment with reason instead of deleting it",
+        "create, list, update, and delete mentorship"
+      ],
+      "expect": [
+        "a coordinator can enroll a verified nonmember but cannot grant the coordinator role from that workflow",
+        "an active mentor and student enrollment can be connected by a stored same-season mentorship",
+        "enrollment update or removal and mentorship update or delete operations are present and revision gated",
+        "closed seasons reject enrollment promotion mutations",
+        "backed enrollment detail update and reasoned removal plus mentorship update and delete produce the intended active state"
+      ],
+      "v2": [
+        "GET /api/v2/seasons/{id}/enrollment-candidates",
+        "POST /api/v2/seasons/{id}/members",
+        "GET /api/v2/seasons/{id}/members",
+        "PATCH /api/v2/seasons/{id}/members/{memberId}",
+        "POST /api/v2/seasons/{id}/members/{memberId}/remove",
+        "POST /api/v2/seasons/{id}/mentorships",
+        "GET /api/v2/seasons/{id}/mentorships",
+        "PATCH /api/v2/seasons/{id}/mentorships/{mentorshipId}",
+        "DELETE /api/v2/seasons/{id}/mentorships/{mentorshipId}"
+      ],
+      "evidence": [
+        {
+          "expectations": [0],
+          "path": "apps/web/e2e/smoke.spec.ts",
+          "anchor": "test('coordinator can enroll a verified nonmember without granting coordinator'"
+        },
+        {
+          "expectations": [1],
+          "path": "backend/internal/store/memory_test.go",
+          "anchor": "func TestMemoryMentoringRecommendationAndMockStateSurvivesAPIRestart"
+        },
+        {
+          "expectations": [2],
+          "path": "backend/internal/contract/openapi_policy_test.go",
+          "anchor": "func TestMutableOperationsRequireARevision"
+        },
+        {
+          "expectations": [3],
+          "path": "backend/internal/httpapi/api_test.go",
+          "anchor": "func TestSeasonSlugWeekBoundsAndClosedWriteLocks"
+        },
+        {
+          "expectations": [4],
+          "path": "backend/internal/httpapi/semantic_positive_test.go",
+          "anchor": "func TestAdminEnrollmentPatchReasonedRemovalMentorshipPatchAndDelete"
+        }
+      ]
+    }
+  ],
+  "residualCoverage": []
+}

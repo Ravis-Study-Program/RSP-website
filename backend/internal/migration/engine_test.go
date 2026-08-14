@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestStateTargetApplyVerifyAndRollback(t *testing.T) {
@@ -66,6 +67,20 @@ func TestApplyRejectsSourceDriftBeforeTargetTransaction(t *testing.T) {
 	}
 }
 
+func TestApplyPinsChecksumApprovedSnapshotTime(t *testing.T) {
+	ctx := context.Background()
+	engine := NewEngine(fixedNow)
+	source := &advancingSnapshotSource{snapshot: validSnapshot(t), step: time.Second}
+	prepared, err := engine.DryRun(ctx, source, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	target := &StateTarget{Path: filepath.Join(t.TempDir(), "target-state.json"), Now: fixedNow}
+	if err := engine.Apply(ctx, source, target, prepared.Manifest, nil); err != nil {
+		t.Fatalf("unchanged rows at a later transaction timestamp drifted: %v", err)
+	}
+}
+
 func TestApplyLocksBeforeWritingAndAbortsOnFailure(t *testing.T) {
 	ctx := context.Background()
 	engine := NewEngine(fixedNow)
@@ -116,6 +131,22 @@ func TestExactPureJoinDuplicatesCollapseWithProvenance(t *testing.T) {
 }
 
 type countingTarget struct{ beginCount int }
+
+type advancingSnapshotSource struct {
+	snapshot Snapshot
+	step     time.Duration
+	calls    int
+}
+
+func (source *advancingSnapshotSource) Snapshot(_ context.Context, _ SnapshotOptions) (Snapshot, error) {
+	value, err := cloneSnapshot(source.snapshot)
+	if err != nil {
+		return Snapshot{}, err
+	}
+	value.CapturedAt = value.CapturedAt.Add(time.Duration(source.calls) * source.step)
+	source.calls++
+	return value, nil
+}
 
 func (target *countingTarget) Begin(context.Context) (TargetTx, error) {
 	target.beginCount++

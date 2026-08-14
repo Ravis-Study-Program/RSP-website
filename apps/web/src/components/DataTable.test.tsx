@@ -4,7 +4,11 @@ import userEvent from '@testing-library/user-event';
 
 import { DataTable } from '@/components/DataTable';
 
-interface RowData { id: string; name: string; status: string }
+interface RowData {
+  id: string;
+  name: string;
+  status: string;
+}
 const columns: ColumnDef<RowData, any>[] = [
   { accessorKey: 'name', header: 'Name' },
   { accessorKey: 'status', header: 'Status' },
@@ -16,7 +20,10 @@ describe('DataTable', () => {
     render(
       <DataTable
         ariaLabel="Members"
-        data={[{ id: '1', name: 'Amelia', status: 'active' }, { id: '2', name: 'Noah', status: 'completed' }]}
+        data={[
+          { id: '1', name: 'Amelia', status: 'active' },
+          { id: '2', name: 'Noah', status: 'completed' },
+        ]}
         columns={columns}
         emptyTitle="No members"
         emptyMessage="No members yet."
@@ -31,8 +38,41 @@ describe('DataTable', () => {
   });
 
   it('distinguishes an empty collection from a filtered empty state', async () => {
-    render(<DataTable ariaLabel="Members" data={[]} columns={columns} emptyTitle="No members" emptyMessage="No members yet." renderCard={(row) => row.original.name} />);
-    expect(screen.getByRole('heading', { name: 'No members' })).toBeInTheDocument();
+    render(
+      <DataTable
+        ariaLabel="Members"
+        data={[]}
+        columns={columns}
+        emptyTitle="No members"
+        emptyMessage="No members yet."
+        renderCard={(row) => row.original.name}
+      />,
+    );
+    expect(
+      screen.getByRole('heading', { name: 'No members' }),
+    ).toBeInTheDocument();
     expect(screen.getByText('No members yet.')).toBeInTheDocument();
+  });
+
+  it('can clear a column-filter-only empty state', async () => {
+    const user = userEvent.setup();
+    render(
+      <DataTable
+        ariaLabel="Members"
+        data={[{ id: '1', name: 'Amelia', status: 'active' }]}
+        columns={columns}
+        emptyTitle="No members"
+        emptyMessage="No members yet."
+        getRowId={(row) => row.id}
+        renderCard={(row) => row.original.name}
+      />,
+    );
+    await user.click(screen.getByText('Filters'));
+    await user.type(screen.getByPlaceholderText('Filter status'), 'completed');
+    expect(
+      screen.getByText('Try a different search or clear the current filters.'),
+    ).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Clear filters' }));
+    expect(screen.getAllByText('Amelia').length).toBeGreaterThan(0);
   });
 });

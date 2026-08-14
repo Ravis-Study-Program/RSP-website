@@ -1,4 +1,4 @@
-import { createHmac } from "node:crypto";
+import { createHmac } from 'node:crypto';
 
 export interface RateLimitPolicy {
   readonly max: number;
@@ -38,7 +38,10 @@ export class FixedWindowRateLimiter {
 
     if (this.#counters.size > 10_000) this.prune();
 
-    const retryAfterSeconds = Math.max(1, Math.ceil((counter.resetAtMs - now) / 1_000));
+    const retryAfterSeconds = Math.max(
+      1,
+      Math.ceil((counter.resetAtMs - now) / 1_000),
+    );
     return {
       allowed: counter.count <= policy.max,
       limit: policy.max,
@@ -54,34 +57,60 @@ export class FixedWindowRateLimiter {
       if (counter.resetAtMs <= now) this.#counters.delete(key);
     }
   }
+
+  clear(): void {
+    this.#counters.clear();
+  }
 }
 
 const FIVE_PER_MINUTE_PATHS = [
-  "/sign-in/email",
-  "/sign-up/email",
-  "/send-verification-email",
-  "/request-password-reset",
-  "/forget-password",
-  "/reset-password",
-  "/two-factor/enable",
-  "/two-factor/verify-totp",
-  "/two-factor/verify-backup-code",
-  "/two-factor/generate-backup-codes",
+  '/sign-in/email',
+  '/sign-up/email',
+  '/send-verification-email',
+  '/request-password-reset',
+  '/forget-password',
+  '/reset-password',
+  '/two-factor/enable',
+  '/two-factor/verify-totp',
+  '/two-factor/verify-backup-code',
+  '/two-factor/generate-backup-codes',
+  '/connect-password',
+  '/account/deletion/request',
+  '/account/deletion/recovery',
+  '/mfa/step-up/totp',
+  '/mfa/step-up/backup-code',
 ] as const;
 
 export function authRateLimitPolicy(pathname: string): RateLimitPolicy {
-  const authPath = pathname.startsWith("/api/auth")
-    ? pathname.slice("/api/auth".length) || "/"
+  const authPath = pathname.startsWith('/api/auth')
+    ? pathname.slice('/api/auth'.length) || '/'
     : pathname;
-  if (FIVE_PER_MINUTE_PATHS.includes(authPath as (typeof FIVE_PER_MINUTE_PATHS)[number])) {
+  if (
+    FIVE_PER_MINUTE_PATHS.includes(
+      authPath as (typeof FIVE_PER_MINUTE_PATHS)[number],
+    )
+  ) {
     return { max: 5, windowSeconds: 60 };
   }
-  if (authPath === "/token") return { max: 20, windowSeconds: 60 };
+  if (authPath === '/token') return { max: 20, windowSeconds: 60 };
   return { max: 30, windowSeconds: 60 };
 }
 
 function hashIdentifier(value: string, secret: string): string {
-  return createHmac("sha256", secret).update(value).digest("base64url");
+  return createHmac('sha256', secret).update(value).digest('base64url');
+}
+
+function sessionCookie(cookieHeader: string | undefined): string | undefined {
+  if (!cookieHeader) return undefined;
+  for (const item of cookieHeader.split(';')) {
+    const separator = item.indexOf('=');
+    if (separator < 1) continue;
+    const name = item.slice(0, separator).trim();
+    if (name !== 'rsp-auth.session_token') continue;
+    const value = item.slice(separator + 1).trim();
+    if (value) return value;
+  }
+  return undefined;
 }
 
 export function authRateLimitKey(options: {
@@ -92,13 +121,15 @@ export function authRateLimitKey(options: {
   readonly secret: string;
 }): string {
   let accountHint: string | undefined;
-  if (options.requestBody && typeof options.requestBody === "object") {
-    const email = Reflect.get(options.requestBody, "email");
-    if (typeof email === "string" && email.trim()) {
+  if (options.requestBody && typeof options.requestBody === 'object') {
+    const email = Reflect.get(options.requestBody, 'email');
+    if (typeof email === 'string' && email.trim()) {
       accountHint = `email:${email.trim().toLowerCase()}`;
     }
   }
-  const stableIdentity = accountHint ??
-    (options.cookieHeader ? `cookie:${options.cookieHeader}` : `ip:${options.ipAddress}`);
+  const stableSession = sessionCookie(options.cookieHeader);
+  const stableIdentity =
+    accountHint ??
+    (stableSession ? `session:${stableSession}` : `ip:${options.ipAddress}`);
   return `${options.pathname}:${hashIdentifier(stableIdentity, options.secret)}`;
 }

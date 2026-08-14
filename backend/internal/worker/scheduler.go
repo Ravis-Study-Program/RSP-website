@@ -16,6 +16,7 @@ type Locker interface {
 }
 type State interface {
 	LastSuccess(context.Context, string) (*time.Time, error)
+	LastAttempt(context.Context, string) (*time.Time, error)
 	Record(context.Context, Run) error
 }
 type Syncer interface {
@@ -24,6 +25,7 @@ type Syncer interface {
 type Report struct{ Fetched, Inserted, Updated, Failed int }
 type Run struct {
 	Job                   string
+	TriggerKind           string
 	StartedAt, FinishedAt time.Time
 	Report                Report
 	Error                 string
@@ -47,9 +49,23 @@ func (s Scheduler) RunDue(ctx context.Context) (bool, error) {
 	if last != nil && !last.Before(due) {
 		return false, nil
 	}
-	return true, s.Run(ctx)
+	lastAttempt, err := s.State.LastAttempt(ctx, "leetcode_sync")
+	if err != nil {
+		return false, err
+	}
+	if lastAttempt != nil && !lastAttempt.Before(due) {
+		return false, nil
+	}
+	trigger := "catch_up"
+	if now.Sub(due) < time.Minute {
+		trigger = "schedule"
+	}
+	return true, s.run(ctx, trigger)
 }
 func (s Scheduler) Run(ctx context.Context) error {
+	return s.run(ctx, "schedule")
+}
+func (s Scheduler) run(ctx context.Context, triggerKind string) error {
 	ok, err := s.Locker.TryLock(ctx, LeetCodeAdvisoryLock)
 	if err != nil {
 		return err
@@ -83,7 +99,7 @@ func (s Scheduler) Run(ctx context.Context) error {
 			break
 		}
 	}
-	run := Run{Job: "leetcode_sync", StartedAt: start, FinishedAt: s.now(), Report: report}
+	run := Run{Job: "leetcode_sync", TriggerKind: triggerKind, StartedAt: start, FinishedAt: s.now(), Report: report}
 	if runErr != nil {
 		run.Error = runErr.Error()
 	}

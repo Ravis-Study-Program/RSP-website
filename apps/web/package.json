@@ -9,14 +9,17 @@
   "scripts": {
     "dev": "vite --host 0.0.0.0",
     "build": "tsc -b && vite build",
+    "build:demo": "tsc -b && vite build --mode demo",
     "preview": "vite preview --host 0.0.0.0",
     "typecheck": "tsc -b --pretty false",
     "check": "pnpm typecheck && pnpm test",
-    "test": "vitest run",
-    "test:watch": "vitest",
+    "test": "VITE_USE_DEMO_DATA=true vitest run",
+    "test:watch": "VITE_USE_DEMO_DATA=true vitest",
     "e2e": "playwright test",
+    "e2e:real": "playwright test --config playwright.real.config.ts",
     "generate": "orval --config orval.config.ts",
-    "generate:check": "pnpm generate && git diff --exit-code -- src/api/generated"
+    "generate:check": "pnpm generate && git diff --exit-code -- src/api/generated",
+    "lint": "eslint src e2e e2e-real *.config.ts --max-warnings 0"
   },
   "dependencies": {
     "@base-ui/react": "1.7.0",
@@ -33,13 +36,13 @@
     "react-aria-components": "1.12.0",
     "react-dom": "19.1.1",
     "react-hook-form": "7.62.0",
-    "react-router-dom": "7.8.2",
+    "react-router-dom": "7.18.2",
     "recharts": "3.1.2",
     "zod": "4.1.5"
   },
   "devDependencies": {
     "@axe-core/playwright": "4.10.2",
-    "@playwright/test": "1.55.0",
+    "@playwright/test": "1.55.1",
     "@testing-library/jest-dom": "6.8.0",
     "@testing-library/react": "16.3.0",
     "@testing-library/user-event": "14.6.1",
@@ -48,10 +51,10 @@
     "@types/react-dom": "19.1.9",
     "@vitejs/plugin-react": "5.0.2",
     "jsdom": "26.1.0",
-    "orval": "7.11.2",
+    "orval": "7.21.0",
     "prettier": "3.6.2",
     "typescript": "5.9.2",
-    "vite": "7.1.3",
-    "vitest": "3.2.4"
+    "vite": "7.3.5",
+    "vitest": "3.2.6"
   }
 }

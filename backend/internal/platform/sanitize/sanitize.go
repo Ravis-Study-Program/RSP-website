@@ -1,16 +1,24 @@
 package sanitize
 
-import "github.com/microcosm-cc/bluemonday"
+import (
+	"regexp"
+
+	"github.com/microcosm-cc/bluemonday"
+)
 
 type HTML struct{ policy *bluemonday.Policy }
 
 func New() *HTML {
 	p := bluemonday.NewPolicy()
-	p.AllowElements("p", "br", "strong", "b", "em", "i", "u", "s", "code", "pre", "blockquote", "ul", "ol", "li", "h1", "h2", "h3", "hr")
+	p.AllowElements("p", "br", "strong", "b", "em", "i", "u", "s", "strike", "mark", "span", "sub", "sup", "code", "pre", "blockquote", "ul", "ol", "li", "h1", "h2", "h3", "h4", "hr", "a")
 	p.AllowAttrs("href", "title").OnElements("a")
-	p.AllowAttrs("target").Matching(bluemonday.SpaceSeparatedTokens).OnElements("a")
+	p.AllowAttrs("target").Matching(regexp.MustCompile(`^_blank$`)).OnElements("a")
 	p.AllowAttrs("data-type").Matching(bluemonday.SpaceSeparatedTokens).OnElements("p", "blockquote")
-	p.AllowStandardURLs()
+	p.AllowAttrs("data-text-align").Matching(regexp.MustCompile(`^(left|center|right|justify)$`)).OnElements("p", "h1", "h2", "h3", "h4", "blockquote")
+	p.AllowStyles("text-align").Matching(regexp.MustCompile(`^(left|center|right|justify)$`)).OnElements("p", "h1", "h2", "h3", "h4", "blockquote")
+	p.AllowAttrs("data-color").Matching(regexp.MustCompile(`^#[0-9a-fA-F]{3,8}$`)).OnElements("mark")
+	p.AllowStyles("background-color").Matching(regexp.MustCompile(`^#[0-9a-fA-F]{3,8}$`)).OnElements("mark")
+	p.AllowURLSchemes("http", "https", "mailto")
 	p.RequireNoFollowOnLinks(true)
 	p.RequireNoReferrerOnLinks(true)
 	p.AddTargetBlankToFullyQualifiedLinks(true)

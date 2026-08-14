@@ -1,7 +1,7 @@
-import { SESv2Client, SendEmailCommand } from "@aws-sdk/client-sesv2";
-import nodemailer, { type Transporter } from "nodemailer";
+import { SESv2Client, SendEmailCommand } from '@aws-sdk/client-sesv2';
+import nodemailer, { type Transporter } from 'nodemailer';
 
-import type { AuthConfig } from "../config.js";
+import type { AuthConfig } from '../config.js';
 
 export interface EmailMessage {
   readonly to: string;
@@ -61,11 +61,11 @@ export class SesEmailProvider implements EmailProvider {
         Destination: { ToAddresses: [message.to] },
         Content: {
           Simple: {
-            Subject: { Data: message.subject, Charset: "UTF-8" },
+            Subject: { Data: message.subject, Charset: 'UTF-8' },
             Body: {
-              Text: { Data: message.text, Charset: "UTF-8" },
+              Text: { Data: message.text, Charset: 'UTF-8' },
               ...(message.html
-                ? { Html: { Data: message.html, Charset: "UTF-8" } }
+                ? { Html: { Data: message.html, Charset: 'UTF-8' } }
                 : {}),
             },
           },
@@ -75,8 +75,10 @@ export class SesEmailProvider implements EmailProvider {
   }
 }
 
-export function createEmailProvider(configuration: AuthConfig["email"]): EmailProvider {
-  return configuration.provider === "ses"
+export function createEmailProvider(
+  configuration: AuthConfig['email'],
+): EmailProvider {
+  return configuration.provider === 'ses'
     ? new SesEmailProvider(configuration)
     : new SmtpEmailProvider(configuration);
 }

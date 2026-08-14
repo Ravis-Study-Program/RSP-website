@@ -27,13 +27,42 @@ func TestOwnershipVersionsReviewAndPass(t *testing.T) {
 		t.Fatalf("stale edit: %v", err)
 	}
 }
+func TestInterviewerCannotWriteIntervieweeReview(t *testing.T) {
+	s := Service{}
+	in := validCreate()
+	in.Rounds[0].Reviewed = true
+	in.Rounds[0].IntervieweeComment = "forged on create"
+	m, err := s.Create("mentor", in, time.Now())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if m.Rounds[0].Reviewed || m.Rounds[0].IntervieweeComment != "" {
+		t.Fatalf("create trusted interviewer review: %#v", m.Rounds[0])
+	}
+	if err := s.Review(&m, "student", "r1", "real review", true, 1, time.Now()); err != nil {
+		t.Fatal(err)
+	}
+	updateRounds := append([]Round(nil), m.Rounds...)
+	updateRounds[0].Reviewed = false
+	updateRounds[0].IntervieweeComment = "forged update"
+	if err := s.Update(&m, "mentor", UpdateInput{ExpectedRevision: 2, OccurredAt: m.OccurredAt, DurationMinutes: 70, Rounds: updateRounds}, time.Now()); err != nil {
+		t.Fatal(err)
+	}
+	if !m.Rounds[0].Reviewed || m.Rounds[0].IntervieweeComment != "real review" {
+		t.Fatalf("update overwrote interviewee review: %#v", m.Rounds[0])
+	}
+}
 func TestParticipantEligibility(t *testing.T) {
-	for _, p := range []Participant{{UserID: "none"}, {UserID: "s", ActiveMember: true, Suspended: true}, {UserID: "d", Alumni: true, Deleted: true}, {UserID: "t", ActiveMember: true, Test: true}, {UserID: "k", ActiveMember: true, KickedOnly: true}} {
+	for _, p := range []Participant{{UserID: "none"}, {UserID: "former", FormerMember: true}, {UserID: "s", ActiveMember: true, Suspended: true}, {UserID: "d", Alumni: true, Deleted: true}, {UserID: "t", ActiveMember: true, Test: true}, {UserID: "k", ActiveMember: true, KickedOnly: true}} {
 		in := validCreate()
 		in.Interviewee = p
 		if _, err := new(Service).Create("mentor", in, time.Now()); !errors.Is(err, ErrForbidden) {
 			t.Fatalf("participant allowed: %#v", p)
 		}
+	}
+	former := Participant{UserID: "former", FormerMember: true}
+	if former.Eligible() || !former.ProgrammeAccessEligible() {
+		t.Fatalf("former member target/caller eligibility was not separated: %#v", former)
 	}
 }
 func TestAllApplicableScoresMustPass(t *testing.T) {

@@ -1,66 +1,176 @@
 package httpapi
 
 import (
+	"bytes"
+	"errors"
 	"fmt"
+	"io"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
+	"github.com/magedmg/RSP-website/backend/internal/authz"
 	"github.com/magedmg/RSP-website/backend/internal/model"
 	"github.com/magedmg/RSP-website/backend/internal/platform/cursor"
 	"github.com/magedmg/RSP-website/backend/internal/platform/id"
 	"github.com/magedmg/RSP-website/backend/internal/platform/sanitize"
 	"github.com/magedmg/RSP-website/backend/internal/practice"
+	"github.com/magedmg/RSP-website/backend/internal/store"
 )
 
+func (a *API) requirePracticeAccess(w http.ResponseWriter, r *http.Request) bool {
+	actor := actorFrom(r.Context())
+	if actor.ProgrammeAccess() || actor.IsPrivileged() {
+		return true
+	}
+	a.fail(w, r, http.StatusForbidden, "season_access_required", "Season access required", "No season access yet.", nil)
+	return false
+}
+
+func (a *API) canViewMemberPrivate(r *http.Request, targetID string) (bool, error) {
+	actor := actorFrom(r.Context())
+	if actor.UserID == targetID || actor.IsPrivileged() {
+		return true, nil
+	}
+	var targetEnrollments []model.Enrollment
+	targetLoaded := false
+	for _, enrollment := range actor.Enrollments {
+		if enrollment.State != authz.Active && enrollment.State != authz.Completed {
+			continue
+		}
+		if enrollment.Role == authz.Coordinator {
+			if !targetLoaded {
+				var err error
+				targetEnrollments, err = a.store.ListEnrollmentsForUser(r.Context(), targetID)
+				if err != nil {
+					return false, err
+				}
+				targetLoaded = true
+			}
+			for _, target := range targetEnrollments {
+				if target.SeasonID == enrollment.SeasonID && (target.State == "active" || target.State == "completed") {
+					return true, nil
+				}
+			}
+		}
+		if enrollment.Role == authz.Mentor {
+			assigned, err := a.store.IsMentorAssigned(r.Context(), enrollment.SeasonID, actor.UserID, targetID)
+			if err != nil {
+				return false, err
+			}
+			if assigned {
+				return true, nil
+			}
+		}
+	}
+	return false, nil
+}
+
 func (a *API) problems(w http.ResponseWriter, r *http.Request) {
+	if !a.requirePracticeAccess(w, r) {
+		return
+	}
 	difficulty, category := r.URL.Query().Get("difficulty"), r.URL.Query().Get("category")
-	binding := "problems|id:asc|difficulty=" + difficulty + "|category=" + category
+	var premium *bool
+	if raw := r.URL.Query().Get("premium"); raw != "" {
+		parsed, parseErr := strconv.ParseBool(raw)
+		if parseErr != nil {
+			validation(a, w, r, "premium must be true or false")
+			return
+		}
+		premium = &parsed
+	}
+	if _, err := requestedSort(r, "id:asc", "id:asc"); err != nil {
+		validation(a, w, r, "sort must be id:asc")
+		return
+	}
+	direction := r.URL.Query().Get("direction")
+	if direction == "" {
+		direction = "forward"
+	}
+	if direction != "forward" && direction != "backward" {
+		validation(a, w, r, "direction must be forward or backward")
+		return
+	}
+	binding := "problems|id:asc|difficulty=" + difficulty + "|category=" + category + "|premium=" + r.URL.Query().Get("premium")
 	limit, after, err := a.page(r, binding)
 	if err != nil {
 		a.fail(w, r, 400, "invalid_cursor", "Invalid cursor", cursor.ErrInvalid.Error(), nil)
 		return
 	}
-	items, more, total, err := a.store.ListProblems(r.Context(), after, limit)
+	items, more, total, err := a.store.ListProblems(r.Context(), after, limit, difficulty, category, premium, direction)
 	if err != nil {
 		storeFailure(a, w, r, err)
 		return
 	}
-	filtered := items[:0]
-	for _, p := range items {
-		if difficulty != "" && p.Difficulty != difficulty {
-			continue
-		}
-		if category != "" && !hasCategory(p, category) {
-			continue
-		}
-		filtered = append(filtered, p)
-	}
-	items = filtered
-	var last string
-	if len(items) > 0 {
-		last = items[len(items)-1].ID
-	}
-	writeJSON(w, 200, model.Page[model.Problem]{Items: items, PageInfo: model.PageInfo{NextCursor: a.next(last, binding, more), HasMore: more}, TotalCount: total})
+	pageInfo := pageInfoForKeyset(a, binding, direction, after, items, more, func(v model.Problem) string { return v.ID })
+	writeJSON(w, 200, model.Page[model.Problem]{Items: items, PageInfo: pageInfo, TotalCount: total})
 }
 func (a *API) attempts(w http.ResponseWriter, r *http.Request) {
+	if !a.requirePracticeAccess(w, r) {
+		return
+	}
 	actor := actorFrom(r.Context())
-	binding := "attempts|id:asc|user=" + actor.UserID
+	targetID := r.URL.Query().Get("userId")
+	if targetID == "" {
+		targetID = actor.UserID
+	}
+	if targetID != actor.UserID && !actor.EligibleMember() && !actor.IsPrivileged() {
+		a.fail(w, r, http.StatusForbidden, "directory_access_required", "Directory access required", "Only active members and student alumni may view another member's public problem history.", nil)
+		return
+	}
+	if targetID != actor.UserID && !actor.IsPrivileged() {
+		participant, err := a.store.GetMockParticipant(r.Context(), targetID)
+		if err != nil || !participant.Eligible() {
+			a.fail(w, r, 404, "not_found", "Not found", "The requested member does not exist.", nil)
+			return
+		}
+	}
+	outcome, difficulty := r.URL.Query().Get("outcome"), r.URL.Query().Get("difficulty")
+	if _, err := requestedSort(r, "id:asc", "id:asc"); err != nil {
+		validation(a, w, r, "sort must be id:asc")
+		return
+	}
+	direction := r.URL.Query().Get("direction")
+	if direction == "" {
+		direction = "forward"
+	}
+	if direction != "forward" && direction != "backward" {
+		validation(a, w, r, "direction must be forward or backward")
+		return
+	}
+	binding := "attempts|id:asc|user=" + targetID + "|outcome=" + outcome + "|difficulty=" + difficulty
 	limit, after, err := a.page(r, binding)
 	if err != nil {
 		a.fail(w, r, 400, "invalid_cursor", "Invalid cursor", cursor.ErrInvalid.Error(), nil)
 		return
 	}
-	items, more, total, err := a.store.ListAttempts(r.Context(), actor.UserID, after, limit)
+	items, more, total, err := a.store.ListAttempts(r.Context(), targetID, after, limit, outcome, difficulty, direction)
 	if err != nil {
 		storeFailure(a, w, r, err)
 		return
 	}
-	var last string
-	if len(items) > 0 {
-		last = items[len(items)-1].ID
+	if targetID != actor.UserID && !a.auditSystemAdminPrivateRead(w, r, "problem_attempt_history", targetID) {
+		return
 	}
-	writeJSON(w, 200, model.Page[model.Attempt]{Items: items, PageInfo: model.PageInfo{NextCursor: a.next(last, binding, more), HasMore: more}, TotalCount: total})
+	if targetID != actor.UserID && !actor.IsPrivileged() {
+		canPrivate, err := a.canViewMemberPrivate(r, targetID)
+		if err != nil {
+			storeFailure(a, w, r, err)
+			return
+		}
+		if !canPrivate {
+			for i := range items {
+				items[i].Notes = ""
+				items[i].Confidence = nil
+				items[i].SeasonID = nil
+				items[i].WeekID = nil
+			}
+		}
+	}
+	pageInfo := pageInfoForKeyset(a, binding, direction, after, items, more, func(v model.Attempt) string { return v.ID })
+	writeJSON(w, 200, model.Page[model.Attempt]{Items: items, PageInfo: pageInfo, TotalCount: total})
 }
 
 type attemptInput struct {
@@ -73,17 +183,20 @@ type attemptInput struct {
 }
 
 func validateAttempt(in attemptInput) bool {
-	if in.ProblemID == "" || in.Minutes <= 0 || in.AttemptedAt.IsZero() {
+	if in.ProblemID == "" || in.Minutes <= 0 || in.AttemptedAt.IsZero() || (in.WeekID != nil && in.SeasonID == nil) {
 		return false
 	}
 	switch in.Outcome {
-	case string(practice.Independent), string(practice.WithHints), string(practice.NotSolved), string(practice.Unknown):
+	case string(practice.Independent), string(practice.WithHints), string(practice.NotSolved):
 	default:
 		return false
 	}
 	return in.Confidence == nil || (*in.Confidence >= 1 && *in.Confidence <= 5)
 }
 func (a *API) createAttempt(w http.ResponseWriter, r *http.Request) {
+	if !a.requirePracticeAccess(w, r) {
+		return
+	}
 	actor := actorFrom(r.Context())
 	var in attemptInput
 	if err := decodeJSON(w, r, &in); err != nil || !validateAttempt(in) {
@@ -91,15 +204,20 @@ func (a *API) createAttempt(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	v := model.Attempt{ID: id.New(), UserID: actor.UserID, ProblemID: in.ProblemID, Outcome: in.Outcome, Confidence: in.Confidence, Minutes: in.Minutes, Notes: sanitize.New().String(in.Notes), AttemptedAt: in.AttemptedAt.UTC(), SeasonID: in.SeasonID, WeekID: in.WeekID, Revision: 1}
-	created, err := a.store.CreateAttempt(r.Context(), v)
+	created, fulfilled, err := a.store.CreateAttempt(r.Context(), v)
 	if err != nil {
 		storeFailure(a, w, r, err)
 		return
 	}
-	a.audit(r, "attempt.created", "problem_attempt", created.ID, nil)
+	if fulfilled {
+		a.telemetry.observeRecommendation("attempted")
+	}
 	writeJSON(w, 201, created)
 }
 func (a *API) updateAttempt(w http.ResponseWriter, r *http.Request) {
+	if !a.requirePracticeAccess(w, r) {
+		return
+	}
 	actor := actorFrom(r.Context())
 	var in attemptInput
 	if err := decodeJSON(w, r, &in); err != nil || !validateAttempt(in) || in.Revision < 1 {
@@ -121,10 +239,12 @@ func (a *API) updateAttempt(w http.ResponseWriter, r *http.Request) {
 		storeFailure(a, w, r, err)
 		return
 	}
-	a.audit(r, "attempt.updated", "problem_attempt", updated.ID, nil)
 	writeJSON(w, 200, updated)
 }
 func (a *API) deleteAttempt(w http.ResponseWriter, r *http.Request) {
+	if !a.requirePracticeAccess(w, r) {
+		return
+	}
 	actor := actorFrom(r.Context())
 	revision, err := parseRevision(r)
 	if err != nil {
@@ -135,67 +255,135 @@ func (a *API) deleteAttempt(w http.ResponseWriter, r *http.Request) {
 		storeFailure(a, w, r, err)
 		return
 	}
-	a.audit(r, "attempt.deleted", "problem_attempt", r.PathValue("id"), nil)
 	w.WriteHeader(204)
 }
 func (a *API) recommendation(w http.ResponseWriter, r *http.Request) {
+	if !a.requirePracticeAccess(w, r) {
+		return
+	}
 	actor := actorFrom(r.Context())
-	a.mu.Lock()
-	active := a.recommendations[actor.UserID]
-	dismissals := append([]practice.Dismissal(nil), a.dismissals[actor.UserID]...)
-	a.mu.Unlock()
-	attemptRows, _, _, _ := a.store.ListAttempts(r.Context(), actor.UserID, "", 100)
-	problemRows, _, _, _ := a.store.ListProblems(r.Context(), "", 100)
-	attempts := make([]practice.Attempt, 0, len(attemptRows))
+	current, err := a.store.GetActiveRecommendation(r.Context(), actor.UserID)
+	if err != nil {
+		storeFailure(a, w, r, err)
+		return
+	}
+	if current != nil {
+		a.telemetry.observeRecommendation("reused")
+		writeJSON(w, 200, current)
+		return
+	}
+	dismissals, err := a.store.ListRecommendationDismissals(r.Context(), actor.UserID)
+	if err != nil {
+		storeFailure(a, w, r, err)
+		return
+	}
+	settings, err := a.store.GetPracticeSettings(r.Context(), actor.UserID)
+	if err != nil {
+		storeFailure(a, w, r, err)
+		return
+	}
+	goals := practice.DefaultGoals()
+	if settings.GoalsEnabled {
+		goals = practice.Goals{practice.Easy: settings.EasyMinutes, practice.Medium: settings.MediumMinutes, practice.Hard: settings.HardMinutes}
+	}
+	snapshot, err := a.store.RecommendationSnapshot(r.Context(), actor.UserID, goals)
+	if err != nil {
+		storeFailure(a, w, r, err)
+		return
+	}
+	attempts := make([]practice.Attempt, 0, len(snapshot.QualityAttempts))
 	problemByID := map[string]model.Problem{}
-	for _, p := range problemRows {
+	for _, p := range snapshot.Problems {
 		problemByID[p.ID] = p
 	}
-	for _, v := range attemptRows {
+	for _, v := range snapshot.QualityAttempts {
 		p := problemByID[v.ProblemID]
-		attempts = append(attempts, practice.Attempt{ProblemID: v.ProblemID, Difficulty: practice.Difficulty(p.Difficulty), Categories: p.Categories, Outcome: practice.Outcome(v.Outcome), Confidence: v.Confidence, Minutes: v.Minutes, AttemptedAt: v.AttemptedAt})
+		attempts = append(attempts, practice.Attempt{ProblemID: v.ProblemID, Difficulty: practice.Difficulty(p.Difficulty), Categories: p.Categories, Outcome: practice.Outcome(v.Outcome), Confidence: v.Confidence, Minutes: v.Minutes, AttemptedAt: v.AttemptedAt, Migrated: v.Migrated})
 	}
-	problems := make([]practice.Problem, 0, len(problemRows))
-	for _, p := range problemRows {
-		problems = append(problems, practice.Problem{ID: p.ID, Title: p.Title, Link: p.Link, Difficulty: practice.Difficulty(p.Difficulty), Categories: p.Categories, Premium: p.Premium})
-	}
-	var current *practice.Recommendation
-	if active.ID != "" {
-		current = &active
-	}
-	selected, err := practice.Select(practice.Request{UserID: actor.UserID, Level: practice.NonStudent, Problems: problems, Attempts: attempts, Dismissals: dismissals, Active: current, Now: time.Now()})
+	level := practice.NonStudent
+	enrollments, err := a.store.ListEnrollmentsForUser(r.Context(), actor.UserID)
 	if err != nil {
+		storeFailure(a, w, r, err)
+		return
+	}
+	for _, enrollment := range enrollments {
+		if enrollment.Role == "student" && enrollment.State == "active" {
+			switch enrollment.StudentLevel {
+			case "novice":
+				level = practice.Novice
+			case "beginner":
+				level = practice.Beginner
+			case "intermediate":
+				level = practice.Intermediate
+			case "advanced":
+				level = practice.Advanced
+			}
+			break
+		}
+	}
+	now := time.Now().UTC()
+	criteria := practice.CriteriaFor(practice.Request{Level: level, QualityAttempts: attempts, CategoryExposure: snapshot.CategoryExposure, Goals: goals})
+	candidateModels, problemHistory, err := a.store.RecommendationCandidates(r.Context(), actor.UserID, criteria, settings.PremiumOptIn, goals, now)
+	if err != nil {
+		storeFailure(a, w, r, err)
+		return
+	}
+	problems := make([]practice.Problem, 0, len(candidateModels))
+	for _, p := range candidateModels {
+		problems = append(problems, practice.Problem{ID: p.ID, Number: p.Number, Title: p.Title, Link: p.Link, Difficulty: practice.Difficulty(p.Difficulty), Categories: p.Categories, Premium: p.Premium, Revision: p.Revision})
+	}
+	selected, err := practice.Select(practice.Request{UserID: actor.UserID, Level: level, PremiumOptIn: settings.PremiumOptIn, Problems: problems, QualityAttempts: attempts, ProblemHistory: problemHistory, CategoryExposure: snapshot.CategoryExposure, Dismissals: dismissals, Goals: goals, Now: now})
+	if err != nil {
+		a.telemetry.observeRecommendation("unavailable")
 		a.fail(w, r, 404, "no_recommendation", "No recommendation available", "No suitable problem is currently available.", nil)
 		return
 	}
-	a.mu.Lock()
-	a.recommendations[actor.UserID] = selected
-	a.mu.Unlock()
+	selected.ID = id.New()
+	selected, err = a.store.SaveRecommendation(r.Context(), selected)
+	if err != nil {
+		storeFailure(a, w, r, err)
+		return
+	}
+	a.telemetry.observeRecommendation("generated")
 	writeJSON(w, 200, selected)
 }
 func (a *API) dismissRecommendation(w http.ResponseWriter, r *http.Request) {
+	if !a.requirePracticeAccess(w, r) {
+		return
+	}
 	actor := actorFrom(r.Context())
 	var in struct {
-		Reason string `json:"reason"`
+		Reason   string `json:"reason"`
+		Revision int64  `json:"revision"`
 	}
-	if err := decodeJSON(w, r, &in); err != nil {
-		validation(a, w, r, err.Error())
+	if r.Body != nil && r.ContentLength != 0 {
+		body, err := io.ReadAll(http.MaxBytesReader(w, r.Body, 1<<20))
+		if err != nil {
+			validation(a, w, r, err.Error())
+			return
+		}
+		if len(bytes.TrimSpace(body)) > 0 {
+			r.Body = io.NopCloser(bytes.NewReader(body))
+			if err := decodeJSON(w, r, &in); err != nil {
+				validation(a, w, r, err.Error())
+				return
+			}
+		}
+	}
+	if in.Revision < 1 {
+		validation(a, w, r, "revision is required")
 		return
 	}
-	a.mu.Lock()
-	current, ok := a.recommendations[actor.UserID]
-	if ok && current.DismissedAt == nil {
-		now := time.Now().UTC()
-		current.DismissedAt = &now
-		a.recommendations[actor.UserID] = current
-		a.dismissals[actor.UserID] = append(a.dismissals[actor.UserID], practice.Dismissal{ProblemID: current.Problem.ID, DismissedAt: now})
-	}
-	a.mu.Unlock()
-	if !ok {
-		a.fail(w, r, 404, "no_recommendation", "No recommendation available", "There is no active recommendation.", nil)
+	_, err := a.store.DismissRecommendation(r.Context(), actor.UserID, in.Revision, strings.TrimSpace(in.Reason), time.Now(), id.New())
+	if err != nil {
+		if errors.Is(err, store.ErrNotFound) {
+			a.fail(w, r, 404, "no_recommendation", "No recommendation available", "There is no active recommendation.", nil)
+		} else {
+			storeFailure(a, w, r, err)
+		}
 		return
 	}
-	a.audit(r, "recommendation.dismissed", "recommendation", current.ID, map[string]any{"reason": strings.TrimSpace(in.Reason)})
+	a.telemetry.observeRecommendation("dismissed")
 	w.WriteHeader(204)
 }
 func parseRevision(r *http.Request) (int64, error) {

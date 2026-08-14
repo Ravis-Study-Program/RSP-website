@@ -1,7 +1,20 @@
-import { createContext, useContext, useMemo, useState, type PropsWithChildren } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type PropsWithChildren,
+} from 'react';
 
-import { useCurrentUser } from '@/api/queries';
+import { adaptCurrentUser } from '@/api/adapters';
+import { apiRequest } from '@/api/client';
+import type { Me } from '@/api/generated/models';
+import { currentUserOptions, demoMode, useCurrentUser } from '@/api/queries';
 import type { Role } from '@/types';
+import { configureDisplayTimezone } from '@/utils';
 
 export interface WorkspaceOption {
   id: string;
@@ -20,28 +33,95 @@ const WorkspaceContext = createContext<WorkspaceValue | null>(null);
 
 export function WorkspaceProvider({ children }: PropsWithChildren) {
   const userQuery = useCurrentUser();
+  const queryClient = useQueryClient();
+  const timezoneInitialisation = useRef<string | null>(null);
+  if (userQuery.data?.timezone)
+    configureDisplayTimezone(userQuery.data.timezone);
+  useEffect(() => {
+    const user = userQuery.data;
+    if (!user || user.timezoneConfigured || demoMode) return;
+    const attemptKey = `${user.id}:${user.revision}`;
+    if (timezoneInitialisation.current === attemptKey) return;
+    timezoneInitialisation.current = attemptKey;
+    const detectedTimezone =
+      Intl.DateTimeFormat().resolvedOptions().timeZone || user.timezone;
+    void apiRequest<Me>('/me', {
+      method: 'PATCH',
+      body: JSON.stringify({
+        name: user.name,
+        slug: user.slug,
+        avatarUrl: user.avatarUrl,
+        timezone: detectedTimezone,
+        revision: user.revision,
+      }),
+    })
+      .then((updated) => {
+        const adapted = adaptCurrentUser(updated);
+        configureDisplayTimezone(adapted.timezone);
+        queryClient.setQueryData(currentUserOptions.queryKey, adapted);
+      })
+      .catch(() => {
+        // Settings remains available for a manual retry without overwriting a migrated choice.
+      });
+  }, [queryClient, userQuery.data]);
   const workspaces = useMemo<WorkspaceOption[]>(() => {
     if (!userQuery.data) return [];
-    const options: WorkspaceOption[] = userQuery.data.seasonRoles.map((membership) => ({
-      id: membership.seasonId,
-      label: membership.seasonSlug
-        .split('-')
-        .map((part) => part[0]?.toUpperCase() + part.slice(1))
-        .join(' '),
-      role: membership.role,
-      seasonSlug: membership.seasonSlug,
-    }));
-    if (userQuery.data.alumni) options.push({ id: 'alumni', label: 'Graduate workspace', role: 'graduate' });
-    if (userQuery.data.globalRoles.includes('director')) options.push({ id: 'director', label: 'Director workspace', role: 'director' });
+    const options: WorkspaceOption[] = [];
     if (userQuery.data.globalRoles.includes('system_admin'))
-      options.push({ id: 'system-admin', label: 'System administration', role: 'system_admin' });
+      options.push({
+        id: 'system-admin',
+        label: 'System administration',
+        role: 'system_admin',
+      });
+    if (userQuery.data.globalRoles.includes('director'))
+      options.push({
+        id: 'director',
+        label: 'Director workspace',
+        role: 'director',
+      });
+    options.push(
+      ...userQuery.data.seasonRoles
+        .filter((membership) => membership.state === 'active')
+        .map((membership) => ({
+          id: membership.seasonId,
+          label: membership.seasonSlug
+            .split('-')
+            .map((part) => part[0]?.toUpperCase() + part.slice(1))
+            .join(' '),
+          role: membership.role,
+          seasonSlug: membership.seasonSlug,
+        })),
+    );
+    if (userQuery.data.alumni)
+      options.push({
+        id: 'alumni',
+        label: 'Graduate workspace',
+        role: 'graduate',
+      });
+    else if (
+      userQuery.data.seasonRoles.some(
+        (membership) => membership.state === 'completed',
+      )
+    )
+      options.push({
+        id: 'former-member',
+        label: 'Former member workspace',
+        role: 'former_member',
+      });
     return options;
   }, [userQuery.data]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const activeWorkspace = workspaces.find((item) => item.id === selectedId) ?? workspaces[0] ?? null;
+  const activeWorkspace =
+    workspaces.find((item) => item.id === selectedId) ?? workspaces[0] ?? null;
 
   return (
-    <WorkspaceContext.Provider value={{ workspaces, activeWorkspace, setActiveWorkspaceId: setSelectedId }}>
+    <WorkspaceContext.Provider
+      value={{
+        workspaces,
+        activeWorkspace,
+        setActiveWorkspaceId: setSelectedId,
+      }}
+    >
       {children}
     </WorkspaceContext.Provider>
   );
@@ -49,6 +129,7 @@ export function WorkspaceProvider({ children }: PropsWithChildren) {
 
 export function useWorkspace() {
   const context = useContext(WorkspaceContext);
-  if (!context) throw new Error('useWorkspace must be used inside WorkspaceProvider');
+  if (!context)
+    throw new Error('useWorkspace must be used inside WorkspaceProvider');
   return context;
 }

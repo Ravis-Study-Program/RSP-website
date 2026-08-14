@@ -1,0 +1,672 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  GO_VERSION: 1.26.6
+  NODE_VERSION: 24.19.0
+  PNPM_VERSION: 10.15.0
+
+jobs:
+  quality-and-codegen:
+    name: Format, lint, types and generated code
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache-dependency-path: go.sum
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
+        with:
+          version: ${{ env.PNPM_VERSION }}
+          run_install: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+      - name: Install JavaScript dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Check Go formatting
+        shell: bash
+        run: |
+          unformatted="$(gofmt -l backend)"
+          if [[ -n "$unformatted" ]]; then
+            printf 'Go files need gofmt:\n%s\n' "$unformatted" >&2
+            exit 1
+          fi
+      - name: Vet Go
+        run: go vet ./...
+      - name: Staticcheck
+        run: |
+          go install honnef.co/go/tools/cmd/staticcheck@v0.7.0
+          staticcheck ./...
+      - name: Check authored formatting
+        run: pnpm format:check
+      - name: Lint TypeScript, React and Node scripts
+        run: pnpm lint
+      - name: TypeScript checks
+        run: pnpm -r check
+      - name: Regenerate API clients
+        run: |
+          go generate ./...
+          pnpm --filter @rsp/web generate
+          git diff --exit-code -- \
+            backend/internal/generated/api.gen.go \
+            backend/internal/httpapi/strict_adapter.generated.go \
+            backend/internal/platform/dbgen \
+            apps/web/src/api/generated
+      - name: Check module metadata drift
+        run: |
+          go mod tidy
+          git diff --exit-code -- go.mod go.sum
+      - name: Validate Compose profiles
+        run: |
+          docker compose --profile dev config --quiet
+          docker compose --profile prod config --quiet
+          docker compose -f compose.yaml -f deploy/compose.auth-smoke.yaml \
+            --profile prod config --quiet
+      - name: Validate semantic parity fixture
+        run: |
+          jq -e '
+            . as $fixture |
+            .version == 2 and
+            (.source.commit | test("^[0-9a-f]{40}$")) and
+            (.source.tree | test("^[0-9a-f]{40}$")) and
+            ([.workflows[].id] | length == (unique | length)) and
+            ([.workflows[].family] | unique | sort ==
+              ["admin_crud", "attempts_recommendation", "enrollment_mentorship",
+               "mock_interviews", "seasons_weeks", "user_profile"]) and
+            (.workflows | length == 13) and
+            all(.workflows[];
+              (.operations | length) > 0 and
+              (.expect | length) > 0 and
+              (.v2 | length) > 0 and
+              (.evidence | length) > 0 and
+              (([range(0; (.expect | length))] -
+                ([.evidence[].expectations[]] | unique)) | length == 0)) and
+            (.residualCoverage == [])
+          ' docs/golden/legacy-workflows.json
+
+  unit:
+    name: Unit and race tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache-dependency-path: go.sum
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
+        with:
+          version: ${{ env.PNPM_VERSION }}
+          run_install: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Go tests with race detector
+        run: go test -race -coverprofile=go-coverage.out ./...
+      - name: TypeScript tests
+        run: pnpm test
+      - name: Production builds
+        run: pnpm build
+
+  postgres-integration:
+    name: PostgreSQL 17.11 migrations and integration
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    services:
+      postgres:
+        image: postgres:17.11-alpine3.24
+        env:
+          POSTGRES_DB: rsp
+          POSTGRES_USER: rsp
+          POSTGRES_PASSWORD: rsp-ci-database-password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U rsp -d rsp"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 20
+      mailpit:
+        image: axllent/mailpit:v1.30.7
+        ports:
+          - 1025:1025
+          - 8025:8025
+    env:
+      DATABASE_URL: postgresql://rsp:rsp-ci-database-password@127.0.0.1:5432/rsp?sslmode=disable
+      TEST_DATABASE_URL: postgresql://rsp:rsp-ci-database-password@127.0.0.1:5432/rsp?sslmode=disable
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache-dependency-path: go.sum
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
+        with:
+          version: ${{ env.PNPM_VERSION }}
+          run_install: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Install PostgreSQL client and Goose
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes postgresql-client
+          go install github.com/pressly/goose/v3/cmd/goose@v3.27.3
+      - name: Migrate app and auth schemas
+        run: |
+          goose -dir db/migrations postgres "$DATABASE_URL" up
+          psql "$DATABASE_URL" --set ON_ERROR_STOP=1 --command "CREATE SCHEMA IF NOT EXISTS auth"
+          psql "$DATABASE_URL" --set ON_ERROR_STOP=1 --file deploy/postgres/migrate-auth.sql
+          psql "$DATABASE_URL" --set ON_ERROR_STOP=1 --file deploy/postgres/migrate-auth.sql
+      - name: Prove existing auth schema upgrades and remains idempotent
+        env:
+          PGPASSWORD: rsp-ci-database-password
+        run: |
+          psql "$DATABASE_URL" --set ON_ERROR_STOP=1 --command "CREATE DATABASE rsp_auth_upgrade"
+          upgrade_url="postgresql://rsp:rsp-ci-database-password@127.0.0.1:5432/rsp_auth_upgrade?sslmode=disable"
+          psql "$upgrade_url" --set ON_ERROR_STOP=1 --file apps/auth/migrations/better-auth.sql
+          psql "$upgrade_url" --set ON_ERROR_STOP=1 --file deploy/postgres/migrate-auth.sql
+          psql "$upgrade_url" --set ON_ERROR_STOP=1 --file deploy/postgres/migrate-auth.sql
+          migration_ok="$(psql "$upgrade_url" --set ON_ERROR_STOP=1 --tuples-only --no-align --command \
+            "SELECT to_regclass('auth.account_deletion_recovery_tokens') IS NOT NULL AND to_regclass('auth.lifecycle_outbox') IS NOT NULL AND (SELECT count(*) = 2 FROM auth.schema_migrations)")"
+          test "$migration_ok" = "t"
+          psql "$DATABASE_URL" --set ON_ERROR_STOP=1 --command "DROP DATABASE rsp_auth_upgrade"
+      - name: Prove concurrent auth migration runners serialize the full sequence
+        env:
+          PGPASSWORD: rsp-ci-database-password
+        run: |
+          psql "$DATABASE_URL" --set ON_ERROR_STOP=1 --command "CREATE DATABASE rsp_auth_concurrent"
+          concurrent_url="postgresql://rsp:rsp-ci-database-password@127.0.0.1:5432/rsp_auth_concurrent?sslmode=disable"
+          psql "$concurrent_url" --set ON_ERROR_STOP=1 --command "CREATE SCHEMA auth"
+          psql "$concurrent_url" --set ON_ERROR_STOP=1 --file deploy/postgres/migrate-auth.sql &
+          first_pid=$!
+          psql "$concurrent_url" --set ON_ERROR_STOP=1 --file deploy/postgres/migrate-auth.sql &
+          second_pid=$!
+          wait "$first_pid"
+          wait "$second_pid"
+          migration_ok="$(psql "$concurrent_url" --set ON_ERROR_STOP=1 --tuples-only --no-align --command \
+            "SELECT to_regclass('auth.lifecycle_outbox') IS NOT NULL AND (SELECT count(*) = 2 FROM auth.schema_migrations)")"
+          test "$migration_ok" = "t"
+          psql "$DATABASE_URL" --set ON_ERROR_STOP=1 --command "DROP DATABASE rsp_auth_concurrent"
+      - name: Run PostgreSQL-backed tests
+        run: go test -tags=integration ./...
+      - name: Run live Better Auth session, MFA, linking and JWKS tests
+        env:
+          AUTH_LIVE_TEST: 'true'
+          AUTH_LIVE_MAILPIT_URL: http://127.0.0.1:8025
+          DATABASE_URL: postgresql://rsp:rsp-ci-database-password@127.0.0.1:5432/rsp?sslmode=disable&options=-c%20search_path%3Dauth
+          NODE_ENV: test
+          AUTH_HOST: 127.0.0.1
+          AUTH_PORT: '3001'
+          BETTER_AUTH_URL: http://127.0.0.1:3001
+          BETTER_AUTH_SECRET: rsp-ci-live-auth-secret-000000000000
+          AUTH_TRUSTED_ORIGINS: http://127.0.0.1:3001
+          AUTH_COOKIE_SECURE: 'false'
+          AUTH_TRUST_PROXY_HEADERS: 'false'
+          IDENTITY_SERVICE_URL: http://127.0.0.1:4000
+          IDENTITY_SERVICE_TOKEN: rsp-ci-live-identity-token-0000000000
+          EMAIL_PROVIDER: smtp
+          SMTP_HOST: 127.0.0.1
+          SMTP_PORT: '1025'
+          SMTP_SECURE: 'false'
+        run: pnpm --filter @rsp/auth exec vitest run test/live-auth-handler.test.ts
+      - name: Prove app migration down and up
+        run: |
+          goose -dir db/migrations postgres "$DATABASE_URL" down-to 0
+          goose -dir db/migrations postgres "$DATABASE_URL" up
+          psql "$DATABASE_URL" --set ON_ERROR_STOP=1 --command \
+            "SELECT to_regclass('app.audit_events'), to_regclass('migration.runs'), to_regclass('auth.users');"
+
+  browser-e2e:
+    name: Browser and accessibility workflows
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
+        with:
+          version: ${{ env.PNPM_VERSION }}
+          run_install: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Install Playwright browsers
+        run: pnpm --filter @rsp/web exec playwright install --with-deps chromium firefox webkit
+      - name: Run desktop/mobile E2E, compatibility and axe checks
+        run: pnpm --filter @rsp/web e2e
+      - name: Upload failure artifacts
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: playwright-results
+          path: |
+            apps/web/test-results
+            apps/web/playwright-report
+          if-no-files-found: ignore
+          retention-days: 7
+
+  real-stack-browser-e2e:
+    name: Real auth, API and PostgreSQL browser workflows
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      COMPOSE_PROJECT_NAME: rsp-real-e2e
+      APP_ENV: test
+      RSP_E2E_ALLOW_MUTATION: 'true'
+      REAL_E2E_HTTP_PORT: 18080
+      POSTGRES_PORT: 15432
+      MAILPIT_SMTP_PORT: 11025
+      MAILPIT_UI_PORT: 18025
+      PROMETHEUS_PORT: 19090
+      GRAFANA_PORT: 13000
+      PUBLIC_ORIGIN: http://127.0.0.1:18080
+      AUTH_ISSUER: http://127.0.0.1:18080
+      AUTH_TRUSTED_ORIGINS: http://127.0.0.1:18080
+      POSTGRES_DB: rsp
+      POSTGRES_USER: rsp
+      POSTGRES_PASSWORD: rsp-real-e2e-postgres-password
+      MIGRATION_DB_PASSWORD: rsp-real-e2e-migration-password
+      APP_DB_PASSWORD: rsp-real-e2e-app-database-password
+      AUTH_DB_PASSWORD: rsp-real-e2e-auth-database-password
+      BETTER_AUTH_SECRET: rsp-real-e2e-better-auth-secret-000000
+      IDENTITY_SERVICE_TOKEN: rsp-real-e2e-identity-service-token-000000
+      CURSOR_SECRET: rsp-real-e2e-cursor-secret-0000000000000
+      RSP_E2E_BASE_URL: http://127.0.0.1:18080
+      RSP_E2E_MAILPIT_URL: http://127.0.0.1:18025
+      RSP_E2E_STUDENT_EMAIL: e2e.student@example.test
+      RSP_E2E_STUDENT_PASSWORD: RspRealE2eOnly-Student-2026
+      RSP_E2E_COORDINATOR_EMAIL: e2e.coordinator@example.test
+      RSP_E2E_COORDINATOR_PASSWORD: RspRealE2eOnly-Coordinator-2026
+      RSP_E2E_DIRECTOR_EMAIL: e2e.director@example.test
+      RSP_E2E_DIRECTOR_PASSWORD: RspRealE2eOnly-Director-2026
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache-dependency-path: go.sum
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
+        with:
+          version: ${{ env.PNPM_VERSION }}
+          run_install: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Install Chromium
+        run: pnpm --filter @rsp/web exec playwright install --with-deps chromium
+      - name: Start isolated development stack
+        run: |
+          docker compose -f compose.yaml -f deploy/compose.real-e2e.yaml \
+            --profile dev up --build --detach
+          curl --fail --show-error --retry 30 --retry-delay 2 --retry-all-errors \
+            "$RSP_E2E_BASE_URL/health/live" > /dev/null
+          curl --fail --show-error --retry 30 --retry-delay 2 --retry-all-errors \
+            "$RSP_E2E_BASE_URL/api/v2/health/ready" > /dev/null
+          docker compose -f compose.yaml -f deploy/compose.real-e2e.yaml \
+            --profile dev ps
+      - name: Run 10 live Better Auth and PostgreSQL tests in isolation
+        run: |
+          docker compose -f compose.yaml -f deploy/compose.real-e2e.yaml \
+            --profile dev stop auth-dev
+          docker compose -f compose.yaml -f deploy/compose.real-e2e.yaml \
+            --profile dev run --rm --no-deps \
+            -e AUTH_LIVE_TEST=true \
+            -e AUTH_LIVE_MAILPIT_URL=http://mailpit:8025 \
+            -e BETTER_AUTH_URL=http://127.0.0.1:3001 \
+            -e AUTH_TRUSTED_ORIGINS=http://127.0.0.1:3001 \
+            -e IDENTITY_SERVICE_URL=http://127.0.0.1:4000 \
+            auth-dev pnpm --filter @rsp/auth exec vitest run test/live-auth-handler.test.ts
+          docker compose -f compose.yaml -f deploy/compose.real-e2e.yaml \
+            --profile dev start auth-dev
+          auth_ready=false
+          for _ in {1..30}; do
+            if docker compose -f compose.yaml -f deploy/compose.real-e2e.yaml \
+              --profile dev exec -T auth-dev node -e \
+              "fetch('http://127.0.0.1:3001/health/ready').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"; then
+              auth_ready=true
+              break
+            fi
+            sleep 2
+          done
+          [[ "$auth_ready" == "true" ]]
+      - name: Provision verified role fixtures
+        env:
+          APP_ENV: test
+          RSP_E2E_ALLOW_DATABASE_WRITE: 'true'
+          RSP_E2E_OUTPUT_ENV: ${{ runner.temp }}/rsp-real-e2e.env
+        run: |
+          node deploy/scripts/provision-real-e2e.mjs
+          cat "$RSP_E2E_OUTPUT_ENV" >> "$GITHUB_ENV"
+      - name: Run real-stack role workflows
+        run: pnpm --filter @rsp/web e2e:real
+      - name: Upload real-stack failure artifacts
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: playwright-real-stack-results
+          path: |
+            apps/web/test-results-real
+            apps/web/playwright-report-real
+          if-no-files-found: ignore
+          retention-days: 7
+      - name: Real-stack logs on failure
+        if: failure()
+        run: |
+          app_tables_ready="$(docker compose -f compose.yaml -f deploy/compose.real-e2e.yaml \
+            --profile dev exec -T postgres psql --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" --tuples-only --no-align --command \
+            "SELECT to_regclass('app.users') IS NOT NULL AND to_regclass('app.user_auth_links') IS NOT NULL AND to_regclass('app.identity_event_receipts') IS NOT NULL" 2>/dev/null || true)"
+          if [[ "$app_tables_ready" == "t" ]]; then
+            docker compose -f compose.yaml -f deploy/compose.real-e2e.yaml \
+              --profile dev exec -T postgres psql --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" --command \
+              "SELECT (SELECT count(*) FROM app.users) AS app_users, (SELECT count(*) FROM app.user_auth_links) AS auth_links, (SELECT count(*) FROM app.identity_event_receipts) AS identity_receipts;" || true
+          fi
+          auth_outbox_ready="$(docker compose -f compose.yaml -f deploy/compose.real-e2e.yaml \
+            --profile dev exec -T postgres psql --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" --tuples-only --no-align --command \
+            "SELECT to_regclass('auth.lifecycle_outbox') IS NOT NULL" 2>/dev/null || true)"
+          if [[ "$auth_outbox_ready" == "t" ]]; then
+            docker compose -f compose.yaml -f deploy/compose.real-e2e.yaml \
+              --profile dev exec -T postgres psql --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" --command \
+              "SELECT payload->>'type' AS event_type, payload->>'authUserId' AS auth_user_id, attempt_count, last_error FROM auth.lifecycle_outbox WHERE delivered_at IS NULL ORDER BY created_at;" || true
+          fi
+          docker compose -f compose.yaml -f deploy/compose.real-e2e.yaml \
+            --profile dev logs --tail=500
+      - name: Stop isolated development stack
+        if: always()
+        run: |
+          docker compose -f compose.yaml -f deploy/compose.real-e2e.yaml \
+            --profile dev down --volumes --remove-orphans
+
+  dependency-security:
+    name: Dependency and secret security
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache-dependency-path: go.sum
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
+        with:
+          version: ${{ env.PNPM_VERSION }}
+          run_install: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Go vulnerability database
+        run: go run golang.org/x/vuln/cmd/govulncheck@v1.6.0 ./...
+      - name: pnpm audit
+        run: pnpm audit --audit-level high
+      - name: Secret scan
+        uses: gitleaks/gitleaks-action@e0c47f4f8be36e29cdc102c57e68cb5cbf0e8d1e # v3.0.0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  migration-fixture:
+    name: Legacy migration rehearsal fixture
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache-dependency-path: go.sum
+      - name: Plan Auth0 identities and exercise legacy migration fixtures
+        shell: bash
+        run: |
+          migration_dir="$(mktemp -d)"
+          trap 'rm -rf "$migration_dir"' EXIT
+          go run ./backend/cmd/rsp-migrate auth0 plan \
+            --auth0-users backend/internal/migration/testdata/auth0_users.json \
+            --app-candidates backend/internal/migration/testdata/auth0_app_candidates.json \
+            --resolutions backend/internal/migration/testdata/auth0_resolutions.json \
+            --plan "$migration_dir/auth0-plan.json"
+          jq -e '
+            .version == 1 and
+            (.checksum | length == 64) and
+            .reconciliation.auth0UserCount == 4 and
+            .reconciliation.providerIdentityCount == 4 and
+            .reconciliation.explicitResolutionCount == 2 and
+            .reconciliation.statusCounts.matched == 1 and
+            .reconciliation.statusCounts.requires_resolution == 2 and
+            .reconciliation.statusCounts.password_reset_required == 1 and
+            .reconciliation.statusCounts.imported == 0 and
+            .reconciliation.unresolvedAuth0UserIds == ["auth0|ambiguous", "auth0|unverified"] and
+            ([.reconciliation.providerAccounts[] |
+              [.provider, .providerAccountId] | join("\u0000")] |
+              length == (unique | length)) and
+            ([.items[] | select(.auth0UserId == "auth0|ambiguous")] | length == 1) and
+            all(.items[] | select(.auth0UserId == "auth0|ambiguous");
+              .status == "requires_resolution" and
+              (.resolvedAppUserId // "") == "" and
+              (.candidateAppUserIds | length) == 2) and
+            all(.items[] | select(.auth0UserId == "auth0|unverified");
+              .status == "requires_resolution" and
+              (.resolvedAppUserId // "") == "" and
+              ((.candidateAppUserIds // []) | length) == 0)
+          ' "$migration_dir/auth0-plan.json"
+          go run ./backend/cmd/rsp-migrate legacy dry-run \
+            --source-fixture backend/internal/migration/testdata/valid_snapshot.json \
+            --manifest "$migration_dir/manifest.json"
+          go run ./backend/cmd/rsp-migrate legacy apply \
+            --source-fixture backend/internal/migration/testdata/valid_snapshot.json \
+            --target-state "$migration_dir/target-state.json" \
+            --manifest "$migration_dir/manifest.json"
+          go run ./backend/cmd/rsp-migrate legacy verify \
+            --target-state "$migration_dir/target-state.json" \
+            --manifest "$migration_dir/manifest.json" \
+            > "$migration_dir/verification.json"
+          jq -e '
+            .foreignKeyErrors == 0 and
+            (.runId | length > 0) and
+            (.manifestChecksum | length == 64) and
+            (.verifiedAt | length > 0) and
+            (.counts | length == 18) and
+            (.checksums | length == 18)
+          ' \
+            "$migration_dir/verification.json"
+          jq -e '
+            .version == 1 and
+            (.sourceSchemaFingerprint | length == 64) and
+            (.sourceSnapshotChecksum | length == 64) and
+            (.efHistory | length > 0) and
+            (.tables | length == 18) and
+            (.mappings | length > 0) and
+            (.histograms | length > 0) and
+            (.anomalies | length == 0) and
+            (.autoFixes | length > 0) and
+            (.checksum | length == 64)
+          ' \
+            "$migration_dir/manifest.json"
+          run_id="$(jq -er '.runId' "$migration_dir/manifest.json")"
+          go run ./backend/cmd/rsp-migrate legacy rollback \
+            --target-state "$migration_dir/target-state.json" \
+            --run-id "$run_id"
+          jq -e --arg run_id "$run_id" '
+            .runs[$run_id].state == "rolled_back" and
+            ([.tables[] | length] | all(. == 0))
+          ' "$migration_dir/target-state.json"
+
+  containers:
+    name: Production images, Trivy and Compose smoke
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      IMAGE_TAG: ci
+      PUBLIC_ORIGIN: https://rsp.invalid
+      RSP_PORT: 8080
+      POSTGRES_DB: rsp
+      POSTGRES_USER: rsp
+      POSTGRES_PASSWORD: ci-only-fixture-pg-000000
+      MIGRATION_DB_PASSWORD: ci-only-fixture-migration-000000
+      APP_DB_PASSWORD: ci-only-fixture-app-000000
+      AUTH_DB_PASSWORD: ci-only-fixture-auth-000000
+      BETTER_AUTH_SECRET: ci-only-fixture-better-auth-0000000000
+      IDENTITY_SERVICE_TOKEN: ci-only-fixture-identity-000000000000
+      CURSOR_SECRET: ci-only-fixture-cursor-00000000000000
+      AUTH_ISSUER: https://rsp.invalid
+      AUTH_AUDIENCE: rsp-api
+      AUTH_JWKS_URL: http://auth:3001/api/auth/jwks
+      AUTH_TRUSTED_ORIGINS: https://rsp.invalid
+      AUTH_COOKIE_SECURE: 'true'
+      AUTH_TRUST_PROXY_HEADERS: 'true'
+      AUTH_IP_ADDRESS_HEADER: x-real-ip
+      GOOGLE_CLIENT_ID: rsp-ci-google-client
+      GOOGLE_CLIENT_SECRET: rsp-ci-google-secret
+      EMAIL_PROVIDER: ses
+      EMAIL_FROM: RSP <no-reply@rsp.invalid>
+      AWS_REGION: ap-southeast-2
+      GRAFANA_ADMIN_USER: admin
+      GRAFANA_ADMIN_PASSWORD: ci-only-fixture-grafana-000000
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Validate production settings and Compose
+        run: |
+          sh deploy/scripts/require-production-env.sh
+          docker compose --profile prod config --quiet
+      - name: Build production images
+        run: |
+          docker compose --profile prod build migrate-app api worker auth web
+          docker build --file backend/Dockerfile --target ops --tag rsp-ops:ci .
+          docker run --rm --entrypoint sh rsp-ops:ci -c \
+            'command -v rspctl >/dev/null && command -v rsp-migrate >/dev/null'
+      - name: Prove production web bundle excludes demo fixtures
+        run: |
+          if docker run --rm --entrypoint sh rsp-web:ci -c \
+            "grep -R -E 'rsp-demo-|example\\.test|Amelia Chen' /usr/share/nginx/html"; then
+            echo "Production web image contains demo-only fixture data" >&2
+            exit 1
+          fi
+      - name: Scan API image
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: rsp-api:ci
+          version: v0.70.0
+          format: table
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: 1
+      - name: Scan auth image
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: rsp-auth:ci
+          version: v0.70.0
+          format: table
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: 1
+      - name: Scan worker image
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: rsp-worker:ci
+          version: v0.70.0
+          format: table
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: 1
+      - name: Scan web image
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: rsp-web:ci
+          version: v0.70.0
+          format: table
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: 1
+      - name: Scan migration image
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: rsp-migrations:ci
+          version: v0.70.0
+          format: table
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: 1
+      - name: Scan operations image
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: rsp-ops:ci
+          version: v0.70.0
+          format: table
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: 1
+      - name: Start production-profile smoke stack
+        run: docker compose --profile prod up --build --detach
+      - name: Smoke public edge and API readiness
+        shell: bash
+        run: |
+          if ! curl --fail --show-error --retry 24 --retry-delay 5 --retry-all-errors \
+            http://127.0.0.1:8080/health/live; then
+            docker compose --profile prod logs --tail=300
+            exit 1
+          fi
+          if ! curl --fail --show-error --retry 24 --retry-delay 5 --retry-all-errors \
+            http://127.0.0.1:8080/api/v2/health/ready; then
+            docker compose --profile prod logs --tail=300
+            exit 1
+          fi
+          curl --fail --show-error http://127.0.0.1:8080/ > /dev/null
+          curl --fail --show-error http://127.0.0.1:8080/api/v2/openapi.json > /dev/null
+          test "$(curl --silent --output /dev/null --write-out '%{http_code}' \
+            http://127.0.0.1:8080/api/v2/metrics)" = "404"
+          role_isolation="$(docker compose exec -T postgres psql \
+            --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" \
+            --tuples-only --no-align --command \
+            "SELECT has_table_privilege('rsp_app','app.users','SELECT')
+                AND NOT has_table_privilege('rsp_app','app.audit_events','UPDATE')
+                AND has_table_privilege('rsp_auth','auth.users','SELECT')
+                AND NOT has_table_privilege('rsp_auth','app.users','SELECT')")"
+          test "$role_isolation" = "t"
+          running_services="$(docker compose --profile prod ps --status running --services)"
+          for service in postgres api worker auth web nginx prometheus grafana; do
+            grep -Fxq "$service" <<EOF
+          $running_services
+          EOF
+          done
+          docker compose --profile prod ps
+      - name: Exercise Better Auth over HTTP and PostgreSQL
+        env:
+          AUTH_SMOKE_ALLOW_DATABASE_WRITE: 'true'
+        run: |
+          docker compose -f compose.yaml -f deploy/compose.auth-smoke.yaml \
+            --profile prod up --detach --force-recreate api auth mailpit
+          sh deploy/scripts/auth-http-smoke.sh
+      - name: Production logs on failure
+        if: failure()
+        run: |
+          docker compose -f compose.yaml -f deploy/compose.auth-smoke.yaml \
+            --profile prod logs --tail=500
+      - name: Stop production-profile smoke stack
+        if: always()
+        run: |
+          docker compose -f compose.yaml -f deploy/compose.auth-smoke.yaml \
+            --profile prod down --volumes --remove-orphans

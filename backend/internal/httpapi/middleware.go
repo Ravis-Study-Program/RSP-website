@@ -40,11 +40,20 @@ func (b BearerAuthenticator) Authenticate(r *http.Request) (authz.Actor, error) 
 	if err != nil {
 		return authz.Actor{}, err
 	}
+	if !claimsMatchActor(claims, actor) {
+		return authz.Actor{}, authn.ErrInvalidToken
+	}
 	if claims.MFAVerified && claims.MFAVerifiedAt != nil {
 		at := claims.MFAVerifiedAt.Time.UTC()
 		actor.MFAAt = &at
 	}
 	return actor, nil
+}
+
+func claimsMatchActor(claims authn.Claims, actor authz.Actor) bool {
+	return claims.AccountState == string(actor.AccountState) &&
+		claims.SecurityVersion > 0 &&
+		claims.SecurityVersion == actor.SecurityVersion
 }
 
 type actorKey struct{}
@@ -55,11 +64,20 @@ func (a *API) protected(class ratelimit.Class, next http.HandlerFunc) http.Handl
 	return func(w http.ResponseWriter, r *http.Request) {
 		actor, err := a.auth.Authenticate(r)
 		if err != nil {
-			a.fail(w, r, http.StatusUnauthorized, "authentication_required", "Authentication required", err.Error(), nil)
+			cause := err.Error()
+			if len(cause) > 512 {
+				cause = cause[:512]
+			}
+			a.logger.Warn("authentication failed", "requestId", requestIDFrom(r.Context()), "cause", cause)
+			a.fail(w, r, http.StatusUnauthorized, "authentication_required", "Authentication required", "A valid access token is required.", nil)
 			return
 		}
 		if actor.AccountState != authz.AccountActive {
 			a.fail(w, r, http.StatusForbidden, "account_unavailable", "Account unavailable", "This account cannot access the product.", nil)
+			return
+		}
+		if !actor.EmailVerified {
+			a.fail(w, r, http.StatusForbidden, "email_verification_required", "Email verification required", "Verify the account email before accessing the product.", nil)
 			return
 		}
 		if r.Method != http.MethodGet && r.Method != http.MethodHead && r.Method != http.MethodOptions && !a.validOrigin(r) {

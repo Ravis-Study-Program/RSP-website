@@ -1,0 +1,14 @@
+title = "RSP Gitleaks configuration"
+
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Pinned SHA-256 auth migration checksums are integrity metadata, not credentials"
+condition = "AND"
+regexTarget = "match"
+paths = ['''(?:^|/)deploy/postgres/migrate-auth\.sql$''']
+regexes = [
+  '''17f1d2e1a897e44eca5a01a7204f658e5bb3f54e92d10f6a03e3c30a374662d5''',
+  '''44a4e5a1b012d49ca6399b078a76787f6a3e10117bdf3f4dce5a234d9fed900a''',
+]

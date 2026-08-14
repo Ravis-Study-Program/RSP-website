@@ -19,17 +19,47 @@ import (
 )
 
 var (
-	ErrInvalidToken = errors.New("invalid access token")
-	ErrUnverified   = errors.New("email is not verified")
+	ErrInvalidToken       = errors.New("invalid access token")
+	ErrUnverified         = errors.New("email is not verified")
+	ErrAccountUnavailable = errors.New("account is unavailable")
 )
 
 type Claims struct {
-	EmailVerified bool             `json:"emailVerified"`
-	AccountState  string           `json:"accountState,omitempty"`
-	MFAVerified   bool             `json:"mfaVerified,omitempty"`
-	MFAVerifiedAt *jwt.NumericDate `json:"mfaVerifiedAt,omitempty"`
+	EmailVerified   bool           `json:"emailVerified"`
+	AccountState    string         `json:"accountState,omitempty"`
+	SecurityVersion int64          `json:"securityVersion,omitempty"`
+	MFAVerified     bool           `json:"mfaVerified,omitempty"`
+	MFAVerifiedAt   *ClaimDateTime `json:"mfaVerifiedAt,omitempty"`
 	jwt.RegisteredClaims
 }
+
+// ClaimDateTime accepts both Better Auth's RFC3339 access-policy value and a
+// standard JWT NumericDate. This keeps key/session rotation compatible without
+// requiring the browser-facing auth contract to expose numeric timestamps.
+type ClaimDateTime struct{ time.Time }
+
+func (v *ClaimDateTime) UnmarshalJSON(raw []byte) error {
+	var text string
+	if err := json.Unmarshal(raw, &text); err == nil {
+		parsed, err := time.Parse(time.RFC3339Nano, text)
+		if err != nil {
+			return fmt.Errorf("invalid RFC3339 claim time: %w", err)
+		}
+		v.Time = parsed.UTC()
+		return nil
+	}
+	var numeric jwt.NumericDate
+	if err := json.Unmarshal(raw, &numeric); err != nil {
+		return fmt.Errorf("invalid claim time: %w", err)
+	}
+	v.Time = numeric.Time.UTC()
+	return nil
+}
+
+func (v ClaimDateTime) MarshalJSON() ([]byte, error) {
+	return json.Marshal(v.Time.UTC().Format(time.RFC3339Nano))
+}
+
 type jwk struct{ Kty, Kid, Alg, Use, N, E, Crv, X, Y string }
 type jwks struct {
 	Keys []jwk `json:"keys"`
@@ -49,6 +79,9 @@ func (v *Validator) Validate(ctx context.Context, raw string) (Claims, error) {
 	}
 	if v.TTL == 0 {
 		v.TTL = 5 * time.Minute
+	}
+	if err := v.refresh(ctx, false); err != nil {
+		return Claims{}, fmt.Errorf("%w: key refresh failed", ErrInvalidToken)
 	}
 	claims := Claims{}
 	parser := jwt.NewParser(jwt.WithIssuer(v.Issuer), jwt.WithAudience(v.Audience), jwt.WithExpirationRequired(), jwt.WithIssuedAt(), jwt.WithLeeway(30*time.Second), jwt.WithValidMethods([]string{"RS256", "RS384", "RS512", "EdDSA", "ES256"}))
@@ -74,6 +107,9 @@ func (v *Validator) Validate(ctx context.Context, raw string) (Claims, error) {
 	}
 	if !claims.EmailVerified {
 		return Claims{}, ErrUnverified
+	}
+	if claims.AccountState != "active" || claims.SecurityVersion < 1 {
+		return Claims{}, ErrAccountUnavailable
 	}
 	return claims, nil
 }
@@ -155,18 +191,23 @@ func parseJWK(j jwk) (any, error) {
 		if j.Crv != "P-256" {
 			return nil, errors.New("unsupported EC curve")
 		}
-		x, err := decodeBig(j.X)
+		x, err := base64.RawURLEncoding.DecodeString(j.X)
+		if err != nil || len(x) != 32 {
+			return nil, errors.New("invalid P-256 x coordinate")
+		}
+		y, err := base64.RawURLEncoding.DecodeString(j.Y)
+		if err != nil || len(y) != 32 {
+			return nil, errors.New("invalid P-256 y coordinate")
+		}
+		encoded := make([]byte, 1+len(x)+len(y))
+		encoded[0] = 4
+		copy(encoded[1:], x)
+		copy(encoded[1+len(x):], y)
+		key, err := ecdsa.ParseUncompressedPublicKey(elliptic.P256(), encoded)
 		if err != nil {
-			return nil, err
+			return nil, errors.New("invalid P-256 public key")
 		}
-		y, err := decodeBig(j.Y)
-		if err != nil {
-			return nil, err
-		}
-		if !elliptic.P256().IsOnCurve(x, y) {
-			return nil, errors.New("point is not on curve")
-		}
-		return &ecdsa.PublicKey{Curve: elliptic.P256(), X: x, Y: y}, nil
+		return key, nil
 	default:
 		return nil, errors.New("unsupported key type")
 	}

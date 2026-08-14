@@ -8,7 +8,9 @@ WHERE l.auth_subject = $1
   AND u.deleted_at IS NULL;
 
 -- name: GetUserPrivateByID :one
-SELECT * FROM app.users WHERE id = $1;
+SELECT * FROM app.users
+WHERE (id = $1 OR lower(slug) = lower($1))
+  AND deleted_at IS NULL;
 
 -- name: GetUserPublicBySlug :one
 SELECT id, slug, display_name, avatar_url, timezone, created_at

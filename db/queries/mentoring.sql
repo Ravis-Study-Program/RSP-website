@@ -33,6 +33,8 @@ RETURNING *;
 UPDATE app.enrollments
 SET state = sqlc.arg(resulting_state),
     state_changed_at = sqlc.arg(occurred_at),
+    assignment_state = 'revoked',
+    activated_at = NULL,
     revision = revision + 1
 WHERE id = sqlc.arg(id)
   AND state = 'active'

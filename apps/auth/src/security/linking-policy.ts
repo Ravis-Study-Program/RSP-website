@@ -1,10 +1,10 @@
 export interface LinkingDecision {
   readonly allowed: boolean;
   readonly reason?:
-    | "not_authenticated"
-    | "reauthentication_required"
-    | "unsupported_provider"
-    | "different_email";
+    | 'not_authenticated'
+    | 'reauthentication_required'
+    | 'unsupported_provider'
+    | 'different_email';
 }
 
 export function evaluateFreshSession(options: {
@@ -14,7 +14,7 @@ export function evaluateFreshSession(options: {
   readonly freshAgeSeconds: number;
 }): LinkingDecision {
   if (!options.authenticatedUserId || !options.sessionCreatedAt) {
-    return { allowed: false, reason: "not_authenticated" };
+    return { allowed: false, reason: 'not_authenticated' };
   }
   const createdAtMs = new Date(options.sessionCreatedAt).getTime();
   if (
@@ -22,7 +22,7 @@ export function evaluateFreshSession(options: {
     createdAtMs > options.now.getTime() ||
     options.now.getTime() - createdAtMs > options.freshAgeSeconds * 1_000
   ) {
-    return { allowed: false, reason: "reauthentication_required" };
+    return { allowed: false, reason: 'reauthentication_required' };
   }
   return { allowed: true };
 }
@@ -38,14 +38,15 @@ export function evaluateExplicitLink(options: {
 }): LinkingDecision {
   const freshness = evaluateFreshSession(options);
   if (!freshness.allowed) return freshness;
-  if (options.provider !== "google") {
-    return { allowed: false, reason: "unsupported_provider" };
+  if (options.provider !== 'google') {
+    return { allowed: false, reason: 'unsupported_provider' };
   }
   if (
     options.providerEmail &&
-    options.providerEmail.trim().toLowerCase() !== options.currentEmail.trim().toLowerCase()
+    options.providerEmail.trim().toLowerCase() !==
+      options.currentEmail.trim().toLowerCase()
   ) {
-    return { allowed: false, reason: "different_email" };
+    return { allowed: false, reason: 'different_email' };
   }
   return { allowed: true };
 }

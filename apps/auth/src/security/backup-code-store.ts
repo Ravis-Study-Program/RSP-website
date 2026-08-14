@@ -1,13 +1,13 @@
-import { AsyncLocalStorage } from "node:async_hooks";
-import { randomBytes, scryptSync, timingSafeEqual } from "node:crypto";
+import { AsyncLocalStorage } from 'node:async_hooks';
+import { randomBytes, scryptSync, timingSafeEqual } from 'node:crypto';
 
-const VERSION = "s1";
+const VERSION = 's1';
 const KEY_LENGTH = 32;
 const requestCandidate = new AsyncLocalStorage<string | undefined>();
 
 function hashBackupCode(code: string, salt = randomBytes(16)): string {
   const hash = scryptSync(code, salt, KEY_LENGTH);
-  return `${VERSION}$${salt.toString("base64url")}$${hash.toString("base64url")}`;
+  return `${VERSION}$${salt.toString('base64url')}$${hash.toString('base64url')}`;
 }
 
 function isStoredHash(value: string): boolean {
@@ -15,13 +15,15 @@ function isStoredHash(value: string): boolean {
 }
 
 function matchesBackupCode(code: string, encoded: string): boolean {
-  const [version, encodedSalt, encodedHash] = encoded.split("$");
+  const [version, encodedSalt, encodedHash] = encoded.split('$');
   if (version !== VERSION || !encodedSalt || !encodedHash) return false;
   try {
-    const salt = Buffer.from(encodedSalt, "base64url");
-    const expected = Buffer.from(encodedHash, "base64url");
+    const salt = Buffer.from(encodedSalt, 'base64url');
+    const expected = Buffer.from(encodedHash, 'base64url');
     const actual = scryptSync(code, salt, expected.length);
-    return actual.length === expected.length && timingSafeEqual(actual, expected);
+    return (
+      actual.length === expected.length && timingSafeEqual(actual, expected)
+    );
   } catch {
     return false;
   }
@@ -29,8 +31,11 @@ function matchesBackupCode(code: string, encoded: string): boolean {
 
 function parseArray(value: string): string[] {
   const parsed: unknown = JSON.parse(value);
-  if (!Array.isArray(parsed) || parsed.some((entry) => typeof entry !== "string")) {
-    throw new Error("invalid backup-code storage payload");
+  if (
+    !Array.isArray(parsed) ||
+    parsed.some((entry) => typeof entry !== 'string')
+  ) {
+    throw new Error('invalid backup-code storage payload');
   }
   return parsed;
 }
@@ -46,7 +51,9 @@ function parseArray(value: string): string[] {
 export const hashedBackupCodeCodec = {
   async encrypt(serializedCodes: string): Promise<string> {
     return JSON.stringify(
-      parseArray(serializedCodes).map((code) => (isStoredHash(code) ? code : hashBackupCode(code))),
+      parseArray(serializedCodes).map((code) =>
+        isStoredHash(code) ? code : hashBackupCode(code),
+      ),
     );
   },
 

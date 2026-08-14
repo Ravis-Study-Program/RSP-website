@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -40,6 +41,7 @@ func (source *PostgresSource) Snapshot(ctx context.Context, options SnapshotOpti
 	if err := tx.QueryRow(ctx, "SELECT transaction_timestamp()").Scan(&snapshot.CapturedAt); err != nil {
 		return Snapshot{}, fmt.Errorf("read snapshot timestamp: %w", err)
 	}
+	snapshot.CapturedAt = snapshot.CapturedAt.UTC()
 	snapshot.Schema, err = readLegacySchema(ctx, tx)
 	if err != nil {
 		return Snapshot{}, err
@@ -266,25 +268,37 @@ INSERT INTO migration.source_tables (
 			// Exact duplicate pure joins intentionally share the first target row.
 			values = Row{}
 		}
+		transformedData, err := json.Marshal(values)
+		if err != nil {
+			return fmt.Errorf("encode provenance %s/%s: %w", item.SourceTable, item.SourceID, err)
+		}
 		if _, err := tx.tx.Exec(ctx, `
 INSERT INTO migration.row_provenance (
   run_id, source_table, source_id, target_table, target_id,
   source_checksum, transformed_checksum, transformed_data, duplicate_group
 ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
 			manifest.RunID, item.SourceTable, item.SourceID, item.TargetTable,
-			item.TargetID, item.SourceChecksum, item.TransformedChecksum, values,
+			item.TargetID, item.SourceChecksum, item.TransformedChecksum, transformedData,
 			nilIfEmpty(item.DuplicateGroup)); err != nil {
 			return err
 		}
 	}
 	for _, item := range manifest.Anomalies {
+		contextValue := item.Context
+		if contextValue == nil {
+			contextValue = Row{}
+		}
+		encodedContext, err := json.Marshal(contextValue)
+		if err != nil {
+			return fmt.Errorf("encode anomaly %s/%s: %w", item.Code, item.SourceID, err)
+		}
 		if _, err := tx.tx.Exec(ctx, `
 INSERT INTO migration.anomalies (
   run_id, code, source_table, source_id, severity, detail, context,
   resolution_checksum
 ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
 			manifest.RunID, item.Code, item.SourceTable, item.SourceID,
-			item.Severity, item.Detail, item.Context, nilIfEmpty(item.ResolvedByChecksum)); err != nil {
+			item.Severity, item.Detail, encodedContext, nilIfEmpty(item.ResolvedByChecksum)); err != nil {
 			return err
 		}
 	}
@@ -293,23 +307,35 @@ INSERT INTO migration.anomalies (
 		if value == nil {
 			value = Row{}
 		}
+		encodedValue, err := json.Marshal(value)
+		if err != nil {
+			return fmt.Errorf("encode resolution %s/%s: %w", item.AnomalyCode, item.SourceID, err)
+		}
 		if _, err := tx.tx.Exec(ctx, `
 INSERT INTO migration.resolutions (
   run_id, anomaly_code, source_table, source_id, action, value,
   resolution_file_checksum
 ) VALUES ($1, $2, $3, $4, $5, $6, $7)`,
 			manifest.RunID, item.AnomalyCode, item.SourceTable, item.SourceID,
-			item.Action, value, manifest.ResolutionChecksum); err != nil {
+			item.Action, encodedValue, manifest.ResolutionChecksum); err != nil {
 			return err
 		}
 	}
 	for _, item := range manifest.AutoFixes {
+		beforeValue, err := jsonValue(item.Before)
+		if err != nil {
+			return fmt.Errorf("encode auto-fix %s before value: %w", item.Code, err)
+		}
+		afterValue, err := jsonValue(item.After)
+		if err != nil {
+			return fmt.Errorf("encode auto-fix %s after value: %w", item.Code, err)
+		}
 		if _, err := tx.tx.Exec(ctx, `
 INSERT INTO migration.auto_fixes (
   run_id, source_table, source_id, code, before_value, after_value
 ) VALUES ($1, $2, $3, $4, $5, $6)`,
 			manifest.RunID, item.SourceTable, item.SourceID, item.Code,
-			jsonValue(item.Before), jsonValue(item.After)); err != nil {
+			beforeValue, afterValue); err != nil {
 			return err
 		}
 	}
@@ -363,28 +389,26 @@ func (tx *postgresTx) Verification(ctx context.Context, manifest Manifest) (Veri
 		return Verification{}, ErrManifestChecksum
 	}
 	verification := Verification{RunID: manifest.RunID, ManifestChecksum: manifest.Checksum, Counts: map[string]int{}, Checksums: map[string]string{}}
-	rows, err := tx.tx.Query(ctx, `
-SELECT source_table, imported_count, transformed_checksum
-FROM migration.source_tables
-WHERE run_id = $1
-ORDER BY source_table`, manifest.RunID)
+	rowsBySource, err := tx.readCurrentPreparedRows(ctx, manifest.RunID)
 	if err != nil {
 		return Verification{}, err
 	}
-	for rows.Next() {
-		var table, checksum string
-		var count int
-		if err := rows.Scan(&table, &count, &checksum); err != nil {
-			rows.Close()
-			return Verification{}, err
-		}
-		verification.Counts[table] = count
-		verification.Checksums[table] = checksum
-	}
-	rows.Close()
 	for _, expected := range manifest.Tables {
-		if verification.Counts[expected.SourceTable] != expected.TransformedCount || verification.Checksums[expected.SourceTable] != expected.TransformedChecksum {
-			return Verification{}, fmt.Errorf("migration metadata mismatch for %s", expected.SourceTable)
+		prepared := rowsBySource[expected.SourceTable]
+		sort.Slice(prepared, func(i, j int) bool {
+			if prepared[i].ID == prepared[j].ID {
+				return prepared[i].SourceID < prepared[j].SourceID
+			}
+			return prepared[i].ID < prepared[j].ID
+		})
+		checksum, checksumErr := Checksum(prepared)
+		if checksumErr != nil {
+			return Verification{}, checksumErr
+		}
+		verification.Counts[expected.SourceTable] = len(prepared)
+		verification.Checksums[expected.SourceTable] = checksum
+		if len(prepared) != expected.TransformedCount || checksum != expected.TransformedChecksum {
+			return Verification{}, fmt.Errorf("verification mismatch for %s: count %d/%d checksum %s/%s", expected.SourceTable, len(prepared), expected.TransformedCount, checksum, expected.TransformedChecksum)
 		}
 	}
 	var missingTargets int
@@ -396,22 +420,30 @@ ORDER BY target_table, target_id`, manifest.RunID)
 	if err != nil {
 		return Verification{}, err
 	}
+	type targetReference struct{ table, id string }
+	targets := make([]targetReference, 0)
 	for provenanceRows.Next() {
 		var table, id string
 		if err := provenanceRows.Scan(&table, &id); err != nil {
 			provenanceRows.Close()
 			return Verification{}, err
 		}
-		exists, err := targetRowExists(ctx, tx.tx, table, id)
+		targets = append(targets, targetReference{table: table, id: id})
+	}
+	if err := provenanceRows.Err(); err != nil {
+		provenanceRows.Close()
+		return Verification{}, err
+	}
+	provenanceRows.Close()
+	for _, target := range targets {
+		exists, err := targetRowExists(ctx, tx.tx, target.table, target.id)
 		if err != nil {
-			provenanceRows.Close()
 			return Verification{}, err
 		}
 		if !exists {
 			missingTargets++
 		}
 	}
-	provenanceRows.Close()
 	verification.ForeignKeyErrors = missingTargets
 	if missingTargets == 0 {
 		if _, err := tx.tx.Exec(ctx, "SET CONSTRAINTS ALL IMMEDIATE"); err != nil {
@@ -422,6 +454,102 @@ ORDER BY target_table, target_id`, manifest.RunID)
 		}
 	}
 	return verification, nil
+}
+
+func (tx *postgresTx) readCurrentPreparedRows(ctx context.Context, runID string) (map[string][]PreparedRow, error) {
+	rows, err := tx.tx.Query(ctx, `
+SELECT source_table, source_id, target_table, target_id, transformed_data
+FROM migration.row_provenance
+WHERE run_id=$1
+ORDER BY source_table,target_table,target_id,(transformed_data='{}'::jsonb),source_id`, runID)
+	if err != nil {
+		return nil, err
+	}
+	type provenanceRecord struct {
+		sourceTable, sourceID, targetTable, targetID string
+		transformedData                              []byte
+	}
+	records := make([]provenanceRecord, 0)
+	for rows.Next() {
+		var record provenanceRecord
+		if err := rows.Scan(&record.sourceTable, &record.sourceID, &record.targetTable, &record.targetID, &record.transformedData); err != nil {
+			rows.Close()
+			return nil, err
+		}
+		records = append(records, record)
+	}
+	if err := rows.Err(); err != nil {
+		rows.Close()
+		return nil, err
+	}
+	rows.Close()
+	result := map[string][]PreparedRow{}
+	seenTargets := map[string]bool{}
+	for _, record := range records {
+		targetKey := record.sourceTable + "\x00" + record.targetTable + "\x00" + record.targetID
+		if seenTargets[targetKey] {
+			// Exact duplicate pure joins are represented multiple times in
+			// provenance, but only once in the transformed target row set.
+			continue
+		}
+		seenTargets[targetKey] = true
+		var expected Row
+		if err := json.Unmarshal(record.transformedData, &expected); err != nil {
+			return nil, err
+		}
+		current, err := readTargetRow(ctx, tx.tx, record.targetTable, record.targetID, expected)
+		if err != nil {
+			return nil, err
+		}
+		result[record.sourceTable] = append(result[record.sourceTable], PreparedRow{ID: record.targetID, SourceTable: record.sourceTable, SourceID: record.sourceID, Values: current})
+	}
+	return result, nil
+}
+
+func readTargetRow(ctx context.Context, tx pgx.Tx, table, targetID string, expected Row) (Row, error) {
+	if !containsString(targetOrder, table) {
+		return nil, fmt.Errorf("target table %q is not allowed", table)
+	}
+	columns := make([]string, 0, len(expected))
+	for column := range expected {
+		columns = append(columns, column)
+	}
+	sort.Strings(columns)
+	comparisons := make([]string, 0, len(columns))
+	for _, column := range columns {
+		quoted := pgx.Identifier{column}.Sanitize()
+		comparisons = append(comparisons, "t."+quoted+" IS NOT DISTINCT FROM expected."+quoted)
+	}
+	qualified := "app." + pgx.Identifier{table}.Sanitize()
+	where, args := "t.id=$1", []any{targetID}
+	if table == "leetcode_problem_category_mappings" {
+		parts := strings.SplitN(targetID, "|", 2)
+		if len(parts) != 2 {
+			return nil, fmt.Errorf("invalid category mapping id %q", targetID)
+		}
+		where, args = "t.leetcode_problem_id=$1 AND t.category_id=$2", []any{parts[0], parts[1]}
+	}
+	encoded, err := json.Marshal(expected)
+	if err != nil {
+		return nil, err
+	}
+	args = append(args, encoded)
+	var matches bool
+	query := "SELECT (" + strings.Join(comparisons, " AND ") + ") FROM " + qualified + " t CROSS JOIN jsonb_populate_record(NULL::" + qualified + ", $" + strconv.Itoa(len(args)) + "::jsonb) expected WHERE " + where
+	if err := tx.QueryRow(ctx, query, args...).Scan(&matches); err != nil {
+		return nil, noRowsMigration(err)
+	}
+	if !matches {
+		return nil, fmt.Errorf("migration target row mismatch for %s/%s", table, targetID)
+	}
+	return expected, nil
+}
+
+func noRowsMigration(err error) error {
+	if errors.Is(err, pgx.ErrNoRows) {
+		return fmt.Errorf("migration target row is missing: %w", err)
+	}
+	return err
 }
 
 func targetRowExists(ctx context.Context, tx pgx.Tx, table, id string) (bool, error) {
@@ -445,6 +573,24 @@ func targetRowExists(ctx context.Context, tx pgx.Tx, table, id string) (bool, er
 func (tx *postgresTx) RollbackRun(ctx context.Context, runID string) error {
 	if !tx.locked {
 		return errors.New("migration advisory lock is not held")
+	}
+	var state string
+	if err := tx.tx.QueryRow(ctx, `SELECT state::text FROM migration.runs WHERE id=$1 FOR UPDATE`, runID).Scan(&state); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return ErrRunNotFound
+		}
+		return err
+	}
+	if state != "applied" && state != "verified" {
+		return ErrRunNotFound
+	}
+	// Refuse to destroy any row that has changed since import. This also proves
+	// every provenance target still exists before the first DELETE executes.
+	if _, err := tx.readCurrentPreparedRows(ctx, runID); err != nil {
+		return fmt.Errorf("refuse rollback of changed migration targets: %w", err)
+	}
+	if _, err := tx.tx.Exec(ctx, `SELECT set_config('rsp.migration_rollback','on',true)`); err != nil {
+		return err
 	}
 	for index := len(targetOrder) - 1; index >= 0; index-- {
 		table := targetOrder[index]
@@ -529,9 +675,9 @@ func containsString(values []string, target string) bool {
 	return false
 }
 
-func jsonValue(value any) any {
+func jsonValue(value any) ([]byte, error) {
 	if value == nil {
-		return nil
+		return nil, nil
 	}
-	return value
+	return json.Marshal(value)
 }

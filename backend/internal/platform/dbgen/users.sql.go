@@ -20,7 +20,7 @@ SET account_state = 'deletion_pending',
 WHERE id = $3
   AND account_state = 'active'
   AND revision = $4
-RETURNING id, slug, display_name, email, discord_id, avatar_url, account_state, timezone, is_test, leetcode_premium_opt_in, legacy_is_admin, legacy_is_graduate, suspended_at, deletion_requested_at, deletion_due_at, pseudonymized_at, deleted_at, revision, created_at, updated_at
+RETURNING id, slug, display_name, email, discord_id, avatar_url, account_state, timezone, is_test, leetcode_premium_opt_in, legacy_is_admin, legacy_is_graduate, suspended_at, deletion_requested_at, deletion_due_at, pseudonymized_at, deleted_at, revision, created_at, updated_at, security_version, timezone_configured, mfa_configured
 `
 
 type BeginAccountDeletionParams struct {
@@ -59,6 +59,9 @@ func (q *Queries) BeginAccountDeletion(ctx context.Context, arg BeginAccountDele
 		&i.Revision,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.SecurityVersion,
+		&i.TimezoneConfigured,
+		&i.MfaConfigured,
 	)
 	return i, err
 }
@@ -71,7 +74,7 @@ SET account_state = 'active',
     revision = revision + 1
 WHERE id = $1
   AND account_state = 'deletion_pending'
-RETURNING id, slug, display_name, email, discord_id, avatar_url, account_state, timezone, is_test, leetcode_premium_opt_in, legacy_is_admin, legacy_is_graduate, suspended_at, deletion_requested_at, deletion_due_at, pseudonymized_at, deleted_at, revision, created_at, updated_at
+RETURNING id, slug, display_name, email, discord_id, avatar_url, account_state, timezone, is_test, leetcode_premium_opt_in, legacy_is_admin, legacy_is_graduate, suspended_at, deletion_requested_at, deletion_due_at, pseudonymized_at, deleted_at, revision, created_at, updated_at, security_version, timezone_configured, mfa_configured
 `
 
 type CancelAccountDeletionParams struct {
@@ -102,12 +105,17 @@ func (q *Queries) CancelAccountDeletion(ctx context.Context, arg CancelAccountDe
 		&i.Revision,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.SecurityVersion,
+		&i.TimezoneConfigured,
+		&i.MfaConfigured,
 	)
 	return i, err
 }
 
 const getUserPrivateByID = `-- name: GetUserPrivateByID :one
-SELECT id, slug, display_name, email, discord_id, avatar_url, account_state, timezone, is_test, leetcode_premium_opt_in, legacy_is_admin, legacy_is_graduate, suspended_at, deletion_requested_at, deletion_due_at, pseudonymized_at, deleted_at, revision, created_at, updated_at FROM app.users WHERE id = $1
+SELECT id, slug, display_name, email, discord_id, avatar_url, account_state, timezone, is_test, leetcode_premium_opt_in, legacy_is_admin, legacy_is_graduate, suspended_at, deletion_requested_at, deletion_due_at, pseudonymized_at, deleted_at, revision, created_at, updated_at, security_version, timezone_configured, mfa_configured FROM app.users
+WHERE (id = $1 OR lower(slug) = lower($1))
+  AND deleted_at IS NULL
 `
 
 type GetUserPrivateByIDParams struct {
@@ -138,6 +146,9 @@ func (q *Queries) GetUserPrivateByID(ctx context.Context, arg GetUserPrivateByID
 		&i.Revision,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.SecurityVersion,
+		&i.TimezoneConfigured,
+		&i.MfaConfigured,
 	)
 	return i, err
 }
@@ -358,7 +369,7 @@ func (q *Queries) ListGlobalRolesForUser(ctx context.Context, arg ListGlobalRole
 }
 
 const resolveActiveAuthSubject = `-- name: ResolveActiveAuthSubject :one
-SELECT u.id, u.slug, u.display_name, u.email, u.discord_id, u.avatar_url, u.account_state, u.timezone, u.is_test, u.leetcode_premium_opt_in, u.legacy_is_admin, u.legacy_is_graduate, u.suspended_at, u.deletion_requested_at, u.deletion_due_at, u.pseudonymized_at, u.deleted_at, u.revision, u.created_at, u.updated_at
+SELECT u.id, u.slug, u.display_name, u.email, u.discord_id, u.avatar_url, u.account_state, u.timezone, u.is_test, u.leetcode_premium_opt_in, u.legacy_is_admin, u.legacy_is_graduate, u.suspended_at, u.deletion_requested_at, u.deletion_due_at, u.pseudonymized_at, u.deleted_at, u.revision, u.created_at, u.updated_at, u.security_version, u.timezone_configured, u.mfa_configured
 FROM app.user_auth_links AS l
 JOIN app.users AS u ON u.id = l.user_id
 WHERE l.auth_subject = $1
@@ -395,6 +406,9 @@ func (q *Queries) ResolveActiveAuthSubject(ctx context.Context, arg ResolveActiv
 		&i.Revision,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.SecurityVersion,
+		&i.TimezoneConfigured,
+		&i.MfaConfigured,
 	)
 	return i, err
 }
@@ -430,7 +444,7 @@ WHERE id = $6
   AND revision = $7
   AND account_state = 'active'
   AND deleted_at IS NULL
-RETURNING id, slug, display_name, email, discord_id, avatar_url, account_state, timezone, is_test, leetcode_premium_opt_in, legacy_is_admin, legacy_is_graduate, suspended_at, deletion_requested_at, deletion_due_at, pseudonymized_at, deleted_at, revision, created_at, updated_at
+RETURNING id, slug, display_name, email, discord_id, avatar_url, account_state, timezone, is_test, leetcode_premium_opt_in, legacy_is_admin, legacy_is_graduate, suspended_at, deletion_requested_at, deletion_due_at, pseudonymized_at, deleted_at, revision, created_at, updated_at, security_version, timezone_configured, mfa_configured
 `
 
 type UpdateUserProfileParams struct {
@@ -475,6 +489,9 @@ func (q *Queries) UpdateUserProfile(ctx context.Context, arg UpdateUserProfilePa
 		&i.Revision,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.SecurityVersion,
+		&i.TimezoneConfigured,
+		&i.MfaConfigured,
 	)
 	return i, err
 }

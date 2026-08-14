@@ -1,6 +1,6 @@
 -- Generated from Better Auth 1.6.27 table metadata for the configuration in
--- src/auth.ts. Better Auth owns every object in the auth schema.
-CREATE SCHEMA IF NOT EXISTS auth;
+-- src/auth.ts. The privileged provisioner creates and assigns the auth schema;
+-- Better Auth owns every table and other object inside it.
 SET search_path TO auth;
 
 CREATE TABLE users (

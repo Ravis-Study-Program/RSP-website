@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/url"
 	"time"
 )
 
@@ -22,12 +23,33 @@ const (
 )
 
 type Participant struct {
-	UserID                                                     string
-	ActiveMember, Alumni, Suspended, Deleted, Test, KickedOnly bool
+	UserID       string `json:"userId"`
+	ActiveMember bool   `json:"activeMember,omitempty"`
+	Alumni       bool   `json:"alumni,omitempty"`
+	FormerMember bool   `json:"formerMember,omitempty"`
+	Inactive     bool   `json:"-"`
+	Suspended    bool   `json:"suspended,omitempty"`
+	Deleted      bool   `json:"deleted,omitempty"`
+	Test         bool   `json:"test,omitempty"`
+	KickedOnly   bool   `json:"kickedOnly,omitempty"`
+}
+type ParticipantSummary struct {
+	ID        string  `json:"id"`
+	Slug      string  `json:"slug"`
+	Name      string  `json:"name"`
+	AvatarURL *string `json:"avatarUrl,omitempty"`
 }
 
 func (p Participant) Eligible() bool {
-	return (p.ActiveMember || p.Alumni) && !p.Suspended && !p.Deleted && !p.Test && !p.KickedOnly
+	return (p.ActiveMember || p.Alumni) && !p.Inactive && !p.Suspended && !p.Deleted && !p.Test && !p.KickedOnly
+}
+
+func (p Participant) ProgrammeAccessEligible() bool {
+	return (p.ActiveMember || p.Alumni || p.FormerMember) && !p.Inactive && !p.Suspended && !p.Deleted && !p.Test && !p.KickedOnly
+}
+
+func (p Participant) DirectoryEligible() bool {
+	return (p.ActiveMember || p.Alumni) && !p.Inactive && !p.Suspended && !p.Deleted && !p.Test && !p.KickedOnly
 }
 
 type Scores struct {
@@ -40,22 +62,28 @@ type Scores struct {
 	Custom             *int `json:"custom,omitempty"`
 }
 type Round struct {
-	ID                       string    `json:"id"`
-	Type                     RoundType `json:"type"`
-	ProblemID, Content, Link string
-	Scores                   Scores `json:"scores"`
-	Reviewed                 bool   `json:"reviewed"`
-	IntervieweeComment       string `json:"intervieweeComment"`
+	ID                 string    `json:"id"`
+	Type               RoundType `json:"type"`
+	ProblemID          string    `json:"problemId,omitempty"`
+	Content            string    `json:"content,omitempty"`
+	Link               string    `json:"link,omitempty"`
+	Scores             Scores    `json:"scores"`
+	Reviewed           bool      `json:"reviewed"`
+	IntervieweeComment string    `json:"intervieweeComment"`
 }
 type Interview struct {
-	ID, InterviewerID, IntervieweeID string
-	SeasonID                         *string
-	OccurredAt                       time.Time
-	DurationMinutes                  int
-	Notes                            string
-	Rounds                           []Round
-	Revision                         int64
-	DeletedAt                        *time.Time
+	ID              string             `json:"id"`
+	InterviewerID   string             `json:"interviewerId"`
+	IntervieweeID   string             `json:"intervieweeId"`
+	Interviewer     ParticipantSummary `json:"interviewer"`
+	Interviewee     ParticipantSummary `json:"interviewee"`
+	SeasonID        *string            `json:"seasonId,omitempty"`
+	OccurredAt      time.Time          `json:"occurredAt"`
+	DurationMinutes int                `json:"durationMinutes"`
+	Notes           string             `json:"notes"`
+	Rounds          []Round            `json:"rounds"`
+	Revision        int64              `json:"revision"`
+	DeletedAt       *time.Time         `json:"-"`
 }
 type Version struct {
 	InterviewID     string
@@ -81,7 +109,12 @@ func (s *Service) Create(actorID string, in CreateInput, now time.Time) (Intervi
 	if actorID == "" || !in.Interviewee.Eligible() {
 		return Interview{}, ErrForbidden
 	}
-	m := Interview{ID: "mock-" + actorID + "-" + now.UTC().Format("20060102150405.000000000"), InterviewerID: actorID, IntervieweeID: in.Interviewee.UserID, SeasonID: in.SeasonID, OccurredAt: in.OccurredAt.UTC(), DurationMinutes: in.DurationMinutes, Notes: s.clean(in.Notes), Rounds: s.cleanRounds(in.Rounds), Revision: 1}
+	rounds := s.cleanRounds(in.Rounds)
+	for i := range rounds {
+		rounds[i].Reviewed = false
+		rounds[i].IntervieweeComment = ""
+	}
+	m := Interview{ID: "mock-" + actorID + "-" + now.UTC().Format("20060102150405.000000000"), InterviewerID: actorID, IntervieweeID: in.Interviewee.UserID, SeasonID: in.SeasonID, OccurredAt: in.OccurredAt.UTC(), DurationMinutes: in.DurationMinutes, Notes: s.clean(in.Notes), Rounds: rounds, Revision: 1}
 	if err := validate(m); err != nil {
 		return Interview{}, err
 	}
@@ -109,6 +142,19 @@ func (s *Service) Update(m *Interview, actorID string, in UpdateInput, now time.
 	candidate.DurationMinutes = in.DurationMinutes
 	candidate.Notes = s.clean(in.Notes)
 	candidate.Rounds = s.cleanRounds(in.Rounds)
+	existingReviews := make(map[string]Round, len(m.Rounds))
+	for _, round := range m.Rounds {
+		existingReviews[round.ID] = round
+	}
+	for i := range candidate.Rounds {
+		if existing, ok := existingReviews[candidate.Rounds[i].ID]; ok {
+			candidate.Rounds[i].Reviewed = existing.Reviewed
+			candidate.Rounds[i].IntervieweeComment = existing.IntervieweeComment
+		} else {
+			candidate.Rounds[i].Reviewed = false
+			candidate.Rounds[i].IntervieweeComment = ""
+		}
+	}
 	candidate.Revision++
 	if err := validate(candidate); err != nil {
 		return err
@@ -189,15 +235,50 @@ func validate(m Interview) error {
 			return ErrInvalid
 		}
 		seen[r.ID] = true
-		values := scoreValues(r.Scores)
-		if len(values) == 0 {
-			return ErrInvalid
+		if err := validateRound(r); err != nil {
+			return err
 		}
+		values := scoreValues(r.Scores)
 		for _, v := range values {
 			if v < 0 || v > 10 {
 				return fmt.Errorf("%w: score outside 0-10", ErrInvalid)
 			}
 		}
+	}
+	return nil
+}
+
+func validateRound(r Round) error {
+	s := r.Scores
+	allNil := func(values ...*int) bool {
+		for _, value := range values {
+			if value != nil {
+				return false
+			}
+		}
+		return true
+	}
+	switch r.Type {
+	case Behavioural:
+		if s.Behavioural == nil || !allNil(s.ConfirmQuestions, s.AlgorithmDesign, s.ComplexityAnalysis, s.Coding, s.Testing, s.Custom) {
+			return fmt.Errorf("%w: behavioural rounds require only a behavioural score", ErrInvalid)
+		}
+	case LeetCode:
+		if r.ProblemID == "" || s.ConfirmQuestions == nil || s.AlgorithmDesign == nil || s.ComplexityAnalysis == nil || s.Coding == nil || s.Testing == nil || !allNil(s.Behavioural, s.Custom) {
+			return fmt.Errorf("%w: leetcode rounds require a problem and all five scores", ErrInvalid)
+		}
+	case Custom:
+		if s.Custom == nil || !allNil(s.Behavioural, s.ConfirmQuestions, s.AlgorithmDesign, s.ComplexityAnalysis, s.Coding, s.Testing) {
+			return fmt.Errorf("%w: custom rounds require only a custom score", ErrInvalid)
+		}
+		if r.Link != "" {
+			parsed, err := url.Parse(r.Link)
+			if err != nil || (parsed.Scheme != "https" && parsed.Scheme != "http") || parsed.Host == "" {
+				return fmt.Errorf("%w: custom round link must be HTTP or HTTPS", ErrInvalid)
+			}
+		}
+	default:
+		return ErrInvalid
 	}
 	return nil
 }

@@ -1,0 +1,15 @@
+node_modules/
+dist/
+coverage/
+test-results/
+test-results-real/
+playwright-report/
+playwright-report-real/
+.cache/
+pnpm-lock.yaml
+
+# Orval owns the checked-in API client layout and formatting.
+apps/web/src/api/generated/
+
+# Preserve the imported legacy backlog byte-for-byte for provenance checks.
+docs/product-backlog.md

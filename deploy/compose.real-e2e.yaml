@@ -1,0 +1,24 @@
+# Test-only overlay for the isolated, disposable real-stack browser acceptance
+# job. It keeps every browser hop on the public Nginx origin and explicitly
+# disables both frontend fixtures and the API development auth bypass.
+services:
+  api-dev:
+    environment:
+      APP_ENV: test
+      DEV_AUTH_BYPASS: 'false'
+
+  worker-dev:
+    environment:
+      APP_ENV: test
+
+  web-dev:
+    environment:
+      VITE_USE_DEMO_DATA: 'false'
+
+  auth-dev:
+    environment:
+      NODE_ENV: test
+
+  nginx-dev:
+    ports: !override
+      - '127.0.0.1:${REAL_E2E_HTTP_PORT:-18080}:8080'

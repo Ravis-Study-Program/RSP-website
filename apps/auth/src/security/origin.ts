@@ -1,10 +1,10 @@
-const SAFE_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
+const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
 
 export type OriginDecision =
   | { readonly allowed: true; readonly origin?: string }
   | {
       readonly allowed: false;
-      readonly reason: "missing_origin" | "invalid_origin" | "untrusted_origin";
+      readonly reason: 'missing_origin' | 'invalid_origin' | 'untrusted_origin';
     };
 
 export function isStateChangingMethod(method: string): boolean {
@@ -17,20 +17,20 @@ export function evaluateBrowserOrigin(
   trustedOrigins: readonly string[],
 ): OriginDecision {
   if (!isStateChangingMethod(method)) return { allowed: true };
-  if (!originHeader) return { allowed: false, reason: "missing_origin" };
+  if (!originHeader) return { allowed: false, reason: 'missing_origin' };
 
   let origin: string;
   try {
     const url = new URL(originHeader);
-    if (url.origin === "null" || url.username || url.password) {
-      return { allowed: false, reason: "invalid_origin" };
+    if (url.origin === 'null' || url.username || url.password) {
+      return { allowed: false, reason: 'invalid_origin' };
     }
     origin = url.origin;
   } catch {
-    return { allowed: false, reason: "invalid_origin" };
+    return { allowed: false, reason: 'invalid_origin' };
   }
 
   return trustedOrigins.includes(origin)
     ? { allowed: true, origin }
-    : { allowed: false, reason: "untrusted_origin" };
+    : { allowed: false, reason: 'untrusted_origin' };
 }

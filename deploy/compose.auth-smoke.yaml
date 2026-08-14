@@ -1,0 +1,35 @@
+# CI-only overlay for exercising the production auth runtime against disposable
+# PostgreSQL and Mailpit services. Production settings are validated and the
+# unmodified image is scanned before this overlay is applied.
+services:
+  api:
+    ports:
+      - '127.0.0.1:4000:8080'
+    environment:
+      # This disposable CI overlay deliberately exercises loopback HTTP while
+      # leaving the normal production profile and its validation unchanged.
+      APP_ENV: test
+      PUBLIC_ORIGIN: 'http://127.0.0.1:8080'
+      AUTH_ISSUER: 'http://127.0.0.1:3001'
+
+  auth:
+    ports:
+      - '127.0.0.1:3001:3001'
+    environment:
+      NODE_ENV: development
+      BETTER_AUTH_URL: 'http://127.0.0.1:3001'
+      AUTH_TRUSTED_ORIGINS: 'http://127.0.0.1:3001'
+      AUTH_COOKIE_SECURE: 'false'
+      AUTH_TRUST_PROXY_HEADERS: 'false'
+      GOOGLE_CLIENT_ID: ''
+      GOOGLE_CLIENT_SECRET: ''
+      EMAIL_PROVIDER: smtp
+      SMTP_HOST: mailpit
+      SMTP_PORT: '1025'
+      SMTP_SECURE: 'false'
+    depends_on:
+      mailpit:
+        condition: service_started
+
+  mailpit:
+    profiles: ['prod']

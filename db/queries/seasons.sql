@@ -61,6 +61,8 @@ UPDATE app.enrollments
 SET state = 'completed',
     completed_by_close_id = sqlc.arg(close_event_id),
     state_changed_at = sqlc.arg(closed_at),
+    assignment_state = 'revoked',
+    activated_at = NULL,
     revision = revision + 1
 WHERE season_id = sqlc.arg(season_id)
   AND state = 'active'
@@ -92,6 +94,8 @@ UPDATE app.enrollments
 SET state = 'active',
     completed_by_close_id = NULL,
     state_changed_at = sqlc.arg(reopened_at),
+    assignment_state = CASE WHEN role='coordinator' THEN 'pending_mfa' ELSE 'active' END,
+    activated_at = CASE WHEN role='coordinator' THEN NULL ELSE sqlc.arg(reopened_at) END,
     revision = revision + 1
 WHERE completed_by_close_id = sqlc.arg(close_event_id)
   AND state = 'completed'

@@ -1,12 +1,12 @@
-import type { EmailMessage } from "./provider.js";
+import type { EmailMessage } from './provider.js';
 
 function escapeHtml(value: string): string {
   return value
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#39;");
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#39;');
 }
 
 function linkEmail(options: {
@@ -32,22 +32,24 @@ function linkEmail(options: {
 export function verificationEmail(to: string, url: string): EmailMessage {
   return linkEmail({
     to,
-    subject: "Verify your RSP email",
-    introduction: "Verify this email address before accessing RSP.",
-    action: "Verify email",
+    subject: 'Verify your RSP email',
+    introduction: 'Verify this email address before accessing RSP.',
+    action: 'Verify email',
     url,
-    expiry: "This link expires in one hour. If you did not create an account, ignore this email.",
+    expiry:
+      'This link expires in one hour. If you did not create an account, ignore this email.',
   });
 }
 
 export function passwordResetEmail(to: string, url: string): EmailMessage {
   return linkEmail({
     to,
-    subject: "Reset your RSP password",
-    introduction: "A password reset was requested for your RSP account.",
-    action: "Reset password",
+    subject: 'Reset your RSP password',
+    introduction: 'A password reset was requested for your RSP account.',
+    action: 'Reset password',
     url,
-    expiry: "This link expires in one hour. If you did not request it, ignore this email.",
+    expiry:
+      'This link expires in one hour. If you did not request it, ignore this email.',
   });
 }
 
@@ -58,9 +60,10 @@ export function deletionRecoveryEmail(
 ): EmailMessage {
   return linkEmail({
     to,
-    subject: "Recover your RSP account",
-    introduction: "Your RSP account is scheduled for deletion and all sessions were revoked.",
-    action: "Cancel account deletion",
+    subject: 'Recover your RSP account',
+    introduction:
+      'Your RSP account is scheduled for deletion and all sessions were revoked.',
+    action: 'Cancel account deletion',
     url,
     expiry: `Recovery is available until ${recoveryDeadline.toISOString()}.`,
   });

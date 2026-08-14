@@ -12,8 +12,10 @@ import {
   IconUsers,
 } from '@tabler/icons-react';
 import { useEffect, useMemo, useState, type ComponentType } from 'react';
-import { Link, NavLink, Outlet } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
+import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom';
 
+import { signOut } from '@/api/authClient';
 import { useCurrentUser } from '@/api/queries';
 import { useWorkspace } from '@/auth/WorkspaceContext';
 import { CommandPalette } from '@/components/CommandPalette';
@@ -34,7 +36,11 @@ function itemsFor(role: string | undefined, seasonSlug?: string): NavItem[] {
       { label: 'Dashboard', to: '/dashboard', icon: IconDashboard },
       { label: 'Season', to: seasonBase, icon: IconSchool, end: true },
       { label: 'Practice', to: `${seasonBase}/practice`, icon: IconBriefcase },
-      { label: 'Mock interviews', to: `${seasonBase}/mock-interviews`, icon: IconMessage2 },
+      {
+        label: 'Mock interviews',
+        to: `${seasonBase}/mock-interviews`,
+        icon: IconMessage2,
+      },
       { label: 'People', to: `${seasonBase}/people`, icon: IconUsers },
     ];
   }
@@ -42,7 +48,11 @@ function itemsFor(role: string | undefined, seasonSlug?: string): NavItem[] {
     return [
       { label: 'Dashboard', to: '/dashboard', icon: IconDashboard },
       { label: 'My mentees', to: `${seasonBase}/mentees`, icon: IconUsers },
-      { label: 'Mock interviews', to: `${seasonBase}/mock-interviews`, icon: IconMessage2 },
+      {
+        label: 'Mock interviews',
+        to: `${seasonBase}/mock-interviews`,
+        icon: IconMessage2,
+      },
       { label: 'People', to: `${seasonBase}/people`, icon: IconSchool },
     ];
   }
@@ -51,8 +61,21 @@ function itemsFor(role: string | undefined, seasonSlug?: string): NavItem[] {
       { label: 'Dashboard', to: '/dashboard', icon: IconDashboard },
       { label: 'Season', to: seasonBase, icon: IconCalendarEvent, end: true },
       { label: 'People', to: `${seasonBase}/people`, icon: IconUsers },
-      { label: 'Mentor teams', to: `${seasonBase}/mentor-teams`, icon: IconSchool },
-      { label: 'Mock interviews', to: `${seasonBase}/mock-interviews`, icon: IconMessage2 },
+      {
+        label: 'Mentor teams',
+        to: `${seasonBase}/mentor-teams`,
+        icon: IconSchool,
+      },
+      {
+        label: 'Mock interviews',
+        to: `${seasonBase}/mock-interviews`,
+        icon: IconMessage2,
+      },
+      {
+        label: 'Season operations',
+        to: '/admin/enrollments',
+        icon: IconAdjustments,
+      },
     ];
   }
   if (role === 'director' || role === 'system_admin') {
@@ -64,29 +87,73 @@ function itemsFor(role: string | undefined, seasonSlug?: string): NavItem[] {
       { label: 'Administration', to: '/admin', icon: IconAdjustments },
     ];
   }
+  if (role === 'graduate')
+    return [
+      { label: 'Dashboard', to: '/dashboard', icon: IconDashboard },
+      { label: 'Practice', to: '/practice', icon: IconBriefcase },
+      { label: 'Mock interviews', to: '/mock-interviews', icon: IconMessage2 },
+      { label: 'Directory', to: '/graduates', icon: IconUsers },
+    ];
+  if (role === 'former_member')
+    return [
+      { label: 'Dashboard', to: '/dashboard', icon: IconDashboard },
+      { label: 'Practice', to: '/practice', icon: IconBriefcase },
+      { label: 'Mock interviews', to: '/mock-interviews', icon: IconMessage2 },
+    ];
   return [
-    { label: 'Dashboard', to: '/dashboard', icon: IconDashboard },
-    { label: 'Practice', to: '/practice', icon: IconBriefcase },
-    { label: 'Mock interviews', to: '/mock-interviews', icon: IconMessage2 },
-    { label: 'Directory', to: '/graduates', icon: IconUsers },
+    { label: 'Onboarding', to: '/no-season', icon: IconDashboard },
+    { label: 'Profile', to: '/profile', icon: IconUsers },
+    { label: 'Settings', to: '/settings', icon: IconSettings },
   ];
 }
 
-function ThemeButton({ theme, onToggle, inverse = false }: { theme: string; onToggle: () => void; inverse?: boolean }) {
+function ThemeButton({
+  theme,
+  onToggle,
+  inverse = false,
+}: {
+  theme: string;
+  onToggle: () => void;
+  inverse?: boolean;
+}) {
   const Icon = theme === 'dark' ? IconSun : IconMoon;
   return (
-    <button className={inverse ? styles.navLink : styles.iconButton} type="button" onClick={onToggle} aria-label={`Use ${theme === 'dark' ? 'light' : 'dark'} theme`}>
+    <button
+      className={inverse ? styles.navLink : styles.iconButton}
+      type="button"
+      onClick={onToggle}
+      aria-label={`Use ${theme === 'dark' ? 'light' : 'dark'} theme`}
+    >
       <Icon size={19} aria-hidden="true" />
-      {inverse ? <span>{theme === 'dark' ? 'Light theme' : 'Dark theme'}</span> : null}
+      {inverse ? (
+        <span>{theme === 'dark' ? 'Light theme' : 'Dark theme'}</span>
+      ) : null}
     </button>
   );
 }
 
 export function AppShell() {
   const userQuery = useCurrentUser();
+  const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const { workspaces, activeWorkspace, setActiveWorkspaceId } = useWorkspace();
-  const [theme, setTheme] = useState(() => localStorage.getItem('rsp-theme') ?? (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'));
-  const navItems = useMemo(() => itemsFor(activeWorkspace?.role, activeWorkspace?.seasonSlug), [activeWorkspace]);
+  const [theme, setTheme] = useState(
+    () =>
+      localStorage.getItem('rsp-theme') ??
+      (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'),
+  );
+  const navItems = useMemo(
+    () => itemsFor(activeWorkspace?.role, activeWorkspace?.seasonSlug),
+    [activeWorkspace],
+  );
+  const handleSignOut = async () => {
+    try {
+      await signOut();
+    } finally {
+      queryClient.clear();
+      navigate('/sign-in', { replace: true });
+    }
+  };
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
@@ -95,7 +162,16 @@ export function AppShell() {
 
   const workspaceSelect = (className: string, showLabel: boolean) => (
     <div className={showLabel ? styles.workspaceField : undefined}>
-      {showLabel ? <label htmlFor="workspace-select">Workspace</label> : <label className={styles.visuallyHidden} htmlFor="workspace-select-mobile">Workspace</label>}
+      {showLabel ? (
+        <label htmlFor="workspace-select">Workspace</label>
+      ) : (
+        <label
+          className={styles.visuallyHidden}
+          htmlFor="workspace-select-mobile"
+        >
+          Workspace
+        </label>
+      )}
       <select
         id={showLabel ? 'workspace-select' : 'workspace-select-mobile'}
         className={className}
@@ -104,13 +180,20 @@ export function AppShell() {
         onChange={(event) => setActiveWorkspaceId(event.target.value)}
       >
         {!workspaces.length ? <option>Loading workspace…</option> : null}
-        {workspaces.map((workspace) => <option key={workspace.id} value={workspace.id}>{workspace.label}</option>)}
+        {workspaces.map((workspace) => (
+          <option key={workspace.id} value={workspace.id}>
+            {workspace.label}
+          </option>
+        ))}
       </select>
     </div>
   );
 
   const nav = (mobile = false) => (
-    <nav className={mobile ? styles.mobileNav : styles.nav} aria-label={mobile ? 'Mobile navigation' : 'Primary navigation'}>
+    <nav
+      className={mobile ? styles.mobileNav : styles.nav}
+      aria-label={mobile ? 'Mobile navigation' : 'Primary navigation'}
+    >
       {navItems.slice(0, mobile ? 4 : undefined).map((item) => {
         const Icon = item.icon;
         return (
@@ -118,7 +201,9 @@ export function AppShell() {
             key={item.to}
             to={item.to}
             end={item.end}
-            className={({ isActive }) => `${styles.navLink} ${isActive ? styles.navLinkActive : ''}`}
+            className={({ isActive }) =>
+              `${styles.navLink} ${isActive ? styles.navLinkActive : ''}`
+            }
           >
             <Icon size={19} aria-hidden={true} />
             <span>{item.label}</span>
@@ -130,35 +215,73 @@ export function AppShell() {
 
   return (
     <div className={styles.appShell}>
-      <a className={styles.skipLink} href="#main-content" tabIndex={0}>Skip to main content</a>
+      <a className={styles.skipLink} href="#main-content" tabIndex={0}>
+        Skip to main content
+      </a>
       <aside className={styles.sidebar}>
         <Link className={styles.brand} to="/dashboard" aria-label="RSP home">
           <img src="/assets/rsp-logo.png" alt="" />
-          <span className={styles.brandCopy}><strong>RSP Workspace</strong><span>Ready · supported · progressing</span></span>
+          <span className={styles.brandCopy}>
+            <strong>RSP Workspace</strong>
+            <span>Ready · supported · progressing</span>
+          </span>
         </Link>
         {workspaceSelect(styles.workspaceSelect, true)}
         {nav()}
         <div className={styles.sidebarFooter}>
-          <Link className={styles.navLink} to="/settings"><IconSettings size={19} aria-hidden="true" /> Settings</Link>
-          <ThemeButton theme={theme} onToggle={() => setTheme(theme === 'dark' ? 'light' : 'dark')} inverse />
+          <Link className={styles.navLink} to="/settings">
+            <IconSettings size={19} aria-hidden="true" /> Settings
+          </Link>
+          <ThemeButton
+            theme={theme}
+            onToggle={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+            inverse
+          />
           <div className={styles.userSummary}>
-            <span className={styles.avatar}>{initials(userQuery.data?.name ?? 'RSP')}</span>
+            <span className={styles.avatar}>
+              {initials(userQuery.data?.name ?? 'RSP')}
+            </span>
             <span className={styles.userSummaryText}>
               <strong>{userQuery.data?.name ?? 'Loading account…'}</strong>
-              <span>{activeWorkspace?.role?.replace('_', ' ') ?? 'Member'}</span>
+              <span>
+                {activeWorkspace?.role?.replace('_', ' ') ?? 'Member'}
+              </span>
             </span>
           </div>
-          <a className={styles.navLink} href="/api/auth/sign-out"><IconLogout size={19} aria-hidden="true" /> Sign out</a>
-          <span className={styles.commandHint}>Quick navigation <span className={styles.kbd}>⌘ K</span></span>
+          <button
+            className={styles.navLink}
+            type="button"
+            onClick={() => void handleSignOut()}
+          >
+            <IconLogout size={19} aria-hidden="true" /> Sign out
+          </button>
+          <span className={styles.commandHint}>
+            Quick navigation <span className={styles.kbd}>⌘ K</span>
+          </span>
         </div>
       </aside>
       <header className={styles.mobileHeader}>
         <Link className={styles.brand} to="/dashboard" aria-label="RSP home">
           <img src="/assets/rsp-logo.png" alt="" />
-          <span className={styles.brandCopy}><strong>RSP</strong><span>Workspace</span></span>
+          <span className={styles.brandCopy}>
+            <strong>RSP</strong>
+            <span>Workspace</span>
+          </span>
         </Link>
         {workspaceSelect(styles.mobileWorkspace, false)}
-        <ThemeButton theme={theme} onToggle={() => setTheme(theme === 'dark' ? 'light' : 'dark')} />
+        <div className={styles.inline}>
+          <Link
+            className={styles.iconButton}
+            to="/settings"
+            aria-label="Account settings"
+          >
+            <IconSettings size={19} aria-hidden="true" />
+          </Link>
+          <ThemeButton
+            theme={theme}
+            onToggle={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+          />
+        </div>
       </header>
       <main id="main-content" className={styles.main} tabIndex={-1}>
         <Outlet />

@@ -18,7 +18,7 @@ INSERT INTO app.enrollments (
   $1, $2, $3,
   $4, $5
 )
-RETURNING id, user_id, season_id, role, student_level, state, completed_by_close_id, state_changed_at, deleted_at, revision, created_at, updated_at
+RETURNING id, user_id, season_id, role, student_level, state, completed_by_close_id, state_changed_at, deleted_at, revision, created_at, updated_at, assignment_state, activated_at, close_assignment_state, close_activated_at
 `
 
 type CreateEnrollmentParams struct {
@@ -51,6 +51,10 @@ func (q *Queries) CreateEnrollment(ctx context.Context, arg CreateEnrollmentPara
 		&i.Revision,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.AssignmentState,
+		&i.ActivatedAt,
+		&i.CloseAssignmentState,
+		&i.CloseActivatedAt,
 	)
 	return i, err
 }
@@ -197,7 +201,7 @@ func (q *Queries) ListMentorshipsForSeason(ctx context.Context, arg ListMentorsh
 }
 
 const listSeasonEnrollments = `-- name: ListSeasonEnrollments :many
-SELECT e.id, e.user_id, e.season_id, e.role, e.student_level, e.state, e.completed_by_close_id, e.state_changed_at, e.deleted_at, e.revision, e.created_at, e.updated_at, u.slug, u.display_name, u.avatar_url
+SELECT e.id, e.user_id, e.season_id, e.role, e.student_level, e.state, e.completed_by_close_id, e.state_changed_at, e.deleted_at, e.revision, e.created_at, e.updated_at, e.assignment_state, e.activated_at, e.close_assignment_state, e.close_activated_at, u.slug, u.display_name, u.avatar_url
 FROM app.enrollments AS e
 JOIN app.users AS u ON u.id = e.user_id
 WHERE e.season_id = $1
@@ -219,21 +223,25 @@ type ListSeasonEnrollmentsParams struct {
 }
 
 type ListSeasonEnrollmentsRow struct {
-	ID                 string             `db:"id" json:"id"`
-	UserID             string             `db:"user_id" json:"user_id"`
-	SeasonID           string             `db:"season_id" json:"season_id"`
-	Role               AppSeasonRole      `db:"role" json:"role"`
-	StudentLevel       AppStudentLevel    `db:"student_level" json:"student_level"`
-	State              AppEnrollmentState `db:"state" json:"state"`
-	CompletedByCloseID *string            `db:"completed_by_close_id" json:"completed_by_close_id"`
-	StateChangedAt     pgtype.Timestamptz `db:"state_changed_at" json:"state_changed_at"`
-	DeletedAt          pgtype.Timestamptz `db:"deleted_at" json:"deleted_at"`
-	Revision           int64              `db:"revision" json:"revision"`
-	CreatedAt          pgtype.Timestamptz `db:"created_at" json:"created_at"`
-	UpdatedAt          pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
-	Slug               string             `db:"slug" json:"slug"`
-	DisplayName        string             `db:"display_name" json:"display_name"`
-	AvatarUrl          *string            `db:"avatar_url" json:"avatar_url"`
+	ID                   string                 `db:"id" json:"id"`
+	UserID               string                 `db:"user_id" json:"user_id"`
+	SeasonID             string                 `db:"season_id" json:"season_id"`
+	Role                 AppSeasonRole          `db:"role" json:"role"`
+	StudentLevel         AppStudentLevel        `db:"student_level" json:"student_level"`
+	State                AppEnrollmentState     `db:"state" json:"state"`
+	CompletedByCloseID   *string                `db:"completed_by_close_id" json:"completed_by_close_id"`
+	StateChangedAt       pgtype.Timestamptz     `db:"state_changed_at" json:"state_changed_at"`
+	DeletedAt            pgtype.Timestamptz     `db:"deleted_at" json:"deleted_at"`
+	Revision             int64                  `db:"revision" json:"revision"`
+	CreatedAt            pgtype.Timestamptz     `db:"created_at" json:"created_at"`
+	UpdatedAt            pgtype.Timestamptz     `db:"updated_at" json:"updated_at"`
+	AssignmentState      AppAssignmentState     `db:"assignment_state" json:"assignment_state"`
+	ActivatedAt          pgtype.Timestamptz     `db:"activated_at" json:"activated_at"`
+	CloseAssignmentState NullAppAssignmentState `db:"close_assignment_state" json:"close_assignment_state"`
+	CloseActivatedAt     pgtype.Timestamptz     `db:"close_activated_at" json:"close_activated_at"`
+	Slug                 string                 `db:"slug" json:"slug"`
+	DisplayName          string                 `db:"display_name" json:"display_name"`
+	AvatarUrl            *string                `db:"avatar_url" json:"avatar_url"`
 }
 
 func (q *Queries) ListSeasonEnrollments(ctx context.Context, arg ListSeasonEnrollmentsParams) ([]ListSeasonEnrollmentsRow, error) {
@@ -265,6 +273,10 @@ func (q *Queries) ListSeasonEnrollments(ctx context.Context, arg ListSeasonEnrol
 			&i.Revision,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.AssignmentState,
+			&i.ActivatedAt,
+			&i.CloseAssignmentState,
+			&i.CloseActivatedAt,
 			&i.Slug,
 			&i.DisplayName,
 			&i.AvatarUrl,
@@ -287,7 +299,7 @@ WHERE id = $2
   AND state = 'active'
   AND revision = $3
   AND deleted_at IS NULL
-RETURNING id, user_id, season_id, role, student_level, state, completed_by_close_id, state_changed_at, deleted_at, revision, created_at, updated_at
+RETURNING id, user_id, season_id, role, student_level, state, completed_by_close_id, state_changed_at, deleted_at, revision, created_at, updated_at, assignment_state, activated_at, close_assignment_state, close_activated_at
 `
 
 type PromoteStudentLevelParams struct {
@@ -312,6 +324,10 @@ func (q *Queries) PromoteStudentLevel(ctx context.Context, arg PromoteStudentLev
 		&i.Revision,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.AssignmentState,
+		&i.ActivatedAt,
+		&i.CloseAssignmentState,
+		&i.CloseActivatedAt,
 	)
 	return i, err
 }
@@ -369,12 +385,14 @@ const removeEnrollment = `-- name: RemoveEnrollment :one
 UPDATE app.enrollments
 SET state = $1,
     state_changed_at = $2,
+    assignment_state = 'revoked',
+    activated_at = NULL,
     revision = revision + 1
 WHERE id = $3
   AND state = 'active'
   AND revision = $4
   AND deleted_at IS NULL
-RETURNING id, user_id, season_id, role, student_level, state, completed_by_close_id, state_changed_at, deleted_at, revision, created_at, updated_at
+RETURNING id, user_id, season_id, role, student_level, state, completed_by_close_id, state_changed_at, deleted_at, revision, created_at, updated_at, assignment_state, activated_at, close_assignment_state, close_activated_at
 `
 
 type RemoveEnrollmentParams struct {
@@ -405,6 +423,10 @@ func (q *Queries) RemoveEnrollment(ctx context.Context, arg RemoveEnrollmentPara
 		&i.Revision,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.AssignmentState,
+		&i.ActivatedAt,
+		&i.CloseAssignmentState,
+		&i.CloseActivatedAt,
 	)
 	return i, err
 }

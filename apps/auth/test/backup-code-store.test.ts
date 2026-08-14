@@ -1,16 +1,18 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from 'vitest';
 
 import {
   hashedBackupCodeCodec,
   isHashedBackupCodePayload,
   withBackupCodeCandidate,
-} from "../src/security/backup-code-store.js";
+} from '../src/security/backup-code-store.js';
 
-describe("hashed Better Auth backup-code storage", () => {
-  it("stores only salted hashes and reveals only a matching request candidate", async () => {
-    const first = "ABCDE-1234567";
-    const second = "FGHIJ-7654321";
-    const stored = await hashedBackupCodeCodec.encrypt(JSON.stringify([first, second]));
+describe('hashed Better Auth backup-code storage', () => {
+  it('stores only salted hashes and reveals only a matching request candidate', async () => {
+    const first = 'ABCDE-1234567';
+    const second = 'FGHIJ-7654321';
+    const stored = await hashedBackupCodeCodec.encrypt(
+      JSON.stringify([first, second]),
+    );
     expect(isHashedBackupCodePayload(stored)).toBe(true);
     expect(stored).not.toContain(first);
     expect(stored).not.toContain(second);
@@ -36,10 +38,14 @@ describe("hashed Better Auth backup-code storage", () => {
     expect(JSON.parse(remaining)).toContain(second);
   });
 
-  it("does not reveal hashes as usable codes outside verification context", async () => {
-    const stored = await hashedBackupCodeCodec.encrypt(JSON.stringify(["ABCDE-1234567"]));
-    const decoded = JSON.parse(await hashedBackupCodeCodec.decrypt(stored)) as string[];
+  it('does not reveal hashes as usable codes outside verification context', async () => {
+    const stored = await hashedBackupCodeCodec.encrypt(
+      JSON.stringify(['ABCDE-1234567']),
+    );
+    const decoded = JSON.parse(
+      await hashedBackupCodeCodec.decrypt(stored),
+    ) as string[];
     expect(decoded[0]).toMatch(/^s1\$/);
-    expect(decoded[0]).not.toBe("ABCDE-1234567");
+    expect(decoded[0]).not.toBe('ABCDE-1234567');
   });
 });

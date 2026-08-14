@@ -1,0 +1,47 @@
+[
+  {
+    "userId": "auth0|google-explicit",
+    "email": "google@example.test",
+    "emailVerified": true,
+    "identities": [
+      {
+        "provider": "google-oauth2",
+        "providerAccountId": "google-fixture-1"
+      }
+    ]
+  },
+  {
+    "userId": "auth0|password-explicit",
+    "email": "password@example.test",
+    "emailVerified": true,
+    "passwordHash": "$synthetic$unsupported",
+    "identities": [
+      {
+        "provider": "auth0",
+        "providerAccountId": "database-fixture-1"
+      }
+    ]
+  },
+  {
+    "userId": "auth0|ambiguous",
+    "email": "shared@example.test",
+    "emailVerified": true,
+    "identities": [
+      {
+        "provider": "google-oauth2",
+        "providerAccountId": "google-fixture-2"
+      }
+    ]
+  },
+  {
+    "userId": "auth0|unverified",
+    "email": "unverified@example.test",
+    "emailVerified": false,
+    "identities": [
+      {
+        "provider": "auth0",
+        "providerAccountId": "database-fixture-2"
+      }
+    ]
+  }
+]

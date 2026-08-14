@@ -16,6 +16,8 @@ UPDATE app.enrollments
 SET state = 'completed',
     completed_by_close_id = $1,
     state_changed_at = $2,
+    assignment_state = 'revoked',
+    activated_at = NULL,
     revision = revision + 1
 WHERE season_id = $3
   AND state = 'active'
@@ -242,7 +244,7 @@ func (q *Queries) GetSeasonBySlug(ctx context.Context, arg GetSeasonBySlugParams
 }
 
 const listSeasonWeeks = `-- name: ListSeasonWeeks :many
-SELECT id, season_id, week_number, start_at, end_at, deleted_at, revision, created_at, updated_at
+SELECT id, season_id, week_number, start_at, end_at, deleted_at, revision, created_at, updated_at, resource_url
 FROM app.season_weeks
 WHERE season_id = $1 AND deleted_at IS NULL
 ORDER BY week_number ASC, id ASC
@@ -271,6 +273,7 @@ func (q *Queries) ListSeasonWeeks(ctx context.Context, arg ListSeasonWeeksParams
 			&i.Revision,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.ResourceUrl,
 		); err != nil {
 			return nil, err
 		}
@@ -481,6 +484,8 @@ UPDATE app.enrollments
 SET state = 'active',
     completed_by_close_id = NULL,
     state_changed_at = $1,
+    assignment_state = CASE WHEN role='coordinator' THEN 'pending_mfa' ELSE 'active' END,
+    activated_at = CASE WHEN role='coordinator' THEN NULL ELSE $1 END,
     revision = revision + 1
 WHERE completed_by_close_id = $2
   AND state = 'completed'
@@ -586,7 +591,7 @@ SET start_at = EXCLUDED.start_at,
     end_at = EXCLUDED.end_at,
     revision = app.season_weeks.revision + 1
 WHERE app.season_weeks.revision = $6
-RETURNING id, season_id, week_number, start_at, end_at, deleted_at, revision, created_at, updated_at
+RETURNING id, season_id, week_number, start_at, end_at, deleted_at, revision, created_at, updated_at, resource_url
 `
 
 type UpsertSeasonWeekParams struct {
@@ -618,6 +623,7 @@ func (q *Queries) UpsertSeasonWeek(ctx context.Context, arg UpsertSeasonWeekPara
 		&i.Revision,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.ResourceUrl,
 	)
 	return i, err
 }

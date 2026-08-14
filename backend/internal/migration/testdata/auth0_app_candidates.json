@@ -1,0 +1,22 @@
+[
+  {
+    "appUserId": "app-google",
+    "email": "google@example.test"
+  },
+  {
+    "appUserId": "app-password",
+    "email": "password@example.test"
+  },
+  {
+    "appUserId": "app-shared-a",
+    "email": "shared@example.test"
+  },
+  {
+    "appUserId": "app-shared-b",
+    "email": "shared@example.test"
+  },
+  {
+    "appUserId": "app-unverified",
+    "email": "unverified@example.test"
+  }
+]

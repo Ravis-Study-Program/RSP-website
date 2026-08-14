@@ -1,39 +1,51 @@
 package httpapi
 
 import (
+	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log/slog"
 	"net/http"
-	"net/url"
+	"regexp"
 	"strconv"
-	"strings"
-	"sync"
-	"sync/atomic"
 	"time"
 
 	"github.com/getkin/kin-openapi/openapi3filter"
 	"github.com/magedmg/RSP-website/backend/internal/generated"
 	"github.com/magedmg/RSP-website/backend/internal/mockinterviews"
-	"github.com/magedmg/RSP-website/backend/internal/model"
 	"github.com/magedmg/RSP-website/backend/internal/platform/cursor"
 	"github.com/magedmg/RSP-website/backend/internal/platform/id"
 	"github.com/magedmg/RSP-website/backend/internal/platform/problem"
 	"github.com/magedmg/RSP-website/backend/internal/platform/ratelimit"
 	"github.com/magedmg/RSP-website/backend/internal/platform/sanitize"
-	"github.com/magedmg/RSP-website/backend/internal/practice"
 	"github.com/magedmg/RSP-website/backend/internal/store"
 	nethttpmiddleware "github.com/oapi-codegen/nethttp-middleware"
 )
 
+//go:generate go run ./internal/genstrict
+
+type requestIDKey struct{}
+type rawBodyKey struct{}
+
+type validationResponseWriter struct {
+	http.ResponseWriter
+	request *http.Request
+}
+
+var safeRequestID = regexp.MustCompile(`^[A-Za-z0-9._-]{1,128}$`)
+
 type Config struct {
-	Store         store.Repository
-	Authenticator Authenticator
-	PublicOrigin  string
-	CursorSecret  []byte
-	Logger        *slog.Logger
-	Ready         func() error
-	SyncLeetCode  func() error
+	Store           store.Repository
+	Authenticator   Authenticator
+	PublicOrigin    string
+	CursorSecret    []byte
+	Logger          *slog.Logger
+	Ready           func() error
+	SyncLeetCode    func(context.Context, string, string) error
+	SetAccountState func(context.Context, string, string, string, string) error
+	GetMFAState     func(context.Context, string) (bool, error)
 }
 type API struct {
 	store           store.Repository
@@ -43,16 +55,62 @@ type API struct {
 	logger          *slog.Logger
 	limiter         *ratelimit.Limiter
 	ready           func() error
-	syncLeetCode    func() error
-	requests        atomic.Uint64
-	mu              sync.Mutex
-	weeks           map[string]model.Week
-	enrollments     map[string]model.Enrollment
-	mentorships     map[string]model.Mentorship
-	mocks           map[string]mockinterviews.Interview
-	recommendations map[string]practice.Recommendation
-	dismissals      map[string][]practice.Dismissal
+	syncLeetCode    func(context.Context, string, string) error
+	setAccountState func(context.Context, string, string, string, string) error
+	getMFAState     func(context.Context, string) (bool, error)
+	telemetry       *apiMetrics
 	mockService     mockinterviews.Service
+}
+
+type strictAdapter struct{}
+type strictResponseKey struct{}
+
+type strictManualResponse struct {
+	header http.Header
+	status int
+	body   bytes.Buffer
+}
+
+func newStrictManualResponse() *strictManualResponse {
+	return &strictManualResponse{header: make(http.Header)}
+}
+
+func (response *strictManualResponse) Header() http.Header { return response.header }
+func (response *strictManualResponse) WriteHeader(status int) {
+	if response.status == 0 {
+		response.status = status
+	}
+}
+func (response *strictManualResponse) Write(body []byte) (int, error) {
+	if response.status == 0 {
+		response.status = http.StatusOK
+	}
+	return response.body.Write(body)
+}
+func (response *strictManualResponse) write(w http.ResponseWriter) error {
+	for key, values := range response.header {
+		for _, value := range values {
+			w.Header().Add(key, value)
+		}
+	}
+	status := response.status
+	if status == 0 {
+		status = http.StatusOK
+	}
+	w.WriteHeader(status)
+	if response.body.Len() == 0 {
+		return nil
+	}
+	_, err := w.Write(response.body.Bytes())
+	return err
+}
+
+func strictResponse(ctx context.Context) (*strictManualResponse, error) {
+	response, ok := ctx.Value(strictResponseKey{}).(*strictManualResponse)
+	if !ok {
+		return nil, fmt.Errorf("strict response capture is missing")
+	}
+	return response, nil
 }
 
 func New(c Config) *API {
@@ -65,7 +123,7 @@ func New(c Config) *API {
 		secret = []byte("development-cursor-secret-change-me")
 	}
 	cleaner := sanitize.New()
-	return &API{store: c.Store, auth: c.Authenticator, publicOrigin: c.PublicOrigin, cursorSecret: secret, logger: logger, limiter: ratelimit.New(), ready: c.Ready, syncLeetCode: c.SyncLeetCode, weeks: map[string]model.Week{}, enrollments: map[string]model.Enrollment{}, mentorships: map[string]model.Mentorship{}, mocks: map[string]mockinterviews.Interview{}, recommendations: map[string]practice.Recommendation{}, dismissals: map[string][]practice.Dismissal{}, mockService: mockinterviews.Service{Sanitize: cleaner.String}}
+	return &API{store: c.Store, auth: c.Authenticator, publicOrigin: c.PublicOrigin, cursorSecret: secret, logger: logger, limiter: ratelimit.New(), ready: c.Ready, syncLeetCode: c.SyncLeetCode, setAccountState: c.SetAccountState, getMFAState: c.GetMFAState, telemetry: newAPIMetrics(), mockService: mockinterviews.Service{Sanitize: cleaner.String}}
 }
 func (a *API) Handler() http.Handler {
 	mux := http.NewServeMux()
@@ -75,22 +133,34 @@ func (a *API) Handler() http.Handler {
 	mux.HandleFunc("GET /api/v2/openapi.json", a.openapi)
 	mux.HandleFunc("GET /api/v2/me", a.protected(ratelimit.Read, a.me))
 	mux.HandleFunc("PATCH /api/v2/me", a.protected(ratelimit.Write, a.updateMe))
+	mux.HandleFunc("GET /api/v2/me/slug-suggestion", a.protected(ratelimit.Read, a.suggestMeSlug))
+	mux.HandleFunc("GET /api/v2/me/practice-settings", a.protected(ratelimit.Read, a.practiceSettings))
+	mux.HandleFunc("PATCH /api/v2/me/practice-settings", a.protected(ratelimit.Write, a.updatePracticeSettings))
 	mux.HandleFunc("GET /api/v2/users", a.protected(ratelimit.Read, a.users))
 	mux.HandleFunc("GET /api/v2/users/{id}", a.protected(ratelimit.Read, a.user))
+	mux.HandleFunc("GET /api/v2/users/{id}/practice-settings", a.protected(ratelimit.Read, a.userPracticeSettings))
+	mux.HandleFunc("POST /api/v2/users/{id}/practice-goals/enable", a.protected(ratelimit.Write, a.enablePracticeGoals))
 	mux.HandleFunc("GET /api/v2/seasons", a.protected(ratelimit.Read, a.seasons))
 	mux.HandleFunc("POST /api/v2/seasons", a.protected(ratelimit.Write, a.createSeason))
 	mux.HandleFunc("GET /api/v2/seasons/{id}", a.protected(ratelimit.Read, a.season))
 	mux.HandleFunc("PATCH /api/v2/seasons/{id}", a.protected(ratelimit.Write, a.updateSeason))
+	mux.HandleFunc("PATCH /api/v2/seasons/{id}/resources", a.protected(ratelimit.Write, a.updateSeasonResources))
 	mux.HandleFunc("POST /api/v2/seasons/{id}/close", a.protected(ratelimit.Write, a.closeSeason))
 	mux.HandleFunc("POST /api/v2/seasons/{id}/reopen", a.protected(ratelimit.Write, a.reopenSeason))
 	mux.HandleFunc("GET /api/v2/seasons/{id}/weeks", a.protected(ratelimit.Read, a.listWeeks))
 	mux.HandleFunc("POST /api/v2/seasons/{id}/weeks", a.protected(ratelimit.Write, a.createWeek))
+	mux.HandleFunc("PATCH /api/v2/seasons/{id}/weeks/{weekId}", a.protected(ratelimit.Write, a.updateWeek))
+	mux.HandleFunc("DELETE /api/v2/seasons/{id}/weeks/{weekId}", a.protected(ratelimit.Write, a.deleteWeek))
 	mux.HandleFunc("GET /api/v2/seasons/{id}/members", a.protected(ratelimit.Read, a.listMembers))
+	mux.HandleFunc("GET /api/v2/seasons/{id}/enrollment-candidates", a.protected(ratelimit.Read, a.listEnrollmentCandidates))
 	mux.HandleFunc("POST /api/v2/seasons/{id}/members", a.protected(ratelimit.Write, a.createMember))
+	mux.HandleFunc("PATCH /api/v2/seasons/{id}/members/{memberId}", a.protected(ratelimit.Write, a.updateMember))
 	mux.HandleFunc("POST /api/v2/seasons/{id}/members/{memberId}/promote", a.protected(ratelimit.Write, a.promoteMember))
 	mux.HandleFunc("POST /api/v2/seasons/{id}/members/{memberId}/remove", a.protected(ratelimit.Write, a.removeMember))
 	mux.HandleFunc("GET /api/v2/seasons/{id}/mentorships", a.protected(ratelimit.Read, a.listMentorships))
 	mux.HandleFunc("POST /api/v2/seasons/{id}/mentorships", a.protected(ratelimit.Write, a.createMentorship))
+	mux.HandleFunc("PATCH /api/v2/seasons/{id}/mentorships/{mentorshipId}", a.protected(ratelimit.Write, a.updateMentorship))
+	mux.HandleFunc("DELETE /api/v2/seasons/{id}/mentorships/{mentorshipId}", a.protected(ratelimit.Write, a.deleteMentorship))
 	mux.HandleFunc("GET /api/v2/leetcode-problems", a.protected(ratelimit.Read, a.problems))
 	mux.HandleFunc("GET /api/v2/problem-attempts", a.protected(ratelimit.Read, a.attempts))
 	mux.HandleFunc("POST /api/v2/problem-attempts", a.protected(ratelimit.Write, a.createAttempt))
@@ -98,46 +168,109 @@ func (a *API) Handler() http.Handler {
 	mux.HandleFunc("DELETE /api/v2/problem-attempts/{id}", a.protected(ratelimit.Write, a.deleteAttempt))
 	mux.HandleFunc("GET /api/v2/recommendations/current", a.protected(ratelimit.Sensitive, a.recommendation))
 	mux.HandleFunc("POST /api/v2/recommendations/current/dismiss", a.protected(ratelimit.Sensitive, a.dismissRecommendation))
+	mux.HandleFunc("GET /api/v2/mock-interviews/participants", a.protected(ratelimit.Read, a.listMockParticipants))
 	mux.HandleFunc("GET /api/v2/mock-interviews", a.protected(ratelimit.Read, a.listMocks))
 	mux.HandleFunc("POST /api/v2/mock-interviews", a.protected(ratelimit.Write, a.createMock))
 	mux.HandleFunc("PATCH /api/v2/mock-interviews/{id}", a.protected(ratelimit.Write, a.updateMock))
 	mux.HandleFunc("DELETE /api/v2/mock-interviews/{id}", a.protected(ratelimit.Write, a.deleteMock))
+	mux.HandleFunc("POST /api/v2/mock-interviews/{id}/identity-correction", a.protected(ratelimit.Write, a.correctMockIdentities))
 	mux.HandleFunc("PATCH /api/v2/mock-interviews/{id}/rounds/{roundId}/review", a.protected(ratelimit.Write, a.reviewRound))
 	mux.HandleFunc("POST /api/v2/admin/leetcode/sync", a.protected(ratelimit.Sensitive, a.adminSync))
+	mux.HandleFunc("GET /api/v2/admin/users", a.protected(ratelimit.Read, a.listAdminUsers))
+	mux.HandleFunc("POST /api/v2/admin/users/{id}/account-state", a.protected(ratelimit.Sensitive, a.setUserAccountState))
+	mux.HandleFunc("POST /api/v2/admin/users/{id}/global-roles", a.protected(ratelimit.Sensitive, a.grantUserGlobalRole))
+	mux.HandleFunc("GET /api/v2/admin/users/{id}/global-roles", a.protected(ratelimit.Read, a.listUserGlobalRoles))
+	mux.HandleFunc("DELETE /api/v2/admin/users/{id}/global-roles/{role}", a.protected(ratelimit.Sensitive, a.revokeUserGlobalRole))
 	spec, err := generated.GetSwagger()
 	if err != nil {
 		panic(err)
 	}
-	validator := nethttpmiddleware.OapiRequestValidatorWithOptions(spec, &nethttpmiddleware.Options{
+	validatorOptions := &nethttpmiddleware.Options{
 		Options:               openapi3filter.Options{AuthenticationFunc: openapi3filter.NoopAuthenticationFunc},
 		SilenceServersWarning: true,
 		ErrorHandler: func(w http.ResponseWriter, message string, status int) {
-			a.fail(w, &http.Request{URL: &url.URL{Path: "/api/v2"}}, status, "openapi_validation_failed", "Request validation failed", message, nil)
+			r := &http.Request{}
+			if wrapped, ok := w.(*validationResponseWriter); ok {
+				r = wrapped.request
+			}
+			a.fail(w, r, status, "openapi_validation_failed", "Request validation failed", message, nil)
 		},
+	}
+	baseValidator := nethttpmiddleware.OapiRequestValidatorWithOptions(spec, validatorOptions)
+	validator := func(next http.Handler) http.Handler {
+		validated := baseValidator(next)
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			validated.ServeHTTP(&validationResponseWriter{ResponseWriter: w, request: r}, r)
+		})
+	}
+	strict := generated.NewStrictHandlerWithOptions(strictAdapter{}, []generated.StrictMiddlewareFunc{func(next generated.StrictHandlerFunc, _ string) generated.StrictHandlerFunc {
+		return func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+			if raw, ok := ctx.Value(rawBodyKey{}).([]byte); ok {
+				r.Body = io.NopCloser(bytes.NewReader(raw))
+			}
+			captured := newStrictManualResponse()
+			mux.ServeHTTP(captured, r)
+			return next(context.WithValue(ctx, strictResponseKey{}, captured), w, r, request)
+		}
+	}}, generated.StrictHTTPServerOptions{
+		RequestErrorHandlerFunc: func(w http.ResponseWriter, r *http.Request, err error) {
+			a.fail(w, r, http.StatusBadRequest, "openapi_validation_failed", "Request validation failed", err.Error(), nil)
+		},
+		ResponseErrorHandlerFunc: func(w http.ResponseWriter, r *http.Request, _ error) {
+			a.fail(w, r, http.StatusInternalServerError, "internal_error", "Internal server error", "The request could not be completed.", nil)
+		},
+	})
+	strictMux := http.NewServeMux()
+	strictRouter := generated.HandlerWithOptions(strict, generated.StdHTTPServerOptions{BaseURL: "/api/v2", BaseRouter: strictMux, ErrorHandlerFunc: func(w http.ResponseWriter, r *http.Request, err error) {
+		a.fail(w, r, http.StatusBadRequest, "openapi_validation_failed", "Request validation failed", err.Error(), nil)
+	}})
+	captureBody := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Body == nil {
+			strictRouter.ServeHTTP(w, r)
+			return
+		}
+		raw, err := io.ReadAll(http.MaxBytesReader(w, r.Body, 1<<20))
+		if err != nil {
+			a.fail(w, r, http.StatusBadRequest, "invalid_request_body", "Invalid request body", "The request body is too large or unreadable.", nil)
+			return
+		}
+		r.Body = io.NopCloser(bytes.NewReader(raw))
+		strictRouter.ServeHTTP(w, r.WithContext(context.WithValue(r.Context(), rawBodyKey{}, raw)))
 	})
 	root := http.NewServeMux()
 	root.HandleFunc("POST /internal/auth/lifecycle-events", a.identityLifecycle)
-	root.Handle("/", validator(mux))
-	return requestContext(a.logger, a.requests.Add, root)
+	root.Handle("/", validator(captureBody))
+	return requestContext(a.logger, a.telemetry.observeHTTP, root)
 }
-func requestContext(logger *slog.Logger, increment func(uint64) uint64, next http.Handler) http.Handler {
+func requestContext(logger *slog.Logger, observe func(int, time.Duration), next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		started := time.Now()
 		requestID := r.Header.Get("X-Request-ID")
-		if requestID == "" {
+		if !safeRequestID.MatchString(requestID) {
 			requestID = id.New()
 		}
+		r = r.WithContext(context.WithValue(r.Context(), requestIDKey{}, requestID))
 		w.Header().Set("X-Request-ID", requestID)
-		increment(1)
+		response := &statusWriter{ResponseWriter: w}
 		defer func() {
 			if recovered := recover(); recovered != nil {
-				problem.Write(w, problem.Details{Type: "https://rsp.example/problems/internal_error", Title: "Internal server error", Status: 500, Code: "internal_error", RequestID: requestID})
+				problem.Write(response, problem.Details{Type: "https://rsp.example/problems/internal_error", Title: "Internal server error", Status: 500, Detail: "The request could not be completed.", Instance: r.URL.Path, Code: "internal_error", RequestID: requestID})
 				logger.Error("request panic", "requestId", requestID, "error", fmt.Sprint(recovered))
 			}
-			logger.Info("request", "requestId", requestID, "method", r.Method, "path", r.URL.Path, "durationMs", time.Since(started).Milliseconds())
+			if response.status == 0 {
+				response.status = http.StatusOK
+			}
+			elapsed := time.Since(started)
+			observe(response.status, elapsed)
+			logger.Info("request", "requestId", requestID, "method", r.Method, "path", r.URL.Path, "statusClass", statusClass(response.status), "durationMs", elapsed.Milliseconds())
 		}()
-		next.ServeHTTP(w, r)
+		next.ServeHTTP(response, r)
 	})
+}
+
+func requestIDFrom(ctx context.Context) string {
+	requestID, _ := ctx.Value(requestIDKey{}).(string)
+	return requestID
 }
 func writeJSON(w http.ResponseWriter, status int, v any) {
 	w.Header().Set("Content-Type", "application/json")
@@ -151,8 +284,11 @@ func decodeJSON(w http.ResponseWriter, r *http.Request, dst any) error {
 	if err := dec.Decode(dst); err != nil {
 		return err
 	}
-	if dec.Decode(&struct{}{}) == nil {
-		return fmt.Errorf("multiple JSON values")
+	if err := dec.Decode(&struct{}{}); err != io.EOF {
+		if err == nil {
+			return fmt.Errorf("multiple JSON values")
+		}
+		return fmt.Errorf("malformed trailing JSON: %w", err)
 	}
 	return nil
 }
@@ -172,18 +308,6 @@ func (a *API) page(r *http.Request, binding string) (int, string, error) {
 	after, err := cursor.Decode(a.cursorSecret, encoded, binding)
 	return limit, after, err
 }
-func (a *API) next(after string, binding string, more bool) *string {
-	if !more || after == "" {
-		return nil
-	}
-	v, _ := cursor.Encode(a.cursorSecret, after, binding)
-	return &v
-}
-func (a *API) audit(r *http.Request, action, kind, subject string, data map[string]any) {
-	actor := actorFrom(r.Context())
-	actorID := actor.UserID
-	_ = a.store.AppendAudit(r.Context(), model.AuditEvent{ID: id.New(), ActorID: &actorID, Action: action, SubjectType: kind, SubjectID: subject, Data: data, OccurredAt: time.Now().UTC()})
-}
 func (a *API) live(w http.ResponseWriter, _ *http.Request) {
 	writeJSON(w, 200, map[string]string{"status": "ok"})
 }
@@ -196,9 +320,9 @@ func (a *API) readiness(w http.ResponseWriter, r *http.Request) {
 	}
 	writeJSON(w, 200, map[string]string{"status": "ready"})
 }
-func (a *API) metrics(w http.ResponseWriter, _ *http.Request) {
-	w.Header().Set("Content-Type", "text/plain; version=0.0.4")
-	_, _ = fmt.Fprintf(w, "# TYPE rsp_http_requests_total counter\nrsp_http_requests_total %d\n", a.requests.Load())
+func (a *API) metrics(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "text/plain; version=0.0.4; charset=utf-8")
+	a.telemetry.render(r.Context(), w, a.store)
 }
 func (a *API) openapi(w http.ResponseWriter, _ *http.Request) {
 	spec, err := generated.GetSwagger()
@@ -209,12 +333,4 @@ func (a *API) openapi(w http.ResponseWriter, _ *http.Request) {
 }
 func validation(a *API, w http.ResponseWriter, r *http.Request, detail string) {
 	a.fail(w, r, 400, "validation_failed", "Validation failed", detail, nil)
-}
-func hasCategory(p model.Problem, c string) bool {
-	for _, v := range p.Categories {
-		if strings.EqualFold(v, c) {
-			return true
-		}
-	}
-	return false
 }

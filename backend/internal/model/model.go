@@ -3,15 +3,42 @@ package model
 import "time"
 
 type User struct {
-	ID           string   `json:"id"`
-	Slug         string   `json:"slug"`
-	Name         string   `json:"name"`
-	AvatarURL    *string  `json:"avatarUrl,omitempty"`
-	Timezone     string   `json:"timezone"`
-	Email        string   `json:"email,omitempty"`
-	AccountState string   `json:"accountState,omitempty"`
-	GlobalRoles  []string `json:"globalRoles"`
-	Revision     int64    `json:"revision"`
+	ID                 string           `json:"id"`
+	Slug               string           `json:"slug"`
+	Name               string           `json:"name"`
+	AvatarURL          *string          `json:"avatarUrl,omitempty"`
+	Timezone           string           `json:"timezone"`
+	TimezoneConfigured bool             `json:"timezoneConfigured"`
+	Email              string           `json:"email,omitempty"`
+	AccountState       string           `json:"accountState,omitempty"`
+	GlobalRoles        []string         `json:"globalRoles"`
+	SeasonRoles        []UserSeasonRole `json:"seasonRoles"`
+	AttemptCount       int64            `json:"attemptCount"`
+	MockInterviewCount int64            `json:"mockInterviewCount"`
+	IsTest             bool             `json:"-"`
+	PremiumOptIn       bool             `json:"-"`
+	Revision           int64            `json:"revision"`
+}
+type UserSeasonRole struct {
+	SeasonID   string `json:"seasonId"`
+	SeasonSlug string `json:"seasonSlug"`
+	Role       string `json:"role"`
+	State      string `json:"state"`
+}
+type EnrollmentCandidate struct {
+	ID        string  `json:"id"`
+	Slug      string  `json:"slug"`
+	Name      string  `json:"name"`
+	AvatarURL *string `json:"avatarUrl,omitempty"`
+	Revision  int64   `json:"revision"`
+}
+type PracticeSettings struct {
+	PremiumOptIn  bool  `json:"premiumOptIn"`
+	GoalsEnabled  bool  `json:"goalsEnabled"`
+	EasyMinutes   int   `json:"easyMinutes"`
+	MediumMinutes int   `json:"mediumMinutes"`
+	HardMinutes   int   `json:"hardMinutes"`
+	Revision      int64 `json:"revision"`
 }
 type Season struct {
 	ID           string    `json:"id"`
@@ -35,13 +62,16 @@ type Week struct {
 	Revision    int64     `json:"revision"`
 }
 type Enrollment struct {
-	ID            string  `json:"id"`
-	SeasonID      string  `json:"seasonId"`
-	UserID        string  `json:"userId"`
-	Role          string  `json:"role"`
-	State         string  `json:"state"`
-	RemovalReason *string `json:"removalReason,omitempty"`
-	Revision      int64   `json:"revision"`
+	ID              string  `json:"id"`
+	SeasonID        string  `json:"seasonId"`
+	SeasonSlug      string  `json:"seasonSlug,omitempty"`
+	UserID          string  `json:"userId"`
+	Role            string  `json:"role"`
+	StudentLevel    string  `json:"studentLevel,omitempty"`
+	State           string  `json:"state"`
+	AssignmentState string  `json:"assignmentState"`
+	RemovalReason   *string `json:"removalReason,omitempty"`
+	Revision        int64   `json:"revision"`
 }
 type Mentorship struct {
 	ID            string `json:"id"`
@@ -74,6 +104,9 @@ type Attempt struct {
 	WeekID      *string    `json:"weekId,omitempty"`
 	Revision    int64      `json:"revision"`
 	DeletedAt   *time.Time `json:"-"`
+	// Migrated is internal recommendation provenance. Legacy attempts still
+	// count as exposure, but never as outcome-quality evidence.
+	Migrated bool `json:"-"`
 }
 type AuditEvent struct {
 	ID          string         `json:"id"`

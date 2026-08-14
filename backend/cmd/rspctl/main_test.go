@@ -1,0 +1,65 @@
+package main
+
+import (
+	"strings"
+	"testing"
+)
+
+func TestParseSeedOptionsNormalizesExistingUsers(t *testing.T) {
+	options, err := parseSeedOptions([]string{
+		"--student-email", " Student.E2E@Example.Test ",
+		"--coordinator-email", "coordinator.e2e@example.test",
+		"--director-email", "director.e2e@example.test",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if options.StudentEmail != "student.e2e@example.test" {
+		t.Fatalf("unexpected student email %q", options.StudentEmail)
+	}
+	if options.MentorEmail != "" {
+		t.Fatalf("unexpected mentor email %q", options.MentorEmail)
+	}
+}
+
+func TestParseSeedOptionsRejectsDuplicateRoleIdentity(t *testing.T) {
+	_, err := parseSeedOptions([]string{
+		"--student-email", "same@example.test",
+		"--director-email", "SAME@example.test",
+	})
+	if err == nil || !strings.Contains(err.Error(), "must be distinct") {
+		t.Fatalf("expected distinct-email error, got %v", err)
+	}
+}
+
+func TestParseSeedOptionsRejectsMalformedEmailAndArguments(t *testing.T) {
+	for _, args := range [][]string{
+		{"--student-email", "not-an-email"},
+		{"unexpected"},
+	} {
+		if _, err := parseSeedOptions(args); err == nil {
+			t.Fatalf("expected %v to fail", args)
+		}
+	}
+}
+
+func TestBootstrapAuditActionMatchesPersistedAssignmentState(t *testing.T) {
+	tests := map[string]string{
+		"active":      "system_admin.bootstrap_activated",
+		"pending_mfa": "system_admin.bootstrap_pending_mfa",
+	}
+	for state, expected := range tests {
+		t.Run(state, func(t *testing.T) {
+			action, err := bootstrapAuditAction(state)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if action != expected {
+				t.Fatalf("expected %q, got %q", expected, action)
+			}
+		})
+	}
+	if _, err := bootstrapAuditAction("revoked"); err == nil {
+		t.Fatal("expected an unsupported assignment state to fail")
+	}
+}

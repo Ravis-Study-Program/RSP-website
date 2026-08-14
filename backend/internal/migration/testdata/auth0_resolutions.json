@@ -1,0 +1,10 @@
+[
+  {
+    "auth0UserId": "auth0|google-explicit",
+    "appUserId": "app-google"
+  },
+  {
+    "auth0UserId": "auth0|password-explicit",
+    "appUserId": "app-password"
+  }
+]

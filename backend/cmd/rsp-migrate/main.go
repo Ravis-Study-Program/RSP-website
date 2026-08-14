@@ -18,21 +18,33 @@ func main() {
 }
 
 func run(ctx context.Context, args []string, stdout, stderr io.Writer) int {
-	if len(args) < 2 || args[0] != "legacy" {
+	if len(args) < 2 {
 		printUsage(stderr)
 		return 2
 	}
 	engine := legacy.NewEngine(time.Now)
 	var err error
-	switch args[1] {
-	case "dry-run":
-		err = dryRun(ctx, engine, args[2:], stdout, stderr)
-	case "apply":
-		err = apply(ctx, engine, args[2:], stdout, stderr)
-	case "verify":
-		err = verify(ctx, engine, args[2:], stdout, stderr)
-	case "rollback":
-		err = rollback(ctx, engine, args[2:], stdout, stderr)
+	switch args[0] {
+	case "legacy":
+		switch args[1] {
+		case "dry-run":
+			err = dryRun(ctx, engine, args[2:], stdout, stderr)
+		case "apply":
+			err = apply(ctx, engine, args[2:], stdout, stderr)
+		case "verify":
+			err = verify(ctx, engine, args[2:], stdout, stderr)
+		case "rollback":
+			err = rollback(ctx, engine, args[2:], stdout, stderr)
+		default:
+			printUsage(stderr)
+			return 2
+		}
+	case "auth0":
+		if args[1] != "plan" {
+			printUsage(stderr)
+			return 2
+		}
+		err = planAuth0(args[2:], stdout, stderr, time.Now)
 	default:
 		printUsage(stderr)
 		return 2
@@ -52,6 +64,75 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 		return 3
 	}
 	return 1
+}
+
+func planAuth0(args []string, stdout, stderr io.Writer, now func() time.Time) error {
+	set := flag.NewFlagSet("auth0 plan", flag.ContinueOnError)
+	set.SetOutput(stderr)
+	usersPath := set.String("auth0-users", "", "normalized Auth0 users JSON (required)")
+	candidatesPath := set.String("app-candidates", "", "imported app identity candidates JSON (required)")
+	resolutionsPath := set.String("resolutions", "", "explicit identity resolutions JSON")
+	planPath := set.String("plan", "auth0-import-plan.json", "output reconciliation plan")
+	if err := set.Parse(args); err != nil {
+		return err
+	}
+	if set.NArg() != 0 {
+		return errors.New("auth0 plan does not accept positional arguments")
+	}
+	if *usersPath == "" || *candidatesPath == "" {
+		return errors.New("--auth0-users and --app-candidates are required")
+	}
+	var users []legacy.Auth0User
+	if err := loadJSON(*usersPath, "Auth0 users", &users); err != nil {
+		return err
+	}
+	var candidates []legacy.AppIdentityCandidate
+	if err := loadJSON(*candidatesPath, "app identity candidates", &candidates); err != nil {
+		return err
+	}
+	resolutions := make([]legacy.IdentityResolution, 0)
+	if *resolutionsPath != "" {
+		if err := loadJSON(*resolutionsPath, "identity resolutions", &resolutions); err != nil {
+			return err
+		}
+	}
+	plan, err := legacy.PlanAuth0Import(users, candidates, resolutions, now(), nil)
+	if err != nil {
+		return err
+	}
+	if err := legacy.WriteJSON(*planPath, plan); err != nil {
+		return err
+	}
+	fmt.Fprintf(stdout, "plan=%s auth0Users=%d providerIdentities=%d matched=%d requiresResolution=%d passwordResetRequired=%d checksum=%s\n",
+		*planPath,
+		plan.Reconciliation.Auth0UserCount,
+		plan.Reconciliation.ProviderIdentityCount,
+		plan.Reconciliation.StatusCounts[legacy.Auth0StatusMatched],
+		plan.Reconciliation.StatusCounts[legacy.Auth0StatusRequiresResolution],
+		plan.Reconciliation.StatusCounts[legacy.Auth0StatusPasswordResetRequired],
+		plan.Checksum,
+	)
+	return nil
+}
+
+func loadJSON(path, label string, target any) error {
+	file, err := os.Open(path)
+	if err != nil {
+		return fmt.Errorf("open %s: %w", label, err)
+	}
+	defer file.Close()
+	decoder := json.NewDecoder(file)
+	if err := decoder.Decode(target); err != nil {
+		return fmt.Errorf("decode %s: %w", label, err)
+	}
+	var trailing any
+	if err := decoder.Decode(&trailing); !errors.Is(err, io.EOF) {
+		if err == nil {
+			return fmt.Errorf("decode %s: multiple JSON documents", label)
+		}
+		return fmt.Errorf("decode %s: %w", label, err)
+	}
+	return nil
 }
 
 type sourceFlags struct {
@@ -221,6 +302,7 @@ func rollback(ctx context.Context, engine *legacy.Engine, args []string, stdout,
 
 func printUsage(writer io.Writer) {
 	fmt.Fprintln(writer, "usage:")
+	fmt.Fprintln(writer, "  rsp-migrate auth0 plan --auth0-users FILE --app-candidates FILE [--resolutions FILE] --plan FILE")
 	fmt.Fprintln(writer, "  rsp-migrate legacy dry-run --source-fixture FILE|--source-dsn DSN --manifest FILE [--resolution FILE]")
 	fmt.Fprintln(writer, "  rsp-migrate legacy apply --source-fixture FILE|--source-dsn DSN --manifest FILE --target-state FILE|--target-dsn DSN [--resolution FILE]")
 	fmt.Fprintln(writer, "  rsp-migrate legacy verify --manifest FILE --target-state FILE|--target-dsn DSN")

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"net/mail"
 	"os"
 	"strings"
 	"time"
@@ -34,7 +35,15 @@ func run(ctx context.Context, args []string) error {
 	defer conn.Close(context.WithoutCancel(ctx))
 	switch args[0] {
 	case "seed":
-		return seed(ctx, conn)
+		appEnv := strings.ToLower(strings.TrimSpace(os.Getenv("APP_ENV")))
+		if appEnv != "development" && appEnv != "test" {
+			return errors.New("seed is allowed only when APP_ENV=development or APP_ENV=test")
+		}
+		options, err := parseSeedOptions(args[1:])
+		if err != nil {
+			return err
+		}
+		return seed(ctx, conn, options)
 	case "bootstrap-admin":
 		set := flag.NewFlagSet("bootstrap-admin", flag.ContinueOnError)
 		subject := set.String("auth-subject", "", "Better Auth user id")
@@ -47,30 +56,152 @@ func run(ctx context.Context, args []string) error {
 		return errors.New("usage: rspctl seed|bootstrap-admin")
 	}
 }
-func seed(ctx context.Context, conn *pgx.Conn) error {
+
+type seedOptions struct {
+	StudentEmail     string
+	MentorEmail      string
+	CoordinatorEmail string
+	DirectorEmail    string
+}
+
+func parseSeedOptions(args []string) (seedOptions, error) {
+	set := flag.NewFlagSet("seed", flag.ContinueOnError)
+	var options seedOptions
+	set.StringVar(&options.StudentEmail, "student-email", "", "existing verified Better Auth user to enrol as the development student")
+	set.StringVar(&options.MentorEmail, "mentor-email", "", "existing verified Better Auth user to enrol as the development mentor")
+	set.StringVar(&options.CoordinatorEmail, "coordinator-email", "", "existing verified Better Auth user to enrol as the development coordinator")
+	set.StringVar(&options.DirectorEmail, "director-email", "", "existing verified Better Auth user to grant the development Director role")
+	if err := set.Parse(args); err != nil {
+		return seedOptions{}, err
+	}
+	if set.NArg() != 0 {
+		return seedOptions{}, errors.New("seed does not accept positional arguments")
+	}
+
+	values := []*string{
+		&options.StudentEmail,
+		&options.MentorEmail,
+		&options.CoordinatorEmail,
+		&options.DirectorEmail,
+	}
+	seen := make(map[string]struct{}, len(values))
+	for _, value := range values {
+		normalized, err := normalizeSeedEmail(*value)
+		if err != nil {
+			return seedOptions{}, err
+		}
+		*value = normalized
+		if normalized == "" {
+			continue
+		}
+		if _, exists := seen[normalized]; exists {
+			return seedOptions{}, fmt.Errorf("seed role emails must be distinct: %s", normalized)
+		}
+		seen[normalized] = struct{}{}
+	}
+	return options, nil
+}
+
+func normalizeSeedEmail(value string) (string, error) {
+	value = strings.ToLower(strings.TrimSpace(value))
+	if value == "" {
+		return "", nil
+	}
+	parsed, err := mail.ParseAddress(value)
+	if err != nil || !strings.EqualFold(parsed.Address, value) {
+		return "", fmt.Errorf("invalid seed email %q", value)
+	}
+	return value, nil
+}
+
+type seedUser struct {
+	FallbackID    string
+	FallbackEmail string
+	Email         string
+	Slug          string
+	DisplayName   string
+}
+
+func resolveSeedUser(ctx context.Context, tx pgx.Tx, user seedUser) (string, error) {
+	if user.Email == "" {
+		_, err := tx.Exec(ctx, `INSERT INTO app.users(id,slug,display_name,email,account_state,timezone,timezone_configured,is_test,revision) VALUES($1,$2,$3,$4,'active','Australia/Adelaide',true,true,1)`, user.FallbackID, user.Slug, user.DisplayName, user.FallbackEmail)
+		if err != nil {
+			return "", err
+		}
+		return user.FallbackID, nil
+	}
+
+	var userID string
+	err := tx.QueryRow(ctx, `
+SELECT u.id
+FROM app.users u
+WHERE lower(u.email)=lower($1)
+  AND u.account_state='active'
+  AND u.deleted_at IS NULL
+  AND EXISTS (
+    SELECT 1 FROM app.user_auth_links l
+    WHERE l.user_id=u.id AND l.active
+  )
+FOR UPDATE`, user.Email).Scan(&userID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return "", fmt.Errorf("verified active auth-linked seed user not found for %s", user.Email)
+	}
+	if err != nil {
+		return "", err
+	}
+	_, err = tx.Exec(ctx, `UPDATE app.users SET slug=$2,display_name=$3,timezone='Australia/Adelaide',timezone_configured=true,is_test=false,revision=revision+1 WHERE id=$1`, userID, user.Slug, user.DisplayName)
+	if err != nil {
+		return "", err
+	}
+	return userID, nil
+}
+
+func seed(ctx context.Context, conn *pgx.Conn, options seedOptions) error {
 	tx, err := conn.Begin(ctx)
 	if err != nil {
 		return err
 	}
 	defer tx.Rollback(ctx)
 	var exists bool
-	if err := tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM app.users WHERE id='dev-student')`).Scan(&exists); err != nil {
+	if err := tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM app.seasons WHERE id='dev-season')`).Scan(&exists); err != nil {
 		return err
 	}
 	if exists {
 		return errors.New("seed data already exists")
 	}
+	studentID, err := resolveSeedUser(ctx, tx, seedUser{FallbackID: "dev-student", FallbackEmail: "student@rsp.local", Email: options.StudentEmail, Slug: "dev-student", DisplayName: "Dev Student"})
+	if err != nil {
+		return err
+	}
+	mentorID, err := resolveSeedUser(ctx, tx, seedUser{FallbackID: "dev-mentor", FallbackEmail: "mentor@rsp.local", Email: options.MentorEmail, Slug: "dev-mentor", DisplayName: "Dev Mentor"})
+	if err != nil {
+		return err
+	}
+	coordinatorID, err := resolveSeedUser(ctx, tx, seedUser{FallbackID: "dev-coordinator", FallbackEmail: "coordinator@rsp.local", Email: options.CoordinatorEmail, Slug: "dev-coordinator", DisplayName: "Dev Coordinator"})
+	if err != nil {
+		return err
+	}
+	directorID, err := resolveSeedUser(ctx, tx, seedUser{FallbackID: "dev-director", FallbackEmail: "director@rsp.local", Email: options.DirectorEmail, Slug: "dev-director", DisplayName: "Dev Director"})
+	if err != nil {
+		return err
+	}
 	now := time.Now().UTC()
-	statements := []string{`INSERT INTO app.users(id,slug,display_name,email,account_state,timezone,is_test,revision) VALUES('dev-student','dev-student','Dev Student','student@rsp.local','active','Australia/Adelaide',true,1),('dev-mentor','dev-mentor','Dev Mentor','mentor@rsp.local','active','Australia/Adelaide',true,1),('dev-admin','dev-admin','Dev Admin','admin@rsp.local','active','Australia/Adelaide',true,1)`, `INSERT INTO app.seasons(id,slug,name,status,start_at,end_at,location,image_url,resources_url,revision) VALUES('dev-season','dev-season','Development Season','open',$1,$2,'Adelaide','https://example.invalid/rsp-season','https://example.invalid/rsp-resources',1)`, `INSERT INTO app.enrollments(id,user_id,season_id,role,student_level,state,revision) VALUES('dev-enrollment-student','dev-student','dev-season','student','beginner','active',1),('dev-enrollment-mentor','dev-mentor','dev-season','mentor','not_applicable','active',1),('dev-enrollment-admin','dev-admin','dev-season','coordinator','not_applicable','active',1)`, `INSERT INTO app.mentorships(id,season_id,mentor_enrollment_id,student_enrollment_id,revision) VALUES('dev-mentorship','dev-season','dev-enrollment-mentor','dev-enrollment-student',1)`, `INSERT INTO app.problems(id,title,url,revision) VALUES('dev-problem','Two Sum','https://leetcode.com/problems/two-sum/',1)`, `INSERT INTO app.leetcode_problems(id,problem_id,leetcode_number,difficulty,is_premium,revision) VALUES('dev-leetcode','dev-problem',1,'easy',false,1)`}
+	statements := []struct {
+		query string
+		args  []any
+	}{
+		{`INSERT INTO app.seasons(id,slug,name,status,start_at,end_at,location,image_url,resources_url,revision) VALUES('dev-season','dev-season','Development Season','open',$1,$2,'Adelaide','https://example.invalid/rsp-season','https://example.invalid/rsp-resources',1)`, []any{now.AddDate(0, 0, -7), now.AddDate(0, 0, 49)}},
+		{`INSERT INTO app.enrollments(id,user_id,season_id,role,student_level,state,revision) VALUES('dev-enrollment-student',$1,'dev-season','student','beginner','active',1),('dev-enrollment-mentor',$2,'dev-season','mentor','not_applicable','active',1),('dev-enrollment-coordinator',$3,'dev-season','coordinator','not_applicable','active',1)`, []any{studentID, mentorID, coordinatorID}},
+		{`INSERT INTO app.mentorships(id,season_id,mentor_enrollment_id,student_enrollment_id,revision) VALUES('dev-mentorship','dev-season','dev-enrollment-mentor','dev-enrollment-student',1)`, nil},
+		{`INSERT INTO app.problems(id,title,url,revision) VALUES('dev-problem','Two Sum','https://leetcode.com/problems/two-sum/',1)`, nil},
+		{`INSERT INTO app.leetcode_problems(id,problem_id,leetcode_number,difficulty,is_premium,revision) VALUES('dev-leetcode','dev-problem',1,'easy',false,1) ON CONFLICT (leetcode_number) DO UPDATE SET difficulty='easy',is_premium=false,deleted_at=NULL,revision=app.leetcode_problems.revision+1`, nil},
+		{`DELETE FROM app.problems p WHERE p.id='dev-problem' AND NOT EXISTS(SELECT 1 FROM app.leetcode_problems l WHERE l.problem_id=p.id)`, nil},
+		{`INSERT INTO app.global_role_assignments(id,user_id,role,state,granted_by_user_id,granted_at,activated_at,revision) SELECT 'dev-role-director',$1,'director',CASE WHEN mfa_configured THEN 'active'::app.assignment_state ELSE 'pending_mfa'::app.assignment_state END,NULL,$2::timestamptz,CASE WHEN mfa_configured THEN $2::timestamptz ELSE NULL END,1 FROM app.users WHERE id=$1`, []any{directorID, now}},
+		{`INSERT INTO app.audit_events(id,actor_user_id,action,subject_type,subject_id,data,occurred_at) VALUES('dev-audit-coordinator-seed',NULL,'development_seed.coordinator_granted','enrollment','dev-enrollment-coordinator',jsonb_build_object('userId',$1::text,'seasonId','dev-season'),$3::timestamptz),('dev-audit-director-seed',NULL,'development_seed.director_granted','global_role_assignment','dev-role-director',jsonb_build_object('userId',$2::text),$3::timestamptz)`, []any{coordinatorID, directorID, now}},
+	}
 	for i, statement := range statements {
-		var e error
-		if i == 1 {
-			_, e = tx.Exec(ctx, statement, now.AddDate(0, 0, -7), now.AddDate(0, 0, 49))
-		} else {
-			_, e = tx.Exec(ctx, statement)
-		}
-		if e != nil {
-			return e
+		if _, err := tx.Exec(ctx, statement.query, statement.args...); err != nil {
+			return fmt.Errorf("seed statement %d: %w", i+1, err)
 		}
 	}
 	return tx.Commit(ctx)
@@ -86,6 +217,9 @@ func bootstrap(ctx context.Context, conn *pgx.Conn, subject, email string) error
 		return err
 	}
 	defer tx.Rollback(ctx)
+	if _, err := tx.Exec(ctx, `SELECT pg_advisory_xact_lock(7277500101)`); err != nil {
+		return err
+	}
 	var count int
 	if err := tx.QueryRow(ctx, `SELECT count(*) FROM app.global_role_assignments WHERE role='system_admin'`).Scan(&count); err != nil {
 		return err
@@ -99,13 +233,29 @@ func bootstrap(ctx context.Context, conn *pgx.Conn, subject, email string) error
 		return fmt.Errorf("verified linked user not found: %w", err)
 	}
 	assignmentID := id.New()
-	_, err = tx.Exec(ctx, `INSERT INTO app.global_role_assignments(id,user_id,role,state,granted_by_user_id,granted_at,revision) VALUES($1,$2,'system_admin','pending_mfa',NULL,now(),1)`, assignmentID, userID)
+	var assignmentState string
+	err = tx.QueryRow(ctx, `INSERT INTO app.global_role_assignments(id,user_id,role,state,granted_by_user_id,granted_at,revision) VALUES($1,$2,'system_admin','pending_mfa',NULL,now(),1) RETURNING state::text`, assignmentID, userID).Scan(&assignmentState)
 	if err != nil {
 		return err
 	}
-	_, err = tx.Exec(ctx, `INSERT INTO app.audit_events(id,actor_user_id,action,subject_type,subject_id,data) VALUES($1,NULL,'system_admin.bootstrap_pending_mfa','global_role_assignment',$2,jsonb_build_object('userId',$3))`, id.New(), assignmentID, userID)
+	auditAction, err := bootstrapAuditAction(assignmentState)
+	if err != nil {
+		return err
+	}
+	_, err = tx.Exec(ctx, `INSERT INTO app.audit_events(id,actor_user_id,action,subject_type,subject_id,data) VALUES($1,NULL,$2,'global_role_assignment',$3,jsonb_build_object('userId',$4,'state',$5))`, id.New(), auditAction, assignmentID, userID, assignmentState)
 	if err != nil {
 		return err
 	}
 	return tx.Commit(ctx)
+}
+
+func bootstrapAuditAction(assignmentState string) (string, error) {
+	switch assignmentState {
+	case "active":
+		return "system_admin.bootstrap_activated", nil
+	case "pending_mfa":
+		return "system_admin.bootstrap_pending_mfa", nil
+	default:
+		return "", fmt.Errorf("unexpected bootstrap assignment state %q", assignmentState)
+	}
 }

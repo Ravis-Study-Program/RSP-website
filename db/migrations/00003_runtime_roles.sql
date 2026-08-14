@@ -1,0 +1,49 @@
+-- +goose Up
+
+-- Local/Testcontainers runs may not have executed the Compose role provisioner.
+-- Create non-login principals in that case; production provisioning upgrades
+-- them to LOGIN roles with environment-supplied passwords before migrations.
+-- +goose StatementBegin
+DO $roles$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'rsp_app') THEN
+    CREATE ROLE rsp_app NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'rsp_auth') THEN
+    CREATE ROLE rsp_auth NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'rsp_migration') THEN
+    CREATE ROLE rsp_migration NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION;
+  END IF;
+END
+$roles$;
+-- +goose StatementEnd
+
+GRANT USAGE ON SCHEMA app TO rsp_app;
+GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA app TO rsp_app;
+GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA app TO rsp_app;
+GRANT USAGE ON SCHEMA migration TO rsp_app;
+GRANT SELECT ON migration.runs TO rsp_app;
+
+-- History is append-only at both the privilege and trigger layers. Runtime
+-- code can create records, but only the migration owner can reverse an import.
+REVOKE UPDATE, DELETE, TRUNCATE ON app.audit_events FROM rsp_app;
+REVOKE UPDATE, DELETE, TRUNCATE ON app.enrollment_removal_events FROM rsp_app;
+REVOKE UPDATE, DELETE, TRUNCATE ON app.mock_interview_versions FROM rsp_app;
+
+ALTER DEFAULT PRIVILEGES IN SCHEMA app
+  GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO rsp_app;
+ALTER DEFAULT PRIVILEGES IN SCHEMA app
+  GRANT USAGE, SELECT ON SEQUENCES TO rsp_app;
+
+-- +goose Down
+
+ALTER DEFAULT PRIVILEGES IN SCHEMA app
+  REVOKE SELECT, INSERT, UPDATE, DELETE ON TABLES FROM rsp_app;
+ALTER DEFAULT PRIVILEGES IN SCHEMA app
+  REVOKE USAGE, SELECT ON SEQUENCES FROM rsp_app;
+REVOKE ALL PRIVILEGES ON migration.runs FROM rsp_app;
+REVOKE USAGE ON SCHEMA migration FROM rsp_app;
+REVOKE ALL PRIVILEGES ON ALL TABLES IN SCHEMA app FROM rsp_app;
+REVOKE ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA app FROM rsp_app;
+REVOKE USAGE ON SCHEMA app FROM rsp_app;

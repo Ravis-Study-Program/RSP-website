@@ -30,12 +30,13 @@ type Enrollment struct {
 }
 
 type Actor struct {
-	UserID        string
-	EmailVerified bool
-	AccountState  AccountState
-	GlobalRoles   map[GlobalRole]bool
-	Enrollments   []Enrollment
-	MFAAt         *time.Time
+	UserID          string
+	EmailVerified   bool
+	AccountState    AccountState
+	SecurityVersion int64
+	GlobalRoles     map[GlobalRole]bool
+	Enrollments     []Enrollment
+	MFAAt           *time.Time
 }
 
 func (a Actor) authenticated() bool {
@@ -72,6 +73,21 @@ func (a Actor) EligibleMember() bool {
 	}
 	for _, e := range a.Enrollments {
 		if e.State == Active {
+			return true
+		}
+	}
+	return false
+}
+
+// ProgrammeAccess includes historical members whose active enrollment was
+// completed by closing a season. It is intentionally broader than
+// EligibleMember, which remains the directory/basic-profile policy.
+func (a Actor) ProgrammeAccess() bool {
+	if !a.authenticated() {
+		return false
+	}
+	for _, e := range a.Enrollments {
+		if e.State == Active || e.State == Completed {
 			return true
 		}
 	}

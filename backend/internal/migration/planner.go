@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/microcosm-cc/bluemonday"
+	platformsanitize "github.com/magedmg/RSP-website/backend/internal/platform/sanitize"
 )
 
 var LegacyTables = []string{
@@ -669,7 +669,11 @@ func transformSnapshot(snapshot Snapshot, now time.Time, autoFixes *[]AutoFix) (
 			discordID, avatarURL, pseudonymizedAt = nil, nil, source["DeletedAtUtc"]
 			*autoFixes = append(*autoFixes, AutoFix{Code: "PSEUDONYMIZE_DELETED_USER", SourceTable: "User", SourceID: id, Detail: "legacy-deleted user PII removed while retaining opaque identity", Before: "legacy profile PII", After: "pseudonymized"})
 		}
-		values := Row{"id": id, "slug": slug, "display_name": displayName, "email": email, "discord_id": discordID, "avatar_url": avatarURL, "account_state": accountState, "timezone": "Australia/Adelaide", "is_test": source["IsTestUser"], "leetcode_premium_opt_in": false, "legacy_is_admin": source["IsAdmin"], "legacy_is_graduate": source["IsGraduate"], "pseudonymized_at": pseudonymizedAt, "deleted_at": source["DeletedAtUtc"], "created_at": source["CreatedAtUtc"], "updated_at": source["UpdatedAtUtc"]}
+		timezone := "Australia/Adelaide"
+		if accountState == "deleted" {
+			timezone = "UTC"
+		}
+		values := Row{"id": id, "slug": slug, "display_name": displayName, "email": email, "discord_id": discordID, "avatar_url": avatarURL, "account_state": accountState, "timezone": timezone, "timezone_configured": false, "is_test": source["IsTestUser"], "leetcode_premium_opt_in": false, "legacy_is_admin": source["IsAdmin"], "legacy_is_graduate": source["IsGraduate"], "pseudonymized_at": pseudonymizedAt, "deleted_at": source["DeletedAtUtc"], "created_at": source["CreatedAtUtc"], "updated_at": source["UpdatedAtUtc"]}
 		if err := add("users", "User", source, id, values, ""); err != nil {
 			return nil, nil, err
 		}
@@ -1163,16 +1167,6 @@ func roundPositions(rows []Row) map[string]int {
 // elements, inline event handlers, javascript URLs, and embeds while retaining
 // the legacy formatting markup for the application sanitizer's allowlist.
 func sanitizeLegacyHTML(input string) (string, bool) {
-	policy := bluemonday.NewPolicy()
-	policy.AllowElements(
-		"p", "br", "strong", "b", "em", "i", "u", "s", "strike",
-		"code", "pre", "blockquote", "ul", "ol", "li", "h1", "h2",
-		"h3", "h4", "hr", "span", "a",
-	)
-	policy.AllowAttrs("href", "title", "target", "rel").OnElements("a")
-	policy.AllowURLSchemes("http", "https", "mailto")
-	policy.RequireNoFollowOnLinks(true)
-	policy.RequireNoReferrerOnLinks(true)
-	result := policy.Sanitize(input)
+	result := platformsanitize.New().String(input)
 	return result, result != input
 }

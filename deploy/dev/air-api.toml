@@ -1,0 +1,20 @@
+root = "."
+tmp_dir = "/tmp/rsp-air-api"
+
+[build]
+cmd = "go build -o /tmp/rsp-air-api/api ./backend/cmd/api"
+bin = "/tmp/rsp-air-api/api"
+delay = 400
+exclude_dir = [".git", "apps", "docs", "node_modules"]
+include_dir = ["api", "backend", "db"]
+include_ext = ["go", "sql", "yaml"]
+kill_delay = "1s"
+send_interrupt = true
+stop_on_error = true
+
+[log]
+main_only = true
+time = true
+
+[misc]
+clean_on_exit = true

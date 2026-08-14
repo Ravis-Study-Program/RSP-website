@@ -9,7 +9,7 @@ export default defineConfig({
     trace: 'on-first-retry',
   },
   webServer: {
-    command: 'pnpm build && pnpm preview',
+    command: 'corepack pnpm build:demo && corepack pnpm preview',
     url: 'http://127.0.0.1:4173',
     reuseExistingServer: !process.env.CI,
     env: { VITE_USE_DEMO_DATA: 'true' },
@@ -17,5 +17,20 @@ export default defineConfig({
   projects: [
     { name: 'desktop-chromium', use: { ...devices['Desktop Chrome'] } },
     { name: 'mobile-chromium', use: { ...devices['Pixel 7'] } },
+    {
+      name: 'desktop-firefox-compat',
+      grep: /@compat/,
+      use: { ...devices['Desktop Firefox'] },
+    },
+    {
+      name: 'desktop-webkit-compat',
+      grep: /@compat/,
+      use: { ...devices['Desktop Safari'] },
+    },
+    {
+      name: 'mobile-webkit-compat',
+      grep: /@compat/,
+      use: { ...devices['iPhone 15'] },
+    },
   ],
 });

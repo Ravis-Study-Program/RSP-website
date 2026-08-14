@@ -20,9 +20,19 @@ func NewEngine(now func() time.Time) *Engine {
 }
 
 func (e *Engine) DryRun(ctx context.Context, source Source, resolutions *ResolutionFile) (PreparedImport, error) {
+	return e.planSource(ctx, source, resolutions, time.Time{})
+}
+
+func (e *Engine) planSource(ctx context.Context, source Source, resolutions *ResolutionFile, approvedSnapshotAt time.Time) (PreparedImport, error) {
 	snapshot, err := source.Snapshot(ctx, SnapshotOptions{ReadOnly: true, Isolation: IsolationRepeatableRead})
 	if err != nil {
 		return PreparedImport{}, fmt.Errorf("read legacy snapshot: %w", err)
+	}
+	if !approvedSnapshotAt.IsZero() {
+		// CapturedAt is an import transform input (for example, initial mock
+		// interview history and ended-season closure). Re-reading unchanged
+		// source rows at apply time must reuse the checksum-approved instant.
+		snapshot.CapturedAt = approvedSnapshotAt.UTC()
 	}
 	return e.planner.Plan(snapshot, resolutions)
 }
@@ -34,7 +44,7 @@ func (e *Engine) Apply(ctx context.Context, source Source, target Target, manife
 	if manifest.HasBlockingAnomalies() {
 		return ErrBlockingAnomalies
 	}
-	prepared, planErr := e.DryRun(ctx, source, resolutions)
+	prepared, planErr := e.planSource(ctx, source, resolutions, manifest.SourceSnapshotAt)
 	if planErr != nil {
 		return planErr
 	}

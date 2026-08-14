@@ -9,13 +9,15 @@
   },
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
-    "check": "tsc --noEmit",
+    "check": "pnpm typecheck",
     "dev": "tsx watch src/server.ts",
+    "lint": "eslint src test vitest.config.ts --max-warnings 0",
     "generate-schema": "auth generate --config src/auth.ts --output migrations/better-auth.sql --yes",
     "migrate": "auth migrate --config src/auth.ts --yes",
     "start": "node dist/server.js",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@aws-sdk/client-sesv2": "3.1109.0",
