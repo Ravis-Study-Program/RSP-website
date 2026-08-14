@@ -5,9 +5,9 @@
  * Same-origin API for the Ravi's Study Program application.
  * OpenAPI spec version: 2.0.0
  */
-import type { SeasonMutation } from "./seasonMutation";
-import type { SeasonUpdateAllOf } from "./seasonUpdateAllOf";
+import type { SeasonMutation } from './seasonMutation';
+import type { SeasonUpdateAllOf } from './seasonUpdateAllOf';
 
 export type SeasonUpdate = SeasonMutation &
   SeasonUpdateAllOf &
-  Required<Pick<SeasonMutation & SeasonUpdateAllOf, "revision">>;
+  Required<Pick<SeasonMutation & SeasonUpdateAllOf, 'revision'>>;

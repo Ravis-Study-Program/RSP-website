@@ -183,6 +183,7 @@ jobs:
         run: |
           psql "$DATABASE_URL" --set ON_ERROR_STOP=1 --command "CREATE DATABASE rsp_auth_upgrade"
           upgrade_url="postgresql://rsp:rsp-ci-database-password@127.0.0.1:5432/rsp_auth_upgrade?sslmode=disable"
+          psql "$upgrade_url" --set ON_ERROR_STOP=1 --command "CREATE SCHEMA auth"
           psql "$upgrade_url" --set ON_ERROR_STOP=1 --file apps/auth/migrations/better-auth.sql
           psql "$upgrade_url" --set ON_ERROR_STOP=1 --file deploy/postgres/migrate-auth.sql
           psql "$upgrade_url" --set ON_ERROR_STOP=1 --file deploy/postgres/migrate-auth.sql
@@ -428,6 +429,7 @@ jobs:
         uses: gitleaks/gitleaks-action@e0c47f4f8be36e29cdc102c57e68cb5cbf0e8d1e # v3.0.0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITLEAKS_VERSION: 8.30.1
 
   migration-fixture:
     name: Legacy migration rehearsal fixture

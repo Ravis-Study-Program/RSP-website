@@ -5,7 +5,7 @@
  * Same-origin API for the Ravi's Study Program application.
  * OpenAPI spec version: 2.0.0
  */
-import type { EnrollmentCandidate } from "./enrollmentCandidate";
+import type { EnrollmentCandidate } from './enrollmentCandidate';
 
 export type EnrollmentCandidatePageAllOf = {
   items: EnrollmentCandidate[];

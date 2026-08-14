@@ -11,7 +11,7 @@ export type ListMockInterviewsMode =
 
 // eslint-disable-next-line @typescript-eslint/no-redeclare
 export const ListMockInterviewsMode = {
-  received: "received",
-  given: "given",
-  all: "all",
+  received: 'received',
+  given: 'given',
+  all: 'all',
 } as const;

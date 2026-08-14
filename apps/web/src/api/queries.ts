@@ -252,6 +252,7 @@ export const seasonsOptions = queryOptions({
     demoMode
       ? wait(page(seasons))
       : adaptSeasonPage(await fetchAllPages('/seasons?limit=100')),
+  staleTime: demoMode ? Infinity : 0,
 });
 
 export const practiceSettingsOptions = queryOptions({

@@ -5,7 +5,7 @@
  * Same-origin API for the Ravi's Study Program application.
  * OpenAPI spec version: 2.0.0
  */
-import type { PageEnvelope } from "./pageEnvelope";
-import type { ProblemPageAllOf } from "./problemPageAllOf";
+import type { PageEnvelope } from './pageEnvelope';
+import type { ProblemPageAllOf } from './problemPageAllOf';
 
 export type ProblemPage = PageEnvelope & ProblemPageAllOf;

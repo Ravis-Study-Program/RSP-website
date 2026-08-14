@@ -10,7 +10,7 @@ export type Difficulty = (typeof Difficulty)[keyof typeof Difficulty];
 
 // eslint-disable-next-line @typescript-eslint/no-redeclare
 export const Difficulty = {
-  easy: "easy",
-  medium: "medium",
-  hard: "hard",
+  easy: 'easy',
+  medium: 'medium',
+  hard: 'hard',
 } as const;

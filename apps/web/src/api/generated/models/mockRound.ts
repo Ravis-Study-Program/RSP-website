@@ -5,8 +5,8 @@
  * Same-origin API for the Ravi's Study Program application.
  * OpenAPI spec version: 2.0.0
  */
-import type { MockRoundType } from "./mockRoundType";
-import type { Scores } from "./scores";
+import type { MockRoundType } from './mockRoundType';
+import type { Scores } from './scores';
 
 export interface MockRound {
   id: string;

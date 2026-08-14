@@ -7,7 +7,7 @@ import {
   IconPlus,
 } from '@tabler/icons-react';
 import { useQueryClient } from '@tanstack/react-query';
-import { useEffect, useState, type ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { Controller, useForm, type Resolver } from 'react-hook-form';
 import { z } from 'zod';
 
@@ -120,8 +120,6 @@ export function SeasonEditorDialog({
     resolver: zodResolver(seasonSchema as never) as Resolver<SeasonFormValues>,
     defaultValues: defaultValues(season),
   });
-
-  useEffect(() => form.reset(defaultValues(season)), [form, season]);
 
   const save = form.handleSubmit(async (values) => {
     setRequestError('');

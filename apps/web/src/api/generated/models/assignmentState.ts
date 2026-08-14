@@ -11,7 +11,7 @@ export type AssignmentState =
 
 // eslint-disable-next-line @typescript-eslint/no-redeclare
 export const AssignmentState = {
-  pending_mfa: "pending_mfa",
-  active: "active",
-  revoked: "revoked",
+  pending_mfa: 'pending_mfa',
+  active: 'active',
+  revoked: 'revoked',
 } as const;

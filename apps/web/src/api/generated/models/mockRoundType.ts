@@ -10,7 +10,7 @@ export type MockRoundType = (typeof MockRoundType)[keyof typeof MockRoundType];
 
 // eslint-disable-next-line @typescript-eslint/no-redeclare
 export const MockRoundType = {
-  behavioural: "behavioural",
-  leetcode: "leetcode",
-  custom: "custom",
+  behavioural: 'behavioural',
+  leetcode: 'leetcode',
+  custom: 'custom',
 } as const;

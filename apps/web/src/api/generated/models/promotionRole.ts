@@ -10,6 +10,6 @@ export type PromotionRole = (typeof PromotionRole)[keyof typeof PromotionRole];
 
 // eslint-disable-next-line @typescript-eslint/no-redeclare
 export const PromotionRole = {
-  mentor: "mentor",
-  coordinator: "coordinator",
+  mentor: 'mentor',
+  coordinator: 'coordinator',
 } as const;

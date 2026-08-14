@@ -10,6 +10,6 @@ export type GlobalRole = (typeof GlobalRole)[keyof typeof GlobalRole];
 
 // eslint-disable-next-line @typescript-eslint/no-redeclare
 export const GlobalRole = {
-  director: "director",
-  system_admin: "system_admin",
+  director: 'director',
+  system_admin: 'system_admin',
 } as const;

@@ -5,7 +5,7 @@
  * Same-origin API for the Ravi's Study Program application.
  * OpenAPI spec version: 2.0.0
  */
-import type { Attempt } from "./attempt";
+import type { Attempt } from './attempt';
 
 export type AttemptPageAllOf = {
   items: Attempt[];

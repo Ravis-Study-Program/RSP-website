@@ -11,8 +11,8 @@ export type AttemptOutcome =
 
 // eslint-disable-next-line @typescript-eslint/no-redeclare
 export const AttemptOutcome = {
-  independently_solved: "independently_solved",
-  solved_with_hints: "solved_with_hints",
-  not_solved: "not_solved",
-  unknown: "unknown",
+  independently_solved: 'independently_solved',
+  solved_with_hints: 'solved_with_hints',
+  not_solved: 'not_solved',
+  unknown: 'unknown',
 } as const;

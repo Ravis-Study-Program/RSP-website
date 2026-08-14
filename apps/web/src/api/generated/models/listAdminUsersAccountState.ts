@@ -11,7 +11,7 @@ export type ListAdminUsersAccountState =
 
 // eslint-disable-next-line @typescript-eslint/no-redeclare
 export const ListAdminUsersAccountState = {
-  active: "active",
-  suspended: "suspended",
-  deletion_pending: "deletion_pending",
+  active: 'active',
+  suspended: 'suspended',
+  deletion_pending: 'deletion_pending',
 } as const;

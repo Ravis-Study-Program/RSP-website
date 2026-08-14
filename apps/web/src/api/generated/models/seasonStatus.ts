@@ -10,6 +10,6 @@ export type SeasonStatus = (typeof SeasonStatus)[keyof typeof SeasonStatus];
 
 // eslint-disable-next-line @typescript-eslint/no-redeclare
 export const SeasonStatus = {
-  open: "open",
-  closed: "closed",
+  open: 'open',
+  closed: 'closed',
 } as const;

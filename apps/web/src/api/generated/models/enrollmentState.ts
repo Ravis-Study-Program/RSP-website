@@ -11,8 +11,8 @@ export type EnrollmentState =
 
 // eslint-disable-next-line @typescript-eslint/no-redeclare
 export const EnrollmentState = {
-  active: "active",
-  completed: "completed",
-  kicked: "kicked",
-  withdrawn: "withdrawn",
+  active: 'active',
+  completed: 'completed',
+  kicked: 'kicked',
+  withdrawn: 'withdrawn',
 } as const;

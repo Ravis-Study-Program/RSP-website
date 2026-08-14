@@ -11,6 +11,6 @@ export type ListSeasonsStatus =
 
 // eslint-disable-next-line @typescript-eslint/no-redeclare
 export const ListSeasonsStatus = {
-  open: "open",
-  closed: "closed",
+  open: 'open',
+  closed: 'closed',
 } as const;

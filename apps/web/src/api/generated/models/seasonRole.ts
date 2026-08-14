@@ -10,7 +10,7 @@ export type SeasonRole = (typeof SeasonRole)[keyof typeof SeasonRole];
 
 // eslint-disable-next-line @typescript-eslint/no-redeclare
 export const SeasonRole = {
-  student: "student",
-  mentor: "mentor",
-  coordinator: "coordinator",
+  student: 'student',
+  mentor: 'mentor',
+  coordinator: 'coordinator',
 } as const;

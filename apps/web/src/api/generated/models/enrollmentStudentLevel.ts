@@ -11,9 +11,9 @@ export type EnrollmentStudentLevel =
 
 // eslint-disable-next-line @typescript-eslint/no-redeclare
 export const EnrollmentStudentLevel = {
-  novice: "novice",
-  beginner: "beginner",
-  intermediate: "intermediate",
-  advanced: "advanced",
-  not_applicable: "not_applicable",
+  novice: 'novice',
+  beginner: 'beginner',
+  intermediate: 'intermediate',
+  advanced: 'advanced',
+  not_applicable: 'not_applicable',
 } as const;

@@ -11,6 +11,6 @@ export type DirectionParameter =
 
 // eslint-disable-next-line @typescript-eslint/no-redeclare
 export const DirectionParameter = {
-  forward: "forward",
-  backward: "backward",
+  forward: 'forward',
+  backward: 'backward',
 } as const;

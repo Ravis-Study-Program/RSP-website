@@ -567,6 +567,9 @@ test('director can create, edit and close a season', async ({
   await close.getByLabel(/Type Semester 2, 2026/).fill('Semester 2, 2026');
   await close.getByRole('button', { name: 'Close season' }).click();
   await expect(page.getByText('This season is read-only.')).toBeVisible();
+
+  await page.getByRole('link', { name: 'Seasons', exact: true }).click();
+  await expect(page.getByRole('link', { name: 'Summer 2027' })).toBeVisible();
 });
 
 test('mock interview create, round edit and named deletion work', async ({

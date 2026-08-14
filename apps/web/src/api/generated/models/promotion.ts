@@ -5,8 +5,8 @@
  * Same-origin API for the Ravi's Study Program application.
  * OpenAPI spec version: 2.0.0
  */
-import type { PromotionRole } from "./promotionRole";
-import type { Revision } from "./revision";
+import type { PromotionRole } from './promotionRole';
+import type { Revision } from './revision';
 
 export interface Promotion {
   role: PromotionRole;

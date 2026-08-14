@@ -11,6 +11,6 @@ export type EnrollmentUpdateRole =
 
 // eslint-disable-next-line @typescript-eslint/no-redeclare
 export const EnrollmentUpdateRole = {
-  student: "student",
-  mentor: "mentor",
+  student: 'student',
+  mentor: 'mentor',
 } as const;

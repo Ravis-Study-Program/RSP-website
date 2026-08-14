@@ -5,7 +5,7 @@
  * Same-origin API for the Ravi's Study Program application.
  * OpenAPI spec version: 2.0.0
  */
-import type { MockInterview } from "./mockInterview";
+import type { MockInterview } from './mockInterview';
 
 export interface MockInterviewResult {
   interview: MockInterview;

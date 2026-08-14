@@ -11,7 +11,7 @@ export type MockRoundMutationType =
 
 // eslint-disable-next-line @typescript-eslint/no-redeclare
 export const MockRoundMutationType = {
-  behavioural: "behavioural",
-  leetcode: "leetcode",
-  custom: "custom",
+  behavioural: 'behavioural',
+  leetcode: 'leetcode',
+  custom: 'custom',
 } as const;

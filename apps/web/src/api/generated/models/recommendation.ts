@@ -5,9 +5,9 @@
  * Same-origin API for the Ravi's Study Program application.
  * OpenAPI spec version: 2.0.0
  */
-import type { LeetcodeProblem } from "./leetcodeProblem";
-import type { Difficulty } from "./difficulty";
-import type { Revision } from "./revision";
+import type { LeetcodeProblem } from './leetcodeProblem';
+import type { Difficulty } from './difficulty';
+import type { Revision } from './revision';
 
 export interface Recommendation {
   id: string;

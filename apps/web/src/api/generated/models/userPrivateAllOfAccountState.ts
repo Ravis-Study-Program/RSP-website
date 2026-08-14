@@ -11,8 +11,8 @@ export type UserPrivateAllOfAccountState =
 
 // eslint-disable-next-line @typescript-eslint/no-redeclare
 export const UserPrivateAllOfAccountState = {
-  active: "active",
-  suspended: "suspended",
-  deletion_pending: "deletion_pending",
-  deleted: "deleted",
+  active: 'active',
+  suspended: 'suspended',
+  deletion_pending: 'deletion_pending',
+  deleted: 'deleted',
 } as const;

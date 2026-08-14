@@ -5,7 +5,7 @@
  * Same-origin API for the Ravi's Study Program application.
  * OpenAPI spec version: 2.0.0
  */
-import type { UserPrivateAllOfAccountState } from "./userPrivateAllOfAccountState";
+import type { UserPrivateAllOfAccountState } from './userPrivateAllOfAccountState';
 
 export type UserPrivateAllOf = {
   email: string;

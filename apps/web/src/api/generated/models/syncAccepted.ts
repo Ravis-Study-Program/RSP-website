@@ -5,7 +5,7 @@
  * Same-origin API for the Ravi's Study Program application.
  * OpenAPI spec version: 2.0.0
  */
-import type { SyncAcceptedStatus } from "./syncAcceptedStatus";
+import type { SyncAcceptedStatus } from './syncAcceptedStatus';
 
 export interface SyncAccepted {
   status: SyncAcceptedStatus;

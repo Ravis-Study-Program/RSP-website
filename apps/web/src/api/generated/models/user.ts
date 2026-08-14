@@ -5,9 +5,9 @@
  * Same-origin API for the Ravi's Study Program application.
  * OpenAPI spec version: 2.0.0
  */
-import type { GlobalRole } from "./globalRole";
-import type { UserSeasonRole } from "./userSeasonRole";
-import type { Revision } from "./revision";
+import type { GlobalRole } from './globalRole';
+import type { UserSeasonRole } from './userSeasonRole';
+import type { Revision } from './revision';
 
 export interface User {
   id: string;

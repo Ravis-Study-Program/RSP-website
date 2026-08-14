@@ -11,5 +11,5 @@ export type SyncAcceptedStatus =
 
 // eslint-disable-next-line @typescript-eslint/no-redeclare
 export const SyncAcceptedStatus = {
-  accepted: "accepted",
+  accepted: 'accepted',
 } as const;

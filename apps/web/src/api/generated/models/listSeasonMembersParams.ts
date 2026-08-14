@@ -5,12 +5,12 @@
  * Same-origin API for the Ravi's Study Program application.
  * OpenAPI spec version: 2.0.0
  */
-import type { LimitParameter } from "./limitParameter";
-import type { CursorParameter } from "./cursorParameter";
-import type { DirectionParameter } from "./directionParameter";
-import type { SortParameter } from "./sortParameter";
-import type { SeasonRole } from "./seasonRole";
-import type { EnrollmentState } from "./enrollmentState";
+import type { LimitParameter } from './limitParameter';
+import type { CursorParameter } from './cursorParameter';
+import type { DirectionParameter } from './directionParameter';
+import type { SortParameter } from './sortParameter';
+import type { SeasonRole } from './seasonRole';
+import type { EnrollmentState } from './enrollmentState';
 
 export type ListSeasonMembersParams = {
   /**

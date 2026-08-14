@@ -5,7 +5,7 @@
  * Same-origin API for the Ravi's Study Program application.
  * OpenAPI spec version: 2.0.0
  */
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery } from '@tanstack/react-query';
 import type {
   DataTag,
   DefinedInitialDataOptions,
@@ -19,7 +19,7 @@ import type {
   UseMutationResult,
   UseQueryOptions,
   UseQueryResult,
-} from "@tanstack/react-query";
+} from '@tanstack/react-query';
 
 import type {
   AccountStateMutation,
@@ -92,9 +92,9 @@ import type {
   WeekMutation,
   WeekPage,
   WeekUpdate,
-} from "./models";
+} from './models';
 
-import { orvalRequest } from "../orvalRequest";
+import { orvalRequest } from '../orvalRequest';
 type SecondParameter<T extends (...args: never) => unknown> = Parameters<T>[1];
 
 export type HTTPStatusCode1xx = 100 | 101 | 102 | 103;
@@ -169,7 +169,7 @@ export const getLiveness = async (
 ): Promise<getLivenessResponse> => {
   return orvalRequest<getLivenessResponse>(getGetLivenessUrl(), {
     ...options,
-    method: "GET",
+    method: 'GET',
   });
 };
 
@@ -220,7 +220,7 @@ export function useGetLiveness<
           TError,
           Awaited<ReturnType<typeof getLiveness>>
         >,
-        "initialData"
+        'initialData'
       >;
     request?: SecondParameter<typeof orvalRequest>;
   },
@@ -242,7 +242,7 @@ export function useGetLiveness<
           TError,
           Awaited<ReturnType<typeof getLiveness>>
         >,
-        "initialData"
+        'initialData'
       >;
     request?: SecondParameter<typeof orvalRequest>;
   },
@@ -329,7 +329,7 @@ export const getReadiness = async (
 ): Promise<getReadinessResponse> => {
   return orvalRequest<getReadinessResponse>(getGetReadinessUrl(), {
     ...options,
-    method: "GET",
+    method: 'GET',
   });
 };
 
@@ -380,7 +380,7 @@ export function useGetReadiness<
           TError,
           Awaited<ReturnType<typeof getReadiness>>
         >,
-        "initialData"
+        'initialData'
       >;
     request?: SecondParameter<typeof orvalRequest>;
   },
@@ -402,7 +402,7 @@ export function useGetReadiness<
           TError,
           Awaited<ReturnType<typeof getReadiness>>
         >,
-        "initialData"
+        'initialData'
       >;
     request?: SecondParameter<typeof orvalRequest>;
   },
@@ -481,7 +481,7 @@ export const getMetrics = async (
 ): Promise<getMetricsResponse> => {
   return orvalRequest<getMetricsResponse>(getGetMetricsUrl(), {
     ...options,
-    method: "GET",
+    method: 'GET',
   });
 };
 
@@ -532,7 +532,7 @@ export function useGetMetrics<
           TError,
           Awaited<ReturnType<typeof getMetrics>>
         >,
-        "initialData"
+        'initialData'
       >;
     request?: SecondParameter<typeof orvalRequest>;
   },
@@ -554,7 +554,7 @@ export function useGetMetrics<
           TError,
           Awaited<ReturnType<typeof getMetrics>>
         >,
-        "initialData"
+        'initialData'
       >;
     request?: SecondParameter<typeof orvalRequest>;
   },
@@ -633,7 +633,7 @@ export const getOpenAPI = async (
 ): Promise<getOpenAPIResponse> => {
   return orvalRequest<getOpenAPIResponse>(getGetOpenAPIUrl(), {
     ...options,
-    method: "GET",
+    method: 'GET',
   });
 };
 
@@ -684,7 +684,7 @@ export function useGetOpenAPI<
           TError,
           Awaited<ReturnType<typeof getOpenAPI>>
         >,
-        "initialData"
+        'initialData'
       >;
     request?: SecondParameter<typeof orvalRequest>;
   },
@@ -706,7 +706,7 @@ export function useGetOpenAPI<
           TError,
           Awaited<ReturnType<typeof getOpenAPI>>
         >,
-        "initialData"
+        'initialData'
       >;
     request?: SecondParameter<typeof orvalRequest>;
   },
@@ -801,7 +801,7 @@ export const getGetMeUrl = () => {
 export const getMe = async (options?: RequestInit): Promise<getMeResponse> => {
   return orvalRequest<getMeResponse>(getGetMeUrl(), {
     ...options,
-    method: "GET",
+    method: 'GET',
   });
 };
 
@@ -850,7 +850,7 @@ export function useGetMe<
           TError,
           Awaited<ReturnType<typeof getMe>>
         >,
-        "initialData"
+        'initialData'
       >;
     request?: SecondParameter<typeof orvalRequest>;
   },
@@ -872,7 +872,7 @@ export function useGetMe<
           TError,
           Awaited<ReturnType<typeof getMe>>
         >,
-        "initialData"
+        'initialData'
       >;
     request?: SecondParameter<typeof orvalRequest>;
   },
@@ -982,8 +982,8 @@ export const updateMe = async (
 ): Promise<updateMeResponse> => {
   return orvalRequest<updateMeResponse>(getUpdateMeUrl(), {
     ...options,
-    method: "PATCH",
-    headers: { "Content-Type": "application/json", ...options?.headers },
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
     body: JSON.stringify(updateMe),
   });
 };
@@ -1005,10 +1005,10 @@ export const getUpdateMeMutationOptions = <
   { data: UpdateMe },
   TContext
 > => {
-  const mutationKey = ["updateMe"];
+  const mutationKey = ['updateMe'];
   const { mutation: mutationOptions, request: requestOptions } = options
     ? options.mutation &&
-      "mutationKey" in options.mutation &&
+      'mutationKey' in options.mutation &&
       options.mutation.mutationKey
       ? options
       : { ...options, mutation: { ...options.mutation, mutationKey } }
@@ -1110,7 +1110,7 @@ export const suggestMeSlug = async (
 ): Promise<suggestMeSlugResponse> => {
   return orvalRequest<suggestMeSlugResponse>(getSuggestMeSlugUrl(), {
     ...options,
-    method: "GET",
+    method: 'GET',
   });
 };
 
@@ -1161,7 +1161,7 @@ export function useSuggestMeSlug<
           TError,
           Awaited<ReturnType<typeof suggestMeSlug>>
         >,
-        "initialData"
+        'initialData'
       >;
     request?: SecondParameter<typeof orvalRequest>;
   },
@@ -1183,7 +1183,7 @@ export function useSuggestMeSlug<
           TError,
           Awaited<ReturnType<typeof suggestMeSlug>>
         >,
-        "initialData"
+        'initialData'
       >;
     request?: SecondParameter<typeof orvalRequest>;
   },
@@ -1285,7 +1285,7 @@ export const getPracticeSettings = async (
     getGetPracticeSettingsUrl(),
     {
       ...options,
-      method: "GET",
+      method: 'GET',
     },
   );
 };
@@ -1347,7 +1347,7 @@ export function useGetPracticeSettings<
           TError,
           Awaited<ReturnType<typeof getPracticeSettings>>
         >,
-        "initialData"
+        'initialData'
       >;
     request?: SecondParameter<typeof orvalRequest>;
   },
@@ -1373,7 +1373,7 @@ export function useGetPracticeSettings<
           TError,
           Awaited<ReturnType<typeof getPracticeSettings>>
         >,
-        "initialData"
+        'initialData'
       >;
     request?: SecondParameter<typeof orvalRequest>;
   },
@@ -1496,8 +1496,8 @@ export const updatePracticeSettings = async (
     getUpdatePracticeSettingsUrl(),
     {
       ...options,
-      method: "PATCH",
-      headers: { "Content-Type": "application/json", ...options?.headers },
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', ...options?.headers },
       body: JSON.stringify(practiceSettingsMutation),
     },
   );
@@ -1520,10 +1520,10 @@ export const getUpdatePracticeSettingsMutationOptions = <
   { data: PracticeSettingsMutation },
   TContext
 > => {
-  const mutationKey = ["updatePracticeSettings"];
+  const mutationKey = ['updatePracticeSettings'];
   const { mutation: mutationOptions, request: requestOptions } = options
     ? options.mutation &&
-      "mutationKey" in options.mutation &&
+      'mutationKey' in options.mutation &&
       options.mutation.mutationKey
       ? options
       : { ...options, mutation: { ...options.mutation, mutationKey } }
@@ -1626,7 +1626,7 @@ export const getListUsersUrl = (params?: ListUsersParams) => {
 
   Object.entries(params || {}).forEach(([key, value]) => {
     if (value !== undefined) {
-      normalizedParams.append(key, value === null ? "null" : value.toString());
+      normalizedParams.append(key, value === null ? 'null' : value.toString());
     }
   });
 
@@ -1643,7 +1643,7 @@ export const listUsers = async (
 ): Promise<listUsersResponse> => {
   return orvalRequest<listUsersResponse>(getListUsersUrl(params), {
     ...options,
-    method: "GET",
+    method: 'GET',
   });
 };
 
@@ -1698,7 +1698,7 @@ export function useListUsers<
           TError,
           Awaited<ReturnType<typeof listUsers>>
         >,
-        "initialData"
+        'initialData'
       >;
     request?: SecondParameter<typeof orvalRequest>;
   },
@@ -1721,7 +1721,7 @@ export function useListUsers<
           TError,
           Awaited<ReturnType<typeof listUsers>>
         >,
-        "initialData"
+        'initialData'
       >;
     request?: SecondParameter<typeof orvalRequest>;
   },
@@ -1827,7 +1827,7 @@ export const getUser = async (
 ): Promise<getUserResponse> => {
   return orvalRequest<getUserResponse>(getGetUserUrl(id), {
     ...options,
-    method: "GET",
+    method: 'GET',
   });
 };
 
@@ -1885,7 +1885,7 @@ export function useGetUser<
           TError,
           Awaited<ReturnType<typeof getUser>>
         >,
-        "initialData"
+        'initialData'
       >;
     request?: SecondParameter<typeof orvalRequest>;
   },
@@ -1908,7 +1908,7 @@ export function useGetUser<
           TError,
           Awaited<ReturnType<typeof getUser>>
         >,
-        "initialData"
+        'initialData'
       >;
     request?: SecondParameter<typeof orvalRequest>;
   },
@@ -2026,8 +2026,8 @@ export const enableUserPracticeGoals = async (
     getEnableUserPracticeGoalsUrl(id),
     {
       ...options,
-      method: "POST",
-      headers: { "Content-Type": "application/json", ...options?.headers },
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...options?.headers },
       body: JSON.stringify(practiceGoalsEnablement),
     },
   );
@@ -2050,10 +2050,10 @@ export const getEnableUserPracticeGoalsMutationOptions = <
   { id: string; data: PracticeGoalsEnablement },
   TContext
 > => {
-  const mutationKey = ["enableUserPracticeGoals"];
+  const mutationKey = ['enableUserPracticeGoals'];
   const { mutation: mutationOptions, request: requestOptions } = options
     ? options.mutation &&
-      "mutationKey" in options.mutation &&
+      'mutationKey' in options.mutation &&
       options.mutation.mutationKey
       ? options
       : { ...options, mutation: { ...options.mutation, mutationKey } }
@@ -2167,7 +2167,7 @@ export const getUserPracticeSettings = async (
     getGetUserPracticeSettingsUrl(id),
     {
       ...options,
-      method: "GET",
+      method: 'GET',
     },
   );
 };
@@ -2240,7 +2240,7 @@ export function useGetUserPracticeSettings<
           TError,
           Awaited<ReturnType<typeof getUserPracticeSettings>>
         >,
-        "initialData"
+        'initialData'
       >;
     request?: SecondParameter<typeof orvalRequest>;
   },
@@ -2267,7 +2267,7 @@ export function useGetUserPracticeSettings<
           TError,
           Awaited<ReturnType<typeof getUserPracticeSettings>>
         >,
-        "initialData"
+        'initialData'
       >;
     request?: SecondParameter<typeof orvalRequest>;
   },
@@ -2378,7 +2378,7 @@ export const getListSeasonsUrl = (params?: ListSeasonsParams) => {
 
   Object.entries(params || {}).forEach(([key, value]) => {
     if (value !== undefined) {
-      normalizedParams.append(key, value === null ? "null" : value.toString());
+      normalizedParams.append(key, value === null ? 'null' : value.toString());
     }
   });
 
@@ -2395,7 +2395,7 @@ export const listSeasons = async (
 ): Promise<listSeasonsResponse> => {
   return orvalRequest<listSeasonsResponse>(getListSeasonsUrl(params), {
     ...options,
-    method: "GET",
+    method: 'GET',
   });
 };
 
@@ -2450,7 +2450,7 @@ export function useListSeasons<
           TError,
           Awaited<ReturnType<typeof listSeasons>>
         >,
-        "initialData"
+        'initialData'
       >;
     request?: SecondParameter<typeof orvalRequest>;
   },
@@ -2473,7 +2473,7 @@ export function useListSeasons<
           TError,
           Awaited<ReturnType<typeof listSeasons>>
         >,
-        "initialData"
+        'initialData'
       >;
     request?: SecondParameter<typeof orvalRequest>;
   },
@@ -2587,8 +2587,8 @@ export const createSeason = async (
 ): Promise<createSeasonResponse> => {
   return orvalRequest<createSeasonResponse>(getCreateSeasonUrl(), {
     ...options,
-    method: "POST",
-    headers: { "Content-Type": "application/json", ...options?.headers },
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
     body: JSON.stringify(seasonMutation),
   });
 };
@@ -2610,10 +2610,10 @@ export const getCreateSeasonMutationOptions = <
   { data: SeasonMutation },
   TContext
 > => {
-  const mutationKey = ["createSeason"];
+  const mutationKey = ['createSeason'];
   const { mutation: mutationOptions, request: requestOptions } = options
     ? options.mutation &&
-      "mutationKey" in options.mutation &&
+      'mutationKey' in options.mutation &&
       options.mutation.mutationKey
       ? options
       : { ...options, mutation: { ...options.mutation, mutationKey } }
@@ -2719,7 +2719,7 @@ export const getSeason = async (
 ): Promise<getSeasonResponse> => {
   return orvalRequest<getSeasonResponse>(getGetSeasonUrl(id), {
     ...options,
-    method: "GET",
+    method: 'GET',
   });
 };
 
@@ -2777,7 +2777,7 @@ export function useGetSeason<
           TError,
           Awaited<ReturnType<typeof getSeason>>
         >,
-        "initialData"
+        'initialData'
       >;
     request?: SecondParameter<typeof orvalRequest>;
   },
@@ -2800,7 +2800,7 @@ export function useGetSeason<
           TError,
           Awaited<ReturnType<typeof getSeason>>
         >,
-        "initialData"
+        'initialData'
       >;
     request?: SecondParameter<typeof orvalRequest>;
   },
@@ -2915,8 +2915,8 @@ export const updateSeason = async (
 ): Promise<updateSeasonResponse> => {
   return orvalRequest<updateSeasonResponse>(getUpdateSeasonUrl(id), {
     ...options,
-    method: "PATCH",
-    headers: { "Content-Type": "application/json", ...options?.headers },
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
     body: JSON.stringify(seasonUpdate),
   });
 };
@@ -2938,10 +2938,10 @@ export const getUpdateSeasonMutationOptions = <
   { id: string; data: SeasonUpdate },
   TContext
 > => {
-  const mutationKey = ["updateSeason"];
+  const mutationKey = ['updateSeason'];
   const { mutation: mutationOptions, request: requestOptions } = options
     ? options.mutation &&
-      "mutationKey" in options.mutation &&
+      'mutationKey' in options.mutation &&
       options.mutation.mutationKey
       ? options
       : { ...options, mutation: { ...options.mutation, mutationKey } }
@@ -3048,8 +3048,8 @@ export const closeSeason = async (
 ): Promise<closeSeasonResponse> => {
   return orvalRequest<closeSeasonResponse>(getCloseSeasonUrl(id), {
     ...options,
-    method: "POST",
-    headers: { "Content-Type": "application/json", ...options?.headers },
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
     body: JSON.stringify(reasonedRevision),
   });
 };
@@ -3071,10 +3071,10 @@ export const getCloseSeasonMutationOptions = <
   { id: string; data: ReasonedRevision },
   TContext
 > => {
-  const mutationKey = ["closeSeason"];
+  const mutationKey = ['closeSeason'];
   const { mutation: mutationOptions, request: requestOptions } = options
     ? options.mutation &&
-      "mutationKey" in options.mutation &&
+      'mutationKey' in options.mutation &&
       options.mutation.mutationKey
       ? options
       : { ...options, mutation: { ...options.mutation, mutationKey } }
@@ -3193,8 +3193,8 @@ export const updateSeasonResources = async (
     getUpdateSeasonResourcesUrl(id),
     {
       ...options,
-      method: "PATCH",
-      headers: { "Content-Type": "application/json", ...options?.headers },
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', ...options?.headers },
       body: JSON.stringify(seasonResourceUpdate),
     },
   );
@@ -3217,10 +3217,10 @@ export const getUpdateSeasonResourcesMutationOptions = <
   { id: string; data: SeasonResourceUpdate },
   TContext
 > => {
-  const mutationKey = ["updateSeasonResources"];
+  const mutationKey = ['updateSeasonResources'];
   const { mutation: mutationOptions, request: requestOptions } = options
     ? options.mutation &&
-      "mutationKey" in options.mutation &&
+      'mutationKey' in options.mutation &&
       options.mutation.mutationKey
       ? options
       : { ...options, mutation: { ...options.mutation, mutationKey } }
@@ -3336,7 +3336,7 @@ export const getListEnrollmentCandidatesUrl = (
 
   Object.entries(params || {}).forEach(([key, value]) => {
     if (value !== undefined) {
-      normalizedParams.append(key, value === null ? "null" : value.toString());
+      normalizedParams.append(key, value === null ? 'null' : value.toString());
     }
   });
 
@@ -3356,7 +3356,7 @@ export const listEnrollmentCandidates = async (
     getListEnrollmentCandidatesUrl(id, params),
     {
       ...options,
-      method: "GET",
+      method: 'GET',
     },
   );
 };
@@ -3437,7 +3437,7 @@ export function useListEnrollmentCandidates<
           TError,
           Awaited<ReturnType<typeof listEnrollmentCandidates>>
         >,
-        "initialData"
+        'initialData'
       >;
     request?: SecondParameter<typeof orvalRequest>;
   },
@@ -3465,7 +3465,7 @@ export function useListEnrollmentCandidates<
           TError,
           Awaited<ReturnType<typeof listEnrollmentCandidates>>
         >,
-        "initialData"
+        'initialData'
       >;
     request?: SecondParameter<typeof orvalRequest>;
   },
@@ -3588,8 +3588,8 @@ export const reopenSeason = async (
 ): Promise<reopenSeasonResponse> => {
   return orvalRequest<reopenSeasonResponse>(getReopenSeasonUrl(id), {
     ...options,
-    method: "POST",
-    headers: { "Content-Type": "application/json", ...options?.headers },
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
     body: JSON.stringify(reasonedRevision),
   });
 };
@@ -3611,10 +3611,10 @@ export const getReopenSeasonMutationOptions = <
   { id: string; data: ReasonedRevision },
   TContext
 > => {
-  const mutationKey = ["reopenSeason"];
+  const mutationKey = ['reopenSeason'];
   const { mutation: mutationOptions, request: requestOptions } = options
     ? options.mutation &&
-      "mutationKey" in options.mutation &&
+      'mutationKey' in options.mutation &&
       options.mutation.mutationKey
       ? options
       : { ...options, mutation: { ...options.mutation, mutationKey } }
@@ -3712,7 +3712,7 @@ export const getListSeasonWeeksUrl = (
 
   Object.entries(params || {}).forEach(([key, value]) => {
     if (value !== undefined) {
-      normalizedParams.append(key, value === null ? "null" : value.toString());
+      normalizedParams.append(key, value === null ? 'null' : value.toString());
     }
   });
 
@@ -3732,7 +3732,7 @@ export const listSeasonWeeks = async (
     getListSeasonWeeksUrl(id, params),
     {
       ...options,
-      method: "GET",
+      method: 'GET',
     },
   );
 };
@@ -3807,7 +3807,7 @@ export function useListSeasonWeeks<
           TError,
           Awaited<ReturnType<typeof listSeasonWeeks>>
         >,
-        "initialData"
+        'initialData'
       >;
     request?: SecondParameter<typeof orvalRequest>;
   },
@@ -3835,7 +3835,7 @@ export function useListSeasonWeeks<
           TError,
           Awaited<ReturnType<typeof listSeasonWeeks>>
         >,
-        "initialData"
+        'initialData'
       >;
     request?: SecondParameter<typeof orvalRequest>;
   },
@@ -3960,8 +3960,8 @@ export const createSeasonWeek = async (
 ): Promise<createSeasonWeekResponse> => {
   return orvalRequest<createSeasonWeekResponse>(getCreateSeasonWeekUrl(id), {
     ...options,
-    method: "POST",
-    headers: { "Content-Type": "application/json", ...options?.headers },
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
     body: JSON.stringify(weekMutation),
   });
 };
@@ -3983,10 +3983,10 @@ export const getCreateSeasonWeekMutationOptions = <
   { id: string; data: WeekMutation },
   TContext
 > => {
-  const mutationKey = ["createSeasonWeek"];
+  const mutationKey = ['createSeasonWeek'];
   const { mutation: mutationOptions, request: requestOptions } = options
     ? options.mutation &&
-      "mutationKey" in options.mutation &&
+      'mutationKey' in options.mutation &&
       options.mutation.mutationKey
       ? options
       : { ...options, mutation: { ...options.mutation, mutationKey } }
@@ -4110,8 +4110,8 @@ export const updateSeasonWeek = async (
     getUpdateSeasonWeekUrl(id, weekId),
     {
       ...options,
-      method: "PATCH",
-      headers: { "Content-Type": "application/json", ...options?.headers },
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', ...options?.headers },
       body: JSON.stringify(weekUpdate),
     },
   );
@@ -4134,10 +4134,10 @@ export const getUpdateSeasonWeekMutationOptions = <
   { id: string; weekId: string; data: WeekUpdate },
   TContext
 > => {
-  const mutationKey = ["updateSeasonWeek"];
+  const mutationKey = ['updateSeasonWeek'];
   const { mutation: mutationOptions, request: requestOptions } = options
     ? options.mutation &&
-      "mutationKey" in options.mutation &&
+      'mutationKey' in options.mutation &&
       options.mutation.mutationKey
       ? options
       : { ...options, mutation: { ...options.mutation, mutationKey } }
@@ -4250,7 +4250,7 @@ export const getDeleteSeasonWeekUrl = (
 
   Object.entries(params || {}).forEach(([key, value]) => {
     if (value !== undefined) {
-      normalizedParams.append(key, value === null ? "null" : value.toString());
+      normalizedParams.append(key, value === null ? 'null' : value.toString());
     }
   });
 
@@ -4271,7 +4271,7 @@ export const deleteSeasonWeek = async (
     getDeleteSeasonWeekUrl(id, weekId, params),
     {
       ...options,
-      method: "DELETE",
+      method: 'DELETE',
     },
   );
 };
@@ -4293,10 +4293,10 @@ export const getDeleteSeasonWeekMutationOptions = <
   { id: string; weekId: string; params: DeleteSeasonWeekParams },
   TContext
 > => {
-  const mutationKey = ["deleteSeasonWeek"];
+  const mutationKey = ['deleteSeasonWeek'];
   const { mutation: mutationOptions, request: requestOptions } = options
     ? options.mutation &&
-      "mutationKey" in options.mutation &&
+      'mutationKey' in options.mutation &&
       options.mutation.mutationKey
       ? options
       : { ...options, mutation: { ...options.mutation, mutationKey } }
@@ -4396,7 +4396,7 @@ export const getListSeasonMembersUrl = (
 
   Object.entries(params || {}).forEach(([key, value]) => {
     if (value !== undefined) {
-      normalizedParams.append(key, value === null ? "null" : value.toString());
+      normalizedParams.append(key, value === null ? 'null' : value.toString());
     }
   });
 
@@ -4416,7 +4416,7 @@ export const listSeasonMembers = async (
     getListSeasonMembersUrl(id, params),
     {
       ...options,
-      method: "GET",
+      method: 'GET',
     },
   );
 };
@@ -4492,7 +4492,7 @@ export function useListSeasonMembers<
           TError,
           Awaited<ReturnType<typeof listSeasonMembers>>
         >,
-        "initialData"
+        'initialData'
       >;
     request?: SecondParameter<typeof orvalRequest>;
   },
@@ -4520,7 +4520,7 @@ export function useListSeasonMembers<
           TError,
           Awaited<ReturnType<typeof listSeasonMembers>>
         >,
-        "initialData"
+        'initialData'
       >;
     request?: SecondParameter<typeof orvalRequest>;
   },
@@ -4642,8 +4642,8 @@ export const createSeasonMember = async (
     getCreateSeasonMemberUrl(id),
     {
       ...options,
-      method: "POST",
-      headers: { "Content-Type": "application/json", ...options?.headers },
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...options?.headers },
       body: JSON.stringify(enrollmentCreate),
     },
   );
@@ -4666,10 +4666,10 @@ export const getCreateSeasonMemberMutationOptions = <
   { id: string; data: EnrollmentCreate },
   TContext
 > => {
-  const mutationKey = ["createSeasonMember"];
+  const mutationKey = ['createSeasonMember'];
   const { mutation: mutationOptions, request: requestOptions } = options
     ? options.mutation &&
-      "mutationKey" in options.mutation &&
+      'mutationKey' in options.mutation &&
       options.mutation.mutationKey
       ? options
       : { ...options, mutation: { ...options.mutation, mutationKey } }
@@ -4782,8 +4782,8 @@ export const promoteSeasonMember = async (
     getPromoteSeasonMemberUrl(id, memberId),
     {
       ...options,
-      method: "POST",
-      headers: { "Content-Type": "application/json", ...options?.headers },
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...options?.headers },
       body: JSON.stringify(promotion),
     },
   );
@@ -4806,10 +4806,10 @@ export const getPromoteSeasonMemberMutationOptions = <
   { id: string; memberId: string; data: Promotion },
   TContext
 > => {
-  const mutationKey = ["promoteSeasonMember"];
+  const mutationKey = ['promoteSeasonMember'];
   const { mutation: mutationOptions, request: requestOptions } = options
     ? options.mutation &&
-      "mutationKey" in options.mutation &&
+      'mutationKey' in options.mutation &&
       options.mutation.mutationKey
       ? options
       : { ...options, mutation: { ...options.mutation, mutationKey } }
@@ -4934,8 +4934,8 @@ export const updateSeasonMember = async (
     getUpdateSeasonMemberUrl(id, memberId),
     {
       ...options,
-      method: "PATCH",
-      headers: { "Content-Type": "application/json", ...options?.headers },
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', ...options?.headers },
       body: JSON.stringify(enrollmentUpdate),
     },
   );
@@ -4958,10 +4958,10 @@ export const getUpdateSeasonMemberMutationOptions = <
   { id: string; memberId: string; data: EnrollmentUpdate },
   TContext
 > => {
-  const mutationKey = ["updateSeasonMember"];
+  const mutationKey = ['updateSeasonMember'];
   const { mutation: mutationOptions, request: requestOptions } = options
     ? options.mutation &&
-      "mutationKey" in options.mutation &&
+      'mutationKey' in options.mutation &&
       options.mutation.mutationKey
       ? options
       : { ...options, mutation: { ...options.mutation, mutationKey } }
@@ -5074,8 +5074,8 @@ export const removeSeasonMember = async (
     getRemoveSeasonMemberUrl(id, memberId),
     {
       ...options,
-      method: "POST",
-      headers: { "Content-Type": "application/json", ...options?.headers },
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...options?.headers },
       body: JSON.stringify(reasonedRevision),
     },
   );
@@ -5098,10 +5098,10 @@ export const getRemoveSeasonMemberMutationOptions = <
   { id: string; memberId: string; data: ReasonedRevision },
   TContext
 > => {
-  const mutationKey = ["removeSeasonMember"];
+  const mutationKey = ['removeSeasonMember'];
   const { mutation: mutationOptions, request: requestOptions } = options
     ? options.mutation &&
-      "mutationKey" in options.mutation &&
+      'mutationKey' in options.mutation &&
       options.mutation.mutationKey
       ? options
       : { ...options, mutation: { ...options.mutation, mutationKey } }
@@ -5202,7 +5202,7 @@ export const getListSeasonMentorshipsUrl = (
 
   Object.entries(params || {}).forEach(([key, value]) => {
     if (value !== undefined) {
-      normalizedParams.append(key, value === null ? "null" : value.toString());
+      normalizedParams.append(key, value === null ? 'null' : value.toString());
     }
   });
 
@@ -5222,7 +5222,7 @@ export const listSeasonMentorships = async (
     getListSeasonMentorshipsUrl(id, params),
     {
       ...options,
-      method: "GET",
+      method: 'GET',
     },
   );
 };
@@ -5300,7 +5300,7 @@ export function useListSeasonMentorships<
           TError,
           Awaited<ReturnType<typeof listSeasonMentorships>>
         >,
-        "initialData"
+        'initialData'
       >;
     request?: SecondParameter<typeof orvalRequest>;
   },
@@ -5328,7 +5328,7 @@ export function useListSeasonMentorships<
           TError,
           Awaited<ReturnType<typeof listSeasonMentorships>>
         >,
-        "initialData"
+        'initialData'
       >;
     request?: SecondParameter<typeof orvalRequest>;
   },
@@ -5451,8 +5451,8 @@ export const createMentorship = async (
 ): Promise<createMentorshipResponse> => {
   return orvalRequest<createMentorshipResponse>(getCreateMentorshipUrl(id), {
     ...options,
-    method: "POST",
-    headers: { "Content-Type": "application/json", ...options?.headers },
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
     body: JSON.stringify(mentorshipCreate),
   });
 };
@@ -5474,10 +5474,10 @@ export const getCreateMentorshipMutationOptions = <
   { id: string; data: MentorshipCreate },
   TContext
 > => {
-  const mutationKey = ["createMentorship"];
+  const mutationKey = ['createMentorship'];
   const { mutation: mutationOptions, request: requestOptions } = options
     ? options.mutation &&
-      "mutationKey" in options.mutation &&
+      'mutationKey' in options.mutation &&
       options.mutation.mutationKey
       ? options
       : { ...options, mutation: { ...options.mutation, mutationKey } }
@@ -5601,8 +5601,8 @@ export const updateMentorship = async (
     getUpdateMentorshipUrl(id, mentorshipId),
     {
       ...options,
-      method: "PATCH",
-      headers: { "Content-Type": "application/json", ...options?.headers },
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', ...options?.headers },
       body: JSON.stringify(mentorshipUpdate),
     },
   );
@@ -5625,10 +5625,10 @@ export const getUpdateMentorshipMutationOptions = <
   { id: string; mentorshipId: string; data: MentorshipUpdate },
   TContext
 > => {
-  const mutationKey = ["updateMentorship"];
+  const mutationKey = ['updateMentorship'];
   const { mutation: mutationOptions, request: requestOptions } = options
     ? options.mutation &&
-      "mutationKey" in options.mutation &&
+      'mutationKey' in options.mutation &&
       options.mutation.mutationKey
       ? options
       : { ...options, mutation: { ...options.mutation, mutationKey } }
@@ -5741,7 +5741,7 @@ export const getDeleteMentorshipUrl = (
 
   Object.entries(params || {}).forEach(([key, value]) => {
     if (value !== undefined) {
-      normalizedParams.append(key, value === null ? "null" : value.toString());
+      normalizedParams.append(key, value === null ? 'null' : value.toString());
     }
   });
 
@@ -5762,7 +5762,7 @@ export const deleteMentorship = async (
     getDeleteMentorshipUrl(id, mentorshipId, params),
     {
       ...options,
-      method: "DELETE",
+      method: 'DELETE',
     },
   );
 };
@@ -5784,10 +5784,10 @@ export const getDeleteMentorshipMutationOptions = <
   { id: string; mentorshipId: string; params: DeleteMentorshipParams },
   TContext
 > => {
-  const mutationKey = ["deleteMentorship"];
+  const mutationKey = ['deleteMentorship'];
   const { mutation: mutationOptions, request: requestOptions } = options
     ? options.mutation &&
-      "mutationKey" in options.mutation &&
+      'mutationKey' in options.mutation &&
       options.mutation.mutationKey
       ? options
       : { ...options, mutation: { ...options.mutation, mutationKey } }
@@ -5893,7 +5893,7 @@ export const getListLeetcodeProblemsUrl = (
 
   Object.entries(params || {}).forEach(([key, value]) => {
     if (value !== undefined) {
-      normalizedParams.append(key, value === null ? "null" : value.toString());
+      normalizedParams.append(key, value === null ? 'null' : value.toString());
     }
   });
 
@@ -5912,7 +5912,7 @@ export const listLeetcodeProblems = async (
     getListLeetcodeProblemsUrl(params),
     {
       ...options,
-      method: "GET",
+      method: 'GET',
     },
   );
 };
@@ -5982,7 +5982,7 @@ export function useListLeetcodeProblems<
           TError,
           Awaited<ReturnType<typeof listLeetcodeProblems>>
         >,
-        "initialData"
+        'initialData'
       >;
     request?: SecondParameter<typeof orvalRequest>;
   },
@@ -6009,7 +6009,7 @@ export function useListLeetcodeProblems<
           TError,
           Awaited<ReturnType<typeof listLeetcodeProblems>>
         >,
-        "initialData"
+        'initialData'
       >;
     request?: SecondParameter<typeof orvalRequest>;
   },
@@ -6123,7 +6123,7 @@ export const getListProblemAttemptsUrl = (
 
   Object.entries(params || {}).forEach(([key, value]) => {
     if (value !== undefined) {
-      normalizedParams.append(key, value === null ? "null" : value.toString());
+      normalizedParams.append(key, value === null ? 'null' : value.toString());
     }
   });
 
@@ -6142,7 +6142,7 @@ export const listProblemAttempts = async (
     getListProblemAttemptsUrl(params),
     {
       ...options,
-      method: "GET",
+      method: 'GET',
     },
   );
 };
@@ -6212,7 +6212,7 @@ export function useListProblemAttempts<
           TError,
           Awaited<ReturnType<typeof listProblemAttempts>>
         >,
-        "initialData"
+        'initialData'
       >;
     request?: SecondParameter<typeof orvalRequest>;
   },
@@ -6239,7 +6239,7 @@ export function useListProblemAttempts<
           TError,
           Awaited<ReturnType<typeof listProblemAttempts>>
         >,
-        "initialData"
+        'initialData'
       >;
     request?: SecondParameter<typeof orvalRequest>;
   },
@@ -6358,8 +6358,8 @@ export const createProblemAttempt = async (
     getCreateProblemAttemptUrl(),
     {
       ...options,
-      method: "POST",
-      headers: { "Content-Type": "application/json", ...options?.headers },
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...options?.headers },
       body: JSON.stringify(attemptMutation),
     },
   );
@@ -6382,10 +6382,10 @@ export const getCreateProblemAttemptMutationOptions = <
   { data: AttemptMutation },
   TContext
 > => {
-  const mutationKey = ["createProblemAttempt"];
+  const mutationKey = ['createProblemAttempt'];
   const { mutation: mutationOptions, request: requestOptions } = options
     ? options.mutation &&
-      "mutationKey" in options.mutation &&
+      'mutationKey' in options.mutation &&
       options.mutation.mutationKey
       ? options
       : { ...options, mutation: { ...options.mutation, mutationKey } }
@@ -6503,8 +6503,8 @@ export const updateProblemAttempt = async (
     getUpdateProblemAttemptUrl(id),
     {
       ...options,
-      method: "PATCH",
-      headers: { "Content-Type": "application/json", ...options?.headers },
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', ...options?.headers },
       body: JSON.stringify(attemptUpdate),
     },
   );
@@ -6527,10 +6527,10 @@ export const getUpdateProblemAttemptMutationOptions = <
   { id: string; data: AttemptUpdate },
   TContext
 > => {
-  const mutationKey = ["updateProblemAttempt"];
+  const mutationKey = ['updateProblemAttempt'];
   const { mutation: mutationOptions, request: requestOptions } = options
     ? options.mutation &&
-      "mutationKey" in options.mutation &&
+      'mutationKey' in options.mutation &&
       options.mutation.mutationKey
       ? options
       : { ...options, mutation: { ...options.mutation, mutationKey } }
@@ -6643,7 +6643,7 @@ export const getDeleteProblemAttemptUrl = (
 
   Object.entries(params || {}).forEach(([key, value]) => {
     if (value !== undefined) {
-      normalizedParams.append(key, value === null ? "null" : value.toString());
+      normalizedParams.append(key, value === null ? 'null' : value.toString());
     }
   });
 
@@ -6663,7 +6663,7 @@ export const deleteProblemAttempt = async (
     getDeleteProblemAttemptUrl(id, params),
     {
       ...options,
-      method: "DELETE",
+      method: 'DELETE',
     },
   );
 };
@@ -6685,10 +6685,10 @@ export const getDeleteProblemAttemptMutationOptions = <
   { id: string; params: DeleteProblemAttemptParams },
   TContext
 > => {
-  const mutationKey = ["deleteProblemAttempt"];
+  const mutationKey = ['deleteProblemAttempt'];
   const { mutation: mutationOptions, request: requestOptions } = options
     ? options.mutation &&
-      "mutationKey" in options.mutation &&
+      'mutationKey' in options.mutation &&
       options.mutation.mutationKey
       ? options
       : { ...options, mutation: { ...options.mutation, mutationKey } }
@@ -6798,7 +6798,7 @@ export const getCurrentRecommendation = async (
     getGetCurrentRecommendationUrl(),
     {
       ...options,
-      method: "GET",
+      method: 'GET',
     },
   );
 };
@@ -6861,7 +6861,7 @@ export function useGetCurrentRecommendation<
           TError,
           Awaited<ReturnType<typeof getCurrentRecommendation>>
         >,
-        "initialData"
+        'initialData'
       >;
     request?: SecondParameter<typeof orvalRequest>;
   },
@@ -6887,7 +6887,7 @@ export function useGetCurrentRecommendation<
           TError,
           Awaited<ReturnType<typeof getCurrentRecommendation>>
         >,
-        "initialData"
+        'initialData'
       >;
     request?: SecondParameter<typeof orvalRequest>;
   },
@@ -7004,8 +7004,8 @@ export const dismissCurrentRecommendation = async (
     getDismissCurrentRecommendationUrl(),
     {
       ...options,
-      method: "POST",
-      headers: { "Content-Type": "application/json", ...options?.headers },
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...options?.headers },
       body: JSON.stringify(dismissCurrentRecommendationBody),
     },
   );
@@ -7028,10 +7028,10 @@ export const getDismissCurrentRecommendationMutationOptions = <
   { data: DismissCurrentRecommendationBody },
   TContext
 > => {
-  const mutationKey = ["dismissCurrentRecommendation"];
+  const mutationKey = ['dismissCurrentRecommendation'];
   const { mutation: mutationOptions, request: requestOptions } = options
     ? options.mutation &&
-      "mutationKey" in options.mutation &&
+      'mutationKey' in options.mutation &&
       options.mutation.mutationKey
       ? options
       : { ...options, mutation: { ...options.mutation, mutationKey } }
@@ -7142,7 +7142,7 @@ export const getListMockInterviewParticipantsUrl = (
 
   Object.entries(params || {}).forEach(([key, value]) => {
     if (value !== undefined) {
-      normalizedParams.append(key, value === null ? "null" : value.toString());
+      normalizedParams.append(key, value === null ? 'null' : value.toString());
     }
   });
 
@@ -7161,7 +7161,7 @@ export const listMockInterviewParticipants = async (
     getListMockInterviewParticipantsUrl(params),
     {
       ...options,
-      method: "GET",
+      method: 'GET',
     },
   );
 };
@@ -7234,7 +7234,7 @@ export function useListMockInterviewParticipants<
           TError,
           Awaited<ReturnType<typeof listMockInterviewParticipants>>
         >,
-        "initialData"
+        'initialData'
       >;
     request?: SecondParameter<typeof orvalRequest>;
   },
@@ -7261,7 +7261,7 @@ export function useListMockInterviewParticipants<
           TError,
           Awaited<ReturnType<typeof listMockInterviewParticipants>>
         >,
-        "initialData"
+        'initialData'
       >;
     request?: SecondParameter<typeof orvalRequest>;
   },
@@ -7370,7 +7370,7 @@ export const getListMockInterviewsUrl = (params?: ListMockInterviewsParams) => {
 
   Object.entries(params || {}).forEach(([key, value]) => {
     if (value !== undefined) {
-      normalizedParams.append(key, value === null ? "null" : value.toString());
+      normalizedParams.append(key, value === null ? 'null' : value.toString());
     }
   });
 
@@ -7389,7 +7389,7 @@ export const listMockInterviews = async (
     getListMockInterviewsUrl(params),
     {
       ...options,
-      method: "GET",
+      method: 'GET',
     },
   );
 };
@@ -7458,7 +7458,7 @@ export function useListMockInterviews<
           TError,
           Awaited<ReturnType<typeof listMockInterviews>>
         >,
-        "initialData"
+        'initialData'
       >;
     request?: SecondParameter<typeof orvalRequest>;
   },
@@ -7485,7 +7485,7 @@ export function useListMockInterviews<
           TError,
           Awaited<ReturnType<typeof listMockInterviews>>
         >,
-        "initialData"
+        'initialData'
       >;
     request?: SecondParameter<typeof orvalRequest>;
   },
@@ -7604,8 +7604,8 @@ export const createMockInterview = async (
     getCreateMockInterviewUrl(),
     {
       ...options,
-      method: "POST",
-      headers: { "Content-Type": "application/json", ...options?.headers },
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...options?.headers },
       body: JSON.stringify(mockInterviewCreate),
     },
   );
@@ -7628,10 +7628,10 @@ export const getCreateMockInterviewMutationOptions = <
   { data: MockInterviewCreate },
   TContext
 > => {
-  const mutationKey = ["createMockInterview"];
+  const mutationKey = ['createMockInterview'];
   const { mutation: mutationOptions, request: requestOptions } = options
     ? options.mutation &&
-      "mutationKey" in options.mutation &&
+      'mutationKey' in options.mutation &&
       options.mutation.mutationKey
       ? options
       : { ...options, mutation: { ...options.mutation, mutationKey } }
@@ -7743,8 +7743,8 @@ export const updateMockInterview = async (
     getUpdateMockInterviewUrl(id),
     {
       ...options,
-      method: "PATCH",
-      headers: { "Content-Type": "application/json", ...options?.headers },
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', ...options?.headers },
       body: JSON.stringify(mockInterviewMutation),
     },
   );
@@ -7767,10 +7767,10 @@ export const getUpdateMockInterviewMutationOptions = <
   { id: string; data: MockInterviewMutation },
   TContext
 > => {
-  const mutationKey = ["updateMockInterview"];
+  const mutationKey = ['updateMockInterview'];
   const { mutation: mutationOptions, request: requestOptions } = options
     ? options.mutation &&
-      "mutationKey" in options.mutation &&
+      'mutationKey' in options.mutation &&
       options.mutation.mutationKey
       ? options
       : { ...options, mutation: { ...options.mutation, mutationKey } }
@@ -7877,7 +7877,7 @@ export const getDeleteMockInterviewUrl = (
 
   Object.entries(params || {}).forEach(([key, value]) => {
     if (value !== undefined) {
-      normalizedParams.append(key, value === null ? "null" : value.toString());
+      normalizedParams.append(key, value === null ? 'null' : value.toString());
     }
   });
 
@@ -7897,7 +7897,7 @@ export const deleteMockInterview = async (
     getDeleteMockInterviewUrl(id, params),
     {
       ...options,
-      method: "DELETE",
+      method: 'DELETE',
     },
   );
 };
@@ -7919,10 +7919,10 @@ export const getDeleteMockInterviewMutationOptions = <
   { id: string; params: DeleteMockInterviewParams },
   TContext
 > => {
-  const mutationKey = ["deleteMockInterview"];
+  const mutationKey = ['deleteMockInterview'];
   const { mutation: mutationOptions, request: requestOptions } = options
     ? options.mutation &&
-      "mutationKey" in options.mutation &&
+      'mutationKey' in options.mutation &&
       options.mutation.mutationKey
       ? options
       : { ...options, mutation: { ...options.mutation, mutationKey } }
@@ -8035,8 +8035,8 @@ export const reviewMockInterviewRound = async (
     getReviewMockInterviewRoundUrl(id, roundId),
     {
       ...options,
-      method: "PATCH",
-      headers: { "Content-Type": "application/json", ...options?.headers },
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', ...options?.headers },
       body: JSON.stringify(roundReview),
     },
   );
@@ -8059,10 +8059,10 @@ export const getReviewMockInterviewRoundMutationOptions = <
   { id: string; roundId: string; data: RoundReview },
   TContext
 > => {
-  const mutationKey = ["reviewMockInterviewRound"];
+  const mutationKey = ['reviewMockInterviewRound'];
   const { mutation: mutationOptions, request: requestOptions } = options
     ? options.mutation &&
-      "mutationKey" in options.mutation &&
+      'mutationKey' in options.mutation &&
       options.mutation.mutationKey
       ? options
       : { ...options, mutation: { ...options.mutation, mutationKey } }
@@ -8186,8 +8186,8 @@ export const correctMockInterviewIdentities = async (
     getCorrectMockInterviewIdentitiesUrl(id),
     {
       ...options,
-      method: "POST",
-      headers: { "Content-Type": "application/json", ...options?.headers },
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...options?.headers },
       body: JSON.stringify(mockIdentityCorrection),
     },
   );
@@ -8210,10 +8210,10 @@ export const getCorrectMockInterviewIdentitiesMutationOptions = <
   { id: string; data: MockIdentityCorrection },
   TContext
 > => {
-  const mutationKey = ["correctMockInterviewIdentities"];
+  const mutationKey = ['correctMockInterviewIdentities'];
   const { mutation: mutationOptions, request: requestOptions } = options
     ? options.mutation &&
-      "mutationKey" in options.mutation &&
+      'mutationKey' in options.mutation &&
       options.mutation.mutationKey
       ? options
       : { ...options, mutation: { ...options.mutation, mutationKey } }
@@ -8318,7 +8318,7 @@ export const requestLeetcodeSync = async (
     getRequestLeetcodeSyncUrl(),
     {
       ...options,
-      method: "POST",
+      method: 'POST',
     },
   );
 };
@@ -8340,10 +8340,10 @@ export const getRequestLeetcodeSyncMutationOptions = <
   void,
   TContext
 > => {
-  const mutationKey = ["requestLeetcodeSync"];
+  const mutationKey = ['requestLeetcodeSync'];
   const { mutation: mutationOptions, request: requestOptions } = options
     ? options.mutation &&
-      "mutationKey" in options.mutation &&
+      'mutationKey' in options.mutation &&
       options.mutation.mutationKey
       ? options
       : { ...options, mutation: { ...options.mutation, mutationKey } }
@@ -8447,7 +8447,7 @@ export const getListAdminUsersUrl = (params?: ListAdminUsersParams) => {
 
   Object.entries(params || {}).forEach(([key, value]) => {
     if (value !== undefined) {
-      normalizedParams.append(key, value === null ? "null" : value.toString());
+      normalizedParams.append(key, value === null ? 'null' : value.toString());
     }
   });
 
@@ -8464,7 +8464,7 @@ export const listAdminUsers = async (
 ): Promise<listAdminUsersResponse> => {
   return orvalRequest<listAdminUsersResponse>(getListAdminUsersUrl(params), {
     ...options,
-    method: "GET",
+    method: 'GET',
   });
 };
 
@@ -8519,7 +8519,7 @@ export function useListAdminUsers<
           TError,
           Awaited<ReturnType<typeof listAdminUsers>>
         >,
-        "initialData"
+        'initialData'
       >;
     request?: SecondParameter<typeof orvalRequest>;
   },
@@ -8542,7 +8542,7 @@ export function useListAdminUsers<
           TError,
           Awaited<ReturnType<typeof listAdminUsers>>
         >,
-        "initialData"
+        'initialData'
       >;
     request?: SecondParameter<typeof orvalRequest>;
   },
@@ -8681,8 +8681,8 @@ export const setAdminUserAccountState = async (
     getSetAdminUserAccountStateUrl(id),
     {
       ...options,
-      method: "POST",
-      headers: { "Content-Type": "application/json", ...options?.headers },
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...options?.headers },
       body: JSON.stringify(accountStateMutation),
     },
   );
@@ -8705,10 +8705,10 @@ export const getSetAdminUserAccountStateMutationOptions = <
   { id: string; data: AccountStateMutation },
   TContext
 > => {
-  const mutationKey = ["setAdminUserAccountState"];
+  const mutationKey = ['setAdminUserAccountState'];
   const { mutation: mutationOptions, request: requestOptions } = options
     ? options.mutation &&
-      "mutationKey" in options.mutation &&
+      'mutationKey' in options.mutation &&
       options.mutation.mutationKey
       ? options
       : { ...options, mutation: { ...options.mutation, mutationKey } }
@@ -8841,8 +8841,8 @@ export const grantAdminUserGlobalRole = async (
     getGrantAdminUserGlobalRoleUrl(id),
     {
       ...options,
-      method: "POST",
-      headers: { "Content-Type": "application/json", ...options?.headers },
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...options?.headers },
       body: JSON.stringify(globalRoleGrant),
     },
   );
@@ -8865,10 +8865,10 @@ export const getGrantAdminUserGlobalRoleMutationOptions = <
   { id: string; data: GlobalRoleGrant },
   TContext
 > => {
-  const mutationKey = ["grantAdminUserGlobalRole"];
+  const mutationKey = ['grantAdminUserGlobalRole'];
   const { mutation: mutationOptions, request: requestOptions } = options
     ? options.mutation &&
-      "mutationKey" in options.mutation &&
+      'mutationKey' in options.mutation &&
       options.mutation.mutationKey
       ? options
       : { ...options, mutation: { ...options.mutation, mutationKey } }
@@ -8979,7 +8979,7 @@ export const listAdminUserGlobalRoles = async (
     getListAdminUserGlobalRolesUrl(id),
     {
       ...options,
-      method: "GET",
+      method: 'GET',
     },
   );
 };
@@ -9052,7 +9052,7 @@ export function useListAdminUserGlobalRoles<
           TError,
           Awaited<ReturnType<typeof listAdminUserGlobalRoles>>
         >,
-        "initialData"
+        'initialData'
       >;
     request?: SecondParameter<typeof orvalRequest>;
   },
@@ -9079,7 +9079,7 @@ export function useListAdminUserGlobalRoles<
           TError,
           Awaited<ReturnType<typeof listAdminUserGlobalRoles>>
         >,
-        "initialData"
+        'initialData'
       >;
     request?: SecondParameter<typeof orvalRequest>;
   },
@@ -9207,7 +9207,7 @@ export const getRevokeAdminUserGlobalRoleUrl = (
 
   Object.entries(params || {}).forEach(([key, value]) => {
     if (value !== undefined) {
-      normalizedParams.append(key, value === null ? "null" : value.toString());
+      normalizedParams.append(key, value === null ? 'null' : value.toString());
     }
   });
 
@@ -9228,7 +9228,7 @@ export const revokeAdminUserGlobalRole = async (
     getRevokeAdminUserGlobalRoleUrl(id, role, params),
     {
       ...options,
-      method: "DELETE",
+      method: 'DELETE',
     },
   );
 };
@@ -9250,10 +9250,10 @@ export const getRevokeAdminUserGlobalRoleMutationOptions = <
   { id: string; role: GlobalRole; params: RevokeAdminUserGlobalRoleParams },
   TContext
 > => {
-  const mutationKey = ["revokeAdminUserGlobalRole"];
+  const mutationKey = ['revokeAdminUserGlobalRole'];
   const { mutation: mutationOptions, request: requestOptions } = options
     ? options.mutation &&
-      "mutationKey" in options.mutation &&
+      'mutationKey' in options.mutation &&
       options.mutation.mutationKey
       ? options
       : { ...options, mutation: { ...options.mutation, mutationKey } }

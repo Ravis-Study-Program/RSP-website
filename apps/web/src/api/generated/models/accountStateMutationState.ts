@@ -11,6 +11,6 @@ export type AccountStateMutationState =
 
 // eslint-disable-next-line @typescript-eslint/no-redeclare
 export const AccountStateMutationState = {
-  active: "active",
-  suspended: "suspended",
+  active: 'active',
+  suspended: 'suspended',
 } as const;

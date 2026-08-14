@@ -5,9 +5,9 @@
  * Same-origin API for the Ravi's Study Program application.
  * OpenAPI spec version: 2.0.0
  */
-import type { AttemptMutation } from "./attemptMutation";
-import type { AttemptUpdateAllOf } from "./attemptUpdateAllOf";
+import type { AttemptMutation } from './attemptMutation';
+import type { AttemptUpdateAllOf } from './attemptUpdateAllOf';
 
 export type AttemptUpdate = AttemptMutation &
   AttemptUpdateAllOf &
-  Required<Pick<AttemptMutation & AttemptUpdateAllOf, "revision">>;
+  Required<Pick<AttemptMutation & AttemptUpdateAllOf, 'revision'>>;
