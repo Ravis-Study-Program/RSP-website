@@ -6,26 +6,9 @@ bootstrap:
     pnpm install --frozen-lockfile
     go mod download
 
-# Complete containerized development stack with source reload.
+# Complete local stack with source reload.
 dev:
-    docker compose --profile dev up --build
-
-# Native web/API/auth processes with PostgreSQL and Mailpit in containers.
-dev-native:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    docker compose up -d postgres mailpit
-    docker compose --profile dev run --rm --build migrate-app
-    docker compose --profile dev run --rm migrate-auth
-    app_database_url="postgresql://rsp_app:${APP_DB_PASSWORD:-rsp-local-app-database-password}@127.0.0.1:${POSTGRES_PORT:-5432}/${POSTGRES_DB:-rsp}?sslmode=disable&options=-c%20search_path%3Dapp"
-    auth_database_url="postgresql://rsp_auth:${AUTH_DB_PASSWORD:-rsp-local-auth-database-password}@127.0.0.1:${POSTGRES_PORT:-5432}/${POSTGRES_DB:-rsp}?sslmode=disable&options=-c%20search_path%3Dauth"
-    cleanup() { local pids; pids="$(jobs -pr)"; [[ -z "$pids" ]] || kill $pids 2>/dev/null || true; }
-    trap cleanup EXIT INT TERM
-    DATABASE_URL="$auth_database_url" BETTER_AUTH_URL=http://localhost:5173 AUTH_TRUSTED_ORIGINS=http://localhost:5173,http://localhost:8080 SMTP_HOST=127.0.0.1 IDENTITY_SERVICE_URL=http://127.0.0.1:4000 IDENTITY_SERVICE_TOKEN=rsp-local-identity-service-token-change-me pnpm --filter @rsp/auth dev &
-    DATABASE_URL="$app_database_url" APP_ENV=development API_ADDR=:4000 PUBLIC_ORIGIN=http://localhost:5173 AUTH_ISSUER=http://localhost:5173 AUTH_AUDIENCE=rsp-api AUTH_JWKS_URL=http://127.0.0.1:3001/api/auth/jwks AUTH_INTERNAL_URL=http://127.0.0.1:3001 IDENTITY_SERVICE_TOKEN=rsp-local-identity-service-token-change-me CURSOR_SECRET=rsp-local-cursor-hmac-secret-change-me go run ./backend/cmd/api &
-    DATABASE_URL="$app_database_url" APP_ENV=development go run ./backend/cmd/worker &
-    VITE_API_PROXY_TARGET=http://127.0.0.1:4000 VITE_AUTH_PROXY_TARGET=http://127.0.0.1:3001 pnpm --filter @rsp/web dev &
-    wait
+    docker compose up --build -d
 
 # Regenerate checked-in Go and TypeScript clients from api/openapi.yaml.
 generate:
@@ -34,14 +17,14 @@ generate:
 
 # Apply app and pinned Better Auth schema migrations to local PostgreSQL.
 migrate-up:
-    docker compose --profile dev run --rm --build migrate-app
-    docker compose --profile dev run --rm migrate-auth
+    docker compose run --rm --build migrate-app
+    docker compose run --rm migrate-auth
 
 # Seed deterministic non-production data.
 seed:
     APP_ENV=development DATABASE_URL="postgresql://rsp_app:${APP_DB_PASSWORD:-rsp-local-app-database-password}@127.0.0.1:${POSTGRES_PORT:-5432}/${POSTGRES_DB:-rsp}?sslmode=disable&options=-c%20search_path%3Dapp" go run ./backend/cmd/rspctl seed
 
-# Non-mutating formatting, static-analysis, type, unit, and Compose checks.
+# Non-mutating formatting, static-analysis, type, and Compose checks.
 check:
     #!/usr/bin/env bash
     set -euo pipefail
@@ -52,8 +35,7 @@ check:
     fi
     go vet ./...
     pnpm check
-    docker compose --profile dev config --quiet
-    docker compose --profile prod config --quiet
+    docker compose config --quiet
 
 # Go and TypeScript unit/contract tests.
 test:
@@ -64,7 +46,7 @@ test:
 e2e:
     pnpm --filter @rsp/web e2e
 
-# Full browser acceptance through Nginx, Better Auth, Go, and PostgreSQL.
+# Full browser acceptance through Caddy, Better Auth, Go, and PostgreSQL.
 # Uses its own project, ports, and volumes and always tears them down.
 e2e-real:
     #!/usr/bin/env bash
@@ -98,7 +80,7 @@ e2e-real:
     export RSP_E2E_COORDINATOR_PASSWORD="RspRealE2eOnly-Coordinator-2026"
     export RSP_E2E_DIRECTOR_EMAIL="e2e.director@example.test"
     export RSP_E2E_DIRECTOR_PASSWORD="RspRealE2eOnly-Director-2026"
-    compose=(docker compose -p "$project" -f compose.yaml -f deploy/compose.real-e2e.yaml --profile dev)
+    compose=(docker compose -p "$project" -f compose.yaml -f deploy/compose.real-e2e.yaml)
     cleanup() {
       status=$?
       trap - EXIT
@@ -123,18 +105,18 @@ e2e-real:
     "${compose[@]}" up --build --detach
     curl --fail --show-error --retry 30 --retry-delay 2 --retry-all-errors "$PUBLIC_ORIGIN/health/live" >/dev/null
     curl --fail --show-error --retry 30 --retry-delay 2 --retry-all-errors "$PUBLIC_ORIGIN/api/v2/health/ready" >/dev/null
-    "${compose[@]}" stop auth-dev
+    "${compose[@]}" stop auth
     "${compose[@]}" run --rm --no-deps \
       -e AUTH_LIVE_TEST=true \
       -e AUTH_LIVE_MAILPIT_URL=http://mailpit:8025 \
       -e BETTER_AUTH_URL=http://127.0.0.1:3001 \
       -e AUTH_TRUSTED_ORIGINS=http://127.0.0.1:3001 \
       -e IDENTITY_SERVICE_URL=http://127.0.0.1:4000 \
-      auth-dev pnpm --filter @rsp/auth exec vitest run test/live-auth-handler.test.ts
-    "${compose[@]}" start auth-dev
+      auth pnpm --filter @rsp/auth exec vitest run test/live-auth-handler.test.ts
+    "${compose[@]}" start auth
     auth_ready=false
     for _ in {1..30}; do
-      if "${compose[@]}" exec -T auth-dev node -e "fetch('http://127.0.0.1:3001/health/ready').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"; then
+      if "${compose[@]}" exec -T auth node -e "fetch('http://127.0.0.1:3001/health/ready').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"; then
         auth_ready=true
         break
       fi
@@ -148,17 +130,9 @@ e2e-real:
     set +a
     pnpm --filter @rsp/web e2e:real
 
-# Validate production-only settings, then build and start the production profile.
-prod-up:
-    sh deploy/scripts/require-production-env.sh
-    docker compose --profile prod up --build -d
-
 # Useful lifecycle helpers.
 dev-down:
-    docker compose --profile dev down
-
-prod-down:
-    docker compose --profile prod down
+    docker compose down
 
 logs:
-    docker compose --profile dev logs --follow --tail=200
+    docker compose logs --follow --tail=200

@@ -71,12 +71,8 @@ jobs:
         run: |
           go mod tidy
           git diff --exit-code -- go.mod go.sum
-      - name: Validate Compose profiles
-        run: |
-          docker compose --profile dev config --quiet
-          docker compose --profile prod config --quiet
-          docker compose -f compose.yaml -f deploy/compose.auth-smoke.yaml \
-            --profile prod config --quiet
+      - name: Validate Compose
+        run: docker compose config --quiet
       - name: Validate semantic parity fixture
         run: |
           jq -e '
@@ -321,31 +317,28 @@ jobs:
       - name: Start isolated development stack
         run: |
           docker compose -f compose.yaml -f deploy/compose.real-e2e.yaml \
-            --profile dev up --build --detach
+            up --build --detach
           curl --fail --show-error --retry 30 --retry-delay 2 --retry-all-errors \
             "$RSP_E2E_BASE_URL/health/live" > /dev/null
           curl --fail --show-error --retry 30 --retry-delay 2 --retry-all-errors \
             "$RSP_E2E_BASE_URL/api/v2/health/ready" > /dev/null
-          docker compose -f compose.yaml -f deploy/compose.real-e2e.yaml \
-            --profile dev ps
+          docker compose -f compose.yaml -f deploy/compose.real-e2e.yaml ps
       - name: Run 10 live Better Auth and PostgreSQL tests in isolation
         run: |
+          docker compose -f compose.yaml -f deploy/compose.real-e2e.yaml stop auth
           docker compose -f compose.yaml -f deploy/compose.real-e2e.yaml \
-            --profile dev stop auth-dev
-          docker compose -f compose.yaml -f deploy/compose.real-e2e.yaml \
-            --profile dev run --rm --no-deps \
+            run --rm --no-deps \
             -e AUTH_LIVE_TEST=true \
             -e AUTH_LIVE_MAILPIT_URL=http://mailpit:8025 \
             -e BETTER_AUTH_URL=http://127.0.0.1:3001 \
             -e AUTH_TRUSTED_ORIGINS=http://127.0.0.1:3001 \
             -e IDENTITY_SERVICE_URL=http://127.0.0.1:4000 \
-            auth-dev pnpm --filter @rsp/auth exec vitest run test/live-auth-handler.test.ts
-          docker compose -f compose.yaml -f deploy/compose.real-e2e.yaml \
-            --profile dev start auth-dev
+            auth pnpm --filter @rsp/auth exec vitest run test/live-auth-handler.test.ts
+          docker compose -f compose.yaml -f deploy/compose.real-e2e.yaml start auth
           auth_ready=false
           for _ in {1..30}; do
             if docker compose -f compose.yaml -f deploy/compose.real-e2e.yaml \
-              --profile dev exec -T auth-dev node -e \
+              exec -T auth node -e \
               "fetch('http://127.0.0.1:3001/health/ready').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"; then
               auth_ready=true
               break
@@ -377,28 +370,27 @@ jobs:
         if: failure()
         run: |
           app_tables_ready="$(docker compose -f compose.yaml -f deploy/compose.real-e2e.yaml \
-            --profile dev exec -T postgres psql --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" --tuples-only --no-align --command \
+            exec -T postgres psql --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" --tuples-only --no-align --command \
             "SELECT to_regclass('app.users') IS NOT NULL AND to_regclass('app.user_auth_links') IS NOT NULL AND to_regclass('app.identity_event_receipts') IS NOT NULL" 2>/dev/null || true)"
           if [[ "$app_tables_ready" == "t" ]]; then
             docker compose -f compose.yaml -f deploy/compose.real-e2e.yaml \
-              --profile dev exec -T postgres psql --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" --command \
+              exec -T postgres psql --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" --command \
               "SELECT (SELECT count(*) FROM app.users) AS app_users, (SELECT count(*) FROM app.user_auth_links) AS auth_links, (SELECT count(*) FROM app.identity_event_receipts) AS identity_receipts;" || true
           fi
           auth_outbox_ready="$(docker compose -f compose.yaml -f deploy/compose.real-e2e.yaml \
-            --profile dev exec -T postgres psql --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" --tuples-only --no-align --command \
+            exec -T postgres psql --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" --tuples-only --no-align --command \
             "SELECT to_regclass('auth.lifecycle_outbox') IS NOT NULL" 2>/dev/null || true)"
           if [[ "$auth_outbox_ready" == "t" ]]; then
             docker compose -f compose.yaml -f deploy/compose.real-e2e.yaml \
-              --profile dev exec -T postgres psql --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" --command \
+              exec -T postgres psql --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" --command \
               "SELECT payload->>'type' AS event_type, payload->>'authUserId' AS auth_user_id, attempt_count, last_error FROM auth.lifecycle_outbox WHERE delivered_at IS NULL ORDER BY created_at;" || true
           fi
-          docker compose -f compose.yaml -f deploy/compose.real-e2e.yaml \
-            --profile dev logs --tail=500
+          docker compose -f compose.yaml -f deploy/compose.real-e2e.yaml logs --tail=500
       - name: Stop isolated development stack
         if: always()
         run: |
           docker compose -f compose.yaml -f deploy/compose.real-e2e.yaml \
-            --profile dev down --volumes --remove-orphans
+            down --volumes --remove-orphans
 
   dependency-security:
     name: Dependency and secret security
@@ -518,7 +510,7 @@ jobs:
           ' "$migration_dir/target-state.json"
 
   containers:
-    name: Production images, Trivy and Compose smoke
+    name: Production images and Trivy
     runs-on: ubuntu-latest
     timeout-minutes: 35
     env:
@@ -546,24 +538,22 @@ jobs:
       EMAIL_PROVIDER: ses
       EMAIL_FROM: RSP <no-reply@rsp.invalid>
       AWS_REGION: ap-southeast-2
-      GRAFANA_ADMIN_USER: admin
-      GRAFANA_ADMIN_PASSWORD: ci-only-fixture-grafana-000000
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - name: Validate production settings and Compose
-        run: |
-          sh deploy/scripts/require-production-env.sh
-          docker compose --profile prod config --quiet
       - name: Build production images
         run: |
-          docker compose --profile prod build migrate-app api worker auth web
+          docker build --file backend/Dockerfile --target runtime --build-arg BINARY=api --tag rsp-api:ci .
+          docker build --file backend/Dockerfile --target runtime --build-arg BINARY=worker --tag rsp-worker:ci .
+          docker build --file backend/Dockerfile --target migrations --tag rsp-migrations:ci .
           docker build --file backend/Dockerfile --target ops --tag rsp-ops:ci .
+          docker build --file apps/auth/Dockerfile --target runtime --tag rsp-auth:ci .
+          docker build --file apps/web/Dockerfile --target runtime --tag rsp-web:ci .
           docker run --rm --entrypoint sh rsp-ops:ci -c \
             'command -v rspctl >/dev/null && command -v rsp-migrate >/dev/null'
       - name: Prove production web bundle excludes demo fixtures
         run: |
           if docker run --rm --entrypoint sh rsp-web:ci -c \
-            "grep -R -E 'rsp-demo-|example\\.test|Amelia Chen' /usr/share/nginx/html"; then
+            "grep -R -E 'rsp-demo-|example\\.test|Amelia Chen' /srv"; then
             echo "Production web image contains demo-only fixture data" >&2
             exit 1
           fi
@@ -621,54 +611,3 @@ jobs:
           severity: HIGH,CRITICAL
           ignore-unfixed: true
           exit-code: 1
-      - name: Start production-profile smoke stack
-        run: docker compose --profile prod up --build --detach
-      - name: Smoke public edge and API readiness
-        shell: bash
-        run: |
-          if ! curl --fail --show-error --retry 24 --retry-delay 5 --retry-all-errors \
-            http://127.0.0.1:8080/health/live; then
-            docker compose --profile prod logs --tail=300
-            exit 1
-          fi
-          if ! curl --fail --show-error --retry 24 --retry-delay 5 --retry-all-errors \
-            http://127.0.0.1:8080/api/v2/health/ready; then
-            docker compose --profile prod logs --tail=300
-            exit 1
-          fi
-          curl --fail --show-error http://127.0.0.1:8080/ > /dev/null
-          curl --fail --show-error http://127.0.0.1:8080/api/v2/openapi.json > /dev/null
-          test "$(curl --silent --output /dev/null --write-out '%{http_code}' \
-            http://127.0.0.1:8080/api/v2/metrics)" = "404"
-          role_isolation="$(docker compose exec -T postgres psql \
-            --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" \
-            --tuples-only --no-align --command \
-            "SELECT has_table_privilege('rsp_app','app.users','SELECT')
-                AND NOT has_table_privilege('rsp_app','app.audit_events','UPDATE')
-                AND has_table_privilege('rsp_auth','auth.users','SELECT')
-                AND NOT has_table_privilege('rsp_auth','app.users','SELECT')")"
-          test "$role_isolation" = "t"
-          running_services="$(docker compose --profile prod ps --status running --services)"
-          for service in postgres api worker auth web nginx prometheus grafana; do
-            grep -Fxq "$service" <<EOF
-          $running_services
-          EOF
-          done
-          docker compose --profile prod ps
-      - name: Exercise Better Auth over HTTP and PostgreSQL
-        env:
-          AUTH_SMOKE_ALLOW_DATABASE_WRITE: 'true'
-        run: |
-          docker compose -f compose.yaml -f deploy/compose.auth-smoke.yaml \
-            --profile prod up --detach --force-recreate api auth mailpit
-          sh deploy/scripts/auth-http-smoke.sh
-      - name: Production logs on failure
-        if: failure()
-        run: |
-          docker compose -f compose.yaml -f deploy/compose.auth-smoke.yaml \
-            --profile prod logs --tail=500
-      - name: Stop production-profile smoke stack
-        if: always()
-        run: |
-          docker compose -f compose.yaml -f deploy/compose.auth-smoke.yaml \
-            --profile prod down --volumes --remove-orphans

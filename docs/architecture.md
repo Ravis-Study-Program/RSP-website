@@ -10,7 +10,7 @@ the public contract.
 Browser
   |
   v
-Nginx :8080
+Caddy :8080
   |-- /* ----------> React/Vite web
   |-- /api/auth/* -> Better Auth :3001
   `-- /api/v2/* ---> Go API :8080
@@ -18,14 +18,11 @@ Nginx :8080
                         +---- PostgreSQL 17.11
 
 Go worker --------------'
-Prometheus ---> API /api/v2/metrics and auth /metrics (container network only)
+Prometheus ---> API and auth metrics
 Grafana -----> Prometheus
 ```
 
-Nginx handles request IDs, forwarding headers, response security headers,
-anonymous auth throttling, and the public metrics denial. TLS is expected at
-the deployment edge; the production Compose Nginx receives trusted internal
-HTTP after TLS termination.
+Caddy routes the single local origin and denies public metrics paths.
 
 ## Source boundaries
 
@@ -38,7 +35,7 @@ HTTP after TLS termination.
 | Domain      | `backend/internal/*` feature packages           | Authorization relationships and programme rules independent of HTTP.                                          |
 | Persistence | `backend/internal/store`, `db/queries`          | Explicit pgx/sqlc persistence and transaction boundaries; no ORM or generic repository.                       |
 | Jobs        | `backend/cmd/worker`, `backend/internal/worker` | Scheduled LeetCode synchronization, catch-up, retry and advisory locking.                                     |
-| Operations  | `deploy`, `compose.yaml`                        | Ingress, local topology, dashboards and production-image packaging.                                           |
+| Operations  | `deploy`, `compose.yaml`                        | Local ingress and container topology.                                                                          |
 
 Feature services own business rules. Transport code must not recreate role or
 ownership checks, and SQL must not infer an actor from request data. Mutations
@@ -91,13 +88,14 @@ Cursors are versioned, HMAC-protected and bound to filter, direction and sort;
 a cursor cannot be replayed under a different query. The default page size is
 25 and the maximum is 100.
 
-## Runtime profiles
+## Local runtime
 
-`compose.yaml` has mutually exclusive `dev` and `prod` profiles. Shared
-PostgreSQL data is persistent; schema migrations are one-shot dependencies.
-Development uses Vite/TypeScript and Go source reload, Mailpit, Prometheus and
-Grafana. Production uses built non-root images and SES, with no Mailpit or
-source bind mounts.
+`compose.yaml` describes one development stack. PostgreSQL data is persistent,
+schema migrations are one-shot dependencies, source is bind-mounted for reload,
+Mailpit captures local email, and Prometheus/Grafana provide local
+observability. Production images remain defined by each application's
+Dockerfile; deployment topology belongs to the deployment platform rather than
+local Compose.
 
 The first launch assumes one API and one auth replica because rate limits are
 process-local. Horizontal replicas require a shared limiter before scale-out;

@@ -36,4 +36,4 @@ credentials for SES; static AWS credentials are not application variables.
 Internal lifecycle endpoints require `Authorization: Bearer
 $IDENTITY_SERVICE_TOKEN`. They revoke sessions when the Go service suspends an
 account, accepts a deletion request, cancels deletion, or completes
-pseudonymisation. These endpoints are not exposed by Nginx.
+pseudonymisation. Caddy does not expose these endpoints.

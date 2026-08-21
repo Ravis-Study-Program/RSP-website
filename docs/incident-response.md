@@ -26,8 +26,8 @@ unreviewed database edit.
 Useful read-only checks:
 
 ```sh
-docker compose --profile prod ps
-docker compose --profile prod logs --since=30m --tail=500 nginx api auth worker postgres
+docker compose ps
+docker compose logs --since=30m --tail=500 caddy api auth worker postgres
 curl --fail --show-error http://localhost:8080/health/live
 curl --fail --show-error http://localhost:8080/api/v2/health/ready
 ```
@@ -78,7 +78,7 @@ sharing logs. A request ID is safe; a bearer token is not.
 
 ### Resource exhaustion or traffic spike
 
-- Identify Nginx/auth rejection rates, API error/latency, DB pool and container
+- Identify Caddy/auth rejection rates, API error/latency, DB pool and container
   limits.
 - Tighten anonymous edge limits or shed non-critical work. Do not raise DB pool
   sizes blindly when PostgreSQL is already saturated.

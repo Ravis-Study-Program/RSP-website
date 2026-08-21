@@ -23,13 +23,12 @@ COPY apps/web apps/web
 COPY api/openapi.yaml api/openapi.yaml
 RUN pnpm --filter @rsp/web build
 
-FROM nginxinc/nginx-unprivileged:1.31.3-alpine3.24 AS runtime
+FROM caddy:2.10.2-alpine AS runtime
 
-COPY apps/web/nginx.conf /etc/nginx/conf.d/default.conf
-COPY --from=build --chown=101:101 /workspace/apps/web/dist /usr/share/nginx/html
+COPY apps/web/Caddyfile /etc/caddy/Caddyfile
+COPY --from=build /workspace/apps/web/dist /srv
 
-USER 101
 EXPOSE 8080
 
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-  CMD wget -q -O /dev/null http://127.0.0.1:8080/nginx-health || exit 1
+  CMD wget -q -O /dev/null http://127.0.0.1:8080/health/live || exit 1

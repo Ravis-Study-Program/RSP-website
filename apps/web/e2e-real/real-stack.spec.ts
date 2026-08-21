@@ -60,7 +60,7 @@ async function signIn(page: Page, kind: AccountKind) {
   await page.getByLabel('Password', { exact: true }).fill(credentials.password);
   // Provisioning intentionally uses the public ingress too. Pace each fresh
   // browser sign-in to the production-equivalent 5 requests/minute IP bucket
-  // instead of weakening or bypassing the Nginx authentication limit in E2E.
+  // instead of weakening or bypassing authentication protections in E2E.
   await page.waitForTimeout(13_000);
   await page.getByRole('button', { name: 'Sign in with email' }).click();
   if (credentials.totpSecret) {
