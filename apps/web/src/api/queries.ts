@@ -266,8 +266,11 @@ export function useCurrentUser() {
   return useQuery(currentUserOptions);
 }
 
-export function useSeasons() {
-  return useQuery(seasonsOptions);
+export function useSeasons(enabled = true) {
+  return useQuery({
+    ...seasonsOptions,
+    enabled,
+  });
 }
 
 export function usePracticeSettings() {

@@ -10,6 +10,7 @@ result-*
 .env.*
 .envrc
 !.env.example
+.fake-data-totp-secrets.json
 
 *.tsbuildinfo
 dist/

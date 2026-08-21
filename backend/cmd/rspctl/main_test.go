@@ -32,6 +32,22 @@ func TestParseSeedOptionsRejectsDuplicateRoleIdentity(t *testing.T) {
 	}
 }
 
+func TestParseSeedOptionsAcceptsSiteAdminAndRejectsMixedPrivilegedRoles(t *testing.T) {
+	options, err := parseSeedOptions([]string{"--site-admin-email", "site-admin@example.test", "--allow-existing"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if options.SiteAdminEmail != "site-admin@example.test" || options.DirectorEmail != "" || !options.AllowExisting {
+		t.Fatalf("unexpected privileged seed options: %+v", options)
+	}
+	if _, err := parseSeedOptions([]string{
+		"--director-email", "director@example.test",
+		"--site-admin-email", "site-admin@example.test",
+	}); err == nil || !strings.Contains(err.Error(), "either --director-email or --site-admin-email") {
+		t.Fatalf("expected mixed privileged-role error, got %v", err)
+	}
+}
+
 func TestParseSeedOptionsRejectsMalformedEmailAndArguments(t *testing.T) {
 	for _, args := range [][]string{
 		{"--student-email", "not-an-email"},

@@ -105,50 +105,51 @@ export function DashboardPage() {
 
   return (
     <div className={styles.page}>
-      <section className={styles.hero}>
+      <header className={styles.pageHeader}>
         <div>
-          <p className={styles.eyebrow}>Your RSP workspace</p>
-          <h1>Welcome, {user.data.name.split(' ')[0]}.</h1>
-          <p>
+          <p className={styles.eyebrow}>Workspace</p>
+          <h1 className={styles.pageTitle}>
+            Welcome, {user.data.name.split(' ')[0]}.
+          </h1>
+          <p className={styles.lede}>
             {dashboardIntro(role)} Focus on the next useful action; the detail
             is here when you need it.
           </p>
-          <div className={styles.buttonRow} style={{ marginTop: '1.1rem' }}>
-            <Link
-              className={styles.button}
-              to={
-                role === 'coordinator'
-                  ? `/seasons/${currentSeason?.slug}/people`
-                  : '/practice'
-              }
-            >
-              {role === 'coordinator'
-                ? 'Review season roster'
-                : 'Continue practice'}{' '}
-              <IconArrowRight size={18} aria-hidden="true" />
-            </Link>
-            <Link className={styles.buttonSecondary} to="/mock-interviews">
-              Mock interviews
-            </Link>
-          </div>
         </div>
-        <div className={styles.heroMeta} aria-label="Current season summary">
-          <div className={styles.heroMetaRow}>
-            <span>Workspace</span>
-            <strong>{activeWorkspace?.label}</strong>
-          </div>
-          <div className={styles.heroMetaRow}>
-            <span>Season</span>
-            <strong>
-              {currentSeason?.status === 'open' ? 'Open' : 'Graduate'}
-            </strong>
-          </div>
-          <div className={styles.heroMetaRow}>
-            <span>Timezone</span>
-            <strong>{user.data.timezone.split('/').at(-1)}</strong>
-          </div>
+        <div className={styles.headerActions}>
+          <Link
+            className={styles.button}
+            to={
+              role === 'coordinator'
+                ? `/seasons/${currentSeason?.slug}/people`
+                : '/practice'
+            }
+          >
+            {role === 'coordinator'
+              ? 'Review season roster'
+              : 'Continue practice'}{' '}
+            <IconArrowRight size={18} aria-hidden="true" />
+          </Link>
+          <Link className={styles.buttonSecondary} to="/mock-interviews">
+            Mock interviews
+          </Link>
         </div>
-      </section>
+      </header>
+
+      <dl className={styles.contextBar} aria-label="Current workspace summary">
+        <div className={styles.contextItem}>
+          <dt>Workspace</dt>
+          <dd>{activeWorkspace?.label}</dd>
+        </div>
+        <div className={styles.contextItem}>
+          <dt>Season</dt>
+          <dd>{currentSeason?.status === 'open' ? 'Open' : 'Graduate'}</dd>
+        </div>
+        <div className={styles.contextItem}>
+          <dt>Timezone</dt>
+          <dd>{user.data.timezone.split('/').at(-1)}</dd>
+        </div>
+      </dl>
 
       <div className={styles.metricGrid}>
         {role === 'coordinator' ||
@@ -292,7 +293,9 @@ export function DashboardPage() {
             </div>
           ) : recommendation.isLoading ? (
             <div className={styles.recommendation} aria-busy="true">
-              <span className={styles.skeleton} style={{ height: '8rem' }}>
+              <span
+                className={`${styles.skeleton} ${styles.skeletonRecommendation}`}
+              >
                 Loading recommendation
               </span>
             </div>

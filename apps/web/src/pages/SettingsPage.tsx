@@ -1,11 +1,5 @@
 import { Switch } from '@base-ui/react/switch';
-import {
-  IconAlertTriangle,
-  IconCheck,
-  IconKey,
-  IconLogout,
-  IconShieldCheck,
-} from '@tabler/icons-react';
+import { IconAlertTriangle, IconCheck } from '@tabler/icons-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useEffect, useMemo, useState } from 'react';
 import { useBeforeUnload, useBlocker, useNavigate } from 'react-router-dom';
@@ -43,12 +37,14 @@ import {
   FormDialog,
   NamedConfirmation,
 } from '@/components/Dialogs';
+import { TimezoneSelect } from '@/components/TimezoneSelect';
 import {
   ErrorState,
   InlineNotice,
   PageSkeleton,
 } from '@/components/StatusViews';
 import styles from '@/styles/App.module.css';
+import { supportedTimezones } from '@/utils';
 
 export function SettingsPage() {
   usePageTitle('Settings');
@@ -107,18 +103,10 @@ export function SettingsPage() {
       return false;
     }
   }, [timezone]);
-  const supportedTimezones = useMemo(() => {
-    try {
-      return Intl.supportedValuesOf('timeZone');
-    } catch {
-      return [
-        'Australia/Adelaide',
-        'Australia/Sydney',
-        'Asia/Hong_Kong',
-        'UTC',
-      ];
-    }
-  }, []);
+  const timezoneOptions = useMemo(
+    () => supportedTimezones(browserTimezone, user.data?.timezone ?? ''),
+    [browserTimezone, user.data?.timezone],
+  );
   const blocker = useBlocker(dirty);
 
   useBeforeUnload((event) => {
@@ -293,28 +281,22 @@ export function SettingsPage() {
           <div className={styles.panel}>
             <div className={styles.field}>
               <label htmlFor="timezone">Timezone</label>
-              <input
+              <TimezoneSelect
                 id="timezone"
-                className={styles.input}
-                list="iana-timezones"
+                options={timezoneOptions}
                 value={timezone}
-                aria-invalid={!timezoneValid}
-                aria-describedby={
+                invalid={!timezoneValid}
+                describedBy={
                   !timezoneValid ? 'timezone-error' : 'timezone-help'
                 }
-                onChange={(event) => {
-                  setTimezone(event.target.value);
+                getOptionLabel={(zone) =>
+                  zone === browserTimezone ? `${zone} (browser detected)` : zone
+                }
+                onChange={(nextTimezone) => {
+                  setTimezone(nextTimezone);
                   setSaved(false);
                 }}
               />
-              <datalist id="iana-timezones">
-                <option value={browserTimezone}>
-                  {browserTimezone} (browser detected)
-                </option>
-                {supportedTimezones.map((zone) => (
-                  <option value={zone} key={zone} />
-                ))}
-              </datalist>
               <p id="timezone-help" className={styles.helper}>
                 Use an IANA timezone such as Australia/Adelaide. Stored
                 timestamps remain UTC.
@@ -351,9 +333,6 @@ export function SettingsPage() {
         <div className={styles.panel}>
           <div className={styles.listRow}>
             <span className={styles.personIdentity}>
-              <span className={styles.avatar}>
-                <IconShieldCheck size={20} aria-hidden="true" />
-              </span>
               <span className={styles.personIdentityText}>
                 <strong>Two-factor authentication</strong>
                 <span>Required for privileged programme roles</span>
@@ -374,9 +353,6 @@ export function SettingsPage() {
           </div>
           <div className={styles.listRow}>
             <span className={styles.personIdentity}>
-              <span className={styles.avatar}>
-                <IconKey size={20} aria-hidden="true" />
-              </span>
               <span className={styles.personIdentityText}>
                 <strong>Backup codes</strong>
                 <span>Single-use codes for account recovery</span>
@@ -405,7 +381,7 @@ export function SettingsPage() {
           <div className={styles.listRow}>
             <span>
               <strong>Password sign-in method</strong>
-              <span className={styles.helper} style={{ display: 'block' }}>
+              <span className={`${styles.helper} ${styles.helperBlock}`}>
                 For Google-only accounts. Connecting requires a fresh session
                 and signs you out.
               </span>
@@ -420,7 +396,7 @@ export function SettingsPage() {
           <div className={styles.listRow}>
             <span>
               <strong>Account email</strong>
-              <span className={styles.helper} style={{ display: 'block' }}>
+              <span className={`${styles.helper} ${styles.helperBlock}`}>
                 {user.data.email}
               </span>
             </span>
@@ -429,7 +405,7 @@ export function SettingsPage() {
           <div className={styles.listRow}>
             <span>
               <strong>Password</strong>
-              <span className={styles.helper} style={{ display: 'block' }}>
+              <span className={`${styles.helper} ${styles.helperBlock}`}>
                 Changing it revokes every session, including this one.
               </span>
             </span>
@@ -438,7 +414,7 @@ export function SettingsPage() {
           <div className={styles.listRow}>
             <span>
               <strong>Current session</strong>
-              <span className={styles.helper} style={{ display: 'block' }}>
+              <span className={`${styles.helper} ${styles.helperBlock}`}>
                 End this browser session securely.
               </span>
             </span>
@@ -447,7 +423,7 @@ export function SettingsPage() {
               type="button"
               onClick={() => void endSession()}
             >
-              <IconLogout size={17} aria-hidden="true" /> Sign out
+              Sign out
             </button>
           </div>
         </div>
@@ -464,7 +440,7 @@ export function SettingsPage() {
             deletion revokes all sessions immediately. A verified recovery link
             can cancel the request during the 30-day grace period.
           </InlineNotice>
-          <div style={{ marginTop: '1rem' }}>
+          <div className={styles.sectionHeaderSpaced}>
             <NamedConfirmation
               name="DELETE MY ACCOUNT"
               actionLabel="Request account deletion"
@@ -507,7 +483,7 @@ export function PracticePreferencesPanel({
         checked={value.goalsEnabled}
         disabled
       />
-      <div className={styles.fieldGrid} style={{ marginTop: '0.9rem' }}>
+      <div className={`${styles.fieldGrid} ${styles.fieldGridSpaced}`}>
         {(
           [
             ['Easy', 'easyMinutes'],
@@ -520,7 +496,12 @@ export function PracticePreferencesPanel({
             value[field] < 5 ||
             value[field] > 180;
           return (
-            <div className={styles.field} key={difficulty}>
+            <div
+              className={`${styles.field} ${
+                !value.goalsEnabled ? styles.fieldDisabled : ''
+              }`}
+              key={difficulty}
+            >
               <label htmlFor={`goal-${difficulty}`}>{difficulty} minutes</label>
               <input
                 id={`goal-${difficulty}`}
@@ -567,11 +548,21 @@ function SettingSwitch({
   onCheckedChange?: (checked: boolean) => void;
   disabled?: boolean;
 }) {
+  const descriptionId = `setting-${label
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')}-description`;
   return (
-    <div className={styles.switchRow}>
+    <div
+      className={`${styles.switchRow} ${
+        disabled && !checked ? styles.switchRowDisabled : ''
+      }`}
+    >
       <span>
         <strong>{label}</strong>
-        <span className={styles.helper} style={{ display: 'block' }}>
+        <span
+          id={descriptionId}
+          className={`${styles.helper} ${styles.helperBlock}`}
+        >
           {description}
         </span>
       </span>
@@ -581,7 +572,11 @@ function SettingSwitch({
         onCheckedChange={onCheckedChange}
         disabled={disabled}
         aria-label={label}
+        aria-describedby={descriptionId}
       >
+        <span className={styles.switchState} aria-hidden="true">
+          {checked ? 'On' : 'Off'}
+        </span>
         <Switch.Thumb className={styles.switchThumb} />
       </Switch.Root>
     </div>

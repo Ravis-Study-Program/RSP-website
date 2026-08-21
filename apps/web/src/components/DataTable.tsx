@@ -140,10 +140,7 @@ export function DataTable<TData>({
     return (
       <div className={styles.tableShell} aria-busy="true">
         <div className={styles.tableToolbar}>
-          <span
-            className={styles.skeleton}
-            style={{ width: '18rem', height: '2.65rem' }}
-          >
+          <span className={`${styles.skeleton} ${styles.tableSkeletonSearch}`}>
             Loading
           </span>
         </div>

@@ -35,16 +35,6 @@ export function ActivityChart({
             data={data}
             margin={{ top: 10, right: 12, left: -20, bottom: 0 }}
           >
-            <defs>
-              <linearGradient id="attempts-fill" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="#6848c7" stopOpacity={0.38} />
-                <stop offset="95%" stopColor="#6848c7" stopOpacity={0.02} />
-              </linearGradient>
-              <linearGradient id="interviews-fill" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="#1fb6ca" stopOpacity={0.35} />
-                <stop offset="95%" stopColor="#1fb6ca" stopOpacity={0.02} />
-              </linearGradient>
-            </defs>
             <CartesianGrid
               stroke="var(--border)"
               strokeDasharray="3 3"
@@ -66,7 +56,7 @@ export function ActivityChart({
               contentStyle={{
                 background: 'var(--surface-raised)',
                 border: '1px solid var(--border)',
-                borderRadius: '0.5rem',
+                borderRadius: '2px',
                 color: 'var(--text)',
               }}
             />
@@ -75,17 +65,17 @@ export function ActivityChart({
               type="monotone"
               dataKey="attempts"
               name="Attempts"
-              stroke="#6848c7"
+              stroke="var(--accent)"
               strokeWidth={2}
-              fill="url(#attempts-fill)"
+              fill="none"
             />
             <Area
               type="monotone"
               dataKey="interviews"
               name="Mock interviews"
-              stroke="#1fb6ca"
+              stroke="var(--chart-secondary)"
               strokeWidth={2}
-              fill="url(#interviews-fill)"
+              fill="none"
             />
           </AreaChart>
         </ResponsiveContainer>

@@ -165,10 +165,7 @@ export function AdminPage() {
                 <span className={styles.avatar}>
                   <Icon size={20} aria-hidden="true" />
                 </span>
-                <h2
-                  className={styles.cardTitle}
-                  style={{ marginTop: '0.8rem' }}
-                >
+                <h2 className={`${styles.cardTitle} ${styles.cardTitleSpaced}`}>
                   {resource.title}
                 </h2>
                 <p className={styles.muted}>{resource.description}</p>
@@ -191,7 +188,7 @@ export function AdminPage() {
           <div className={styles.listRow}>
             <span>
               <strong>LeetCode catalogue sync</strong>
-              <span className={styles.helper} style={{ display: 'block' }}>
+              <span className={`${styles.helper} ${styles.helperBlock}`}>
                 Queues an audited worker sync; the regular schedule remains
                 Sunday 03:00 UTC.
               </span>
@@ -208,7 +205,7 @@ export function AdminPage() {
           <div className={styles.listRow}>
             <span>
               <strong>Audit export</strong>
-              <span className={styles.helper} style={{ display: 'block' }}>
+              <span className={`${styles.helper} ${styles.helperBlock}`}>
                 The API does not yet expose an audit-query endpoint.
               </span>
             </span>
@@ -525,7 +522,7 @@ export function AdminResourcePage({
         actions={createAction}
       />
       {resource !== 'seasons' && resource !== 'users' ? (
-        <div className={styles.panel} style={{ marginBottom: '1rem' }}>
+        <div className={`${styles.panel} ${styles.panelSpaced}`}>
           <div className={styles.field}>
             <label htmlFor={`admin-${resource}-season`}>Season</label>
             <select
@@ -584,7 +581,7 @@ export function AdminResourcePage({
                 r{row.original.revision}
               </span>
             </div>
-            <h2 className={styles.cardTitle} style={{ marginTop: '0.65rem' }}>
+            <h2 className={`${styles.cardTitle} ${styles.cardTitleSpaced}`}>
               {row.original.primary}
             </h2>
             <p className={styles.helper}>{row.original.secondary}</p>
@@ -954,8 +951,7 @@ function UserAdministrationDialog({
                       <span>
                         <strong>{roleLabel(assignment.role)}</strong>
                         <span
-                          className={styles.helper}
-                          style={{ display: 'block' }}
+                          className={`${styles.helper} ${styles.helperBlock}`}
                         >
                           {assignment.state.replace('_', ' ')} · revision{' '}
                           {assignment.revision}

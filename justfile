@@ -24,6 +24,14 @@ migrate-up:
 seed:
     APP_ENV=development DATABASE_URL="postgresql://rsp_app:${APP_DB_PASSWORD:-rsp-local-app-database-password}@127.0.0.1:${POSTGRES_PORT:-5432}/${POSTGRES_DB:-rsp}?sslmode=disable&options=-c%20search_path%3Dapp" go run ./backend/cmd/rspctl seed
 
+# Create local email/password accounts and a complete development fixture.
+fake-data:
+    APP_ENV=development RSP_FAKE_DATA_ORIGIN="${PUBLIC_ORIGIN:-http://localhost:8080}" RSP_FAKE_DATA_MAILPIT_URL="http://127.0.0.1:${MAILPIT_UI_PORT:-8025}" DATABASE_URL="postgresql://rsp_app:${APP_DB_PASSWORD:-rsp-local-app-database-password}@127.0.0.1:${POSTGRES_PORT:-5432}/${POSTGRES_DB:-rsp}?sslmode=disable&options=-c%20search_path%3Dapp" node scripts/generate-fake-data.mjs
+
+# Generate the current TOTP code from a fake account's printed secret.
+fake-totp secret:
+    node scripts/generate-totp.mjs "{{secret}}"
+
 # Non-mutating formatting, static-analysis, type, and Compose checks.
 check:
     #!/usr/bin/env bash

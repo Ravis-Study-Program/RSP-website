@@ -5,37 +5,23 @@ import styles from '@/styles/App.module.css';
 export function PageSkeleton({ label = 'Loading page' }: { label?: string }) {
   return (
     <div className={styles.page} aria-busy="true" aria-label={label}>
-      <span
-        className={styles.skeleton}
-        style={{ width: '8rem', height: '0.8rem' }}
-      >
+      <span className={`${styles.skeleton} ${styles.skeletonLabel}`}>
         Loading
       </span>
-      <span
-        className={styles.skeleton}
-        style={{
-          width: 'min(28rem, 85%)',
-          height: '2.5rem',
-          marginTop: '0.7rem',
-        }}
-      >
+      <span className={`${styles.skeleton} ${styles.skeletonTitle}`}>
         Loading
       </span>
       <div className={styles.metricGrid}>
         {[1, 2, 3].map((item) => (
           <span
             key={item}
-            className={styles.skeleton}
-            style={{ height: '8rem' }}
+            className={`${styles.skeleton} ${styles.skeletonMetric}`}
           >
             Loading
           </span>
         ))}
       </div>
-      <span
-        className={styles.skeleton}
-        style={{ height: '18rem', marginTop: '1rem' }}
-      >
+      <span className={`${styles.skeleton} ${styles.skeletonPanel}`}>
         Loading
       </span>
       <span className={styles.visuallyHidden} role="status">

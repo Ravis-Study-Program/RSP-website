@@ -7,6 +7,41 @@ import type {
 
 let displayTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
+export function supportedTimezones(...preferred: string[]) {
+  let zones: string[] = [];
+  try {
+    zones = Intl.supportedValuesOf('timeZone');
+  } catch {
+    // Older browsers may not expose the complete IANA timezone list.
+  }
+  zones = zones.filter((zone) => !zone.startsWith('Etc/'));
+  return Array.from(
+    new Set([
+      ...zones,
+      ...preferred.filter((zone) => zone && !zone.startsWith('Etc/')),
+      'UTC',
+    ]),
+  ).sort((left, right) => left.localeCompare(right));
+}
+
+export function formatTimezoneOption(timezone: string, label = timezone) {
+  let offset = '+00:00';
+  try {
+    const offsetName = new Intl.DateTimeFormat('en', {
+      timeZone: timezone,
+      timeZoneName: 'longOffset',
+    })
+      .formatToParts()
+      .find((part) => part.type === 'timeZoneName')?.value;
+    const match = /^GMT([+-])(\d{1,2})(?::(\d{2}))?$/.exec(offsetName ?? '');
+    if (match)
+      offset = `${match[1]}${match[2].padStart(2, '0')}:${match[3] ?? '00'}`;
+  } catch {
+    // Keep a readable fallback for an invalid or unsupported timezone.
+  }
+  return `${offset} ${label.replaceAll('_', ' ')}`;
+}
+
 export function configureDisplayTimezone(timezone: string) {
   try {
     new Intl.DateTimeFormat(undefined, { timeZone: timezone }).format();

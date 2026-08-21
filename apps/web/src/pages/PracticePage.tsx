@@ -287,7 +287,9 @@ export function PracticePage() {
         </div>
         {recommendationQuery.isLoading ? (
           <div className={styles.recommendation} aria-busy="true">
-            <span className={styles.skeleton} style={{ height: '8rem' }}>
+            <span
+              className={`${styles.skeleton} ${styles.skeletonRecommendation}`}
+            >
               Loading recommendation
             </span>
           </div>
@@ -374,7 +376,7 @@ export function PracticePage() {
                   {outcomeLabel(row.original.outcome)}
                 </span>
               </div>
-              <h3 className={styles.cardTitle} style={{ marginTop: '0.65rem' }}>
+              <h3 className={`${styles.cardTitle} ${styles.cardTitleSpaced}`}>
                 <HighlightText text={row.original.problem} />
               </h3>
               <p className={styles.helper}>

@@ -141,7 +141,7 @@ export function PeoplePage() {
         renderCard={(row) => (
           <div>
             <PersonIdentity person={row.original} privateView={privateView} />
-            <div className={styles.inline} style={{ marginTop: '0.7rem' }}>
+            <div className={`${styles.inline} ${styles.inlineSpaced}`}>
               {row.original.roles.map((role) => (
                 <RoleBadge key={role} role={role} />
               ))}

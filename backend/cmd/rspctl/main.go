@@ -62,6 +62,8 @@ type seedOptions struct {
 	MentorEmail      string
 	CoordinatorEmail string
 	DirectorEmail    string
+	SiteAdminEmail   string
+	AllowExisting    bool
 }
 
 func parseSeedOptions(args []string) (seedOptions, error) {
@@ -71,6 +73,8 @@ func parseSeedOptions(args []string) (seedOptions, error) {
 	set.StringVar(&options.MentorEmail, "mentor-email", "", "existing verified Better Auth user to enrol as the development mentor")
 	set.StringVar(&options.CoordinatorEmail, "coordinator-email", "", "existing verified Better Auth user to enrol as the development coordinator")
 	set.StringVar(&options.DirectorEmail, "director-email", "", "existing verified Better Auth user to grant the development Director role")
+	set.StringVar(&options.SiteAdminEmail, "site-admin-email", "", "existing verified Better Auth user to grant the development Site Admin role")
+	set.BoolVar(&options.AllowExisting, "allow-existing", false, "succeed when the development season already exists")
 	if err := set.Parse(args); err != nil {
 		return seedOptions{}, err
 	}
@@ -83,6 +87,7 @@ func parseSeedOptions(args []string) (seedOptions, error) {
 		&options.MentorEmail,
 		&options.CoordinatorEmail,
 		&options.DirectorEmail,
+		&options.SiteAdminEmail,
 	}
 	seen := make(map[string]struct{}, len(values))
 	for _, value := range values {
@@ -98,6 +103,9 @@ func parseSeedOptions(args []string) (seedOptions, error) {
 			return seedOptions{}, fmt.Errorf("seed role emails must be distinct: %s", normalized)
 		}
 		seen[normalized] = struct{}{}
+	}
+	if options.DirectorEmail != "" && options.SiteAdminEmail != "" {
+		return seedOptions{}, errors.New("seed accepts either --director-email or --site-admin-email, not both")
 	}
 	return options, nil
 }
@@ -167,6 +175,9 @@ func seed(ctx context.Context, conn *pgx.Conn, options seedOptions) error {
 		return err
 	}
 	if exists {
+		if options.AllowExisting {
+			return nil
+		}
 		return errors.New("seed data already exists")
 	}
 	studentID, err := resolveSeedUser(ctx, tx, seedUser{FallbackID: "dev-student", FallbackEmail: "student@rsp.local", Email: options.StudentEmail, Slug: "dev-student", DisplayName: "Dev Student"})
@@ -181,7 +192,17 @@ func seed(ctx context.Context, conn *pgx.Conn, options seedOptions) error {
 	if err != nil {
 		return err
 	}
-	directorID, err := resolveSeedUser(ctx, tx, seedUser{FallbackID: "dev-director", FallbackEmail: "director@rsp.local", Email: options.DirectorEmail, Slug: "dev-director", DisplayName: "Dev Director"})
+	privileged := seedUser{FallbackID: "dev-director", FallbackEmail: "director@rsp.local", Email: options.DirectorEmail, Slug: "dev-director", DisplayName: "Dev Director"}
+	privilegedRole := "director"
+	privilegedAssignmentID := "dev-role-director"
+	privilegedAuditAction := "development_seed.director_granted"
+	if options.SiteAdminEmail != "" {
+		privileged = seedUser{FallbackID: "dev-site-admin", FallbackEmail: "site-admin@rsp.local", Email: options.SiteAdminEmail, Slug: "dev-site-admin", DisplayName: "Dev Site Admin"}
+		privilegedRole = "system_admin"
+		privilegedAssignmentID = "dev-role-system-admin"
+		privilegedAuditAction = "development_seed.site_admin_granted"
+	}
+	privilegedID, err := resolveSeedUser(ctx, tx, privileged)
 	if err != nil {
 		return err
 	}
@@ -196,8 +217,8 @@ func seed(ctx context.Context, conn *pgx.Conn, options seedOptions) error {
 		{`INSERT INTO app.problems(id,title,url,revision) VALUES('dev-problem','Two Sum','https://leetcode.com/problems/two-sum/',1)`, nil},
 		{`INSERT INTO app.leetcode_problems(id,problem_id,leetcode_number,difficulty,is_premium,revision) VALUES('dev-leetcode','dev-problem',1,'easy',false,1) ON CONFLICT (leetcode_number) DO UPDATE SET difficulty='easy',is_premium=false,deleted_at=NULL,revision=app.leetcode_problems.revision+1`, nil},
 		{`DELETE FROM app.problems p WHERE p.id='dev-problem' AND NOT EXISTS(SELECT 1 FROM app.leetcode_problems l WHERE l.problem_id=p.id)`, nil},
-		{`INSERT INTO app.global_role_assignments(id,user_id,role,state,granted_by_user_id,granted_at,activated_at,revision) SELECT 'dev-role-director',$1,'director',CASE WHEN mfa_configured THEN 'active'::app.assignment_state ELSE 'pending_mfa'::app.assignment_state END,NULL,$2::timestamptz,CASE WHEN mfa_configured THEN $2::timestamptz ELSE NULL END,1 FROM app.users WHERE id=$1`, []any{directorID, now}},
-		{`INSERT INTO app.audit_events(id,actor_user_id,action,subject_type,subject_id,data,occurred_at) VALUES('dev-audit-coordinator-seed',NULL,'development_seed.coordinator_granted','enrollment','dev-enrollment-coordinator',jsonb_build_object('userId',$1::text,'seasonId','dev-season'),$3::timestamptz),('dev-audit-director-seed',NULL,'development_seed.director_granted','global_role_assignment','dev-role-director',jsonb_build_object('userId',$2::text),$3::timestamptz)`, []any{coordinatorID, directorID, now}},
+		{fmt.Sprintf(`INSERT INTO app.global_role_assignments(id,user_id,role,state,granted_by_user_id,granted_at,activated_at,revision) SELECT $2,$1,'%s',CASE WHEN mfa_configured THEN 'active'::app.assignment_state ELSE 'pending_mfa'::app.assignment_state END,NULL,$3::timestamptz,CASE WHEN mfa_configured THEN $3::timestamptz ELSE NULL END,1 FROM app.users WHERE id=$1`, privilegedRole), []any{privilegedID, privilegedAssignmentID, now}},
+		{fmt.Sprintf(`INSERT INTO app.audit_events(id,actor_user_id,action,subject_type,subject_id,data,occurred_at) VALUES('dev-audit-coordinator-seed',NULL,'development_seed.coordinator_granted','enrollment','dev-enrollment-coordinator',jsonb_build_object('userId',$1::text,'seasonId','dev-season'),$3::timestamptz),('dev-audit-privileged-seed',NULL,'%s','global_role_assignment',$2,jsonb_build_object('userId',$4::text),$3::timestamptz)`, privilegedAuditAction), []any{coordinatorID, privilegedAssignmentID, now, privilegedID}},
 	}
 	for i, statement := range statements {
 		if _, err := tx.Exec(ctx, statement.query, statement.args...); err != nil {

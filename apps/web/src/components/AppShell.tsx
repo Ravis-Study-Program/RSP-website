@@ -100,11 +100,7 @@ function itemsFor(role: string | undefined, seasonSlug?: string): NavItem[] {
       { label: 'Practice', to: '/practice', icon: IconBriefcase },
       { label: 'Mock interviews', to: '/mock-interviews', icon: IconMessage2 },
     ];
-  return [
-    { label: 'Onboarding', to: '/no-season', icon: IconDashboard },
-    { label: 'Profile', to: '/profile', icon: IconUsers },
-    { label: 'Settings', to: '/settings', icon: IconSettings },
-  ];
+  return [{ label: 'Profile', to: '/profile', icon: IconUsers }];
 }
 
 function ThemeButton({
@@ -146,6 +142,7 @@ export function AppShell() {
     () => itemsFor(activeWorkspace?.role, activeWorkspace?.seasonSlug),
     [activeWorkspace],
   );
+  const homePath = workspaces.length ? '/dashboard' : '/profile';
   const handleSignOut = async () => {
     try {
       await signOut();
@@ -158,43 +155,47 @@ export function AppShell() {
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
     localStorage.setItem('rsp-theme', theme);
+    document
+      .querySelector('meta[name="theme-color"]')
+      ?.setAttribute('content', theme === 'dark' ? '#080808' : '#121212');
   }, [theme]);
 
-  const workspaceSelect = (className: string, showLabel: boolean) => (
-    <div className={showLabel ? styles.workspaceField : undefined}>
-      {showLabel ? (
-        <label htmlFor="workspace-select">Workspace</label>
-      ) : (
-        <label
-          className={styles.visuallyHidden}
-          htmlFor="workspace-select-mobile"
+  const workspaceSelect = (className: string, showLabel: boolean) => {
+    if (!workspaces.length) return null;
+    return (
+      <div className={showLabel ? styles.workspaceField : undefined}>
+        {showLabel ? (
+          <label htmlFor="workspace-select">Workspace</label>
+        ) : (
+          <label
+            className={styles.visuallyHidden}
+            htmlFor="workspace-select-mobile"
+          >
+            Workspace
+          </label>
+        )}
+        <select
+          id={showLabel ? 'workspace-select' : 'workspace-select-mobile'}
+          className={className}
+          value={activeWorkspace?.id ?? ''}
+          onChange={(event) => setActiveWorkspaceId(event.target.value)}
         >
-          Workspace
-        </label>
-      )}
-      <select
-        id={showLabel ? 'workspace-select' : 'workspace-select-mobile'}
-        className={className}
-        value={activeWorkspace?.id ?? ''}
-        disabled={!workspaces.length}
-        onChange={(event) => setActiveWorkspaceId(event.target.value)}
-      >
-        {!workspaces.length ? <option>Loading workspace…</option> : null}
-        {workspaces.map((workspace) => (
-          <option key={workspace.id} value={workspace.id}>
-            {workspace.label}
-          </option>
-        ))}
-      </select>
-    </div>
-  );
+          {workspaces.map((workspace) => (
+            <option key={workspace.id} value={workspace.id}>
+              {workspace.label}
+            </option>
+          ))}
+        </select>
+      </div>
+    );
+  };
 
   const nav = (mobile = false) => (
     <nav
       className={mobile ? styles.mobileNav : styles.nav}
       aria-label={mobile ? 'Mobile navigation' : 'Primary navigation'}
     >
-      {navItems.slice(0, mobile ? 4 : undefined).map((item) => {
+      {navItems.map((item) => {
         const Icon = item.icon;
         return (
           <NavLink
@@ -219,11 +220,10 @@ export function AppShell() {
         Skip to main content
       </a>
       <aside className={styles.sidebar}>
-        <Link className={styles.brand} to="/dashboard" aria-label="RSP home">
+        <Link className={styles.brand} to={homePath} aria-label="RSP home">
           <img src="/assets/rsp-logo.png" alt="" />
           <span className={styles.brandCopy}>
             <strong>RSP Workspace</strong>
-            <span>Ready · supported · progressing</span>
           </span>
         </Link>
         {workspaceSelect(styles.workspaceSelect, true)}
@@ -244,7 +244,7 @@ export function AppShell() {
             <span className={styles.userSummaryText}>
               <strong>{userQuery.data?.name ?? 'Loading account…'}</strong>
               <span>
-                {activeWorkspace?.role?.replace('_', ' ') ?? 'Member'}
+                {activeWorkspace?.role?.replace('_', ' ') ?? 'Personal account'}
               </span>
             </span>
           </div>
@@ -261,7 +261,7 @@ export function AppShell() {
         </div>
       </aside>
       <header className={styles.mobileHeader}>
-        <Link className={styles.brand} to="/dashboard" aria-label="RSP home">
+        <Link className={styles.brand} to={homePath} aria-label="RSP home">
           <img src="/assets/rsp-logo.png" alt="" />
           <span className={styles.brandCopy}>
             <strong>RSP</strong>

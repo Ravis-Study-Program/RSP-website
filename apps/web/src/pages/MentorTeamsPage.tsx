@@ -48,7 +48,9 @@ export function MentorTeamsPage() {
         {mentors.map((mentor) => (
           <article className={styles.card} key={mentor.id}>
             <PersonIdentity person={mentor} privateView />
-            <div className={styles.sectionHeader} style={{ marginTop: '1rem' }}>
+            <div
+              className={`${styles.sectionHeader} ${styles.sectionHeaderSpaced}`}
+            >
               <h2 className={styles.cardTitle}>Assigned students</h2>
               <span className={styles.badge}>
                 {

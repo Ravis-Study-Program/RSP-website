@@ -35,7 +35,7 @@ Caddy routes the single local origin and denies public metrics paths.
 | Domain      | `backend/internal/*` feature packages           | Authorization relationships and programme rules independent of HTTP.                                          |
 | Persistence | `backend/internal/store`, `db/queries`          | Explicit pgx/sqlc persistence and transaction boundaries; no ORM or generic repository.                       |
 | Jobs        | `backend/cmd/worker`, `backend/internal/worker` | Scheduled LeetCode synchronization, catch-up, retry and advisory locking.                                     |
-| Operations  | `deploy`, `compose.yaml`                        | Local ingress and container topology.                                                                          |
+| Operations  | `deploy`, `compose.yaml`                        | Local ingress and container topology.                                                                         |
 
 Feature services own business rules. Transport code must not recreate role or
 ownership checks, and SQL must not infer an actor from request data. Mutations

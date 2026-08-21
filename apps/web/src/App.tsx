@@ -22,7 +22,6 @@ import { AppShell } from '@/components/AppShell';
 import { PageSkeleton } from '@/components/StatusViews';
 import {
   ForbiddenPage,
-  NoSeasonPage,
   NotFoundPage,
   AccountUnavailablePage,
   RouteErrorPage,
@@ -79,9 +78,9 @@ function ProtectedShell() {
       user.data.globalRoles.length > 0 ||
       user.data.alumni),
   );
-  const nonmemberRoutes = ['/no-season', '/profile', '/settings'];
+  const nonmemberRoutes = ['/profile', '/settings'];
   if (user.data && !isMember && !nonmemberRoutes.includes(location.pathname))
-    return <Navigate to="/no-season" replace />;
+    return <Navigate to="/profile" replace />;
   const hasDirectoryAccess = Boolean(
     user.data &&
     (user.data.globalRoles.length > 0 ||
@@ -91,6 +90,7 @@ function ProtectedShell() {
       )),
   );
   const formerMemberRoutes = [
+    '/',
     '/dashboard',
     '/practice',
     '/mock-interviews',
@@ -296,7 +296,7 @@ export const routeObjects: RouteObject[] = [
           Component: (await import('@/pages/SettingsPage')).SettingsPage,
         }),
       },
-      { path: '/no-season', element: <NoSeasonPage /> },
+      { path: '/no-season', element: <Navigate to="/profile" replace /> },
       { path: '/forbidden', element: <ForbiddenPage /> },
       {
         element: <RequireAdmin />,

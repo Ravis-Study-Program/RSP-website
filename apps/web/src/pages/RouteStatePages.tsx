@@ -39,23 +39,24 @@ function StateLayout({
   title,
   message,
   children,
+  variant = 'default',
 }: {
   icon: React.ReactNode;
   title: string;
   message: string;
   children?: React.ReactNode;
+  variant?: 'default' | 'auth';
 }) {
   return (
     <div className={styles.page}>
-      <section className={styles.statusCard}>
+      <section
+        className={`${styles.statusCard} ${variant === 'auth' ? styles.authCard : ''}`}
+      >
         <div className={styles.statusContent}>
           {icon}
           <h1>{title}</h1>
           <p>{message}</p>
-          <div
-            className={styles.buttonRow}
-            style={{ justifyContent: 'center' }}
-          >
+          <div className={`${styles.buttonRow} ${styles.stateActions}`}>
             {children}
           </div>
         </div>
@@ -170,8 +171,9 @@ export function SignInPage() {
       icon={<img src="/assets/rsp-logo.png" alt="RSP" width="72" height="72" />}
       title="Welcome to RSP"
       message="Sign in with Google or your verified email and password to continue."
+      variant="auth"
     >
-      <div className={styles.form} style={{ width: '100%', textAlign: 'left' }}>
+      <div className={`${styles.form} ${styles.stateForm}`}>
         {searchParams.get('verified') === 'true' ? (
           <p className={styles.inlineNotice}>
             Email verified. Sign in to continue.
@@ -200,36 +202,48 @@ export function SignInPage() {
         ) : null}
         {resetMessage ? <p role="status">{resetMessage}</p> : null}
         <button
-          className={styles.button}
+          className={styles.buttonSecondary}
           type="button"
           disabled={googlePending}
           onClick={() => void google()}
         >
           {googlePending ? 'Opening Google…' : 'Continue with Google'}
         </button>
+        <div className={styles.authDivider} aria-hidden="true">
+          <span>or</span>
+        </div>
         <div
-          className={styles.tabsList}
-          role="group"
+          className={styles.authMode}
+          role="tablist"
           aria-label="Email account action"
         >
           <button
-            className={styles.tab}
+            className={styles.authTab}
             type="button"
-            aria-pressed={mode === 'sign-in'}
+            role="tab"
+            aria-selected={mode === 'sign-in'}
+            aria-controls="email-auth-form"
             onClick={() => setMode('sign-in')}
           >
             Sign in
           </button>
           <button
-            className={styles.tab}
+            className={styles.authTab}
             type="button"
-            aria-pressed={mode === 'sign-up'}
+            role="tab"
+            aria-selected={mode === 'sign-up'}
+            aria-controls="email-auth-form"
             onClick={() => setMode('sign-up')}
           >
             Create account
           </button>
         </div>
-        <form className={styles.form} noValidate onSubmit={submit}>
+        <form
+          id="email-auth-form"
+          className={styles.form}
+          noValidate
+          onSubmit={submit}
+        >
           {mode === 'sign-up' ? (
             <div className={styles.field}>
               <label htmlFor="auth-name">Name</label>
@@ -276,7 +290,7 @@ export function SignInPage() {
             ) : null}
           </div>
           <button
-            className={styles.buttonSecondary}
+            className={styles.button}
             type="submit"
             disabled={isSubmitting}
           >
@@ -341,8 +355,7 @@ export function ResetPasswordPage() {
       message="Reset links are single-use. Completing this change revokes existing sessions."
     >
       <form
-        className={styles.form}
-        style={{ width: '100%', textAlign: 'left' }}
+        className={`${styles.form} ${styles.stateForm}`}
         onSubmit={(event) => void submit(event)}
       >
         {error ? (
@@ -422,7 +435,7 @@ export function VerifyEmailPage() {
       title="Check your email"
       message="Protected programme access begins after your email address is verified."
     >
-      <div className={styles.form} style={{ width: '100%', textAlign: 'left' }}>
+      <div className={`${styles.form} ${styles.stateForm}`}>
         {status ? <p role="status">{status}</p> : null}
         <div className={styles.field}>
           <label htmlFor="verification-email">Email</label>
@@ -485,8 +498,7 @@ export function TwoFactorPage() {
       message="Enter a current authenticator code or one of your single-use backup codes."
     >
       <form
-        className={styles.form}
-        style={{ width: '100%', textAlign: 'left' }}
+        className={`${styles.form} ${styles.stateForm}`}
         onSubmit={(event) => void submit(event)}
       >
         {error ? (
@@ -538,21 +550,6 @@ export function ForbiddenPage() {
     >
       <Link className={styles.button} to="/dashboard">
         Back to dashboard
-      </Link>
-    </StateLayout>
-  );
-}
-
-export function NoSeasonPage() {
-  usePageTitle('No season access');
-  return (
-    <StateLayout
-      icon={<IconMoodSad size={48} aria-hidden="true" />}
-      title="No season access yet"
-      message="Your account is ready, but a Coordinator has not approved a season enrolment."
-    >
-      <Link className={styles.button} to="/settings">
-        Account settings
       </Link>
     </StateLayout>
   );

@@ -97,13 +97,19 @@ services:
       - ./api:/workspace/api
       - ./db:/workspace/db
       - ./deploy/dev:/workspace/deploy/dev:ro
-      - go-mod-cache:/go/pkg/mod
-      - go-build-cache:/home/rsp/.cache/go-build
     depends_on:
       migrate-app:
         condition: service_completed_successfully
     healthcheck:
-      test: [CMD, wget, -q, -O, /dev/null, http://127.0.0.1:8080/api/v2/health/ready]
+      test:
+        [
+          CMD,
+          wget,
+          -q,
+          -O,
+          /dev/null,
+          http://127.0.0.1:8080/api/v2/health/ready,
+        ]
       interval: 5s
       timeout: 3s
       retries: 20
@@ -120,8 +126,6 @@ services:
       - ./backend:/workspace/backend
       - ./db:/workspace/db
       - ./deploy/dev:/workspace/deploy/dev:ro
-      - go-mod-cache:/go/pkg/mod
-      - go-build-cache:/home/rsp/.cache/go-build
     depends_on:
       migrate-app:
         condition: service_completed_successfully
@@ -159,7 +163,13 @@ services:
       mailpit:
         condition: service_started
     healthcheck:
-      test: [CMD, node, -e, "fetch('http://127.0.0.1:3001/health/ready').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      test:
+        [
+          CMD,
+          node,
+          -e,
+          "fetch('http://127.0.0.1:3001/health/ready').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))",
+        ]
       interval: 5s
       timeout: 3s
       retries: 20
@@ -180,7 +190,7 @@ services:
         condition: service_healthy
 
   caddy:
-    image: caddy:2.10.2-alpine
+    image: caddy:2.11.4-alpine
     ports:
       - ${RSP_PORT:-8080}:8080
     volumes:
@@ -245,5 +255,3 @@ volumes:
   mailpit-data:
   prometheus-data:
   grafana-data:
-  go-mod-cache:
-  go-build-cache:

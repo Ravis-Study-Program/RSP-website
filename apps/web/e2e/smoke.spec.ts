@@ -102,15 +102,20 @@ test('mobile tables use readable cards', async ({ page }, testInfo) => {
   ).toBeVisible();
 });
 
-test('dashboard has no detectable WCAG A or AA violations', async ({
+test('dashboard has no detectable WCAG A or AA violations in either theme', async ({
   page,
 }) => {
   await page.goto('/dashboard');
   await expect(page.getByRole('heading', { name: /Welcome/i })).toBeVisible();
-  const results = await new AxeBuilder({ page })
-    .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'])
-    .analyze();
-  expect(results.violations).toEqual([]);
+  for (const theme of ['light', 'dark']) {
+    await page.evaluate((nextTheme) => {
+      document.documentElement.dataset.theme = nextTheme;
+    }, theme);
+    const results = await new AxeBuilder({ page })
+      .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'])
+      .analyze();
+    expect(results.violations).toEqual([]);
+  }
 });
 
 // These automated proxies complement rather than replace manual screen-reader checks.
@@ -258,6 +263,12 @@ test('signed-out, unverified, unavailable, nonmember, forbidden and not-found st
   await expect(
     signedOutPage.getByRole('heading', { name: 'Welcome to RSP' }),
   ).toBeVisible();
+  await expect(
+    signedOutPage.getByRole('tab', { name: 'Sign in' }),
+  ).toHaveAttribute('aria-selected', 'true');
+  await expect(
+    signedOutPage.getByRole('tab', { name: 'Create account' }),
+  ).toHaveAttribute('aria-selected', 'false');
   await signedOutContext.close();
 
   const unverifiedContext = await browser.newContext();
@@ -274,10 +285,18 @@ test('signed-out, unverified, unavailable, nonmember, forbidden and not-found st
   const nonmemberPage = await nonmemberContext.newPage();
   await selectDemoRole(nonmemberPage, 'nonmember');
   await nonmemberPage.goto('/practice');
-  await expect(nonmemberPage).toHaveURL(/\/no-season$/);
+  await expect(nonmemberPage).toHaveURL(/\/profile$/);
   await expect(
-    nonmemberPage.getByRole('heading', { name: 'No season access yet' }),
+    nonmemberPage.getByRole('heading', { name: 'Avery Example' }),
   ).toBeVisible();
+  await expect(
+    nonmemberPage.getByRole('link', { name: 'Onboarding' }),
+  ).toHaveCount(0);
+  await expect(
+    nonmemberPage.locator(
+      '#workspace-select:visible, #workspace-select-mobile:visible',
+    ),
+  ).toHaveCount(0);
   await nonmemberContext.close();
 
   for (const [role, message] of [

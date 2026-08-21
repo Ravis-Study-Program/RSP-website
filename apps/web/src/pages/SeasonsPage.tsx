@@ -128,7 +128,7 @@ export function SeasonsPage() {
                 {row.original.status}
               </span>
             </div>
-            <h2 className={styles.cardTitle} style={{ marginTop: '0.65rem' }}>
+            <h2 className={`${styles.cardTitle} ${styles.cardTitleSpaced}`}>
               <HighlightText text={row.original.name} />
             </h2>
             <p className={styles.helper}>

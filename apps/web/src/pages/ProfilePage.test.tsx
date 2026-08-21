@@ -103,3 +103,55 @@ describe('profile slug suggestion', () => {
     );
   });
 });
+
+describe('basic profiles', () => {
+  it('loads without season data and only exposes basic profile fields', async () => {
+    const nonmember = {
+      ...currentUser,
+      seasonRoles: [],
+      alumni: false,
+    };
+    vi.mocked(useCurrentUser).mockReturnValue({
+      data: nonmember,
+      isLoading: false,
+      isError: false,
+      refetch: vi.fn(),
+    } as unknown as ReturnType<typeof useCurrentUser>);
+    vi.mocked(useSeasons).mockReturnValue({
+      isLoading: false,
+      isError: true,
+      refetch: vi.fn(),
+    } as unknown as ReturnType<typeof useSeasons>);
+    vi.mocked(useUserProfile).mockReturnValue({
+      isLoading: false,
+      isError: false,
+      refetch: vi.fn(),
+    } as unknown as ReturnType<typeof useUserProfile>);
+    vi.mocked(useUserAttempts).mockReturnValue({
+      data: { items: [] },
+      isLoading: false,
+      isError: false,
+      refetch: vi.fn(),
+    } as unknown as ReturnType<typeof useUserAttempts>);
+
+    const user = userEvent.setup();
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <MemoryRouter initialEntries={['/profile']}>
+          <ProfilePage />
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+
+    expect(
+      await screen.findByRole('heading', { name: 'Member One' }),
+    ).toBeVisible();
+    expect(
+      screen.queryByText('Programme participation'),
+    ).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: /edit profile/i }));
+    expect(screen.getByLabelText('Name')).toHaveValue('Member One');
+    expect(screen.queryByLabelText('Profile slug')).not.toBeInTheDocument();
+  });
+});

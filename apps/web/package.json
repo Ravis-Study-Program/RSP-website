@@ -16,6 +16,7 @@
     "test": "VITE_USE_DEMO_DATA=true vitest run",
     "test:watch": "VITE_USE_DEMO_DATA=true vitest",
     "e2e": "playwright test",
+    "e2e:chromium": "playwright test --project=desktop-chromium --project=mobile-chromium",
     "e2e:real": "playwright test --config playwright.real.config.ts",
     "generate": "orval --config orval.config.ts",
     "generate:check": "pnpm generate && git diff --exit-code -- src/api/generated",
@@ -42,7 +43,7 @@
   },
   "devDependencies": {
     "@axe-core/playwright": "4.10.2",
-    "@playwright/test": "1.55.1",
+    "@playwright/test": "1.61.1",
     "@testing-library/jest-dom": "6.8.0",
     "@testing-library/react": "16.3.0",
     "@testing-library/user-event": "14.6.1",

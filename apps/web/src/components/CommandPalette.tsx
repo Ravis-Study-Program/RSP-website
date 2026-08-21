@@ -1,6 +1,6 @@
 import { Dialog } from '@base-ui/react/dialog';
 import { IconSearch, IconX } from '@tabler/icons-react';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 
 import { useWorkspace } from '@/auth/WorkspaceContext';
@@ -23,6 +23,7 @@ export function CommandPalette() {
   const { activeWorkspace } = useWorkspace();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
+  const searchInputRef = useRef<HTMLInputElement>(null);
   const commands = useMemo(() => {
     const role = activeWorkspace?.role;
     const seasonBase = activeWorkspace?.seasonSlug
@@ -152,13 +153,7 @@ export function CommandPalette() {
                         to: '/mock-interviews',
                       },
                     ]
-                  : [
-                      {
-                        label: 'Onboarding',
-                        description: 'Season access status',
-                        to: '/no-season',
-                      },
-                    ];
+                  : [];
     const dashboard = role
       ? [
           {
@@ -202,7 +197,10 @@ export function CommandPalette() {
       <Dialog.Portal>
         <Dialog.Backdrop className={styles.dialogBackdrop} />
         <Dialog.Viewport className={styles.dialogViewport}>
-          <Dialog.Popup className={styles.dialogPopup}>
+          <Dialog.Popup
+            className={styles.dialogPopup}
+            initialFocus={searchInputRef}
+          >
             <div className={styles.dialogHeader}>
               <div>
                 <Dialog.Title className={styles.dialogTitle}>
@@ -219,13 +217,14 @@ export function CommandPalette() {
                 <IconX size={18} aria-hidden="true" />
               </Dialog.Close>
             </div>
-            <div className={styles.searchWrap} style={{ width: '100%' }}>
+            <div className={`${styles.searchWrap} ${styles.stateForm}`}>
               <IconSearch size={18} aria-hidden="true" />
               <label className={styles.visuallyHidden} htmlFor="command-search">
                 Search pages
               </label>
               <input
                 id="command-search"
+                ref={searchInputRef}
                 className={styles.searchInput}
                 autoComplete="off"
                 placeholder="Search pages…"
@@ -235,7 +234,7 @@ export function CommandPalette() {
             </div>
             <nav
               aria-label="Quick navigation results"
-              style={{ marginTop: '0.8rem' }}
+              className={styles.sectionHeaderSpaced}
             >
               <ul className={styles.cleanList}>
                 {filtered.map((command) => (
@@ -248,8 +247,7 @@ export function CommandPalette() {
                       <span>
                         <strong>{command.label}</strong>
                         <span
-                          className={styles.helper}
-                          style={{ display: 'block' }}
+                          className={`${styles.helper} ${styles.helperBlock}`}
                         >
                           {command.description}
                         </span>

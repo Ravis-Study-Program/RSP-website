@@ -525,10 +525,7 @@ export function MockInterviewsPage() {
                     {row.original.reviewStatus}
                   </span>
                 </div>
-                <h3
-                  className={styles.cardTitle}
-                  style={{ marginTop: '0.7rem' }}
-                >
+                <h3 className={`${styles.cardTitle} ${styles.cardTitleSpaced}`}>
                   {row.original.interviewee.name}
                 </h3>
                 <p className={styles.helper}>
@@ -549,7 +546,7 @@ export function MockInterviewsPage() {
                   View details
                 </button>
                 {row.getIsExpanded() ? (
-                  <div style={{ marginTop: '0.75rem' }}>
+                  <div className={styles.expandedDetails}>
                     <MockDetails
                       row={row}
                       currentUserId={user.data?.id}
@@ -610,7 +607,7 @@ function MockDetails({
           html={mock.notes}
           empty="No overall interview notes."
         />
-        <div className={styles.rounds} style={{ marginTop: '0.7rem' }}>
+        <div className={`${styles.rounds} ${styles.roundsSpaced}`}>
           {mock.rounds.map((round) => (
             <article className={styles.round} key={round.id}>
               <div className={styles.roundHeader}>
@@ -821,7 +818,7 @@ function EditMockDialog({
           value={notes}
           onChange={setNotes}
         />
-        <fieldset className={styles.form} style={{ border: 0, padding: 0 }}>
+        <fieldset className={`${styles.form} ${styles.unstyledFieldset}`}>
           <legend className={styles.legend}>Rounds and scores</legend>
           {rounds.map((round, roundIndex) => (
             <RoundEditor
@@ -1466,7 +1463,7 @@ function NewMockDialog({
             />
           </div>
         </div>
-        <fieldset className={styles.form} style={{ border: 0, padding: 0 }}>
+        <fieldset className={`${styles.form} ${styles.unstyledFieldset}`}>
           <legend className={styles.legend}>Interview rounds</legend>
           <p className={styles.helper}>
             Add LeetCode, custom or behavioural rounds. LeetCode rounds capture

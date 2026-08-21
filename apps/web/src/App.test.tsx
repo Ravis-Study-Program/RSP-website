@@ -31,6 +31,19 @@ describe('application routes', () => {
     expect(screen.getAllByLabelText('Workspace')[0]).toHaveValue('director');
   });
 
+  it('redirects former members from the site root to the dashboard', async () => {
+    window.localStorage.setItem('rsp-demo-role', 'former_member');
+    const router = renderRoute('/');
+    expect(
+      await screen.findByRole('heading', { name: /welcome/i }, routeTimeout),
+    ).toBeInTheDocument();
+    await waitFor(
+      () => expect(router.state.location.pathname).toBe('/dashboard'),
+      routeTimeout,
+    );
+    window.localStorage.removeItem('rsp-demo-role');
+  });
+
   it('redirects the old leetcode route to practice', async () => {
     const router = renderRoute('/leetcode');
     expect(

@@ -46,17 +46,19 @@ Caddy is the browser application origin.
 
 ## Standard commands
 
-| Command           | Purpose                                                                                                    |
-| ----------------- | ---------------------------------------------------------------------------------------------------------- |
-| `just bootstrap`  | Install pinned Go and pnpm dependencies.                                                                   |
-| `just dev`        | Start the application, PostgreSQL, Mailpit, Prometheus, and Grafana.                                         |
-| `just generate`   | Regenerate transport and browser clients from OpenAPI.                                                     |
-| `just migrate-up` | Apply app Goose migrations and the pinned Better Auth schema.                                              |
-| `just seed`       | Load deterministic local-only fixture data.                                                                |
-| `just check`      | Run non-mutating formatting, static, TypeScript and Compose checks.                                        |
-| `just test`       | Run Go and TypeScript tests.                                                                               |
-| `just e2e`        | Run desktop/mobile Playwright and axe checks.                                                              |
-| `just e2e-real`   | Rebuild an isolated test stack and run authenticated Student, Coordinator and Director browser mutations.  |
+| Command           | Purpose                                                                                                   |
+| ----------------- | --------------------------------------------------------------------------------------------------------- |
+| `just bootstrap`  | Install pinned Go and pnpm dependencies.                                                                  |
+| `just dev`        | Start the application, PostgreSQL, Mailpit, Prometheus, and Grafana.                                      |
+| `just generate`   | Regenerate transport and browser clients from OpenAPI.                                                    |
+| `just migrate-up` | Apply app Goose migrations and the pinned Better Auth schema.                                             |
+| `just seed`       | Load deterministic local-only fixture data.                                                               |
+| `just fake-data`  | Create local email/password Student, Mentor, Coordinator and Site Admin accounts with fixture data.       |
+| `just fake-totp`  | Generate the current TOTP code from a fake account secret.                                                |
+| `just check`      | Run non-mutating formatting, static, TypeScript and Compose checks.                                       |
+| `just test`       | Run Go and TypeScript tests.                                                                              |
+| `just e2e`        | Run desktop/mobile Playwright and axe checks.                                                             |
+| `just e2e-real`   | Rebuild an isolated test stack and run authenticated Student, Coordinator and Director browser mutations. |
 
 ## Contracts and safety
 

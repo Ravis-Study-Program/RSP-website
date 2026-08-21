@@ -113,7 +113,7 @@ export function NamedConfirmation({
             <AlertDialog.Description className={styles.dialogDescription}>
               {description}
             </AlertDialog.Description>
-            <div className={styles.field} style={{ marginTop: '1rem' }}>
+            <div className={`${styles.field} ${styles.fieldSpaced}`}>
               <label htmlFor={confirmationId}>
                 Type <strong>{name}</strong> to confirm
               </label>
