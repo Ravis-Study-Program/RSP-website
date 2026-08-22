@@ -28,6 +28,7 @@ type Account struct {
 	DeleteAfter                              *time.Time
 	Revision                                 int64
 }
+
 type SessionRevoker interface{ RevokeAll(userID string) error }
 
 func RequestDeletion(a *Account, rawToken string, now time.Time, r SessionRevoker) error {
@@ -37,6 +38,7 @@ func RequestDeletion(a *Account, rawToken string, now time.Time, r SessionRevoke
 	if err := r.RevokeAll(a.ID); err != nil {
 		return err
 	}
+
 	requested := now.UTC()
 	after := requested.Add(30 * 24 * time.Hour)
 	sum := sha256.Sum256([]byte(rawToken))
@@ -47,6 +49,7 @@ func RequestDeletion(a *Account, rawToken string, now time.Time, r SessionRevoke
 	a.Revision++
 	return nil
 }
+
 func CancelDeletion(a *Account, rawToken string, now time.Time) error {
 	if a.State != DeletionPending || a.DeleteAfter == nil || !now.UTC().Before(*a.DeleteAfter) {
 		return ErrInvalidState
@@ -62,6 +65,7 @@ func CancelDeletion(a *Account, rawToken string, now time.Time) error {
 	a.Revision++
 	return nil
 }
+
 func Pseudonymize(a *Account, now time.Time) bool {
 	if a.State != DeletionPending || a.DeleteAfter == nil || now.UTC().Before(*a.DeleteAfter) {
 		return false

@@ -43,11 +43,13 @@ func (a *API) listAdminUsers(w http.ResponseWriter, r *http.Request) {
 		validation(a, w, r, "sort must be id:asc")
 		return
 	}
+
 	direction, err := requestedDirection(r)
 	if err != nil {
 		validation(a, w, r, "direction must be forward or backward")
 		return
 	}
+
 	query := strings.TrimSpace(r.URL.Query().Get("query"))
 	accountState := r.URL.Query().Get("accountState")
 	globalRole := r.URL.Query().Get("globalRole")
@@ -61,6 +63,7 @@ func (a *API) listAdminUsers(w http.ResponseWriter, r *http.Request) {
 		a.fail(w, r, http.StatusBadRequest, "invalid_cursor", "Invalid cursor", "The cursor does not match the selected admin user filters and sort.", nil)
 		return
 	}
+
 	items, more, total, err := a.store.ListAdminUsers(r.Context(), boundary, limit, direction, query, accountState, globalRole)
 	if err != nil {
 		storeFailure(a, w, r, err)
@@ -86,6 +89,7 @@ func (a *API) setUserAccountState(w http.ResponseWriter, r *http.Request) {
 		validation(a, w, r, "state active or suspended, revision, and a reason up to 500 characters are required")
 		return
 	}
+
 	targetID := r.PathValue("id")
 	if a.setAccountState == nil {
 		a.fail(w, r, http.StatusServiceUnavailable, "auth_service_unavailable", "Authentication service unavailable", "Account state administration is temporarily unavailable.", nil)
@@ -114,11 +118,13 @@ func (a *API) setUserAccountState(w http.ResponseWriter, r *http.Request) {
 		a.fail(w, r, http.StatusBadGateway, "auth_service_failed", "Authentication service failed", "The account state was not changed.", nil)
 		return
 	}
+
 	updated, err := a.store.GetUser(r.Context(), targetID)
 	if err != nil {
 		storeFailure(a, w, r, err)
 		return
 	}
+
 	writeJSON(w, http.StatusOK, updated)
 }
 
@@ -144,21 +150,25 @@ func (a *API) grantUserGlobalRole(w http.ResponseWriter, r *http.Request) {
 		storeFailure(a, w, r, err)
 		return
 	}
+
 	subject, err := a.store.ResolveAuthSubjectForUser(r.Context(), target.ID)
 	if err != nil {
 		storeFailure(a, w, r, err)
 		return
 	}
+
 	configured, err := a.getMFAState(r.Context(), subject)
 	if err != nil {
 		a.fail(w, r, http.StatusBadGateway, "auth_service_failed", "Authentication service failed", "MFA state could not be verified.", nil)
 		return
 	}
+
 	assignment, err := a.store.GrantGlobalRole(r.Context(), target.ID, in.Role, configured, strings.TrimSpace(in.Reason), actor.UserID, time.Now().UTC())
 	if err != nil {
 		storeFailure(a, w, r, err)
 		return
 	}
+
 	writeJSON(w, http.StatusCreated, assignment)
 }
 
@@ -171,11 +181,13 @@ func (a *API) listUserGlobalRoles(w http.ResponseWriter, r *http.Request) {
 		storeFailure(a, w, r, err)
 		return
 	}
+
 	items, err := a.store.ListGlobalRoles(r.Context(), target.ID)
 	if err != nil {
 		storeFailure(a, w, r, err)
 		return
 	}
+
 	writeJSON(w, http.StatusOK, map[string]any{"items": items})
 }
 
@@ -194,6 +206,7 @@ func (a *API) revokeUserGlobalRole(w http.ResponseWriter, r *http.Request) {
 		storeFailure(a, w, r, err)
 		return
 	}
+
 	targetID = target.ID
 	if targetID == actor.UserID && role == "system_admin" {
 		a.fail(w, r, http.StatusConflict, "self_role_revocation_forbidden", "Conflict", "A System Admin cannot revoke their own System Admin role.", nil)
@@ -204,10 +217,12 @@ func (a *API) revokeUserGlobalRole(w http.ResponseWriter, r *http.Request) {
 		validation(a, w, r, "valid role, revision, and reason up to 500 characters are required")
 		return
 	}
+
 	assignment, err := a.store.RevokeGlobalRole(r.Context(), targetID, role, revision, strings.TrimSpace(r.URL.Query().Get("reason")), actor.UserID, time.Now().UTC())
 	if err != nil {
 		storeFailure(a, w, r, err)
 		return
 	}
+
 	writeJSON(w, http.StatusOK, assignment)
 }

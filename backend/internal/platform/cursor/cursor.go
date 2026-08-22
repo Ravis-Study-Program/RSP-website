@@ -21,15 +21,18 @@ func Encode(secret []byte, after, binding string) (string, error) {
 	if err != nil {
 		return "", err
 	}
+
 	mac := hmac.New(sha256.New, secret)
 	_, _ = mac.Write(raw)
 	return base64.RawURLEncoding.EncodeToString(append(raw, mac.Sum(nil)...)), nil
 }
+
 func Decode(secret []byte, encoded, binding string) (string, error) {
 	signed, err := base64.RawURLEncoding.DecodeString(encoded)
 	if err != nil || len(signed) <= sha256.Size {
 		return "", ErrInvalid
 	}
+
 	raw, sig := signed[:len(signed)-sha256.Size], signed[len(signed)-sha256.Size:]
 	mac := hmac.New(sha256.New, secret)
 	_, _ = mac.Write(raw)

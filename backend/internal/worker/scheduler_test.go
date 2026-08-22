@@ -13,7 +13,8 @@ type lock struct {
 }
 
 func (l *lock) TryLock(context.Context, int64) (bool, error) { return l.ok, nil }
-func (l *lock) Unlock(context.Context, int64) error          { l.unlocked = true; return nil }
+
+func (l *lock) Unlock(context.Context, int64) error { l.unlocked = true; return nil }
 
 type state struct {
 	last *time.Time
@@ -21,6 +22,7 @@ type state struct {
 }
 
 func (s *state) LastSuccess(context.Context, string) (*time.Time, error) { return s.last, nil }
+
 func (s *state) LastAttempt(context.Context, string) (*time.Time, error) {
 	if len(s.runs) == 0 {
 		return nil, nil
@@ -28,6 +30,7 @@ func (s *state) LastAttempt(context.Context, string) (*time.Time, error) {
 	v := s.runs[len(s.runs)-1].FinishedAt
 	return &v, nil
 }
+
 func (s *state) Record(_ context.Context, r Run) error {
 	s.runs = append(s.runs, r)
 	if r.Error == "" {
@@ -69,11 +72,13 @@ func TestTimeoutIsRecordedAndDueWindowIsAttemptedOnlyOnce(t *testing.T) {
 	if !ran || !errors.Is(err, context.DeadlineExceeded) || len(st.runs) != 1 || st.runs[0].Error == "" {
 		t.Fatalf("timeout run: ran=%v err=%v runs=%#v", ran, err, st.runs)
 	}
+
 	ran, err = sy.RunDue(context.Background())
 	if err != nil || ran || len(st.runs) != 1 {
 		t.Fatalf("due window retried: ran=%v err=%v runs=%d", ran, err, len(st.runs))
 	}
 }
+
 func TestSundayScheduleCatchupAndLock(t *testing.T) {
 	now := time.Date(2026, 8, 13, 12, 0, 0, 0, time.UTC)
 	l := &lock{ok: true}
@@ -83,10 +88,12 @@ func TestSundayScheduleCatchupAndLock(t *testing.T) {
 	if err != nil || !ran || len(st.runs) != 1 || !l.unlocked || st.runs[0].TriggerKind != "catch_up" {
 		t.Fatalf("catchup failed: %v", err)
 	}
+
 	ran, err = sy.RunDue(context.Background())
 	if err != nil || ran {
 		t.Fatal("ran twice")
 	}
+
 	sy.Locker = &lock{ok: false}
 	if err := sy.Run(context.Background()); !errors.Is(err, ErrLocked) {
 		t.Fatalf("lock: %v", err)
@@ -102,6 +109,7 @@ func TestSundayScheduledTrigger(t *testing.T) {
 		t.Fatalf("scheduled trigger: ran=%v runs=%#v err=%v", ran, st.runs, err)
 	}
 }
+
 func TestRetriesAndPartialFailure(t *testing.T) {
 	now := time.Now()
 	l := &lock{ok: true}
@@ -111,6 +119,7 @@ func TestRetriesAndPartialFailure(t *testing.T) {
 	if err := sy.Run(context.Background()); err != nil || sync.calls != 3 {
 		t.Fatalf("retry: %v calls %d", err, sync.calls)
 	}
+
 	sync = &syncer{partial: true}
 	sy.Syncer = sync
 	if err := sy.Run(context.Background()); err == nil || len(st.runs) != 2 {

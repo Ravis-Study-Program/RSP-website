@@ -25,6 +25,7 @@ func (a *API) seasonAdmin(r *http.Request) (model.Season, bool) {
 	if err != nil {
 		return model.Season{}, false
 	}
+
 	actor := actorFrom(r.Context())
 	return season, actor.CanManageSeason(seasonID, season.Status == "open") && actor.HasRecentMFA(time.Now())
 }
@@ -47,27 +48,32 @@ func (a *API) listWeeks(w http.ResponseWriter, r *http.Request) {
 		storeFailure(a, w, r, err)
 		return
 	}
+
 	sortBy, err := requestedSort(r, "number:asc", "number:asc", "id:asc")
 	if err != nil {
 		validation(a, w, r, "sort must be number:asc or id:asc")
 		return
 	}
+
 	direction, err := requestedDirection(r)
 	if err != nil {
 		validation(a, w, r, "direction must be forward or backward")
 		return
 	}
+
 	binding := "weeks|season=" + seasonID + "|sort=" + sortBy
 	limit, boundary, err := a.page(r, binding)
 	if err != nil {
 		a.fail(w, r, 400, "invalid_cursor", "Invalid cursor", "The cursor does not match the selected season and sort.", nil)
 		return
 	}
+
 	items, more, total, err := a.store.ListWeeks(r.Context(), seasonID, boundary, limit, sortBy, direction)
 	if err != nil {
 		storeFailure(a, w, r, err)
 		return
 	}
+
 	writeJSON(w, 200, model.Page[model.Week]{Items: items, PageInfo: pageInfoForKeyset(a, binding, direction, boundary, items, more, func(v model.Week) string { return v.ID }), TotalCount: total})
 }
 
@@ -98,6 +104,7 @@ func (a *API) createWeek(w http.ResponseWriter, r *http.Request) {
 		storeFailure(a, w, r, err)
 		return
 	}
+
 	writeJSON(w, 201, created)
 }
 
@@ -128,6 +135,7 @@ func (a *API) updateWeek(w http.ResponseWriter, r *http.Request) {
 		storeFailure(a, w, r, err)
 		return
 	}
+
 	writeJSON(w, 200, v)
 }
 
@@ -141,11 +149,13 @@ func (a *API) deleteWeek(w http.ResponseWriter, r *http.Request) {
 		validation(a, w, r, "revision query parameter is required")
 		return
 	}
+
 	actor := actorFrom(r.Context())
 	if err := a.store.DeleteWeek(r.Context(), r.PathValue("id"), r.PathValue("weekId"), revision, actor.UserID, time.Now().UTC()); err != nil {
 		storeFailure(a, w, r, err)
 		return
 	}
+
 	w.WriteHeader(204)
 }
 
@@ -172,22 +182,26 @@ func (a *API) listMembers(w http.ResponseWriter, r *http.Request) {
 		validation(a, w, r, "sort must be id:asc or role:asc")
 		return
 	}
+
 	direction, err := requestedDirection(r)
 	if err != nil {
 		validation(a, w, r, "direction must be forward or backward")
 		return
 	}
+
 	binding := "members|season=" + seasonID + "|role=" + role + "|state=" + state + "|sort=" + sortBy
 	limit, boundary, err := a.page(r, binding)
 	if err != nil {
 		a.fail(w, r, 400, "invalid_cursor", "Invalid cursor", "The cursor does not match the selected member filters.", nil)
 		return
 	}
+
 	items, more, total, err := a.store.ListEnrollments(r.Context(), seasonID, boundary, limit, role, state, sortBy, direction, canSeeInactive)
 	if err != nil {
 		storeFailure(a, w, r, err)
 		return
 	}
+
 	writeJSON(w, 200, model.Page[model.Enrollment]{Items: items, PageInfo: pageInfoForKeyset(a, binding, direction, boundary, items, more, func(v model.Enrollment) string { return v.ID }), TotalCount: total})
 }
 
@@ -201,22 +215,26 @@ func (a *API) listEnrollmentCandidates(w http.ResponseWriter, r *http.Request) {
 		validation(a, w, r, "sort must be id:asc")
 		return
 	}
+
 	direction, err := requestedDirection(r)
 	if err != nil {
 		validation(a, w, r, "direction must be forward or backward")
 		return
 	}
+
 	binding := "enrollment-candidates|id:asc|season=" + r.PathValue("id") + "|query=" + query
 	limit, boundary, err := a.page(r, binding)
 	if err != nil {
 		validation(a, w, r, "cursor is invalid for the selected season and query")
 		return
 	}
+
 	items, more, total, err := a.store.ListEnrollmentCandidates(r.Context(), r.PathValue("id"), query, boundary, limit, direction)
 	if err != nil {
 		storeFailure(a, w, r, err)
 		return
 	}
+
 	writeJSON(w, 200, model.Page[model.EnrollmentCandidate]{Items: items, PageInfo: pageInfoForKeyset(a, binding, direction, boundary, items, more, func(v model.EnrollmentCandidate) string { return v.ID }), TotalCount: total})
 }
 
@@ -244,6 +262,7 @@ func (a *API) createMember(w http.ResponseWriter, r *http.Request) {
 		storeFailure(a, w, r, err)
 		return
 	}
+
 	writeJSON(w, 201, created)
 }
 
@@ -275,11 +294,13 @@ func (a *API) updateMember(w http.ResponseWriter, r *http.Request) {
 		storeFailure(a, w, r, err)
 		return
 	}
+
 	writeJSON(w, 200, v)
 }
 
 func (a *API) promoteMember(w http.ResponseWriter, r *http.Request) { a.changeMember(w, r, true) }
-func (a *API) removeMember(w http.ResponseWriter, r *http.Request)  { a.changeMember(w, r, false) }
+
+func (a *API) removeMember(w http.ResponseWriter, r *http.Request) { a.changeMember(w, r, false) }
 
 func (a *API) changeMember(w http.ResponseWriter, r *http.Request, promote bool) {
 	actor := actorFrom(r.Context())
@@ -344,6 +365,7 @@ func (a *API) changeMember(w http.ResponseWriter, r *http.Request, promote bool)
 		storeFailure(a, w, r, err)
 		return
 	}
+
 	writeJSON(w, 200, updated)
 }
 
@@ -358,11 +380,13 @@ func (a *API) listMentorships(w http.ResponseWriter, r *http.Request) {
 		validation(a, w, r, "sort must be id:asc or student:asc")
 		return
 	}
+
 	direction, err := requestedDirection(r)
 	if err != nil {
 		validation(a, w, r, "direction must be forward or backward")
 		return
 	}
+
 	mentorUserID, studentUserID := strings.TrimSpace(r.URL.Query().Get("mentorUserId")), strings.TrimSpace(r.URL.Query().Get("studentUserId"))
 	binding := "mentorships|season=" + seasonID + "|sort=" + sortBy + "|mentor=" + mentorUserID + "|student=" + studentUserID
 	limit, boundary, err := a.page(r, binding)
@@ -370,11 +394,13 @@ func (a *API) listMentorships(w http.ResponseWriter, r *http.Request) {
 		a.fail(w, r, 400, "invalid_cursor", "Invalid cursor", "The cursor does not match the selected season and sort.", nil)
 		return
 	}
+
 	items, more, total, err := a.store.ListMentorships(r.Context(), seasonID, boundary, limit, sortBy, direction, mentorUserID, studentUserID)
 	if err != nil {
 		storeFailure(a, w, r, err)
 		return
 	}
+
 	writeJSON(w, 200, model.Page[model.Mentorship]{Items: items, PageInfo: pageInfoForKeyset(a, binding, direction, boundary, items, more, func(v model.Mentorship) string { return v.ID }), TotalCount: total})
 }
 
@@ -391,6 +417,7 @@ func (a *API) createMentorship(w http.ResponseWriter, r *http.Request) {
 		validation(a, w, r, "different mentorUserId and studentUserId are required")
 		return
 	}
+
 	v := model.Mentorship{ID: id.New(), SeasonID: r.PathValue("id"), MentorUserID: in.MentorUserID, StudentUserID: in.StudentUserID, Revision: 1}
 	actor := actorFrom(r.Context())
 	created, err := a.store.CreateMentorship(r.Context(), v, actor.UserID, time.Now().UTC())
@@ -398,6 +425,7 @@ func (a *API) createMentorship(w http.ResponseWriter, r *http.Request) {
 		storeFailure(a, w, r, err)
 		return
 	}
+
 	writeJSON(w, 201, created)
 }
 
@@ -415,12 +443,14 @@ func (a *API) updateMentorship(w http.ResponseWriter, r *http.Request) {
 		validation(a, w, r, "different mentorUserId and studentUserId plus revision are required")
 		return
 	}
+
 	actor := actorFrom(r.Context())
 	v, err := a.store.UpdateMentorship(r.Context(), r.PathValue("id"), r.PathValue("mentorshipId"), in.Revision, in.MentorUserID, in.StudentUserID, actor.UserID, time.Now().UTC())
 	if err != nil {
 		storeFailure(a, w, r, err)
 		return
 	}
+
 	writeJSON(w, 200, v)
 }
 
@@ -434,10 +464,12 @@ func (a *API) deleteMentorship(w http.ResponseWriter, r *http.Request) {
 		validation(a, w, r, "revision query parameter is required")
 		return
 	}
+
 	actor := actorFrom(r.Context())
 	if err := a.store.DeleteMentorship(r.Context(), r.PathValue("id"), r.PathValue("mentorshipId"), revision, actor.UserID, time.Now().UTC()); err != nil {
 		storeFailure(a, w, r, err)
 		return
 	}
+
 	w.WriteHeader(204)
 }

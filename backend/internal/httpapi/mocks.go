@@ -28,11 +28,13 @@ func (a *API) listMockParticipants(w http.ResponseWriter, r *http.Request) {
 		validation(a, w, r, "sort must be id:asc")
 		return
 	}
+
 	direction, err := requestedDirection(r)
 	if err != nil {
 		validation(a, w, r, "direction must be forward or backward")
 		return
 	}
+
 	query := strings.TrimSpace(r.URL.Query().Get("query"))
 	if len(query) > 100 {
 		validation(a, w, r, "query must be at most 100 characters")
@@ -44,11 +46,13 @@ func (a *API) listMockParticipants(w http.ResponseWriter, r *http.Request) {
 		a.fail(w, r, http.StatusBadRequest, "invalid_cursor", "Invalid cursor", "The cursor does not match the selected participant filters and sort.", nil)
 		return
 	}
+
 	users, more, total, err := a.store.ListUsers(r.Context(), boundary, limit, direction, query, "", "")
 	if err != nil {
 		storeFailure(a, w, r, err)
 		return
 	}
+
 	items := make([]mockinterviews.ParticipantSummary, 0, len(users))
 	for _, user := range users {
 		items = append(items, mockinterviews.ParticipantSummary{ID: user.ID, Slug: user.Slug, Name: user.Name, AvatarURL: user.AvatarURL})
@@ -82,22 +86,26 @@ func (a *API) listMocks(w http.ResponseWriter, r *http.Request) {
 		validation(a, w, r, "sort must be occurredAt:desc or id:asc")
 		return
 	}
+
 	direction, err := requestedDirection(r)
 	if err != nil {
 		validation(a, w, r, "direction must be forward or backward")
 		return
 	}
+
 	binding := "mock-interviews|mode=" + mode + "|sort=" + sortBy
 	limit, boundary, err := a.page(r, binding)
 	if err != nil {
 		a.fail(w, r, 400, "invalid_cursor", "Invalid cursor", "The cursor does not match the selected mode and sort.", nil)
 		return
 	}
+
 	items, more, total, err := a.store.ListMockInterviews(r.Context(), actor, mode, boundary, limit, sortBy, direction)
 	if err != nil {
 		storeFailure(a, w, r, err)
 		return
 	}
+
 	for index := range items {
 		items[index] = a.withMockParticipantSummaries(r, items[index])
 	}
@@ -148,12 +156,14 @@ func (a *API) createMock(w http.ResponseWriter, r *http.Request) {
 		mockFailure(a, w, r, err)
 		return
 	}
+
 	v.ID = id.New()
 	v, err = a.store.CreateMockInterview(r.Context(), v, actor.UserID, now)
 	if err != nil {
 		storeFailure(a, w, r, err)
 		return
 	}
+
 	writeJSON(w, 201, withPass(a.withMockParticipantSummaries(r, v)))
 }
 
@@ -174,6 +184,7 @@ func (a *API) updateMock(w http.ResponseWriter, r *http.Request) {
 		validation(a, w, r, err.Error())
 		return
 	}
+
 	v, err := a.store.GetMockInterview(r.Context(), r.PathValue("id"))
 	if err != nil {
 		storeFailure(a, w, r, err)
@@ -195,11 +206,13 @@ func (a *API) updateMock(w http.ResponseWriter, r *http.Request) {
 		mockFailure(a, w, r, err)
 		return
 	}
+
 	v, err = a.store.UpdateMockInterview(r.Context(), v, actor.UserID, "updated", now)
 	if err != nil {
 		storeFailure(a, w, r, err)
 		return
 	}
+
 	writeJSON(w, 200, withPass(a.withMockParticipantSummaries(r, v)))
 }
 
@@ -214,6 +227,7 @@ func (a *API) deleteMock(w http.ResponseWriter, r *http.Request) {
 		validation(a, w, r, "revision query parameter is required")
 		return
 	}
+
 	v, err := a.store.GetMockInterview(r.Context(), r.PathValue("id"))
 	if err != nil {
 		storeFailure(a, w, r, err)
@@ -236,6 +250,7 @@ func (a *API) deleteMock(w http.ResponseWriter, r *http.Request) {
 		storeFailure(a, w, r, err)
 		return
 	}
+
 	w.WriteHeader(204)
 }
 
@@ -254,6 +269,7 @@ func (a *API) reviewRound(w http.ResponseWriter, r *http.Request) {
 		validation(a, w, r, err.Error())
 		return
 	}
+
 	v, err := a.store.GetMockInterview(r.Context(), r.PathValue("id"))
 	if err != nil {
 		storeFailure(a, w, r, err)
@@ -272,11 +288,13 @@ func (a *API) reviewRound(w http.ResponseWriter, r *http.Request) {
 		mockFailure(a, w, r, err)
 		return
 	}
+
 	v, err = a.store.UpdateMockInterview(r.Context(), v, actor.UserID, "interviewee review", now)
 	if err != nil {
 		storeFailure(a, w, r, err)
 		return
 	}
+
 	writeJSON(w, 200, withPass(a.withMockParticipantSummaries(r, v)))
 }
 
@@ -297,11 +315,13 @@ func (a *API) correctMockIdentities(w http.ResponseWriter, r *http.Request) {
 		validation(a, w, r, "different interviewerId and intervieweeId, reason, and revision are required")
 		return
 	}
+
 	v, err := a.store.GetMockInterview(r.Context(), r.PathValue("id"))
 	if err != nil {
 		storeFailure(a, w, r, err)
 		return
 	}
+
 	for _, userID := range []string{in.InterviewerID, in.IntervieweeID} {
 		participant, err := a.store.GetMockParticipant(r.Context(), userID)
 		if err != nil || !participant.Eligible() {
@@ -317,11 +337,13 @@ func (a *API) correctMockIdentities(w http.ResponseWriter, r *http.Request) {
 		mockFailure(a, w, r, err)
 		return
 	}
+
 	v, err = a.store.UpdateMockInterview(r.Context(), v, actor.UserID, "identity correction: "+in.Reason, now)
 	if err != nil {
 		storeFailure(a, w, r, err)
 		return
 	}
+
 	writeJSON(w, 200, withPass(a.withMockParticipantSummaries(r, v)))
 }
 
@@ -423,5 +445,6 @@ func (a *API) adminSync(w http.ResponseWriter, r *http.Request) {
 		a.fail(w, r, 503, "sync_failed", "Sync failed", "The LeetCode sync request could not be queued.", nil)
 		return
 	}
+
 	writeJSON(w, 202, map[string]string{"status": "accepted"})
 }

@@ -8,6 +8,7 @@ import (
 )
 
 func New() string { return NewAt(time.Now(), rand.Reader) }
+
 func NewAt(at time.Time, source io.Reader) string {
 	var raw [16]byte
 	_, _ = io.ReadFull(source, raw[:])

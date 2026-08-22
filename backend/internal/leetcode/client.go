@@ -22,9 +22,11 @@ type Problem struct {
 	Premium    bool     `json:"premium"`
 	Categories []string `json:"categories"`
 }
+
 type Sink interface {
 	Upsert(context.Context, Problem) error
 }
+
 type Client struct {
 	URL  string
 	HTTP *http.Client
@@ -58,10 +60,12 @@ func (c Client) Sync(ctx context.Context) (worker.Report, error) {
 	if err != nil {
 		return worker.Report{}, err
 	}
+
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, bytes.NewReader(body))
 	if err != nil {
 		return worker.Report{}, err
 	}
+
 	req.Header.Set("Accept", "application/json")
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Referer", "https://leetcode.com/problemset/")
@@ -69,6 +73,7 @@ func (c Client) Sync(ctx context.Context) (worker.Report, error) {
 	if err != nil {
 		return worker.Report{}, err
 	}
+
 	defer res.Body.Close()
 	if res.StatusCode != http.StatusOK {
 		return worker.Report{}, fmt.Errorf("leetcode catalog returned %d", res.StatusCode)
@@ -92,6 +97,7 @@ func (c Client) Sync(ctx context.Context) (worker.Report, error) {
 			Message string `json:"message"`
 		} `json:"errors"`
 	}
+
 	dec := json.NewDecoder(http.MaxBytesReader(nil, res.Body, 8<<20))
 	if err := dec.Decode(&payload); err != nil {
 		return worker.Report{}, err
@@ -99,6 +105,7 @@ func (c Client) Sync(ctx context.Context) (worker.Report, error) {
 	if len(payload.Errors) > 0 {
 		return worker.Report{}, fmt.Errorf("leetcode GraphQL error: %s", payload.Errors[0].Message)
 	}
+
 	problems := make([]Problem, 0, len(payload.Data.Problemset.Questions))
 	for _, raw := range payload.Data.Problemset.Questions {
 		number, numberErr := strconv.Atoi(raw.QuestionID)
@@ -114,6 +121,7 @@ func (c Client) Sync(ctx context.Context) (worker.Report, error) {
 		}
 		problems = append(problems, p)
 	}
+
 	report := worker.Report{Fetched: len(problems)}
 	for _, p := range problems {
 		if p.Number <= 0 || p.Title == "" || (p.Difficulty != "easy" && p.Difficulty != "medium" && p.Difficulty != "hard") {
@@ -124,7 +132,9 @@ func (c Client) Sync(ctx context.Context) (worker.Report, error) {
 			report.Failed++
 			continue
 		}
+
 		report.Updated++
 	}
+
 	return report, nil
 }

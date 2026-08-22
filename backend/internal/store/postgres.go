@@ -42,6 +42,7 @@ func Open(ctx context.Context, url string) (*Postgres, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	config.ConnConfig.RuntimeParams["timezone"] = "UTC"
 	pool, err := pgxpool.NewWithConfig(ctx, config)
 	if err != nil {
@@ -53,8 +54,11 @@ func Open(ctx context.Context, url string) (*Postgres, error) {
 	}
 	return &Postgres{Pool: pool, Queries: dbgen.New(pool)}, nil
 }
-func (p *Postgres) Close()                         { p.Pool.Close() }
+
+func (p *Postgres) Close() { p.Pool.Close() }
+
 func (p *Postgres) Ping(ctx context.Context) error { return p.Pool.Ping(ctx) }
+
 func (p *Postgres) ObservabilitySnapshot(ctx context.Context) (ObservabilitySnapshot, error) {
 	pool := p.Pool.Stat()
 	snapshot := ObservabilitySnapshot{
@@ -80,6 +84,7 @@ GROUP BY result`)
 	if err != nil {
 		return ObservabilitySnapshot{}, err
 	}
+
 	for rows.Next() {
 		var result string
 		var count uint64
@@ -95,6 +100,7 @@ GROUP BY result`)
 		rows.Close()
 		return ObservabilitySnapshot{}, err
 	}
+
 	rows.Close()
 	err = p.Pool.QueryRow(ctx, `
 SELECT state::text
@@ -110,6 +116,7 @@ LIMIT 1`).Scan(&snapshot.MigrationState)
 	}
 	return snapshot, nil
 }
+
 func (p *Postgres) ApplyIdentityEvent(ctx context.Context, event IdentityEvent) error {
 	if event.EventID == "" {
 		return errors.New("identity event id is required")
@@ -118,6 +125,7 @@ func (p *Postgres) ApplyIdentityEvent(ctx context.Context, event IdentityEvent) 
 	if err != nil {
 		return err
 	}
+
 	defer tx.Rollback(ctx)
 	payloadHash := identityEventHash(event)
 	var inserted bool
@@ -136,6 +144,7 @@ func (p *Postgres) ApplyIdentityEvent(ctx context.Context, event IdentityEvent) 
 	if err != nil {
 		return err
 	}
+
 	var userID string
 	var currentSecurityVersion int64
 	err = tx.QueryRow(ctx, `SELECT l.user_id,u.security_version FROM app.user_auth_links l JOIN app.users u ON u.id=l.user_id WHERE l.auth_subject=$1 FOR UPDATE OF l,u`, event.AuthUserID).Scan(&userID, &currentSecurityVersion)
@@ -169,6 +178,7 @@ func (p *Postgres) ApplyIdentityEvent(ctx context.Context, event IdentityEvent) 
 	if _, err = tx.Exec(ctx, `UPDATE app.users SET security_version=GREATEST(security_version,$2) WHERE id=$1`, userID, event.SecurityVersion); err != nil {
 		return err
 	}
+
 	switch event.Type {
 	case "auth_user_created":
 	case "sessions_revoked":
@@ -312,12 +322,14 @@ func (p *Postgres) ApplyIdentityEvent(ctx context.Context, event IdentityEvent) 
 	}
 	return tx.Commit(ctx)
 }
+
 func noRows(err error) error {
 	if errors.Is(err, pgx.ErrNoRows) {
 		return ErrNotFound
 	}
 	return err
 }
+
 func (p *Postgres) ResolveAuthSubject(ctx context.Context, sub string) (authz.Actor, error) {
 	var a authz.Actor
 	var state string
@@ -325,6 +337,7 @@ func (p *Postgres) ResolveAuthSubject(ctx context.Context, sub string) (authz.Ac
 	if err != nil {
 		return a, noRows(err)
 	}
+
 	a.EmailVerified = true
 	a.AccountState = authz.AccountState(state)
 	a.GlobalRoles = map[authz.GlobalRole]bool{}
@@ -332,12 +345,14 @@ func (p *Postgres) ResolveAuthSubject(ctx context.Context, sub string) (authz.Ac
 	if err != nil {
 		return a, err
 	}
+
 	for rows.Next() {
 		var role string
 		if err := rows.Scan(&role); err != nil {
 			rows.Close()
 			return a, err
 		}
+
 		a.GlobalRoles[authz.GlobalRole(role)] = true
 	}
 	rows.Close()
@@ -345,6 +360,7 @@ func (p *Postgres) ResolveAuthSubject(ctx context.Context, sub string) (authz.Ac
 	if err != nil {
 		return a, err
 	}
+
 	defer rows.Close()
 	for rows.Next() {
 		var e authz.Enrollment
@@ -352,22 +368,26 @@ func (p *Postgres) ResolveAuthSubject(ctx context.Context, sub string) (authz.Ac
 		if err := rows.Scan(&e.SeasonID, &role, &state); err != nil {
 			return a, err
 		}
+
 		e.Role = authz.SeasonRole(role)
 		e.State = authz.EnrollmentState(state)
 		a.Enrollments = append(a.Enrollments, e)
 	}
 	return a, rows.Err()
 }
+
 func (p *Postgres) ResolveAuthSubjectForUser(ctx context.Context, userID string) (string, error) {
 	var subject string
 	err := p.Pool.QueryRow(ctx, `SELECT auth_subject FROM app.user_auth_links WHERE user_id=$1 AND active ORDER BY linked_at,auth_subject LIMIT 1`, userID).Scan(&subject)
 	return subject, noRows(err)
 }
+
 func (p *Postgres) GrantGlobalRole(ctx context.Context, userID, role string, activate bool, reason, actorID string, at time.Time) (GlobalRoleAssignment, error) {
 	tx, err := p.Pool.Begin(ctx)
 	if err != nil {
 		return GlobalRoleAssignment{}, err
 	}
+
 	defer tx.Rollback(ctx)
 	state := "pending_mfa"
 	var activatedAt *time.Time
@@ -386,6 +406,7 @@ func (p *Postgres) GrantGlobalRole(ctx context.Context, userID, role string, act
 	}
 	return v, tx.Commit(ctx)
 }
+
 func (p *Postgres) ListGlobalRoles(ctx context.Context, userID string) ([]GlobalRoleAssignment, error) {
 	var exists bool
 	if err := p.Pool.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM app.users WHERE id=$1 AND deleted_at IS NULL)`, userID).Scan(&exists); err != nil {
@@ -398,6 +419,7 @@ func (p *Postgres) ListGlobalRoles(ctx context.Context, userID string) ([]Global
 	if err != nil {
 		return nil, err
 	}
+
 	defer rows.Close()
 	items := []GlobalRoleAssignment{}
 	for rows.Next() {
@@ -405,15 +427,18 @@ func (p *Postgres) ListGlobalRoles(ctx context.Context, userID string) ([]Global
 		if err := rows.Scan(&assignment.ID, &assignment.UserID, &assignment.Role, &assignment.State, &assignment.Revision); err != nil {
 			return nil, err
 		}
+
 		items = append(items, assignment)
 	}
 	return items, rows.Err()
 }
+
 func (p *Postgres) RevokeGlobalRole(ctx context.Context, userID, role string, revision int64, reason, actorID string, at time.Time) (GlobalRoleAssignment, error) {
 	tx, err := p.Pool.Begin(ctx)
 	if err != nil {
 		return GlobalRoleAssignment{}, err
 	}
+
 	defer tx.Rollback(ctx)
 	v := GlobalRoleAssignment{UserID: userID, Role: role}
 	err = tx.QueryRow(ctx, `UPDATE app.global_role_assignments SET state='revoked',revoked_at=$4,activated_at=NULL,revision=revision+1 WHERE user_id=$1 AND role=$2 AND revision=$3 AND state<>'revoked' RETURNING id,state::text,revision`, userID, role, revision, at.UTC()).Scan(&v.ID, &v.State, &v.Revision)
@@ -450,11 +475,13 @@ func scanUser(row pgx.Row) (model.User, error) {
 	}
 	return v, nil
 }
+
 func (p *Postgres) GetUser(ctx context.Context, id string) (model.User, error) {
 	row, err := p.Queries.GetUserPrivateByID(ctx, dbgen.GetUserPrivateByIDParams{ID: id})
 	if err != nil {
 		return model.User{}, noRows(err)
 	}
+
 	v := model.User{ID: row.ID, Slug: row.Slug, Name: row.DisplayName, AvatarURL: row.AvatarUrl, Timezone: row.Timezone, TimezoneConfigured: row.TimezoneConfigured, AccountState: string(row.AccountState), GlobalRoles: []string{}, IsTest: row.IsTest, PremiumOptIn: row.LeetcodePremiumOptIn, Revision: row.Revision}
 	if row.Email != nil {
 		v.Email = *row.Email
@@ -463,6 +490,7 @@ func (p *Postgres) GetUser(ctx context.Context, id string) (model.User, error) {
 	if err != nil {
 		return model.User{}, err
 	}
+
 	for _, role := range roles {
 		if role.State == dbgen.AppAssignmentStateActive {
 			v.GlobalRoles = append(v.GlobalRoles, string(role.Role))
@@ -478,6 +506,7 @@ func (p *Postgres) GetUser(ctx context.Context, id string) (model.User, error) {
 	}
 	return v, nil
 }
+
 func (p *Postgres) SuggestUserSlug(ctx context.Context) (string, error) {
 	for attempt := 0; attempt < 32; attempt++ {
 		candidate := "member-" + strings.ReplaceAll(id.New(), "-", "")[:12]
@@ -491,6 +520,7 @@ func (p *Postgres) SuggestUserSlug(ctx context.Context) (string, error) {
 	}
 	return "", ErrConflict
 }
+
 func (p *Postgres) ListUsers(ctx context.Context, boundary string, limit int, direction, search, seasonRole, globalRole string) ([]model.User, bool, int64, error) {
 	search = strings.TrimSpace(search)
 	const filters = `u.account_state='active' AND NOT u.is_test AND u.deleted_at IS NULL
@@ -503,6 +533,7 @@ func (p *Postgres) ListUsers(ctx context.Context, boundary string, limit int, di
 	if err := p.Pool.QueryRow(ctx, `SELECT count(*) FROM app.users u WHERE `+countFilters, search, seasonRole, globalRole).Scan(&total); err != nil {
 		return nil, false, 0, err
 	}
+
 	comparison, order := `u.id>NULLIF($1,'')::uuid`, `ASC`
 	if direction == "backward" {
 		comparison, order = `u.id<NULLIF($1,'')::uuid`, `DESC`
@@ -514,6 +545,7 @@ func (p *Postgres) ListUsers(ctx context.Context, boundary string, limit int, di
 	if err != nil {
 		return nil, false, 0, err
 	}
+
 	defer rows.Close()
 	out := []model.User{}
 	for rows.Next() {
@@ -521,6 +553,7 @@ func (p *Postgres) ListUsers(ctx context.Context, boundary string, limit int, di
 		if err != nil {
 			return nil, false, 0, err
 		}
+
 		out = append(out, v)
 	}
 	more := len(out) > limit
@@ -544,6 +577,7 @@ func (p *Postgres) ListAdminUsers(ctx context.Context, boundary string, limit in
 	if err := p.Pool.QueryRow(ctx, `SELECT count(*) FROM app.users u WHERE `+countFilters, search, accountState, globalRole).Scan(&total); err != nil {
 		return nil, false, 0, err
 	}
+
 	comparison, order := `u.id>NULLIF($1,'')::uuid`, `ASC`
 	if direction == "backward" {
 		comparison, order = `u.id<NULLIF($1,'')::uuid`, `DESC`
@@ -555,6 +589,7 @@ func (p *Postgres) ListAdminUsers(ctx context.Context, boundary string, limit in
 	if err != nil {
 		return nil, false, 0, err
 	}
+
 	defer rows.Close()
 	items := []model.User{}
 	for rows.Next() {
@@ -562,6 +597,7 @@ func (p *Postgres) ListAdminUsers(ctx context.Context, boundary string, limit in
 		if err != nil {
 			return nil, false, 0, err
 		}
+
 		items = append(items, user)
 	}
 	more := len(items) > limit
@@ -583,6 +619,7 @@ AND NOT EXISTS(SELECT 1 FROM app.enrollments e WHERE e.user_id=u.id AND e.season
 	if err := p.Pool.QueryRow(ctx, `SELECT count(*) FROM app.users u WHERE `+eligible+` AND ($2='' OR u.display_name ILIKE '%'||$2||'%' OR u.slug ILIKE '%'||$2||'%')`, seasonID, query).Scan(&total); err != nil {
 		return nil, false, 0, err
 	}
+
 	comparison, order := `u.id>$3`, `ASC`
 	if direction == "backward" {
 		comparison, order = `u.id<$3`, `DESC`
@@ -594,6 +631,7 @@ AND NOT EXISTS(SELECT 1 FROM app.enrollments e WHERE e.user_id=u.id AND e.season
 	if err != nil {
 		return nil, false, 0, err
 	}
+
 	defer rows.Close()
 	items := []model.EnrollmentCandidate{}
 	for rows.Next() {
@@ -601,6 +639,7 @@ AND NOT EXISTS(SELECT 1 FROM app.enrollments e WHERE e.user_id=u.id AND e.season
 		if err := rows.Scan(&candidate.ID, &candidate.Slug, &candidate.Name, &candidate.AvatarURL, &candidate.Revision); err != nil {
 			return nil, false, 0, err
 		}
+
 		items = append(items, candidate)
 	}
 	more := len(items) > limit
@@ -612,11 +651,13 @@ AND NOT EXISTS(SELECT 1 FROM app.enrollments e WHERE e.user_id=u.id AND e.season
 	}
 	return items, more, total, rows.Err()
 }
+
 func (p *Postgres) UpdateUser(ctx context.Context, id string, revision int64, fn func(*model.User) error, actorID string, at time.Time) (model.User, error) {
 	tx, err := p.Pool.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
 		return model.User{}, err
 	}
+
 	defer tx.Rollback(ctx)
 	var v model.User
 	err = tx.QueryRow(ctx, `SELECT id,slug,display_name,avatar_url,timezone,timezone_configured,COALESCE(email,''),account_state::text,is_test,leetcode_premium_opt_in,revision FROM app.users WHERE id=$1 AND deleted_at IS NULL FOR UPDATE`, id).Scan(&v.ID, &v.Slug, &v.Name, &v.AvatarURL, &v.Timezone, &v.TimezoneConfigured, &v.Email, &v.AccountState, &v.IsTest, &v.PremiumOptIn, &v.Revision)
@@ -629,6 +670,7 @@ func (p *Postgres) UpdateUser(ctx context.Context, id string, revision int64, fn
 	if err := fn(&v); err != nil {
 		return v, err
 	}
+
 	err = tx.QueryRow(ctx, `UPDATE app.users SET slug=$2,display_name=$3,avatar_url=$4,timezone=$5,timezone_configured=$6,revision=revision+1 WHERE id=$1 AND revision=$7 RETURNING revision`, id, v.Slug, v.Name, v.AvatarURL, v.Timezone, v.TimezoneConfigured, revision).Scan(&v.Revision)
 	if err != nil {
 		return v, mapPostgresError(err)
@@ -663,6 +705,7 @@ func (p *Postgres) UpdatePracticeSettings(ctx context.Context, userID string, re
 	if err != nil {
 		return model.PracticeSettings{}, err
 	}
+
 	defer tx.Rollback(ctx)
 	var currentRevision int64
 	var enabled bool
@@ -683,6 +726,7 @@ RETURNING enabled,revision`, userID).Scan(&enabled, &currentRevision)
 	if _, err = tx.Exec(ctx, `UPDATE app.users SET leetcode_premium_opt_in=$2,revision=revision+1 WHERE id=$1 AND deleted_at IS NULL`, userID, premium); err != nil {
 		return model.PracticeSettings{}, err
 	}
+
 	var settings model.PracticeSettings
 	settings.PremiumOptIn = premium
 	err = tx.QueryRow(ctx, `
@@ -698,6 +742,7 @@ RETURNING enabled,easy_minutes,medium_minutes,hard_minutes,revision`, userID, ea
 	if err != nil {
 		return model.PracticeSettings{}, err
 	}
+
 	data, _ := json.Marshal(map[string]any{"premiumOptIn": premium, "easyMinutes": easy, "mediumMinutes": medium, "hardMinutes": hard})
 	if _, err = tx.Exec(ctx, `INSERT INTO app.audit_events(id,actor_user_id,action,subject_type,subject_id,data,occurred_at) VALUES($1,$2,'practice_settings.updated','user',$3,$4,$5)`, id.New(), actorID, userID, data, at.UTC()); err != nil {
 		return model.PracticeSettings{}, err
@@ -710,6 +755,7 @@ func (p *Postgres) EnablePracticeGoals(ctx context.Context, userID string, revis
 	if err != nil {
 		return model.PracticeSettings{}, err
 	}
+
 	defer tx.Rollback(ctx)
 	var settings model.PracticeSettings
 	changed := true
@@ -745,6 +791,7 @@ RETURNING enabled,easy_minutes,medium_minutes,hard_minutes,revision`, userID, ac
 	}
 	return settings, tx.Commit(ctx)
 }
+
 func scanSeason(row pgx.Row) (model.Season, error) {
 	var v model.Season
 	if err := row.Scan(&v.ID, &v.Slug, &v.Name, &v.Status, &v.StartAt, &v.EndAt, &v.Location, &v.ImageURL, &v.ResourcesURL, &v.Revision); err != nil {
@@ -762,11 +809,13 @@ func (p *Postgres) GetSeason(ctx context.Context, id string) (model.Season, erro
 	}
 	return model.Season{ID: row.ID, Slug: row.Slug, Name: row.Name, Status: string(row.Status), StartAt: row.StartAt.Time, EndAt: row.EndAt.Time, Location: row.Location, ImageURL: row.ImageUrl, ResourcesURL: row.ResourcesUrl, Revision: row.Revision}, nil
 }
+
 func (p *Postgres) ListSeasons(ctx context.Context, boundary string, limit int, direction, status string) ([]model.Season, bool, int64, error) {
 	var total int64
 	if err := p.Pool.QueryRow(ctx, `SELECT count(*) FROM app.seasons WHERE deleted_at IS NULL AND ($1='' OR status::text=$1)`, status).Scan(&total); err != nil {
 		return nil, false, 0, err
 	}
+
 	comparison, order := `id>NULLIF($1,'')::uuid`, `ASC`
 	if direction == "backward" {
 		comparison, order = `id<NULLIF($1,'')::uuid`, `DESC`
@@ -778,6 +827,7 @@ func (p *Postgres) ListSeasons(ctx context.Context, boundary string, limit int, 
 	if err != nil {
 		return nil, false, 0, err
 	}
+
 	defer rows.Close()
 	out := []model.Season{}
 	for rows.Next() {
@@ -785,6 +835,7 @@ func (p *Postgres) ListSeasons(ctx context.Context, boundary string, limit int, 
 		if err != nil {
 			return nil, false, 0, err
 		}
+
 		out = append(out, v)
 	}
 	more := len(out) > limit
@@ -796,11 +847,13 @@ func (p *Postgres) ListSeasons(ctx context.Context, boundary string, limit int, 
 	}
 	return out, more, total, rows.Err()
 }
+
 func (p *Postgres) CreateSeason(ctx context.Context, v model.Season, actorID string, at time.Time) (model.Season, error) {
 	tx, err := p.Pool.Begin(ctx)
 	if err != nil {
 		return v, err
 	}
+
 	defer tx.Rollback(ctx)
 	err = tx.QueryRow(ctx, `INSERT INTO app.seasons(id,slug,name,status,start_at,end_at,location,image_url,resources_url,revision) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING revision`, v.ID, v.Slug, v.Name, v.Status, v.StartAt, v.EndAt, v.Location, v.ImageURL, v.ResourcesURL, v.Revision).Scan(&v.Revision)
 	if err != nil {
@@ -814,11 +867,13 @@ func (p *Postgres) CreateSeason(ctx context.Context, v model.Season, actorID str
 	}
 	return v, tx.Commit(ctx)
 }
+
 func (p *Postgres) UpdateSeason(ctx context.Context, id string, revision int64, fn func(*model.Season) error, actorID string, at time.Time) (model.Season, error) {
 	tx, err := p.Pool.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
 		return model.Season{}, err
 	}
+
 	defer tx.Rollback(ctx)
 	v, err := scanSeason(tx.QueryRow(ctx, `SELECT `+seasonColumns+` FROM app.seasons WHERE id=$1 AND deleted_at IS NULL FOR UPDATE`, id))
 	if err != nil {
@@ -830,6 +885,7 @@ func (p *Postgres) UpdateSeason(ctx context.Context, id string, revision int64, 
 	if err := fn(&v); err != nil {
 		return v, err
 	}
+
 	var invalidDates bool
 	if err := tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM app.season_weeks WHERE season_id=$1 AND deleted_at IS NULL AND (start_at<$2 OR end_at>$3)) OR EXISTS(SELECT 1 FROM app.mock_interviews WHERE season_id=$1 AND deleted_at IS NULL AND (scheduled_at<$2 OR scheduled_at>$3))`, id, v.StartAt, v.EndAt).Scan(&invalidDates); err != nil {
 		return v, err
@@ -855,6 +911,7 @@ func (p *Postgres) CloseSeason(ctx context.Context, seasonID string, revision in
 	if err != nil {
 		return model.Season{}, err
 	}
+
 	defer tx.Rollback(ctx)
 	var currentStatus string
 	var currentRevision int64
@@ -872,6 +929,7 @@ func (p *Postgres) CloseSeason(ctx context.Context, seasonID string, revision in
 	if _, err := tx.Exec(ctx, `UPDATE app.enrollments SET state='completed',completed_by_close_id=$2,state_changed_at=$3,close_assignment_state=assignment_state,close_activated_at=activated_at,assignment_state='revoked',activated_at=NULL,revision=revision+1 WHERE season_id=$1 AND state='active' AND deleted_at IS NULL`, seasonID, closeEventID, closedAt); err != nil {
 		return model.Season{}, err
 	}
+
 	v, err := scanSeason(tx.QueryRow(ctx, `UPDATE app.seasons SET status='closed',closed_at=$3,revision=revision+1 WHERE id=$1 AND status='open' AND revision=$2 AND deleted_at IS NULL RETURNING `+seasonColumns, seasonID, revision, closedAt))
 	if err != nil {
 		return model.Season{}, err
@@ -890,6 +948,7 @@ func (p *Postgres) ReopenSeason(ctx context.Context, seasonID string, revision i
 	if err != nil {
 		return model.Season{}, err
 	}
+
 	defer tx.Rollback(ctx)
 	var currentStatus string
 	var currentRevision int64
@@ -903,6 +962,7 @@ func (p *Postgres) ReopenSeason(ctx context.Context, seasonID string, revision i
 	if err := tx.QueryRow(ctx, `SELECT id FROM app.season_close_events WHERE season_id=$1 AND reopened_at IS NULL FOR UPDATE`, seasonID).Scan(&closeEventID); err != nil {
 		return model.Season{}, noRows(err)
 	}
+
 	reopenedAt := at.UTC()
 	if _, err := tx.Exec(ctx, `UPDATE app.season_close_events SET reopened_by_user_id=$2,reopen_reason=$3,reopened_at=$4 WHERE id=$1 AND reopened_at IS NULL`, closeEventID, actorID, reason, reopenedAt); err != nil {
 		return model.Season{}, err
@@ -910,6 +970,7 @@ func (p *Postgres) ReopenSeason(ctx context.Context, seasonID string, revision i
 	if _, err := tx.Exec(ctx, `UPDATE app.enrollments SET state='active',completed_by_close_id=NULL,state_changed_at=$2::timestamptz,assignment_state=COALESCE(close_assignment_state,'active'::app.assignment_state),activated_at=CASE WHEN COALESCE(close_assignment_state,'active'::app.assignment_state)='active' THEN COALESCE(close_activated_at,$2::timestamptz) ELSE NULL END,close_assignment_state=NULL,close_activated_at=NULL,revision=revision+1 WHERE completed_by_close_id=$1 AND state='completed' AND deleted_at IS NULL`, closeEventID, reopenedAt); err != nil {
 		return model.Season{}, err
 	}
+
 	v, err := scanSeason(tx.QueryRow(ctx, `UPDATE app.seasons SET status='open',closed_at=NULL,revision=revision+1 WHERE id=$1 AND status='closed' AND revision=$2 AND deleted_at IS NULL RETURNING `+seasonColumns, seasonID, revision))
 	if err != nil {
 		return model.Season{}, err
@@ -936,6 +997,7 @@ func (p *Postgres) ListWeeks(ctx context.Context, seasonID, boundary string, lim
 	if err := p.Pool.QueryRow(ctx, `SELECT count(*) FROM app.season_weeks WHERE season_id=$1 AND deleted_at IS NULL`, seasonID).Scan(&total); err != nil {
 		return nil, false, 0, err
 	}
+
 	comparator, order := ">", "ASC"
 	if direction == "backward" {
 		comparator, order = "<", "DESC"
@@ -963,6 +1025,7 @@ func (p *Postgres) ListWeeks(ctx context.Context, seasonID, boundary string, lim
 	if err != nil {
 		return nil, false, 0, err
 	}
+
 	defer rows.Close()
 	items := make([]model.Week, 0, limit+1)
 	for rows.Next() {
@@ -975,6 +1038,7 @@ func (p *Postgres) ListWeeks(ctx context.Context, seasonID, boundary string, lim
 	if err := rows.Err(); err != nil {
 		return nil, false, 0, err
 	}
+
 	items, more := finishPostgresPage(items, limit, direction)
 	return items, more, total, nil
 }
@@ -984,6 +1048,7 @@ func (p *Postgres) CreateWeek(ctx context.Context, v model.Week, actorID string,
 	if err != nil {
 		return v, err
 	}
+
 	defer tx.Rollback(ctx)
 	err = tx.QueryRow(ctx, `INSERT INTO app.season_weeks(id,season_id,week_number,start_at,end_at,resource_url,revision) VALUES($1,$2,$3,$4,$5,$6,$7) RETURNING revision`, v.ID, v.SeasonID, v.Number, v.StartAt, v.EndAt, v.ResourceURL, v.Revision).Scan(&v.Revision)
 	if err != nil {
@@ -1000,6 +1065,7 @@ func (p *Postgres) UpdateWeek(ctx context.Context, seasonID, weekID string, revi
 	if err != nil {
 		return model.Week{}, err
 	}
+
 	defer tx.Rollback(ctx)
 	v, err := scanWeek(tx.QueryRow(ctx, `UPDATE app.season_weeks SET week_number=$4,start_at=$5,end_at=$6,resource_url=$7,revision=revision+1 WHERE id=$1 AND season_id=$2 AND revision=$3 AND deleted_at IS NULL RETURNING id,season_id,week_number,start_at,end_at,resource_url,revision`, weekID, seasonID, revision, candidate.Number, candidate.StartAt, candidate.EndAt, candidate.ResourceURL))
 	if err != nil {
@@ -1019,6 +1085,7 @@ func (p *Postgres) DeleteWeek(ctx context.Context, seasonID, weekID string, revi
 	if err != nil {
 		return err
 	}
+
 	defer tx.Rollback(ctx)
 	tag, err := tx.Exec(ctx, `UPDATE app.season_weeks SET deleted_at=$4,revision=revision+1 WHERE id=$1 AND season_id=$2 AND revision=$3 AND deleted_at IS NULL`, weekID, seasonID, revision, at.UTC())
 	if err != nil {
@@ -1051,6 +1118,7 @@ func (p *Postgres) ListEnrollments(ctx context.Context, seasonID, boundary strin
 	if err := p.Pool.QueryRow(ctx, `SELECT count(*) FROM app.enrollments e WHERE `+filters, seasonID, role, state, includeInactive).Scan(&total); err != nil {
 		return nil, false, 0, err
 	}
+
 	comparator, order := ">", "ASC"
 	if direction == "backward" {
 		comparator, order = "<", "DESC"
@@ -1077,6 +1145,7 @@ func (p *Postgres) ListEnrollments(ctx context.Context, seasonID, boundary strin
 	if err != nil {
 		return nil, false, 0, err
 	}
+
 	defer rows.Close()
 	items := make([]model.Enrollment, 0, limit+1)
 	for rows.Next() {
@@ -1089,6 +1158,7 @@ func (p *Postgres) ListEnrollments(ctx context.Context, seasonID, boundary strin
 	if err := rows.Err(); err != nil {
 		return nil, false, 0, err
 	}
+
 	items, more := finishPostgresPage(items, limit, direction)
 	return items, more, total, nil
 }
@@ -1102,6 +1172,7 @@ func (p *Postgres) listEnrollments(ctx context.Context, predicate, value string)
 	if err != nil {
 		return nil, err
 	}
+
 	defer rows.Close()
 	items := []model.Enrollment{}
 	for rows.Next() {
@@ -1109,6 +1180,7 @@ func (p *Postgres) listEnrollments(ctx context.Context, predicate, value string)
 		if err != nil {
 			return nil, err
 		}
+
 		items = append(items, v)
 	}
 	return items, rows.Err()
@@ -1123,6 +1195,7 @@ func (p *Postgres) CreateEnrollment(ctx context.Context, v model.Enrollment, act
 	if err != nil {
 		return v, err
 	}
+
 	defer tx.Rollback(ctx)
 	studentLevel := "not_applicable"
 	if v.Role == "student" {
@@ -1136,6 +1209,7 @@ func (p *Postgres) CreateEnrollment(ctx context.Context, v model.Enrollment, act
 	if err != nil {
 		return v, mapPostgresError(err)
 	}
+
 	v.StudentLevel = studentLevel
 	if err := appendAuditTx(ctx, tx, newAudit(actorID, "enrollment.created", "enrollment", v.ID, nil, at)); err != nil {
 		return v, err
@@ -1148,6 +1222,7 @@ func (p *Postgres) UpdateEnrollmentDetails(ctx context.Context, seasonID, enroll
 	if err != nil {
 		return model.Enrollment{}, err
 	}
+
 	defer tx.Rollback(ctx)
 	v, err := scanEnrollment(tx.QueryRow(ctx, `UPDATE app.enrollments e SET role=$4::app.season_role,student_level=$5,assignment_state=CASE WHEN $4::app.season_role='coordinator' THEN 'pending_mfa'::app.assignment_state ELSE 'active'::app.assignment_state END,activated_at=CASE WHEN $4::app.season_role='coordinator' THEN NULL ELSE $6::timestamptz END,revision=e.revision+1 FROM app.seasons s WHERE e.id=$1 AND e.season_id=$2 AND e.revision=$3 AND e.state='active' AND e.deleted_at IS NULL AND s.id=e.season_id RETURNING `+enrollmentColumns, enrollmentID, seasonID, revision, role, studentLevel, at.UTC()))
 	if err != nil {
@@ -1175,6 +1250,7 @@ func (p *Postgres) UpdateEnrollment(ctx context.Context, enrollmentID string, re
 	if err != nil {
 		return model.Enrollment{}, err
 	}
+
 	defer tx.Rollback(ctx)
 	v, err := scanEnrollment(tx.QueryRow(ctx, `SELECT `+enrollmentColumns+` FROM app.enrollments e JOIN app.seasons s ON s.id=e.season_id WHERE e.id=$1 AND e.deleted_at IS NULL FOR UPDATE OF e`, enrollmentID))
 	if err != nil {
@@ -1191,6 +1267,7 @@ func (p *Postgres) UpdateEnrollment(ctx context.Context, enrollmentID string, re
 		if err := tx.QueryRow(ctx, `UPDATE app.enrollments SET role=$2::app.season_role,student_level=$3,assignment_state=CASE WHEN $2::app.season_role='coordinator' THEN 'pending_mfa'::app.assignment_state ELSE 'active'::app.assignment_state END,activated_at=CASE WHEN $2::app.season_role='coordinator' THEN NULL ELSE $5::timestamptz END,revision=revision+1 WHERE id=$1 AND revision=$4 AND state='active' RETURNING revision,assignment_state::text`, enrollmentID, role, studentLevel, revision, at.UTC()).Scan(&v.Revision, &v.AssignmentState); err != nil {
 			return v, noRows(err)
 		}
+
 		v.Role = role
 		v.StudentLevel = studentLevel
 		if _, err := tx.Exec(ctx, `UPDATE app.mentorships SET ended_at=$2,revision=revision+1 WHERE student_enrollment_id=$1 AND ended_at IS NULL AND deleted_at IS NULL`, v.ID, at.UTC()); err != nil {
@@ -1205,10 +1282,12 @@ func (p *Postgres) UpdateEnrollment(ctx context.Context, enrollmentID string, re
 		if err := tx.QueryRow(ctx, `UPDATE app.enrollments SET state=$2,state_changed_at=$3,assignment_state='revoked',activated_at=NULL,revision=revision+1 WHERE id=$1 AND revision=$4 AND state='active' RETURNING revision`, enrollmentID, state, changedAt, revision).Scan(&v.Revision); err != nil {
 			return v, noRows(err)
 		}
+
 		v.State = state
 		if _, err := tx.Exec(ctx, `UPDATE app.mentorships SET ended_at=$2,revision=revision+1 WHERE (student_enrollment_id=$1 OR mentor_enrollment_id=$1) AND ended_at IS NULL AND deleted_at IS NULL`, v.ID, changedAt); err != nil {
 			return v, err
 		}
+
 		trimmed := strings.TrimSpace(reason)
 		v.RemovalReason = &trimmed
 		if _, err := tx.Exec(ctx, `INSERT INTO app.enrollment_removal_events(id,enrollment_id,season_id,subject_user_id,actor_user_id,resulting_state,reason,occurred_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8)`, id.New(), v.ID, v.SeasonID, v.UserID, actorID, state, trimmed, changedAt); err != nil {
@@ -1234,6 +1313,7 @@ func (p *Postgres) ListMentorships(ctx context.Context, seasonID, boundary strin
 	if err := p.Pool.QueryRow(ctx, `SELECT count(*)`+base+` WHERE `+countFilters, seasonID, mentorUserID, studentUserID).Scan(&total); err != nil {
 		return nil, false, 0, err
 	}
+
 	comparator, order := ">", "ASC"
 	if direction == "backward" {
 		comparator, order = "<", "DESC"
@@ -1258,6 +1338,7 @@ func (p *Postgres) ListMentorships(ctx context.Context, seasonID, boundary strin
 	if err != nil {
 		return nil, false, 0, err
 	}
+
 	defer rows.Close()
 	items := make([]model.Mentorship, 0, limit+1)
 	for rows.Next() {
@@ -1265,11 +1346,13 @@ func (p *Postgres) ListMentorships(ctx context.Context, seasonID, boundary strin
 		if err := rows.Scan(&v.ID, &v.SeasonID, &v.MentorUserID, &v.StudentUserID, &v.Revision); err != nil {
 			return nil, false, 0, err
 		}
+
 		items = append(items, v)
 	}
 	if err := rows.Err(); err != nil {
 		return nil, false, 0, err
 	}
+
 	items, more := finishPostgresPage(items, limit, direction)
 	return items, more, total, nil
 }
@@ -1279,6 +1362,7 @@ func (p *Postgres) CreateMentorship(ctx context.Context, v model.Mentorship, act
 	if err != nil {
 		return v, err
 	}
+
 	defer tx.Rollback(ctx)
 	err = tx.QueryRow(ctx, `INSERT INTO app.mentorships(id,season_id,mentor_enrollment_id,student_enrollment_id,revision) VALUES($1,$2,(SELECT id FROM app.enrollments WHERE season_id=$2 AND user_id=$3 AND role IN ('mentor','coordinator') AND state='active' AND deleted_at IS NULL),(SELECT id FROM app.enrollments WHERE season_id=$2 AND user_id=$4 AND role='student' AND state='active' AND deleted_at IS NULL),$5) RETURNING revision`, v.ID, v.SeasonID, v.MentorUserID, v.StudentUserID, v.Revision).Scan(&v.Revision)
 	if err != nil {
@@ -1295,6 +1379,7 @@ func (p *Postgres) UpdateMentorship(ctx context.Context, seasonID, mentorshipID 
 	if err != nil {
 		return model.Mentorship{}, err
 	}
+
 	defer tx.Rollback(ctx)
 	var v model.Mentorship
 	err = tx.QueryRow(ctx, `UPDATE app.mentorships SET mentor_enrollment_id=(SELECT id FROM app.enrollments WHERE season_id=$2 AND user_id=$4 AND role IN ('mentor','coordinator') AND state='active' AND deleted_at IS NULL),student_enrollment_id=(SELECT id FROM app.enrollments WHERE season_id=$2 AND user_id=$5 AND role='student' AND state='active' AND deleted_at IS NULL),revision=revision+1 WHERE id=$1 AND season_id=$2 AND revision=$3 AND ended_at IS NULL AND deleted_at IS NULL RETURNING id,season_id,$4::text,$5::text,revision`, mentorshipID, seasonID, revision, mentorUserID, studentUserID).Scan(&v.ID, &v.SeasonID, &v.MentorUserID, &v.StudentUserID, &v.Revision)
@@ -1315,6 +1400,7 @@ func (p *Postgres) DeleteMentorship(ctx context.Context, seasonID, mentorshipID 
 	if err != nil {
 		return err
 	}
+
 	defer tx.Rollback(ctx)
 	tag, err := tx.Exec(ctx, `UPDATE app.mentorships SET ended_at=$4,revision=revision+1 WHERE id=$1 AND season_id=$2 AND revision=$3 AND ended_at IS NULL AND deleted_at IS NULL`, mentorshipID, seasonID, revision, at.UTC())
 	if err != nil {
@@ -1334,6 +1420,7 @@ func (p *Postgres) IsMentorAssigned(ctx context.Context, seasonID, mentorUserID,
 	err := p.Pool.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM app.mentorships m JOIN app.enrollments mentor ON mentor.id=m.mentor_enrollment_id JOIN app.enrollments student ON student.id=m.student_enrollment_id WHERE m.season_id=$1 AND mentor.user_id=$2 AND student.user_id=$3 AND m.ended_at IS NULL AND m.deleted_at IS NULL)`, seasonID, mentorUserID, studentUserID).Scan(&assigned)
 	return assigned, err
 }
+
 func scanProblem(row pgx.Row) (model.Problem, error) {
 	var v model.Problem
 	if err := row.Scan(&v.ID, &v.Number, &v.Title, &v.Link, &v.Difficulty, &v.Premium, &v.Categories, &v.Revision); err != nil {
@@ -1349,6 +1436,7 @@ func (p *Postgres) ListProblems(ctx context.Context, boundary string, limit int,
 	if err := p.Pool.QueryRow(ctx, `SELECT count(*) FROM app.leetcode_problems l WHERE l.deleted_at IS NULL AND ($1='' OR l.difficulty::text=$1) AND ($2='' OR EXISTS(SELECT 1 FROM app.leetcode_problem_category_mappings m JOIN app.leetcode_problem_categories c ON c.id=m.category_id WHERE m.leetcode_problem_id=l.id AND c.deleted_at IS NULL AND lower(c.normalized_name)=lower($2))) AND ($3::boolean IS NULL OR l.is_premium=$3)`, difficulty, category, premium).Scan(&total); err != nil {
 		return nil, false, 0, err
 	}
+
 	comparison, order := `l.id>NULLIF($1,'')::uuid`, `ASC`
 	if direction == "backward" {
 		comparison, order = `l.id<NULLIF($1,'')::uuid`, `DESC`
@@ -1360,6 +1448,7 @@ func (p *Postgres) ListProblems(ctx context.Context, boundary string, limit int,
 	if err != nil {
 		return nil, false, 0, err
 	}
+
 	defer rows.Close()
 	out := []model.Problem{}
 	for rows.Next() {
@@ -1367,6 +1456,7 @@ func (p *Postgres) ListProblems(ctx context.Context, boundary string, limit int,
 		if err != nil {
 			return nil, false, 0, err
 		}
+
 		out = append(out, v)
 	}
 	more := len(out) > limit
@@ -1378,6 +1468,7 @@ func (p *Postgres) ListProblems(ctx context.Context, boundary string, limit int,
 	}
 	return out, more, total, rows.Err()
 }
+
 func scanAttempt(row pgx.Row) (model.Attempt, error) {
 	var v model.Attempt
 	if err := row.Scan(&v.ID, &v.UserID, &v.ProblemID, &v.Outcome, &v.Confidence, &v.Minutes, &v.Notes, &v.AttemptedAt, &v.SeasonID, &v.WeekID, &v.Revision, &v.DeletedAt, &v.Migrated); err != nil {
@@ -1391,11 +1482,13 @@ const attemptColumns = `a.id,a.user_id,COALESCE((SELECT id FROM app.leetcode_pro
 func (p *Postgres) GetAttempt(ctx context.Context, id string) (model.Attempt, error) {
 	return scanAttempt(p.Pool.QueryRow(ctx, `SELECT `+attemptColumns+` FROM app.problem_attempts a LEFT JOIN app.enrollments e ON e.id=a.enrollment_id WHERE a.id=$1 AND a.deleted_at IS NULL`, id))
 }
+
 func (p *Postgres) ListAttempts(ctx context.Context, userID, boundary string, limit int, outcome, difficulty, direction string) ([]model.Attempt, bool, int64, error) {
 	var total int64
 	if err := p.Pool.QueryRow(ctx, `SELECT count(*) FROM app.problem_attempts a WHERE a.user_id=$1 AND a.deleted_at IS NULL AND ($2='' OR a.outcome::text=$2) AND ($3='' OR EXISTS(SELECT 1 FROM app.leetcode_problems l WHERE l.problem_id=a.problem_id AND l.difficulty::text=$3 AND l.deleted_at IS NULL))`, userID, outcome, difficulty).Scan(&total); err != nil {
 		return nil, false, 0, err
 	}
+
 	comparison, order := `a.id>NULLIF($2,'')::uuid`, `ASC`
 	if direction == "backward" {
 		comparison, order = `a.id<NULLIF($2,'')::uuid`, `DESC`
@@ -1407,6 +1500,7 @@ func (p *Postgres) ListAttempts(ctx context.Context, userID, boundary string, li
 	if err != nil {
 		return nil, false, 0, err
 	}
+
 	defer rows.Close()
 	out := []model.Attempt{}
 	for rows.Next() {
@@ -1414,6 +1508,7 @@ func (p *Postgres) ListAttempts(ctx context.Context, userID, boundary string, li
 		if err != nil {
 			return nil, false, 0, err
 		}
+
 		out = append(out, v)
 	}
 	more := len(out) > limit
@@ -1432,24 +1527,28 @@ func (p *Postgres) RecommendationSnapshot(ctx context.Context, userID string, _ 
 	if err != nil {
 		return snapshot, err
 	}
+
 	for qualityRows.Next() {
 		attempt, err := scanAttempt(qualityRows)
 		if err != nil {
 			qualityRows.Close()
 			return snapshot, err
 		}
+
 		snapshot.QualityAttempts = append(snapshot.QualityAttempts, attempt)
 	}
 	if err := qualityRows.Err(); err != nil {
 		qualityRows.Close()
 		return snapshot, err
 	}
+
 	qualityRows.Close()
 
 	exposureRows, err := p.Pool.Query(ctx, `SELECT c.normalized_name,count(*) FROM app.problem_attempts a JOIN app.leetcode_problems l ON l.problem_id=a.problem_id AND l.deleted_at IS NULL JOIN app.leetcode_problem_category_mappings m ON m.leetcode_problem_id=l.id JOIN app.leetcode_problem_categories c ON c.id=m.category_id AND c.deleted_at IS NULL WHERE a.user_id=$1 AND a.deleted_at IS NULL GROUP BY c.normalized_name`, userID)
 	if err != nil {
 		return snapshot, err
 	}
+
 	for exposureRows.Next() {
 		var category string
 		var count int
@@ -1457,12 +1556,14 @@ func (p *Postgres) RecommendationSnapshot(ctx context.Context, userID string, _ 
 			exposureRows.Close()
 			return snapshot, err
 		}
+
 		snapshot.CategoryExposure[category] = count
 	}
 	if err := exposureRows.Err(); err != nil {
 		exposureRows.Close()
 		return snapshot, err
 	}
+
 	exposureRows.Close()
 
 	qualityProblems := map[string]bool{}
@@ -1474,6 +1575,7 @@ func (p *Postgres) RecommendationSnapshot(ctx context.Context, userID string, _ 
 		if err != nil {
 			return snapshot, err
 		}
+
 		snapshot.Problems = append(snapshot.Problems, problem)
 		qualityProblems[attempt.ProblemID] = true
 	}
@@ -1499,6 +1601,7 @@ func (p *Postgres) RecommendationCandidates(ctx context.Context, userID string, 
 	if !errors.Is(err, ErrNotFound) {
 		return nil, nil, err
 	}
+
 	retry, err := scanProblem(p.Pool.QueryRow(ctx, problemQuery+filters+`
 		AND EXISTS(
 			SELECT 1 FROM app.problem_attempts a
@@ -1517,17 +1620,20 @@ func (p *Postgres) RecommendationCandidates(ctx context.Context, userID string, 
 	if err != nil {
 		return nil, nil, err
 	}
+
 	var lastAttemptedAt time.Time
 	if err := p.Pool.QueryRow(ctx, `SELECT max(a.attempted_at) FROM app.problem_attempts a JOIN app.leetcode_problems l ON l.problem_id=a.problem_id WHERE a.user_id=$1 AND l.id=$2 AND a.deleted_at IS NULL`, userID, retry.ID).Scan(&lastAttemptedAt); err != nil {
 		return nil, nil, err
 	}
 	return []model.Problem{retry}, map[string]practice.ProblemHistory{retry.ID: {LastAttemptedAt: lastAttemptedAt.UTC(), Weak: true}}, nil
 }
+
 func (p *Postgres) CreateAttempt(ctx context.Context, v model.Attempt) (model.Attempt, bool, error) {
 	tx, err := p.Pool.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
 		return model.Attempt{}, false, err
 	}
+
 	defer tx.Rollback(ctx)
 
 	var enrollmentID *string
@@ -1537,6 +1643,7 @@ func (p *Postgres) CreateAttempt(ctx context.Context, v model.Attempt) (model.At
 		if err != nil {
 			return model.Attempt{}, false, noRows(err)
 		}
+
 		enrollmentID = &scopedEnrollmentID
 	}
 	if v.WeekID != nil && v.SeasonID == nil {
@@ -1558,10 +1665,12 @@ func (p *Postgres) CreateAttempt(ctx context.Context, v model.Attempt) (model.At
 	if err = tx.QueryRow(ctx, `INSERT INTO app.problem_attempts(id,user_id,problem_id,enrollment_id,season_week_id,attempted_at,time_taken_minutes,outcome,confidence,notes_html,revision) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING revision`, v.ID, v.UserID, baseProblemID, enrollmentID, v.WeekID, v.AttemptedAt, v.Minutes, v.Outcome, v.Confidence, v.Notes, v.Revision).Scan(&v.Revision); err != nil {
 		return v, false, mapPostgresError(err)
 	}
+
 	tag, err := tx.Exec(ctx, `UPDATE app.recommendations SET state='attempted',fulfilled_by_attempt_id=$3,state_changed_at=$4,revision=revision+1 WHERE user_id=$1 AND state='active' AND leetcode_problem_id=$2 AND deleted_at IS NULL`, v.UserID, v.ProblemID, v.ID, time.Now().UTC())
 	if err != nil {
 		return v, false, err
 	}
+
 	actorID := v.UserID
 	if err := appendAuditTx(ctx, tx, model.AuditEvent{ID: id.New(), ActorID: &actorID, Action: "attempt.created", SubjectType: "problem_attempt", SubjectID: v.ID, Data: map[string]any{}, OccurredAt: time.Now().UTC()}); err != nil {
 		return v, false, err
@@ -1571,11 +1680,13 @@ func (p *Postgres) CreateAttempt(ctx context.Context, v model.Attempt) (model.At
 	}
 	return v, tag.RowsAffected() > 0, nil
 }
+
 func (p *Postgres) UpdateAttempt(ctx context.Context, id, userID string, revision int64, fn func(*model.Attempt) error) (model.Attempt, error) {
 	tx, err := p.Pool.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
 		return model.Attempt{}, err
 	}
+
 	defer tx.Rollback(ctx)
 	v, err := scanAttempt(tx.QueryRow(ctx, `SELECT `+attemptColumns+` FROM app.problem_attempts a LEFT JOIN app.enrollments e ON e.id=a.enrollment_id WHERE a.id=$1 AND a.user_id=$2 AND a.deleted_at IS NULL FOR UPDATE OF a`, id, userID))
 	if err != nil {
@@ -1596,6 +1707,7 @@ func (p *Postgres) UpdateAttempt(ctx context.Context, id, userID string, revisio
 		if err := tx.QueryRow(ctx, `SELECT e.id FROM app.enrollments e JOIN app.seasons s ON s.id=e.season_id WHERE e.user_id=$1 AND e.season_id=$2 AND e.state='active' AND e.deleted_at IS NULL AND s.status='open' AND s.deleted_at IS NULL`, userID, *v.SeasonID).Scan(&resolved); err != nil {
 			return v, ErrConflict
 		}
+
 		enrollmentID = &resolved
 		if v.WeekID != nil {
 			var valid bool
@@ -1608,6 +1720,7 @@ func (p *Postgres) UpdateAttempt(ctx context.Context, id, userID string, revisio
 	if err := tx.QueryRow(ctx, `SELECT problem_id FROM app.leetcode_problems WHERE id=$1 AND deleted_at IS NULL`, v.ProblemID).Scan(&baseProblemID); err != nil {
 		return v, noRows(err)
 	}
+
 	err = tx.QueryRow(ctx, `UPDATE app.problem_attempts SET problem_id=$2,enrollment_id=$3,attempted_at=$4,time_taken_minutes=$5,outcome=$6,confidence=$7,notes_html=$8,season_week_id=$9,revision=revision+1 WHERE id=$1 AND user_id=$10 AND revision=$11 RETURNING revision`, id, baseProblemID, enrollmentID, v.AttemptedAt, v.Minutes, v.Outcome, v.Confidence, v.Notes, v.WeekID, userID, revision).Scan(&v.Revision)
 	if err != nil {
 		return v, mapPostgresError(err)
@@ -1620,11 +1733,13 @@ func (p *Postgres) UpdateAttempt(ctx context.Context, id, userID string, revisio
 	}
 	return v, nil
 }
+
 func (p *Postgres) DeleteAttempt(ctx context.Context, id, userID string, revision int64) error {
 	tx, err := p.Pool.Begin(ctx)
 	if err != nil {
 		return err
 	}
+
 	defer tx.Rollback(ctx)
 	now := time.Now().UTC()
 	tag, err := tx.Exec(ctx, `UPDATE app.problem_attempts SET deleted_at=$4,revision=revision+1 WHERE id=$1 AND user_id=$2 AND revision=$3 AND deleted_at IS NULL`, id, userID, revision, now)
@@ -1658,6 +1773,7 @@ func (p *Postgres) GetActiveRecommendation(ctx context.Context, userID string) (
 	if err != nil {
 		return nil, err
 	}
+
 	v.Problem.Difficulty = practice.Difficulty(difficulty)
 	v.Difficulty = practice.Difficulty(recommendationDifficulty)
 	return &v, nil
@@ -1693,6 +1809,7 @@ func (p *Postgres) ListRecommendationDismissals(ctx context.Context, userID stri
 	if err != nil {
 		return nil, err
 	}
+
 	defer rows.Close()
 	items := []practice.Dismissal{}
 	for rows.Next() {
@@ -1700,6 +1817,7 @@ func (p *Postgres) ListRecommendationDismissals(ctx context.Context, userID stri
 		if err := rows.Scan(&v.ProblemID, &v.DismissedAt); err != nil {
 			return nil, err
 		}
+
 		items = append(items, v)
 	}
 	return items, rows.Err()
@@ -1710,6 +1828,7 @@ func (p *Postgres) DismissRecommendation(ctx context.Context, userID string, rev
 	if err != nil {
 		return practice.Recommendation{}, err
 	}
+
 	defer tx.Rollback(ctx)
 	var recommendationID, problemID string
 	var currentRevision int64
@@ -1768,6 +1887,7 @@ func (p *Postgres) ListMockInterviews(ctx context.Context, actor authz.Actor, mo
 	if err := p.Pool.QueryRow(ctx, `SELECT count(*) FROM app.mock_interviews mi WHERE mi.deleted_at IS NULL AND `+where, userID).Scan(&total); err != nil {
 		return nil, false, 0, err
 	}
+
 	comparator, order := ">", "ASC"
 	key, boundaryKey := "mi.id", "b.id"
 	boundarySelect := "id"
@@ -1796,6 +1916,7 @@ func (p *Postgres) ListMockInterviews(ctx context.Context, actor authz.Actor, mo
 	if err != nil {
 		return nil, false, 0, err
 	}
+
 	defer rows.Close()
 	ids := []string{}
 	for rows.Next() {
@@ -1803,11 +1924,13 @@ func (p *Postgres) ListMockInterviews(ctx context.Context, actor authz.Actor, mo
 		if err := rows.Scan(&interviewID); err != nil {
 			return nil, false, 0, err
 		}
+
 		ids = append(ids, interviewID)
 	}
 	if err := rows.Err(); err != nil {
 		return nil, false, 0, err
 	}
+
 	ids, more := finishPostgresPage(ids, limit, direction)
 	items := make([]mockinterviews.Interview, 0, len(ids))
 	for _, interviewID := range ids {
@@ -1815,6 +1938,7 @@ func (p *Postgres) ListMockInterviews(ctx context.Context, actor authz.Actor, mo
 		if err != nil {
 			return nil, false, 0, err
 		}
+
 		items = append(items, v)
 	}
 	return items, more, total, nil
@@ -1828,6 +1952,7 @@ func (p *Postgres) GetMockParticipant(ctx context.Context, userID string) (mocki
 	if err != nil {
 		return ptn, noRows(err)
 	}
+
 	ptn.Suspended = state == "suspended"
 	ptn.Deleted = state == "deleted"
 	ptn.Inactive = state != "active"
@@ -1849,10 +1974,12 @@ func loadMockInterview(ctx context.Context, db rowQuerier, interviewID string) (
 	if err := db.QueryRow(ctx, `SELECT id,interviewer_user_id,interviewee_user_id,season_id,scheduled_at,duration_minutes,COALESCE(interviewer_notes_html,''),revision,deleted_at FROM app.mock_interviews WHERE id=$1 AND deleted_at IS NULL`, interviewID).Scan(&v.ID, &v.InterviewerID, &v.IntervieweeID, &v.SeasonID, &v.OccurredAt, &v.DurationMinutes, &v.Notes, &v.Revision, &v.DeletedAt); err != nil {
 		return v, noRows(err)
 	}
+
 	rows, err := db.Query(ctx, `SELECT r.id,r.kind::text,r.review_status='reviewed',COALESCE(r.interviewee_comment_html,''),b.behavioural_score,l.leetcode_problem_id,l.clarify_question_score,l.algorithm_design_score,l.complexity_analysis_score,l.coding_score,l.testing_score,COALESCE(c.content_html,''),COALESCE(c.url,''),c.score FROM app.mock_interview_rounds r LEFT JOIN app.behavioural_mock_interview_rounds b ON b.mock_interview_round_id=r.id LEFT JOIN app.leetcode_mock_interview_rounds l ON l.mock_interview_round_id=r.id LEFT JOIN app.custom_mock_interview_rounds c ON c.mock_interview_round_id=r.id WHERE r.mock_interview_id=$1 AND r.deleted_at IS NULL ORDER BY r.position,r.id`, interviewID)
 	if err != nil {
 		return v, err
 	}
+
 	defer rows.Close()
 	for rows.Next() {
 		var round mockinterviews.Round
@@ -1862,6 +1989,7 @@ func loadMockInterview(ctx context.Context, db rowQuerier, interviewID string) (
 		if err := rows.Scan(&round.ID, &kind, &round.Reviewed, &round.IntervieweeComment, &behavioural, &problemID, &clarify, &algorithm, &complexity, &coding, &testing, &round.Content, &round.Link, &custom); err != nil {
 			return v, err
 		}
+
 		round.Type = mockinterviews.RoundType(kind)
 		if problemID != nil {
 			round.ProblemID = *problemID
@@ -1888,6 +2016,7 @@ func (p *Postgres) CreateMockInterview(ctx context.Context, v mockinterviews.Int
 	if err != nil {
 		return mockinterviews.Interview{}, err
 	}
+
 	defer tx.Rollback(ctx)
 	if _, err := tx.Exec(ctx, `INSERT INTO app.mock_interviews(id,interviewer_user_id,interviewee_user_id,season_id,scheduled_at,duration_minutes,interviewer_notes_html,revision) VALUES($1,$2,$3,$4,$5,$6,$7,$8)`, v.ID, v.InterviewerID, v.IntervieweeID, v.SeasonID, v.OccurredAt, v.DurationMinutes, v.Notes, v.Revision); err != nil {
 		return v, mapPostgresError(err)
@@ -1912,6 +2041,7 @@ func (p *Postgres) UpdateMockInterview(ctx context.Context, v mockinterviews.Int
 	if err != nil {
 		return mockinterviews.Interview{}, err
 	}
+
 	defer tx.Rollback(ctx)
 	var currentRevision int64
 	if err := tx.QueryRow(ctx, `SELECT revision FROM app.mock_interviews WHERE id=$1 AND deleted_at IS NULL FOR UPDATE`, v.ID).Scan(&currentRevision); err != nil {
@@ -1935,6 +2065,7 @@ func (p *Postgres) UpdateMockInterview(ctx context.Context, v mockinterviews.Int
 	if err := appendMockVersionTx(ctx, tx, v, actorID, reason, at); err != nil {
 		return v, err
 	}
+
 	action := "mock_interview.updated"
 	if reason == "soft deleted" {
 		action = "mock_interview.deleted"
@@ -1956,6 +2087,7 @@ func replaceMockRounds(ctx context.Context, tx pgx.Tx, v mockinterviews.Intervie
 	if _, err := tx.Exec(ctx, `DELETE FROM app.mock_interview_rounds WHERE mock_interview_id=$1`, v.ID); err != nil {
 		return err
 	}
+
 	for position, round := range v.Rounds {
 		var err error
 		status := "pending"
@@ -1968,6 +2100,7 @@ func replaceMockRounds(ctx context.Context, tx pgx.Tx, v mockinterviews.Intervie
 		if _, err := tx.Exec(ctx, `INSERT INTO app.mock_interview_rounds(id,mock_interview_id,position,kind,review_status,interviewee_comment_html,reviewed_at,revision) VALUES($1,$2,$3,$4,$5,$6,$7,$8)`, round.ID, v.ID, position+1, string(round.Type), status, round.IntervieweeComment, reviewedAt, v.Revision); err != nil {
 			return err
 		}
+
 		switch round.Type {
 		case mockinterviews.Behavioural:
 			if round.Scores.Behavioural == nil {
@@ -1999,6 +2132,7 @@ func appendMockVersionTx(ctx context.Context, tx pgx.Tx, v mockinterviews.Interv
 	if err != nil {
 		return err
 	}
+
 	_, err = tx.Exec(ctx, `INSERT INTO app.mock_interview_versions(id,mock_interview_id,version,actor_user_id,reason,snapshot,created_at) VALUES($1,$2,$3,$4,$5,$6,$7)`, id.New(), v.ID, v.Revision, actorID, reason, raw, at.UTC())
 	return err
 }
@@ -2016,6 +2150,7 @@ func appendAuditTx(ctx context.Context, db execer, v model.AuditEvent) error {
 	if err != nil {
 		return err
 	}
+
 	_, err = db.Exec(ctx, `INSERT INTO app.audit_events(id,actor_user_id,action,subject_type,subject_id,data,occurred_at) VALUES($1,$2,$3,$4,$5,$6,$7)`, v.ID, v.ActorID, v.Action, v.SubjectType, v.SubjectID, raw, v.OccurredAt)
 	return err
 }
@@ -2040,12 +2175,14 @@ func mapPostgresError(err error) error {
 	if isUnique(err) {
 		return ErrDuplicate
 	}
+
 	var pgErr *pgconn.PgError
 	if errors.As(err, &pgErr) && (pgErr.Code == "23503" || pgErr.Code == "23514" || pgErr.Code == "23502") {
 		return ErrConflict
 	}
 	return noRows(err)
 }
+
 func isUnique(err error) bool {
 	var pgErr *pgconn.PgError
 	return errors.As(err, &pgErr) && pgErr.Code == "23505"

@@ -54,6 +54,7 @@ type GlobalRoleAssignment struct {
 // Keeping this separate from Repository lets non-PostgreSQL stores remain
 // lightweight while the API metrics endpoint can expose durable worker and
 // migration state when it is available.
+
 type ObservabilitySnapshot struct {
 	DBPoolAcquiredConnections int32
 	DBPoolIdleConnections     int32

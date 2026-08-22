@@ -15,6 +15,7 @@ func TestFixtureCommandLifecycle(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	directory := t.TempDir()
 	manifest := filepath.Join(directory, "manifest.json")
 	state := filepath.Join(directory, "state.json")
@@ -54,6 +55,7 @@ func TestAuth0FixturePlanCommand(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	planPath := filepath.Join(t.TempDir(), "auth0-plan.json")
 	args := []string{
 		"auth0", "plan",
@@ -70,6 +72,7 @@ func TestAuth0FixturePlanCommand(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	var plan struct {
 		Items []struct {
 			Auth0UserID         string   `json:"auth0UserId"`
@@ -132,6 +135,7 @@ func extractRunID(t *testing.T, path string) string {
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	var document struct {
 		RunID string `json:"runId"`
 	}

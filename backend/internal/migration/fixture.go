@@ -26,6 +26,7 @@ func LoadSnapshot(path string) (Snapshot, error) {
 	if err != nil {
 		return Snapshot{}, fmt.Errorf("open source fixture: %w", err)
 	}
+
 	defer file.Close()
 	return DecodeSnapshot(file)
 }
@@ -35,6 +36,7 @@ func WriteJSON(path string, value any) error {
 	if err != nil {
 		return fmt.Errorf("encode %s: %w", path, err)
 	}
+
 	encoded = append(encoded, '\n')
 	if err := os.WriteFile(path, encoded, 0o600); err != nil {
 		return fmt.Errorf("write %s: %w", path, err)
@@ -47,6 +49,7 @@ func LoadManifest(path string) (Manifest, error) {
 	if err != nil {
 		return Manifest{}, fmt.Errorf("open manifest: %w", err)
 	}
+
 	defer file.Close()
 	decoder := json.NewDecoder(file)
 	decoder.UseNumber()
@@ -65,6 +68,7 @@ func LoadResolutionFile(path string) (*ResolutionFile, error) {
 	if err != nil {
 		return nil, fmt.Errorf("open resolution file: %w", err)
 	}
+
 	defer file.Close()
 	decoder := json.NewDecoder(file)
 	decoder.UseNumber()

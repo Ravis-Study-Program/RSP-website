@@ -3,8 +3,11 @@ package authz
 import "time"
 
 type GlobalRole string
+
 type SeasonRole string
+
 type EnrollmentState string
+
 type AccountState string
 
 const (
@@ -44,10 +47,13 @@ func (a Actor) authenticated() bool {
 }
 
 func (a Actor) IsGlobal(role GlobalRole) bool { return a.GlobalRoles[role] }
-func (a Actor) IsPrivileged() bool            { return a.IsGlobal(Director) || a.IsGlobal(SystemAdmin) }
+
+func (a Actor) IsPrivileged() bool { return a.IsGlobal(Director) || a.IsGlobal(SystemAdmin) }
+
 func (a Actor) HasRecentMFA(now time.Time) bool {
 	return a.MFAAt != nil && now.Sub(a.MFAAt.UTC()) >= 0 && now.Sub(a.MFAAt.UTC()) <= 15*time.Minute
 }
+
 func (a Actor) Enrollment(seasonID string) (Enrollment, bool) {
 	for _, e := range a.Enrollments {
 		if e.SeasonID == seasonID {
@@ -56,6 +62,7 @@ func (a Actor) Enrollment(seasonID string) (Enrollment, bool) {
 	}
 	return Enrollment{}, false
 }
+
 func (a Actor) Alumni() bool {
 	for _, e := range a.Enrollments {
 		if e.Role == Student && e.State == Completed {
@@ -64,6 +71,7 @@ func (a Actor) Alumni() bool {
 	}
 	return false
 }
+
 func (a Actor) EligibleMember() bool {
 	if !a.authenticated() {
 		return false
@@ -82,6 +90,7 @@ func (a Actor) EligibleMember() bool {
 // ProgrammeAccess includes historical members whose active enrollment was
 // completed by closing a season. It is intentionally broader than
 // EligibleMember, which remains the directory/basic-profile policy.
+
 func (a Actor) ProgrammeAccess() bool {
 	if !a.authenticated() {
 		return false
@@ -97,6 +106,7 @@ func (a Actor) ProgrammeAccess() bool {
 func (a Actor) CanViewBasicProfile(targetEligible bool) bool {
 	return a.EligibleMember() && targetEligible
 }
+
 func (a Actor) CanViewPrivate(targetID, seasonID string, assignedMentor bool) bool {
 	if !a.authenticated() {
 		return false
@@ -107,6 +117,7 @@ func (a Actor) CanViewPrivate(targetID, seasonID string, assignedMentor bool) bo
 	e, ok := a.Enrollment(seasonID)
 	return ok && e.State == Active && ((e.Role == Mentor && assignedMentor) || e.Role == Coordinator)
 }
+
 func (a Actor) CanManageSeason(seasonID string, open bool) bool {
 	if !a.authenticated() || !open {
 		return false
@@ -117,10 +128,13 @@ func (a Actor) CanManageSeason(seasonID string, open bool) bool {
 	e, ok := a.Enrollment(seasonID)
 	return ok && e.State == Active && e.Role == Coordinator
 }
+
 func (a Actor) CanCloseSeason(seasonID string) bool { return a.CanManageSeason(seasonID, true) }
+
 func (a Actor) CanReopenSeason(now time.Time) bool {
 	return a.authenticated() && a.IsPrivileged() && a.HasRecentMFA(now)
 }
+
 func (a Actor) CanPromoteOrRemove(seasonID string, assignedMentee, targetActive bool) bool {
 	if !targetActive || !a.authenticated() {
 		return false

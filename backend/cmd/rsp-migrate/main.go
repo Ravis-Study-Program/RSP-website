@@ -52,6 +52,7 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 	if err == nil {
 		return 0
 	}
+
 	fmt.Fprintf(stderr, "rsp-migrate: %v\n", err)
 	if errors.Is(err, flag.ErrHelp) {
 		return 0
@@ -86,10 +87,12 @@ func planAuth0(args []string, stdout, stderr io.Writer, now func() time.Time) er
 	if err := loadJSON(*usersPath, "Auth0 users", &users); err != nil {
 		return err
 	}
+
 	var candidates []legacy.AppIdentityCandidate
 	if err := loadJSON(*candidatesPath, "app identity candidates", &candidates); err != nil {
 		return err
 	}
+
 	resolutions := make([]legacy.IdentityResolution, 0)
 	if *resolutionsPath != "" {
 		if err := loadJSON(*resolutionsPath, "identity resolutions", &resolutions); err != nil {
@@ -103,6 +106,7 @@ func planAuth0(args []string, stdout, stderr io.Writer, now func() time.Time) er
 	if err := legacy.WriteJSON(*planPath, plan); err != nil {
 		return err
 	}
+
 	fmt.Fprintf(stdout, "plan=%s auth0Users=%d providerIdentities=%d matched=%d requiresResolution=%d passwordResetRequired=%d checksum=%s\n",
 		*planPath,
 		plan.Reconciliation.Auth0UserCount,
@@ -120,11 +124,13 @@ func loadJSON(path, label string, target any) error {
 	if err != nil {
 		return fmt.Errorf("open %s: %w", label, err)
 	}
+
 	defer file.Close()
 	decoder := json.NewDecoder(file)
 	if err := decoder.Decode(target); err != nil {
 		return fmt.Errorf("decode %s: %w", label, err)
 	}
+
 	var trailing any
 	if err := decoder.Decode(&trailing); !errors.Is(err, io.EOF) {
 		if err == nil {
@@ -189,19 +195,23 @@ func dryRun(ctx context.Context, engine *legacy.Engine, args []string, stdout, s
 	if err := set.Parse(args); err != nil {
 		return err
 	}
+
 	source, err := sourceOptions.source()
 	if err != nil {
 		return err
 	}
+
 	resolutions, err := legacy.LoadResolutionFile(*resolutionPath)
 	if err != nil {
 		return err
 	}
+
 	prepared, planErr := engine.DryRun(ctx, source, resolutions)
 	if prepared.Manifest.Version != 0 {
 		if err := legacy.WriteJSON(*manifestPath, prepared.Manifest); err != nil {
 			return err
 		}
+
 		fmt.Fprintf(stdout, "manifest=%s runId=%s sourceTables=%d mappings=%d anomalies=%d autoFixes=%d checksum=%s\n",
 			*manifestPath, prepared.Manifest.RunID, len(prepared.Manifest.Tables),
 			len(prepared.Manifest.Mappings), len(prepared.Manifest.Anomalies),
@@ -229,14 +239,17 @@ func apply(ctx context.Context, engine *legacy.Engine, args []string, stdout, st
 	if err != nil {
 		return err
 	}
+
 	target, err := targetOptions.target()
 	if err != nil {
 		return err
 	}
+
 	manifest, err := legacy.LoadManifest(*manifestPath)
 	if err != nil {
 		return err
 	}
+
 	resolutions, err := legacy.LoadResolutionFile(*resolutionPath)
 	if err != nil {
 		return err
@@ -244,6 +257,7 @@ func apply(ctx context.Context, engine *legacy.Engine, args []string, stdout, st
 	if err := engine.Apply(ctx, source, target, manifest, resolutions); err != nil {
 		return err
 	}
+
 	fmt.Fprintf(stdout, "applied runId=%s manifestChecksum=%s\n", manifest.RunID, manifest.Checksum)
 	return nil
 }
@@ -264,14 +278,17 @@ func verify(ctx context.Context, engine *legacy.Engine, args []string, stdout, s
 	if err != nil {
 		return err
 	}
+
 	manifest, err := legacy.LoadManifest(*manifestPath)
 	if err != nil {
 		return err
 	}
+
 	verification, err := engine.Verify(ctx, target, manifest)
 	if err != nil {
 		return err
 	}
+
 	encoder := json.NewEncoder(stdout)
 	encoder.SetIndent("", "  ")
 	return encoder.Encode(verification)
@@ -296,6 +313,7 @@ func rollback(ctx context.Context, engine *legacy.Engine, args []string, stdout,
 	if err := engine.Rollback(ctx, target, *runID); err != nil {
 		return err
 	}
+
 	fmt.Fprintf(stdout, "rolledBack runId=%s\n", *runID)
 	return nil
 }

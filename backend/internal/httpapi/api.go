@@ -27,6 +27,7 @@ import (
 //go:generate go run ./internal/genstrict
 
 type requestIDKey struct{}
+
 type rawBodyKey struct{}
 
 type validationResponseWriter struct {
@@ -47,6 +48,7 @@ type Config struct {
 	SetAccountState func(context.Context, string, string, string, string) error
 	GetMFAState     func(context.Context, string) (bool, error)
 }
+
 type API struct {
 	store           store.Repository
 	auth            Authenticator
@@ -63,6 +65,7 @@ type API struct {
 }
 
 type strictAdapter struct{}
+
 type strictResponseKey struct{}
 
 type strictManualResponse struct {
@@ -76,17 +79,20 @@ func newStrictManualResponse() *strictManualResponse {
 }
 
 func (response *strictManualResponse) Header() http.Header { return response.header }
+
 func (response *strictManualResponse) WriteHeader(status int) {
 	if response.status == 0 {
 		response.status = status
 	}
 }
+
 func (response *strictManualResponse) Write(body []byte) (int, error) {
 	if response.status == 0 {
 		response.status = http.StatusOK
 	}
 	return response.body.Write(body)
 }
+
 func (response *strictManualResponse) write(w http.ResponseWriter) error {
 	for key, values := range response.header {
 		for _, value := range values {
@@ -125,6 +131,7 @@ func New(c Config) *API {
 	cleaner := sanitize.New()
 	return &API{store: c.Store, auth: c.Authenticator, publicOrigin: c.PublicOrigin, cursorSecret: secret, logger: logger, limiter: ratelimit.New(), ready: c.Ready, syncLeetCode: c.SyncLeetCode, setAccountState: c.SetAccountState, getMFAState: c.GetMFAState, telemetry: newAPIMetrics(), mockService: mockinterviews.Service{Sanitize: cleaner.String}}
 }
+
 func (a *API) Handler() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /api/v2/health/live", a.live)
@@ -185,6 +192,7 @@ func (a *API) Handler() http.Handler {
 	if err != nil {
 		panic(err)
 	}
+
 	validatorOptions := &nethttpmiddleware.Options{
 		Options:               openapi3filter.Options{AuthenticationFunc: openapi3filter.NoopAuthenticationFunc},
 		SilenceServersWarning: true,
@@ -234,6 +242,7 @@ func (a *API) Handler() http.Handler {
 			a.fail(w, r, http.StatusBadRequest, "invalid_request_body", "Invalid request body", "The request body is too large or unreadable.", nil)
 			return
 		}
+
 		r.Body = io.NopCloser(bytes.NewReader(raw))
 		strictRouter.ServeHTTP(w, r.WithContext(context.WithValue(r.Context(), rawBodyKey{}, raw)))
 	})
@@ -242,6 +251,7 @@ func (a *API) Handler() http.Handler {
 	root.Handle("/", validator(captureBody))
 	return requestContext(a.logger, a.telemetry.observeHTTP, root)
 }
+
 func requestContext(logger *slog.Logger, observe func(int, time.Duration), next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		started := time.Now()
@@ -272,11 +282,13 @@ func requestIDFrom(ctx context.Context) string {
 	requestID, _ := ctx.Value(requestIDKey{}).(string)
 	return requestID
 }
+
 func writeJSON(w http.ResponseWriter, status int, v any) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
 	_ = json.NewEncoder(w).Encode(v)
 }
+
 func decodeJSON(w http.ResponseWriter, r *http.Request, dst any) error {
 	r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
 	dec := json.NewDecoder(r.Body)
@@ -292,6 +304,7 @@ func decodeJSON(w http.ResponseWriter, r *http.Request, dst any) error {
 	}
 	return nil
 }
+
 func (a *API) page(r *http.Request, binding string) (int, string, error) {
 	limit := 25
 	if raw := r.URL.Query().Get("limit"); raw != "" {
@@ -299,6 +312,7 @@ func (a *API) page(r *http.Request, binding string) (int, string, error) {
 		if err != nil || v < 1 || v > 100 {
 			return 0, "", cursor.ErrInvalid
 		}
+
 		limit = v
 	}
 	encoded := r.URL.Query().Get("cursor")
@@ -308,9 +322,11 @@ func (a *API) page(r *http.Request, binding string) (int, string, error) {
 	after, err := cursor.Decode(a.cursorSecret, encoded, binding)
 	return limit, after, err
 }
+
 func (a *API) live(w http.ResponseWriter, _ *http.Request) {
 	writeJSON(w, 200, map[string]string{"status": "ok"})
 }
+
 func (a *API) readiness(w http.ResponseWriter, r *http.Request) {
 	if a.ready != nil {
 		if err := a.ready(); err != nil {
@@ -320,17 +336,21 @@ func (a *API) readiness(w http.ResponseWriter, r *http.Request) {
 	}
 	writeJSON(w, 200, map[string]string{"status": "ready"})
 }
+
 func (a *API) metrics(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/plain; version=0.0.4; charset=utf-8")
 	a.telemetry.render(r.Context(), w, a.store)
 }
+
 func (a *API) openapi(w http.ResponseWriter, _ *http.Request) {
 	spec, err := generated.GetSwagger()
 	if err != nil {
 		panic(err)
 	}
+
 	writeJSON(w, 200, spec)
 }
+
 func validation(a *API, w http.ResponseWriter, r *http.Request, detail string) {
 	a.fail(w, r, 400, "validation_failed", "Validation failed", detail, nil)
 }

@@ -21,11 +21,13 @@ func assertOpenAPIResponse(t *testing.T, spec *openapi3.T, method, path string, 
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	request := httptest.NewRequest(method, path, nil)
 	route, pathParams, err := router.FindRoute(request)
 	if err != nil {
 		t.Fatalf("find OpenAPI route: %v", err)
 	}
+
 	input := &openapi3filter.ResponseValidationInput{
 		RequestValidationInput: &openapi3filter.RequestValidationInput{Request: request, PathParams: pathParams, Route: route},
 		Status:                 response.Code,
@@ -111,6 +113,7 @@ func TestEveryOpenAPIOperationHasExecutableRouteAndAuthenticationCoverage(t *tes
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	contractOperations := map[string]bool{}
 	for _, item := range spec.Paths.Map() {
 		for _, operation := range item.Operations() {
@@ -188,6 +191,7 @@ func TestGrowingCollectionsReturnCompleteExecutablePageEnvelope(t *testing.T) {
 			if err := json.Unmarshal(response.Body.Bytes(), &page); err != nil {
 				t.Fatal(err)
 			}
+
 			for _, field := range []string{"items", "pageInfo", "totalCount"} {
 				if _, ok := page[field]; !ok {
 					t.Fatalf("page missing %s: %s", field, response.Body.String())
@@ -197,6 +201,7 @@ func TestGrowingCollectionsReturnCompleteExecutablePageEnvelope(t *testing.T) {
 			if err := json.Unmarshal(page["pageInfo"], &pageInfo); err != nil {
 				t.Fatal(err)
 			}
+
 			for _, field := range []string{"nextCursor", "previousCursor", "hasMore"} {
 				if _, ok := pageInfo[field]; !ok {
 					t.Fatalf("pageInfo missing %s: %s", field, response.Body.String())

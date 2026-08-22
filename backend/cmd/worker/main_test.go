@@ -16,6 +16,7 @@ func TestResolvedSyncURL(t *testing.T) {
 	if got, err := resolvedSyncURL("http://127.0.0.1:9091/catalog", "test"); err != nil || got == "" {
 		t.Fatalf("test stub URL = %q, %v", got, err)
 	}
+
 	for _, invalid := range []string{"file:///tmp/catalog", "https://user:secret@example.test/catalog", "https://example.test/catalog#fragment"} {
 		if _, err := resolvedSyncURL(invalid, "production"); err == nil {
 			t.Fatalf("accepted invalid URL %q", invalid)

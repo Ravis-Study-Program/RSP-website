@@ -18,6 +18,7 @@ import (
 type Authenticator interface {
 	Authenticate(*http.Request) (authz.Actor, error)
 }
+
 type AuthenticatorFunc func(*http.Request) (authz.Actor, error)
 
 func (f AuthenticatorFunc) Authenticate(r *http.Request) (authz.Actor, error) { return f(r) }
@@ -32,17 +33,21 @@ func (b BearerAuthenticator) Authenticate(r *http.Request) (authz.Actor, error) 
 	if !strings.HasPrefix(header, "Bearer ") {
 		return authz.Actor{}, authn.ErrInvalidToken
 	}
+
 	claims, err := b.Validator.Validate(r.Context(), strings.TrimSpace(strings.TrimPrefix(header, "Bearer ")))
 	if err != nil {
 		return authz.Actor{}, err
 	}
+
 	actor, err := b.Store.ResolveAuthSubject(r.Context(), claims.Subject)
 	if err != nil {
 		return authz.Actor{}, err
 	}
+
 	if !claimsMatchActor(claims, actor) {
 		return authz.Actor{}, authn.ErrInvalidToken
 	}
+
 	if claims.MFAVerified && claims.MFAVerifiedAt != nil {
 		at := claims.MFAVerifiedAt.Time.UTC()
 		actor.MFAAt = &at
@@ -84,6 +89,7 @@ func (a *API) protected(class ratelimit.Class, next http.HandlerFunc) http.Handl
 			a.fail(w, r, http.StatusForbidden, "origin_rejected", "Request origin rejected", "State-changing requests must come from the configured application origin.", nil)
 			return
 		}
+
 		result := a.limiter.Allow(actor.UserID, class)
 		w.Header().Set("RateLimit-Limit", strconv.Itoa(result.Limit))
 		w.Header().Set("RateLimit-Remaining", strconv.Itoa(result.Remaining))
@@ -99,13 +105,16 @@ func (a *API) protected(class ratelimit.Class, next http.HandlerFunc) http.Handl
 		next(w, r.WithContext(context.WithValue(r.Context(), actorKey{}, actor)))
 	}
 }
+
 func (a *API) validOrigin(r *http.Request) bool {
 	origin := r.Header.Get("Origin")
 	return origin == "" || a.publicOrigin == "" || strings.TrimRight(origin, "/") == strings.TrimRight(a.publicOrigin, "/")
 }
+
 func (a *API) fail(w http.ResponseWriter, r *http.Request, status int, code, title, detail string, fields []problem.FieldError) {
 	problem.Write(w, problem.Details{Type: "https://rsp.example/problems/" + code, Title: title, Status: status, Detail: detail, Instance: r.URL.Path, Code: code, RequestID: w.Header().Get("X-Request-ID"), Errors: fields})
 }
+
 func storeFailure(a *API, w http.ResponseWriter, r *http.Request, err error) {
 	switch {
 	case errors.Is(err, store.ErrNotFound):

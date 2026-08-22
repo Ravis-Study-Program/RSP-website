@@ -25,11 +25,13 @@ func (source *PostgresSource) Snapshot(ctx context.Context, options SnapshotOpti
 	if err != nil {
 		return Snapshot{}, fmt.Errorf("connect legacy source: %w", err)
 	}
+
 	defer connection.Close(context.WithoutCancel(ctx))
 	tx, err := connection.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.RepeatableRead, AccessMode: pgx.ReadOnly})
 	if err != nil {
 		return Snapshot{}, fmt.Errorf("begin legacy snapshot: %w", err)
 	}
+
 	committed := false
 	defer func() {
 		if !committed {
@@ -41,15 +43,18 @@ func (source *PostgresSource) Snapshot(ctx context.Context, options SnapshotOpti
 	if err := tx.QueryRow(ctx, "SELECT transaction_timestamp()").Scan(&snapshot.CapturedAt); err != nil {
 		return Snapshot{}, fmt.Errorf("read snapshot timestamp: %w", err)
 	}
+
 	snapshot.CapturedAt = snapshot.CapturedAt.UTC()
 	snapshot.Schema, err = readLegacySchema(ctx, tx)
 	if err != nil {
 		return Snapshot{}, err
 	}
+
 	snapshot.EFHistory, err = readEFHistory(ctx, tx)
 	if err != nil {
 		return Snapshot{}, err
 	}
+
 	available := map[string]bool{}
 	for _, table := range snapshot.Schema {
 		available[table.Name] = true
@@ -62,11 +67,13 @@ func (source *PostgresSource) Snapshot(ctx context.Context, options SnapshotOpti
 		if err != nil {
 			return Snapshot{}, err
 		}
+
 		snapshot.Tables[table] = rows
 	}
 	if err := tx.Commit(ctx); err != nil {
 		return Snapshot{}, fmt.Errorf("commit legacy snapshot: %w", err)
 	}
+
 	committed = true
 	return snapshot, nil
 }
@@ -93,6 +100,7 @@ ORDER BY c.table_name, c.ordinal_position`, LegacyTables)
 	if err != nil {
 		return nil, fmt.Errorf("read legacy schema: %w", err)
 	}
+
 	defer rows.Close()
 	byName := map[string]*TableSchema{}
 	order := make([]string, 0)
@@ -115,6 +123,7 @@ ORDER BY c.table_name, c.ordinal_position`, LegacyTables)
 	if err := rows.Err(); err != nil {
 		return nil, err
 	}
+
 	result := make([]TableSchema, 0, len(order))
 	for _, name := range order {
 		result = append(result, *byName[name])
@@ -134,6 +143,7 @@ func readEFHistory(ctx context.Context, tx pgx.Tx) ([]string, error) {
 	if err != nil {
 		return nil, fmt.Errorf("read EF migration history: %w", err)
 	}
+
 	defer rows.Close()
 	result := make([]string, 0)
 	for rows.Next() {
@@ -141,6 +151,7 @@ func readEFHistory(ctx context.Context, tx pgx.Tx) ([]string, error) {
 		if err := rows.Scan(&id); err != nil {
 			return nil, err
 		}
+
 		result = append(result, id)
 	}
 	return result, rows.Err()
@@ -155,6 +166,7 @@ func readLegacyTable(ctx context.Context, tx pgx.Tx, table string) ([]Row, error
 	if err != nil {
 		return nil, fmt.Errorf("read legacy table %s: %w", table, err)
 	}
+
 	defer rows.Close()
 	result := make([]Row, 0)
 	for rows.Next() {
@@ -162,17 +174,20 @@ func readLegacyTable(ctx context.Context, tx pgx.Tx, table string) ([]Row, error
 		if err := rows.Scan(&encoded); err != nil {
 			return nil, err
 		}
+
 		decoder := json.NewDecoder(strings.NewReader(string(encoded)))
 		decoder.UseNumber()
 		var row Row
 		if err := decoder.Decode(&row); err != nil {
 			return nil, fmt.Errorf("decode %s row: %w", table, err)
 		}
+
 		result = append(result, row)
 	}
 	if err := rows.Err(); err != nil {
 		return nil, err
 	}
+
 	sort.Slice(result, func(left, right int) bool { return sourceID(table, result[left]) < sourceID(table, result[right]) })
 	return result, nil
 }
@@ -187,11 +202,13 @@ func (target *PostgresTarget) Begin(ctx context.Context) (TargetTx, error) {
 	if err != nil {
 		return nil, fmt.Errorf("connect target: %w", err)
 	}
+
 	tx, err := connection.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.Serializable})
 	if err != nil {
 		_ = connection.Close(context.WithoutCancel(ctx))
 		return nil, err
 	}
+
 	now := target.Now
 	if now == nil {
 		now = time.Now
@@ -214,6 +231,7 @@ func (tx *postgresTx) AcquireAdvisoryLock(ctx context.Context, key int64) error 
 	if _, err := tx.tx.Exec(ctx, "SELECT pg_advisory_xact_lock($1)", key); err != nil {
 		return err
 	}
+
 	tx.locked = true
 	return nil
 }
@@ -238,6 +256,7 @@ INSERT INTO migration.runs (
 		manifest.SourceSnapshotAt, tx.now().UTC()); err != nil {
 		return fmt.Errorf("record migration run: %w", err)
 	}
+
 	for _, table := range prepared.Tables {
 		for _, row := range table.Rows {
 			if err := insertPreparedRow(ctx, tx.tx, table.Name, row.Values); err != nil {
@@ -326,6 +345,7 @@ INSERT INTO migration.resolutions (
 		if err != nil {
 			return fmt.Errorf("encode auto-fix %s before value: %w", item.Code, err)
 		}
+
 		afterValue, err := jsonValue(item.After)
 		if err != nil {
 			return fmt.Errorf("encode auto-fix %s after value: %w", item.Code, err)
@@ -361,6 +381,7 @@ func insertPreparedRow(ctx context.Context, tx pgx.Tx, table string, values Row)
 	if err != nil {
 		return err
 	}
+
 	quotedColumns := make([]string, 0, len(columns))
 	selectedColumns := make([]string, 0, len(columns))
 	for _, column := range columns {
@@ -393,6 +414,7 @@ func (tx *postgresTx) Verification(ctx context.Context, manifest Manifest) (Veri
 	if err != nil {
 		return Verification{}, err
 	}
+
 	for _, expected := range manifest.Tables {
 		prepared := rowsBySource[expected.SourceTable]
 		sort.Slice(prepared, func(i, j int) bool {
@@ -420,6 +442,7 @@ ORDER BY target_table, target_id`, manifest.RunID)
 	if err != nil {
 		return Verification{}, err
 	}
+
 	type targetReference struct{ table, id string }
 	targets := make([]targetReference, 0)
 	for provenanceRows.Next() {
@@ -428,12 +451,14 @@ ORDER BY target_table, target_id`, manifest.RunID)
 			provenanceRows.Close()
 			return Verification{}, err
 		}
+
 		targets = append(targets, targetReference{table: table, id: id})
 	}
 	if err := provenanceRows.Err(); err != nil {
 		provenanceRows.Close()
 		return Verification{}, err
 	}
+
 	provenanceRows.Close()
 	for _, target := range targets {
 		exists, err := targetRowExists(ctx, tx.tx, target.table, target.id)
@@ -465,6 +490,7 @@ ORDER BY source_table,target_table,target_id,(transformed_data='{}'::jsonb),sour
 	if err != nil {
 		return nil, err
 	}
+
 	type provenanceRecord struct {
 		sourceTable, sourceID, targetTable, targetID string
 		transformedData                              []byte
@@ -476,12 +502,14 @@ ORDER BY source_table,target_table,target_id,(transformed_data='{}'::jsonb),sour
 			rows.Close()
 			return nil, err
 		}
+
 		records = append(records, record)
 	}
 	if err := rows.Err(); err != nil {
 		rows.Close()
 		return nil, err
 	}
+
 	rows.Close()
 	result := map[string][]PreparedRow{}
 	seenTargets := map[string]bool{}
@@ -497,10 +525,12 @@ ORDER BY source_table,target_table,target_id,(transformed_data='{}'::jsonb),sour
 		if err := json.Unmarshal(record.transformedData, &expected); err != nil {
 			return nil, err
 		}
+
 		current, err := readTargetRow(ctx, tx.tx, record.targetTable, record.targetID, expected)
 		if err != nil {
 			return nil, err
 		}
+
 		result[record.sourceTable] = append(result[record.sourceTable], PreparedRow{ID: record.targetID, SourceTable: record.sourceTable, SourceID: record.sourceID, Values: current})
 	}
 	return result, nil
@@ -533,6 +563,7 @@ func readTargetRow(ctx context.Context, tx pgx.Tx, table, targetID string, expec
 	if err != nil {
 		return nil, err
 	}
+
 	args = append(args, encoded)
 	var matches bool
 	query := "SELECT (" + strings.Join(comparisons, " AND ") + ") FROM " + qualified + " t CROSS JOIN jsonb_populate_record(NULL::" + qualified + ", $" + strconv.Itoa(len(args)) + "::jsonb) expected WHERE " + where
@@ -592,6 +623,7 @@ func (tx *postgresTx) RollbackRun(ctx context.Context, runID string) error {
 	if _, err := tx.tx.Exec(ctx, `SELECT set_config('rsp.migration_rollback','on',true)`); err != nil {
 		return err
 	}
+
 	for index := len(targetOrder) - 1; index >= 0; index-- {
 		table := targetOrder[index]
 		rows, err := tx.tx.Query(ctx, `
@@ -602,6 +634,7 @@ ORDER BY target_id`, runID, table)
 		if err != nil {
 			return err
 		}
+
 		ids := make([]string, 0)
 		for rows.Next() {
 			var id string
@@ -609,6 +642,7 @@ ORDER BY target_id`, runID, table)
 				rows.Close()
 				return err
 			}
+
 			ids = append(ids, id)
 		}
 		rows.Close()

@@ -34,16 +34,19 @@ func TestPostgres18SourceAndTargetLifecycle(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	t.Cleanup(func() { _ = testcontainers.TerminateContainer(container) })
 
 	adminDSN, err := container.ConnectionString(ctx, "sslmode=disable")
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	adminDB, err := sql.Open("pgx", adminDSN)
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	defer adminDB.Close()
 	for _, role := range []string{"rsp_migration", "rsp_app", "rsp_auth"} {
 		if _, err := adminDB.ExecContext(ctx, "CREATE ROLE "+pgx.Identifier{role}.Sanitize()+" NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION"); err != nil {
@@ -62,10 +65,12 @@ func TestPostgres18SourceAndTargetLifecycle(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	defer migrationDB.Close()
 	if err := goose.SetDialect("postgres"); err != nil {
 		t.Fatal(err)
 	}
+
 	migrations, err := filepath.Abs("../../../db/migrations")
 	if err != nil {
 		t.Fatal(err)
@@ -73,6 +78,7 @@ func TestPostgres18SourceAndTargetLifecycle(t *testing.T) {
 	if err := goose.Up(migrationDB, migrations); err != nil {
 		t.Fatal(err)
 	}
+
 	fixture := validSnapshot(t)
 	if err := seedPostgresLegacyFixture(ctx, adminDB, fixture); err != nil {
 		t.Fatal(err)
@@ -82,6 +88,7 @@ func TestPostgres18SourceAndTargetLifecycle(t *testing.T) {
 	if _, err := source.Snapshot(ctx, SnapshotOptions{ReadOnly: false, Isolation: IsolationRepeatableRead}); err == nil {
 		t.Fatal("PostgresSource accepted a writable snapshot")
 	}
+
 	snapshot, err := source.Snapshot(ctx, SnapshotOptions{ReadOnly: true, Isolation: IsolationRepeatableRead})
 	if err != nil {
 		t.Fatal(err)
@@ -98,10 +105,12 @@ func TestPostgres18SourceAndTargetLifecycle(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	target := &PostgresTarget{ConnectionString: migrationDSN, Now: fixedNow}
 	if err := engine.Apply(ctx, source, target, prepared.Manifest, nil); err != nil {
 		t.Fatal(err)
 	}
+
 	assertPostgresRunState(t, ctx, adminDB, prepared.Manifest.RunID, "applied")
 	verification, err := engine.Verify(ctx, target, prepared.Manifest)
 	if err != nil {
@@ -119,6 +128,7 @@ func TestPostgres18SourceAndTargetLifecycle(t *testing.T) {
 	if err := engine.Rollback(ctx, target, prepared.Manifest.RunID); err == nil || !strings.Contains(err.Error(), "refuse rollback of changed migration targets") {
 		t.Fatalf("tampered rollback error = %v", err)
 	}
+
 	assertPostgresRunState(t, ctx, adminDB, prepared.Manifest.RunID, "verified")
 	if _, err := adminDB.ExecContext(ctx, `UPDATE app.leetcode_mock_interview_rounds SET coding_score=8 WHERE id=$1`, round.ID); err != nil {
 		t.Fatal(err)
@@ -126,6 +136,7 @@ func TestPostgres18SourceAndTargetLifecycle(t *testing.T) {
 	if err := engine.Rollback(ctx, target, prepared.Manifest.RunID); err != nil {
 		t.Fatal(err)
 	}
+
 	assertPostgresRunState(t, ctx, adminDB, prepared.Manifest.RunID, "rolled_back")
 	var appUsers, provenanceRows int
 	if err := adminDB.QueryRowContext(ctx, `SELECT (SELECT count(*) FROM app.users), (SELECT count(*) FROM migration.row_provenance WHERE run_id=$1)`, prepared.Manifest.RunID).Scan(&appUsers, &provenanceRows); err != nil {
@@ -143,6 +154,7 @@ func seedPostgresLegacyFixture(ctx context.Context, db *sql.DB, snapshot Snapsho
 	if _, err := db.ExecContext(ctx, `CREATE TABLE public."__EFMigrationsHistory" ("MigrationId" text PRIMARY KEY)`); err != nil {
 		return err
 	}
+
 	for _, migrationID := range snapshot.EFHistory {
 		if _, err := db.ExecContext(ctx, `INSERT INTO public."__EFMigrationsHistory" ("MigrationId") VALUES ($1)`, migrationID); err != nil {
 			return err
@@ -180,11 +192,13 @@ func seedPostgresLegacyFixture(ctx context.Context, db *sql.DB, snapshot Snapsho
 		if _, err := db.ExecContext(ctx, "CREATE TABLE "+qualified+" ("+strings.Join(definitions, ",")+")"); err != nil {
 			return fmt.Errorf("create legacy table %s: %w", table, err)
 		}
+
 		for _, row := range snapshot.Tables[table] {
 			encoded, err := json.Marshal(row)
 			if err != nil {
 				return err
 			}
+
 			query := "INSERT INTO " + qualified + " SELECT source_row.* FROM jsonb_populate_record(NULL::" + qualified + ", $1::jsonb) AS source_row"
 			if _, err := db.ExecContext(ctx, query, encoded); err != nil {
 				return fmt.Errorf("insert legacy table %s: %w", table, err)

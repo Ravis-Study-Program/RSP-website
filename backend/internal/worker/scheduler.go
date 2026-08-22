@@ -14,15 +14,19 @@ type Locker interface {
 	TryLock(context.Context, int64) (bool, error)
 	Unlock(context.Context, int64) error
 }
+
 type State interface {
 	LastSuccess(context.Context, string) (*time.Time, error)
 	LastAttempt(context.Context, string) (*time.Time, error)
 	Record(context.Context, Run) error
 }
+
 type Syncer interface {
 	Sync(context.Context) (Report, error)
 }
+
 type Report struct{ Fetched, Inserted, Updated, Failed int }
+
 type Run struct {
 	Job                   string
 	TriggerKind           string
@@ -30,6 +34,7 @@ type Run struct {
 	Report                Report
 	Error                 string
 }
+
 type Scheduler struct {
 	Locker  Locker
 	State   State
@@ -45,6 +50,7 @@ func (s Scheduler) RunDue(ctx context.Context) (bool, error) {
 	if err != nil {
 		return false, err
 	}
+
 	due := mostRecentSunday(now)
 	if last != nil && !last.Before(due) {
 		return false, nil
@@ -62,9 +68,11 @@ func (s Scheduler) RunDue(ctx context.Context) (bool, error) {
 	}
 	return true, s.run(ctx, trigger)
 }
+
 func (s Scheduler) Run(ctx context.Context) error {
 	return s.run(ctx, "schedule")
 }
+
 func (s Scheduler) run(ctx context.Context, triggerKind string) error {
 	ok, err := s.Locker.TryLock(ctx, LeetCodeAdvisoryLock)
 	if err != nil {
@@ -108,12 +116,14 @@ func (s Scheduler) run(ctx context.Context, triggerKind string) error {
 	}
 	return runErr
 }
+
 func (s Scheduler) now() time.Time {
 	if s.Now != nil {
 		return s.Now().UTC()
 	}
 	return time.Now().UTC()
 }
+
 func mostRecentSunday(now time.Time) time.Time {
 	now = now.UTC()
 	days := (int(now.Weekday()) - int(time.Sunday) + 7) % 7

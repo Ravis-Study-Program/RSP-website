@@ -19,12 +19,14 @@ type User struct {
 	PremiumOptIn       bool             `json:"-"`
 	Revision           int64            `json:"revision"`
 }
+
 type UserSeasonRole struct {
 	SeasonID   string `json:"seasonId"`
 	SeasonSlug string `json:"seasonSlug"`
 	Role       string `json:"role"`
 	State      string `json:"state"`
 }
+
 type EnrollmentCandidate struct {
 	ID        string  `json:"id"`
 	Slug      string  `json:"slug"`
@@ -32,6 +34,7 @@ type EnrollmentCandidate struct {
 	AvatarURL *string `json:"avatarUrl,omitempty"`
 	Revision  int64   `json:"revision"`
 }
+
 type PracticeSettings struct {
 	PremiumOptIn  bool  `json:"premiumOptIn"`
 	GoalsEnabled  bool  `json:"goalsEnabled"`
@@ -40,6 +43,7 @@ type PracticeSettings struct {
 	HardMinutes   int   `json:"hardMinutes"`
 	Revision      int64 `json:"revision"`
 }
+
 type Season struct {
 	ID           string    `json:"id"`
 	Slug         string    `json:"slug"`
@@ -52,6 +56,7 @@ type Season struct {
 	ResourcesURL string    `json:"resourcesUrl"`
 	Revision     int64     `json:"revision"`
 }
+
 type Week struct {
 	ID          string    `json:"id"`
 	SeasonID    string    `json:"seasonId"`
@@ -61,6 +66,7 @@ type Week struct {
 	ResourceURL string    `json:"resourceUrl"`
 	Revision    int64     `json:"revision"`
 }
+
 type Enrollment struct {
 	ID              string  `json:"id"`
 	SeasonID        string  `json:"seasonId"`
@@ -73,6 +79,7 @@ type Enrollment struct {
 	RemovalReason   *string `json:"removalReason,omitempty"`
 	Revision        int64   `json:"revision"`
 }
+
 type Mentorship struct {
 	ID            string `json:"id"`
 	SeasonID      string `json:"seasonId"`
@@ -80,6 +87,7 @@ type Mentorship struct {
 	StudentUserID string `json:"studentUserId"`
 	Revision      int64  `json:"revision"`
 }
+
 type Problem struct {
 	ID         string   `json:"id"`
 	Number     int      `json:"number"`
@@ -91,6 +99,7 @@ type Problem struct {
 	Premium    bool     `json:"premium"`
 	Revision   int64    `json:"revision"`
 }
+
 type Attempt struct {
 	ID          string     `json:"id"`
 	UserID      string     `json:"-"`
@@ -108,6 +117,7 @@ type Attempt struct {
 	// count as exposure, but never as outcome-quality evidence.
 	Migrated bool `json:"-"`
 }
+
 type AuditEvent struct {
 	ID          string         `json:"id"`
 	ActorID     *string        `json:"actorId,omitempty"`
@@ -123,6 +133,7 @@ type PageInfo struct {
 	PreviousCursor *string `json:"previousCursor"`
 	HasMore        bool    `json:"hasMore"`
 }
+
 type Page[T any] struct {
 	Items      []T      `json:"items"`
 	PageInfo   PageInfo `json:"pageInfo"`

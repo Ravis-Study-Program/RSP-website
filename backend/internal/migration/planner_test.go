@@ -26,6 +26,7 @@ func TestPlannerBuildsStableCompleteManifest(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	second, err := planner.Plan(validSnapshot(t), nil)
 	if err != nil {
 		t.Fatal(err)
@@ -59,6 +60,7 @@ func TestManifestTamperingIsRejected(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	prepared.Manifest.Tables[0].SourceCount++
 	if !errors.Is(ValidateManifest(prepared.Manifest), ErrManifestChecksum) {
 		t.Fatal("tampered manifest was accepted")
@@ -97,6 +99,7 @@ func TestBlockingDuplicateEmailNeedsBoundResolution(t *testing.T) {
 	if err := SealResolutionFile(resolution); err != nil {
 		t.Fatal(err)
 	}
+
 	resolved, err := planner.Plan(snapshot, resolution)
 	if err != nil {
 		t.Fatal(err)
@@ -133,6 +136,7 @@ func TestEndedSeasonCreatesCloseEventAndCompletesEnrollments(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	season := preparedSourceRow(prepared, "season-1")
 	if season.Values["status"] != "closed" {
 		t.Fatalf("season status = %v", season.Values["status"])

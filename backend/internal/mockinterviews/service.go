@@ -33,6 +33,7 @@ type Participant struct {
 	Test         bool   `json:"test,omitempty"`
 	KickedOnly   bool   `json:"kickedOnly,omitempty"`
 }
+
 type ParticipantSummary struct {
 	ID        string  `json:"id"`
 	Slug      string  `json:"slug"`
@@ -61,6 +62,7 @@ type Scores struct {
 	Testing            *int `json:"testing,omitempty"`
 	Custom             *int `json:"custom,omitempty"`
 }
+
 type Round struct {
 	ID                 string    `json:"id"`
 	Type               RoundType `json:"type"`
@@ -71,6 +73,7 @@ type Round struct {
 	Reviewed           bool      `json:"reviewed"`
 	IntervieweeComment string    `json:"intervieweeComment"`
 }
+
 type Interview struct {
 	ID              string             `json:"id"`
 	InterviewerID   string             `json:"interviewerId"`
@@ -85,6 +88,7 @@ type Interview struct {
 	Revision        int64              `json:"revision"`
 	DeletedAt       *time.Time         `json:"-"`
 }
+
 type Version struct {
 	InterviewID     string
 	Revision        int64
@@ -92,10 +96,12 @@ type Version struct {
 	SavedAt         time.Time
 	Snapshot        json.RawMessage
 }
+
 type Service struct {
 	Sanitize func(string) string
 	Versions []Version
 }
+
 type CreateInput struct {
 	Interviewee     Participant
 	SeasonID        *string
@@ -118,6 +124,7 @@ func (s *Service) Create(actorID string, in CreateInput, now time.Time) (Intervi
 	if err := validate(m); err != nil {
 		return Interview{}, err
 	}
+
 	s.save(m, actorID, "created", now)
 	return m, nil
 }
@@ -159,10 +166,12 @@ func (s *Service) Update(m *Interview, actorID string, in UpdateInput, now time.
 	if err := validate(candidate); err != nil {
 		return err
 	}
+
 	*m = candidate
 	s.save(*m, actorID, "updated", now)
 	return nil
 }
+
 func (s *Service) Review(m *Interview, actorID, roundID, comment string, reviewed bool, expectedRevision int64, now time.Time) error {
 	if actorID != m.IntervieweeID {
 		return ErrForbidden
@@ -186,6 +195,7 @@ func (s *Service) Review(m *Interview, actorID, roundID, comment string, reviewe
 	s.save(*m, actorID, "interviewee review", now)
 	return nil
 }
+
 func (s *Service) CorrectIdentities(m *Interview, actorID, newInterviewer, newInterviewee string, newSeason *string, reason string, privileged bool, expectedRevision int64, now time.Time) error {
 	if !privileged || reason == "" {
 		return ErrForbidden
@@ -200,6 +210,7 @@ func (s *Service) CorrectIdentities(m *Interview, actorID, newInterviewer, newIn
 	s.save(*m, actorID, "identity correction: "+reason, now)
 	return nil
 }
+
 func (s *Service) Delete(m *Interview, actorID string, expectedRevision int64, now time.Time) error {
 	if actorID != m.InterviewerID {
 		return ErrForbidden
@@ -213,6 +224,7 @@ func (s *Service) Delete(m *Interview, actorID string, expectedRevision int64, n
 	s.save(*m, actorID, "soft deleted", now)
 	return nil
 }
+
 func Passed(m Interview) bool {
 	has := false
 	for _, r := range m.Rounds {
@@ -225,6 +237,7 @@ func Passed(m Interview) bool {
 	}
 	return has
 }
+
 func validate(m Interview) error {
 	if m.InterviewerID == "" || m.IntervieweeID == "" || m.InterviewerID == m.IntervieweeID || m.DurationMinutes <= 0 || len(m.Rounds) == 0 {
 		return ErrInvalid
@@ -238,6 +251,7 @@ func validate(m Interview) error {
 		if err := validateRound(r); err != nil {
 			return err
 		}
+
 		values := scoreValues(r.Scores)
 		for _, v := range values {
 			if v < 0 || v > 10 {
@@ -282,6 +296,7 @@ func validateRound(r Round) error {
 	}
 	return nil
 }
+
 func scoreValues(s Scores) []int {
 	out := []int{}
 	for _, v := range []*int{s.Behavioural, s.ConfirmQuestions, s.AlgorithmDesign, s.ComplexityAnalysis, s.Coding, s.Testing, s.Custom} {
@@ -291,12 +306,14 @@ func scoreValues(s Scores) []int {
 	}
 	return out
 }
+
 func (s *Service) clean(v string) string {
 	if s.Sanitize == nil {
 		return v
 	}
 	return s.Sanitize(v)
 }
+
 func (s *Service) cleanRounds(in []Round) []Round {
 	out := append([]Round(nil), in...)
 	for i := range out {
@@ -305,6 +322,7 @@ func (s *Service) cleanRounds(in []Round) []Round {
 	}
 	return out
 }
+
 func (s *Service) save(m Interview, actor, reason string, now time.Time) {
 	raw, _ := json.Marshal(m)
 	s.Versions = append(s.Versions, Version{m.ID, m.Revision, actor, reason, now.UTC(), raw})

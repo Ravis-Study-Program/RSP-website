@@ -57,6 +57,7 @@ func (e *Engine) Apply(ctx context.Context, source Source, target Target, manife
 	if err != nil {
 		return fmt.Errorf("begin target transaction: %w", err)
 	}
+
 	committed := false
 	defer func() {
 		if !committed {
@@ -66,6 +67,7 @@ func (e *Engine) Apply(ctx context.Context, source Source, target Target, manife
 	if err := tx.AcquireAdvisoryLock(ctx, AdvisoryLockKey); err != nil {
 		return fmt.Errorf("acquire migration advisory lock: %w", err)
 	}
+
 	exists, err := tx.HasRun(ctx, manifest.RunID)
 	if err != nil {
 		return fmt.Errorf("check migration run: %w", err)
@@ -79,6 +81,7 @@ func (e *Engine) Apply(ctx context.Context, source Source, target Target, manife
 	if err := tx.Commit(ctx); err != nil {
 		return fmt.Errorf("commit legacy import: %w", err)
 	}
+
 	committed = true
 	return nil
 }
@@ -87,10 +90,12 @@ func (e *Engine) Verify(ctx context.Context, target Target, manifest Manifest) (
 	if err := ValidateManifest(manifest); err != nil {
 		return Verification{}, err
 	}
+
 	tx, err := target.Begin(ctx)
 	if err != nil {
 		return Verification{}, fmt.Errorf("begin target transaction: %w", err)
 	}
+
 	committed := false
 	defer func() {
 		if !committed {
@@ -100,10 +105,12 @@ func (e *Engine) Verify(ctx context.Context, target Target, manifest Manifest) (
 	if err := tx.AcquireAdvisoryLock(ctx, AdvisoryLockKey); err != nil {
 		return Verification{}, fmt.Errorf("acquire migration advisory lock: %w", err)
 	}
+
 	verification, err := tx.Verification(ctx, manifest)
 	if err != nil {
 		return Verification{}, err
 	}
+
 	verification.VerifiedAt = e.now().UTC()
 	if verification.ForeignKeyErrors != 0 {
 		return Verification{}, fmt.Errorf("verification found %d invalid foreign keys", verification.ForeignKeyErrors)
@@ -111,6 +118,7 @@ func (e *Engine) Verify(ctx context.Context, target Target, manifest Manifest) (
 	if err := tx.Commit(ctx); err != nil {
 		return Verification{}, fmt.Errorf("commit verification: %w", err)
 	}
+
 	committed = true
 	return verification, nil
 }
@@ -123,6 +131,7 @@ func (e *Engine) Rollback(ctx context.Context, target Target, runID string) erro
 	if err != nil {
 		return fmt.Errorf("begin target transaction: %w", err)
 	}
+
 	committed := false
 	defer func() {
 		if !committed {
@@ -132,6 +141,7 @@ func (e *Engine) Rollback(ctx context.Context, target Target, runID string) erro
 	if err := tx.AcquireAdvisoryLock(ctx, AdvisoryLockKey); err != nil {
 		return fmt.Errorf("acquire migration advisory lock: %w", err)
 	}
+
 	exists, err := tx.HasRun(ctx, runID)
 	if err != nil {
 		return err
@@ -145,6 +155,7 @@ func (e *Engine) Rollback(ctx context.Context, target Target, runID string) erro
 	if err := tx.Commit(ctx); err != nil {
 		return fmt.Errorf("commit rollback: %w", err)
 	}
+
 	committed = true
 	return nil
 }

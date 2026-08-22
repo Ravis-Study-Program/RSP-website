@@ -39,10 +39,12 @@ func (a *API) identityLifecycle(w http.ResponseWriter, r *http.Request) {
 		validation(a, w, r, "valid eventId, type, authUserId, securityVersion, and occurredAt are required")
 		return
 	}
+
 	err := a.store.ApplyIdentityEvent(r.Context(), store.IdentityEvent{EventID: in.EventID, Type: in.Type, AuthUserID: in.AuthUserID, Email: in.Email, EmailVerified: in.EmailVerified, SecurityVersion: in.SecurityVersion, OccurredAt: in.OccurredAt.UTC(), RecoveryDeadline: in.RecoveryDeadline, Reason: in.Reason, AccountState: in.AccountState, ActorUserID: in.ActorUserID})
 	if err != nil {
 		storeFailure(a, w, r, err)
 		return
 	}
+
 	w.WriteHeader(204)
 }

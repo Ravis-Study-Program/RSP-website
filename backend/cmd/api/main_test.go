@@ -13,6 +13,7 @@ func TestValidateProductionConfig(t *testing.T) {
 	if err := validateProductionConfig(getenv); err != nil {
 		t.Fatalf("valid production configuration rejected: %v", err)
 	}
+
 	for _, test := range []struct {
 		name, key, value string
 	}{

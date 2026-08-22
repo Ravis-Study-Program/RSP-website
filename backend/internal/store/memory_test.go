@@ -25,6 +25,7 @@ func TestMemoryCloseReopenRestoresOnlyCloseCompletedEnrollments(t *testing.T) {
 	if _, err := repository.CloseSeason(context.Background(), "season", 1, "coordinator", "duplicate", time.Now()); err != ErrConflict {
 		t.Fatalf("stale close returned %v", err)
 	}
+
 	reopened, err := repository.ReopenSeason(context.Background(), "season", 2, "director", "correction", time.Now())
 	if err != nil || reopened.Status != "open" || repository.Enrollments["active"].State != "active" || repository.Enrollments["kicked"].State != "kicked" {
 		t.Fatalf("reopen result=%#v active=%#v kicked=%#v err=%v", reopened, repository.Enrollments["active"], repository.Enrollments["kicked"], err)
@@ -66,14 +67,17 @@ func TestMemoryIdentityReceiptsRejectAlteredReplayAndPseudonymizeProfile(t *test
 	if err := repository.ApplyIdentityEvent(ctx, created); err != nil {
 		t.Fatal(err)
 	}
+
 	actor, err := repository.ResolveAuthSubject(ctx, created.AuthUserID)
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	oldSlug := repository.Users[actor.UserID].Slug
 	if err := repository.ApplyIdentityEvent(ctx, created); err != nil {
 		t.Fatalf("exact replay was not idempotent: %v", err)
 	}
+
 	altered := created
 	altered.Email = "attacker@example.com"
 	if err := repository.ApplyIdentityEvent(ctx, altered); !errors.Is(err, ErrConflict) {
@@ -85,6 +89,7 @@ func TestMemoryIdentityReceiptsRejectAlteredReplayAndPseudonymizeProfile(t *test
 	if _, err := repository.GetUser(ctx, oldSlug); !errors.Is(err, ErrNotFound) {
 		t.Fatalf("old profile slug still resolves: %v", err)
 	}
+
 	user, err := repository.GetUser(ctx, actor.UserID)
 	if err != nil || user.Slug != "deleted-"+actor.UserID || user.Name != "Deleted member" || user.Email != "" || user.AvatarURL != nil || user.Timezone != "UTC" || user.TimezoneConfigured || user.AccountState != "deleted" {
 		t.Fatalf("pseudonymized user=%#v err=%v", user, err)
@@ -106,6 +111,7 @@ func TestMemoryPracticeMutationsRequireCurrentIndependentRevision(t *testing.T) 
 	if _, err := repository.EnablePracticeGoals(ctx, "student", 1, "mentor", "season", time.Now()); !errors.Is(err, ErrConflict) {
 		t.Fatalf("stale settings mutation returned %v", err)
 	}
+
 	recommendation, err := repository.SaveRecommendation(ctx, practice.Recommendation{ID: "recommendation", UserID: "student", Problem: practice.Problem{ID: "problem"}, CreatedAt: time.Now()})
 	if err != nil {
 		t.Fatal(err)
@@ -136,6 +142,7 @@ func TestMemoryRecommendationSnapshotUsesNewestQualityAndEntireCatalogue(t *test
 	if err != nil || len(snapshot.Problems) != 2 || len(snapshot.QualityAttempts) != 2 || snapshot.QualityAttempts[0].ID != "00000" {
 		t.Fatalf("snapshot problems=%d quality=%#v err=%v", len(snapshot.Problems), snapshot.QualityAttempts, err)
 	}
+
 	qualityProblems := map[string]model.Problem{}
 	for _, problem := range snapshot.Problems {
 		qualityProblems[problem.ID] = problem
@@ -150,6 +157,7 @@ func TestMemoryRecommendationSnapshotUsesNewestQualityAndEntireCatalogue(t *test
 	if err != nil || len(candidates) != 1 || candidates[0].ID != "zzzzz-unseen" {
 		t.Fatalf("candidate beyond previous 10k cap candidates=%#v err=%v", candidates, err)
 	}
+
 	problems := make([]practice.Problem, 0, len(candidates))
 	for _, problem := range candidates {
 		problems = append(problems, practice.Problem{ID: problem.ID, Difficulty: practice.Difficulty(problem.Difficulty)})
@@ -182,6 +190,7 @@ func TestMemoryMentoringRecommendationAndMockStateSurvivesAPIRestart(t *testing.
 	if _, err := repository.CreateMentorship(ctx, model.Mentorship{ID: "mentorship", SeasonID: "season", MentorUserID: "mentor", StudentUserID: "student", Revision: 1}, "coordinator", time.Now()); err != nil {
 		t.Fatal(err)
 	}
+
 	assigned, err := repository.IsMentorAssigned(ctx, "season", "mentor", "student")
 	if err != nil || !assigned {
 		t.Fatalf("assigned=%v err=%v", assigned, err)
@@ -191,6 +200,7 @@ func TestMemoryMentoringRecommendationAndMockStateSurvivesAPIRestart(t *testing.
 	if _, err := repository.SaveRecommendation(ctx, recommendation); err != nil {
 		t.Fatal(err)
 	}
+
 	attempt := model.Attempt{ID: "attempt", UserID: "student", ProblemID: "problem", Revision: 1}
 	fulfilled, err := repository.FulfillRecommendation(ctx, "student", attempt, time.Now())
 	if err != nil || !fulfilled {
@@ -205,11 +215,13 @@ func TestMemoryMentoringRecommendationAndMockStateSurvivesAPIRestart(t *testing.
 	if _, err := repository.CreateMockInterview(ctx, interview, "mentor", time.Now()); err != nil {
 		t.Fatal(err)
 	}
+
 	interview.Notes = "updated"
 	interview.Revision = 2
 	if _, err := repository.UpdateMockInterview(ctx, interview, "mentor", "updated", time.Now()); err != nil {
 		t.Fatal(err)
 	}
+
 	loaded, err := repository.GetMockInterview(ctx, "mock")
 	if err != nil || loaded.Notes != "updated" || len(repository.MockVersions) != 2 {
 		t.Fatalf("loaded=%#v versions=%d err=%v", loaded, len(repository.MockVersions), err)

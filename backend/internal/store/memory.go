@@ -74,6 +74,7 @@ func memoryPage[T any](items []T, boundary string, limit int, direction string, 
 	end = min(len(items), start+limit)
 	return items[start:end], end < len(items), nil
 }
+
 func (m *Memory) ApplyIdentityEvent(_ context.Context, event IdentityEvent) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -252,6 +253,7 @@ func (m *Memory) ApplyIdentityEvent(_ context.Context, event IdentityEvent) erro
 	m.IdentityEventHashes[event.EventID] = payloadHash
 	return nil
 }
+
 func (m *Memory) ResolveAuthSubject(_ context.Context, sub string) (authz.Actor, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
@@ -264,6 +266,7 @@ func (m *Memory) ResolveAuthSubject(_ context.Context, sub string) (authz.Actor,
 	}
 	return v, nil
 }
+
 func (m *Memory) ResolveAuthSubjectForUser(_ context.Context, userID string) (string, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
@@ -274,6 +277,7 @@ func (m *Memory) ResolveAuthSubjectForUser(_ context.Context, userID string) (st
 	}
 	return "", ErrNotFound
 }
+
 func (m *Memory) GrantGlobalRole(_ context.Context, userID, role string, activate bool, reason, actorID string, at time.Time) (GlobalRoleAssignment, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -305,6 +309,7 @@ func (m *Memory) GrantGlobalRole(_ context.Context, userID, role string, activat
 	m.appendAuditLocked(actorID, "global_role.granted_"+state, "global_role_assignment", v.ID, map[string]any{"userId": userID, "role": role, "reason": reason}, at)
 	return v, nil
 }
+
 func (m *Memory) ListGlobalRoles(_ context.Context, userID string) ([]GlobalRoleAssignment, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
@@ -320,6 +325,7 @@ func (m *Memory) ListGlobalRoles(_ context.Context, userID string) ([]GlobalRole
 	sort.Slice(items, func(i, j int) bool { return items[i].Role < items[j].Role })
 	return items, nil
 }
+
 func (m *Memory) RevokeGlobalRole(_ context.Context, userID, role string, revision int64, reason, actorID string, at time.Time) (GlobalRoleAssignment, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -343,6 +349,7 @@ func (m *Memory) RevokeGlobalRole(_ context.Context, userID, role string, revisi
 	}
 	return GlobalRoleAssignment{}, ErrNotFound
 }
+
 func (m *Memory) GetUser(_ context.Context, id string) (model.User, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
@@ -360,6 +367,7 @@ func (m *Memory) GetUser(_ context.Context, id string) (model.User, error) {
 	}
 	return m.enrichUserLocked(v), nil
 }
+
 func (m *Memory) SuggestUserSlug(_ context.Context) (string, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
@@ -375,6 +383,7 @@ func (m *Memory) SuggestUserSlug(_ context.Context) (string, error) {
 	}
 	return "", ErrConflict
 }
+
 func (m *Memory) ListUsers(_ context.Context, boundary string, limit int, direction, query, seasonRole, globalRole string) ([]model.User, bool, int64, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
@@ -524,6 +533,7 @@ func (m *Memory) enrichUserLocked(v model.User) model.User {
 	}
 	return v
 }
+
 func (m *Memory) UpdateUser(_ context.Context, id string, revision int64, fn func(*model.User) error, actorID string, at time.Time) (model.User, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -537,6 +547,7 @@ func (m *Memory) UpdateUser(_ context.Context, id string, revision int64, fn fun
 	if err := fn(&v); err != nil {
 		return model.User{}, err
 	}
+
 	for otherID, other := range m.Users {
 		if otherID != id && strings.EqualFold(other.Slug, v.Slug) {
 			return model.User{}, ErrDuplicate
@@ -617,6 +628,7 @@ func (m *Memory) EnablePracticeGoals(_ context.Context, userID string, revision 
 	}
 	return settings, nil
 }
+
 func (m *Memory) GetSeason(_ context.Context, id string) (model.Season, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
@@ -626,6 +638,7 @@ func (m *Memory) GetSeason(_ context.Context, id string) (model.Season, error) {
 	}
 	return v, nil
 }
+
 func (m *Memory) ListSeasons(_ context.Context, boundary string, limit int, direction, status string) ([]model.Season, bool, int64, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
@@ -653,6 +666,7 @@ func (m *Memory) ListSeasons(_ context.Context, boundary string, limit int, dire
 	}
 	return items, more, total, nil
 }
+
 func (m *Memory) CreateSeason(_ context.Context, v model.Season, actorID string, at time.Time) (model.Season, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -668,6 +682,7 @@ func (m *Memory) CreateSeason(_ context.Context, v model.Season, actorID string,
 	m.appendAuditLocked(actorID, "season.created", "season", v.ID, nil, at)
 	return v, nil
 }
+
 func (m *Memory) UpdateSeason(_ context.Context, id string, revision int64, fn func(*model.Season) error, actorID string, at time.Time) (model.Season, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -681,6 +696,7 @@ func (m *Memory) UpdateSeason(_ context.Context, id string, revision int64, fn f
 	if err := fn(&v); err != nil {
 		return model.Season{}, err
 	}
+
 	for _, week := range m.Weeks {
 		if week.SeasonID == id && (week.StartAt.Before(v.StartAt) || week.EndAt.After(v.EndAt)) {
 			return model.Season{}, ErrConflict
@@ -1131,6 +1147,7 @@ func (m *Memory) IsMentorAssigned(_ context.Context, seasonID, mentorUserID, stu
 	}
 	return false, nil
 }
+
 func (m *Memory) ListProblems(_ context.Context, boundary string, limit int, difficulty, category string, premium *bool, direction string) ([]model.Problem, bool, int64, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
@@ -1170,6 +1187,7 @@ func (m *Memory) ListProblems(_ context.Context, boundary string, limit int, dif
 	}
 	return items, more, total, nil
 }
+
 func (m *Memory) GetAttempt(_ context.Context, id string) (model.Attempt, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
@@ -1179,6 +1197,7 @@ func (m *Memory) GetAttempt(_ context.Context, id string) (model.Attempt, error)
 	}
 	return v, nil
 }
+
 func (m *Memory) ListAttempts(_ context.Context, userID, boundary string, limit int, outcome, difficulty, direction string) ([]model.Attempt, bool, int64, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
@@ -1306,6 +1325,7 @@ func (m *Memory) RecommendationCandidates(_ context.Context, userID string, crit
 	}
 	return []model.Problem{}, map[string]practice.ProblemHistory{}, nil
 }
+
 func (m *Memory) CreateAttempt(_ context.Context, v model.Attempt) (model.Attempt, bool, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -1346,6 +1366,7 @@ func (m *Memory) CreateAttempt(_ context.Context, v model.Attempt) (model.Attemp
 	m.Audits = append(m.Audits, model.AuditEvent{ID: id.New(), ActorID: &actor, Action: "attempt.created", SubjectType: "problem_attempt", SubjectID: v.ID, Data: map[string]any{}, OccurredAt: time.Now().UTC()})
 	return v, fulfilled, nil
 }
+
 func (m *Memory) UpdateAttempt(_ context.Context, id, userID string, revision int64, fn func(*model.Attempt) error) (model.Attempt, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -1383,6 +1404,7 @@ func (m *Memory) UpdateAttempt(_ context.Context, id, userID string, revision in
 	m.appendAuditLocked(userID, "attempt.updated", "problem_attempt", id, nil, time.Now())
 	return v, nil
 }
+
 func (m *Memory) DeleteAttempt(_ context.Context, id, userID string, revision int64) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()

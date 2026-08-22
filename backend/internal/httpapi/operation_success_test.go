@@ -31,6 +31,7 @@ func TestEveryProtectedOpenAPIOperationHasExecutablePrimarySuccess(t *testing.T)
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	seasonMutation := fmt.Sprintf(`{"name":"Updated season","slug":"updated-season","startAt":%q,"endAt":%q,"location":"Adelaide","imageUrl":"https://rsp.test/image","resourcesUrl":"https://rsp.test/resources","revision":1}`, base.Add(-24*time.Hour).Format(time.RFC3339), base.Add(30*24*time.Hour).Format(time.RFC3339))
 	seasonCreate := strings.TrimSuffix(seasonMutation, `,"revision":1}`) + `}`
 	weekMutation := fmt.Sprintf(`{"number":1,"startAt":%q,"endAt":%q,"resourceUrl":"https://rsp.test/week"}`, base.Format(time.RFC3339), base.Add(24*time.Hour).Format(time.RFC3339))

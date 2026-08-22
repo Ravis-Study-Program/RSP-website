@@ -27,6 +27,7 @@ func TestStateTargetApplyVerifyAndRollback(t *testing.T) {
 	if err := engine.Apply(ctx, source, target, prepared.Manifest, nil); !errors.Is(err, ErrAlreadyApplied) {
 		t.Fatalf("second apply error = %v", err)
 	}
+
 	verification, err := engine.Verify(ctx, target, prepared.Manifest)
 	if err != nil {
 		t.Fatal(err)
@@ -40,6 +41,7 @@ func TestStateTargetApplyVerifyAndRollback(t *testing.T) {
 	if _, err := engine.Verify(ctx, target, prepared.Manifest); !errors.Is(err, ErrRunNotFound) {
 		t.Fatalf("verify after rollback error = %v", err)
 	}
+
 	state, err := loadTargetState(target.Path)
 	if err != nil {
 		t.Fatal(err)
@@ -57,6 +59,7 @@ func TestApplyRejectsSourceDriftBeforeTargetTransaction(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	source.Value.Tables["Problem"][0]["Title"] = "Changed after approval"
 	target := &countingTarget{}
 	if err := engine.Apply(ctx, source, target, prepared.Manifest, nil); !errors.Is(err, ErrSourceDrift) {
@@ -75,6 +78,7 @@ func TestApplyPinsChecksumApprovedSnapshotTime(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	target := &StateTarget{Path: filepath.Join(t.TempDir(), "target-state.json"), Now: fixedNow}
 	if err := engine.Apply(ctx, source, target, prepared.Manifest, nil); err != nil {
 		t.Fatalf("unchanged rows at a later transaction timestamp drifted: %v", err)
@@ -89,6 +93,7 @@ func TestApplyLocksBeforeWritingAndAbortsOnFailure(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	tx := &recordingTx{applyErr: errors.New("fixture write failed")}
 	target := &fixedTarget{tx: tx}
 	err = engine.Apply(ctx, source, target, prepared.Manifest, nil)
@@ -110,6 +115,7 @@ func TestExactPureJoinDuplicatesCollapseWithProvenance(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	table := findPreparedTable(prepared, "leetcode_problem_category_mappings")
 	if len(table.Rows) != 1 {
 		t.Fatalf("join target rows = %d, want 1", len(table.Rows))
@@ -143,6 +149,7 @@ func (source *advancingSnapshotSource) Snapshot(_ context.Context, _ SnapshotOpt
 	if err != nil {
 		return Snapshot{}, err
 	}
+
 	value.CapturedAt = value.CapturedAt.Add(time.Duration(source.calls) * source.step)
 	source.calls++
 	return value, nil

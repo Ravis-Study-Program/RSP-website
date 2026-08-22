@@ -8,6 +8,7 @@ import (
 type revoker struct{ called bool }
 
 func (r *revoker) RevokeAll(string) error { r.called = true; return nil }
+
 func TestDeletionGraceLifecycle(t *testing.T) {
 	now := time.Now().UTC()
 	a := Account{ID: "01901234-abcdef", Name: "Ada", Email: "a@example.com", Slug: "ada", State: Active, Revision: 1}
@@ -21,6 +22,7 @@ func TestDeletionGraceLifecycle(t *testing.T) {
 	if err := CancelDeletion(&a, "secret", now.Add(time.Hour)); err != nil || a.State != Active {
 		t.Fatal("cancel failed")
 	}
+
 	_ = RequestDeletion(&a, "next", now, r)
 	if Pseudonymize(&a, now.Add(29*24*time.Hour)) {
 		t.Fatal("deleted early")

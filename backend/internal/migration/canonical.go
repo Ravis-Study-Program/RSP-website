@@ -10,6 +10,7 @@ import (
 // CanonicalJSON uses encoding/json's deterministic lexical map-key ordering.
 // All importer structures use JSON-compatible primitives and stable-sorted
 // slices, producing the same bytes across repeated runs.
+
 func CanonicalJSON(value any) ([]byte, error) {
 	encoded, err := json.Marshal(value)
 	if err != nil {
@@ -23,6 +24,7 @@ func Checksum(value any) (string, error) {
 	if err != nil {
 		return "", err
 	}
+
 	sum := sha256.Sum256(encoded)
 	return hex.EncodeToString(sum[:]), nil
 }
@@ -33,6 +35,7 @@ func SealManifest(manifest *Manifest) error {
 	if err != nil {
 		return err
 	}
+
 	manifest.Checksum = checksum
 	return nil
 }
@@ -59,6 +62,7 @@ func SealResolutionFile(file *ResolutionFile) error {
 	if err != nil {
 		return err
 	}
+
 	file.Checksum = checksum
 	return nil
 }

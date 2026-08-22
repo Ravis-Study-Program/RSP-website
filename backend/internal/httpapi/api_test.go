@@ -69,6 +69,7 @@ func newFixture() fixture {
 		if err != nil {
 			return err
 		}
+
 		now := time.Now().UTC()
 		return repo.ApplyIdentityEvent(ctx, store.IdentityEvent{EventID: "test-state-" + subject + "-" + state + "-" + now.Format(time.RFC3339Nano), Type: "account_state_changed", AuthUserID: subject, AccountState: state, Reason: reason, ActorUserID: actorUserID, SecurityVersion: target.SecurityVersion + 1, OccurredAt: now})
 	}
@@ -97,6 +98,7 @@ func TestPracticePermissionMatrix(t *testing.T) {
 		}
 	}
 }
+
 func request(t *testing.T, f fixture, method, path, actor, body string) *httptest.ResponseRecorder {
 	t.Helper()
 	r := httptest.NewRequest(method, path, strings.NewReader(body))
@@ -110,6 +112,7 @@ func request(t *testing.T, f fixture, method, path, actor, body string) *httptes
 	f.handler.ServeHTTP(w, r)
 	return w
 }
+
 func problemCode(t *testing.T, w *httptest.ResponseRecorder) string {
 	t.Helper()
 	if got := w.Header().Get("Content-Type"); got != "application/problem+json" {
@@ -119,6 +122,7 @@ func problemCode(t *testing.T, w *httptest.ResponseRecorder) string {
 	if err := json.Unmarshal(w.Body.Bytes(), &p); err != nil {
 		t.Fatal(err)
 	}
+
 	for _, key := range []string{"type", "title", "status", "detail", "instance", "code", "requestId", "errors"} {
 		if _, ok := p[key]; !ok {
 			t.Fatalf("missing %s in %#v", key, p)
@@ -142,6 +146,7 @@ func TestRequestContextNormalizesRequestIDAndRecoversWithCompleteProblem(t *test
 	if got := problemCode(t, w); got != "internal_error" {
 		t.Fatalf("code=%s body=%s", got, w.Body.String())
 	}
+
 	var details map[string]any
 	if err := json.Unmarshal(w.Body.Bytes(), &details); err != nil {
 		t.Fatal(err)
@@ -150,6 +155,7 @@ func TestRequestContextNormalizesRequestIDAndRecoversWithCompleteProblem(t *test
 		t.Fatalf("incomplete problem: %#v", details)
 	}
 }
+
 func TestHealthAndAuthenticationProblemContract(t *testing.T) {
 	f := newFixture()
 	if w := request(t, f, "GET", "/api/v2/health/live", "", ""); w.Code != 200 {
@@ -167,6 +173,7 @@ func TestHealthAndAuthenticationProblemContract(t *testing.T) {
 		t.Fatal(w.Code)
 	}
 }
+
 func TestPrivateFieldsAndActorIDSpoofing(t *testing.T) {
 	f := newFixture()
 	w := request(t, f, "GET", "/api/v2/users/other", "student", "")
@@ -275,6 +282,7 @@ func TestPracticeSettingsRequireRelationshipEnablement(t *testing.T) {
 		t.Fatalf("approved goals update: %d %s", w.Code, w.Body.String())
 	}
 }
+
 func TestIDORRevisionConflictAndOrigin(t *testing.T) {
 	f := newFixture()
 	w := request(t, f, "DELETE", "/api/v2/problem-attempts/foreign?revision=1", "student", "")
@@ -294,6 +302,7 @@ func TestIDORRevisionConflictAndOrigin(t *testing.T) {
 		t.Fatalf("origin: %d", w.Code)
 	}
 }
+
 func TestPaginationCursorIsFilterBound(t *testing.T) {
 	f := newFixture()
 	for i := 0; i < 30; i++ {
@@ -316,6 +325,7 @@ func TestPaginationCursorIsFilterBound(t *testing.T) {
 		t.Fatalf("cursor rebound: %d", w.Code)
 	}
 }
+
 func TestCreateStatusRateLimitAndRetryAfter(t *testing.T) {
 	f := newFixture()
 	body := `{"problemId":"problem","outcome":"independently_solved","confidence":5,"minutes":12,"attemptedAt":"2026-08-13T00:00:00Z"}`
@@ -348,6 +358,7 @@ func TestRecommendationProblemSatisfiesLeetcodeProblemResponseContract(t *testin
 		if err := json.Unmarshal(w.Body.Bytes(), &response); err != nil {
 			t.Fatal(err)
 		}
+
 		for _, field := range []string{"id", "number", "title", "link", "difficulty", "categories", "premium", "revision"} {
 			if _, ok := response.Problem[field]; !ok {
 				t.Fatalf("%s recommendation problem missing %s: %s", phase, field, w.Body.String())

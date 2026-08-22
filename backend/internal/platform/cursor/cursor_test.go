@@ -8,6 +8,7 @@ func TestCursorIsBoundAndTamperProof(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	got, err := Decode(secret, v, "sort=createdAt&role=student")
 	if err != nil || got != "row-42" {
 		t.Fatalf("got %q, %v", got, err)

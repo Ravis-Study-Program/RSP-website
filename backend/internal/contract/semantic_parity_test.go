@@ -131,6 +131,7 @@ func TestLegacyWorkflowSemanticParityEvidence(t *testing.T) {
 					t.Errorf("v2 route %q: %v", route, err)
 					continue
 				}
+
 				key := method + " " + normalizeTemplatePath(path)
 				if !contractOperations[key] {
 					t.Errorf("v2 route %q normalizes to %q, which is absent from api/openapi.yaml", route, key)
@@ -226,6 +227,7 @@ func loadSemanticParityFixture(t *testing.T, repositoryRoot string) semanticPari
 	if err != nil {
 		t.Fatalf("read semantic parity fixture: %v", err)
 	}
+
 	decoder := json.NewDecoder(bytes.NewReader(contents))
 	decoder.DisallowUnknownFields()
 	var fixture semanticParityFixture
@@ -303,15 +305,18 @@ func validateEvidenceAnchor(repositoryRoot string, evidence semanticParityEviden
 	if err != nil {
 		return fmt.Errorf("resolve repository root: %w", err)
 	}
+
 	candidate := filepath.Join(repositoryRoot, evidence.Path)
 	realCandidate, err := filepath.EvalSymlinks(candidate)
 	if err != nil {
 		return fmt.Errorf("resolve evidence path %q: %w", evidence.Path, err)
 	}
+
 	relative, err := filepath.Rel(realRoot, realCandidate)
 	if err != nil || relative == ".." || strings.HasPrefix(relative, ".."+string(filepath.Separator)) {
 		return fmt.Errorf("evidence path %q escapes the repository", evidence.Path)
 	}
+
 	contents, err := os.ReadFile(realCandidate)
 	if err != nil {
 		return fmt.Errorf("read evidence path %q: %w", evidence.Path, err)

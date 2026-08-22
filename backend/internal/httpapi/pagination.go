@@ -41,6 +41,7 @@ func paginateOrdered[T any](a *API, r *http.Request, binding string, items []T, 
 	if err != nil {
 		return nil, model.PageInfo{}, err
 	}
+
 	boundaryIndex := -1
 	if boundary != "" {
 		for i := range items {
@@ -53,6 +54,7 @@ func paginateOrdered[T any](a *API, r *http.Request, binding string, items []T, 
 			return nil, model.PageInfo{}, cursor.ErrInvalid
 		}
 	}
+
 	start, end := 0, len(items)
 	if direction == "forward" {
 		if boundaryIndex >= 0 {
@@ -65,6 +67,7 @@ func paginateOrdered[T any](a *API, r *http.Request, binding string, items []T, 
 		}
 		start = max(0, end-limit)
 	}
+
 	page := items[start:end]
 	info := model.PageInfo{HasMore: (direction == "forward" && end < len(items)) || (direction == "backward" && start > 0)}
 	if len(page) > 0 && end < len(items) {
@@ -89,6 +92,7 @@ func pageInfoForKeyset[T any](a *API, binding, direction, boundary string, items
 	if len(items) == 0 {
 		return info
 	}
+
 	first, last := identity(items[0]), identity(items[len(items)-1])
 	if direction == "backward" {
 		if more {
@@ -101,6 +105,7 @@ func pageInfoForKeyset[T any](a *API, binding, direction, boundary string, items
 		}
 		return info
 	}
+
 	if boundary != "" {
 		encoded, _ := cursor.Encode(a.cursorSecret, first, binding)
 		info.PreviousCursor = &encoded

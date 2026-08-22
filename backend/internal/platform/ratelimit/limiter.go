@@ -18,10 +18,12 @@ type Result struct {
 	Limit, Remaining int
 	RetryAfter       time.Duration
 }
+
 type bucket struct {
 	started time.Time
 	used    int
 }
+
 type Limiter struct {
 	mu      sync.Mutex
 	window  time.Duration
@@ -33,6 +35,7 @@ type Limiter struct {
 func New() *Limiter {
 	return &Limiter{window: time.Minute, limits: map[Class]int{Read: 120, Write: 20, Sensitive: 5}, buckets: map[string]bucket{}, now: time.Now}
 }
+
 func (l *Limiter) Allow(account string, class Class) Result {
 	l.mu.Lock()
 	defer l.mu.Unlock()

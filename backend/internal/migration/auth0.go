@@ -71,6 +71,7 @@ type PasswordCompatibility func(hash string) bool
 
 // PlanAuth0Import never links identities by email automatically. Even one
 // verified email candidate requires an explicit checksum-reviewed resolution.
+
 func PlanAuth0Import(users []Auth0User, candidates []AppIdentityCandidate, resolutions []IdentityResolution, now time.Time, compatible PasswordCompatibility) (Auth0ImportPlan, error) {
 	if compatible == nil {
 		compatible = func(string) bool { return false }
@@ -194,6 +195,7 @@ func PlanAuth0Import(users []Auth0User, candidates []AppIdentityCandidate, resol
 	if err != nil {
 		return Auth0ImportPlan{}, err
 	}
+
 	plan.Checksum = checksum
 	return plan, nil
 }

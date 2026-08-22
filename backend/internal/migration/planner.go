@@ -82,6 +82,7 @@ var targetOrder = []string{
 
 // uuidReferenceTables maps transformed foreign-key fields to their target
 // table. Polymorphic audit and provenance fields stay text by design.
+
 var uuidReferenceTables = map[string]map[string]string{
 	"user_auth_links":                    {},
 	"global_role_assignments":            {"user_id": "users", "granted_by_user_id": "users"},
@@ -128,6 +129,7 @@ func (p *Planner) Plan(snapshot Snapshot, resolutionFile *ResolutionFile) (Prepa
 	if err != nil {
 		return PreparedImport{}, err
 	}
+
 	working, err := cloneSnapshot(snapshot)
 	if err != nil {
 		return PreparedImport{}, err
@@ -137,6 +139,7 @@ func (p *Planner) Plan(snapshot Snapshot, resolutionFile *ResolutionFile) (Prepa
 	if err != nil {
 		return PreparedImport{}, err
 	}
+
 	snapshotChecksum, err := snapshotContentChecksum(original)
 	if err != nil {
 		return PreparedImport{}, err
@@ -163,6 +166,7 @@ func (p *Planner) Plan(snapshot Snapshot, resolutionFile *ResolutionFile) (Prepa
 	if err != nil {
 		return PreparedImport{}, err
 	}
+
 	anomalies := analyzeSnapshot(working)
 	for index := range anomalies {
 		if resolved[anomalyKey(anomalies[index])] {
@@ -189,6 +193,7 @@ func (p *Planner) Plan(snapshot Snapshot, resolutionFile *ResolutionFile) (Prepa
 	if err != nil {
 		return PreparedImport{}, err
 	}
+
 	manifest := Manifest{
 		Version:                 ManifestVersion,
 		RunID:                   targetUUID("migration.runs", "legacy-"+createdAt.Format("20060102T150405.000000000Z")+"-"+runSeed[:12], createdAt),
@@ -220,6 +225,7 @@ func (p *Planner) Plan(snapshot Snapshot, resolutionFile *ResolutionFile) (Prepa
 	if err := SealManifest(&manifest); err != nil {
 		return PreparedImport{}, err
 	}
+
 	prepared := PreparedImport{Manifest: manifest, Tables: tables, Provenance: provenance}
 	if manifest.HasBlockingAnomalies() {
 		count := 0
@@ -648,10 +654,12 @@ func transformSnapshot(snapshot Snapshot, now time.Time, autoFixes *[]AutoFix) (
 		if err != nil {
 			return err
 		}
+
 		transformedChecksum, err := Checksum(values)
 		if err != nil {
 			return err
 		}
+
 		sourceIDValue := sourceID(sourceTable, source)
 		targetID := targetUUID(target, id, now)
 		if target == "leetcode_problem_category_mappings" {
@@ -882,6 +890,7 @@ func transformSnapshot(snapshot Snapshot, now time.Time, autoFixes *[]AutoFix) (
 		if err := add("mock_interviews", "MockInterview", source, id, values, ""); err != nil {
 			return nil, nil, err
 		}
+
 		versionValues := Row{"id": "legacy-version:" + id, "mock_interview_id": id, "version": 1, "actor_user_id": nil, "reason": "Initial legacy import", "snapshot": values, "created_at": now.Format(time.RFC3339Nano)}
 		if err := add("mock_interview_versions", "MockInterview", source, "legacy-version:"+id, versionValues, ""); err != nil {
 			return nil, nil, err
@@ -947,6 +956,7 @@ func transformSnapshot(snapshot Snapshot, now time.Time, autoFixes *[]AutoFix) (
 			if err != nil {
 				return nil, nil, err
 			}
+
 			for provenanceIndex := range provenance {
 				if provenance[provenanceIndex].TargetTable == target && provenance[provenanceIndex].TargetID == rows[index].ID {
 					provenance[provenanceIndex].TransformedChecksum = checksum
@@ -1004,16 +1014,19 @@ func buildTableManifests(snapshot Snapshot, tables []PreparedTable, provenance [
 		if err != nil {
 			return nil, err
 		}
+
 		sourceChecksum, err := Checksum(rows)
 		if err != nil {
 			return nil, err
 		}
+
 		transformed := preparedBySource[sourceTable]
 		sort.Slice(transformed, func(left, right int) bool { return transformed[left].ID < transformed[right].ID })
 		transformedChecksum, err := Checksum(transformed)
 		if err != nil {
 			return nil, err
 		}
+
 		result = append(result, TableManifest{SourceTable: sourceTable, TargetTables: targets, SourceCount: len(rows), TransformedCount: len(transformed), SourceIDs: ids, SourceIDsChecksum: idsChecksum, SourceChecksum: sourceChecksum, TransformedChecksum: transformedChecksum})
 	}
 	return result, nil
@@ -1236,6 +1249,7 @@ func roundPositions(rows []Row) map[string]int {
 // sanitizeLegacyHTML is deliberately conservative. It strips active-content
 // elements, inline event handlers, javascript URLs, and embeds while retaining
 // the legacy formatting markup for the application sanitizer's allowlist.
+
 func sanitizeLegacyHTML(input string) (string, bool) {
 	result := platformsanitize.New().String(input)
 	return result, result != input

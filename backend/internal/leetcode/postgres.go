@@ -18,6 +18,7 @@ type beginner interface {
 // problem record and exact category membership. The worker's advisory lock
 // serialises full catalogue runs; the database constraints protect individual
 // rows if an operator retries a run.
+
 type PostgresSink struct{ DB beginner }
 
 func (s PostgresSink) Upsert(ctx context.Context, problem Problem) error {
@@ -28,6 +29,7 @@ func (s PostgresSink) Upsert(ctx context.Context, problem Problem) error {
 	if err != nil {
 		return err
 	}
+
 	defer tx.Rollback(ctx)
 
 	var problemID, leetcodeID string
@@ -56,10 +58,10 @@ FOR UPDATE OF p, l`, problem.Number).Scan(&problemID, &leetcodeID)
 			return err
 		}
 	}
-
 	if _, err = tx.Exec(ctx, `DELETE FROM app.leetcode_problem_category_mappings WHERE leetcode_problem_id=$1`, leetcodeID); err != nil {
 		return err
 	}
+
 	seen := map[string]bool{}
 	for _, displayName := range problem.Categories {
 		displayName = strings.TrimSpace(displayName)
@@ -67,6 +69,7 @@ FOR UPDATE OF p, l`, problem.Number).Scan(&problemID, &leetcodeID)
 		if normalized == "" || seen[normalized] {
 			continue
 		}
+
 		seen[normalized] = true
 		categoryID := id.New()
 		if _, err = tx.Exec(ctx, `INSERT INTO app.leetcode_problem_categories(id,name,normalized_name,revision) VALUES($1,$2,$3,1) ON CONFLICT DO NOTHING`, categoryID, displayName, normalized); err != nil {

@@ -12,6 +12,7 @@ func TestAuth0PlanNeverSilentlyMergesByEmail(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	item := plan.Items[0]
 	if item.Status != Auth0StatusRequiresResolution || item.ResolvedAppUserID != "" {
 		t.Fatalf("email was silently merged: %+v", item)
@@ -72,6 +73,7 @@ func TestAuth0PlanRejectsDuplicateProviderAndStaleResolution(t *testing.T) {
 	if _, err := PlanAuth0Import([]Auth0User{{UserID: "auth0|missing-provider"}}, nil, nil, fixedNow(), nil); err == nil {
 		t.Fatal("Auth0 user without a provider identity was accepted")
 	}
+
 	users := []Auth0User{
 		{UserID: "auth0|one", Identities: []Auth0Identity{{Provider: "google-oauth2", ProviderAccountID: "shared"}}},
 		{UserID: "auth0|two", Identities: []Auth0Identity{{Provider: "google-oauth2", ProviderAccountID: "shared"}}},
@@ -79,6 +81,7 @@ func TestAuth0PlanRejectsDuplicateProviderAndStaleResolution(t *testing.T) {
 	if _, err := PlanAuth0Import(users, nil, nil, fixedNow(), nil); err == nil {
 		t.Fatal("duplicate provider account was accepted")
 	}
+
 	users = users[:1]
 	candidates := []AppIdentityCandidate{{AppUserID: "app-1"}}
 	resolutions := []IdentityResolution{{Auth0UserID: "auth0|missing", AppUserID: "app-1"}}

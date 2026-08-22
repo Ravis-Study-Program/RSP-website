@@ -40,6 +40,7 @@ func newTargetState() TargetState {
 
 // StateTarget is a durable fixture target used by rehearsal and unit tests. A
 // PostgreSQL adapter implements the same transaction contract for deployment.
+
 type StateTarget struct {
 	Path string
 	Now  func() time.Time
@@ -91,6 +92,7 @@ func (tx *stateTx) AcquireAdvisoryLock(_ context.Context, key int64) error {
 		_ = file.Close()
 		return err
 	}
+
 	tx.state, tx.lockFile, tx.locked = state, file, true
 	return nil
 }
@@ -148,6 +150,7 @@ func (tx *stateTx) Verification(_ context.Context, manifest Manifest) (Verificat
 		if err != nil {
 			return Verification{}, err
 		}
+
 		verification.Counts[expected.SourceTable] = len(rows)
 		verification.Checksums[expected.SourceTable] = checksum
 		if len(rows) != expected.TransformedCount || checksum != expected.TransformedChecksum {
@@ -196,6 +199,7 @@ func (tx *stateTx) Commit(_ context.Context) error {
 	if err := saveTargetState(tx.path, tx.state); err != nil {
 		return err
 	}
+
 	tx.completed = true
 	return tx.release()
 }
@@ -229,6 +233,7 @@ func loadTargetState(path string) (TargetState, error) {
 	if err != nil {
 		return TargetState{}, err
 	}
+
 	defer file.Close()
 	decoder := json.NewDecoder(file)
 	decoder.UseNumber()
@@ -243,15 +248,18 @@ func saveTargetState(path string, state TargetState) error {
 	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
 		return err
 	}
+
 	encoded, err := json.MarshalIndent(state, "", "  ")
 	if err != nil {
 		return err
 	}
+
 	encoded = append(encoded, '\n')
 	temporary, err := os.CreateTemp(filepath.Dir(path), ".rsp-migrate-state-*")
 	if err != nil {
 		return err
 	}
+
 	temporaryPath := temporary.Name()
 	defer os.Remove(temporaryPath)
 	if err := temporary.Chmod(0o600); err != nil {

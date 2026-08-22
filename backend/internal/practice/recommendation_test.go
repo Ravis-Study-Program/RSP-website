@@ -7,6 +7,7 @@ import (
 )
 
 func confidence(v int) *int { return &v }
+
 func TestRecommendationRaisesAndTargetsWeakCategory(t *testing.T) {
 	now := time.Now().UTC()
 	attempts := []Attempt{}
@@ -22,6 +23,7 @@ func TestRecommendationRaisesAndTargetsWeakCategory(t *testing.T) {
 		t.Fatalf("unexpected: %#v", got)
 	}
 }
+
 func TestRecommendationLowersAndHonoursDismissal(t *testing.T) {
 	now := time.Now().UTC()
 	attempts := []Attempt{{ProblemID: "a", Difficulty: Hard, Categories: []string{"graphs"}, Outcome: NotSolved, Minutes: 60, AttemptedAt: now}, {ProblemID: "b", Difficulty: Hard, Categories: []string{"graphs"}, Outcome: NotSolved, Minutes: 60, AttemptedAt: now.Add(-time.Hour)}}
@@ -34,6 +36,7 @@ func TestRecommendationLowersAndHonoursDismissal(t *testing.T) {
 		t.Fatalf("unexpected: %#v", got)
 	}
 }
+
 func TestRecommendationKeepsActiveAndRetestAfterNinetyDays(t *testing.T) {
 	now := time.Now().UTC()
 	active := Recommendation{ID: "active", Problem: Problem{ID: "x"}}
@@ -41,6 +44,7 @@ func TestRecommendationKeepsActiveAndRetestAfterNinetyDays(t *testing.T) {
 	if err != nil || got.ID != "active" {
 		t.Fatal("active not retained")
 	}
+
 	p := Problem{ID: "old", Difficulty: Medium}
 	got, err = Select(Request{UserID: "u", Level: NonStudent, Problems: []Problem{p}, Attempts: []Attempt{{ProblemID: "old", Difficulty: Medium, Outcome: NotSolved, AttemptedAt: now.Add(-91 * 24 * time.Hour)}}, Now: now})
 	if err != nil || got.Problem.ID != "old" {
@@ -56,11 +60,13 @@ func TestMigratedOutcomesAffectExposureButNotQualityAndOnlyWeakProblemsRetest(t 
 	if got, err := Select(Request{UserID: "u", Level: NonStudent, Problems: problems, Attempts: []Attempt{weak, strong}, Now: now}); err != ErrNoCandidate {
 		t.Fatalf("migrated outcome made a problem eligible for weak retest: result=%#v err=%v", got, err)
 	}
+
 	weak.Migrated = false
 	got, err := Select(Request{UserID: "u", Level: NonStudent, Problems: problems, Attempts: []Attempt{weak, strong}, Now: now})
 	if err != nil || got.Problem.ID != "weak" {
 		t.Fatalf("non-migrated weak retest result=%#v err=%v", got, err)
 	}
+
 	weak.Migrated = true
 	known := knownNewest([]Attempt{weak}, 20)
 	if len(known) != 0 {
@@ -82,6 +88,7 @@ func TestRecommendationUsesEnabledPersonalGoals(t *testing.T) {
 	if err != nil || withDefaults.Difficulty != Easy {
 		t.Fatalf("default goal result=%#v err=%v", withDefaults, err)
 	}
+
 	withPersonal, err := Select(Request{UserID: "u", Level: Intermediate, Problems: problems, Attempts: attempts, Goals: Goals{Easy: 25, Medium: 50, Hard: 70}, Now: now})
 	if err != nil || withPersonal.Difficulty != Medium {
 		t.Fatalf("personal goal result=%#v err=%v", withPersonal, err)

@@ -28,6 +28,7 @@ var (
 
 // Row contains JSON-compatible source or transformed values. Fixture readers
 // retain numbers as json.Number so hashes do not lose integer precision.
+
 type Row map[string]any
 
 type Column struct {
@@ -59,6 +60,7 @@ const IsolationRepeatableRead = "repeatable_read"
 // Source must produce all legacy rows from one READ ONLY, REPEATABLE READ
 // snapshot. Implementations should not return until the snapshot transaction
 // has committed or rolled back.
+
 type Source interface {
 	Snapshot(context.Context, SnapshotOptions) (Snapshot, error)
 }
@@ -193,6 +195,7 @@ type Verification struct {
 
 // TargetTx represents one target transaction. Apply and rollback acquire the
 // dedicated advisory lock before reading or writing import-owned state.
+
 type TargetTx interface {
 	AcquireAdvisoryLock(context.Context, int64) error
 	HasRun(context.Context, string) (bool, error)

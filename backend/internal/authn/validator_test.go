@@ -38,6 +38,7 @@ func TestValidatesIssuerAudienceSignatureKidExpiryAndVerification(t *testing.T) 
 	if err != nil || claims.Subject != "auth-user" {
 		t.Fatalf("valid token: %v", err)
 	}
+
 	for name, raw := range map[string]string{"unverified": makeToken(false, "rsp-api", now.Add(time.Minute)), "audience": makeToken(true, "other", now.Add(time.Minute)), "expired": makeToken(true, "rsp-api", now.Add(-time.Minute))} {
 		if _, err := v.Validate(context.Background(), raw); err == nil {
 			t.Fatalf("%s accepted", name)
@@ -86,6 +87,7 @@ func TestRefreshesKnownKeyAfterTTLAndRejectsRetiredKey(t *testing.T) {
 	if _, err := validator.Validate(context.Background(), raw); err != nil {
 		t.Fatalf("initial token rejected: %v", err)
 	}
+
 	rotated.Store(true)
 	time.Sleep(2 * time.Millisecond)
 	if _, err := validator.Validate(context.Background(), raw); !errors.Is(err, ErrInvalidToken) {

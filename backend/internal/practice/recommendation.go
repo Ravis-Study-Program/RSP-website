@@ -48,6 +48,7 @@ type Problem struct {
 	Premium    bool       `json:"premium"`
 	Revision   int64      `json:"revision"`
 }
+
 type Attempt struct {
 	ProblemID   string
 	Difficulty  Difficulty
@@ -58,18 +59,22 @@ type Attempt struct {
 	AttemptedAt time.Time
 	Migrated    bool
 }
+
 type Dismissal struct {
 	ProblemID   string    `json:"problemId"`
 	DismissedAt time.Time `json:"dismissedAt"`
 }
+
 type ProblemHistory struct {
 	LastAttemptedAt time.Time
 	Weak            bool
 }
+
 type Criteria struct {
 	Difficulty Difficulty
 	Category   string
 }
+
 type Recommendation struct {
 	ID          string     `json:"id"`
 	UserID      string     `json:"userId"`
@@ -83,6 +88,7 @@ type Recommendation struct {
 	DismissedAt *time.Time `json:"dismissedAt,omitempty"`
 	FulfilledAt *time.Time `json:"fulfilledAt,omitempty"`
 }
+
 type Request struct {
 	UserID           string
 	Level            Level
@@ -232,6 +238,7 @@ func baseDifficulty(l Level) Difficulty {
 		return Medium
 	}
 }
+
 func raise(d Difficulty) Difficulty {
 	if d == Easy {
 		return Medium
@@ -241,6 +248,7 @@ func raise(d Difficulty) Difficulty {
 	}
 	return Hard
 }
+
 func lower(d Difficulty) Difficulty {
 	if d == Hard {
 		return Medium
@@ -250,6 +258,7 @@ func lower(d Difficulty) Difficulty {
 	}
 	return Easy
 }
+
 func knownNewest(all []Attempt, limit int) []Attempt {
 	out := make([]Attempt, 0, len(all))
 	for _, a := range all {
@@ -403,6 +412,7 @@ func weakestCategoryFromExposure(known []Attempt, exposure map[string]int, goals
 func attemptKey(a Attempt) string {
 	return a.ProblemID + "\x00" + a.AttemptedAt.UTC().Format(time.RFC3339Nano)
 }
+
 func filter(all []Problem, d Difficulty, c string, premium bool, dismissed map[string]bool) []Problem {
 	out := []Problem{}
 	for _, p := range all {
@@ -416,6 +426,7 @@ func filter(all []Problem, d Difficulty, c string, premium bool, dismissed map[s
 	}
 	return out
 }
+
 func contains(xs []string, want string) bool {
 	for _, x := range xs {
 		if x == want {

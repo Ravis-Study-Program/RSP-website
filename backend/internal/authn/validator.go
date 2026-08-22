@@ -36,6 +36,7 @@ type Claims struct {
 // ClaimDateTime accepts both Better Auth's RFC3339 access-policy value and a
 // standard JWT NumericDate. This keeps key/session rotation compatible without
 // requiring the browser-facing auth contract to expose numeric timestamps.
+
 type ClaimDateTime struct{ time.Time }
 
 func (v *ClaimDateTime) UnmarshalJSON(raw []byte) error {
@@ -45,13 +46,16 @@ func (v *ClaimDateTime) UnmarshalJSON(raw []byte) error {
 		if err != nil {
 			return fmt.Errorf("invalid RFC3339 claim time: %w", err)
 		}
+
 		v.Time = parsed.UTC()
 		return nil
 	}
+
 	var numeric jwt.NumericDate
 	if err := json.Unmarshal(raw, &numeric); err != nil {
 		return fmt.Errorf("invalid claim time: %w", err)
 	}
+
 	v.Time = numeric.Time.UTC()
 	return nil
 }
@@ -61,9 +65,11 @@ func (v ClaimDateTime) MarshalJSON() ([]byte, error) {
 }
 
 type jwk struct{ Kty, Kid, Alg, Use, N, E, Crv, X, Y string }
+
 type jwks struct {
 	Keys []jwk `json:"keys"`
 }
+
 type Validator struct {
 	Issuer, Audience, JWKSURL string
 	Client                    *http.Client
@@ -83,6 +89,7 @@ func (v *Validator) Validate(ctx context.Context, raw string) (Claims, error) {
 	if err := v.refresh(ctx, false); err != nil {
 		return Claims{}, fmt.Errorf("%w: key refresh failed", ErrInvalidToken)
 	}
+
 	claims := Claims{}
 	parser := jwt.NewParser(jwt.WithIssuer(v.Issuer), jwt.WithAudience(v.Audience), jwt.WithExpirationRequired(), jwt.WithIssuedAt(), jwt.WithLeeway(30*time.Second), jwt.WithValidMethods([]string{"RS256", "RS384", "RS512", "EdDSA", "ES256"}))
 	token, err := parser.ParseWithClaims(raw, &claims, func(t *jwt.Token) (any, error) {
@@ -95,6 +102,7 @@ func (v *Validator) Validate(ctx context.Context, raw string) (Claims, error) {
 			if err := v.refresh(ctx, true); err != nil {
 				return nil, err
 			}
+
 			key, ok = v.key(kid)
 		}
 		if !ok {
@@ -113,12 +121,14 @@ func (v *Validator) Validate(ctx context.Context, raw string) (Claims, error) {
 	}
 	return claims, nil
 }
+
 func (v *Validator) key(kid string) (any, bool) {
 	v.mu.RLock()
 	defer v.mu.RUnlock()
 	key, ok := v.keys[kid]
 	return key, ok
 }
+
 func (v *Validator) refresh(ctx context.Context, force bool) error {
 	v.mu.Lock()
 	defer v.mu.Unlock()
@@ -129,10 +139,12 @@ func (v *Validator) refresh(ctx context.Context, force bool) error {
 	if err != nil {
 		return err
 	}
+
 	res, err := v.Client.Do(req)
 	if err != nil {
 		return err
 	}
+
 	defer res.Body.Close()
 	if res.StatusCode != http.StatusOK {
 		return fmt.Errorf("jwks response %d", res.StatusCode)
@@ -141,6 +153,7 @@ func (v *Validator) refresh(ctx context.Context, force bool) error {
 	if err := json.NewDecoder(http.MaxBytesReader(nil, res.Body, 1<<20)).Decode(&set); err != nil {
 		return err
 	}
+
 	keys := map[string]any{}
 	for _, item := range set.Keys {
 		key, err := parseJWK(item)
@@ -159,6 +172,7 @@ func (v *Validator) refresh(ctx context.Context, force bool) error {
 	v.loadedAt = time.Now()
 	return nil
 }
+
 func parseJWK(j jwk) (any, error) {
 	switch j.Kty {
 	case "RSA":
@@ -212,6 +226,7 @@ func parseJWK(j jwk) (any, error) {
 		return nil, errors.New("unsupported key type")
 	}
 }
+
 func decodeBig(v string) (*big.Int, error) {
 	raw, err := base64.RawURLEncoding.DecodeString(v)
 	if err != nil || len(raw) == 0 {

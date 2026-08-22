@@ -21,11 +21,13 @@ type Enrollment struct {
 	ID, State          string
 	CompletedByCloseID *string
 }
+
 type Season struct {
 	ID, Status  string
 	Revision    int64
 	Enrollments []Enrollment
 }
+
 type CloseEvent struct {
 	ID, ActorID, Reason string
 	ClosedAt            time.Time
@@ -46,6 +48,7 @@ func Close(s *Season, actorID, reason string, now time.Time) (CloseEvent, error)
 	s.Revision++
 	return e, nil
 }
+
 func Reopen(s *Season, e CloseEvent, role GlobalRole) error {
 	if role != Director && role != SystemAdmin {
 		return ErrForbidden

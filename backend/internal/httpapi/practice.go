@@ -33,6 +33,7 @@ func (a *API) canViewMemberPrivate(r *http.Request, targetID string) (bool, erro
 	if actor.UserID == targetID || actor.IsPrivileged() {
 		return true, nil
 	}
+
 	var targetEnrollments []model.Enrollment
 	targetLoaded := false
 	for _, enrollment := range actor.Enrollments {
@@ -46,6 +47,7 @@ func (a *API) canViewMemberPrivate(r *http.Request, targetID string) (bool, erro
 				if err != nil {
 					return false, err
 				}
+
 				targetLoaded = true
 			}
 			for _, target := range targetEnrollments {
@@ -64,6 +66,7 @@ func (a *API) canViewMemberPrivate(r *http.Request, targetID string) (bool, erro
 			}
 		}
 	}
+
 	return false, nil
 }
 
@@ -71,6 +74,7 @@ func (a *API) problems(w http.ResponseWriter, r *http.Request) {
 	if !a.requirePracticeAccess(w, r) {
 		return
 	}
+
 	difficulty, category := r.URL.Query().Get("difficulty"), r.URL.Query().Get("category")
 	var premium *bool
 	if raw := r.URL.Query().Get("premium"); raw != "" {
@@ -85,6 +89,7 @@ func (a *API) problems(w http.ResponseWriter, r *http.Request) {
 		validation(a, w, r, "sort must be id:asc")
 		return
 	}
+
 	direction := r.URL.Query().Get("direction")
 	if direction == "" {
 		direction = "forward"
@@ -93,24 +98,29 @@ func (a *API) problems(w http.ResponseWriter, r *http.Request) {
 		validation(a, w, r, "direction must be forward or backward")
 		return
 	}
+
 	binding := "problems|id:asc|difficulty=" + difficulty + "|category=" + category + "|premium=" + r.URL.Query().Get("premium")
 	limit, after, err := a.page(r, binding)
 	if err != nil {
 		a.fail(w, r, 400, "invalid_cursor", "Invalid cursor", cursor.ErrInvalid.Error(), nil)
 		return
 	}
+
 	items, more, total, err := a.store.ListProblems(r.Context(), after, limit, difficulty, category, premium, direction)
 	if err != nil {
 		storeFailure(a, w, r, err)
 		return
 	}
+
 	pageInfo := pageInfoForKeyset(a, binding, direction, after, items, more, func(v model.Problem) string { return v.ID })
 	writeJSON(w, 200, model.Page[model.Problem]{Items: items, PageInfo: pageInfo, TotalCount: total})
 }
+
 func (a *API) attempts(w http.ResponseWriter, r *http.Request) {
 	if !a.requirePracticeAccess(w, r) {
 		return
 	}
+
 	actor := actorFrom(r.Context())
 	targetID := r.URL.Query().Get("userId")
 	if targetID == "" {
@@ -127,11 +137,13 @@ func (a *API) attempts(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
+
 	outcome, difficulty := r.URL.Query().Get("outcome"), r.URL.Query().Get("difficulty")
 	if _, err := requestedSort(r, "id:asc", "id:asc"); err != nil {
 		validation(a, w, r, "sort must be id:asc")
 		return
 	}
+
 	direction := r.URL.Query().Get("direction")
 	if direction == "" {
 		direction = "forward"
@@ -140,17 +152,20 @@ func (a *API) attempts(w http.ResponseWriter, r *http.Request) {
 		validation(a, w, r, "direction must be forward or backward")
 		return
 	}
+
 	binding := "attempts|id:asc|user=" + targetID + "|outcome=" + outcome + "|difficulty=" + difficulty
 	limit, after, err := a.page(r, binding)
 	if err != nil {
 		a.fail(w, r, 400, "invalid_cursor", "Invalid cursor", cursor.ErrInvalid.Error(), nil)
 		return
 	}
+
 	items, more, total, err := a.store.ListAttempts(r.Context(), targetID, after, limit, outcome, difficulty, direction)
 	if err != nil {
 		storeFailure(a, w, r, err)
 		return
 	}
+
 	if targetID != actor.UserID && !a.auditSystemAdminPrivateRead(w, r, "problem_attempt_history", targetID) {
 		return
 	}
@@ -169,6 +184,7 @@ func (a *API) attempts(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}
+
 	pageInfo := pageInfoForKeyset(a, binding, direction, after, items, more, func(v model.Attempt) string { return v.ID })
 	writeJSON(w, 200, model.Page[model.Attempt]{Items: items, PageInfo: pageInfo, TotalCount: total})
 }
@@ -193,6 +209,7 @@ func validateAttempt(in attemptInput) bool {
 	}
 	return in.Confidence == nil || (*in.Confidence >= 1 && *in.Confidence <= 5)
 }
+
 func (a *API) createAttempt(w http.ResponseWriter, r *http.Request) {
 	if !a.requirePracticeAccess(w, r) {
 		return
@@ -203,27 +220,32 @@ func (a *API) createAttempt(w http.ResponseWriter, r *http.Request) {
 		validation(a, w, r, "valid problem, outcome, confidence, duration, and date are required")
 		return
 	}
+
 	v := model.Attempt{ID: id.New(), UserID: actor.UserID, ProblemID: in.ProblemID, Outcome: in.Outcome, Confidence: in.Confidence, Minutes: in.Minutes, Notes: sanitize.New().String(in.Notes), AttemptedAt: in.AttemptedAt.UTC(), SeasonID: in.SeasonID, WeekID: in.WeekID, Revision: 1}
 	created, fulfilled, err := a.store.CreateAttempt(r.Context(), v)
 	if err != nil {
 		storeFailure(a, w, r, err)
 		return
 	}
+
 	if fulfilled {
 		a.telemetry.observeRecommendation("attempted")
 	}
 	writeJSON(w, 201, created)
 }
+
 func (a *API) updateAttempt(w http.ResponseWriter, r *http.Request) {
 	if !a.requirePracticeAccess(w, r) {
 		return
 	}
+
 	actor := actorFrom(r.Context())
 	var in attemptInput
 	if err := decodeJSON(w, r, &in); err != nil || !validateAttempt(in) || in.Revision < 1 {
 		validation(a, w, r, "valid fields and revision are required")
 		return
 	}
+
 	updated, err := a.store.UpdateAttempt(r.Context(), r.PathValue("id"), actor.UserID, in.Revision, func(v *model.Attempt) error {
 		v.ProblemID = in.ProblemID
 		v.Outcome = in.Outcome
@@ -239,8 +261,10 @@ func (a *API) updateAttempt(w http.ResponseWriter, r *http.Request) {
 		storeFailure(a, w, r, err)
 		return
 	}
+
 	writeJSON(w, 200, updated)
 }
+
 func (a *API) deleteAttempt(w http.ResponseWriter, r *http.Request) {
 	if !a.requirePracticeAccess(w, r) {
 		return
@@ -255,8 +279,10 @@ func (a *API) deleteAttempt(w http.ResponseWriter, r *http.Request) {
 		storeFailure(a, w, r, err)
 		return
 	}
+
 	w.WriteHeader(204)
 }
+
 func (a *API) recommendation(w http.ResponseWriter, r *http.Request) {
 	if !a.requirePracticeAccess(w, r) {
 		return
@@ -272,16 +298,19 @@ func (a *API) recommendation(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, 200, current)
 		return
 	}
+
 	dismissals, err := a.store.ListRecommendationDismissals(r.Context(), actor.UserID)
 	if err != nil {
 		storeFailure(a, w, r, err)
 		return
 	}
+
 	settings, err := a.store.GetPracticeSettings(r.Context(), actor.UserID)
 	if err != nil {
 		storeFailure(a, w, r, err)
 		return
 	}
+
 	goals := practice.DefaultGoals()
 	if settings.GoalsEnabled {
 		goals = practice.Goals{practice.Easy: settings.EasyMinutes, practice.Medium: settings.MediumMinutes, practice.Hard: settings.HardMinutes}
@@ -291,6 +320,7 @@ func (a *API) recommendation(w http.ResponseWriter, r *http.Request) {
 		storeFailure(a, w, r, err)
 		return
 	}
+
 	attempts := make([]practice.Attempt, 0, len(snapshot.QualityAttempts))
 	problemByID := map[string]model.Problem{}
 	for _, p := range snapshot.Problems {
@@ -306,6 +336,7 @@ func (a *API) recommendation(w http.ResponseWriter, r *http.Request) {
 		storeFailure(a, w, r, err)
 		return
 	}
+
 	for _, enrollment := range enrollments {
 		if enrollment.Role == "student" && enrollment.State == "active" {
 			switch enrollment.StudentLevel {
@@ -321,6 +352,7 @@ func (a *API) recommendation(w http.ResponseWriter, r *http.Request) {
 			break
 		}
 	}
+
 	now := time.Now().UTC()
 	criteria := practice.CriteriaFor(practice.Request{Level: level, QualityAttempts: attempts, CategoryExposure: snapshot.CategoryExposure, Goals: goals})
 	candidateModels, problemHistory, err := a.store.RecommendationCandidates(r.Context(), actor.UserID, criteria, settings.PremiumOptIn, goals, now)
@@ -328,6 +360,7 @@ func (a *API) recommendation(w http.ResponseWriter, r *http.Request) {
 		storeFailure(a, w, r, err)
 		return
 	}
+
 	problems := make([]practice.Problem, 0, len(candidateModels))
 	for _, p := range candidateModels {
 		problems = append(problems, practice.Problem{ID: p.ID, Number: p.Number, Title: p.Title, Link: p.Link, Difficulty: practice.Difficulty(p.Difficulty), Categories: p.Categories, Premium: p.Premium, Revision: p.Revision})
@@ -338,19 +371,23 @@ func (a *API) recommendation(w http.ResponseWriter, r *http.Request) {
 		a.fail(w, r, 404, "no_recommendation", "No recommendation available", "No suitable problem is currently available.", nil)
 		return
 	}
+
 	selected.ID = id.New()
 	selected, err = a.store.SaveRecommendation(r.Context(), selected)
 	if err != nil {
 		storeFailure(a, w, r, err)
 		return
 	}
+
 	a.telemetry.observeRecommendation("generated")
 	writeJSON(w, 200, selected)
 }
+
 func (a *API) dismissRecommendation(w http.ResponseWriter, r *http.Request) {
 	if !a.requirePracticeAccess(w, r) {
 		return
 	}
+
 	actor := actorFrom(r.Context())
 	var in struct {
 		Reason   string `json:"reason"`
@@ -374,6 +411,7 @@ func (a *API) dismissRecommendation(w http.ResponseWriter, r *http.Request) {
 		validation(a, w, r, "revision is required")
 		return
 	}
+
 	_, err := a.store.DismissRecommendation(r.Context(), actor.UserID, in.Revision, strings.TrimSpace(in.Reason), time.Now(), id.New())
 	if err != nil {
 		if errors.Is(err, store.ErrNotFound) {
@@ -383,9 +421,11 @@ func (a *API) dismissRecommendation(w http.ResponseWriter, r *http.Request) {
 		}
 		return
 	}
+
 	a.telemetry.observeRecommendation("dismissed")
 	w.WriteHeader(204)
 }
+
 func parseRevision(r *http.Request) (int64, error) {
 	var v int64
 	_, err := fmt.Sscan(r.URL.Query().Get("revision"), &v)
