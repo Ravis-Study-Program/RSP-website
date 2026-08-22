@@ -278,7 +278,7 @@ WHERE u.account_state = 'active'
   AND u.deleted_at IS NULL
   AND e.deleted_at IS NULL
   AND e.state IN ('active', 'completed')
-  AND ($1::text IS NULL OR (u.display_name, u.id) > ($2::text, $1::text))
+  AND ($1::uuid IS NULL OR (u.display_name, u.id) > ($2::text, $1::uuid))
 ORDER BY u.display_name ASC, u.id ASC
 LIMIT $3
 `

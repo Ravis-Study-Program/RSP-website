@@ -292,8 +292,8 @@ FROM app.seasons
 WHERE deleted_at IS NULL
   AND ($1::app.season_status IS NULL OR status = $1)
   AND (
-    $2::text IS NULL
-    OR (start_at, id) < ($3::timestamptz, $2::text)
+    $2::uuid IS NULL
+    OR (start_at, id) < ($3::timestamptz, $2::uuid)
   )
 ORDER BY start_at DESC, id DESC
 LIMIT $4

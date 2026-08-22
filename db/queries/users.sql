@@ -29,7 +29,7 @@ WHERE u.account_state = 'active'
   AND u.deleted_at IS NULL
   AND e.deleted_at IS NULL
   AND e.state IN ('active', 'completed')
-  AND (sqlc.narg(after_id)::text IS NULL OR (u.display_name, u.id) > (sqlc.narg(after_name)::text, sqlc.narg(after_id)::text))
+  AND (sqlc.narg(after_id)::uuid IS NULL OR (u.display_name, u.id) > (sqlc.narg(after_name)::text, sqlc.narg(after_id)::uuid))
 ORDER BY u.display_name ASC, u.id ASC
 LIMIT sqlc.arg(page_limit);
 

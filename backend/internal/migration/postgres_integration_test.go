@@ -112,14 +112,15 @@ func TestPostgres18SourceAndTargetLifecycle(t *testing.T) {
 	}
 	assertPostgresRunState(t, ctx, adminDB, prepared.Manifest.RunID, "verified")
 
-	if _, err := adminDB.ExecContext(ctx, `UPDATE app.leetcode_mock_interview_rounds SET coding_score=9 WHERE id='lc-round-1'`); err != nil {
+	round := preparedSourceRow(prepared, "lc-round-1")
+	if _, err := adminDB.ExecContext(ctx, `UPDATE app.leetcode_mock_interview_rounds SET coding_score=9 WHERE id=$1`, round.ID); err != nil {
 		t.Fatal(err)
 	}
 	if err := engine.Rollback(ctx, target, prepared.Manifest.RunID); err == nil || !strings.Contains(err.Error(), "refuse rollback of changed migration targets") {
 		t.Fatalf("tampered rollback error = %v", err)
 	}
 	assertPostgresRunState(t, ctx, adminDB, prepared.Manifest.RunID, "verified")
-	if _, err := adminDB.ExecContext(ctx, `UPDATE app.leetcode_mock_interview_rounds SET coding_score=8 WHERE id='lc-round-1'`); err != nil {
+	if _, err := adminDB.ExecContext(ctx, `UPDATE app.leetcode_mock_interview_rounds SET coding_score=8 WHERE id=$1`, round.ID); err != nil {
 		t.Fatal(err)
 	}
 	if err := engine.Rollback(ctx, target, prepared.Manifest.RunID); err != nil {

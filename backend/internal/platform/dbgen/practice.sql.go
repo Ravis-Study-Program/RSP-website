@@ -250,7 +250,7 @@ WHERE lp.deleted_at IS NULL
   AND p.deleted_at IS NULL
   AND ($1::app.problem_difficulty IS NULL OR lp.difficulty = $1)
   AND ($2::boolean IS NULL OR lp.is_premium = $2)
-  AND ($3::text IS NULL OR (lp.leetcode_number, lp.id) > ($4::integer, $3::text))
+  AND ($3::uuid IS NULL OR (lp.leetcode_number, lp.id) > ($4::integer, $3::uuid))
 GROUP BY lp.id, p.id
 ORDER BY lp.leetcode_number ASC, lp.id ASC
 LIMIT $5
@@ -326,7 +326,7 @@ LEFT JOIN app.leetcode_problems AS lp ON lp.problem_id = p.id
 WHERE pa.user_id = $1
   AND pa.deleted_at IS NULL
   AND ($2::app.attempt_outcome IS NULL OR pa.outcome = $2)
-  AND ($3::text IS NULL OR (pa.attempted_at, pa.id) < ($4::timestamptz, $3::text))
+  AND ($3::uuid IS NULL OR (pa.attempted_at, pa.id) < ($4::timestamptz, $3::uuid))
 ORDER BY pa.attempted_at DESC, pa.id DESC
 LIMIT $5
 `

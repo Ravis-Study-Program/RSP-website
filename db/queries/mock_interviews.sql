@@ -27,7 +27,7 @@ WHERE mi.deleted_at IS NULL
     OR (sqlc.arg(mode)::text = 'given' AND mi.interviewer_user_id = sqlc.arg(user_id))
     OR (sqlc.arg(mode)::text = 'received' AND mi.interviewee_user_id = sqlc.arg(user_id))
   )
-  AND (sqlc.narg(after_id)::text IS NULL OR (mi.scheduled_at, mi.id) < (sqlc.narg(after_at)::timestamptz, sqlc.narg(after_id)::text))
+  AND (sqlc.narg(after_id)::uuid IS NULL OR (mi.scheduled_at, mi.id) < (sqlc.narg(after_at)::timestamptz, sqlc.narg(after_id)::uuid))
 ORDER BY mi.scheduled_at DESC, mi.id DESC
 LIMIT sqlc.arg(page_limit);
 

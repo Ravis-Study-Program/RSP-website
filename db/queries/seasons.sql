@@ -5,8 +5,8 @@ FROM app.seasons
 WHERE deleted_at IS NULL
   AND (sqlc.narg(status)::app.season_status IS NULL OR status = sqlc.narg(status))
   AND (
-    sqlc.narg(after_id)::text IS NULL
-    OR (start_at, id) < (sqlc.narg(after_start_at)::timestamptz, sqlc.narg(after_id)::text)
+    sqlc.narg(after_id)::uuid IS NULL
+    OR (start_at, id) < (sqlc.narg(after_start_at)::timestamptz, sqlc.narg(after_id)::uuid)
   )
 ORDER BY start_at DESC, id DESC
 LIMIT sqlc.arg(page_limit);

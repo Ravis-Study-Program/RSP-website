@@ -77,7 +77,7 @@ $function$;
 -- +goose StatementEnd
 
 CREATE TABLE app.users (
-  id text PRIMARY KEY,
+  id uuid PRIMARY KEY DEFAULT uuidv7(),
   slug text NOT NULL,
   display_name text NOT NULL,
   email text,
@@ -117,7 +117,7 @@ CREATE UNIQUE INDEX users_email_unique
 
 CREATE TABLE app.user_auth_links (
   auth_subject text NOT NULL,
-  user_id text NOT NULL REFERENCES app.users(id) ON DELETE RESTRICT,
+  user_id uuid NOT NULL REFERENCES app.users(id) ON DELETE RESTRICT,
   provider text NOT NULL,
   provider_account_id text NOT NULL,
   active boolean NOT NULL DEFAULT true,
@@ -135,11 +135,11 @@ CREATE UNIQUE INDEX user_auth_links_one_active_subject
   WHERE active;
 
 CREATE TABLE app.global_role_assignments (
-  id text PRIMARY KEY,
-  user_id text NOT NULL REFERENCES app.users(id) ON DELETE RESTRICT,
+  id uuid PRIMARY KEY DEFAULT uuidv7(),
+  user_id uuid NOT NULL REFERENCES app.users(id) ON DELETE RESTRICT,
   role app.global_role NOT NULL,
   state app.assignment_state NOT NULL DEFAULT 'pending_mfa',
-  granted_by_user_id text REFERENCES app.users(id) ON DELETE RESTRICT,
+  granted_by_user_id uuid REFERENCES app.users(id) ON DELETE RESTRICT,
   granted_at timestamptz NOT NULL DEFAULT now(),
   activated_at timestamptz,
   revoked_at timestamptz,
@@ -153,8 +153,8 @@ CREATE TABLE app.global_role_assignments (
 );
 
 CREATE TABLE app.account_deletion_requests (
-  id text PRIMARY KEY,
-  user_id text NOT NULL REFERENCES app.users(id) ON DELETE RESTRICT,
+  id uuid PRIMARY KEY DEFAULT uuidv7(),
+  user_id uuid NOT NULL REFERENCES app.users(id) ON DELETE RESTRICT,
   recovery_token_hash text NOT NULL UNIQUE,
   requested_at timestamptz NOT NULL,
   expires_at timestamptz NOT NULL,
@@ -170,7 +170,7 @@ CREATE UNIQUE INDEX account_deletion_requests_one_open
   WHERE cancelled_at IS NULL AND completed_at IS NULL;
 
 CREATE TABLE app.seasons (
-  id text PRIMARY KEY,
+  id uuid PRIMARY KEY DEFAULT uuidv7(),
   slug text NOT NULL,
   name text NOT NULL,
   status app.season_status NOT NULL DEFAULT 'open',
@@ -196,15 +196,15 @@ CREATE TABLE app.seasons (
 CREATE UNIQUE INDEX seasons_slug_unique ON app.seasons (lower(slug));
 
 CREATE TABLE app.season_close_events (
-  id text PRIMARY KEY,
-  season_id text NOT NULL REFERENCES app.seasons(id) ON DELETE RESTRICT,
-  closed_by_user_id text REFERENCES app.users(id) ON DELETE RESTRICT,
+  id uuid PRIMARY KEY DEFAULT uuidv7(),
+  season_id uuid NOT NULL REFERENCES app.seasons(id) ON DELETE RESTRICT,
+  closed_by_user_id uuid REFERENCES app.users(id) ON DELETE RESTRICT,
   close_reason text NOT NULL,
   closed_at timestamptz NOT NULL,
-  reopened_by_user_id text REFERENCES app.users(id) ON DELETE RESTRICT,
+  reopened_by_user_id uuid REFERENCES app.users(id) ON DELETE RESTRICT,
   reopen_reason text,
   reopened_at timestamptz,
-  migration_run_id text,
+  migration_run_id uuid,
   CONSTRAINT season_close_events_reason_nonempty CHECK (length(trim(close_reason)) > 0),
   CONSTRAINT season_close_events_reopen_complete CHECK (
     (reopened_at IS NULL AND reopened_by_user_id IS NULL AND reopen_reason IS NULL)
@@ -217,8 +217,8 @@ CREATE UNIQUE INDEX season_close_events_one_open
   WHERE reopened_at IS NULL;
 
 CREATE TABLE app.season_weeks (
-  id text PRIMARY KEY,
-  season_id text NOT NULL REFERENCES app.seasons(id) ON DELETE RESTRICT,
+  id uuid PRIMARY KEY DEFAULT uuidv7(),
+  season_id uuid NOT NULL REFERENCES app.seasons(id) ON DELETE RESTRICT,
   week_number integer NOT NULL CHECK (week_number > 0),
   start_at timestamptz NOT NULL,
   end_at timestamptz NOT NULL,
@@ -255,13 +255,13 @@ CREATE TRIGGER season_weeks_validate_bounds
   FOR EACH ROW EXECUTE FUNCTION app.validate_season_week_bounds();
 
 CREATE TABLE app.enrollments (
-  id text PRIMARY KEY,
-  user_id text NOT NULL REFERENCES app.users(id) ON DELETE RESTRICT,
-  season_id text NOT NULL REFERENCES app.seasons(id) ON DELETE RESTRICT,
+  id uuid PRIMARY KEY DEFAULT uuidv7(),
+  user_id uuid NOT NULL REFERENCES app.users(id) ON DELETE RESTRICT,
+  season_id uuid NOT NULL REFERENCES app.seasons(id) ON DELETE RESTRICT,
   role app.season_role NOT NULL,
   student_level app.student_level NOT NULL DEFAULT 'not_applicable',
   state app.enrollment_state NOT NULL DEFAULT 'active',
-  completed_by_close_id text REFERENCES app.season_close_events(id) ON DELETE RESTRICT,
+  completed_by_close_id uuid REFERENCES app.season_close_events(id) ON DELETE RESTRICT,
   state_changed_at timestamptz,
   deleted_at timestamptz,
   revision bigint NOT NULL DEFAULT 1 CHECK (revision > 0),
@@ -278,10 +278,10 @@ CREATE TABLE app.enrollments (
 );
 
 CREATE TABLE app.mentorships (
-  id text PRIMARY KEY,
-  season_id text NOT NULL REFERENCES app.seasons(id) ON DELETE RESTRICT,
-  mentor_enrollment_id text NOT NULL REFERENCES app.enrollments(id) ON DELETE RESTRICT,
-  student_enrollment_id text NOT NULL REFERENCES app.enrollments(id) ON DELETE RESTRICT,
+  id uuid PRIMARY KEY DEFAULT uuidv7(),
+  season_id uuid NOT NULL REFERENCES app.seasons(id) ON DELETE RESTRICT,
+  mentor_enrollment_id uuid NOT NULL REFERENCES app.enrollments(id) ON DELETE RESTRICT,
+  student_enrollment_id uuid NOT NULL REFERENCES app.enrollments(id) ON DELETE RESTRICT,
   ended_at timestamptz,
   deleted_at timestamptz,
   revision bigint NOT NULL DEFAULT 1 CHECK (revision > 0),
@@ -327,7 +327,7 @@ RETURNS trigger
 LANGUAGE plpgsql
 AS $function$
 DECLARE
-  close_season_id text;
+  close_season_id uuid;
 BEGIN
   IF NEW.completed_by_close_id IS NULL THEN
     RETURN NEW;
@@ -349,11 +349,11 @@ CREATE TRIGGER enrollments_validate_close_event
   FOR EACH ROW EXECUTE FUNCTION app.validate_enrollment_close_event();
 
 CREATE TABLE app.enrollment_removal_events (
-  id text PRIMARY KEY,
-  enrollment_id text NOT NULL REFERENCES app.enrollments(id) ON DELETE RESTRICT,
-  season_id text NOT NULL REFERENCES app.seasons(id) ON DELETE RESTRICT,
-  subject_user_id text NOT NULL REFERENCES app.users(id) ON DELETE RESTRICT,
-  actor_user_id text REFERENCES app.users(id) ON DELETE RESTRICT,
+  id uuid PRIMARY KEY DEFAULT uuidv7(),
+  enrollment_id uuid NOT NULL REFERENCES app.enrollments(id) ON DELETE RESTRICT,
+  season_id uuid NOT NULL REFERENCES app.seasons(id) ON DELETE RESTRICT,
+  subject_user_id uuid NOT NULL REFERENCES app.users(id) ON DELETE RESTRICT,
+  actor_user_id uuid REFERENCES app.users(id) ON DELETE RESTRICT,
   resulting_state app.enrollment_state NOT NULL,
   reason text NOT NULL,
   occurred_at timestamptz NOT NULL,
@@ -363,7 +363,7 @@ CREATE TABLE app.enrollment_removal_events (
 );
 
 CREATE TABLE app.problems (
-  id text PRIMARY KEY,
+  id uuid PRIMARY KEY DEFAULT uuidv7(),
   title text NOT NULL,
   url text,
   deleted_at timestamptz,
@@ -374,8 +374,8 @@ CREATE TABLE app.problems (
 );
 
 CREATE TABLE app.leetcode_problems (
-  id text PRIMARY KEY,
-  problem_id text NOT NULL UNIQUE REFERENCES app.problems(id) ON DELETE RESTRICT,
+  id uuid PRIMARY KEY DEFAULT uuidv7(),
+  problem_id uuid NOT NULL UNIQUE REFERENCES app.problems(id) ON DELETE RESTRICT,
   leetcode_number integer NOT NULL UNIQUE CHECK (leetcode_number > 0),
   difficulty app.problem_difficulty NOT NULL,
   is_premium boolean NOT NULL DEFAULT false,
@@ -386,8 +386,8 @@ CREATE TABLE app.leetcode_problems (
 );
 
 CREATE TABLE app.custom_problems (
-  id text PRIMARY KEY,
-  problem_id text NOT NULL UNIQUE REFERENCES app.problems(id) ON DELETE RESTRICT,
+  id uuid PRIMARY KEY DEFAULT uuidv7(),
+  problem_id uuid NOT NULL UNIQUE REFERENCES app.problems(id) ON DELETE RESTRICT,
   difficulty_label text NOT NULL,
   question_html text NOT NULL,
   deleted_at timestamptz,
@@ -398,7 +398,7 @@ CREATE TABLE app.custom_problems (
 );
 
 CREATE TABLE app.leetcode_problem_categories (
-  id text PRIMARY KEY,
+  id uuid PRIMARY KEY DEFAULT uuidv7(),
   name text NOT NULL,
   normalized_name text NOT NULL,
   deleted_at timestamptz,
@@ -412,15 +412,15 @@ CREATE UNIQUE INDEX leetcode_problem_categories_normalized_unique
   ON app.leetcode_problem_categories (lower(normalized_name));
 
 CREATE TABLE app.leetcode_problem_category_mappings (
-  leetcode_problem_id text NOT NULL REFERENCES app.leetcode_problems(id) ON DELETE CASCADE,
-  category_id text NOT NULL REFERENCES app.leetcode_problem_categories(id) ON DELETE CASCADE,
+  leetcode_problem_id uuid NOT NULL REFERENCES app.leetcode_problems(id) ON DELETE CASCADE,
+  category_id uuid NOT NULL REFERENCES app.leetcode_problem_categories(id) ON DELETE CASCADE,
   PRIMARY KEY (leetcode_problem_id, category_id)
 );
 
 CREATE TABLE app.practice_goals (
-  user_id text PRIMARY KEY REFERENCES app.users(id) ON DELETE RESTRICT,
+  user_id uuid PRIMARY KEY REFERENCES app.users(id) ON DELETE RESTRICT,
   enabled boolean NOT NULL DEFAULT false,
-  enabled_by_user_id text REFERENCES app.users(id) ON DELETE RESTRICT,
+  enabled_by_user_id uuid REFERENCES app.users(id) ON DELETE RESTRICT,
   enabled_at timestamptz,
   easy_minutes integer NOT NULL DEFAULT 20 CHECK (easy_minutes > 0),
   medium_minutes integer NOT NULL DEFAULT 35 CHECK (medium_minutes > 0),
@@ -435,11 +435,11 @@ CREATE TABLE app.practice_goals (
 );
 
 CREATE TABLE app.problem_attempts (
-  id text PRIMARY KEY,
-  user_id text NOT NULL REFERENCES app.users(id) ON DELETE RESTRICT,
-  problem_id text NOT NULL REFERENCES app.problems(id) ON DELETE RESTRICT,
-  enrollment_id text REFERENCES app.enrollments(id) ON DELETE RESTRICT,
-  season_week_id text REFERENCES app.season_weeks(id) ON DELETE RESTRICT,
+  id uuid PRIMARY KEY DEFAULT uuidv7(),
+  user_id uuid NOT NULL REFERENCES app.users(id) ON DELETE RESTRICT,
+  problem_id uuid NOT NULL REFERENCES app.problems(id) ON DELETE RESTRICT,
+  enrollment_id uuid REFERENCES app.enrollments(id) ON DELETE RESTRICT,
+  season_week_id uuid REFERENCES app.season_weeks(id) ON DELETE RESTRICT,
   attempted_at timestamptz NOT NULL,
   time_taken_minutes integer NOT NULL CHECK (time_taken_minutes > 0),
   outcome app.attempt_outcome NOT NULL DEFAULT 'unknown',
@@ -463,9 +463,9 @@ RETURNS trigger
 LANGUAGE plpgsql
 AS $function$
 DECLARE
-  enrollment_user_id text;
-  enrollment_season_id text;
-  week_season_id text;
+  enrollment_user_id uuid;
+  enrollment_season_id uuid;
+  week_season_id uuid;
 BEGIN
   IF NEW.enrollment_id IS NOT NULL THEN
     SELECT user_id, season_id INTO STRICT enrollment_user_id, enrollment_season_id
@@ -494,16 +494,16 @@ CREATE TRIGGER problem_attempts_validate_scope
   FOR EACH ROW EXECUTE FUNCTION app.validate_problem_attempt_scope();
 
 CREATE TABLE app.recommendations (
-  id text PRIMARY KEY,
-  user_id text NOT NULL REFERENCES app.users(id) ON DELETE RESTRICT,
-  leetcode_problem_id text NOT NULL REFERENCES app.leetcode_problems(id) ON DELETE RESTRICT,
-  category_id text REFERENCES app.leetcode_problem_categories(id) ON DELETE RESTRICT,
+  id uuid PRIMARY KEY DEFAULT uuidv7(),
+  user_id uuid NOT NULL REFERENCES app.users(id) ON DELETE RESTRICT,
+  leetcode_problem_id uuid NOT NULL REFERENCES app.leetcode_problems(id) ON DELETE RESTRICT,
+  category_id uuid REFERENCES app.leetcode_problem_categories(id) ON DELETE RESTRICT,
   difficulty app.problem_difficulty NOT NULL,
   rationale text NOT NULL,
   rule_version text NOT NULL,
   state app.recommendation_state NOT NULL DEFAULT 'active',
   generated_at timestamptz NOT NULL,
-  fulfilled_by_attempt_id text REFERENCES app.problem_attempts(id) ON DELETE RESTRICT,
+  fulfilled_by_attempt_id uuid REFERENCES app.problem_attempts(id) ON DELETE RESTRICT,
   state_changed_at timestamptz,
   deleted_at timestamptz,
   revision bigint NOT NULL DEFAULT 1 CHECK (revision > 0),
@@ -526,9 +526,9 @@ RETURNS trigger
 LANGUAGE plpgsql
 AS $function$
 DECLARE
-  attempt_user_id text;
-  attempt_problem_id text;
-  recommended_problem_id text;
+  attempt_user_id uuid;
+  attempt_problem_id uuid;
+  recommended_problem_id uuid;
 BEGIN
   IF NEW.fulfilled_by_attempt_id IS NULL THEN
     RETURN NEW;
@@ -551,10 +551,10 @@ CREATE TRIGGER recommendations_validate_attempt
   FOR EACH ROW EXECUTE FUNCTION app.validate_recommendation_attempt();
 
 CREATE TABLE app.recommendation_dismissals (
-  id text PRIMARY KEY,
-  recommendation_id text NOT NULL UNIQUE REFERENCES app.recommendations(id) ON DELETE RESTRICT,
-  user_id text NOT NULL REFERENCES app.users(id) ON DELETE RESTRICT,
-  leetcode_problem_id text NOT NULL REFERENCES app.leetcode_problems(id) ON DELETE RESTRICT,
+  id uuid PRIMARY KEY DEFAULT uuidv7(),
+  recommendation_id uuid NOT NULL UNIQUE REFERENCES app.recommendations(id) ON DELETE RESTRICT,
+  user_id uuid NOT NULL REFERENCES app.users(id) ON DELETE RESTRICT,
+  leetcode_problem_id uuid NOT NULL REFERENCES app.leetcode_problems(id) ON DELETE RESTRICT,
   reason text,
   dismissed_at timestamptz NOT NULL,
   excluded_until timestamptz NOT NULL,
@@ -562,11 +562,11 @@ CREATE TABLE app.recommendation_dismissals (
 );
 
 CREATE TABLE app.mock_interviews (
-  id text PRIMARY KEY,
-  interviewer_user_id text NOT NULL REFERENCES app.users(id) ON DELETE RESTRICT,
-  interviewee_user_id text NOT NULL REFERENCES app.users(id) ON DELETE RESTRICT,
-  season_id text REFERENCES app.seasons(id) ON DELETE RESTRICT,
-  season_week_id text REFERENCES app.season_weeks(id) ON DELETE RESTRICT,
+  id uuid PRIMARY KEY DEFAULT uuidv7(),
+  interviewer_user_id uuid NOT NULL REFERENCES app.users(id) ON DELETE RESTRICT,
+  interviewee_user_id uuid NOT NULL REFERENCES app.users(id) ON DELETE RESTRICT,
+  season_id uuid REFERENCES app.seasons(id) ON DELETE RESTRICT,
+  season_week_id uuid REFERENCES app.season_weeks(id) ON DELETE RESTRICT,
   scheduled_at timestamptz NOT NULL,
   duration_minutes integer NOT NULL CHECK (duration_minutes > 0),
   legacy_is_pass boolean,
@@ -589,7 +589,7 @@ RETURNS trigger
 LANGUAGE plpgsql
 AS $function$
 DECLARE
-  week_season_id text;
+  week_season_id uuid;
 BEGIN
   IF NEW.season_week_id IS NULL THEN
     RETURN NEW;
@@ -610,8 +610,8 @@ CREATE TRIGGER mock_interviews_validate_scope
   FOR EACH ROW EXECUTE FUNCTION app.validate_mock_interview_scope();
 
 CREATE TABLE app.mock_interview_rounds (
-  id text PRIMARY KEY,
-  mock_interview_id text NOT NULL REFERENCES app.mock_interviews(id) ON DELETE CASCADE,
+  id uuid PRIMARY KEY DEFAULT uuidv7(),
+  mock_interview_id uuid NOT NULL REFERENCES app.mock_interviews(id) ON DELETE CASCADE,
   position integer NOT NULL CHECK (position > 0),
   kind app.mock_round_kind NOT NULL,
   review_status app.review_status NOT NULL DEFAULT 'pending',
@@ -630,8 +630,8 @@ CREATE TABLE app.mock_interview_rounds (
 );
 
 CREATE TABLE app.behavioural_mock_interview_rounds (
-  id text PRIMARY KEY,
-  mock_interview_round_id text NOT NULL UNIQUE REFERENCES app.mock_interview_rounds(id) ON DELETE CASCADE,
+  id uuid PRIMARY KEY DEFAULT uuidv7(),
+  mock_interview_round_id uuid NOT NULL UNIQUE REFERENCES app.mock_interview_rounds(id) ON DELETE CASCADE,
   behavioural_score smallint NOT NULL CHECK (behavioural_score BETWEEN 0 AND 10),
   deleted_at timestamptz,
   created_at timestamptz NOT NULL DEFAULT now(),
@@ -639,9 +639,9 @@ CREATE TABLE app.behavioural_mock_interview_rounds (
 );
 
 CREATE TABLE app.leetcode_mock_interview_rounds (
-  id text PRIMARY KEY,
-  mock_interview_round_id text NOT NULL UNIQUE REFERENCES app.mock_interview_rounds(id) ON DELETE CASCADE,
-  leetcode_problem_id text NOT NULL REFERENCES app.leetcode_problems(id) ON DELETE RESTRICT,
+  id uuid PRIMARY KEY DEFAULT uuidv7(),
+  mock_interview_round_id uuid NOT NULL UNIQUE REFERENCES app.mock_interview_rounds(id) ON DELETE CASCADE,
+  leetcode_problem_id uuid NOT NULL REFERENCES app.leetcode_problems(id) ON DELETE RESTRICT,
   clarify_question_score smallint NOT NULL CHECK (clarify_question_score BETWEEN 0 AND 10),
   algorithm_design_score smallint NOT NULL CHECK (algorithm_design_score BETWEEN 0 AND 10),
   complexity_analysis_score smallint NOT NULL CHECK (complexity_analysis_score BETWEEN 0 AND 10),
@@ -653,8 +653,8 @@ CREATE TABLE app.leetcode_mock_interview_rounds (
 );
 
 CREATE TABLE app.custom_mock_interview_rounds (
-  id text PRIMARY KEY,
-  mock_interview_round_id text NOT NULL UNIQUE REFERENCES app.mock_interview_rounds(id) ON DELETE CASCADE,
+  id uuid PRIMARY KEY DEFAULT uuidv7(),
+  mock_interview_round_id uuid NOT NULL UNIQUE REFERENCES app.mock_interview_rounds(id) ON DELETE CASCADE,
   content_html text,
   url text,
   score smallint NOT NULL CHECK (score BETWEEN 0 AND 10),
@@ -725,10 +725,10 @@ CREATE CONSTRAINT TRIGGER mock_rounds_require_one_subtype
   FOR EACH ROW EXECUTE FUNCTION app.validate_mock_round_has_subtype();
 
 CREATE TABLE app.mock_interview_versions (
-  id text PRIMARY KEY,
-  mock_interview_id text NOT NULL REFERENCES app.mock_interviews(id) ON DELETE RESTRICT,
+  id uuid PRIMARY KEY DEFAULT uuidv7(),
+  mock_interview_id uuid NOT NULL REFERENCES app.mock_interviews(id) ON DELETE RESTRICT,
   version bigint NOT NULL CHECK (version > 0),
-  actor_user_id text REFERENCES app.users(id) ON DELETE RESTRICT,
+  actor_user_id uuid REFERENCES app.users(id) ON DELETE RESTRICT,
   reason text NOT NULL,
   snapshot jsonb NOT NULL,
   created_at timestamptz NOT NULL DEFAULT now(),
@@ -738,9 +738,9 @@ CREATE TABLE app.mock_interview_versions (
 );
 
 CREATE TABLE app.leetcode_sync_runs (
-  id text PRIMARY KEY,
+  id uuid PRIMARY KEY DEFAULT uuidv7(),
   trigger_kind text NOT NULL CHECK (trigger_kind IN ('schedule', 'catch_up', 'manual')),
-  requested_by_user_id text REFERENCES app.users(id) ON DELETE RESTRICT,
+  requested_by_user_id uuid REFERENCES app.users(id) ON DELETE RESTRICT,
   started_at timestamptz NOT NULL,
   finished_at timestamptz,
   succeeded boolean,
@@ -754,8 +754,8 @@ CREATE TABLE app.leetcode_sync_runs (
 );
 
 CREATE TABLE app.audit_events (
-  id text PRIMARY KEY,
-  actor_user_id text REFERENCES app.users(id) ON DELETE RESTRICT,
+  id uuid PRIMARY KEY DEFAULT uuidv7(),
+  actor_user_id uuid REFERENCES app.users(id) ON DELETE RESTRICT,
   action text NOT NULL,
   subject_type text NOT NULL,
   subject_id text NOT NULL,
@@ -815,7 +815,7 @@ CREATE TRIGGER mock_interview_rounds_touch_updated_at
   BEFORE UPDATE ON app.mock_interview_rounds FOR EACH ROW EXECUTE FUNCTION app.touch_updated_at();
 
 CREATE TABLE migration.runs (
-  id text PRIMARY KEY,
+  id uuid PRIMARY KEY DEFAULT uuidv7(),
   manifest_checksum text NOT NULL UNIQUE,
   source_schema_fingerprint text NOT NULL,
   source_snapshot_at timestamptz NOT NULL,
@@ -828,7 +828,7 @@ CREATE TABLE migration.runs (
 );
 
 CREATE TABLE migration.source_tables (
-  run_id text NOT NULL REFERENCES migration.runs(id) ON DELETE RESTRICT,
+  run_id uuid NOT NULL REFERENCES migration.runs(id) ON DELETE RESTRICT,
   source_table text NOT NULL,
   source_count bigint NOT NULL CHECK (source_count >= 0),
   imported_count bigint NOT NULL CHECK (imported_count >= 0),
@@ -838,7 +838,7 @@ CREATE TABLE migration.source_tables (
 );
 
 CREATE TABLE migration.row_provenance (
-  run_id text NOT NULL REFERENCES migration.runs(id) ON DELETE RESTRICT,
+  run_id uuid NOT NULL REFERENCES migration.runs(id) ON DELETE RESTRICT,
   source_table text NOT NULL,
   source_id text NOT NULL,
   target_table text NOT NULL,
@@ -853,7 +853,7 @@ CREATE INDEX row_provenance_target
   ON migration.row_provenance (target_table, target_id);
 
 CREATE TABLE migration.anomalies (
-  run_id text NOT NULL REFERENCES migration.runs(id) ON DELETE RESTRICT,
+  run_id uuid NOT NULL REFERENCES migration.runs(id) ON DELETE RESTRICT,
   code text NOT NULL,
   source_table text NOT NULL,
   source_id text,
@@ -865,7 +865,7 @@ CREATE TABLE migration.anomalies (
 );
 
 CREATE TABLE migration.resolutions (
-  run_id text NOT NULL REFERENCES migration.runs(id) ON DELETE RESTRICT,
+  run_id uuid NOT NULL REFERENCES migration.runs(id) ON DELETE RESTRICT,
   anomaly_code text NOT NULL,
   source_table text NOT NULL,
   source_id text,
@@ -877,7 +877,7 @@ CREATE TABLE migration.resolutions (
 );
 
 CREATE TABLE migration.auto_fixes (
-  run_id text NOT NULL REFERENCES migration.runs(id) ON DELETE RESTRICT,
+  run_id uuid NOT NULL REFERENCES migration.runs(id) ON DELETE RESTRICT,
   source_table text NOT NULL,
   source_id text,
   code text NOT NULL,
@@ -888,9 +888,9 @@ CREATE TABLE migration.auto_fixes (
 );
 
 CREATE TABLE migration.auth0_identity_imports (
-  run_id text NOT NULL REFERENCES migration.runs(id) ON DELETE RESTRICT,
+  run_id uuid NOT NULL REFERENCES migration.runs(id) ON DELETE RESTRICT,
   auth0_user_id text NOT NULL,
-  app_user_id text REFERENCES app.users(id) ON DELETE RESTRICT,
+  app_user_id uuid REFERENCES app.users(id) ON DELETE RESTRICT,
   provider text,
   provider_account_id text,
   email_verified boolean,

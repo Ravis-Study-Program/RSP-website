@@ -503,9 +503,9 @@ func (p *Postgres) ListUsers(ctx context.Context, boundary string, limit int, di
 	if err := p.Pool.QueryRow(ctx, `SELECT count(*) FROM app.users u WHERE `+countFilters, search, seasonRole, globalRole).Scan(&total); err != nil {
 		return nil, false, 0, err
 	}
-	comparison, order := `u.id>$1`, `ASC`
+	comparison, order := `u.id>NULLIF($1,'')::uuid`, `ASC`
 	if direction == "backward" {
-		comparison, order = `u.id<$1`, `DESC`
+		comparison, order = `u.id<NULLIF($1,'')::uuid`, `DESC`
 	}
 	if boundary == "" {
 		comparison = `$1::text IS NOT NULL`
@@ -544,9 +544,9 @@ func (p *Postgres) ListAdminUsers(ctx context.Context, boundary string, limit in
 	if err := p.Pool.QueryRow(ctx, `SELECT count(*) FROM app.users u WHERE `+countFilters, search, accountState, globalRole).Scan(&total); err != nil {
 		return nil, false, 0, err
 	}
-	comparison, order := `u.id>$1`, `ASC`
+	comparison, order := `u.id>NULLIF($1,'')::uuid`, `ASC`
 	if direction == "backward" {
-		comparison, order = `u.id<$1`, `DESC`
+		comparison, order = `u.id<NULLIF($1,'')::uuid`, `DESC`
 	}
 	if boundary == "" {
 		comparison = `$1::text IS NOT NULL`
@@ -767,9 +767,9 @@ func (p *Postgres) ListSeasons(ctx context.Context, boundary string, limit int, 
 	if err := p.Pool.QueryRow(ctx, `SELECT count(*) FROM app.seasons WHERE deleted_at IS NULL AND ($1='' OR status::text=$1)`, status).Scan(&total); err != nil {
 		return nil, false, 0, err
 	}
-	comparison, order := `id>$1`, `ASC`
+	comparison, order := `id>NULLIF($1,'')::uuid`, `ASC`
 	if direction == "backward" {
-		comparison, order = `id<$1`, `DESC`
+		comparison, order = `id<NULLIF($1,'')::uuid`, `DESC`
 	}
 	if boundary == "" {
 		comparison = `$1::text IS NOT NULL`
@@ -953,11 +953,11 @@ func (p *Postgres) ListWeeks(ctx context.Context, seasonID, boundary string, lim
 		orderBy = "w.week_number " + order + ",w.id " + order
 	}
 	query := `WITH boundary AS (
-		SELECT ` + boundarySelect + ` FROM app.season_weeks WHERE id=$2 AND season_id=$1 AND deleted_at IS NULL
+		SELECT ` + boundarySelect + ` FROM app.season_weeks WHERE id=NULLIF($2,'')::uuid AND season_id=$1 AND deleted_at IS NULL
 	) SELECT w.id,w.season_id,w.week_number,w.start_at,w.end_at,COALESCE(w.resource_url,''),w.revision
 	FROM app.season_weeks w
 	WHERE w.season_id=$1 AND w.deleted_at IS NULL
-	  AND ($2='' OR EXISTS (SELECT 1 FROM boundary b WHERE ` + key + ` ` + comparator + ` ` + boundaryKey + `))
+	  AND (NULLIF($2,'')::uuid IS NULL OR EXISTS (SELECT 1 FROM boundary b WHERE ` + key + ` ` + comparator + ` ` + boundaryKey + `))
 	ORDER BY ` + orderBy + ` LIMIT $3`
 	rows, err := p.Pool.Query(ctx, query, seasonID, boundary, limit+1)
 	if err != nil {
@@ -1067,11 +1067,11 @@ func (p *Postgres) ListEnrollments(ctx context.Context, seasonID, boundary strin
 	}
 	query := `WITH boundary AS (
 		SELECT ` + boundarySelect + ` FROM app.enrollments
-		WHERE id=$5 AND season_id=$1 AND deleted_at IS NULL
+		WHERE id=NULLIF($5,'')::uuid AND season_id=$1 AND deleted_at IS NULL
 	) SELECT ` + enrollmentColumns + `
 	FROM app.enrollments e JOIN app.seasons s ON s.id=e.season_id
 	WHERE ` + filters + `
-	  AND ($5='' OR EXISTS (SELECT 1 FROM boundary b WHERE ` + key + ` ` + comparator + ` ` + boundaryKey + `))
+	  AND (NULLIF($5,'')::uuid IS NULL OR EXISTS (SELECT 1 FROM boundary b WHERE ` + key + ` ` + comparator + ` ` + boundaryKey + `))
 	ORDER BY ` + orderBy + ` LIMIT $6`
 	rows, err := p.Pool.Query(ctx, query, seasonID, role, state, includeInactive, boundary, limit+1)
 	if err != nil {
@@ -1252,7 +1252,7 @@ func (p *Postgres) ListMentorships(ctx context.Context, seasonID, boundary strin
 		SELECT ` + boundarySelect + base + ` WHERE m.id=$2 AND ` + filters + `
 	) SELECT m.id,m.season_id,mentor.user_id,student.user_id,m.revision` + base + `
 	WHERE ` + filters + `
-	  AND ($2='' OR EXISTS (SELECT 1 FROM boundary b WHERE ` + key + ` ` + comparator + ` ` + boundaryKey + `))
+	  AND (NULLIF($2,'')::uuid IS NULL OR EXISTS (SELECT 1 FROM boundary b WHERE ` + key + ` ` + comparator + ` ` + boundaryKey + `))
 	ORDER BY ` + orderBy + ` LIMIT $3`
 	rows, err := p.Pool.Query(ctx, query, seasonID, boundary, limit+1, mentorUserID, studentUserID)
 	if err != nil {
@@ -1349,9 +1349,9 @@ func (p *Postgres) ListProblems(ctx context.Context, boundary string, limit int,
 	if err := p.Pool.QueryRow(ctx, `SELECT count(*) FROM app.leetcode_problems l WHERE l.deleted_at IS NULL AND ($1='' OR l.difficulty::text=$1) AND ($2='' OR EXISTS(SELECT 1 FROM app.leetcode_problem_category_mappings m JOIN app.leetcode_problem_categories c ON c.id=m.category_id WHERE m.leetcode_problem_id=l.id AND c.deleted_at IS NULL AND lower(c.normalized_name)=lower($2))) AND ($3::boolean IS NULL OR l.is_premium=$3)`, difficulty, category, premium).Scan(&total); err != nil {
 		return nil, false, 0, err
 	}
-	comparison, order := `l.id>$1`, `ASC`
+	comparison, order := `l.id>NULLIF($1,'')::uuid`, `ASC`
 	if direction == "backward" {
-		comparison, order = `l.id<$1`, `DESC`
+		comparison, order = `l.id<NULLIF($1,'')::uuid`, `DESC`
 	}
 	if boundary == "" {
 		comparison = `$1::text IS NOT NULL`
@@ -1386,7 +1386,7 @@ func scanAttempt(row pgx.Row) (model.Attempt, error) {
 	return v, nil
 }
 
-const attemptColumns = `a.id,a.user_id,COALESCE((SELECT id FROM app.leetcode_problems WHERE problem_id=a.problem_id),a.problem_id),a.outcome::text,a.confidence,a.time_taken_minutes,COALESCE(a.notes_html,''),a.attempted_at,e.season_id,a.season_week_id,a.revision,a.deleted_at,EXISTS(SELECT 1 FROM migration.row_provenance rp WHERE rp.target_table='problem_attempts' AND rp.target_id=a.id)`
+const attemptColumns = `a.id,a.user_id,COALESCE((SELECT id FROM app.leetcode_problems WHERE problem_id=a.problem_id),a.problem_id),a.outcome::text,a.confidence,a.time_taken_minutes,COALESCE(a.notes_html,''),a.attempted_at,e.season_id,a.season_week_id,a.revision,a.deleted_at,EXISTS(SELECT 1 FROM migration.row_provenance rp WHERE rp.target_table='problem_attempts' AND rp.target_id=a.id::text)`
 
 func (p *Postgres) GetAttempt(ctx context.Context, id string) (model.Attempt, error) {
 	return scanAttempt(p.Pool.QueryRow(ctx, `SELECT `+attemptColumns+` FROM app.problem_attempts a LEFT JOIN app.enrollments e ON e.id=a.enrollment_id WHERE a.id=$1 AND a.deleted_at IS NULL`, id))
@@ -1396,9 +1396,9 @@ func (p *Postgres) ListAttempts(ctx context.Context, userID, boundary string, li
 	if err := p.Pool.QueryRow(ctx, `SELECT count(*) FROM app.problem_attempts a WHERE a.user_id=$1 AND a.deleted_at IS NULL AND ($2='' OR a.outcome::text=$2) AND ($3='' OR EXISTS(SELECT 1 FROM app.leetcode_problems l WHERE l.problem_id=a.problem_id AND l.difficulty::text=$3 AND l.deleted_at IS NULL))`, userID, outcome, difficulty).Scan(&total); err != nil {
 		return nil, false, 0, err
 	}
-	comparison, order := `a.id>$2`, `ASC`
+	comparison, order := `a.id>NULLIF($2,'')::uuid`, `ASC`
 	if direction == "backward" {
-		comparison, order = `a.id<$2`, `DESC`
+		comparison, order = `a.id<NULLIF($2,'')::uuid`, `DESC`
 	}
 	if boundary == "" {
 		comparison = `$2::text IS NOT NULL`
@@ -1428,7 +1428,7 @@ func (p *Postgres) ListAttempts(ctx context.Context, userID, boundary string, li
 
 func (p *Postgres) RecommendationSnapshot(ctx context.Context, userID string, _ practice.Goals) (RecommendationSnapshot, error) {
 	snapshot := RecommendationSnapshot{ProblemHistory: map[string]practice.ProblemHistory{}, CategoryExposure: map[string]int{}}
-	qualityRows, err := p.Pool.Query(ctx, `SELECT `+attemptColumns+` FROM app.problem_attempts a LEFT JOIN app.enrollments e ON e.id=a.enrollment_id WHERE a.user_id=$1 AND a.deleted_at IS NULL AND a.outcome<>'unknown' AND NOT EXISTS(SELECT 1 FROM migration.row_provenance rp WHERE rp.target_table='problem_attempts' AND rp.target_id=a.id) ORDER BY a.attempted_at DESC,a.id ASC LIMIT 20`, userID)
+	qualityRows, err := p.Pool.Query(ctx, `SELECT `+attemptColumns+` FROM app.problem_attempts a LEFT JOIN app.enrollments e ON e.id=a.enrollment_id WHERE a.user_id=$1 AND a.deleted_at IS NULL AND a.outcome<>'unknown' AND NOT EXISTS(SELECT 1 FROM migration.row_provenance rp WHERE rp.target_table='problem_attempts' AND rp.target_id=a.id::text) ORDER BY a.attempted_at DESC,a.id ASC LIMIT 20`, userID)
 	if err != nil {
 		return snapshot, err
 	}
@@ -1506,7 +1506,7 @@ func (p *Postgres) RecommendationCandidates(ctx context.Context, userID string, 
 			GROUP BY a.problem_id
 			HAVING max(a.attempted_at)<=$5::timestamptz-interval '90 days'
 			AND bool_or(
-				NOT EXISTS(SELECT 1 FROM migration.row_provenance rp WHERE rp.target_table='problem_attempts' AND rp.target_id=a.id)
+				NOT EXISTS(SELECT 1 FROM migration.row_provenance rp WHERE rp.target_table='problem_attempts' AND rp.target_id=a.id::text)
 				AND (a.outcome IN ('not_solved','solved_with_hints') OR a.confidence<4 OR a.time_taken_minutes>$6)
 			)
 		)
@@ -1787,10 +1787,10 @@ func (p *Postgres) ListMockInterviews(ctx context.Context, actor authz.Actor, mo
 		orderBy = "mi.scheduled_at " + order + ",mi.id " + order
 	}
 	query := `WITH boundary AS (
-		SELECT ` + boundarySelect + ` FROM app.mock_interviews WHERE id=$2 AND deleted_at IS NULL
+		SELECT ` + boundarySelect + ` FROM app.mock_interviews WHERE id=NULLIF($2,'')::uuid AND deleted_at IS NULL
 	) SELECT mi.id FROM app.mock_interviews mi
 	WHERE mi.deleted_at IS NULL AND ` + where + `
-	  AND ($2='' OR EXISTS (SELECT 1 FROM boundary b WHERE ` + key + ` ` + comparator + ` ` + boundaryKey + `))
+	  AND (NULLIF($2,'')::uuid IS NULL OR EXISTS (SELECT 1 FROM boundary b WHERE ` + key + ` ` + comparator + ` ` + boundaryKey + `))
 	ORDER BY ` + orderBy + ` LIMIT $3`
 	rows, err := p.Pool.Query(ctx, query, userID, boundary, limit+1)
 	if err != nil {

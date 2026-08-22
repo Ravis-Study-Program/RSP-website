@@ -10,7 +10,7 @@ WHERE lp.deleted_at IS NULL
   AND p.deleted_at IS NULL
   AND (sqlc.narg(difficulty)::app.problem_difficulty IS NULL OR lp.difficulty = sqlc.narg(difficulty))
   AND (sqlc.narg(is_premium)::boolean IS NULL OR lp.is_premium = sqlc.narg(is_premium))
-  AND (sqlc.narg(after_id)::text IS NULL OR (lp.leetcode_number, lp.id) > (sqlc.narg(after_number)::integer, sqlc.narg(after_id)::text))
+  AND (sqlc.narg(after_id)::uuid IS NULL OR (lp.leetcode_number, lp.id) > (sqlc.narg(after_number)::integer, sqlc.narg(after_id)::uuid))
 GROUP BY lp.id, p.id
 ORDER BY lp.leetcode_number ASC, lp.id ASC
 LIMIT sqlc.arg(page_limit);
@@ -58,7 +58,7 @@ LEFT JOIN app.leetcode_problems AS lp ON lp.problem_id = p.id
 WHERE pa.user_id = sqlc.arg(user_id)
   AND pa.deleted_at IS NULL
   AND (sqlc.narg(outcome)::app.attempt_outcome IS NULL OR pa.outcome = sqlc.narg(outcome))
-  AND (sqlc.narg(after_id)::text IS NULL OR (pa.attempted_at, pa.id) < (sqlc.narg(after_at)::timestamptz, sqlc.narg(after_id)::text))
+  AND (sqlc.narg(after_id)::uuid IS NULL OR (pa.attempted_at, pa.id) < (sqlc.narg(after_at)::timestamptz, sqlc.narg(after_id)::uuid))
 ORDER BY pa.attempted_at DESC, pa.id DESC
 LIMIT sqlc.arg(page_limit);
 

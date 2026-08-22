@@ -67,7 +67,7 @@ FROM app.audit_events
 WHERE ($1::text IS NULL OR subject_type = $1)
   AND ($2::text IS NULL OR subject_id = $2)
   AND ($3::text IS NULL OR actor_user_id = $3)
-  AND ($4::text IS NULL OR (occurred_at, id) < ($5::timestamptz, $4::text))
+  AND ($4::uuid IS NULL OR (occurred_at, id) < ($5::timestamptz, $4::uuid))
 ORDER BY occurred_at DESC, id DESC
 LIMIT $6
 `

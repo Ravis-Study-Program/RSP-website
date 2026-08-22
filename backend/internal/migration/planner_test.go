@@ -48,7 +48,7 @@ func TestPlannerBuildsStableCompleteManifest(t *testing.T) {
 	if !hasAutoFix(first.Manifest.AutoFixes, "SANITIZE_LEGACY_HTML") {
 		t.Fatal("missing HTML sanitation report")
 	}
-	row := preparedRow(first, "mock_interviews", "mock-1")
+	row := preparedSourceRow(first, "mock-1")
 	if got := stringValue(row.Values["interviewer_notes_html"]); got != "<p>Useful <strong>feedback</strong></p>" {
 		t.Fatalf("sanitized notes = %q", got)
 	}
@@ -133,29 +133,26 @@ func TestEndedSeasonCreatesCloseEventAndCompletesEnrollments(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	season := preparedRow(prepared, "seasons", "season-1")
+	season := preparedSourceRow(prepared, "season-1")
 	if season.Values["status"] != "closed" {
 		t.Fatalf("season status = %v", season.Values["status"])
 	}
-	enrollment := preparedRow(prepared, "enrollments", "e-student")
-	if enrollment.Values["state"] != "completed" || enrollment.Values["completed_by_close_id"] != "legacy-close:season-1" {
+	enrollment := preparedSourceRow(prepared, "e-student")
+	if enrollment.Values["state"] != "completed" || enrollment.Values["completed_by_close_id"] != targetUUID("season_close_events", "legacy-close:season-1", snapshot.CapturedAt) {
 		t.Fatalf("enrollment = %+v", enrollment.Values)
 	}
-	_ = preparedRow(prepared, "season_close_events", "legacy-close:season-1")
+	_ = preparedSourceRow(prepared, "season-1")
 }
 
-func preparedRow(prepared PreparedImport, table, id string) PreparedRow {
-	for _, candidateTable := range prepared.Tables {
-		if candidateTable.Name != table {
-			continue
-		}
-		for _, row := range candidateTable.Rows {
-			if row.ID == id {
+func preparedSourceRow(prepared PreparedImport, sourceID string) PreparedRow {
+	for _, table := range prepared.Tables {
+		for _, row := range table.Rows {
+			if row.SourceID == sourceID {
 				return row
 			}
 		}
 	}
-	panic("prepared row not found: " + table + "/" + id)
+	panic("prepared source row not found: " + sourceID)
 }
 
 func cloneRow(row Row) Row {

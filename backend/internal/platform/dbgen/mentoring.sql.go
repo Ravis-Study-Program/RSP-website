@@ -208,7 +208,7 @@ WHERE e.season_id = $1
   AND e.deleted_at IS NULL
   AND ($2::app.season_role IS NULL OR e.role = $2)
   AND ($3::app.enrollment_state IS NULL OR e.state = $3)
-  AND ($4::text IS NULL OR (u.display_name, e.id) > ($5::text, $4::text))
+  AND ($4::uuid IS NULL OR (u.display_name, e.id) > ($5::text, $4::uuid))
 ORDER BY u.display_name ASC, e.id ASC
 LIMIT $6
 `

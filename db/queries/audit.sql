@@ -14,6 +14,6 @@ FROM app.audit_events
 WHERE (sqlc.narg(subject_type)::text IS NULL OR subject_type = sqlc.narg(subject_type))
   AND (sqlc.narg(subject_id)::text IS NULL OR subject_id = sqlc.narg(subject_id))
   AND (sqlc.narg(actor_user_id)::text IS NULL OR actor_user_id = sqlc.narg(actor_user_id))
-  AND (sqlc.narg(after_id)::text IS NULL OR (occurred_at, id) < (sqlc.narg(after_at)::timestamptz, sqlc.narg(after_id)::text))
+  AND (sqlc.narg(after_id)::uuid IS NULL OR (occurred_at, id) < (sqlc.narg(after_at)::timestamptz, sqlc.narg(after_id)::uuid))
 ORDER BY occurred_at DESC, id DESC
 LIMIT sqlc.arg(page_limit);

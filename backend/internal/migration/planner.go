@@ -1,6 +1,8 @@
 package migration
 
 import (
+	"bytes"
+	"crypto/sha256"
 	"encoding/json"
 	"fmt"
 	"sort"
@@ -8,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	platformid "github.com/magedmg/RSP-website/backend/internal/platform/id"
 	platformsanitize "github.com/magedmg/RSP-website/backend/internal/platform/sanitize"
 )
 
@@ -75,6 +78,38 @@ var targetOrder = []string{
 	"leetcode_mock_interview_rounds",
 	"custom_mock_interview_rounds",
 	"mock_interview_versions",
+}
+
+// uuidReferenceTables maps transformed foreign-key fields to their target
+// table. Polymorphic audit and provenance fields stay text by design.
+var uuidReferenceTables = map[string]map[string]string{
+	"user_auth_links":                    {},
+	"global_role_assignments":            {"user_id": "users", "granted_by_user_id": "users"},
+	"account_deletion_requests":          {"user_id": "users"},
+	"season_close_events":                {"season_id": "seasons", "closed_by_user_id": "users", "reopened_by_user_id": "users"},
+	"season_weeks":                       {"season_id": "seasons"},
+	"enrollments":                        {"user_id": "users", "season_id": "seasons", "completed_by_close_id": "season_close_events"},
+	"mentorships":                        {"season_id": "seasons", "mentor_enrollment_id": "enrollments", "student_enrollment_id": "enrollments"},
+	"enrollment_removal_events":          {"enrollment_id": "enrollments", "season_id": "seasons", "subject_user_id": "users", "actor_user_id": "users"},
+	"leetcode_problems":                  {"problem_id": "problems"},
+	"custom_problems":                    {"problem_id": "problems"},
+	"leetcode_problem_category_mappings": {"leetcode_problem_id": "leetcode_problems", "category_id": "leetcode_problem_categories"},
+	"practice_goals":                     {"user_id": "users", "enabled_by_user_id": "users"},
+	"problem_attempts":                   {"user_id": "users", "problem_id": "problems", "enrollment_id": "enrollments", "season_week_id": "season_weeks"},
+	"recommendations":                    {"user_id": "users", "leetcode_problem_id": "leetcode_problems", "category_id": "leetcode_problem_categories", "fulfilled_by_attempt_id": "problem_attempts"},
+	"recommendation_dismissals":          {"recommendation_id": "recommendations", "user_id": "users", "leetcode_problem_id": "leetcode_problems"},
+	"mock_interviews":                    {"interviewer_user_id": "users", "interviewee_user_id": "users", "season_id": "seasons", "season_week_id": "season_weeks"},
+	"mock_interview_rounds":              {"mock_interview_id": "mock_interviews"},
+	"behavioural_mock_interview_rounds":  {"mock_interview_round_id": "mock_interview_rounds"},
+	"leetcode_mock_interview_rounds":     {"mock_interview_round_id": "mock_interview_rounds", "leetcode_problem_id": "leetcode_problems"},
+	"custom_mock_interview_rounds":       {"mock_interview_round_id": "mock_interview_rounds"},
+	"mock_interview_versions":            {"mock_interview_id": "mock_interviews", "actor_user_id": "users"},
+	"leetcode_sync_runs":                 {"requested_by_user_id": "users"},
+}
+
+func targetUUID(table, legacyID string, at time.Time) string {
+	seed := sha256.Sum256([]byte(table + "\x00" + legacyID))
+	return platformid.NewAt(at, bytes.NewReader(seed[:]))
 }
 
 type Planner struct {
@@ -156,7 +191,7 @@ func (p *Planner) Plan(snapshot Snapshot, resolutionFile *ResolutionFile) (Prepa
 	}
 	manifest := Manifest{
 		Version:                 ManifestVersion,
-		RunID:                   "legacy-" + createdAt.Format("20060102T150405.000000000Z") + "-" + runSeed[:12],
+		RunID:                   targetUUID("migration.runs", "legacy-"+createdAt.Format("20060102T150405.000000000Z")+"-"+runSeed[:12], createdAt),
 		CreatedAt:               createdAt,
 		SourceSnapshotAt:        original.CapturedAt.UTC(),
 		SourceSchemaFingerprint: schemaFingerprint,
@@ -618,9 +653,20 @@ func transformSnapshot(snapshot Snapshot, now time.Time, autoFixes *[]AutoFix) (
 			return err
 		}
 		sourceIDValue := sourceID(sourceTable, source)
-		byTarget[target] = append(byTarget[target], PreparedRow{ID: id, SourceTable: sourceTable, SourceID: sourceIDValue, Values: values})
+		targetID := targetUUID(target, id, now)
+		if target == "leetcode_problem_category_mappings" {
+			parts := strings.SplitN(id, "|", 2)
+			if len(parts) != 2 {
+				return fmt.Errorf("invalid category mapping id %q", id)
+			}
+			targetID = targetUUID("leetcode_problems", parts[0], now) + "|" + targetUUID("leetcode_problem_categories", parts[1], now)
+		}
+		if _, ok := values["id"]; ok {
+			values["id"] = targetID
+		}
+		byTarget[target] = append(byTarget[target], PreparedRow{ID: targetID, SourceTable: sourceTable, SourceID: sourceIDValue, Values: values})
 		provenance = append(provenance, Provenance{
-			Mapping:        Mapping{SourceTable: sourceTable, SourceID: sourceIDValue, TargetTable: target, TargetID: id},
+			Mapping:        Mapping{SourceTable: sourceTable, SourceID: sourceIDValue, TargetTable: target, TargetID: targetID},
 			SourceChecksum: sourceChecksum, TransformedChecksum: transformedChecksum, DuplicateGroup: duplicateGroup,
 		})
 		return nil
@@ -882,6 +928,30 @@ func transformSnapshot(snapshot Snapshot, now time.Time, autoFixes *[]AutoFix) (
 		values := Row{"id": id, "mock_interview_round_id": roundParent["custom\x00"+id], "content_html": nilIfEmpty(content), "url": source["Link"], "score": source["Score"], "content_sanitization_changed": changed, "deleted_at": source["DeletedAtUtc"], "created_at": source["CreatedAtUtc"], "updated_at": source["UpdatedAtUtc"]}
 		if err := add("custom_mock_interview_rounds", "CustomMockInterviewRound", source, id, values, ""); err != nil {
 			return nil, nil, err
+		}
+	}
+
+	// Resolve all legacy foreign-key values after every target ID exists. This
+	// keeps the planner deterministic while allowing the target schema to use
+	// PostgreSQL UUID columns instead of carrying legacy text IDs forward.
+	for target, rows := range byTarget {
+		for index := range rows {
+			for field, referencedTable := range uuidReferenceTables[target] {
+				value, ok := rows[index].Values[field].(string)
+				if !ok || value == "" {
+					continue
+				}
+				rows[index].Values[field] = targetUUID(referencedTable, value, now)
+			}
+			checksum, err := Checksum(rows[index].Values)
+			if err != nil {
+				return nil, nil, err
+			}
+			for provenanceIndex := range provenance {
+				if provenance[provenanceIndex].TargetTable == target && provenance[provenanceIndex].TargetID == rows[index].ID {
+					provenance[provenanceIndex].TransformedChecksum = checksum
+				}
+			}
 		}
 	}
 

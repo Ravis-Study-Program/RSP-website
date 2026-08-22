@@ -6,7 +6,7 @@ WHERE e.season_id = sqlc.arg(season_id)
   AND e.deleted_at IS NULL
   AND (sqlc.narg(role)::app.season_role IS NULL OR e.role = sqlc.narg(role))
   AND (sqlc.narg(state)::app.enrollment_state IS NULL OR e.state = sqlc.narg(state))
-  AND (sqlc.narg(after_id)::text IS NULL OR (u.display_name, e.id) > (sqlc.narg(after_name)::text, sqlc.narg(after_id)::text))
+  AND (sqlc.narg(after_id)::uuid IS NULL OR (u.display_name, e.id) > (sqlc.narg(after_name)::text, sqlc.narg(after_id)::uuid))
 ORDER BY u.display_name ASC, e.id ASC
 LIMIT sqlc.arg(page_limit);
 

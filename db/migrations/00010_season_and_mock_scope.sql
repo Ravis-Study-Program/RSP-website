@@ -12,7 +12,7 @@ RETURNS trigger
 LANGUAGE plpgsql
 AS $function$
 DECLARE
-  week_season_id text;
+  week_season_id uuid;
   season_start timestamptz;
   season_end timestamptz;
 BEGIN
@@ -102,7 +102,7 @@ RETURNS trigger
 LANGUAGE plpgsql
 AS $function$
 DECLARE
-  week_season_id text;
+  week_season_id uuid;
 BEGIN
   IF NEW.season_week_id IS NULL THEN
     RETURN NEW;

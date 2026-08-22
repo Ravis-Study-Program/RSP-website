@@ -273,7 +273,7 @@ async function fakeFixtureExists() {
     '--tuples-only',
     '--no-align',
     '--command',
-    `SELECT EXISTS (SELECT 1 FROM app.seasons WHERE id = 'dev-season')
+    `SELECT EXISTS (SELECT 1 FROM app.seasons WHERE slug = 'dev-season')
        AND (SELECT count(*) FROM app.users WHERE email IN (${users
          .map((user) => `'${user.email}'`)
          .join(', ')})) = ${users.length};`,

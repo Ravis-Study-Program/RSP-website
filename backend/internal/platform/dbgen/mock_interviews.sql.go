@@ -194,7 +194,7 @@ WHERE mi.deleted_at IS NULL
     OR ($1::text = 'given' AND mi.interviewer_user_id = $2)
     OR ($1::text = 'received' AND mi.interviewee_user_id = $2)
   )
-  AND ($3::text IS NULL OR (mi.scheduled_at, mi.id) < ($4::timestamptz, $3::text))
+  AND ($3::uuid IS NULL OR (mi.scheduled_at, mi.id) < ($4::timestamptz, $3::uuid))
 ORDER BY mi.scheduled_at DESC, mi.id DESC
 LIMIT $5
 `

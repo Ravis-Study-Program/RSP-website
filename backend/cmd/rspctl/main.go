@@ -12,6 +12,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/magedmg/RSP-website/backend/internal/platform/id"
+	"github.com/magedmg/RSP-website/backend/internal/worker"
 )
 
 func main() {
@@ -123,7 +124,6 @@ func normalizeSeedEmail(value string) (string, error) {
 }
 
 type seedUser struct {
-	FallbackID    string
 	FallbackEmail string
 	Email         string
 	Slug          string
@@ -132,11 +132,12 @@ type seedUser struct {
 
 func resolveSeedUser(ctx context.Context, tx pgx.Tx, user seedUser) (string, error) {
 	if user.Email == "" {
-		_, err := tx.Exec(ctx, `INSERT INTO app.users(id,slug,display_name,email,account_state,timezone,timezone_configured,is_test,revision) VALUES($1,$2,$3,$4,'active','Australia/Adelaide',true,true,1)`, user.FallbackID, user.Slug, user.DisplayName, user.FallbackEmail)
+		var userID string
+		err := tx.QueryRow(ctx, `INSERT INTO app.users(slug,display_name,email,account_state,timezone,timezone_configured,is_test,revision) VALUES($1,$2,$3,'active','Australia/Adelaide',true,true,1) RETURNING id`, user.Slug, user.DisplayName, user.FallbackEmail).Scan(&userID)
 		if err != nil {
 			return "", err
 		}
-		return user.FallbackID, nil
+		return userID, nil
 	}
 
 	var userID string
@@ -170,8 +171,14 @@ func seed(ctx context.Context, conn *pgx.Conn, options seedOptions) error {
 		return err
 	}
 	defer tx.Rollback(ctx)
+	// The worker may populate the catalogue as soon as the test stack starts.
+	// Use its lock so the fixture can safely reuse problem 1 instead of racing
+	// the catalogue sync into a unique-key violation.
+	if _, err := tx.Exec(ctx, `SELECT pg_advisory_xact_lock($1)`, worker.LeetCodeAdvisoryLock); err != nil {
+		return err
+	}
 	var exists bool
-	if err := tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM app.seasons WHERE id='dev-season')`).Scan(&exists); err != nil {
+	if err := tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM app.seasons WHERE slug='dev-season')`).Scan(&exists); err != nil {
 		return err
 	}
 	if exists {
@@ -180,26 +187,24 @@ func seed(ctx context.Context, conn *pgx.Conn, options seedOptions) error {
 		}
 		return errors.New("seed data already exists")
 	}
-	studentID, err := resolveSeedUser(ctx, tx, seedUser{FallbackID: "dev-student", FallbackEmail: "student@rsp.local", Email: options.StudentEmail, Slug: "dev-student", DisplayName: "Dev Student"})
+	studentID, err := resolveSeedUser(ctx, tx, seedUser{FallbackEmail: "student@rsp.local", Email: options.StudentEmail, Slug: "dev-student", DisplayName: "Dev Student"})
 	if err != nil {
 		return err
 	}
-	mentorID, err := resolveSeedUser(ctx, tx, seedUser{FallbackID: "dev-mentor", FallbackEmail: "mentor@rsp.local", Email: options.MentorEmail, Slug: "dev-mentor", DisplayName: "Dev Mentor"})
+	mentorID, err := resolveSeedUser(ctx, tx, seedUser{FallbackEmail: "mentor@rsp.local", Email: options.MentorEmail, Slug: "dev-mentor", DisplayName: "Dev Mentor"})
 	if err != nil {
 		return err
 	}
-	coordinatorID, err := resolveSeedUser(ctx, tx, seedUser{FallbackID: "dev-coordinator", FallbackEmail: "coordinator@rsp.local", Email: options.CoordinatorEmail, Slug: "dev-coordinator", DisplayName: "Dev Coordinator"})
+	coordinatorID, err := resolveSeedUser(ctx, tx, seedUser{FallbackEmail: "coordinator@rsp.local", Email: options.CoordinatorEmail, Slug: "dev-coordinator", DisplayName: "Dev Coordinator"})
 	if err != nil {
 		return err
 	}
-	privileged := seedUser{FallbackID: "dev-director", FallbackEmail: "director@rsp.local", Email: options.DirectorEmail, Slug: "dev-director", DisplayName: "Dev Director"}
+	privileged := seedUser{FallbackEmail: "director@rsp.local", Email: options.DirectorEmail, Slug: "dev-director", DisplayName: "Dev Director"}
 	privilegedRole := "director"
-	privilegedAssignmentID := "dev-role-director"
 	privilegedAuditAction := "development_seed.director_granted"
 	if options.SiteAdminEmail != "" {
-		privileged = seedUser{FallbackID: "dev-site-admin", FallbackEmail: "site-admin@rsp.local", Email: options.SiteAdminEmail, Slug: "dev-site-admin", DisplayName: "Dev Site Admin"}
+		privileged = seedUser{FallbackEmail: "site-admin@rsp.local", Email: options.SiteAdminEmail, Slug: "dev-site-admin", DisplayName: "Dev Site Admin"}
 		privilegedRole = "system_admin"
-		privilegedAssignmentID = "dev-role-system-admin"
 		privilegedAuditAction = "development_seed.site_admin_granted"
 	}
 	privilegedID, err := resolveSeedUser(ctx, tx, privileged)
@@ -207,26 +212,67 @@ func seed(ctx context.Context, conn *pgx.Conn, options seedOptions) error {
 		return err
 	}
 	now := time.Now().UTC()
-	statements := []struct {
-		query string
-		args  []any
-	}{
-		{`INSERT INTO app.seasons(id,slug,name,status,start_at,end_at,location,image_url,resources_url,revision) VALUES('dev-season','dev-season','Development Season','open',$1,$2,'Adelaide','https://example.invalid/rsp-season','https://example.invalid/rsp-resources',1)`, []any{now.AddDate(0, 0, -7), now.AddDate(0, 0, 49)}},
-		{`INSERT INTO app.enrollments(id,user_id,season_id,role,student_level,state,revision) VALUES('dev-enrollment-student',$1,'dev-season','student','beginner','active',1),('dev-enrollment-mentor',$2,'dev-season','mentor','not_applicable','active',1),('dev-enrollment-coordinator',$3,'dev-season','coordinator','not_applicable','active',1)`, []any{studentID, mentorID, coordinatorID}},
-		{`INSERT INTO app.mentorships(id,season_id,mentor_enrollment_id,student_enrollment_id,revision) VALUES('dev-mentorship','dev-season','dev-enrollment-mentor','dev-enrollment-student',1)`, nil},
-		{`INSERT INTO app.problems(id,title,url,revision) VALUES('dev-problem','Two Sum','https://leetcode.com/problems/two-sum/',1)`, nil},
-		{`INSERT INTO app.leetcode_problems(id,problem_id,leetcode_number,difficulty,is_premium,revision) VALUES('dev-leetcode','dev-problem',1,'easy',false,1) ON CONFLICT (leetcode_number) DO UPDATE SET difficulty='easy',is_premium=false,deleted_at=NULL,revision=app.leetcode_problems.revision+1`, nil},
-		{`DELETE FROM app.problems p WHERE p.id='dev-problem' AND NOT EXISTS(SELECT 1 FROM app.leetcode_problems l WHERE l.problem_id=p.id)`, nil},
-		{fmt.Sprintf(`INSERT INTO app.global_role_assignments(id,user_id,role,state,granted_by_user_id,granted_at,activated_at,revision) SELECT $2,$1,'%s',CASE WHEN mfa_configured THEN 'active'::app.assignment_state ELSE 'pending_mfa'::app.assignment_state END,NULL,$3::timestamptz,CASE WHEN mfa_configured THEN $3::timestamptz ELSE NULL END,1 FROM app.users WHERE id=$1`, privilegedRole), []any{privilegedID, privilegedAssignmentID, now}},
-		{fmt.Sprintf(`INSERT INTO app.audit_events(id,actor_user_id,action,subject_type,subject_id,data,occurred_at) VALUES('dev-audit-coordinator-seed',NULL,'development_seed.coordinator_granted','enrollment','dev-enrollment-coordinator',jsonb_build_object('userId',$1::text,'seasonId','dev-season'),$3::timestamptz),('dev-audit-privileged-seed',NULL,'%s','global_role_assignment',$2,jsonb_build_object('userId',$4::text),$3::timestamptz)`, privilegedAuditAction), []any{coordinatorID, privilegedAssignmentID, now, privilegedID}},
+	var seasonID string
+	if err := tx.QueryRow(ctx, `INSERT INTO app.seasons(slug,name,status,start_at,end_at,location,image_url,resources_url,revision) VALUES('dev-season','Development Season','open',$1,$2,'Adelaide','https://example.invalid/rsp-season','https://example.invalid/rsp-resources',1) RETURNING id`, now.AddDate(0, 0, -7), now.AddDate(0, 0, 49)).Scan(&seasonID); err != nil {
+		return fmt.Errorf("seed season: %w", err)
 	}
-	for i, statement := range statements {
-		if _, err := tx.Exec(ctx, statement.query, statement.args...); err != nil {
-			return fmt.Errorf("seed statement %d: %w", i+1, err)
+	var studentEnrollmentID, mentorEnrollmentID, coordinatorEnrollmentID string
+	for _, item := range []struct {
+		userID, role, level string
+		out                 *string
+	}{
+		{studentID, "student", "beginner", &studentEnrollmentID},
+		{mentorID, "mentor", "not_applicable", &mentorEnrollmentID},
+		{coordinatorID, "coordinator", "not_applicable", &coordinatorEnrollmentID},
+	} {
+		if err := tx.QueryRow(ctx, `INSERT INTO app.enrollments(user_id,season_id,role,student_level,state,revision) VALUES($1,$2,$3,$4,'active',1) RETURNING id`, item.userID, seasonID, item.role, item.level).Scan(item.out); err != nil {
+			return fmt.Errorf("seed enrollment: %w", err)
 		}
+	}
+	if _, err := tx.Exec(ctx, `INSERT INTO app.mentorships(season_id,mentor_enrollment_id,student_enrollment_id,revision) VALUES($1,$2,$3,1)`, seasonID, mentorEnrollmentID, studentEnrollmentID); err != nil {
+		return fmt.Errorf("seed mentorship: %w", err)
+	}
+	if err := seedLeetcodeProblem(ctx, tx); err != nil {
+		return fmt.Errorf("seed leetcode problem: %w", err)
+	}
+	var privilegedAssignmentID string
+	query := fmt.Sprintf(`INSERT INTO app.global_role_assignments(user_id,role,state,granted_by_user_id,granted_at,activated_at,revision) SELECT $1,'%s',CASE WHEN mfa_configured THEN 'active'::app.assignment_state ELSE 'pending_mfa'::app.assignment_state END,NULL,$2,CASE WHEN mfa_configured THEN $2 ELSE NULL END,1 FROM app.users WHERE id=$1 RETURNING id`, privilegedRole)
+	if err := tx.QueryRow(ctx, query, privilegedID, now).Scan(&privilegedAssignmentID); err != nil {
+		return fmt.Errorf("seed privileged role: %w", err)
+	}
+	if _, err := tx.Exec(ctx, `INSERT INTO app.audit_events(actor_user_id,action,subject_type,subject_id,data,occurred_at) VALUES(NULL,'development_seed.coordinator_granted','enrollment',$1,jsonb_build_object('userId',$2::text,'seasonId',$3::text),$4), (NULL,$5,'global_role_assignment',$6,jsonb_build_object('userId',$7::text),$4)`, coordinatorEnrollmentID, coordinatorID, seasonID, now, privilegedAuditAction, privilegedAssignmentID, privilegedID); err != nil {
+		return fmt.Errorf("seed audit: %w", err)
 	}
 	return tx.Commit(ctx)
 }
+
+func seedLeetcodeProblem(ctx context.Context, tx pgx.Tx) error {
+	const leetcodeNumber = 1
+	var problemID, leetcodeID string
+	err := tx.QueryRow(ctx, `
+SELECT p.id, l.id
+FROM app.leetcode_problems AS l
+JOIN app.problems AS p ON p.id=l.problem_id
+WHERE l.leetcode_number=$1
+FOR UPDATE OF p, l`, leetcodeNumber).Scan(&problemID, &leetcodeID)
+	switch {
+	case errors.Is(err, pgx.ErrNoRows):
+		if err := tx.QueryRow(ctx, `INSERT INTO app.problems(title,url,revision) VALUES('Two Sum','https://leetcode.com/problems/two-sum/',1) RETURNING id`).Scan(&problemID); err != nil {
+			return err
+		}
+		_, err = tx.Exec(ctx, `INSERT INTO app.leetcode_problems(problem_id,leetcode_number,difficulty,is_premium,revision) VALUES($1,$2,'easy',false,1)`, problemID, leetcodeNumber)
+		return err
+	case err != nil:
+		return err
+	default:
+		if _, err := tx.Exec(ctx, `UPDATE app.problems SET title='Two Sum',url='https://leetcode.com/problems/two-sum/',deleted_at=NULL,revision=revision+1 WHERE id=$1`, problemID); err != nil {
+			return err
+		}
+		_, err = tx.Exec(ctx, `UPDATE app.leetcode_problems SET difficulty='easy',is_premium=false,deleted_at=NULL,revision=revision+1 WHERE id=$1`, leetcodeID)
+		return err
+	}
+}
+
 func bootstrap(ctx context.Context, conn *pgx.Conn, subject, email string) error {
 	subject = strings.TrimSpace(subject)
 	email = strings.TrimSpace(strings.ToLower(email))
