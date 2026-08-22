@@ -7,11 +7,13 @@ import (
 	"time"
 )
 
+// Auth0Identity represents a backend data structure.
 type Auth0Identity struct {
 	Provider          string `json:"provider"`
 	ProviderAccountID string `json:"providerAccountId"`
 }
 
+// Auth0User represents a backend data structure.
 type Auth0User struct {
 	UserID        string          `json:"userId"`
 	Email         string          `json:"email,omitempty"`
@@ -20,16 +22,19 @@ type Auth0User struct {
 	Identities    []Auth0Identity `json:"identities"`
 }
 
+// AppIdentityCandidate represents a backend data structure.
 type AppIdentityCandidate struct {
 	AppUserID string `json:"appUserId"`
 	Email     string `json:"email,omitempty"`
 }
 
+// IdentityResolution represents a backend data structure.
 type IdentityResolution struct {
 	Auth0UserID string `json:"auth0UserId"`
 	AppUserID   string `json:"appUserId"`
 }
 
+// Auth0ImportItem represents a backend data structure.
 type Auth0ImportItem struct {
 	Auth0UserID            string          `json:"auth0UserId"`
 	CandidateAppUserIDs    []string        `json:"candidateAppUserIds,omitempty"`
@@ -43,12 +48,17 @@ type Auth0ImportItem struct {
 }
 
 const (
-	Auth0StatusMatched               = "matched"
-	Auth0StatusRequiresResolution    = "requires_resolution"
+	// Auth0StatusMatched is a public value used by the backend.
+	Auth0StatusMatched = "matched"
+	// Auth0StatusRequiresResolution is a public value used by the backend.
+	Auth0StatusRequiresResolution = "requires_resolution"
+	// Auth0StatusPasswordResetRequired is a public value used by the backend.
 	Auth0StatusPasswordResetRequired = "password_reset_required"
-	Auth0StatusImported              = "imported"
+	// Auth0StatusImported is a public value used by the backend.
+	Auth0StatusImported = "imported"
 )
 
+// Auth0Reconciliation represents a backend data structure.
 type Auth0Reconciliation struct {
 	Auth0UserCount          int             `json:"auth0UserCount"`
 	AppCandidateCount       int             `json:"appCandidateCount"`
@@ -59,6 +69,7 @@ type Auth0Reconciliation struct {
 	UnresolvedAuth0UserIDs  []string        `json:"unresolvedAuth0UserIds"`
 }
 
+// Auth0ImportPlan represents a backend data structure.
 type Auth0ImportPlan struct {
 	Version        int                 `json:"version"`
 	CreatedAt      time.Time           `json:"createdAt"`
@@ -67,11 +78,11 @@ type Auth0ImportPlan struct {
 	Checksum       string              `json:"checksum"`
 }
 
+// PasswordCompatibility represents a backend value.
 type PasswordCompatibility func(hash string) bool
 
 // PlanAuth0Import never links identities by email automatically. Even one
 // verified email candidate requires an explicit checksum-reviewed resolution.
-
 func PlanAuth0Import(users []Auth0User, candidates []AppIdentityCandidate, resolutions []IdentityResolution, now time.Time, compatible PasswordCompatibility) (Auth0ImportPlan, error) {
 	if compatible == nil {
 		compatible = func(string) bool { return false }

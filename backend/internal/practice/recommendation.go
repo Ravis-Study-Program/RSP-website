@@ -1,3 +1,4 @@
+// Package practice selects personalized practice recommendations.
 package practice
 
 import (
@@ -7,37 +8,55 @@ import (
 	"time"
 )
 
+// Difficulty is a backend domain type.
 type Difficulty string
 
 const (
-	Easy   Difficulty = "easy"
+	// Easy is a public value used by the backend.
+	Easy Difficulty = "easy"
+	// Medium is a public value used by the backend.
 	Medium Difficulty = "medium"
-	Hard   Difficulty = "hard"
+	// Hard is a public value used by the backend.
+	Hard Difficulty = "hard"
 )
 
+// Outcome is a backend domain type.
 type Outcome string
 
 const (
+	// Independent is a public value used by the backend.
 	Independent Outcome = "independently_solved"
-	WithHints   Outcome = "solved_with_hints"
-	NotSolved   Outcome = "not_solved"
-	Unknown     Outcome = "unknown"
+	// WithHints is a public value used by the backend.
+	WithHints Outcome = "solved_with_hints"
+	// NotSolved is a public value used by the backend.
+	NotSolved Outcome = "not_solved"
+	// Unknown is a public value used by the backend.
+	Unknown Outcome = "unknown"
 )
 
+// Level is a backend domain type.
 type Level string
 
 const (
-	Novice       Level = "novice"
-	Beginner     Level = "beginner"
+	// Novice is a public value used by the backend.
+	Novice Level = "novice"
+	// Beginner is a public value used by the backend.
+	Beginner Level = "beginner"
+	// Intermediate is a public value used by the backend.
 	Intermediate Level = "intermediate"
-	Advanced     Level = "advanced"
-	NonStudent   Level = "non_student"
+	// Advanced is a public value used by the backend.
+	Advanced Level = "advanced"
+	// NonStudent is a public value used by the backend.
+	NonStudent Level = "non_student"
 )
 
+// Goals represents a backend value.
 type Goals map[Difficulty]int
 
+// DefaultGoals performs the operation.
 func DefaultGoals() Goals { return Goals{Easy: 20, Medium: 35, Hard: 50} }
 
+// Problem represents a backend data structure.
 type Problem struct {
 	ID         string     `json:"id"`
 	Number     int        `json:"number"`
@@ -49,6 +68,7 @@ type Problem struct {
 	Revision   int64      `json:"revision"`
 }
 
+// Attempt represents a backend data structure.
 type Attempt struct {
 	ProblemID   string
 	Difficulty  Difficulty
@@ -60,21 +80,25 @@ type Attempt struct {
 	Migrated    bool
 }
 
+// Dismissal represents a backend data structure.
 type Dismissal struct {
 	ProblemID   string    `json:"problemId"`
 	DismissedAt time.Time `json:"dismissedAt"`
 }
 
+// ProblemHistory represents a backend data structure.
 type ProblemHistory struct {
 	LastAttemptedAt time.Time
 	Weak            bool
 }
 
+// Criteria represents a backend data structure.
 type Criteria struct {
 	Difficulty Difficulty
 	Category   string
 }
 
+// Recommendation represents a backend data structure.
 type Recommendation struct {
 	ID          string     `json:"id"`
 	UserID      string     `json:"userId"`
@@ -89,6 +113,7 @@ type Recommendation struct {
 	FulfilledAt *time.Time `json:"fulfilledAt,omitempty"`
 }
 
+// Request represents a backend data structure.
 type Request struct {
 	UserID           string
 	Level            Level
@@ -104,8 +129,10 @@ type Request struct {
 	Now              time.Time
 }
 
+// ErrNoCandidate is a public value used by the backend.
 var ErrNoCandidate = errors.New("no suitable recommendation")
 
+// Select performs the operation.
 func Select(in Request) (Recommendation, error) {
 	if in.Active != nil && in.Active.DismissedAt == nil && in.Active.FulfilledAt == nil {
 		return *in.Active, nil
@@ -172,6 +199,7 @@ func Select(in Request) (Recommendation, error) {
 	return Recommendation{ID: "recommendation-" + in.UserID + "-" + chosen.ID, UserID: in.UserID, Problem: *chosen, Difficulty: difficulty, Category: category, Rationale: rationale, RuleVersion: "v1", CreatedAt: now}, nil
 }
 
+// CriteriaFor performs the operation.
 func CriteriaFor(in Request) Criteria {
 	in.Goals = normalizedGoals(in.Goals)
 	return criteriaFor(in)

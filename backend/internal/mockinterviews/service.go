@@ -1,3 +1,4 @@
+// Package mockinterviews models and manages mock interviews.
 package mockinterviews
 
 import (
@@ -9,19 +10,27 @@ import (
 )
 
 var (
+	// ErrForbidden is a public value used by the backend.
 	ErrForbidden = errors.New("forbidden")
-	ErrConflict  = errors.New("stale revision")
-	ErrInvalid   = errors.New("invalid mock interview")
+	// ErrConflict is a public value used by the backend.
+	ErrConflict = errors.New("stale revision")
+	// ErrInvalid is a public value used by the backend.
+	ErrInvalid = errors.New("invalid mock interview")
 )
 
+// RoundType is a backend domain type.
 type RoundType string
 
 const (
+	// Behavioural is a public value used by the backend.
 	Behavioural RoundType = "behavioural"
-	LeetCode    RoundType = "leetcode"
-	Custom      RoundType = "custom"
+	// LeetCode is a public value used by the backend.
+	LeetCode RoundType = "leetcode"
+	// Custom is a public value used by the backend.
+	Custom RoundType = "custom"
 )
 
+// Participant represents a backend data structure.
 type Participant struct {
 	UserID       string `json:"userId"`
 	ActiveMember bool   `json:"activeMember,omitempty"`
@@ -34,6 +43,7 @@ type Participant struct {
 	KickedOnly   bool   `json:"kickedOnly,omitempty"`
 }
 
+// ParticipantSummary represents a backend data structure.
 type ParticipantSummary struct {
 	ID        string  `json:"id"`
 	Slug      string  `json:"slug"`
@@ -41,18 +51,22 @@ type ParticipantSummary struct {
 	AvatarURL *string `json:"avatarUrl,omitempty"`
 }
 
+// Eligible performs the operation.
 func (p Participant) Eligible() bool {
 	return (p.ActiveMember || p.Alumni) && !p.Inactive && !p.Suspended && !p.Deleted && !p.Test && !p.KickedOnly
 }
 
+// ProgrammeAccessEligible performs the operation.
 func (p Participant) ProgrammeAccessEligible() bool {
 	return (p.ActiveMember || p.Alumni || p.FormerMember) && !p.Inactive && !p.Suspended && !p.Deleted && !p.Test && !p.KickedOnly
 }
 
+// DirectoryEligible performs the operation.
 func (p Participant) DirectoryEligible() bool {
 	return (p.ActiveMember || p.Alumni) && !p.Inactive && !p.Suspended && !p.Deleted && !p.Test && !p.KickedOnly
 }
 
+// Scores represents a backend data structure.
 type Scores struct {
 	Behavioural        *int `json:"behavioural,omitempty"`
 	ConfirmQuestions   *int `json:"confirmQuestions,omitempty"`
@@ -63,6 +77,7 @@ type Scores struct {
 	Custom             *int `json:"custom,omitempty"`
 }
 
+// Round represents a backend data structure.
 type Round struct {
 	ID                 string    `json:"id"`
 	Type               RoundType `json:"type"`
@@ -74,6 +89,7 @@ type Round struct {
 	IntervieweeComment string    `json:"intervieweeComment"`
 }
 
+// Interview represents a backend data structure.
 type Interview struct {
 	ID              string             `json:"id"`
 	InterviewerID   string             `json:"interviewerId"`
@@ -89,6 +105,7 @@ type Interview struct {
 	DeletedAt       *time.Time         `json:"-"`
 }
 
+// Version represents a backend data structure.
 type Version struct {
 	InterviewID     string
 	Revision        int64
@@ -97,11 +114,13 @@ type Version struct {
 	Snapshot        json.RawMessage
 }
 
+// Service represents a backend data structure.
 type Service struct {
 	Sanitize func(string) string
 	Versions []Version
 }
 
+// CreateInput represents a backend data structure.
 type CreateInput struct {
 	Interviewee     Participant
 	SeasonID        *string
@@ -111,6 +130,7 @@ type CreateInput struct {
 	Rounds          []Round
 }
 
+// Create creates a value.
 func (s *Service) Create(actorID string, in CreateInput, now time.Time) (Interview, error) {
 	if actorID == "" || !in.Interviewee.Eligible() {
 		return Interview{}, ErrForbidden
@@ -129,6 +149,7 @@ func (s *Service) Create(actorID string, in CreateInput, now time.Time) (Intervi
 	return m, nil
 }
 
+// UpdateInput represents a backend data structure.
 type UpdateInput struct {
 	ExpectedRevision int64
 	OccurredAt       time.Time
@@ -137,6 +158,7 @@ type UpdateInput struct {
 	Rounds           []Round
 }
 
+// Update updates a value.
 func (s *Service) Update(m *Interview, actorID string, in UpdateInput, now time.Time) error {
 	if actorID != m.InterviewerID {
 		return ErrForbidden
@@ -172,6 +194,7 @@ func (s *Service) Update(m *Interview, actorID string, in UpdateInput, now time.
 	return nil
 }
 
+// Review performs the operation.
 func (s *Service) Review(m *Interview, actorID, roundID, comment string, reviewed bool, expectedRevision int64, now time.Time) error {
 	if actorID != m.IntervieweeID {
 		return ErrForbidden
@@ -196,6 +219,7 @@ func (s *Service) Review(m *Interview, actorID, roundID, comment string, reviewe
 	return nil
 }
 
+// CorrectIdentities performs the operation.
 func (s *Service) CorrectIdentities(m *Interview, actorID, newInterviewer, newInterviewee string, newSeason *string, reason string, privileged bool, expectedRevision int64, now time.Time) error {
 	if !privileged || reason == "" {
 		return ErrForbidden
@@ -211,6 +235,7 @@ func (s *Service) CorrectIdentities(m *Interview, actorID, newInterviewer, newIn
 	return nil
 }
 
+// Delete deletes a value.
 func (s *Service) Delete(m *Interview, actorID string, expectedRevision int64, now time.Time) error {
 	if actorID != m.InterviewerID {
 		return ErrForbidden
@@ -225,6 +250,7 @@ func (s *Service) Delete(m *Interview, actorID string, expectedRevision int64, n
 	return nil
 }
 
+// Passed performs the operation.
 func Passed(m Interview) bool {
 	has := false
 	for _, r := range m.Rounds {

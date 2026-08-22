@@ -7,11 +7,13 @@ import (
 	"time"
 )
 
+// Engine represents a backend data structure.
 type Engine struct {
 	planner *Planner
 	now     func() time.Time
 }
 
+// NewEngine creates a new value.
 func NewEngine(now func() time.Time) *Engine {
 	if now == nil {
 		now = time.Now
@@ -19,6 +21,7 @@ func NewEngine(now func() time.Time) *Engine {
 	return &Engine{planner: NewPlanner(now), now: now}
 }
 
+// DryRun performs the operation.
 func (e *Engine) DryRun(ctx context.Context, source Source, resolutions *ResolutionFile) (PreparedImport, error) {
 	return e.planSource(ctx, source, resolutions, time.Time{})
 }
@@ -37,6 +40,7 @@ func (e *Engine) planSource(ctx context.Context, source Source, resolutions *Res
 	return e.planner.Plan(snapshot, resolutions)
 }
 
+// Apply applies the operation.
 func (e *Engine) Apply(ctx context.Context, source Source, target Target, manifest Manifest, resolutions *ResolutionFile) error {
 	if err := ValidateManifest(manifest); err != nil {
 		return err
@@ -86,6 +90,7 @@ func (e *Engine) Apply(ctx context.Context, source Source, target Target, manife
 	return nil
 }
 
+// Verify verifies the operation.
 func (e *Engine) Verify(ctx context.Context, target Target, manifest Manifest) (Verification, error) {
 	if err := ValidateManifest(manifest); err != nil {
 		return Verification{}, err
@@ -123,6 +128,7 @@ func (e *Engine) Verify(ctx context.Context, target Target, manifest Manifest) (
 	return verification, nil
 }
 
+// Rollback rolls back the operation.
 func (e *Engine) Rollback(ctx context.Context, target Target, runID string) error {
 	if runID == "" {
 		return errors.New("run id is required")

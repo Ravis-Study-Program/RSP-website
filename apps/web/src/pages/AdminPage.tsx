@@ -528,13 +528,18 @@ export function AdminResourcePage({
             <select
               id={`admin-${resource}-season`}
               className={styles.select}
-              value={selectedSeason?.id ?? ''}
+              value={selectedSeason?.slug ?? ''}
               disabled={!manageableSeasons.length}
-              onChange={(event) => setSelectedSeasonId(event.target.value)}
+              onChange={(event) => {
+                const season = manageableSeasons.find(
+                  (item) => item.slug === event.target.value,
+                );
+                setSelectedSeasonId(season?.id ?? '');
+              }}
             >
               {manageableSeasons.length ? (
                 manageableSeasons.map((season) => (
-                  <option value={season.id} key={season.id}>
+                  <option value={season.slug} key={season.id}>
                     {season.name} · {season.status}
                   </option>
                 ))

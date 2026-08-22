@@ -8,6 +8,7 @@ import (
 	"os"
 )
 
+// DecodeSnapshot decodes a value.
 func DecodeSnapshot(reader io.Reader) (Snapshot, error) {
 	decoder := json.NewDecoder(reader)
 	decoder.UseNumber()
@@ -21,6 +22,7 @@ func DecodeSnapshot(reader io.Reader) (Snapshot, error) {
 	return snapshot, nil
 }
 
+// LoadSnapshot loads a value.
 func LoadSnapshot(path string) (Snapshot, error) {
 	file, err := os.Open(path)
 	if err != nil {
@@ -31,6 +33,7 @@ func LoadSnapshot(path string) (Snapshot, error) {
 	return DecodeSnapshot(file)
 }
 
+// WriteJSON writes a response.
 func WriteJSON(path string, value any) error {
 	encoded, err := json.MarshalIndent(value, "", "  ")
 	if err != nil {
@@ -44,6 +47,7 @@ func WriteJSON(path string, value any) error {
 	return nil
 }
 
+// LoadManifest loads a value.
 func LoadManifest(path string) (Manifest, error) {
 	file, err := os.Open(path)
 	if err != nil {
@@ -60,6 +64,7 @@ func LoadManifest(path string) (Manifest, error) {
 	return manifest, nil
 }
 
+// LoadResolutionFile loads a value.
 func LoadResolutionFile(path string) (*ResolutionFile, error) {
 	if path == "" {
 		return nil, nil
@@ -79,11 +84,13 @@ func LoadResolutionFile(path string) (*ResolutionFile, error) {
 	return &result, nil
 }
 
+// FixtureSource represents a backend data structure.
 type FixtureSource struct {
 	Value       Snapshot
 	LastOptions SnapshotOptions
 }
 
+// Snapshot performs the operation.
 func (f *FixtureSource) Snapshot(_ context.Context, options SnapshotOptions) (Snapshot, error) {
 	f.LastOptions = options
 	return cloneSnapshot(f.Value)
@@ -97,6 +104,7 @@ func cloneSnapshot(snapshot Snapshot) (Snapshot, error) {
 	return DecodeSnapshotBytes(encoded)
 }
 
+// DecodeSnapshotBytes decodes a value.
 func DecodeSnapshotBytes(encoded []byte) (Snapshot, error) {
 	var snapshot Snapshot
 	decoder := json.NewDecoder(bytesReader(encoded))
@@ -114,6 +122,7 @@ type byteReader struct {
 
 func bytesReader(data []byte) *byteReader { return &byteReader{data: data} }
 
+// Read reads data.
 func (r *byteReader) Read(target []byte) (int, error) {
 	if r.off >= len(r.data) {
 		return 0, io.EOF

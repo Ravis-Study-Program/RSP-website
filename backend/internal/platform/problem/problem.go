@@ -1,3 +1,4 @@
+// Package problem writes problem detail responses.
 package problem
 
 import (
@@ -5,11 +6,13 @@ import (
 	"net/http"
 )
 
+// FieldError represents a backend data structure.
 type FieldError struct {
 	Field   string `json:"field"`
 	Message string `json:"message"`
 }
 
+// Details represents a backend data structure.
 type Details struct {
 	Type      string       `json:"type"`
 	Title     string       `json:"title"`
@@ -21,6 +24,7 @@ type Details struct {
 	Errors    []FieldError `json:"errors"`
 }
 
+// Write writes a response.
 func Write(w http.ResponseWriter, v Details) {
 	if v.Errors == nil {
 		v.Errors = []FieldError{}

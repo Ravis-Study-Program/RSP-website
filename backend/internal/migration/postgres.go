@@ -13,10 +13,12 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
+// PostgresSource represents a backend data structure.
 type PostgresSource struct {
 	ConnectionString string
 }
 
+// Snapshot performs the operation.
 func (source *PostgresSource) Snapshot(ctx context.Context, options SnapshotOptions) (Snapshot, error) {
 	if !options.ReadOnly || options.Isolation != IsolationRepeatableRead {
 		return Snapshot{}, errors.New("legacy source requires READ ONLY, REPEATABLE READ")
@@ -192,11 +194,13 @@ func readLegacyTable(ctx context.Context, tx pgx.Tx, table string) ([]Row, error
 	return result, nil
 }
 
+// PostgresTarget represents a backend data structure.
 type PostgresTarget struct {
 	ConnectionString string
 	Now              func() time.Time
 }
 
+// Begin performs the operation.
 func (target *PostgresTarget) Begin(ctx context.Context) (TargetTx, error) {
 	connection, err := pgx.Connect(ctx, target.ConnectionString)
 	if err != nil {
@@ -224,6 +228,7 @@ type postgresTx struct {
 	completed  bool
 }
 
+// AcquireAdvisoryLock performs the operation.
 func (tx *postgresTx) AcquireAdvisoryLock(ctx context.Context, key int64) error {
 	if key != AdvisoryLockKey {
 		return fmt.Errorf("unexpected advisory lock key %d", key)
@@ -236,12 +241,14 @@ func (tx *postgresTx) AcquireAdvisoryLock(ctx context.Context, key int64) error 
 	return nil
 }
 
+// HasRun performs the operation.
 func (tx *postgresTx) HasRun(ctx context.Context, runID string) (bool, error) {
 	var exists bool
 	err := tx.tx.QueryRow(ctx, "SELECT EXISTS (SELECT 1 FROM migration.runs WHERE id = $1)", runID).Scan(&exists)
 	return exists, err
 }
 
+// Apply applies the operation.
 func (tx *postgresTx) Apply(ctx context.Context, prepared PreparedImport) error {
 	if !tx.locked {
 		return errors.New("migration advisory lock is not held")
@@ -395,6 +402,7 @@ func insertPreparedRow(ctx context.Context, tx pgx.Tx, table string, values Row)
 	return err
 }
 
+// Verification performs the operation.
 func (tx *postgresTx) Verification(ctx context.Context, manifest Manifest) (Verification, error) {
 	var storedChecksum, state string
 	if err := tx.tx.QueryRow(ctx, "SELECT manifest_checksum, state::text FROM migration.runs WHERE id = $1", manifest.RunID).Scan(&storedChecksum, &state); err != nil {
@@ -601,6 +609,7 @@ func targetRowExists(ctx context.Context, tx pgx.Tx, table, id string) (bool, er
 	return exists, err
 }
 
+// RollbackRun rolls back the operation.
 func (tx *postgresTx) RollbackRun(ctx context.Context, runID string) error {
 	if !tx.locked {
 		return errors.New("migration advisory lock is not held")
@@ -674,6 +683,7 @@ WHERE id = $1 AND state IN ('applied', 'verified')`, runID, tx.now().UTC())
 	return nil
 }
 
+// Commit performs the operation.
 func (tx *postgresTx) Commit(ctx context.Context) error {
 	if tx.completed {
 		return errors.New("transaction is already complete")
@@ -687,6 +697,7 @@ func (tx *postgresTx) Commit(ctx context.Context) error {
 	return closeErr
 }
 
+// Abort performs the operation.
 func (tx *postgresTx) Abort(ctx context.Context) error {
 	if tx.completed {
 		return nil

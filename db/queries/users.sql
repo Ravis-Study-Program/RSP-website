@@ -9,7 +9,7 @@ WHERE l.auth_subject = $1
 
 -- name: GetUserPrivateByID :one
 SELECT * FROM app.users
-WHERE (id = $1 OR lower(slug) = lower($1))
+WHERE (id::text = sqlc.arg(id)::text OR lower(slug) = lower(sqlc.arg(id)::text))
   AND deleted_at IS NULL;
 
 -- name: GetUserPublicBySlug :one

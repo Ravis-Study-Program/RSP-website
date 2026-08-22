@@ -1,3 +1,4 @@
+// Package authn validates backend access tokens.
 package authn
 
 import (
@@ -19,11 +20,15 @@ import (
 )
 
 var (
-	ErrInvalidToken       = errors.New("invalid access token")
-	ErrUnverified         = errors.New("email is not verified")
+	// ErrInvalidToken is a public value used by the backend.
+	ErrInvalidToken = errors.New("invalid access token")
+	// ErrUnverified is a public value used by the backend.
+	ErrUnverified = errors.New("email is not verified")
+	// ErrAccountUnavailable is a public value used by the backend.
 	ErrAccountUnavailable = errors.New("account is unavailable")
 )
 
+// Claims represents a backend data structure.
 type Claims struct {
 	EmailVerified   bool           `json:"emailVerified"`
 	AccountState    string         `json:"accountState,omitempty"`
@@ -36,9 +41,9 @@ type Claims struct {
 // ClaimDateTime accepts both Better Auth's RFC3339 access-policy value and a
 // standard JWT NumericDate. This keeps key/session rotation compatible without
 // requiring the browser-facing auth contract to expose numeric timestamps.
-
 type ClaimDateTime struct{ time.Time }
 
+// UnmarshalJSON performs the operation.
 func (v *ClaimDateTime) UnmarshalJSON(raw []byte) error {
 	var text string
 	if err := json.Unmarshal(raw, &text); err == nil {
@@ -60,6 +65,7 @@ func (v *ClaimDateTime) UnmarshalJSON(raw []byte) error {
 	return nil
 }
 
+// MarshalJSON performs the operation.
 func (v ClaimDateTime) MarshalJSON() ([]byte, error) {
 	return json.Marshal(v.Time.UTC().Format(time.RFC3339Nano))
 }
@@ -70,6 +76,7 @@ type jwks struct {
 	Keys []jwk `json:"keys"`
 }
 
+// Validator represents a backend data structure.
 type Validator struct {
 	Issuer, Audience, JWKSURL string
 	Client                    *http.Client
@@ -79,6 +86,7 @@ type Validator struct {
 	loadedAt                  time.Time
 }
 
+// Validate validates a value.
 func (v *Validator) Validate(ctx context.Context, raw string) (Claims, error) {
 	if v.Client == nil {
 		v.Client = &http.Client{Timeout: 5 * time.Second}

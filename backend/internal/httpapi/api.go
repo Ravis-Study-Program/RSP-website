@@ -37,6 +37,7 @@ type validationResponseWriter struct {
 
 var safeRequestID = regexp.MustCompile(`^[A-Za-z0-9._-]{1,128}$`)
 
+// Config represents a backend data structure.
 type Config struct {
 	Store           store.Repository
 	Authenticator   Authenticator
@@ -49,6 +50,7 @@ type Config struct {
 	GetMFAState     func(context.Context, string) (bool, error)
 }
 
+// API represents a backend data structure.
 type API struct {
 	store           store.Repository
 	auth            Authenticator
@@ -78,14 +80,17 @@ func newStrictManualResponse() *strictManualResponse {
 	return &strictManualResponse{header: make(http.Header)}
 }
 
+// Header performs the operation.
 func (response *strictManualResponse) Header() http.Header { return response.header }
 
+// WriteHeader writes a response.
 func (response *strictManualResponse) WriteHeader(status int) {
 	if response.status == 0 {
 		response.status = status
 	}
 }
 
+// Write writes a response.
 func (response *strictManualResponse) Write(body []byte) (int, error) {
 	if response.status == 0 {
 		response.status = http.StatusOK
@@ -119,6 +124,7 @@ func strictResponse(ctx context.Context) (*strictManualResponse, error) {
 	return response, nil
 }
 
+// New creates a new value.
 func New(c Config) *API {
 	logger := c.Logger
 	if logger == nil {
@@ -132,6 +138,7 @@ func New(c Config) *API {
 	return &API{store: c.Store, auth: c.Authenticator, publicOrigin: c.PublicOrigin, cursorSecret: secret, logger: logger, limiter: ratelimit.New(), ready: c.Ready, syncLeetCode: c.SyncLeetCode, setAccountState: c.SetAccountState, getMFAState: c.GetMFAState, telemetry: newAPIMetrics(), mockService: mockinterviews.Service{Sanitize: cleaner.String}}
 }
 
+// Handler performs the operation.
 func (a *API) Handler() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /api/v2/health/live", a.live)

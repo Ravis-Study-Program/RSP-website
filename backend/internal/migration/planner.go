@@ -14,6 +14,7 @@ import (
 	platformsanitize "github.com/magedmg/RSP-website/backend/internal/platform/sanitize"
 )
 
+// LegacyTables is a public value used by the backend.
 var LegacyTables = []string{
 	"BehaviouralMockInterviewRound",
 	"CustomMockInterviewRound",
@@ -113,10 +114,12 @@ func targetUUID(table, legacyID string, at time.Time) string {
 	return platformid.NewAt(at, bytes.NewReader(seed[:]))
 }
 
+// Planner represents a backend data structure.
 type Planner struct {
 	now func() time.Time
 }
 
+// NewPlanner creates a new value.
 func NewPlanner(now func() time.Time) *Planner {
 	if now == nil {
 		now = time.Now
@@ -124,6 +127,7 @@ func NewPlanner(now func() time.Time) *Planner {
 	return &Planner{now: now}
 }
 
+// Plan plans the operation.
 func (p *Planner) Plan(snapshot Snapshot, resolutionFile *ResolutionFile) (PreparedImport, error) {
 	original, err := cloneSnapshot(snapshot)
 	if err != nil {

@@ -18,9 +18,9 @@ type beginner interface {
 // problem record and exact category membership. The worker's advisory lock
 // serialises full catalogue runs; the database constraints protect individual
 // rows if an operator retries a run.
-
 type PostgresSink struct{ DB beginner }
 
+// Upsert performs the operation.
 func (s PostgresSink) Upsert(ctx context.Context, problem Problem) error {
 	if s.DB == nil {
 		return errors.New("PostgreSQL sink is not configured")

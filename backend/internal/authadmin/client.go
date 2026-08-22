@@ -1,3 +1,4 @@
+// Package authadmin provides a client for the auth administration API.
 package authadmin
 
 import (
@@ -11,12 +12,14 @@ import (
 	"strings"
 )
 
+// Client represents a backend data structure.
 type Client struct {
 	BaseURL string
 	Token   string
 	HTTP    *http.Client
 }
 
+// SetAccountState performs the operation.
 func (c Client) SetAccountState(ctx context.Context, authUserID, state, reason, actorUserID string) error {
 	body, err := json.Marshal(map[string]string{"state": state, "reason": reason, "actorUserId": actorUserID})
 	if err != nil {
@@ -43,6 +46,7 @@ func (c Client) SetAccountState(ctx context.Context, authUserID, state, reason, 
 	return nil
 }
 
+// MFAConfigured performs the operation.
 func (c Client) MFAConfigured(ctx context.Context, authUserID string) (bool, error) {
 	request, err := c.request(ctx, http.MethodGet, "/internal/auth/users/"+url.PathEscape(authUserID)+"/mfa-state", nil)
 	if err != nil {

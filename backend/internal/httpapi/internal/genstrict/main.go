@@ -1,3 +1,4 @@
+// Package main generates the strict HTTP adapter for the API.
 package main
 
 import (

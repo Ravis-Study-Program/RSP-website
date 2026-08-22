@@ -1,3 +1,4 @@
+// Package cursor encodes and decodes signed pagination cursors.
 package cursor
 
 import (
@@ -8,6 +9,7 @@ import (
 	"errors"
 )
 
+// ErrInvalid is a public value used by the backend.
 var ErrInvalid = errors.New("invalid cursor")
 
 type payload struct {
@@ -16,6 +18,7 @@ type payload struct {
 	Binding string `json:"binding"`
 }
 
+// Encode encodes a value.
 func Encode(secret []byte, after, binding string) (string, error) {
 	raw, err := json.Marshal(payload{1, after, binding})
 	if err != nil {
@@ -27,6 +30,7 @@ func Encode(secret []byte, after, binding string) (string, error) {
 	return base64.RawURLEncoding.EncodeToString(append(raw, mac.Sum(nil)...)), nil
 }
 
+// Decode decodes a value.
 func Decode(secret []byte, encoded, binding string) (string, error) {
 	signed, err := base64.RawURLEncoding.DecodeString(encoded)
 	if err != nil || len(signed) <= sha256.Size {

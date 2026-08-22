@@ -29,11 +29,15 @@ func identityEventHash(event IdentityEvent) string {
 }
 
 var (
-	ErrNotFound  = errors.New("not found")
-	ErrConflict  = errors.New("conflict")
+	// ErrNotFound is a public value used by the backend.
+	ErrNotFound = errors.New("not found")
+	// ErrConflict is a public value used by the backend.
+	ErrConflict = errors.New("conflict")
+	// ErrDuplicate is a public value used by the backend.
 	ErrDuplicate = errors.New("duplicate")
 )
 
+// IdentityEvent represents a backend data structure.
 type IdentityEvent struct {
 	EventID, Type, AuthUserID, Email, Reason, AccountState, ActorUserID string
 	EmailVerified                                                       bool
@@ -42,6 +46,7 @@ type IdentityEvent struct {
 	RecoveryDeadline                                                    *time.Time
 }
 
+// GlobalRoleAssignment represents a backend data structure.
 type GlobalRoleAssignment struct {
 	ID       string `json:"id"`
 	UserID   string `json:"userId"`
@@ -54,7 +59,6 @@ type GlobalRoleAssignment struct {
 // Keeping this separate from Repository lets non-PostgreSQL stores remain
 // lightweight while the API metrics endpoint can expose durable worker and
 // migration state when it is available.
-
 type ObservabilitySnapshot struct {
 	DBPoolAcquiredConnections int32
 	DBPoolIdleConnections     int32
@@ -62,6 +66,7 @@ type ObservabilitySnapshot struct {
 	MigrationState            string
 }
 
+// RecommendationSnapshot represents a backend data structure.
 type RecommendationSnapshot struct {
 	QualityAttempts  []model.Attempt
 	Problems         []model.Problem
@@ -69,10 +74,12 @@ type RecommendationSnapshot struct {
 	CategoryExposure map[string]int
 }
 
+// ObservabilitySource defines a backend interface.
 type ObservabilitySource interface {
 	ObservabilitySnapshot(context.Context) (ObservabilitySnapshot, error)
 }
 
+// Repository defines a backend interface.
 type Repository interface {
 	ApplyIdentityEvent(context.Context, IdentityEvent) error
 	ResolveAuthSubject(context.Context, string) (authz.Actor, error)

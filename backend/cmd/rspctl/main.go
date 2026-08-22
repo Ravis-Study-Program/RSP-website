@@ -1,3 +1,4 @@
+// Package main provides administrative commands for the RSP backend.
 package main
 
 import (
@@ -248,6 +249,21 @@ func seed(ctx context.Context, conn *pgx.Conn, options seedOptions) error {
 			return fmt.Errorf("seed enrollment: %w", err)
 		}
 	}
+	// The coordinator insert trigger starts every new coordinator assignment in
+	// pending_mfa. These users completed MFA before the seed ran, so reconcile
+	// the fixture without waiting for another identity event.
+	if _, err := tx.Exec(ctx, `
+UPDATE app.enrollments e
+SET assignment_state='active',activated_at=$2,revision=e.revision+1
+FROM app.users u
+WHERE e.id=$1
+  AND e.user_id=u.id
+  AND e.role='coordinator'
+  AND e.state='active'
+  AND e.assignment_state='pending_mfa'
+  AND u.mfa_configured`, coordinatorEnrollmentID, now); err != nil {
+		return fmt.Errorf("seed coordinator role: %w", err)
+	}
 	if _, err := tx.Exec(ctx, `INSERT INTO app.mentorships(season_id,mentor_enrollment_id,student_enrollment_id,revision) VALUES($1,$2,$3,1)`, seasonID, mentorEnrollmentID, studentEnrollmentID); err != nil {
 		return fmt.Errorf("seed mentorship: %w", err)
 	}
@@ -256,8 +272,12 @@ func seed(ctx context.Context, conn *pgx.Conn, options seedOptions) error {
 	}
 
 	var privilegedAssignmentID string
-	query := fmt.Sprintf(`INSERT INTO app.global_role_assignments(user_id,role,state,granted_by_user_id,granted_at,activated_at,revision) SELECT $1,'%s',CASE WHEN mfa_configured THEN 'active'::app.assignment_state ELSE 'pending_mfa'::app.assignment_state END,NULL,$2,CASE WHEN mfa_configured THEN $2 ELSE NULL END,1 FROM app.users WHERE id=$1 RETURNING id`, privilegedRole)
-	if err := tx.QueryRow(ctx, query, privilegedID, now).Scan(&privilegedAssignmentID); err != nil {
+	if err := tx.QueryRow(ctx, `
+INSERT INTO app.global_role_assignments(user_id,role,state,granted_by_user_id,granted_at,activated_at,revision)
+SELECT $1,$2::app.global_role,'pending_mfa'::app.assignment_state,NULL,$3::timestamptz,NULL::timestamptz,1
+FROM app.users
+WHERE id=$1
+RETURNING id`, privilegedID, privilegedRole, now).Scan(&privilegedAssignmentID); err != nil {
 		return fmt.Errorf("seed privileged role: %w", err)
 	}
 	if _, err := tx.Exec(ctx, `INSERT INTO app.audit_events(actor_user_id,action,subject_type,subject_id,data,occurred_at) VALUES(NULL,'development_seed.coordinator_granted','enrollment',$1,jsonb_build_object('userId',$2::text,'seasonId',$3::text),$4), (NULL,$5,'global_role_assignment',$6,jsonb_build_object('userId',$7::text),$4)`, coordinatorEnrollmentID, coordinatorID, seasonID, now, privilegedAuditAction, privilegedAssignmentID, privilegedID); err != nil {

@@ -1,7 +1,9 @@
+// Package model defines backend API and persistence models.
 package model
 
 import "time"
 
+// User represents a backend data structure.
 type User struct {
 	ID                 string           `json:"id"`
 	Slug               string           `json:"slug"`
@@ -20,6 +22,7 @@ type User struct {
 	Revision           int64            `json:"revision"`
 }
 
+// UserSeasonRole represents a backend data structure.
 type UserSeasonRole struct {
 	SeasonID   string `json:"seasonId"`
 	SeasonSlug string `json:"seasonSlug"`
@@ -27,6 +30,7 @@ type UserSeasonRole struct {
 	State      string `json:"state"`
 }
 
+// EnrollmentCandidate represents a backend data structure.
 type EnrollmentCandidate struct {
 	ID        string  `json:"id"`
 	Slug      string  `json:"slug"`
@@ -35,6 +39,7 @@ type EnrollmentCandidate struct {
 	Revision  int64   `json:"revision"`
 }
 
+// PracticeSettings represents a backend data structure.
 type PracticeSettings struct {
 	PremiumOptIn  bool  `json:"premiumOptIn"`
 	GoalsEnabled  bool  `json:"goalsEnabled"`
@@ -44,6 +49,7 @@ type PracticeSettings struct {
 	Revision      int64 `json:"revision"`
 }
 
+// Season represents a backend data structure.
 type Season struct {
 	ID           string    `json:"id"`
 	Slug         string    `json:"slug"`
@@ -57,6 +63,7 @@ type Season struct {
 	Revision     int64     `json:"revision"`
 }
 
+// Week represents a backend data structure.
 type Week struct {
 	ID          string    `json:"id"`
 	SeasonID    string    `json:"seasonId"`
@@ -67,6 +74,7 @@ type Week struct {
 	Revision    int64     `json:"revision"`
 }
 
+// Enrollment represents a backend data structure.
 type Enrollment struct {
 	ID              string  `json:"id"`
 	SeasonID        string  `json:"seasonId"`
@@ -80,6 +88,7 @@ type Enrollment struct {
 	Revision        int64   `json:"revision"`
 }
 
+// Mentorship represents a backend data structure.
 type Mentorship struct {
 	ID            string `json:"id"`
 	SeasonID      string `json:"seasonId"`
@@ -88,6 +97,7 @@ type Mentorship struct {
 	Revision      int64  `json:"revision"`
 }
 
+// Problem represents a backend data structure.
 type Problem struct {
 	ID         string   `json:"id"`
 	Number     int      `json:"number"`
@@ -100,6 +110,7 @@ type Problem struct {
 	Revision   int64    `json:"revision"`
 }
 
+// Attempt represents a backend data structure.
 type Attempt struct {
 	ID          string     `json:"id"`
 	UserID      string     `json:"-"`
@@ -118,6 +129,7 @@ type Attempt struct {
 	Migrated bool `json:"-"`
 }
 
+// AuditEvent represents a backend data structure.
 type AuditEvent struct {
 	ID          string         `json:"id"`
 	ActorID     *string        `json:"actorId,omitempty"`
@@ -128,12 +140,14 @@ type AuditEvent struct {
 	OccurredAt  time.Time      `json:"occurredAt"`
 }
 
+// PageInfo represents a backend data structure.
 type PageInfo struct {
 	NextCursor     *string `json:"nextCursor"`
 	PreviousCursor *string `json:"previousCursor"`
 	HasMore        bool    `json:"hasMore"`
 }
 
+// Page represents a backend data structure.
 type Page[T any] struct {
 	Items      []T      `json:"items"`
 	PageInfo   PageInfo `json:"pageInfo"`

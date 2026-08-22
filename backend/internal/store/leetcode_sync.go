@@ -1,3 +1,4 @@
+// Package store defines repository contracts and storage implementations.
 package store
 
 import (
@@ -10,7 +11,6 @@ import (
 
 // QueueLeetCodeSync durably records the worker request and immutable audit
 // event in one transaction. The worker claims unfinished manual runs first.
-
 func (p *Postgres) QueueLeetCodeSync(ctx context.Context, actorID, requestID string) error {
 	tx, err := p.Pool.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {

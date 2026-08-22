@@ -1,3 +1,4 @@
+// Package main provides commands for the RSP data migration tool.
 package main
 
 import (

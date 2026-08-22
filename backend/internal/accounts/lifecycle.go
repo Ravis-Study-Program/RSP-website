@@ -1,3 +1,4 @@
+// Package accounts models account lifecycle operations.
 package accounts
 
 import (
@@ -8,19 +9,27 @@ import (
 )
 
 var (
-	ErrInvalidState  = errors.New("invalid account state")
+	// ErrInvalidState is a public value used by the backend.
+	ErrInvalidState = errors.New("invalid account state")
+	// ErrRecoveryToken is a public value used by the backend.
 	ErrRecoveryToken = errors.New("invalid recovery token")
 )
 
+// State is a backend domain type.
 type State string
 
 const (
-	Active          State = "active"
-	Suspended       State = "suspended"
+	// Active is a public value used by the backend.
+	Active State = "active"
+	// Suspended is a public value used by the backend.
+	Suspended State = "suspended"
+	// DeletionPending is a public value used by the backend.
 	DeletionPending State = "deletion_pending"
-	Deleted         State = "deleted"
+	// Deleted is a public value used by the backend.
+	Deleted State = "deleted"
 )
 
+// Account represents a backend data structure.
 type Account struct {
 	ID, Name, Email, Slug, RecoveryTokenHash string
 	State                                    State
@@ -29,8 +38,10 @@ type Account struct {
 	Revision                                 int64
 }
 
+// SessionRevoker defines a backend interface.
 type SessionRevoker interface{ RevokeAll(userID string) error }
 
+// RequestDeletion requests an operation.
 func RequestDeletion(a *Account, rawToken string, now time.Time, r SessionRevoker) error {
 	if a.State != Active {
 		return ErrInvalidState
@@ -50,6 +61,7 @@ func RequestDeletion(a *Account, rawToken string, now time.Time, r SessionRevoke
 	return nil
 }
 
+// CancelDeletion cancels an operation.
 func CancelDeletion(a *Account, rawToken string, now time.Time) error {
 	if a.State != DeletionPending || a.DeleteAfter == nil || !now.UTC().Before(*a.DeleteAfter) {
 		return ErrInvalidState
@@ -66,6 +78,7 @@ func CancelDeletion(a *Account, rawToken string, now time.Time) error {
 	return nil
 }
 
+// Pseudonymize performs the operation.
 func Pseudonymize(a *Account, now time.Time) bool {
 	if a.State != DeletionPending || a.DeleteAfter == nil || now.UTC().Before(*a.DeleteAfter) {
 		return false

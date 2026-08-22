@@ -19,6 +19,7 @@ import (
 	"github.com/magedmg/RSP-website/backend/internal/practice"
 )
 
+// Postgres represents a backend data structure.
 type Postgres struct {
 	Pool    *pgxpool.Pool
 	Queries *dbgen.Queries
@@ -37,6 +38,7 @@ func finishPostgresPage[T any](items []T, limit int, direction string) ([]T, boo
 	return items, more
 }
 
+// Open opens a connection.
 func Open(ctx context.Context, url string) (*Postgres, error) {
 	config, err := pgxpool.ParseConfig(url)
 	if err != nil {
@@ -55,10 +57,13 @@ func Open(ctx context.Context, url string) (*Postgres, error) {
 	return &Postgres{Pool: pool, Queries: dbgen.New(pool)}, nil
 }
 
+// Close closes a value.
 func (p *Postgres) Close() { p.Pool.Close() }
 
+// Ping performs the operation.
 func (p *Postgres) Ping(ctx context.Context) error { return p.Pool.Ping(ctx) }
 
+// ObservabilitySnapshot performs the operation.
 func (p *Postgres) ObservabilitySnapshot(ctx context.Context) (ObservabilitySnapshot, error) {
 	pool := p.Pool.Stat()
 	snapshot := ObservabilitySnapshot{
@@ -117,6 +122,7 @@ LIMIT 1`).Scan(&snapshot.MigrationState)
 	return snapshot, nil
 }
 
+// ApplyIdentityEvent applies the operation.
 func (p *Postgres) ApplyIdentityEvent(ctx context.Context, event IdentityEvent) error {
 	if event.EventID == "" {
 		return errors.New("identity event id is required")
@@ -330,6 +336,7 @@ func noRows(err error) error {
 	return err
 }
 
+// ResolveAuthSubject performs the operation.
 func (p *Postgres) ResolveAuthSubject(ctx context.Context, sub string) (authz.Actor, error) {
 	var a authz.Actor
 	var state string
@@ -376,12 +383,14 @@ func (p *Postgres) ResolveAuthSubject(ctx context.Context, sub string) (authz.Ac
 	return a, rows.Err()
 }
 
+// ResolveAuthSubjectForUser performs the operation.
 func (p *Postgres) ResolveAuthSubjectForUser(ctx context.Context, userID string) (string, error) {
 	var subject string
 	err := p.Pool.QueryRow(ctx, `SELECT auth_subject FROM app.user_auth_links WHERE user_id=$1 AND active ORDER BY linked_at,auth_subject LIMIT 1`, userID).Scan(&subject)
 	return subject, noRows(err)
 }
 
+// GrantGlobalRole performs the operation.
 func (p *Postgres) GrantGlobalRole(ctx context.Context, userID, role string, activate bool, reason, actorID string, at time.Time) (GlobalRoleAssignment, error) {
 	tx, err := p.Pool.Begin(ctx)
 	if err != nil {
@@ -407,6 +416,7 @@ func (p *Postgres) GrantGlobalRole(ctx context.Context, userID, role string, act
 	return v, tx.Commit(ctx)
 }
 
+// ListGlobalRoles lists matching values.
 func (p *Postgres) ListGlobalRoles(ctx context.Context, userID string) ([]GlobalRoleAssignment, error) {
 	var exists bool
 	if err := p.Pool.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM app.users WHERE id=$1 AND deleted_at IS NULL)`, userID).Scan(&exists); err != nil {
@@ -433,6 +443,7 @@ func (p *Postgres) ListGlobalRoles(ctx context.Context, userID string) ([]Global
 	return items, rows.Err()
 }
 
+// RevokeGlobalRole performs the operation.
 func (p *Postgres) RevokeGlobalRole(ctx context.Context, userID, role string, revision int64, reason, actorID string, at time.Time) (GlobalRoleAssignment, error) {
 	tx, err := p.Pool.Begin(ctx)
 	if err != nil {
@@ -476,6 +487,7 @@ func scanUser(row pgx.Row) (model.User, error) {
 	return v, nil
 }
 
+// GetUser retrieves a value.
 func (p *Postgres) GetUser(ctx context.Context, id string) (model.User, error) {
 	row, err := p.Queries.GetUserPrivateByID(ctx, dbgen.GetUserPrivateByIDParams{ID: id})
 	if err != nil {
@@ -507,6 +519,7 @@ func (p *Postgres) GetUser(ctx context.Context, id string) (model.User, error) {
 	return v, nil
 }
 
+// SuggestUserSlug performs the operation.
 func (p *Postgres) SuggestUserSlug(ctx context.Context) (string, error) {
 	for attempt := 0; attempt < 32; attempt++ {
 		candidate := "member-" + strings.ReplaceAll(id.New(), "-", "")[:12]
@@ -521,6 +534,7 @@ func (p *Postgres) SuggestUserSlug(ctx context.Context) (string, error) {
 	return "", ErrConflict
 }
 
+// ListUsers lists matching values.
 func (p *Postgres) ListUsers(ctx context.Context, boundary string, limit int, direction, search, seasonRole, globalRole string) ([]model.User, bool, int64, error) {
 	search = strings.TrimSpace(search)
 	const filters = `u.account_state='active' AND NOT u.is_test AND u.deleted_at IS NULL
@@ -566,6 +580,7 @@ func (p *Postgres) ListUsers(ctx context.Context, boundary string, limit int, di
 	return out, more, total, rows.Err()
 }
 
+// ListAdminUsers lists matching values.
 func (p *Postgres) ListAdminUsers(ctx context.Context, boundary string, limit int, direction, search, accountState, globalRole string) ([]model.User, bool, int64, error) {
 	search = strings.TrimSpace(search)
 	const filters = `u.account_state<>'deleted' AND u.deleted_at IS NULL
@@ -610,6 +625,7 @@ func (p *Postgres) ListAdminUsers(ctx context.Context, boundary string, limit in
 	return items, more, total, rows.Err()
 }
 
+// ListEnrollmentCandidates lists matching values.
 func (p *Postgres) ListEnrollmentCandidates(ctx context.Context, seasonID, query, boundary string, limit int, direction string) ([]model.EnrollmentCandidate, bool, int64, error) {
 	query = strings.TrimSpace(query)
 	const eligible = `u.account_state='active' AND NOT u.is_test AND u.deleted_at IS NULL
@@ -652,6 +668,7 @@ AND NOT EXISTS(SELECT 1 FROM app.enrollments e WHERE e.user_id=u.id AND e.season
 	return items, more, total, rows.Err()
 }
 
+// UpdateUser updates a value.
 func (p *Postgres) UpdateUser(ctx context.Context, id string, revision int64, fn func(*model.User) error, actorID string, at time.Time) (model.User, error) {
 	tx, err := p.Pool.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
@@ -684,6 +701,7 @@ func (p *Postgres) UpdateUser(ctx context.Context, id string, revision int64, fn
 	return v, nil
 }
 
+// GetPracticeSettings retrieves a value.
 func (p *Postgres) GetPracticeSettings(ctx context.Context, userID string) (model.PracticeSettings, error) {
 	var settings model.PracticeSettings
 	err := p.Pool.QueryRow(ctx, `
@@ -700,6 +718,7 @@ WHERE u.id=$1 AND u.deleted_at IS NULL`, userID).Scan(
 	return settings, noRows(err)
 }
 
+// UpdatePracticeSettings updates a value.
 func (p *Postgres) UpdatePracticeSettings(ctx context.Context, userID string, revision int64, premium bool, easy, medium, hard int, actorID string, at time.Time) (model.PracticeSettings, error) {
 	tx, err := p.Pool.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
@@ -750,6 +769,7 @@ RETURNING enabled,easy_minutes,medium_minutes,hard_minutes,revision`, userID, ea
 	return settings, tx.Commit(ctx)
 }
 
+// EnablePracticeGoals performs the operation.
 func (p *Postgres) EnablePracticeGoals(ctx context.Context, userID string, revision int64, actorID, seasonID string, at time.Time) (model.PracticeSettings, error) {
 	tx, err := p.Pool.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
@@ -802,6 +822,7 @@ func scanSeason(row pgx.Row) (model.Season, error) {
 
 const seasonColumns = `id,slug,name,status::text,start_at,end_at,location,image_url,resources_url,revision`
 
+// GetSeason retrieves a value.
 func (p *Postgres) GetSeason(ctx context.Context, id string) (model.Season, error) {
 	row, err := p.Queries.GetSeasonByID(ctx, dbgen.GetSeasonByIDParams{ID: id})
 	if err != nil {
@@ -810,6 +831,7 @@ func (p *Postgres) GetSeason(ctx context.Context, id string) (model.Season, erro
 	return model.Season{ID: row.ID, Slug: row.Slug, Name: row.Name, Status: string(row.Status), StartAt: row.StartAt.Time, EndAt: row.EndAt.Time, Location: row.Location, ImageURL: row.ImageUrl, ResourcesURL: row.ResourcesUrl, Revision: row.Revision}, nil
 }
 
+// ListSeasons lists matching values.
 func (p *Postgres) ListSeasons(ctx context.Context, boundary string, limit int, direction, status string) ([]model.Season, bool, int64, error) {
 	var total int64
 	if err := p.Pool.QueryRow(ctx, `SELECT count(*) FROM app.seasons WHERE deleted_at IS NULL AND ($1='' OR status::text=$1)`, status).Scan(&total); err != nil {
@@ -848,6 +870,7 @@ func (p *Postgres) ListSeasons(ctx context.Context, boundary string, limit int, 
 	return out, more, total, rows.Err()
 }
 
+// CreateSeason creates a value.
 func (p *Postgres) CreateSeason(ctx context.Context, v model.Season, actorID string, at time.Time) (model.Season, error) {
 	tx, err := p.Pool.Begin(ctx)
 	if err != nil {
@@ -868,6 +891,7 @@ func (p *Postgres) CreateSeason(ctx context.Context, v model.Season, actorID str
 	return v, tx.Commit(ctx)
 }
 
+// UpdateSeason updates a value.
 func (p *Postgres) UpdateSeason(ctx context.Context, id string, revision int64, fn func(*model.Season) error, actorID string, at time.Time) (model.Season, error) {
 	tx, err := p.Pool.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
@@ -906,6 +930,7 @@ func (p *Postgres) UpdateSeason(ctx context.Context, id string, revision int64, 
 	return v, nil
 }
 
+// CloseSeason closes a value.
 func (p *Postgres) CloseSeason(ctx context.Context, seasonID string, revision int64, actorID, reason string, at time.Time) (model.Season, error) {
 	tx, err := p.Pool.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
@@ -943,6 +968,7 @@ func (p *Postgres) CloseSeason(ctx context.Context, seasonID string, revision in
 	return v, nil
 }
 
+// ReopenSeason reopens a value.
 func (p *Postgres) ReopenSeason(ctx context.Context, seasonID string, revision int64, actorID, reason string, at time.Time) (model.Season, error) {
 	tx, err := p.Pool.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
@@ -992,6 +1018,7 @@ func scanWeek(row pgx.Row) (model.Week, error) {
 	return v, nil
 }
 
+// ListWeeks lists matching values.
 func (p *Postgres) ListWeeks(ctx context.Context, seasonID, boundary string, limit int, sortBy, direction string) ([]model.Week, bool, int64, error) {
 	var total int64
 	if err := p.Pool.QueryRow(ctx, `SELECT count(*) FROM app.season_weeks WHERE season_id=$1 AND deleted_at IS NULL`, seasonID).Scan(&total); err != nil {
@@ -1043,6 +1070,7 @@ func (p *Postgres) ListWeeks(ctx context.Context, seasonID, boundary string, lim
 	return items, more, total, nil
 }
 
+// CreateWeek creates a value.
 func (p *Postgres) CreateWeek(ctx context.Context, v model.Week, actorID string, at time.Time) (model.Week, error) {
 	tx, err := p.Pool.Begin(ctx)
 	if err != nil {
@@ -1060,6 +1088,7 @@ func (p *Postgres) CreateWeek(ctx context.Context, v model.Week, actorID string,
 	return v, tx.Commit(ctx)
 }
 
+// UpdateWeek updates a value.
 func (p *Postgres) UpdateWeek(ctx context.Context, seasonID, weekID string, revision int64, candidate model.Week, actorID string, at time.Time) (model.Week, error) {
 	tx, err := p.Pool.Begin(ctx)
 	if err != nil {
@@ -1080,6 +1109,7 @@ func (p *Postgres) UpdateWeek(ctx context.Context, seasonID, weekID string, revi
 	return v, tx.Commit(ctx)
 }
 
+// DeleteWeek deletes a value.
 func (p *Postgres) DeleteWeek(ctx context.Context, seasonID, weekID string, revision int64, actorID string, at time.Time) error {
 	tx, err := p.Pool.Begin(ctx)
 	if err != nil {
@@ -1110,6 +1140,7 @@ func scanEnrollment(row pgx.Row) (model.Enrollment, error) {
 	return v, nil
 }
 
+// ListEnrollments lists matching values.
 func (p *Postgres) ListEnrollments(ctx context.Context, seasonID, boundary string, limit int, role, state, sortBy, direction string, includeInactive bool) ([]model.Enrollment, bool, int64, error) {
 	const filters = `e.season_id=$1 AND e.deleted_at IS NULL
 		AND ($2='' OR e.role::text=$2) AND ($3='' OR e.state::text=$3)
@@ -1163,6 +1194,7 @@ func (p *Postgres) ListEnrollments(ctx context.Context, seasonID, boundary strin
 	return items, more, total, nil
 }
 
+// ListEnrollmentsForUser lists matching values.
 func (p *Postgres) ListEnrollmentsForUser(ctx context.Context, userID string) ([]model.Enrollment, error) {
 	return p.listEnrollments(ctx, `e.user_id=$1`, userID)
 }
@@ -1186,10 +1218,12 @@ func (p *Postgres) listEnrollments(ctx context.Context, predicate, value string)
 	return items, rows.Err()
 }
 
+// GetEnrollment retrieves a value.
 func (p *Postgres) GetEnrollment(ctx context.Context, enrollmentID string) (model.Enrollment, error) {
 	return scanEnrollment(p.Pool.QueryRow(ctx, `SELECT `+enrollmentColumns+` FROM app.enrollments e JOIN app.seasons s ON s.id=e.season_id WHERE e.id=$1 AND e.deleted_at IS NULL`, enrollmentID))
 }
 
+// CreateEnrollment creates a value.
 func (p *Postgres) CreateEnrollment(ctx context.Context, v model.Enrollment, actorID string, at time.Time) (model.Enrollment, error) {
 	tx, err := p.Pool.Begin(ctx)
 	if err != nil {
@@ -1217,6 +1251,7 @@ func (p *Postgres) CreateEnrollment(ctx context.Context, v model.Enrollment, act
 	return v, tx.Commit(ctx)
 }
 
+// UpdateEnrollmentDetails updates a value.
 func (p *Postgres) UpdateEnrollmentDetails(ctx context.Context, seasonID, enrollmentID string, revision int64, role, studentLevel, actorID string, at time.Time) (model.Enrollment, error) {
 	tx, err := p.Pool.Begin(ctx)
 	if err != nil {
@@ -1245,6 +1280,7 @@ func (p *Postgres) UpdateEnrollmentDetails(ctx context.Context, seasonID, enroll
 	return v, tx.Commit(ctx)
 }
 
+// UpdateEnrollment updates a value.
 func (p *Postgres) UpdateEnrollment(ctx context.Context, enrollmentID string, revision int64, role, state, reason, actorID string, at time.Time) (model.Enrollment, error) {
 	tx, err := p.Pool.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
@@ -1303,6 +1339,7 @@ func (p *Postgres) UpdateEnrollment(ctx context.Context, enrollmentID string, re
 	return v, nil
 }
 
+// ListMentorships lists matching values.
 func (p *Postgres) ListMentorships(ctx context.Context, seasonID, boundary string, limit int, sortBy, direction, mentorUserID, studentUserID string) ([]model.Mentorship, bool, int64, error) {
 	const base = ` FROM app.mentorships m
 		JOIN app.enrollments mentor ON mentor.id=m.mentor_enrollment_id
@@ -1357,6 +1394,7 @@ func (p *Postgres) ListMentorships(ctx context.Context, seasonID, boundary strin
 	return items, more, total, nil
 }
 
+// CreateMentorship creates a value.
 func (p *Postgres) CreateMentorship(ctx context.Context, v model.Mentorship, actorID string, at time.Time) (model.Mentorship, error) {
 	tx, err := p.Pool.Begin(ctx)
 	if err != nil {
@@ -1374,6 +1412,7 @@ func (p *Postgres) CreateMentorship(ctx context.Context, v model.Mentorship, act
 	return v, tx.Commit(ctx)
 }
 
+// UpdateMentorship updates a value.
 func (p *Postgres) UpdateMentorship(ctx context.Context, seasonID, mentorshipID string, revision int64, mentorUserID, studentUserID, actorID string, at time.Time) (model.Mentorship, error) {
 	tx, err := p.Pool.Begin(ctx)
 	if err != nil {
@@ -1395,6 +1434,7 @@ func (p *Postgres) UpdateMentorship(ctx context.Context, seasonID, mentorshipID 
 	return v, tx.Commit(ctx)
 }
 
+// DeleteMentorship deletes a value.
 func (p *Postgres) DeleteMentorship(ctx context.Context, seasonID, mentorshipID string, revision int64, actorID string, at time.Time) error {
 	tx, err := p.Pool.Begin(ctx)
 	if err != nil {
@@ -1415,6 +1455,7 @@ func (p *Postgres) DeleteMentorship(ctx context.Context, seasonID, mentorshipID 
 	return tx.Commit(ctx)
 }
 
+// IsMentorAssigned performs the operation.
 func (p *Postgres) IsMentorAssigned(ctx context.Context, seasonID, mentorUserID, studentUserID string) (bool, error) {
 	var assigned bool
 	err := p.Pool.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM app.mentorships m JOIN app.enrollments mentor ON mentor.id=m.mentor_enrollment_id JOIN app.enrollments student ON student.id=m.student_enrollment_id WHERE m.season_id=$1 AND mentor.user_id=$2 AND student.user_id=$3 AND m.ended_at IS NULL AND m.deleted_at IS NULL)`, seasonID, mentorUserID, studentUserID).Scan(&assigned)
@@ -1431,6 +1472,7 @@ func scanProblem(row pgx.Row) (model.Problem, error) {
 
 const problemQuery = `SELECT l.id,l.leetcode_number,p.title,COALESCE(p.url,''),l.difficulty::text,l.is_premium,COALESCE(array_agg(c.normalized_name) FILTER (WHERE c.id IS NOT NULL),'{}')::text[],l.revision FROM app.leetcode_problems l JOIN app.problems p ON p.id=l.problem_id LEFT JOIN app.leetcode_problem_category_mappings m ON m.leetcode_problem_id=l.id LEFT JOIN app.leetcode_problem_categories c ON c.id=m.category_id WHERE l.deleted_at IS NULL AND p.deleted_at IS NULL`
 
+// ListProblems lists matching values.
 func (p *Postgres) ListProblems(ctx context.Context, boundary string, limit int, difficulty, category string, premium *bool, direction string) ([]model.Problem, bool, int64, error) {
 	var total int64
 	if err := p.Pool.QueryRow(ctx, `SELECT count(*) FROM app.leetcode_problems l WHERE l.deleted_at IS NULL AND ($1='' OR l.difficulty::text=$1) AND ($2='' OR EXISTS(SELECT 1 FROM app.leetcode_problem_category_mappings m JOIN app.leetcode_problem_categories c ON c.id=m.category_id WHERE m.leetcode_problem_id=l.id AND c.deleted_at IS NULL AND lower(c.normalized_name)=lower($2))) AND ($3::boolean IS NULL OR l.is_premium=$3)`, difficulty, category, premium).Scan(&total); err != nil {
@@ -1479,10 +1521,12 @@ func scanAttempt(row pgx.Row) (model.Attempt, error) {
 
 const attemptColumns = `a.id,a.user_id,COALESCE((SELECT id FROM app.leetcode_problems WHERE problem_id=a.problem_id),a.problem_id),a.outcome::text,a.confidence,a.time_taken_minutes,COALESCE(a.notes_html,''),a.attempted_at,e.season_id,a.season_week_id,a.revision,a.deleted_at,EXISTS(SELECT 1 FROM migration.row_provenance rp WHERE rp.target_table='problem_attempts' AND rp.target_id=a.id::text)`
 
+// GetAttempt retrieves a value.
 func (p *Postgres) GetAttempt(ctx context.Context, id string) (model.Attempt, error) {
 	return scanAttempt(p.Pool.QueryRow(ctx, `SELECT `+attemptColumns+` FROM app.problem_attempts a LEFT JOIN app.enrollments e ON e.id=a.enrollment_id WHERE a.id=$1 AND a.deleted_at IS NULL`, id))
 }
 
+// ListAttempts lists matching values.
 func (p *Postgres) ListAttempts(ctx context.Context, userID, boundary string, limit int, outcome, difficulty, direction string) ([]model.Attempt, bool, int64, error) {
 	var total int64
 	if err := p.Pool.QueryRow(ctx, `SELECT count(*) FROM app.problem_attempts a WHERE a.user_id=$1 AND a.deleted_at IS NULL AND ($2='' OR a.outcome::text=$2) AND ($3='' OR EXISTS(SELECT 1 FROM app.leetcode_problems l WHERE l.problem_id=a.problem_id AND l.difficulty::text=$3 AND l.deleted_at IS NULL))`, userID, outcome, difficulty).Scan(&total); err != nil {
@@ -1521,6 +1565,7 @@ func (p *Postgres) ListAttempts(ctx context.Context, userID, boundary string, li
 	return out, more, total, rows.Err()
 }
 
+// RecommendationSnapshot performs the operation.
 func (p *Postgres) RecommendationSnapshot(ctx context.Context, userID string, _ practice.Goals) (RecommendationSnapshot, error) {
 	snapshot := RecommendationSnapshot{ProblemHistory: map[string]practice.ProblemHistory{}, CategoryExposure: map[string]int{}}
 	qualityRows, err := p.Pool.Query(ctx, `SELECT `+attemptColumns+` FROM app.problem_attempts a LEFT JOIN app.enrollments e ON e.id=a.enrollment_id WHERE a.user_id=$1 AND a.deleted_at IS NULL AND a.outcome<>'unknown' AND NOT EXISTS(SELECT 1 FROM migration.row_provenance rp WHERE rp.target_table='problem_attempts' AND rp.target_id=a.id::text) ORDER BY a.attempted_at DESC,a.id ASC LIMIT 20`, userID)
@@ -1582,6 +1627,7 @@ func (p *Postgres) RecommendationSnapshot(ctx context.Context, userID string, _ 
 	return snapshot, nil
 }
 
+// RecommendationCandidates performs the operation.
 func (p *Postgres) RecommendationCandidates(ctx context.Context, userID string, criteria practice.Criteria, premiumOptIn bool, goals practice.Goals, now time.Time) ([]model.Problem, map[string]practice.ProblemHistory, error) {
 	now = now.UTC()
 	goal := goals[criteria.Difficulty]
@@ -1628,6 +1674,7 @@ func (p *Postgres) RecommendationCandidates(ctx context.Context, userID string, 
 	return []model.Problem{retry}, map[string]practice.ProblemHistory{retry.ID: {LastAttemptedAt: lastAttemptedAt.UTC(), Weak: true}}, nil
 }
 
+// CreateAttempt creates a value.
 func (p *Postgres) CreateAttempt(ctx context.Context, v model.Attempt) (model.Attempt, bool, error) {
 	tx, err := p.Pool.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
@@ -1681,6 +1728,7 @@ func (p *Postgres) CreateAttempt(ctx context.Context, v model.Attempt) (model.At
 	return v, tag.RowsAffected() > 0, nil
 }
 
+// UpdateAttempt updates a value.
 func (p *Postgres) UpdateAttempt(ctx context.Context, id, userID string, revision int64, fn func(*model.Attempt) error) (model.Attempt, error) {
 	tx, err := p.Pool.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
@@ -1734,6 +1782,7 @@ func (p *Postgres) UpdateAttempt(ctx context.Context, id, userID string, revisio
 	return v, nil
 }
 
+// DeleteAttempt deletes a value.
 func (p *Postgres) DeleteAttempt(ctx context.Context, id, userID string, revision int64) error {
 	tx, err := p.Pool.Begin(ctx)
 	if err != nil {
@@ -1762,6 +1811,7 @@ func (p *Postgres) DeleteAttempt(ctx context.Context, id, userID string, revisio
 	return tx.Commit(ctx)
 }
 
+// GetActiveRecommendation retrieves a value.
 func (p *Postgres) GetActiveRecommendation(ctx context.Context, userID string) (*practice.Recommendation, error) {
 	const query = `SELECT r.id,r.user_id,l.id,l.leetcode_number,p.title,COALESCE(p.url,''),l.difficulty::text,l.is_premium,COALESCE(array_agg(c.normalized_name) FILTER (WHERE c.id IS NOT NULL),'{}')::text[],l.revision,r.difficulty::text,COALESCE(rc.normalized_name,''),r.rationale,r.rule_version,r.generated_at,r.revision FROM app.recommendations r JOIN app.leetcode_problems l ON l.id=r.leetcode_problem_id JOIN app.problems p ON p.id=l.problem_id LEFT JOIN app.leetcode_problem_category_mappings pcm ON pcm.leetcode_problem_id=l.id LEFT JOIN app.leetcode_problem_categories c ON c.id=pcm.category_id LEFT JOIN app.leetcode_problem_categories rc ON rc.id=r.category_id WHERE r.user_id=$1 AND r.state='active' AND r.deleted_at IS NULL GROUP BY r.id,l.id,p.id,rc.id`
 	var v practice.Recommendation
@@ -1779,6 +1829,7 @@ func (p *Postgres) GetActiveRecommendation(ctx context.Context, userID string) (
 	return &v, nil
 }
 
+// SaveRecommendation saves a value.
 func (p *Postgres) SaveRecommendation(ctx context.Context, v practice.Recommendation) (practice.Recommendation, error) {
 	if v.Revision < 1 {
 		v.Revision = 1
@@ -1804,6 +1855,7 @@ func (p *Postgres) SaveRecommendation(ctx context.Context, v practice.Recommenda
 	return v, nil
 }
 
+// ListRecommendationDismissals lists matching values.
 func (p *Postgres) ListRecommendationDismissals(ctx context.Context, userID string) ([]practice.Dismissal, error) {
 	rows, err := p.Pool.Query(ctx, `SELECT l.id,d.dismissed_at FROM app.recommendation_dismissals d JOIN app.leetcode_problems l ON l.id=d.leetcode_problem_id WHERE d.user_id=$1 ORDER BY d.dismissed_at DESC`, userID)
 	if err != nil {
@@ -1823,6 +1875,7 @@ func (p *Postgres) ListRecommendationDismissals(ctx context.Context, userID stri
 	return items, rows.Err()
 }
 
+// DismissRecommendation performs the operation.
 func (p *Postgres) DismissRecommendation(ctx context.Context, userID string, revision int64, reason string, at time.Time, dismissalID string) (practice.Recommendation, error) {
 	tx, err := p.Pool.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
@@ -1854,6 +1907,7 @@ func (p *Postgres) DismissRecommendation(ctx context.Context, userID string, rev
 	return practice.Recommendation{ID: recommendationID, UserID: userID, Problem: practice.Problem{ID: problemID}, DismissedAt: &dismissedAt, Revision: revision + 1}, nil
 }
 
+// FulfillRecommendation performs the operation.
 func (p *Postgres) FulfillRecommendation(ctx context.Context, userID string, attempt model.Attempt, at time.Time) (bool, error) {
 	tag, err := p.Pool.Exec(ctx, `UPDATE app.recommendations SET state='attempted',fulfilled_by_attempt_id=$3,state_changed_at=$4,revision=revision+1 WHERE user_id=$1 AND state='active' AND leetcode_problem_id=$2 AND deleted_at IS NULL`, userID, attempt.ProblemID, attempt.ID, at.UTC())
 	if err != nil {
@@ -1862,6 +1916,7 @@ func (p *Postgres) FulfillRecommendation(ctx context.Context, userID string, att
 	return tag.RowsAffected() > 0, nil
 }
 
+// ListMockInterviews lists matching values.
 func (p *Postgres) ListMockInterviews(ctx context.Context, actor authz.Actor, mode, boundary string, limit int, sortBy, direction string) ([]mockinterviews.Interview, bool, int64, error) {
 	userID := actor.UserID
 	where := `(mi.interviewer_user_id=$1 OR mi.interviewee_user_id=$1)`
@@ -1944,6 +1999,7 @@ func (p *Postgres) ListMockInterviews(ctx context.Context, actor authz.Actor, mo
 	return items, more, total, nil
 }
 
+// GetMockParticipant retrieves a value.
 func (p *Postgres) GetMockParticipant(ctx context.Context, userID string) (mockinterviews.Participant, error) {
 	var ptn mockinterviews.Participant
 	var state string
@@ -1960,6 +2016,7 @@ func (p *Postgres) GetMockParticipant(ctx context.Context, userID string) (mocki
 	return ptn, nil
 }
 
+// GetMockInterview retrieves a value.
 func (p *Postgres) GetMockInterview(ctx context.Context, interviewID string) (mockinterviews.Interview, error) {
 	return loadMockInterview(ctx, p.Pool, interviewID)
 }
@@ -2011,6 +2068,7 @@ func scoresFromDB(values ...*int16) mockinterviews.Scores {
 	return mockinterviews.Scores{Behavioural: toInt(values[0]), ConfirmQuestions: toInt(values[1]), AlgorithmDesign: toInt(values[2]), ComplexityAnalysis: toInt(values[3]), Coding: toInt(values[4]), Testing: toInt(values[5]), Custom: toInt(values[6])}
 }
 
+// CreateMockInterview creates a value.
 func (p *Postgres) CreateMockInterview(ctx context.Context, v mockinterviews.Interview, actorID string, at time.Time) (mockinterviews.Interview, error) {
 	tx, err := p.Pool.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
@@ -2036,6 +2094,7 @@ func (p *Postgres) CreateMockInterview(ctx context.Context, v mockinterviews.Int
 	return v, nil
 }
 
+// UpdateMockInterview updates a value.
 func (p *Postgres) UpdateMockInterview(ctx context.Context, v mockinterviews.Interview, actorID, reason string, at time.Time) (mockinterviews.Interview, error) {
 	tx, err := p.Pool.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
@@ -2137,6 +2196,7 @@ func appendMockVersionTx(ctx context.Context, tx pgx.Tx, v mockinterviews.Interv
 	return err
 }
 
+// AppendAudit performs the operation.
 func (p *Postgres) AppendAudit(ctx context.Context, v model.AuditEvent) error {
 	return appendAuditTx(ctx, p.Pool, v)
 }

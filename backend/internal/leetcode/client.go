@@ -1,3 +1,4 @@
+// Package leetcode synchronizes the LeetCode problem catalog.
 package leetcode
 
 import (
@@ -14,6 +15,7 @@ import (
 	"github.com/magedmg/RSP-website/backend/internal/worker"
 )
 
+// Problem represents a backend data structure.
 type Problem struct {
 	Number     int      `json:"number"`
 	Title      string   `json:"title"`
@@ -23,16 +25,19 @@ type Problem struct {
 	Categories []string `json:"categories"`
 }
 
+// Sink defines a backend interface.
 type Sink interface {
 	Upsert(context.Context, Problem) error
 }
 
+// Client represents a backend data structure.
 type Client struct {
 	URL  string
 	HTTP *http.Client
 	Sink Sink
 }
 
+// DefaultURL is a public value used by the backend.
 const DefaultURL = "https://leetcode.com/graphql/"
 
 const catalogQuery = `query problemsetQuestionList($categorySlug: String, $limit: Int, $skip: Int, $filters: QuestionListFilterInput) {
@@ -41,6 +46,7 @@ const catalogQuery = `query problemsetQuestionList($categorySlug: String, $limit
   }
 }`
 
+// Sync synchronizes data.
 func (c Client) Sync(ctx context.Context) (worker.Report, error) {
 	if c.Sink == nil {
 		return worker.Report{}, errors.New("LeetCode sink is required")

@@ -12,6 +12,7 @@ import (
 	"time"
 )
 
+// StoredRun represents a backend data structure.
 type StoredRun struct {
 	Manifest     Manifest   `json:"manifest"`
 	State        string     `json:"state"`
@@ -20,6 +21,7 @@ type StoredRun struct {
 	RolledBackAt *time.Time `json:"rolledBackAt,omitempty"`
 }
 
+// StoredRecord represents a backend data structure.
 type StoredRecord struct {
 	RunID       string `json:"runId"`
 	SourceTable string `json:"sourceTable"`
@@ -28,6 +30,7 @@ type StoredRecord struct {
 	Values      Row    `json:"values"`
 }
 
+// TargetState represents a backend data structure.
 type TargetState struct {
 	Runs       map[string]StoredRun               `json:"runs"`
 	Tables     map[string]map[string]StoredRecord `json:"tables"`
@@ -40,12 +43,12 @@ func newTargetState() TargetState {
 
 // StateTarget is a durable fixture target used by rehearsal and unit tests. A
 // PostgreSQL adapter implements the same transaction contract for deployment.
-
 type StateTarget struct {
 	Path string
 	Now  func() time.Time
 }
 
+// Begin performs the operation.
 func (target *StateTarget) Begin(_ context.Context) (TargetTx, error) {
 	if target.Path == "" {
 		return nil, errors.New("target state path is required")
@@ -70,6 +73,7 @@ type stateTx struct {
 	completed bool
 }
 
+// AcquireAdvisoryLock performs the operation.
 func (tx *stateTx) AcquireAdvisoryLock(_ context.Context, key int64) error {
 	if key != AdvisoryLockKey {
 		return fmt.Errorf("unexpected advisory lock key %d", key)
@@ -97,11 +101,13 @@ func (tx *stateTx) AcquireAdvisoryLock(_ context.Context, key int64) error {
 	return nil
 }
 
+// HasRun performs the operation.
 func (tx *stateTx) HasRun(_ context.Context, runID string) (bool, error) {
 	_, exists := tx.state.Runs[runID]
 	return exists, nil
 }
 
+// Apply applies the operation.
 func (tx *stateTx) Apply(_ context.Context, prepared PreparedImport) error {
 	if !tx.locked {
 		return errors.New("migration advisory lock is not held")
@@ -125,6 +131,7 @@ func (tx *stateTx) Apply(_ context.Context, prepared PreparedImport) error {
 	return nil
 }
 
+// Verification performs the operation.
 func (tx *stateTx) Verification(_ context.Context, manifest Manifest) (Verification, error) {
 	run, exists := tx.state.Runs[manifest.RunID]
 	if !exists || run.State == "rolled_back" {
@@ -163,6 +170,7 @@ func (tx *stateTx) Verification(_ context.Context, manifest Manifest) (Verificat
 	return verification, nil
 }
 
+// RollbackRun rolls back the operation.
 func (tx *stateTx) RollbackRun(_ context.Context, runID string) error {
 	if !tx.locked {
 		return errors.New("migration advisory lock is not held")
@@ -189,6 +197,7 @@ func (tx *stateTx) RollbackRun(_ context.Context, runID string) error {
 	return nil
 }
 
+// Commit performs the operation.
 func (tx *stateTx) Commit(_ context.Context) error {
 	if tx.completed {
 		return errors.New("transaction is already complete")
@@ -204,6 +213,7 @@ func (tx *stateTx) Commit(_ context.Context) error {
 	return tx.release()
 }
 
+// Abort performs the operation.
 func (tx *stateTx) Abort(_ context.Context) error {
 	if tx.completed {
 		return nil

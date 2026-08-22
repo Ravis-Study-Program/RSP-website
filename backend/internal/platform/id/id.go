@@ -1,3 +1,4 @@
+// Package id generates backend identifiers.
 package id
 
 import (
@@ -7,8 +8,10 @@ import (
 	"time"
 )
 
+// New creates a new value.
 func New() string { return NewAt(time.Now(), rand.Reader) }
 
+// NewAt creates a new value.
 func NewAt(at time.Time, source io.Reader) string {
 	var raw [16]byte
 	_, _ = io.ReadFull(source, raw[:])

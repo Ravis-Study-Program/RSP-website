@@ -1,3 +1,4 @@
+// Package main runs scheduled backend workers.
 package main
 
 import (
@@ -106,29 +107,34 @@ func (p *postgresState) runPendingManual(ctx context.Context, scheduler worker.S
 	return true, scheduler.Run(ctx)
 }
 
+// TryLock performs the operation.
 func (p *postgresState) TryLock(ctx context.Context, key int64) (bool, error) {
 	var ok bool
 	err := p.conn.QueryRow(ctx, "SELECT pg_try_advisory_lock($1)", key).Scan(&ok)
 	return ok, err
 }
 
+// Unlock performs the operation.
 func (p *postgresState) Unlock(ctx context.Context, key int64) error {
 	_, err := p.conn.Exec(ctx, "SELECT pg_advisory_unlock($1)", key)
 	return err
 }
 
+// LastSuccess performs the operation.
 func (p *postgresState) LastSuccess(ctx context.Context, job string) (*time.Time, error) {
 	var at *time.Time
 	err := p.conn.QueryRow(ctx, "SELECT max(finished_at) FROM app.leetcode_sync_runs WHERE succeeded").Scan(&at)
 	return at, err
 }
 
+// LastAttempt performs the operation.
 func (p *postgresState) LastAttempt(ctx context.Context, job string) (*time.Time, error) {
 	var at *time.Time
 	err := p.conn.QueryRow(ctx, "SELECT max(finished_at) FROM app.leetcode_sync_runs WHERE trigger_kind IN ('schedule','catch_up')").Scan(&at)
 	return at, err
 }
 
+// Record performs the operation.
 func (p *postgresState) Record(ctx context.Context, run worker.Run) error {
 	if p.manualRunID != "" {
 		_, err := p.conn.Exec(ctx, `UPDATE app.leetcode_sync_runs SET finished_at=$2,succeeded=$3,fetched_count=$4,changed_count=$5,error_summary=$6 WHERE id=$1 AND finished_at IS NULL`, p.manualRunID, run.FinishedAt, run.Error == "", run.Report.Fetched, run.Report.Inserted+run.Report.Updated, nullString(run.Error))

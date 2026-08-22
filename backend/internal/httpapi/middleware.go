@@ -15,19 +15,24 @@ import (
 	"github.com/magedmg/RSP-website/backend/internal/store"
 )
 
+// Authenticator defines a backend interface.
 type Authenticator interface {
 	Authenticate(*http.Request) (authz.Actor, error)
 }
 
+// AuthenticatorFunc represents a backend value.
 type AuthenticatorFunc func(*http.Request) (authz.Actor, error)
 
+// Authenticate performs the operation.
 func (f AuthenticatorFunc) Authenticate(r *http.Request) (authz.Actor, error) { return f(r) }
 
+// BearerAuthenticator represents a backend data structure.
 type BearerAuthenticator struct {
 	Validator *authn.Validator
 	Store     store.Repository
 }
 
+// Authenticate performs the operation.
 func (b BearerAuthenticator) Authenticate(r *http.Request) (authz.Actor, error) {
 	header := r.Header.Get("Authorization")
 	if !strings.HasPrefix(header, "Bearer ") {

@@ -1,3 +1,4 @@
+// Package httpapi implements the RSP HTTP API.
 package httpapi
 
 import (

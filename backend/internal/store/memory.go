@@ -16,6 +16,7 @@ import (
 	"github.com/magedmg/RSP-website/backend/internal/practice"
 )
 
+// Memory represents a backend data structure.
 type Memory struct {
 	mu                       sync.RWMutex
 	Users                    map[string]model.User
@@ -40,6 +41,7 @@ type Memory struct {
 	MFAConfigured            map[string]bool
 }
 
+// NewMemory creates a new value.
 func NewMemory() *Memory {
 	return &Memory{Users: map[string]model.User{}, PracticeSettings: map[string]model.PracticeSettings{}, AuthSubjects: map[string]authz.Actor{}, Seasons: map[string]model.Season{}, Weeks: map[string]model.Week{}, Enrollments: map[string]model.Enrollment{}, Mentorships: map[string]model.Mentorship{}, Problems: map[string]model.Problem{}, Attempts: map[string]model.Attempt{}, Recommendations: map[string]practice.Recommendation{}, RecommendationDismissals: map[string][]practice.Dismissal{}, Mocks: map[string]mockinterviews.Interview{}, closeCompleted: map[string]map[string]bool{}, closeAssignmentStates: map[string]map[string]string{}, IdentityEventReceipts: map[string]bool{}, IdentityEventHashes: map[string]string{}, GlobalRoleAssignments: map[string]GlobalRoleAssignment{}, MFAConfigured: map[string]bool{}}
 }
@@ -75,6 +77,7 @@ func memoryPage[T any](items []T, boundary string, limit int, direction string, 
 	return items[start:end], end < len(items), nil
 }
 
+// ApplyIdentityEvent applies the operation.
 func (m *Memory) ApplyIdentityEvent(_ context.Context, event IdentityEvent) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -254,6 +257,7 @@ func (m *Memory) ApplyIdentityEvent(_ context.Context, event IdentityEvent) erro
 	return nil
 }
 
+// ResolveAuthSubject performs the operation.
 func (m *Memory) ResolveAuthSubject(_ context.Context, sub string) (authz.Actor, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
@@ -267,6 +271,7 @@ func (m *Memory) ResolveAuthSubject(_ context.Context, sub string) (authz.Actor,
 	return v, nil
 }
 
+// ResolveAuthSubjectForUser performs the operation.
 func (m *Memory) ResolveAuthSubjectForUser(_ context.Context, userID string) (string, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
@@ -278,6 +283,7 @@ func (m *Memory) ResolveAuthSubjectForUser(_ context.Context, userID string) (st
 	return "", ErrNotFound
 }
 
+// GrantGlobalRole performs the operation.
 func (m *Memory) GrantGlobalRole(_ context.Context, userID, role string, activate bool, reason, actorID string, at time.Time) (GlobalRoleAssignment, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -310,6 +316,7 @@ func (m *Memory) GrantGlobalRole(_ context.Context, userID, role string, activat
 	return v, nil
 }
 
+// ListGlobalRoles lists matching values.
 func (m *Memory) ListGlobalRoles(_ context.Context, userID string) ([]GlobalRoleAssignment, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
@@ -326,6 +333,7 @@ func (m *Memory) ListGlobalRoles(_ context.Context, userID string) ([]GlobalRole
 	return items, nil
 }
 
+// RevokeGlobalRole performs the operation.
 func (m *Memory) RevokeGlobalRole(_ context.Context, userID, role string, revision int64, reason, actorID string, at time.Time) (GlobalRoleAssignment, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -350,6 +358,7 @@ func (m *Memory) RevokeGlobalRole(_ context.Context, userID, role string, revisi
 	return GlobalRoleAssignment{}, ErrNotFound
 }
 
+// GetUser retrieves a value.
 func (m *Memory) GetUser(_ context.Context, id string) (model.User, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
@@ -368,6 +377,7 @@ func (m *Memory) GetUser(_ context.Context, id string) (model.User, error) {
 	return m.enrichUserLocked(v), nil
 }
 
+// SuggestUserSlug performs the operation.
 func (m *Memory) SuggestUserSlug(_ context.Context) (string, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
@@ -384,6 +394,7 @@ func (m *Memory) SuggestUserSlug(_ context.Context) (string, error) {
 	return "", ErrConflict
 }
 
+// ListUsers lists matching values.
 func (m *Memory) ListUsers(_ context.Context, boundary string, limit int, direction, query, seasonRole, globalRole string) ([]model.User, bool, int64, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
@@ -427,6 +438,7 @@ func (m *Memory) ListUsers(_ context.Context, boundary string, limit int, direct
 	return items, more, total, nil
 }
 
+// ListAdminUsers lists matching values.
 func (m *Memory) ListAdminUsers(_ context.Context, boundary string, limit int, direction, query, accountState, globalRole string) ([]model.User, bool, int64, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
@@ -468,6 +480,7 @@ func (m *Memory) ListAdminUsers(_ context.Context, boundary string, limit int, d
 	return items, more, total, nil
 }
 
+// ListEnrollmentCandidates lists matching values.
 func (m *Memory) ListEnrollmentCandidates(_ context.Context, seasonID, query, boundary string, limit int, direction string) ([]model.EnrollmentCandidate, bool, int64, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
@@ -534,6 +547,7 @@ func (m *Memory) enrichUserLocked(v model.User) model.User {
 	return v
 }
 
+// UpdateUser updates a value.
 func (m *Memory) UpdateUser(_ context.Context, id string, revision int64, fn func(*model.User) error, actorID string, at time.Time) (model.User, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -563,6 +577,7 @@ func defaultPracticeSettings(premium bool) model.PracticeSettings {
 	return model.PracticeSettings{PremiumOptIn: premium, EasyMinutes: 20, MediumMinutes: 35, HardMinutes: 50, Revision: 1}
 }
 
+// GetPracticeSettings retrieves a value.
 func (m *Memory) GetPracticeSettings(_ context.Context, userID string) (model.PracticeSettings, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
@@ -578,6 +593,7 @@ func (m *Memory) GetPracticeSettings(_ context.Context, userID string) (model.Pr
 	return settings, nil
 }
 
+// UpdatePracticeSettings updates a value.
 func (m *Memory) UpdatePracticeSettings(_ context.Context, userID string, revision int64, premium bool, easy, medium, hard int, actorID string, at time.Time) (model.PracticeSettings, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -605,6 +621,7 @@ func (m *Memory) UpdatePracticeSettings(_ context.Context, userID string, revisi
 	return settings, nil
 }
 
+// EnablePracticeGoals performs the operation.
 func (m *Memory) EnablePracticeGoals(_ context.Context, userID string, revision int64, actorID, seasonID string, at time.Time) (model.PracticeSettings, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -629,6 +646,7 @@ func (m *Memory) EnablePracticeGoals(_ context.Context, userID string, revision 
 	return settings, nil
 }
 
+// GetSeason retrieves a value.
 func (m *Memory) GetSeason(_ context.Context, id string) (model.Season, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
@@ -639,6 +657,7 @@ func (m *Memory) GetSeason(_ context.Context, id string) (model.Season, error) {
 	return v, nil
 }
 
+// ListSeasons lists matching values.
 func (m *Memory) ListSeasons(_ context.Context, boundary string, limit int, direction, status string) ([]model.Season, bool, int64, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
@@ -667,6 +686,7 @@ func (m *Memory) ListSeasons(_ context.Context, boundary string, limit int, dire
 	return items, more, total, nil
 }
 
+// CreateSeason creates a value.
 func (m *Memory) CreateSeason(_ context.Context, v model.Season, actorID string, at time.Time) (model.Season, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -683,6 +703,7 @@ func (m *Memory) CreateSeason(_ context.Context, v model.Season, actorID string,
 	return v, nil
 }
 
+// UpdateSeason updates a value.
 func (m *Memory) UpdateSeason(_ context.Context, id string, revision int64, fn func(*model.Season) error, actorID string, at time.Time) (model.Season, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -713,6 +734,7 @@ func (m *Memory) UpdateSeason(_ context.Context, id string, revision int64, fn f
 	return v, nil
 }
 
+// CloseSeason closes a value.
 func (m *Memory) CloseSeason(_ context.Context, seasonID string, revision int64, actorID, reason string, at time.Time) (model.Season, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -745,6 +767,7 @@ func (m *Memory) CloseSeason(_ context.Context, seasonID string, revision int64,
 	return v, nil
 }
 
+// ReopenSeason reopens a value.
 func (m *Memory) ReopenSeason(_ context.Context, seasonID string, revision int64, actorID, reason string, at time.Time) (model.Season, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -777,6 +800,7 @@ func (m *Memory) ReopenSeason(_ context.Context, seasonID string, revision int64
 	return v, nil
 }
 
+// ListWeeks lists matching values.
 func (m *Memory) ListWeeks(_ context.Context, seasonID, boundary string, limit int, sortBy, direction string) ([]model.Week, bool, int64, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
@@ -798,6 +822,7 @@ func (m *Memory) ListWeeks(_ context.Context, seasonID, boundary string, limit i
 	return page, more, total, err
 }
 
+// CreateWeek creates a value.
 func (m *Memory) CreateWeek(_ context.Context, v model.Week, actorID string, at time.Time) (model.Week, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -821,6 +846,7 @@ func (m *Memory) CreateWeek(_ context.Context, v model.Week, actorID string, at 
 	return v, nil
 }
 
+// UpdateWeek updates a value.
 func (m *Memory) UpdateWeek(_ context.Context, seasonID, weekID string, revision int64, candidate model.Week, actorID string, at time.Time) (model.Week, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -849,6 +875,7 @@ func (m *Memory) UpdateWeek(_ context.Context, seasonID, weekID string, revision
 	return candidate, nil
 }
 
+// DeleteWeek deletes a value.
 func (m *Memory) DeleteWeek(_ context.Context, seasonID, weekID string, revision int64, actorID string, at time.Time) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -864,6 +891,7 @@ func (m *Memory) DeleteWeek(_ context.Context, seasonID, weekID string, revision
 	return nil
 }
 
+// ListEnrollments lists matching values.
 func (m *Memory) ListEnrollments(_ context.Context, seasonID, boundary string, limit int, role, state, sortBy, direction string, includeInactive bool) ([]model.Enrollment, bool, int64, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
@@ -883,6 +911,7 @@ func (m *Memory) ListEnrollments(_ context.Context, seasonID, boundary string, l
 	return page, more, total, err
 }
 
+// ListEnrollmentsForUser lists matching values.
 func (m *Memory) ListEnrollmentsForUser(_ context.Context, userID string) ([]model.Enrollment, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
@@ -904,6 +933,7 @@ func (m *Memory) listEnrollmentsLocked(include func(model.Enrollment) bool) []mo
 	return items
 }
 
+// GetEnrollment retrieves a value.
 func (m *Memory) GetEnrollment(_ context.Context, enrollmentID string) (model.Enrollment, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
@@ -932,6 +962,7 @@ func normalizeEnrollment(v model.Enrollment) model.Enrollment {
 	return v
 }
 
+// CreateEnrollment creates a value.
 func (m *Memory) CreateEnrollment(_ context.Context, v model.Enrollment, actorID string, at time.Time) (model.Enrollment, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -961,6 +992,7 @@ func (m *Memory) CreateEnrollment(_ context.Context, v model.Enrollment, actorID
 	return v, nil
 }
 
+// UpdateEnrollmentDetails updates a value.
 func (m *Memory) UpdateEnrollmentDetails(_ context.Context, seasonID, enrollmentID string, revision int64, role, studentLevel, actorID string, at time.Time) (model.Enrollment, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -999,6 +1031,7 @@ func (m *Memory) UpdateEnrollmentDetails(_ context.Context, seasonID, enrollment
 	return v, nil
 }
 
+// UpdateEnrollment updates a value.
 func (m *Memory) UpdateEnrollment(_ context.Context, enrollmentID string, revision int64, role, state, reason, actorID string, at time.Time) (model.Enrollment, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -1045,6 +1078,7 @@ func (m *Memory) UpdateEnrollment(_ context.Context, enrollmentID string, revisi
 	return v, nil
 }
 
+// ListMentorships lists matching values.
 func (m *Memory) ListMentorships(_ context.Context, seasonID, boundary string, limit int, sortBy, direction, mentorUserID, studentUserID string) ([]model.Mentorship, bool, int64, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
@@ -1066,6 +1100,7 @@ func (m *Memory) ListMentorships(_ context.Context, seasonID, boundary string, l
 	return page, more, total, err
 }
 
+// CreateMentorship creates a value.
 func (m *Memory) CreateMentorship(_ context.Context, v model.Mentorship, actorID string, at time.Time) (model.Mentorship, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -1090,6 +1125,7 @@ func (m *Memory) CreateMentorship(_ context.Context, v model.Mentorship, actorID
 	return v, nil
 }
 
+// UpdateMentorship updates a value.
 func (m *Memory) UpdateMentorship(_ context.Context, seasonID, mentorshipID string, revision int64, mentorUserID, studentUserID, actorID string, at time.Time) (model.Mentorship, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -1122,6 +1158,7 @@ func (m *Memory) UpdateMentorship(_ context.Context, seasonID, mentorshipID stri
 	return v, nil
 }
 
+// DeleteMentorship deletes a value.
 func (m *Memory) DeleteMentorship(_ context.Context, seasonID, mentorshipID string, revision int64, actorID string, at time.Time) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -1137,6 +1174,7 @@ func (m *Memory) DeleteMentorship(_ context.Context, seasonID, mentorshipID stri
 	return nil
 }
 
+// IsMentorAssigned performs the operation.
 func (m *Memory) IsMentorAssigned(_ context.Context, seasonID, mentorUserID, studentUserID string) (bool, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
@@ -1148,6 +1186,7 @@ func (m *Memory) IsMentorAssigned(_ context.Context, seasonID, mentorUserID, stu
 	return false, nil
 }
 
+// ListProblems lists matching values.
 func (m *Memory) ListProblems(_ context.Context, boundary string, limit int, difficulty, category string, premium *bool, direction string) ([]model.Problem, bool, int64, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
@@ -1188,6 +1227,7 @@ func (m *Memory) ListProblems(_ context.Context, boundary string, limit int, dif
 	return items, more, total, nil
 }
 
+// GetAttempt retrieves a value.
 func (m *Memory) GetAttempt(_ context.Context, id string) (model.Attempt, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
@@ -1198,6 +1238,7 @@ func (m *Memory) GetAttempt(_ context.Context, id string) (model.Attempt, error)
 	return v, nil
 }
 
+// ListAttempts lists matching values.
 func (m *Memory) ListAttempts(_ context.Context, userID, boundary string, limit int, outcome, difficulty, direction string) ([]model.Attempt, bool, int64, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
@@ -1231,6 +1272,7 @@ func (m *Memory) ListAttempts(_ context.Context, userID, boundary string, limit 
 	return items, more, total, nil
 }
 
+// RecommendationSnapshot performs the operation.
 func (m *Memory) RecommendationSnapshot(_ context.Context, userID string, _ practice.Goals) (RecommendationSnapshot, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
@@ -1266,6 +1308,7 @@ func (m *Memory) RecommendationSnapshot(_ context.Context, userID string, _ prac
 	return snapshot, nil
 }
 
+// RecommendationCandidates performs the operation.
 func (m *Memory) RecommendationCandidates(_ context.Context, userID string, criteria practice.Criteria, premiumOptIn bool, goals practice.Goals, now time.Time) ([]model.Problem, map[string]practice.ProblemHistory, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
@@ -1326,6 +1369,7 @@ func (m *Memory) RecommendationCandidates(_ context.Context, userID string, crit
 	return []model.Problem{}, map[string]practice.ProblemHistory{}, nil
 }
 
+// CreateAttempt creates a value.
 func (m *Memory) CreateAttempt(_ context.Context, v model.Attempt) (model.Attempt, bool, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -1367,6 +1411,7 @@ func (m *Memory) CreateAttempt(_ context.Context, v model.Attempt) (model.Attemp
 	return v, fulfilled, nil
 }
 
+// UpdateAttempt updates a value.
 func (m *Memory) UpdateAttempt(_ context.Context, id, userID string, revision int64, fn func(*model.Attempt) error) (model.Attempt, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -1405,6 +1450,7 @@ func (m *Memory) UpdateAttempt(_ context.Context, id, userID string, revision in
 	return v, nil
 }
 
+// DeleteAttempt deletes a value.
 func (m *Memory) DeleteAttempt(_ context.Context, id, userID string, revision int64) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -1423,6 +1469,7 @@ func (m *Memory) DeleteAttempt(_ context.Context, id, userID string, revision in
 	return nil
 }
 
+// GetActiveRecommendation retrieves a value.
 func (m *Memory) GetActiveRecommendation(_ context.Context, userID string) (*practice.Recommendation, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
@@ -1438,6 +1485,7 @@ func (m *Memory) GetActiveRecommendation(_ context.Context, userID string) (*pra
 	return &v, nil
 }
 
+// SaveRecommendation saves a value.
 func (m *Memory) SaveRecommendation(_ context.Context, v practice.Recommendation) (practice.Recommendation, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -1460,12 +1508,14 @@ func practiceProblem(problem model.Problem) practice.Problem {
 	return practice.Problem{ID: problem.ID, Number: problem.Number, Title: problem.Title, Link: problem.Link, Difficulty: practice.Difficulty(problem.Difficulty), Categories: append([]string(nil), problem.Categories...), Premium: problem.Premium, Revision: problem.Revision}
 }
 
+// ListRecommendationDismissals lists matching values.
 func (m *Memory) ListRecommendationDismissals(_ context.Context, userID string) ([]practice.Dismissal, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 	return append([]practice.Dismissal(nil), m.RecommendationDismissals[userID]...), nil
 }
 
+// DismissRecommendation performs the operation.
 func (m *Memory) DismissRecommendation(_ context.Context, userID string, revision int64, reason string, at time.Time, dismissalID string) (practice.Recommendation, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -1486,6 +1536,7 @@ func (m *Memory) DismissRecommendation(_ context.Context, userID string, revisio
 	return v, nil
 }
 
+// FulfillRecommendation performs the operation.
 func (m *Memory) FulfillRecommendation(_ context.Context, userID string, attempt model.Attempt, at time.Time) (bool, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -1499,6 +1550,7 @@ func (m *Memory) FulfillRecommendation(_ context.Context, userID string, attempt
 	return true, nil
 }
 
+// ListMockInterviews lists matching values.
 func (m *Memory) ListMockInterviews(_ context.Context, actor authz.Actor, mode, boundary string, limit int, sortBy, direction string) ([]mockinterviews.Interview, bool, int64, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
@@ -1544,6 +1596,7 @@ func (m *Memory) ListMockInterviews(_ context.Context, actor authz.Actor, mode, 
 	return page, more, total, err
 }
 
+// GetMockParticipant retrieves a value.
 func (m *Memory) GetMockParticipant(_ context.Context, userID string) (mockinterviews.Participant, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
@@ -1567,6 +1620,7 @@ func (m *Memory) GetMockParticipant(_ context.Context, userID string) (mockinter
 	return p, nil
 }
 
+// GetMockInterview retrieves a value.
 func (m *Memory) GetMockInterview(_ context.Context, interviewID string) (mockinterviews.Interview, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
@@ -1577,6 +1631,7 @@ func (m *Memory) GetMockInterview(_ context.Context, interviewID string) (mockin
 	return v, nil
 }
 
+// CreateMockInterview creates a value.
 func (m *Memory) CreateMockInterview(_ context.Context, v mockinterviews.Interview, actorID string, at time.Time) (mockinterviews.Interview, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -1589,6 +1644,7 @@ func (m *Memory) CreateMockInterview(_ context.Context, v mockinterviews.Intervi
 	return v, nil
 }
 
+// UpdateMockInterview updates a value.
 func (m *Memory) UpdateMockInterview(_ context.Context, v mockinterviews.Interview, actorID, reason string, at time.Time) (mockinterviews.Interview, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -1618,6 +1674,7 @@ func (m *Memory) appendMockVersionLocked(v mockinterviews.Interview, actorID, re
 	m.MockVersions = append(m.MockVersions, mockinterviews.Version{InterviewID: v.ID, Revision: v.Revision, ActorID: actorID, Reason: reason, SavedAt: at.UTC(), Snapshot: raw})
 }
 
+// AppendAudit performs the operation.
 func (m *Memory) AppendAudit(_ context.Context, v model.AuditEvent) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()

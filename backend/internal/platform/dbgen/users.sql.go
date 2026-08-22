@@ -114,7 +114,7 @@ func (q *Queries) CancelAccountDeletion(ctx context.Context, arg CancelAccountDe
 
 const getUserPrivateByID = `-- name: GetUserPrivateByID :one
 SELECT id, slug, display_name, email, discord_id, avatar_url, account_state, timezone, is_test, leetcode_premium_opt_in, legacy_is_admin, legacy_is_graduate, suspended_at, deletion_requested_at, deletion_due_at, pseudonymized_at, deleted_at, revision, created_at, updated_at, security_version, timezone_configured, mfa_configured FROM app.users
-WHERE (id = $1 OR lower(slug) = lower($1))
+WHERE (id::text = $1::text OR lower(slug) = lower($1::text))
   AND deleted_at IS NULL
 `
 
