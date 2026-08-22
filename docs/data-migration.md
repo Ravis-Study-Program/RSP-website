@@ -23,7 +23,7 @@ mandatory.
 ## Before rehearsal
 
 1. Restore a production backup into an isolated legacy database.
-2. Create an empty PostgreSQL 17.11 target and run `just migrate-up`.
+2. Create an empty PostgreSQL 18 target and run `just migrate-up`.
 3. Record source/target server versions, backup checksum and operator names.
 4. Set `LEGACY_DATABASE_URL` read-only and `DATABASE_URL` for the isolated
    target. Do not place either value in Git or shell history on a shared host.

@@ -20,10 +20,10 @@ import (
 	"github.com/testcontainers/testcontainers-go/wait"
 )
 
-func TestPostgres17MigrationsAndRepository(t *testing.T) {
+func TestPostgres18MigrationsAndRepository(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
 	defer cancel()
-	container, err := postgrescontainer.Run(ctx, "postgres:17.11-alpine3.24",
+	container, err := postgrescontainer.Run(ctx, "postgres:18.6-alpine3.24",
 		postgrescontainer.WithDatabase("rsp"),
 		postgrescontainer.WithUsername("rsp"),
 		postgrescontainer.WithPassword("rsp-integration-password"),

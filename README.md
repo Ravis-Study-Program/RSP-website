@@ -2,7 +2,7 @@
 
 RSP Website is the second-generation platform for Ravi's Study Program. It is
 a React application backed by a Go modular monolith, a separate Better Auth
-service, and PostgreSQL 17.11. Caddy presents the browser with one origin.
+service, and PostgreSQL 18. Caddy presents the browser with one origin.
 
 The repository intentionally contains no license, production credentials,
 database exports, or legacy C# runtime.

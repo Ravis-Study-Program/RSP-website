@@ -15,7 +15,7 @@ Caddy :8080
   |-- /api/auth/* -> Better Auth :3001
   `-- /api/v2/* ---> Go API :8080
                         |
-                        +---- PostgreSQL 17.11
+                        +---- PostgreSQL 18
 
 Go worker --------------'
 Prometheus ---> API and auth metrics
