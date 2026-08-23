@@ -56,9 +56,9 @@ type Repository interface {
 	UpdateSeason(context.Context, string, int64, func(*programme.SeasonRecord) error, string, time.Time) (programme.SeasonRecord, error)
 	CloseSeason(context.Context, string, int64, string, string, time.Time) (programme.SeasonRecord, error)
 	ReopenSeason(context.Context, string, int64, string, string, time.Time) (programme.SeasonRecord, error)
-	ListWeeks(context.Context, string, string, int, string, string) ([]model.Week, bool, int64, error)
-	CreateWeek(context.Context, model.Week, string, time.Time) (model.Week, error)
-	UpdateWeek(context.Context, string, string, int64, model.Week, string, time.Time) (model.Week, error)
+	ListWeeks(context.Context, string, string, int, string, string) ([]programme.WeekRecord, bool, int64, error)
+	CreateWeek(context.Context, programme.WeekRecord, string, time.Time) (programme.WeekRecord, error)
+	UpdateWeek(context.Context, string, string, int64, programme.WeekRecord, string, time.Time) (programme.WeekRecord, error)
 	DeleteWeek(context.Context, string, string, int64, string, time.Time) error
 	ListEnrollments(context.Context, string, string, int, string, string, string, string, bool) ([]model.Enrollment, bool, int64, error)
 	ListEnrollmentsForUser(context.Context, string) ([]model.Enrollment, error)

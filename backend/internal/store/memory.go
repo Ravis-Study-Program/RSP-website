@@ -26,7 +26,7 @@ type Memory struct {
 	PracticeSettings         map[string]practice.PracticeSettings
 	AuthSubjects             map[string]authz.Actor
 	Seasons                  map[string]programme.SeasonRecord
-	Weeks                    map[string]model.Week
+	Weeks                    map[string]programme.WeekRecord
 	Enrollments              map[string]model.Enrollment
 	Mentorships              map[string]programme.MentorshipRecord
 	Problems                 map[string]model.Problem
@@ -47,7 +47,7 @@ type Memory struct {
 
 // NewMemory creates a new value.
 func NewMemory() *Memory {
-	return &Memory{Users: map[string]accounts.User{}, PracticeSettings: map[string]practice.PracticeSettings{}, AuthSubjects: map[string]authz.Actor{}, Seasons: map[string]programme.SeasonRecord{}, Weeks: map[string]model.Week{}, Enrollments: map[string]model.Enrollment{}, Mentorships: map[string]programme.MentorshipRecord{}, Problems: map[string]model.Problem{}, Attempts: map[string]model.Attempt{}, Recommendations: map[string]practice.Recommendation{}, RecommendationDismissals: map[string][]practice.Dismissal{}, Mocks: map[string]mockinterviews.Interview{}, closeCompleted: map[string]map[string]bool{}, closeAssignmentStates: map[string]map[string]string{}, closeEventIDs: map[string]string{}, IdentityEventReceipts: map[string]bool{}, IdentityEventHashes: map[string]string{}, GlobalRoleAssignments: map[string]accounts.GlobalRoleAssignment{}, MFAConfigured: map[string]bool{}}
+	return &Memory{Users: map[string]accounts.User{}, PracticeSettings: map[string]practice.PracticeSettings{}, AuthSubjects: map[string]authz.Actor{}, Seasons: map[string]programme.SeasonRecord{}, Weeks: map[string]programme.WeekRecord{}, Enrollments: map[string]model.Enrollment{}, Mentorships: map[string]programme.MentorshipRecord{}, Problems: map[string]model.Problem{}, Attempts: map[string]model.Attempt{}, Recommendations: map[string]practice.Recommendation{}, RecommendationDismissals: map[string][]practice.Dismissal{}, Mocks: map[string]mockinterviews.Interview{}, closeCompleted: map[string]map[string]bool{}, closeAssignmentStates: map[string]map[string]string{}, closeEventIDs: map[string]string{}, IdentityEventReceipts: map[string]bool{}, IdentityEventHashes: map[string]string{}, GlobalRoleAssignments: map[string]accounts.GlobalRoleAssignment{}, MFAConfigured: map[string]bool{}}
 }
 
 func memoryPage[T any](items []T, boundary string, limit int, direction string, identity func(T) string) ([]T, bool, error) {
@@ -851,10 +851,10 @@ func stringPointer(value string) *string {
 }
 
 // ListWeeks lists matching values.
-func (m *Memory) ListWeeks(_ context.Context, seasonID, boundary string, limit int, sortBy, direction string) ([]model.Week, bool, int64, error) {
+func (m *Memory) ListWeeks(_ context.Context, seasonID, boundary string, limit int, sortBy, direction string) ([]programme.WeekRecord, bool, int64, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
-	items := []model.Week{}
+	items := []programme.WeekRecord{}
 	for _, v := range m.Weeks {
 		if v.SeasonID == seasonID {
 			items = append(items, v)
@@ -868,27 +868,27 @@ func (m *Memory) ListWeeks(_ context.Context, seasonID, boundary string, limit i
 		})
 	}
 	total := int64(len(items))
-	page, more, err := memoryPage(items, boundary, limit, direction, func(v model.Week) string { return v.ID })
+	page, more, err := memoryPage(items, boundary, limit, direction, func(v programme.WeekRecord) string { return v.ID })
 	return page, more, total, err
 }
 
 // CreateWeek creates a value.
-func (m *Memory) CreateWeek(_ context.Context, v model.Week, actorID string, at time.Time) (model.Week, error) {
+func (m *Memory) CreateWeek(_ context.Context, v programme.WeekRecord, actorID string, at time.Time) (programme.WeekRecord, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	season, exists := m.Seasons[v.SeasonID]
 	if !exists {
-		return model.Week{}, ErrNotFound
+		return programme.WeekRecord{}, ErrNotFound
 	}
 	if season.Status != "open" || !v.EndAt.After(v.StartAt) || v.StartAt.Before(season.StartAt) || v.EndAt.After(season.EndAt) {
-		return model.Week{}, ErrConflict
+		return programme.WeekRecord{}, ErrConflict
 	}
 	if _, exists := m.Weeks[v.ID]; exists {
-		return model.Week{}, ErrDuplicate
+		return programme.WeekRecord{}, ErrDuplicate
 	}
 	for _, old := range m.Weeks {
 		if old.SeasonID == v.SeasonID && old.Number == v.Number {
-			return model.Week{}, ErrDuplicate
+			return programme.WeekRecord{}, ErrDuplicate
 		}
 	}
 	m.Weeks[v.ID] = v
@@ -897,26 +897,26 @@ func (m *Memory) CreateWeek(_ context.Context, v model.Week, actorID string, at 
 }
 
 // UpdateWeek updates a value.
-func (m *Memory) UpdateWeek(_ context.Context, seasonID, weekID string, revision int64, candidate model.Week, actorID string, at time.Time) (model.Week, error) {
+func (m *Memory) UpdateWeek(_ context.Context, seasonID, weekID string, revision int64, candidate programme.WeekRecord, actorID string, at time.Time) (programme.WeekRecord, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	current, ok := m.Weeks[weekID]
 	if !ok || current.SeasonID != seasonID {
-		return model.Week{}, ErrNotFound
+		return programme.WeekRecord{}, ErrNotFound
 	}
 	if current.Revision != revision {
-		return model.Week{}, ErrConflict
+		return programme.WeekRecord{}, ErrConflict
 	}
 	season, ok := m.Seasons[seasonID]
 	if !ok {
-		return model.Week{}, ErrNotFound
+		return programme.WeekRecord{}, ErrNotFound
 	}
 	if season.Status != "open" || !candidate.EndAt.After(candidate.StartAt) || candidate.StartAt.Before(season.StartAt) || candidate.EndAt.After(season.EndAt) {
-		return model.Week{}, ErrConflict
+		return programme.WeekRecord{}, ErrConflict
 	}
 	for id, week := range m.Weeks {
 		if id != weekID && week.SeasonID == seasonID && week.Number == candidate.Number {
-			return model.Week{}, ErrDuplicate
+			return programme.WeekRecord{}, ErrDuplicate
 		}
 	}
 	candidate.ID, candidate.SeasonID, candidate.Revision = current.ID, current.SeasonID, current.Revision+1

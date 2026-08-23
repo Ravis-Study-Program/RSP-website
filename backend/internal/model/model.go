@@ -3,17 +3,6 @@ package model
 
 import "time"
 
-// Week represents a backend data structure.
-type Week struct {
-	ID          string    `json:"id"`
-	SeasonID    string    `json:"seasonId"`
-	Number      int       `json:"number"`
-	StartAt     time.Time `json:"startAt"`
-	EndAt       time.Time `json:"endAt"`
-	ResourceURL string    `json:"resourceUrl"`
-	Revision    int64     `json:"revision"`
-}
-
 // Enrollment represents a backend data structure.
 type Enrollment struct {
 	ID              string  `json:"id"`

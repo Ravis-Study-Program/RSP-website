@@ -62,6 +62,17 @@ type MentorshipRecord struct {
 	Revision      int64  `json:"revision"`
 }
 
+// WeekRecord is a scheduled week within a season.
+type WeekRecord struct {
+	ID          string    `json:"id"`
+	SeasonID    string    `json:"seasonId"`
+	Number      int       `json:"number"`
+	StartAt     time.Time `json:"startAt"`
+	EndAt       time.Time `json:"endAt"`
+	ResourceURL string    `json:"resourceUrl"`
+	Revision    int64     `json:"revision"`
+}
+
 // CloseEvent represents a backend data structure.
 type CloseEvent struct {
 	ID, ActorID, Reason string

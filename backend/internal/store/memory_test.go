@@ -186,7 +186,7 @@ func TestMemoryMentoringRecommendationAndMockStateSurvivesAPIRestart(t *testing.
 			t.Fatal(err)
 		}
 	}
-	if _, err := repository.CreateWeek(ctx, model.Week{ID: "week", SeasonID: "season", Number: 1, StartAt: seasonStart, EndAt: seasonStart.Add(7 * 24 * time.Hour), Revision: 1}, "coordinator", time.Now()); err != nil {
+	if _, err := repository.CreateWeek(ctx, programme.WeekRecord{ID: "week", SeasonID: "season", Number: 1, StartAt: seasonStart, EndAt: seasonStart.Add(7 * 24 * time.Hour), Revision: 1}, "coordinator", time.Now()); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := repository.CreateMentorship(ctx, programme.MentorshipRecord{ID: "mentorship", SeasonID: "season", MentorUserID: "mentor", StudentUserID: "student", Revision: 1}, "coordinator", time.Now()); err != nil {

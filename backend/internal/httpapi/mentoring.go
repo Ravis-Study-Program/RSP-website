@@ -76,7 +76,7 @@ func (a *API) listWeeks(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	writeJSON(w, 200, Page[model.Week]{Items: items, PageInfo: pageInfoForKeyset(a, binding, direction, boundary, items, more, func(v model.Week) string { return v.ID }), TotalCount: total})
+	writeJSON(w, 200, Page[programme.WeekRecord]{Items: items, PageInfo: pageInfoForKeyset(a, binding, direction, boundary, items, more, func(v programme.WeekRecord) string { return v.ID }), TotalCount: total})
 }
 
 func (a *API) createWeek(w http.ResponseWriter, r *http.Request) {
@@ -99,7 +99,7 @@ func (a *API) createWeek(w http.ResponseWriter, r *http.Request) {
 		validation(a, w, r, "week dates must fall within the season dates")
 		return
 	}
-	v := model.Week{ID: id.New(), SeasonID: r.PathValue("id"), Number: in.Number, StartAt: in.StartAt.UTC(), EndAt: in.EndAt.UTC(), ResourceURL: in.ResourceURL, Revision: 1}
+	v := programme.WeekRecord{ID: id.New(), SeasonID: r.PathValue("id"), Number: in.Number, StartAt: in.StartAt.UTC(), EndAt: in.EndAt.UTC(), ResourceURL: in.ResourceURL, Revision: 1}
 	actor := actorFrom(r.Context())
 	created, err := a.store.CreateWeek(r.Context(), v, actor.UserID, time.Now().UTC())
 	if err != nil {
@@ -132,7 +132,7 @@ func (a *API) updateWeek(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	actor := actorFrom(r.Context())
-	v, err := a.store.UpdateWeek(r.Context(), r.PathValue("id"), r.PathValue("weekId"), in.Revision, model.Week{Number: in.Number, StartAt: in.StartAt.UTC(), EndAt: in.EndAt.UTC(), ResourceURL: in.ResourceURL}, actor.UserID, time.Now().UTC())
+	v, err := a.store.UpdateWeek(r.Context(), r.PathValue("id"), r.PathValue("weekId"), in.Revision, programme.WeekRecord{Number: in.Number, StartAt: in.StartAt.UTC(), EndAt: in.EndAt.UTC(), ResourceURL: in.ResourceURL}, actor.UserID, time.Now().UTC())
 	if err != nil {
 		storeFailure(a, w, r, err)
 		return

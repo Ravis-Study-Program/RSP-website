@@ -1037,8 +1037,8 @@ func (p *Postgres) ReopenSeason(ctx context.Context, seasonID string, revision i
 	return v, nil
 }
 
-func scanWeek(row pgx.Row) (model.Week, error) {
-	var v model.Week
+func scanWeek(row pgx.Row) (programme.WeekRecord, error) {
+	var v programme.WeekRecord
 	if err := row.Scan(&v.ID, &v.SeasonID, &v.Number, &v.StartAt, &v.EndAt, &v.ResourceURL, &v.Revision); err != nil {
 		return v, noRows(err)
 	}
@@ -1046,7 +1046,7 @@ func scanWeek(row pgx.Row) (model.Week, error) {
 }
 
 // ListWeeks lists matching values.
-func (p *Postgres) ListWeeks(ctx context.Context, seasonID, boundary string, limit int, sortBy, direction string) ([]model.Week, bool, int64, error) {
+func (p *Postgres) ListWeeks(ctx context.Context, seasonID, boundary string, limit int, sortBy, direction string) ([]programme.WeekRecord, bool, int64, error) {
 	var total int64
 	if err := p.Pool.QueryRow(ctx, `SELECT count(*) FROM app.season_weeks WHERE season_id=$1 AND deleted_at IS NULL`, seasonID).Scan(&total); err != nil {
 		return nil, false, 0, err
@@ -1081,7 +1081,7 @@ func (p *Postgres) ListWeeks(ctx context.Context, seasonID, boundary string, lim
 	}
 
 	defer rows.Close()
-	items := make([]model.Week, 0, limit+1)
+	items := make([]programme.WeekRecord, 0, limit+1)
 	for rows.Next() {
 		v, scanErr := scanWeek(rows)
 		if scanErr != nil {
@@ -1098,7 +1098,7 @@ func (p *Postgres) ListWeeks(ctx context.Context, seasonID, boundary string, lim
 }
 
 // CreateWeek creates a value.
-func (p *Postgres) CreateWeek(ctx context.Context, v model.Week, actorID string, at time.Time) (model.Week, error) {
+func (p *Postgres) CreateWeek(ctx context.Context, v programme.WeekRecord, actorID string, at time.Time) (programme.WeekRecord, error) {
 	tx, err := p.Pool.Begin(ctx)
 	if err != nil {
 		return v, err
@@ -1116,10 +1116,10 @@ func (p *Postgres) CreateWeek(ctx context.Context, v model.Week, actorID string,
 }
 
 // UpdateWeek updates a value.
-func (p *Postgres) UpdateWeek(ctx context.Context, seasonID, weekID string, revision int64, candidate model.Week, actorID string, at time.Time) (model.Week, error) {
+func (p *Postgres) UpdateWeek(ctx context.Context, seasonID, weekID string, revision int64, candidate programme.WeekRecord, actorID string, at time.Time) (programme.WeekRecord, error) {
 	tx, err := p.Pool.Begin(ctx)
 	if err != nil {
-		return model.Week{}, err
+		return programme.WeekRecord{}, err
 	}
 
 	defer tx.Rollback(ctx)

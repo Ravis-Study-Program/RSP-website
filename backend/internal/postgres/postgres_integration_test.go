@@ -207,7 +207,7 @@ func TestPostgres18MigrationsAndRepository(t *testing.T) {
 	if _, err := repository.Pool.Exec(ctx, `INSERT INTO app.enrollments(id,user_id,season_id,role,student_level,state,assignment_state,activated_at,revision) VALUES('00000000-0000-7000-8000-000000000011','00000000-0000-7000-8000-000000000026',$1,'student','beginner','kicked','revoked',NULL,1)`, season.ID); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := repository.CreateWeek(ctx, model.Week{ID: "00000000-0000-7000-8000-000000000034", SeasonID: season.ID, Number: 1, StartAt: season.StartAt, EndAt: season.EndAt, ResourceURL: "https://rsp.local/week", Revision: 1}, "00000000-0000-7000-8000-000000000033", time.Now()); err != nil {
+	if _, err := repository.CreateWeek(ctx, programme.WeekRecord{ID: "00000000-0000-7000-8000-000000000034", SeasonID: season.ID, Number: 1, StartAt: season.StartAt, EndAt: season.EndAt, ResourceURL: "https://rsp.local/week", Revision: 1}, "00000000-0000-7000-8000-000000000033", time.Now()); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := repository.CreateMentorship(ctx, programme.MentorshipRecord{ID: "00000000-0000-7000-8000-000000000020", SeasonID: season.ID, MentorUserID: "00000000-0000-7000-8000-000000000027", StudentUserID: "00000000-0000-7000-8000-000000000033", Revision: 1}, "00000000-0000-7000-8000-000000000033", time.Now()); err != nil {

@@ -49,7 +49,7 @@ func TestEveryProtectedOpenAPIOperationHasExecutablePrimarySuccess(t *testing.T)
 		season := f.repository.Seasons["season"]
 		season.StartAt, season.EndAt = base.Add(-24*time.Hour), base.Add(30*24*time.Hour)
 		f.repository.Seasons["season"] = season
-		f.repository.Weeks["week"] = model.Week{ID: "week", SeasonID: "season", Number: 1, StartAt: base, EndAt: base.Add(24 * time.Hour), ResourceURL: "https://rsp.test/week", Revision: 1}
+		f.repository.Weeks["week"] = programme.WeekRecord{ID: "week", SeasonID: "season", Number: 1, StartAt: base, EndAt: base.Add(24 * time.Hour), ResourceURL: "https://rsp.test/week", Revision: 1}
 	}
 	seedMentorshipParties := func(f *fixture) {
 		for _, userID := range []string{"mentor-a", "mentor-b"} {
@@ -180,7 +180,7 @@ func TestMutableResourceFamiliesRejectStaleRevisionsWithCompleteProblems(t *test
 			season := f.repository.Seasons["season"]
 			season.StartAt, season.EndAt = base.Add(-time.Hour), base.Add(48*time.Hour)
 			f.repository.Seasons["season"] = season
-			f.repository.Weeks["week"] = model.Week{ID: "week", SeasonID: "season", Number: 1, StartAt: base, EndAt: base.Add(time.Hour), Revision: 1}
+			f.repository.Weeks["week"] = programme.WeekRecord{ID: "week", SeasonID: "season", Number: 1, StartAt: base, EndAt: base.Add(time.Hour), Revision: 1}
 		}},
 		{"enrollment", http.MethodPatch, "/api/v2/seasons/season/members/other-enrollment", "coordinator", `{"role":"student","studentLevel":"advanced","revision":99}`, http.StatusConflict, nil},
 		{"mentorship", http.MethodPatch, "/api/v2/seasons/season/mentorships/mentorship", "coordinator", `{"mentorUserId":"mentor","studentUserId":"other","revision":99}`, http.StatusConflict, func(f *fixture) {

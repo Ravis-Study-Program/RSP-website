@@ -26,14 +26,14 @@ func decodePage[T any](t *testing.T, body []byte) Page[T] {
 func TestSeasonWeeksOrderedRoundTripAndUnknownSeasonNotFound(t *testing.T) {
 	f := newFixture()
 	season := f.repository.Seasons["season"]
-	f.repository.Weeks["week-two"] = model.Week{ID: "week-two", SeasonID: season.ID, Number: 2, StartAt: season.StartAt.Add(7 * 24 * time.Hour), EndAt: season.StartAt.Add(14 * 24 * time.Hour), ResourceURL: "https://rsp.test/week-two", Revision: 1}
-	f.repository.Weeks["week-one"] = model.Week{ID: "week-one", SeasonID: season.ID, Number: 1, StartAt: season.StartAt, EndAt: season.StartAt.Add(7 * 24 * time.Hour), ResourceURL: "https://rsp.test/week-one", Revision: 1}
+	f.repository.Weeks["week-two"] = programme.WeekRecord{ID: "week-two", SeasonID: season.ID, Number: 2, StartAt: season.StartAt.Add(7 * 24 * time.Hour), EndAt: season.StartAt.Add(14 * 24 * time.Hour), ResourceURL: "https://rsp.test/week-two", Revision: 1}
+	f.repository.Weeks["week-one"] = programme.WeekRecord{ID: "week-one", SeasonID: season.ID, Number: 1, StartAt: season.StartAt, EndAt: season.StartAt.Add(7 * 24 * time.Hour), ResourceURL: "https://rsp.test/week-one", Revision: 1}
 
 	w := request(t, f, http.MethodGet, "/api/v2/seasons/season/weeks?sort=number:asc", "student", "")
 	if w.Code != http.StatusOK {
 		t.Fatalf("week list: %d %s", w.Code, w.Body.String())
 	}
-	page := decodePage[model.Week](t, w.Body.Bytes())
+	page := decodePage[programme.WeekRecord](t, w.Body.Bytes())
 	if len(page.Items) != 2 || page.Items[0].Number != 1 || page.Items[1].Number != 2 || !page.Items[0].StartAt.Equal(season.StartAt) || !page.Items[1].EndAt.Equal(season.StartAt.Add(14*24*time.Hour)) {
 		t.Fatalf("ordered week round trip: %#v", page.Items)
 	}
