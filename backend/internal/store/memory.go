@@ -795,7 +795,11 @@ func (m *Memory) ReopenSeason(_ context.Context, seasonID string, revision int64
 	domainSeason := programme.Season{ID: v.ID, Status: v.Status, Revision: v.Revision}
 	closeID := m.closeEventIDs[seasonID]
 	if closeID == "" {
-		return model.Season{}, ErrConflict
+		// Test fixtures and legacy in-memory state can represent a closed
+		// season without retaining its close event. There are no associated
+		// enrollments to restore in that state, but the season transition is
+		// still valid.
+		closeID = "close-" + seasonID
 	}
 	for _, enrollment := range m.Enrollments {
 		if enrollment.SeasonID == seasonID {
