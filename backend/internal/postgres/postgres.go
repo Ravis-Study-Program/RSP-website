@@ -14,7 +14,6 @@ import (
 	"github.com/magedmg/RSP-website/backend/internal/accounts"
 	"github.com/magedmg/RSP-website/backend/internal/authz"
 	"github.com/magedmg/RSP-website/backend/internal/mockinterviews"
-	"github.com/magedmg/RSP-website/backend/internal/model"
 	"github.com/magedmg/RSP-website/backend/internal/platform/audit"
 	"github.com/magedmg/RSP-website/backend/internal/platform/dbgen"
 	"github.com/magedmg/RSP-website/backend/internal/platform/id"
@@ -1489,8 +1488,8 @@ func (p *Postgres) IsMentorAssigned(ctx context.Context, seasonID, mentorUserID,
 	return assigned, err
 }
 
-func scanProblem(row pgx.Row) (model.Problem, error) {
-	var v model.Problem
+func scanProblem(row pgx.Row) (practice.ProblemRecord, error) {
+	var v practice.ProblemRecord
 	if err := row.Scan(&v.ID, &v.Number, &v.Title, &v.Link, &v.Difficulty, &v.Premium, &v.Categories, &v.Revision); err != nil {
 		return v, noRows(err)
 	}
@@ -1500,7 +1499,7 @@ func scanProblem(row pgx.Row) (model.Problem, error) {
 const problemQuery = `SELECT l.id,l.leetcode_number,p.title,COALESCE(p.url,''),l.difficulty::text,l.is_premium,COALESCE(array_agg(c.normalized_name) FILTER (WHERE c.id IS NOT NULL),'{}')::text[],l.revision FROM app.leetcode_problems l JOIN app.problems p ON p.id=l.problem_id LEFT JOIN app.leetcode_problem_category_mappings m ON m.leetcode_problem_id=l.id LEFT JOIN app.leetcode_problem_categories c ON c.id=m.category_id WHERE l.deleted_at IS NULL AND p.deleted_at IS NULL`
 
 // ListProblems lists matching values.
-func (p *Postgres) ListProblems(ctx context.Context, boundary string, limit int, difficulty, category string, premium *bool, direction string) ([]model.Problem, bool, int64, error) {
+func (p *Postgres) ListProblems(ctx context.Context, boundary string, limit int, difficulty, category string, premium *bool, direction string) ([]practice.ProblemRecord, bool, int64, error) {
 	var total int64
 	if err := p.Pool.QueryRow(ctx, `SELECT count(*) FROM app.leetcode_problems l WHERE l.deleted_at IS NULL AND ($1='' OR l.difficulty::text=$1) AND ($2='' OR EXISTS(SELECT 1 FROM app.leetcode_problem_category_mappings m JOIN app.leetcode_problem_categories c ON c.id=m.category_id WHERE m.leetcode_problem_id=l.id AND c.deleted_at IS NULL AND lower(c.normalized_name)=lower($2))) AND ($3::boolean IS NULL OR l.is_premium=$3)`, difficulty, category, premium).Scan(&total); err != nil {
 		return nil, false, 0, err
@@ -1519,7 +1518,7 @@ func (p *Postgres) ListProblems(ctx context.Context, boundary string, limit int,
 	}
 
 	defer rows.Close()
-	out := []model.Problem{}
+	out := []practice.ProblemRecord{}
 	for rows.Next() {
 		v, err := scanProblem(rows)
 		if err != nil {
@@ -1538,8 +1537,8 @@ func (p *Postgres) ListProblems(ctx context.Context, boundary string, limit int,
 	return out, more, total, rows.Err()
 }
 
-func scanAttempt(row pgx.Row) (model.Attempt, error) {
-	var v model.Attempt
+func scanAttempt(row pgx.Row) (practice.AttemptRecord, error) {
+	var v practice.AttemptRecord
 	if err := row.Scan(&v.ID, &v.UserID, &v.ProblemID, &v.Outcome, &v.Confidence, &v.Minutes, &v.Notes, &v.AttemptedAt, &v.SeasonID, &v.WeekID, &v.Revision, &v.DeletedAt, &v.Migrated); err != nil {
 		return v, noRows(err)
 	}
@@ -1549,12 +1548,12 @@ func scanAttempt(row pgx.Row) (model.Attempt, error) {
 const attemptColumns = `a.id,a.user_id,COALESCE((SELECT id FROM app.leetcode_problems WHERE problem_id=a.problem_id),a.problem_id),a.outcome::text,a.confidence,a.time_taken_minutes,COALESCE(a.notes_html,''),a.attempted_at,e.season_id,a.season_week_id,a.revision,a.deleted_at,EXISTS(SELECT 1 FROM migration.row_provenance rp WHERE rp.target_table='problem_attempts' AND rp.target_id=a.id::text)`
 
 // GetAttempt retrieves a value.
-func (p *Postgres) GetAttempt(ctx context.Context, id string) (model.Attempt, error) {
+func (p *Postgres) GetAttempt(ctx context.Context, id string) (practice.AttemptRecord, error) {
 	return scanAttempt(p.Pool.QueryRow(ctx, `SELECT `+attemptColumns+` FROM app.problem_attempts a LEFT JOIN app.enrollments e ON e.id=a.enrollment_id WHERE a.id=$1 AND a.deleted_at IS NULL`, id))
 }
 
 // ListAttempts lists matching values.
-func (p *Postgres) ListAttempts(ctx context.Context, userID, boundary string, limit int, outcome, difficulty, direction string) ([]model.Attempt, bool, int64, error) {
+func (p *Postgres) ListAttempts(ctx context.Context, userID, boundary string, limit int, outcome, difficulty, direction string) ([]practice.AttemptRecord, bool, int64, error) {
 	var total int64
 	if err := p.Pool.QueryRow(ctx, `SELECT count(*) FROM app.problem_attempts a WHERE a.user_id=$1 AND a.deleted_at IS NULL AND ($2='' OR a.outcome::text=$2) AND ($3='' OR EXISTS(SELECT 1 FROM app.leetcode_problems l WHERE l.problem_id=a.problem_id AND l.difficulty::text=$3 AND l.deleted_at IS NULL))`, userID, outcome, difficulty).Scan(&total); err != nil {
 		return nil, false, 0, err
@@ -1573,7 +1572,7 @@ func (p *Postgres) ListAttempts(ctx context.Context, userID, boundary string, li
 	}
 
 	defer rows.Close()
-	out := []model.Attempt{}
+	out := []practice.AttemptRecord{}
 	for rows.Next() {
 		v, err := scanAttempt(rows)
 		if err != nil {
@@ -1655,7 +1654,7 @@ func (p *Postgres) RecommendationSnapshot(ctx context.Context, userID string, _ 
 }
 
 // RecommendationCandidates performs the operation.
-func (p *Postgres) RecommendationCandidates(ctx context.Context, userID string, criteria practice.Criteria, premiumOptIn bool, goals practice.Goals, now time.Time) ([]model.Problem, map[string]practice.ProblemHistory, error) {
+func (p *Postgres) RecommendationCandidates(ctx context.Context, userID string, criteria practice.Criteria, premiumOptIn bool, goals practice.Goals, now time.Time) ([]practice.ProblemRecord, map[string]practice.ProblemHistory, error) {
 	now = now.UTC()
 	goal := goals[criteria.Difficulty]
 	if goal <= 0 {
@@ -1669,7 +1668,7 @@ func (p *Postgres) RecommendationCandidates(ctx context.Context, userID string, 
 		AND NOT EXISTS(SELECT 1 FROM app.problem_attempts a WHERE a.user_id=$1 AND a.problem_id=l.problem_id AND a.deleted_at IS NULL)
 		GROUP BY l.id,p.id ORDER BY l.leetcode_number ASC,l.id ASC LIMIT 1`, userID, string(criteria.Difficulty), criteria.Category, premiumOptIn, now))
 	if err == nil {
-		return []model.Problem{unseen}, map[string]practice.ProblemHistory{}, nil
+		return []practice.ProblemRecord{unseen}, map[string]practice.ProblemHistory{}, nil
 	}
 	if !errors.Is(err, ErrNotFound) {
 		return nil, nil, err
@@ -1688,7 +1687,7 @@ func (p *Postgres) RecommendationCandidates(ctx context.Context, userID string, 
 		)
 		GROUP BY l.id,p.id ORDER BY l.leetcode_number ASC,l.id ASC LIMIT 1`, userID, string(criteria.Difficulty), criteria.Category, premiumOptIn, now, goal))
 	if errors.Is(err, ErrNotFound) {
-		return []model.Problem{}, map[string]practice.ProblemHistory{}, nil
+		return []practice.ProblemRecord{}, map[string]practice.ProblemHistory{}, nil
 	}
 	if err != nil {
 		return nil, nil, err
@@ -1698,14 +1697,14 @@ func (p *Postgres) RecommendationCandidates(ctx context.Context, userID string, 
 	if err := p.Pool.QueryRow(ctx, `SELECT max(a.attempted_at) FROM app.problem_attempts a JOIN app.leetcode_problems l ON l.problem_id=a.problem_id WHERE a.user_id=$1 AND l.id=$2 AND a.deleted_at IS NULL`, userID, retry.ID).Scan(&lastAttemptedAt); err != nil {
 		return nil, nil, err
 	}
-	return []model.Problem{retry}, map[string]practice.ProblemHistory{retry.ID: {LastAttemptedAt: lastAttemptedAt.UTC(), Weak: true}}, nil
+	return []practice.ProblemRecord{retry}, map[string]practice.ProblemHistory{retry.ID: {LastAttemptedAt: lastAttemptedAt.UTC(), Weak: true}}, nil
 }
 
 // CreateAttempt creates a value.
-func (p *Postgres) CreateAttempt(ctx context.Context, v model.Attempt) (model.Attempt, bool, error) {
+func (p *Postgres) CreateAttempt(ctx context.Context, v practice.AttemptRecord) (practice.AttemptRecord, bool, error) {
 	tx, err := p.Pool.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
-		return model.Attempt{}, false, err
+		return practice.AttemptRecord{}, false, err
 	}
 
 	defer tx.Rollback(ctx)
@@ -1715,26 +1714,26 @@ func (p *Postgres) CreateAttempt(ctx context.Context, v model.Attempt) (model.At
 		var scopedEnrollmentID string
 		err = tx.QueryRow(ctx, `SELECT e.id FROM app.enrollments e JOIN app.seasons s ON s.id=e.season_id WHERE e.user_id=$1 AND e.season_id=$2 AND e.state='active' AND e.deleted_at IS NULL AND s.status='open' AND s.deleted_at IS NULL`, v.UserID, *v.SeasonID).Scan(&scopedEnrollmentID)
 		if err != nil {
-			return model.Attempt{}, false, noRows(err)
+			return practice.AttemptRecord{}, false, noRows(err)
 		}
 
 		enrollmentID = &scopedEnrollmentID
 	}
 	if v.WeekID != nil && v.SeasonID == nil {
-		return model.Attempt{}, false, ErrNotFound
+		return practice.AttemptRecord{}, false, ErrNotFound
 	}
 	if v.WeekID != nil {
 		var valid bool
 		if err = tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM app.season_weeks WHERE id=$1 AND season_id=$2 AND deleted_at IS NULL)`, *v.WeekID, *v.SeasonID).Scan(&valid); err != nil {
-			return model.Attempt{}, false, err
+			return practice.AttemptRecord{}, false, err
 		}
 		if !valid {
-			return model.Attempt{}, false, ErrNotFound
+			return practice.AttemptRecord{}, false, ErrNotFound
 		}
 	}
 	var baseProblemID string
 	if err = tx.QueryRow(ctx, `SELECT problem_id FROM app.leetcode_problems WHERE id=$1 AND deleted_at IS NULL`, v.ProblemID).Scan(&baseProblemID); err != nil {
-		return model.Attempt{}, false, noRows(err)
+		return practice.AttemptRecord{}, false, noRows(err)
 	}
 	if err = tx.QueryRow(ctx, `INSERT INTO app.problem_attempts(id,user_id,problem_id,enrollment_id,season_week_id,attempted_at,time_taken_minutes,outcome,confidence,notes_html,revision) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING revision`, v.ID, v.UserID, baseProblemID, enrollmentID, v.WeekID, v.AttemptedAt, v.Minutes, v.Outcome, v.Confidence, v.Notes, v.Revision).Scan(&v.Revision); err != nil {
 		return v, false, mapPostgresError(err)
@@ -1756,10 +1755,10 @@ func (p *Postgres) CreateAttempt(ctx context.Context, v model.Attempt) (model.At
 }
 
 // UpdateAttempt updates a value.
-func (p *Postgres) UpdateAttempt(ctx context.Context, id, userID string, revision int64, fn func(*model.Attempt) error) (model.Attempt, error) {
+func (p *Postgres) UpdateAttempt(ctx context.Context, id, userID string, revision int64, fn func(*practice.AttemptRecord) error) (practice.AttemptRecord, error) {
 	tx, err := p.Pool.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
-		return model.Attempt{}, err
+		return practice.AttemptRecord{}, err
 	}
 
 	defer tx.Rollback(ctx)
@@ -1935,7 +1934,7 @@ func (p *Postgres) DismissRecommendation(ctx context.Context, userID string, rev
 }
 
 // FulfillRecommendation performs the operation.
-func (p *Postgres) FulfillRecommendation(ctx context.Context, userID string, attempt model.Attempt, at time.Time) (bool, error) {
+func (p *Postgres) FulfillRecommendation(ctx context.Context, userID string, attempt practice.AttemptRecord, at time.Time) (bool, error) {
 	tag, err := p.Pool.Exec(ctx, `UPDATE app.recommendations SET state='attempted',fulfilled_by_attempt_id=$3,state_changed_at=$4,revision=revision+1 WHERE user_id=$1 AND state='active' AND leetcode_problem_id=$2 AND deleted_at IS NULL`, userID, attempt.ProblemID, attempt.ID, at.UTC())
 	if err != nil {
 		return false, err

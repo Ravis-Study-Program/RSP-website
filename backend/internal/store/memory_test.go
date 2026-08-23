@@ -9,7 +9,6 @@ import (
 
 	"github.com/magedmg/RSP-website/backend/internal/accounts"
 	"github.com/magedmg/RSP-website/backend/internal/mockinterviews"
-	"github.com/magedmg/RSP-website/backend/internal/model"
 	"github.com/magedmg/RSP-website/backend/internal/practice"
 	"github.com/magedmg/RSP-website/backend/internal/programme"
 )
@@ -105,7 +104,7 @@ func TestMemoryPracticeMutationsRequireCurrentIndependentRevision(t *testing.T) 
 	ctx := context.Background()
 	repository := NewMemory()
 	repository.Users["student"] = accounts.User{ID: "student", AccountState: "active", Revision: 1}
-	repository.Problems["problem"] = model.Problem{ID: "problem", Number: 1, Title: "Problem", Link: "https://rsp.test/problem", Difficulty: "easy", Categories: []string{"arrays"}, Revision: 1}
+	repository.Problems["problem"] = practice.ProblemRecord{ID: "problem", Number: 1, Title: "Problem", Link: "https://rsp.test/problem", Difficulty: "easy", Categories: []string{"arrays"}, Revision: 1}
 	settings, err := repository.EnablePracticeGoals(ctx, "student", 1, "mentor", "season", time.Now())
 	if err != nil || settings.Revision != 2 {
 		t.Fatalf("enabled settings=%#v err=%v", settings, err)
@@ -131,21 +130,21 @@ func TestMemoryRecommendationSnapshotUsesNewestQualityAndEntireCatalogue(t *test
 	now := time.Now().UTC()
 	for index := 0; index < 10001; index++ {
 		identifier := fmt.Sprintf("%05d", index)
-		repository.Problems[identifier] = model.Problem{ID: identifier, Difficulty: "medium"}
-		repository.Attempts[identifier] = model.Attempt{ID: identifier, UserID: "student", ProblemID: identifier, Outcome: "unknown", AttemptedAt: now.Add(time.Duration(index) * time.Second), Migrated: true}
+		repository.Problems[identifier] = practice.ProblemRecord{ID: identifier, Difficulty: "medium"}
+		repository.Attempts[identifier] = practice.AttemptRecord{ID: identifier, UserID: "student", ProblemID: identifier, Outcome: "unknown", AttemptedAt: now.Add(time.Duration(index) * time.Second), Migrated: true}
 	}
 	newest := repository.Attempts["00000"]
 	newest.Outcome, newest.Migrated, newest.Minutes, newest.AttemptedAt = "independently_solved", false, 10, now.Add(20000*time.Second)
 	repository.Attempts[newest.ID] = newest
-	repository.Attempts["zzzzz-old-quality"] = model.Attempt{ID: "zzzzz-old-quality", UserID: "student", ProblemID: "00001", Outcome: "independently_solved", Minutes: 10, AttemptedAt: now.Add(-time.Hour)}
-	repository.Problems["zzzzz-unseen"] = model.Problem{ID: "zzzzz-unseen", Number: 10002, Difficulty: "medium"}
+	repository.Attempts["zzzzz-old-quality"] = practice.AttemptRecord{ID: "zzzzz-old-quality", UserID: "student", ProblemID: "00001", Outcome: "independently_solved", Minutes: 10, AttemptedAt: now.Add(-time.Hour)}
+	repository.Problems["zzzzz-unseen"] = practice.ProblemRecord{ID: "zzzzz-unseen", Number: 10002, Difficulty: "medium"}
 
 	snapshot, err := repository.RecommendationSnapshot(context.Background(), "student", practice.DefaultGoals())
 	if err != nil || len(snapshot.Problems) != 2 || len(snapshot.QualityAttempts) != 2 || snapshot.QualityAttempts[0].ID != "00000" {
 		t.Fatalf("snapshot problems=%d quality=%#v err=%v", len(snapshot.Problems), snapshot.QualityAttempts, err)
 	}
 
-	qualityProblems := map[string]model.Problem{}
+	qualityProblems := map[string]practice.ProblemRecord{}
 	for _, problem := range snapshot.Problems {
 		qualityProblems[problem.ID] = problem
 	}
@@ -176,7 +175,7 @@ func TestMemoryMentoringRecommendationAndMockStateSurvivesAPIRestart(t *testing.
 	seasonStart := time.Now().UTC()
 	repository.Users["mentor"] = accounts.User{ID: "mentor", AccountState: "active"}
 	repository.Users["student"] = accounts.User{ID: "student", AccountState: "active"}
-	repository.Problems["problem"] = model.Problem{ID: "problem", Number: 1, Title: "Problem", Link: "https://rsp.test/problem", Difficulty: "easy", Categories: []string{"arrays"}, Revision: 1}
+	repository.Problems["problem"] = practice.ProblemRecord{ID: "problem", Number: 1, Title: "Problem", Link: "https://rsp.test/problem", Difficulty: "easy", Categories: []string{"arrays"}, Revision: 1}
 	repository.Seasons["season"] = programme.SeasonRecord{ID: "season", Slug: "season", Status: "open", StartAt: seasonStart, EndAt: seasonStart.Add(14 * 24 * time.Hour), Revision: 1}
 	for _, enrollment := range []programme.EnrollmentRecord{
 		{ID: "mentor-enrollment", SeasonID: "season", UserID: "mentor", Role: "mentor", State: "active", Revision: 1},
@@ -203,7 +202,7 @@ func TestMemoryMentoringRecommendationAndMockStateSurvivesAPIRestart(t *testing.
 		t.Fatal(err)
 	}
 
-	attempt := model.Attempt{ID: "attempt", UserID: "student", ProblemID: "problem", Revision: 1}
+	attempt := practice.AttemptRecord{ID: "attempt", UserID: "student", ProblemID: "problem", Revision: 1}
 	fulfilled, err := repository.FulfillRecommendation(ctx, "student", attempt, time.Now())
 	if err != nil || !fulfilled {
 		t.Fatalf("fulfilled=%v err=%v", fulfilled, err)

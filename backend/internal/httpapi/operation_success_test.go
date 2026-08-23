@@ -11,7 +11,6 @@ import (
 	"github.com/magedmg/RSP-website/backend/internal/authz"
 	"github.com/magedmg/RSP-website/backend/internal/generated"
 	"github.com/magedmg/RSP-website/backend/internal/mockinterviews"
-	"github.com/magedmg/RSP-website/backend/internal/model"
 	"github.com/magedmg/RSP-website/backend/internal/practice"
 	"github.com/magedmg/RSP-website/backend/internal/programme"
 )
@@ -116,7 +115,7 @@ func TestEveryProtectedOpenAPIOperationHasExecutablePrimarySuccess(t *testing.T)
 		{"deleteProblemAttempt", http.MethodDelete, "/api/v2/problem-attempts/owned?revision=1", "student", "", http.StatusNoContent, nil},
 		{"getCurrentRecommendation", http.MethodGet, "/api/v2/recommendations/current", "student", "", http.StatusOK, func(f *fixture) {
 			seedStudent(f)
-			f.repository.Problems["candidate"] = model.Problem{ID: "candidate", Number: 2, Title: "Candidate", Link: "https://rsp.test/problems/candidate", Difficulty: "easy", Categories: []string{"arrays"}, Revision: 1}
+			f.repository.Problems["candidate"] = practice.ProblemRecord{ID: "candidate", Number: 2, Title: "Candidate", Link: "https://rsp.test/problems/candidate", Difficulty: "easy", Categories: []string{"arrays"}, Revision: 1}
 		}},
 		{"dismissCurrentRecommendation", http.MethodPost, "/api/v2/recommendations/current/dismiss", "student", `{"reason":"later","revision":1}`, http.StatusNoContent, func(f *fixture) {
 			f.repository.Recommendations["student"] = practice.Recommendation{ID: "recommendation", UserID: "student", Problem: practice.Problem{ID: "problem", Title: "Two Sum", Difficulty: practice.Easy, Categories: []string{"arrays"}}, Difficulty: practice.Easy, Category: "arrays", Rationale: "Practice arrays", RuleVersion: "v1", CreatedAt: base, Revision: 1}

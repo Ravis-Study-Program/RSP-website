@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/magedmg/RSP-website/backend/internal/authz"
-	"github.com/magedmg/RSP-website/backend/internal/model"
 	"github.com/magedmg/RSP-website/backend/internal/platform/cursor"
 	"github.com/magedmg/RSP-website/backend/internal/platform/id"
 	"github.com/magedmg/RSP-website/backend/internal/platform/sanitize"
@@ -113,8 +112,8 @@ func (a *API) problems(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	pageInfo := pageInfoForKeyset(a, binding, direction, after, items, more, func(v model.Problem) string { return v.ID })
-	writeJSON(w, 200, Page[model.Problem]{Items: items, PageInfo: pageInfo, TotalCount: total})
+	pageInfo := pageInfoForKeyset(a, binding, direction, after, items, more, func(v practice.ProblemRecord) string { return v.ID })
+	writeJSON(w, 200, Page[practice.ProblemRecord]{Items: items, PageInfo: pageInfo, TotalCount: total})
 }
 
 func (a *API) attempts(w http.ResponseWriter, r *http.Request) {
@@ -186,8 +185,8 @@ func (a *API) attempts(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	pageInfo := pageInfoForKeyset(a, binding, direction, after, items, more, func(v model.Attempt) string { return v.ID })
-	writeJSON(w, 200, Page[model.Attempt]{Items: items, PageInfo: pageInfo, TotalCount: total})
+	pageInfo := pageInfoForKeyset(a, binding, direction, after, items, more, func(v practice.AttemptRecord) string { return v.ID })
+	writeJSON(w, 200, Page[practice.AttemptRecord]{Items: items, PageInfo: pageInfo, TotalCount: total})
 }
 
 type attemptInput struct {
@@ -222,7 +221,7 @@ func (a *API) createAttempt(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	v := model.Attempt{ID: id.New(), UserID: actor.UserID, ProblemID: in.ProblemID, Outcome: in.Outcome, Confidence: in.Confidence, Minutes: in.Minutes, Notes: sanitize.New().String(in.Notes), AttemptedAt: in.AttemptedAt.UTC(), SeasonID: in.SeasonID, WeekID: in.WeekID, Revision: 1}
+	v := practice.AttemptRecord{ID: id.New(), UserID: actor.UserID, ProblemID: in.ProblemID, Outcome: in.Outcome, Confidence: in.Confidence, Minutes: in.Minutes, Notes: sanitize.New().String(in.Notes), AttemptedAt: in.AttemptedAt.UTC(), SeasonID: in.SeasonID, WeekID: in.WeekID, Revision: 1}
 	created, fulfilled, err := a.store.CreateAttempt(r.Context(), v)
 	if err != nil {
 		storeFailure(a, w, r, err)
@@ -247,7 +246,7 @@ func (a *API) updateAttempt(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	updated, err := a.store.UpdateAttempt(r.Context(), r.PathValue("id"), actor.UserID, in.Revision, func(v *model.Attempt) error {
+	updated, err := a.store.UpdateAttempt(r.Context(), r.PathValue("id"), actor.UserID, in.Revision, func(v *practice.AttemptRecord) error {
 		v.ProblemID = in.ProblemID
 		v.Outcome = in.Outcome
 		v.Confidence = in.Confidence
@@ -323,7 +322,7 @@ func (a *API) recommendation(w http.ResponseWriter, r *http.Request) {
 	}
 
 	attempts := make([]practice.Attempt, 0, len(snapshot.QualityAttempts))
-	problemByID := map[string]model.Problem{}
+	problemByID := map[string]practice.ProblemRecord{}
 	for _, p := range snapshot.Problems {
 		problemByID[p.ID] = p
 	}

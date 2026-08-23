@@ -9,7 +9,6 @@ import (
 	"github.com/magedmg/RSP-website/backend/internal/accounts"
 	"github.com/magedmg/RSP-website/backend/internal/authz"
 	"github.com/magedmg/RSP-website/backend/internal/mockinterviews"
-	"github.com/magedmg/RSP-website/backend/internal/model"
 	"github.com/magedmg/RSP-website/backend/internal/platform/audit"
 	"github.com/magedmg/RSP-website/backend/internal/practice"
 	"github.com/magedmg/RSP-website/backend/internal/programme"
@@ -71,19 +70,19 @@ type Repository interface {
 	UpdateMentorship(context.Context, string, string, int64, string, string, string, time.Time) (programme.MentorshipRecord, error)
 	DeleteMentorship(context.Context, string, string, int64, string, time.Time) error
 	IsMentorAssigned(context.Context, string, string, string) (bool, error)
-	ListProblems(context.Context, string, int, string, string, *bool, string) ([]model.Problem, bool, int64, error)
-	GetAttempt(context.Context, string) (model.Attempt, error)
-	ListAttempts(context.Context, string, string, int, string, string, string) ([]model.Attempt, bool, int64, error)
+	ListProblems(context.Context, string, int, string, string, *bool, string) ([]practice.ProblemRecord, bool, int64, error)
+	GetAttempt(context.Context, string) (practice.AttemptRecord, error)
+	ListAttempts(context.Context, string, string, int, string, string, string) ([]practice.AttemptRecord, bool, int64, error)
 	RecommendationSnapshot(context.Context, string, practice.Goals) (practice.RecommendationSnapshot, error)
-	RecommendationCandidates(context.Context, string, practice.Criteria, bool, practice.Goals, time.Time) ([]model.Problem, map[string]practice.ProblemHistory, error)
-	CreateAttempt(context.Context, model.Attempt) (model.Attempt, bool, error)
-	UpdateAttempt(context.Context, string, string, int64, func(*model.Attempt) error) (model.Attempt, error)
+	RecommendationCandidates(context.Context, string, practice.Criteria, bool, practice.Goals, time.Time) ([]practice.ProblemRecord, map[string]practice.ProblemHistory, error)
+	CreateAttempt(context.Context, practice.AttemptRecord) (practice.AttemptRecord, bool, error)
+	UpdateAttempt(context.Context, string, string, int64, func(*practice.AttemptRecord) error) (practice.AttemptRecord, error)
 	DeleteAttempt(context.Context, string, string, int64) error
 	GetActiveRecommendation(context.Context, string) (*practice.Recommendation, error)
 	SaveRecommendation(context.Context, practice.Recommendation) (practice.Recommendation, error)
 	ListRecommendationDismissals(context.Context, string) ([]practice.Dismissal, error)
 	DismissRecommendation(context.Context, string, int64, string, time.Time, string) (practice.Recommendation, error)
-	FulfillRecommendation(context.Context, string, model.Attempt, time.Time) (bool, error)
+	FulfillRecommendation(context.Context, string, practice.AttemptRecord, time.Time) (bool, error)
 	ListMockInterviews(context.Context, authz.Actor, string, string, int, string, string) ([]mockinterviews.Interview, bool, int64, error)
 	GetMockParticipant(context.Context, string) (mockinterviews.Participant, error)
 	GetMockInterview(context.Context, string) (mockinterviews.Interview, error)

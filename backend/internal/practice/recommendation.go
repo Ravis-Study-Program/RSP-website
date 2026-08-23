@@ -6,8 +6,6 @@ import (
 	"fmt"
 	"sort"
 	"time"
-
-	"github.com/magedmg/RSP-website/backend/internal/model"
 )
 
 // Difficulty is a backend domain type.
@@ -92,6 +90,36 @@ type Attempt struct {
 	Migrated    bool
 }
 
+// ProblemRecord is the persisted and HTTP-facing problem representation.
+type ProblemRecord struct {
+	ID         string   `json:"id"`
+	Number     int      `json:"number"`
+	Title      string   `json:"title"`
+	Slug       string   `json:"slug"`
+	Link       string   `json:"link"`
+	Difficulty string   `json:"difficulty"`
+	Categories []string `json:"categories"`
+	Premium    bool     `json:"premium"`
+	Revision   int64    `json:"revision"`
+}
+
+// AttemptRecord is the persisted and HTTP-facing attempt representation.
+type AttemptRecord struct {
+	ID          string     `json:"id"`
+	UserID      string     `json:"-"`
+	ProblemID   string     `json:"problemId"`
+	Outcome     string     `json:"outcome"`
+	Confidence  *int       `json:"confidence,omitempty"`
+	Minutes     int        `json:"minutes"`
+	Notes       string     `json:"notes"`
+	AttemptedAt time.Time  `json:"attemptedAt"`
+	SeasonID    *string    `json:"seasonId,omitempty"`
+	WeekID      *string    `json:"weekId,omitempty"`
+	Revision    int64      `json:"revision"`
+	DeletedAt   *time.Time `json:"-"`
+	Migrated    bool       `json:"-"`
+}
+
 // Dismissal represents a backend data structure.
 type Dismissal struct {
 	ProblemID   string    `json:"problemId"`
@@ -107,8 +135,8 @@ type ProblemHistory struct {
 // RecommendationSnapshot is the read model required to select a
 // recommendation. Adapters may build it from SQL rows or another catalogue.
 type RecommendationSnapshot struct {
-	QualityAttempts  []model.Attempt
-	Problems         []model.Problem
+	QualityAttempts  []AttemptRecord
+	Problems         []ProblemRecord
 	ProblemHistory   map[string]ProblemHistory
 	CategoryExposure map[string]int
 }

@@ -12,7 +12,6 @@ import (
 	"github.com/magedmg/RSP-website/backend/internal/accounts"
 	"github.com/magedmg/RSP-website/backend/internal/authz"
 	"github.com/magedmg/RSP-website/backend/internal/mockinterviews"
-	"github.com/magedmg/RSP-website/backend/internal/model"
 	"github.com/magedmg/RSP-website/backend/internal/platform/audit"
 	"github.com/magedmg/RSP-website/backend/internal/platform/id"
 	"github.com/magedmg/RSP-website/backend/internal/practice"
@@ -29,8 +28,8 @@ type Memory struct {
 	Weeks                    map[string]programme.WeekRecord
 	Enrollments              map[string]programme.EnrollmentRecord
 	Mentorships              map[string]programme.MentorshipRecord
-	Problems                 map[string]model.Problem
-	Attempts                 map[string]model.Attempt
+	Problems                 map[string]practice.ProblemRecord
+	Attempts                 map[string]practice.AttemptRecord
 	Recommendations          map[string]practice.Recommendation
 	RecommendationDismissals map[string][]practice.Dismissal
 	Mocks                    map[string]mockinterviews.Interview
@@ -47,7 +46,7 @@ type Memory struct {
 
 // NewMemory creates a new value.
 func NewMemory() *Memory {
-	return &Memory{Users: map[string]accounts.User{}, PracticeSettings: map[string]practice.PracticeSettings{}, AuthSubjects: map[string]authz.Actor{}, Seasons: map[string]programme.SeasonRecord{}, Weeks: map[string]programme.WeekRecord{}, Enrollments: map[string]programme.EnrollmentRecord{}, Mentorships: map[string]programme.MentorshipRecord{}, Problems: map[string]model.Problem{}, Attempts: map[string]model.Attempt{}, Recommendations: map[string]practice.Recommendation{}, RecommendationDismissals: map[string][]practice.Dismissal{}, Mocks: map[string]mockinterviews.Interview{}, closeCompleted: map[string]map[string]bool{}, closeAssignmentStates: map[string]map[string]string{}, closeEventIDs: map[string]string{}, IdentityEventReceipts: map[string]bool{}, IdentityEventHashes: map[string]string{}, GlobalRoleAssignments: map[string]accounts.GlobalRoleAssignment{}, MFAConfigured: map[string]bool{}}
+	return &Memory{Users: map[string]accounts.User{}, PracticeSettings: map[string]practice.PracticeSettings{}, AuthSubjects: map[string]authz.Actor{}, Seasons: map[string]programme.SeasonRecord{}, Weeks: map[string]programme.WeekRecord{}, Enrollments: map[string]programme.EnrollmentRecord{}, Mentorships: map[string]programme.MentorshipRecord{}, Problems: map[string]practice.ProblemRecord{}, Attempts: map[string]practice.AttemptRecord{}, Recommendations: map[string]practice.Recommendation{}, RecommendationDismissals: map[string][]practice.Dismissal{}, Mocks: map[string]mockinterviews.Interview{}, closeCompleted: map[string]map[string]bool{}, closeAssignmentStates: map[string]map[string]string{}, closeEventIDs: map[string]string{}, IdentityEventReceipts: map[string]bool{}, IdentityEventHashes: map[string]string{}, GlobalRoleAssignments: map[string]accounts.GlobalRoleAssignment{}, MFAConfigured: map[string]bool{}}
 }
 
 func memoryPage[T any](items []T, boundary string, limit int, direction string, identity func(T) string) ([]T, bool, error) {
@@ -1237,10 +1236,10 @@ func (m *Memory) IsMentorAssigned(_ context.Context, seasonID, mentorUserID, stu
 }
 
 // ListProblems lists matching values.
-func (m *Memory) ListProblems(_ context.Context, boundary string, limit int, difficulty, category string, premium *bool, direction string) ([]model.Problem, bool, int64, error) {
+func (m *Memory) ListProblems(_ context.Context, boundary string, limit int, difficulty, category string, premium *bool, direction string) ([]practice.ProblemRecord, bool, int64, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
-	items := make([]model.Problem, 0, len(m.Problems))
+	items := make([]practice.ProblemRecord, 0, len(m.Problems))
 	var total int64
 	for _, v := range m.Problems {
 		if difficulty != "" && v.Difficulty != difficulty {
@@ -1278,21 +1277,21 @@ func (m *Memory) ListProblems(_ context.Context, boundary string, limit int, dif
 }
 
 // GetAttempt retrieves a value.
-func (m *Memory) GetAttempt(_ context.Context, id string) (model.Attempt, error) {
+func (m *Memory) GetAttempt(_ context.Context, id string) (practice.AttemptRecord, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 	v, ok := m.Attempts[id]
 	if !ok || v.DeletedAt != nil {
-		return model.Attempt{}, ErrNotFound
+		return practice.AttemptRecord{}, ErrNotFound
 	}
 	return v, nil
 }
 
 // ListAttempts lists matching values.
-func (m *Memory) ListAttempts(_ context.Context, userID, boundary string, limit int, outcome, difficulty, direction string) ([]model.Attempt, bool, int64, error) {
+func (m *Memory) ListAttempts(_ context.Context, userID, boundary string, limit int, outcome, difficulty, direction string) ([]practice.AttemptRecord, bool, int64, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
-	items := []model.Attempt{}
+	items := []practice.AttemptRecord{}
 	var total int64
 	for _, v := range m.Attempts {
 		if v.UserID == userID && v.DeletedAt == nil {
@@ -1359,7 +1358,7 @@ func (m *Memory) RecommendationSnapshot(_ context.Context, userID string, _ prac
 }
 
 // RecommendationCandidates performs the operation.
-func (m *Memory) RecommendationCandidates(_ context.Context, userID string, criteria practice.Criteria, premiumOptIn bool, goals practice.Goals, now time.Time) ([]model.Problem, map[string]practice.ProblemHistory, error) {
+func (m *Memory) RecommendationCandidates(_ context.Context, userID string, criteria practice.Criteria, premiumOptIn bool, goals practice.Goals, now time.Time) ([]practice.ProblemRecord, map[string]practice.ProblemHistory, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 	dismissed := map[string]bool{}
@@ -1386,10 +1385,10 @@ func (m *Memory) RecommendationCandidates(_ context.Context, userID string, crit
 		}
 		history[attempt.ProblemID] = entry
 	}
-	better := func(candidate model.Problem, current *model.Problem) bool {
+	better := func(candidate practice.ProblemRecord, current *practice.ProblemRecord) bool {
 		return current == nil || candidate.Number < current.Number || candidate.Number == current.Number && candidate.ID < current.ID
 	}
-	var unseen, retry *model.Problem
+	var unseen, retry *practice.ProblemRecord
 	for _, value := range m.Problems {
 		problem := value
 		hasCategory := criteria.Category == ""
@@ -1411,26 +1410,26 @@ func (m *Memory) RecommendationCandidates(_ context.Context, userID string, crit
 		}
 	}
 	if unseen != nil {
-		return []model.Problem{*unseen}, map[string]practice.ProblemHistory{}, nil
+		return []practice.ProblemRecord{*unseen}, map[string]practice.ProblemHistory{}, nil
 	}
 	if retry != nil {
-		return []model.Problem{*retry}, map[string]practice.ProblemHistory{retry.ID: history[retry.ID]}, nil
+		return []practice.ProblemRecord{*retry}, map[string]practice.ProblemHistory{retry.ID: history[retry.ID]}, nil
 	}
-	return []model.Problem{}, map[string]practice.ProblemHistory{}, nil
+	return []practice.ProblemRecord{}, map[string]practice.ProblemHistory{}, nil
 }
 
 // CreateAttempt creates a value.
-func (m *Memory) CreateAttempt(_ context.Context, v model.Attempt) (model.Attempt, bool, error) {
+func (m *Memory) CreateAttempt(_ context.Context, v practice.AttemptRecord) (practice.AttemptRecord, bool, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	if _, ok := m.Attempts[v.ID]; ok {
-		return model.Attempt{}, false, ErrDuplicate
+		return practice.AttemptRecord{}, false, ErrDuplicate
 	}
 	if _, ok := m.Problems[v.ProblemID]; !ok {
-		return model.Attempt{}, false, ErrNotFound
+		return practice.AttemptRecord{}, false, ErrNotFound
 	}
 	if v.WeekID != nil && v.SeasonID == nil {
-		return model.Attempt{}, false, ErrNotFound
+		return practice.AttemptRecord{}, false, ErrNotFound
 	}
 	if v.SeasonID != nil {
 		season, seasonExists := m.Seasons[*v.SeasonID]
@@ -1439,12 +1438,12 @@ func (m *Memory) CreateAttempt(_ context.Context, v model.Attempt) (model.Attemp
 			activeEnrollment = activeEnrollment || (enrollment.UserID == v.UserID && enrollment.SeasonID == *v.SeasonID && enrollment.State == "active")
 		}
 		if !seasonExists || season.Status != "open" || !activeEnrollment {
-			return model.Attempt{}, false, ErrNotFound
+			return practice.AttemptRecord{}, false, ErrNotFound
 		}
 		if v.WeekID != nil {
 			week, ok := m.Weeks[*v.WeekID]
 			if !ok || week.SeasonID != *v.SeasonID {
-				return model.Attempt{}, false, ErrNotFound
+				return practice.AttemptRecord{}, false, ErrNotFound
 			}
 		}
 	}
@@ -1462,24 +1461,24 @@ func (m *Memory) CreateAttempt(_ context.Context, v model.Attempt) (model.Attemp
 }
 
 // UpdateAttempt updates a value.
-func (m *Memory) UpdateAttempt(_ context.Context, id, userID string, revision int64, fn func(*model.Attempt) error) (model.Attempt, error) {
+func (m *Memory) UpdateAttempt(_ context.Context, id, userID string, revision int64, fn func(*practice.AttemptRecord) error) (practice.AttemptRecord, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	v, ok := m.Attempts[id]
 	if !ok || v.DeletedAt != nil {
-		return model.Attempt{}, ErrNotFound
+		return practice.AttemptRecord{}, ErrNotFound
 	}
 	if v.UserID != userID {
-		return model.Attempt{}, ErrNotFound
+		return practice.AttemptRecord{}, ErrNotFound
 	}
 	if v.Revision != revision {
-		return model.Attempt{}, ErrConflict
+		return practice.AttemptRecord{}, ErrConflict
 	}
 	if err := fn(&v); err != nil {
-		return model.Attempt{}, err
+		return practice.AttemptRecord{}, err
 	}
 	if _, ok := m.Problems[v.ProblemID]; !ok || (v.WeekID != nil && v.SeasonID == nil) {
-		return model.Attempt{}, ErrNotFound
+		return practice.AttemptRecord{}, ErrNotFound
 	}
 	if v.SeasonID != nil {
 		season, exists := m.Seasons[*v.SeasonID]
@@ -1488,10 +1487,10 @@ func (m *Memory) UpdateAttempt(_ context.Context, id, userID string, revision in
 			active = active || (enrollment.UserID == userID && enrollment.SeasonID == *v.SeasonID && enrollment.State == "active")
 		}
 		if !exists || season.Status != "open" || !active {
-			return model.Attempt{}, ErrConflict
+			return practice.AttemptRecord{}, ErrConflict
 		}
 		if v.WeekID != nil && m.Weeks[*v.WeekID].SeasonID != *v.SeasonID {
-			return model.Attempt{}, ErrConflict
+			return practice.AttemptRecord{}, ErrConflict
 		}
 	}
 	v.Revision++
@@ -1554,7 +1553,7 @@ func (m *Memory) SaveRecommendation(_ context.Context, v practice.Recommendation
 	return v, nil
 }
 
-func practiceProblem(problem model.Problem) practice.Problem {
+func practiceProblem(problem practice.ProblemRecord) practice.Problem {
 	return practice.Problem{ID: problem.ID, Number: problem.Number, Title: problem.Title, Link: problem.Link, Difficulty: practice.Difficulty(problem.Difficulty), Categories: append([]string(nil), problem.Categories...), Premium: problem.Premium, Revision: problem.Revision}
 }
 
@@ -1587,7 +1586,7 @@ func (m *Memory) DismissRecommendation(_ context.Context, userID string, revisio
 }
 
 // FulfillRecommendation performs the operation.
-func (m *Memory) FulfillRecommendation(_ context.Context, userID string, attempt model.Attempt, at time.Time) (bool, error) {
+func (m *Memory) FulfillRecommendation(_ context.Context, userID string, attempt practice.AttemptRecord, at time.Time) (bool, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	v, ok := m.Recommendations[userID]

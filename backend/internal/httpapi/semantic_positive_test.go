@@ -10,7 +10,7 @@ import (
 	"github.com/magedmg/RSP-website/backend/internal/accounts"
 	"github.com/magedmg/RSP-website/backend/internal/authz"
 	"github.com/magedmg/RSP-website/backend/internal/mockinterviews"
-	"github.com/magedmg/RSP-website/backend/internal/model"
+	"github.com/magedmg/RSP-website/backend/internal/practice"
 	"github.com/magedmg/RSP-website/backend/internal/programme"
 )
 
@@ -118,7 +118,7 @@ func TestPracticeAttemptDurationAndSanitizedRichNotesRoundTrip(t *testing.T) {
 	if w.Code != http.StatusCreated {
 		t.Fatalf("create attempt: %d %s", w.Code, w.Body.String())
 	}
-	var created model.Attempt
+	var created practice.AttemptRecord
 	if err := json.Unmarshal(w.Body.Bytes(), &created); err != nil {
 		t.Fatal(err)
 	}
@@ -127,7 +127,7 @@ func TestPracticeAttemptDurationAndSanitizedRichNotesRoundTrip(t *testing.T) {
 	}
 	update := `{"problemId":"problem","outcome":"solved_with_hints","confidence":3,"minutes":42,"notes":"<p><u>safe</u><img src=x onerror=alert(1)></p>","attemptedAt":"2026-08-13T01:00:00Z","revision":1}`
 	w = request(t, f, http.MethodPatch, "/api/v2/problem-attempts/"+created.ID, "student", update)
-	var updated model.Attempt
+	var updated practice.AttemptRecord
 	if err := json.Unmarshal(w.Body.Bytes(), &updated); err != nil {
 		t.Fatal(err)
 	}
@@ -135,7 +135,7 @@ func TestPracticeAttemptDurationAndSanitizedRichNotesRoundTrip(t *testing.T) {
 		t.Fatalf("updated attempt round trip: %d %#v", w.Code, updated)
 	}
 	w = request(t, f, http.MethodGet, "/api/v2/problem-attempts", "student", "")
-	page := decodePage[model.Attempt](t, w.Body.Bytes())
+	page := decodePage[practice.AttemptRecord](t, w.Body.Bytes())
 	if w.Code != http.StatusOK || len(page.Items) < 1 || page.Items[0].ID != created.ID {
 		t.Fatalf("listed attempt: %d %#v", w.Code, page.Items)
 	}
@@ -147,16 +147,16 @@ func TestPracticeAttemptDurationAndSanitizedRichNotesRoundTrip(t *testing.T) {
 
 func TestProblemCatalogueDifficultyCategoryAndPremiumFilters(t *testing.T) {
 	f := newFixture()
-	f.repository.Problems["medium-free"] = model.Problem{ID: "medium-free", Number: 2, Title: "Free Graph", Difficulty: "medium", Categories: []string{"graphs"}, Premium: false, Revision: 1}
-	f.repository.Problems["medium-premium"] = model.Problem{ID: "medium-premium", Number: 3, Title: "Premium Graph", Difficulty: "medium", Categories: []string{"graphs"}, Premium: true, Revision: 1}
+	f.repository.Problems["medium-free"] = practice.ProblemRecord{ID: "medium-free", Number: 2, Title: "Free Graph", Difficulty: "medium", Categories: []string{"graphs"}, Premium: false, Revision: 1}
+	f.repository.Problems["medium-premium"] = practice.ProblemRecord{ID: "medium-premium", Number: 3, Title: "Premium Graph", Difficulty: "medium", Categories: []string{"graphs"}, Premium: true, Revision: 1}
 
 	w := request(t, f, http.MethodGet, "/api/v2/leetcode-problems?difficulty=medium&category=graphs&premium=false", "student", "")
-	page := decodePage[model.Problem](t, w.Body.Bytes())
+	page := decodePage[practice.ProblemRecord](t, w.Body.Bytes())
 	if w.Code != http.StatusOK || len(page.Items) != 1 || page.Items[0].ID != "medium-free" {
 		t.Fatalf("free medium graph filter: %d %#v", w.Code, page.Items)
 	}
 	w = request(t, f, http.MethodGet, "/api/v2/leetcode-problems?difficulty=medium&category=graphs&premium=true", "student", "")
-	page = decodePage[model.Problem](t, w.Body.Bytes())
+	page = decodePage[practice.ProblemRecord](t, w.Body.Bytes())
 	if w.Code != http.StatusOK || len(page.Items) != 1 || page.Items[0].ID != "medium-premium" {
 		t.Fatalf("premium medium graph filter: %d %#v", w.Code, page.Items)
 	}

@@ -16,7 +16,7 @@ import (
 	"github.com/magedmg/RSP-website/backend/internal/accounts"
 	"github.com/magedmg/RSP-website/backend/internal/authz"
 	"github.com/magedmg/RSP-website/backend/internal/mockinterviews"
-	"github.com/magedmg/RSP-website/backend/internal/model"
+	"github.com/magedmg/RSP-website/backend/internal/practice"
 	"github.com/magedmg/RSP-website/backend/internal/programme"
 	"github.com/magedmg/RSP-website/backend/internal/store"
 )
@@ -34,9 +34,9 @@ func newFixture() fixture {
 	repo.Users["other"] = accounts.User{ID: "other", Slug: "other", Name: "Other", Email: "other@example.com", AccountState: "active", Timezone: "Australia/Adelaide", Revision: 1}
 	repo.Seasons["season"] = programme.SeasonRecord{ID: "season", Slug: "s26", Name: "Season", Status: "open", StartAt: time.Now(), EndAt: time.Now().Add(24 * time.Hour), Revision: 1}
 	repo.Enrollments["other-enrollment"] = programme.EnrollmentRecord{ID: "other-enrollment", SeasonID: "season", UserID: "other", Role: "student", State: "active", Revision: 1}
-	repo.Problems["problem"] = model.Problem{ID: "problem", Number: 1, Title: "Two Sum", Link: "https://rsp.test/problems/two-sum", Difficulty: "easy", Categories: []string{"arrays"}, Revision: 1}
-	repo.Attempts["owned"] = model.Attempt{ID: "owned", UserID: "student", ProblemID: "problem", Outcome: "unknown", Minutes: 10, AttemptedAt: time.Now(), Revision: 1}
-	repo.Attempts["foreign"] = model.Attempt{ID: "foreign", UserID: "other", ProblemID: "problem", Outcome: "unknown", Minutes: 10, AttemptedAt: time.Now(), Revision: 1}
+	repo.Problems["problem"] = practice.ProblemRecord{ID: "problem", Number: 1, Title: "Two Sum", Link: "https://rsp.test/problems/two-sum", Difficulty: "easy", Categories: []string{"arrays"}, Revision: 1}
+	repo.Attempts["owned"] = practice.AttemptRecord{ID: "owned", UserID: "student", ProblemID: "problem", Outcome: "unknown", Minutes: 10, AttemptedAt: time.Now(), Revision: 1}
+	repo.Attempts["foreign"] = practice.AttemptRecord{ID: "foreign", UserID: "other", ProblemID: "problem", Outcome: "unknown", Minutes: 10, AttemptedAt: time.Now(), Revision: 1}
 	recent := time.Now().Add(-time.Minute)
 	actors := map[string]authz.Actor{
 		"student":       {UserID: "student", EmailVerified: true, AccountState: authz.AccountActive, GlobalRoles: map[authz.GlobalRole]bool{}, Enrollments: []authz.Enrollment{{SeasonID: "season", Role: authz.Student, State: authz.Active}}},
@@ -309,7 +309,7 @@ func TestPaginationCursorIsFilterBound(t *testing.T) {
 	f := newFixture()
 	for i := 0; i < 30; i++ {
 		id := string(rune('a'+i/26)) + string(rune('a'+i%26))
-		f.repository.Problems[id] = model.Problem{ID: id, Difficulty: "easy", Categories: []string{"arrays"}}
+		f.repository.Problems[id] = practice.ProblemRecord{ID: id, Difficulty: "easy", Categories: []string{"arrays"}}
 	}
 	w := request(t, f, "GET", "/api/v2/leetcode-problems?limit=2&difficulty=easy", "student", "")
 	if w.Code != 200 {
@@ -347,7 +347,7 @@ func TestCreateStatusRateLimitAndRetryAfter(t *testing.T) {
 func TestRecommendationProblemSatisfiesLeetcodeProblemResponseContract(t *testing.T) {
 	f := newFixture()
 	f.repository.Enrollments["student-enrollment"] = programme.EnrollmentRecord{ID: "student-enrollment", SeasonID: "season", UserID: "student", Role: "student", StudentLevel: "beginner", State: "active", AssignmentState: "active", Revision: 1}
-	f.repository.Problems["contract-candidate"] = model.Problem{ID: "contract-candidate", Number: 42, Title: "Contract Candidate", Link: "https://rsp.test/problems/contract-candidate", Difficulty: "easy", Categories: []string{"arrays"}, Revision: 7}
+	f.repository.Problems["contract-candidate"] = practice.ProblemRecord{ID: "contract-candidate", Number: 42, Title: "Contract Candidate", Link: "https://rsp.test/problems/contract-candidate", Difficulty: "easy", Categories: []string{"arrays"}, Revision: 7}
 
 	for _, phase := range []string{"generated", "active"} {
 		w := request(t, f, http.MethodGet, "/api/v2/recommendations/current", "student", "")

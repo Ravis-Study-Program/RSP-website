@@ -272,7 +272,7 @@ func TestPostgres18MigrationsAndRepository(t *testing.T) {
 		t.Fatalf("active recommendation=%#v err=%v", active, err)
 	}
 
-	_, fulfilled, err := repository.CreateAttempt(ctx, model.Attempt{ID: "00000000-0000-7000-8000-000000000024", UserID: "00000000-0000-7000-8000-000000000033", ProblemID: "00000000-0000-7000-8000-000000000025", Outcome: "independently_solved", Confidence: intPointer(5), Minutes: 12, AttemptedAt: time.Now().UTC(), Revision: 1})
+	_, fulfilled, err := repository.CreateAttempt(ctx, practice.AttemptRecord{ID: "00000000-0000-7000-8000-000000000024", UserID: "00000000-0000-7000-8000-000000000033", ProblemID: "00000000-0000-7000-8000-000000000025", Outcome: "independently_solved", Confidence: intPointer(5), Minutes: 12, AttemptedAt: time.Now().UTC(), Revision: 1})
 	if err != nil {
 		t.Fatal(err)
 	}
