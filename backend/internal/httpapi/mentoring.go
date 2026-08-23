@@ -7,7 +7,6 @@ import (
 
 	"github.com/magedmg/RSP-website/backend/internal/accounts"
 	"github.com/magedmg/RSP-website/backend/internal/authz"
-	"github.com/magedmg/RSP-website/backend/internal/model"
 	"github.com/magedmg/RSP-website/backend/internal/platform/id"
 	"github.com/magedmg/RSP-website/backend/internal/programme"
 )
@@ -204,7 +203,7 @@ func (a *API) listMembers(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	writeJSON(w, 200, Page[model.Enrollment]{Items: items, PageInfo: pageInfoForKeyset(a, binding, direction, boundary, items, more, func(v model.Enrollment) string { return v.ID }), TotalCount: total})
+	writeJSON(w, 200, Page[programme.EnrollmentRecord]{Items: items, PageInfo: pageInfoForKeyset(a, binding, direction, boundary, items, more, func(v programme.EnrollmentRecord) string { return v.ID }), TotalCount: total})
 }
 
 func (a *API) listEnrollmentCandidates(w http.ResponseWriter, r *http.Request) {
@@ -257,7 +256,7 @@ func (a *API) createMember(w http.ResponseWriter, r *http.Request) {
 		a.fail(w, r, 403, "privileged_role_grant_required", "Privileged role grant required", "Only the season Coordinator, a Director, or a System Admin may grant Coordinator access.", nil)
 		return
 	}
-	v := model.Enrollment{ID: id.New(), SeasonID: r.PathValue("id"), UserID: in.UserID, Role: in.Role, State: "active", Revision: 1}
+	v := programme.EnrollmentRecord{ID: id.New(), SeasonID: r.PathValue("id"), UserID: in.UserID, Role: in.Role, State: "active", Revision: 1}
 	actor := actorFrom(r.Context())
 	created, err := a.store.CreateEnrollment(r.Context(), v, actor.UserID, time.Now().UTC())
 	if err != nil {

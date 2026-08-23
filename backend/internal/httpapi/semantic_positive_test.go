@@ -45,7 +45,7 @@ func TestSeasonWeeksOrderedRoundTripAndUnknownSeasonNotFound(t *testing.T) {
 
 func TestMeEnrollmentRolesAndEligibleMemberDirectory(t *testing.T) {
 	f := newFixture()
-	f.repository.Enrollments["student-enrollment"] = model.Enrollment{ID: "student-enrollment", SeasonID: "season", UserID: "student", Role: "student", StudentLevel: "beginner", State: "active", AssignmentState: "active", Revision: 1}
+	f.repository.Enrollments["student-enrollment"] = programme.EnrollmentRecord{ID: "student-enrollment", SeasonID: "season", UserID: "student", Role: "student", StudentLevel: "beginner", State: "active", AssignmentState: "active", Revision: 1}
 	w := request(t, f, http.MethodGet, "/api/v2/me", "student", "")
 	if w.Code != http.StatusOK || !bytes.Contains(w.Body.Bytes(), []byte(`"seasonId":"season"`)) || !bytes.Contains(w.Body.Bytes(), []byte(`"role":"student"`)) || !bytes.Contains(w.Body.Bytes(), []byte(`"state":"active"`)) {
 		t.Fatalf("current enrollment roles: %d %s", w.Code, w.Body.String())
@@ -54,7 +54,7 @@ func TestMeEnrollmentRolesAndEligibleMemberDirectory(t *testing.T) {
 	if w.Code != http.StatusOK {
 		t.Fatalf("member directory: %d %s", w.Code, w.Body.String())
 	}
-	page := decodePage[model.Enrollment](t, w.Body.Bytes())
+	page := decodePage[programme.EnrollmentRecord](t, w.Body.Bytes())
 	if len(page.Items) != 2 || page.TotalCount != 2 {
 		t.Fatalf("eligible season members: %#v", page)
 	}
@@ -64,8 +64,8 @@ func TestMentorMenteeFilteringAndUnassignedStudents(t *testing.T) {
 	f := newFixture()
 	f.repository.Users["mentor"] = accounts.User{ID: "mentor", Slug: "mentor", Name: "Mentor", AccountState: "active", Timezone: "Australia/Adelaide", Revision: 1}
 	f.repository.Users["unassigned"] = accounts.User{ID: "unassigned", Slug: "unassigned", Name: "Unassigned", AccountState: "active", Timezone: "Australia/Adelaide", Revision: 1}
-	f.repository.Enrollments["mentor-enrollment"] = model.Enrollment{ID: "mentor-enrollment", SeasonID: "season", UserID: "mentor", Role: "mentor", State: "active", AssignmentState: "active", Revision: 1}
-	f.repository.Enrollments["unassigned-enrollment"] = model.Enrollment{ID: "unassigned-enrollment", SeasonID: "season", UserID: "unassigned", Role: "student", StudentLevel: "beginner", State: "active", AssignmentState: "active", Revision: 1}
+	f.repository.Enrollments["mentor-enrollment"] = programme.EnrollmentRecord{ID: "mentor-enrollment", SeasonID: "season", UserID: "mentor", Role: "mentor", State: "active", AssignmentState: "active", Revision: 1}
+	f.repository.Enrollments["unassigned-enrollment"] = programme.EnrollmentRecord{ID: "unassigned-enrollment", SeasonID: "season", UserID: "unassigned", Role: "student", StudentLevel: "beginner", State: "active", AssignmentState: "active", Revision: 1}
 	f.repository.Mentorships["assigned"] = programme.MentorshipRecord{ID: "assigned", SeasonID: "season", MentorUserID: "mentor", StudentUserID: "other", Revision: 1}
 	f.actors["mentor"] = authz.Actor{UserID: "mentor", EmailVerified: true, AccountState: authz.AccountActive, GlobalRoles: map[authz.GlobalRole]bool{}, Enrollments: []authz.Enrollment{{SeasonID: "season", Role: authz.Mentor, State: authz.Active}}}
 
@@ -80,7 +80,7 @@ func TestMentorMenteeFilteringAndUnassignedStudents(t *testing.T) {
 		t.Fatalf("unassigned relation: %d %#v", w.Code, page)
 	}
 	w = request(t, f, http.MethodGet, "/api/v2/seasons/season/members?role=student", "mentor", "")
-	members := decodePage[model.Enrollment](t, w.Body.Bytes())
+	members := decodePage[programme.EnrollmentRecord](t, w.Body.Bytes())
 	if w.Code != http.StatusOK || len(members.Items) != 2 {
 		t.Fatalf("mentor team candidates: %d %#v", w.Code, members)
 	}
@@ -89,7 +89,7 @@ func TestMentorMenteeFilteringAndUnassignedStudents(t *testing.T) {
 func TestStudentPromotionAndRemovalPersistReasonAndActorAudit(t *testing.T) {
 	f := newFixture()
 	f.repository.Users["removed"] = accounts.User{ID: "removed", Slug: "removed", Name: "Removed", AccountState: "active", Revision: 1}
-	f.repository.Enrollments["removed-enrollment"] = model.Enrollment{ID: "removed-enrollment", SeasonID: "season", UserID: "removed", Role: "student", StudentLevel: "beginner", State: "active", AssignmentState: "active", Revision: 1}
+	f.repository.Enrollments["removed-enrollment"] = programme.EnrollmentRecord{ID: "removed-enrollment", SeasonID: "season", UserID: "removed", Role: "student", StudentLevel: "beginner", State: "active", AssignmentState: "active", Revision: 1}
 
 	w := request(t, f, http.MethodPost, "/api/v2/seasons/season/members/other-enrollment/promote", "coordinator", `{"role":"mentor","reason":"graduated","revision":1}`)
 	if w.Code != http.StatusOK || f.repository.Enrollments["other-enrollment"].Role != "mentor" {
@@ -164,7 +164,7 @@ func TestProblemCatalogueDifficultyCategoryAndPremiumFilters(t *testing.T) {
 
 func TestMockInterviewAllThreeSubtypesDateDurationNotesAndExpandedRoundTrip(t *testing.T) {
 	f := newFixture()
-	f.repository.Enrollments["student-member"] = model.Enrollment{ID: "student-member", SeasonID: "season", UserID: "student", Role: "student", State: "active", Revision: 1}
+	f.repository.Enrollments["student-member"] = programme.EnrollmentRecord{ID: "student-member", SeasonID: "season", UserID: "student", Role: "student", State: "active", Revision: 1}
 	body := `{"interviewee":{"userId":"other"},"occurredAt":"2026-08-13T00:00:00Z","durationMinutes":75,"notes":"<p><strong>expanded</strong><script>bad()</script></p>","rounds":[{"id":"behavioural","type":"behavioural","scores":{"behavioural":7}},{"id":"leetcode","type":"leetcode","problemId":"problem","scores":{"confirmQuestions":7,"algorithmDesign":7,"complexityAnalysis":7,"coding":7,"testing":7}},{"id":"custom","type":"custom","content":"<p>System design</p>","link":"https://rsp.test/custom","scores":{"custom":7}}]}`
 	w := request(t, f, http.MethodPost, "/api/v2/mock-interviews", "student", body)
 	if w.Code != http.StatusCreated {
@@ -188,7 +188,7 @@ func TestMockReceivedGivenAllExcludeUnrelatedPrivateRecords(t *testing.T) {
 		if _, ok := f.repository.Users[userID]; !ok {
 			f.repository.Users[userID] = accounts.User{ID: userID, Slug: userID, Name: userID, AccountState: "active", Revision: 1}
 		}
-		f.repository.Enrollments[userID+"-member"] = model.Enrollment{ID: userID + "-member", SeasonID: "season", UserID: userID, Role: "student", State: "active", Revision: 1}
+		f.repository.Enrollments[userID+"-member"] = programme.EnrollmentRecord{ID: userID + "-member", SeasonID: "season", UserID: userID, Role: "student", State: "active", Revision: 1}
 	}
 	score := 7
 	makeInterview := func(id, interviewer, interviewee string) mockinterviews.Interview {
@@ -214,7 +214,7 @@ func TestMockReceivedGivenAllExcludeUnrelatedPrivateRecords(t *testing.T) {
 
 func TestMockSuccessfulDeleteIsAbsentFromActiveLists(t *testing.T) {
 	f := newFixture()
-	f.repository.Enrollments["student-member"] = model.Enrollment{ID: "student-member", SeasonID: "season", UserID: "student", Role: "student", State: "active", Revision: 1}
+	f.repository.Enrollments["student-member"] = programme.EnrollmentRecord{ID: "student-member", SeasonID: "season", UserID: "student", Role: "student", State: "active", Revision: 1}
 	score := 7
 	f.repository.Mocks["delete-me"] = mockinterviews.Interview{ID: "delete-me", InterviewerID: "student", IntervieweeID: "other", OccurredAt: time.Now().UTC(), DurationMinutes: 60, Rounds: []mockinterviews.Round{{ID: "round", Type: mockinterviews.Behavioural, Scores: mockinterviews.Scores{Behavioural: &score}}}, Revision: 1}
 	w := request(t, f, http.MethodDelete, "/api/v2/mock-interviews/delete-me?revision=1", "student", "")
@@ -258,10 +258,10 @@ func TestAdminEnrollmentPatchReasonedRemovalMentorshipPatchAndDelete(t *testing.
 	for _, userID := range []string{"mentor-a", "mentor-b", "student-a", "student-b"} {
 		f.repository.Users[userID] = accounts.User{ID: userID, Slug: userID, Name: userID, AccountState: "active", Revision: 1}
 	}
-	f.repository.Enrollments["mentor-a-enrollment"] = model.Enrollment{ID: "mentor-a-enrollment", SeasonID: "season", UserID: "mentor-a", Role: "mentor", State: "active", AssignmentState: "active", Revision: 1}
-	f.repository.Enrollments["mentor-b-enrollment"] = model.Enrollment{ID: "mentor-b-enrollment", SeasonID: "season", UserID: "mentor-b", Role: "mentor", State: "active", AssignmentState: "active", Revision: 1}
-	f.repository.Enrollments["student-a-enrollment"] = model.Enrollment{ID: "student-a-enrollment", SeasonID: "season", UserID: "student-a", Role: "student", StudentLevel: "beginner", State: "active", AssignmentState: "active", Revision: 1}
-	f.repository.Enrollments["student-b-enrollment"] = model.Enrollment{ID: "student-b-enrollment", SeasonID: "season", UserID: "student-b", Role: "student", StudentLevel: "beginner", State: "active", AssignmentState: "active", Revision: 1}
+	f.repository.Enrollments["mentor-a-enrollment"] = programme.EnrollmentRecord{ID: "mentor-a-enrollment", SeasonID: "season", UserID: "mentor-a", Role: "mentor", State: "active", AssignmentState: "active", Revision: 1}
+	f.repository.Enrollments["mentor-b-enrollment"] = programme.EnrollmentRecord{ID: "mentor-b-enrollment", SeasonID: "season", UserID: "mentor-b", Role: "mentor", State: "active", AssignmentState: "active", Revision: 1}
+	f.repository.Enrollments["student-a-enrollment"] = programme.EnrollmentRecord{ID: "student-a-enrollment", SeasonID: "season", UserID: "student-a", Role: "student", StudentLevel: "beginner", State: "active", AssignmentState: "active", Revision: 1}
+	f.repository.Enrollments["student-b-enrollment"] = programme.EnrollmentRecord{ID: "student-b-enrollment", SeasonID: "season", UserID: "student-b", Role: "student", StudentLevel: "beginner", State: "active", AssignmentState: "active", Revision: 1}
 	f.repository.Mentorships["mentorship"] = programme.MentorshipRecord{ID: "mentorship", SeasonID: "season", MentorUserID: "mentor-a", StudentUserID: "student-a", Revision: 1}
 
 	w := request(t, f, http.MethodPatch, "/api/v2/seasons/season/members/student-a-enrollment", "coordinator", `{"role":"student","studentLevel":"advanced","revision":1}`)

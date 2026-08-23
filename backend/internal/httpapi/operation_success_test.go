@@ -43,7 +43,7 @@ func TestEveryProtectedOpenAPIOperationHasExecutablePrimarySuccess(t *testing.T)
 	mockUpdate := strings.TrimSuffix(mockMutation, `}`) + `,"revision":1}`
 
 	seedStudent := func(f *fixture) {
-		f.repository.Enrollments["student-enrollment"] = model.Enrollment{ID: "student-enrollment", SeasonID: "season", UserID: "student", Role: "student", StudentLevel: "beginner", State: "active", AssignmentState: "active", Revision: 1}
+		f.repository.Enrollments["student-enrollment"] = programme.EnrollmentRecord{ID: "student-enrollment", SeasonID: "season", UserID: "student", Role: "student", StudentLevel: "beginner", State: "active", AssignmentState: "active", Revision: 1}
 	}
 	seedWeek := func(f *fixture) {
 		season := f.repository.Seasons["season"]
@@ -54,7 +54,7 @@ func TestEveryProtectedOpenAPIOperationHasExecutablePrimarySuccess(t *testing.T)
 	seedMentorshipParties := func(f *fixture) {
 		for _, userID := range []string{"mentor-a", "mentor-b"} {
 			f.repository.Users[userID] = accounts.User{ID: userID, Slug: userID, Name: userID, AccountState: "active", Timezone: "Australia/Adelaide", Revision: 1}
-			f.repository.Enrollments[userID+"-enrollment"] = model.Enrollment{ID: userID + "-enrollment", SeasonID: "season", UserID: userID, Role: "mentor", State: "active", AssignmentState: "active", Revision: 1}
+			f.repository.Enrollments[userID+"-enrollment"] = programme.EnrollmentRecord{ID: userID + "-enrollment", SeasonID: "season", UserID: userID, Role: "mentor", State: "active", AssignmentState: "active", Revision: 1}
 		}
 	}
 	seedMentorship := func(f *fixture) {
@@ -185,7 +185,7 @@ func TestMutableResourceFamiliesRejectStaleRevisionsWithCompleteProblems(t *test
 		{"enrollment", http.MethodPatch, "/api/v2/seasons/season/members/other-enrollment", "coordinator", `{"role":"student","studentLevel":"advanced","revision":99}`, http.StatusConflict, nil},
 		{"mentorship", http.MethodPatch, "/api/v2/seasons/season/mentorships/mentorship", "coordinator", `{"mentorUserId":"mentor","studentUserId":"other","revision":99}`, http.StatusConflict, func(f *fixture) {
 			f.repository.Users["mentor"] = accounts.User{ID: "mentor", Slug: "mentor", Name: "Mentor", AccountState: "active", Revision: 1}
-			f.repository.Enrollments["mentor-enrollment"] = model.Enrollment{ID: "mentor-enrollment", SeasonID: "season", UserID: "mentor", Role: "mentor", State: "active", AssignmentState: "active", Revision: 1}
+			f.repository.Enrollments["mentor-enrollment"] = programme.EnrollmentRecord{ID: "mentor-enrollment", SeasonID: "season", UserID: "mentor", Role: "mentor", State: "active", AssignmentState: "active", Revision: 1}
 			f.repository.Mentorships["mentorship"] = programme.MentorshipRecord{ID: "mentorship", SeasonID: "season", MentorUserID: "mentor", StudentUserID: "other", Revision: 1}
 		}},
 		{"attempt", http.MethodPatch, "/api/v2/problem-attempts/owned", "student", attemptBody, http.StatusConflict, nil},
@@ -194,7 +194,7 @@ func TestMutableResourceFamiliesRejectStaleRevisionsWithCompleteProblems(t *test
 		}},
 		{"mock interview", http.MethodPatch, "/api/v2/mock-interviews/mock", "student", mockBody, http.StatusConflict, func(f *fixture) {
 			score := 7
-			f.repository.Enrollments["student-enrollment"] = model.Enrollment{ID: "student-enrollment", SeasonID: "season", UserID: "student", Role: "student", State: "active", AssignmentState: "active", Revision: 1}
+			f.repository.Enrollments["student-enrollment"] = programme.EnrollmentRecord{ID: "student-enrollment", SeasonID: "season", UserID: "student", Role: "student", State: "active", AssignmentState: "active", Revision: 1}
 			f.repository.Mocks["mock"] = mockinterviews.Interview{ID: "mock", InterviewerID: "student", IntervieweeID: "other", OccurredAt: base, DurationMinutes: 60, Rounds: []mockinterviews.Round{{ID: "round", Type: mockinterviews.Behavioural, Scores: mockinterviews.Scores{Behavioural: &score}}}, Revision: 1}
 		}},
 		{"account lifecycle", http.MethodPost, "/api/v2/admin/users/other/account-state", "admin", `{"state":"suspended","reason":"review","revision":99}`, http.StatusConflict, nil},

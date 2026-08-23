@@ -12,7 +12,7 @@ import (
 	"github.com/getkin/kin-openapi/openapi3filter"
 	legacyrouter "github.com/getkin/kin-openapi/routers/legacy"
 	"github.com/magedmg/RSP-website/backend/internal/generated"
-	"github.com/magedmg/RSP-website/backend/internal/model"
+	"github.com/magedmg/RSP-website/backend/internal/programme"
 )
 
 func assertOpenAPIResponse(t *testing.T, spec *openapi3.T, method, path string, response *httptest.ResponseRecorder) {
@@ -163,7 +163,7 @@ func TestEveryOpenAPIOperationHasExecutableRouteAndAuthenticationCoverage(t *tes
 
 func TestGrowingCollectionsReturnCompleteExecutablePageEnvelope(t *testing.T) {
 	fixture := newFixture()
-	fixture.repository.Enrollments["student-member"] = model.Enrollment{ID: "student-member", SeasonID: "season", UserID: "student", Role: "student", State: "active", Revision: 1}
+	fixture.repository.Enrollments["student-member"] = programme.EnrollmentRecord{ID: "student-member", SeasonID: "season", UserID: "student", Role: "student", State: "active", Revision: 1}
 	cases := []struct {
 		name  string
 		path  string

@@ -16,6 +16,7 @@ import (
 	"github.com/magedmg/RSP-website/backend/internal/platform/id"
 	"github.com/magedmg/RSP-website/backend/internal/platform/sanitize"
 	"github.com/magedmg/RSP-website/backend/internal/practice"
+	"github.com/magedmg/RSP-website/backend/internal/programme"
 	"github.com/magedmg/RSP-website/backend/internal/store"
 )
 
@@ -34,7 +35,7 @@ func (a *API) canViewMemberPrivate(r *http.Request, targetID string) (bool, erro
 		return true, nil
 	}
 
-	var targetEnrollments []model.Enrollment
+	var targetEnrollments []programme.EnrollmentRecord
 	targetLoaded := false
 	for _, enrollment := range actor.Enrollments {
 		if enrollment.State != authz.Active && enrollment.State != authz.Completed {

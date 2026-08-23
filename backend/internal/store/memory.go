@@ -27,7 +27,7 @@ type Memory struct {
 	AuthSubjects             map[string]authz.Actor
 	Seasons                  map[string]programme.SeasonRecord
 	Weeks                    map[string]programme.WeekRecord
-	Enrollments              map[string]model.Enrollment
+	Enrollments              map[string]programme.EnrollmentRecord
 	Mentorships              map[string]programme.MentorshipRecord
 	Problems                 map[string]model.Problem
 	Attempts                 map[string]model.Attempt
@@ -47,7 +47,7 @@ type Memory struct {
 
 // NewMemory creates a new value.
 func NewMemory() *Memory {
-	return &Memory{Users: map[string]accounts.User{}, PracticeSettings: map[string]practice.PracticeSettings{}, AuthSubjects: map[string]authz.Actor{}, Seasons: map[string]programme.SeasonRecord{}, Weeks: map[string]programme.WeekRecord{}, Enrollments: map[string]model.Enrollment{}, Mentorships: map[string]programme.MentorshipRecord{}, Problems: map[string]model.Problem{}, Attempts: map[string]model.Attempt{}, Recommendations: map[string]practice.Recommendation{}, RecommendationDismissals: map[string][]practice.Dismissal{}, Mocks: map[string]mockinterviews.Interview{}, closeCompleted: map[string]map[string]bool{}, closeAssignmentStates: map[string]map[string]string{}, closeEventIDs: map[string]string{}, IdentityEventReceipts: map[string]bool{}, IdentityEventHashes: map[string]string{}, GlobalRoleAssignments: map[string]accounts.GlobalRoleAssignment{}, MFAConfigured: map[string]bool{}}
+	return &Memory{Users: map[string]accounts.User{}, PracticeSettings: map[string]practice.PracticeSettings{}, AuthSubjects: map[string]authz.Actor{}, Seasons: map[string]programme.SeasonRecord{}, Weeks: map[string]programme.WeekRecord{}, Enrollments: map[string]programme.EnrollmentRecord{}, Mentorships: map[string]programme.MentorshipRecord{}, Problems: map[string]model.Problem{}, Attempts: map[string]model.Attempt{}, Recommendations: map[string]practice.Recommendation{}, RecommendationDismissals: map[string][]practice.Dismissal{}, Mocks: map[string]mockinterviews.Interview{}, closeCompleted: map[string]map[string]bool{}, closeAssignmentStates: map[string]map[string]string{}, closeEventIDs: map[string]string{}, IdentityEventReceipts: map[string]bool{}, IdentityEventHashes: map[string]string{}, GlobalRoleAssignments: map[string]accounts.GlobalRoleAssignment{}, MFAConfigured: map[string]bool{}}
 }
 
 func memoryPage[T any](items []T, boundary string, limit int, direction string, identity func(T) string) ([]T, bool, error) {
@@ -942,10 +942,10 @@ func (m *Memory) DeleteWeek(_ context.Context, seasonID, weekID string, revision
 }
 
 // ListEnrollments lists matching values.
-func (m *Memory) ListEnrollments(_ context.Context, seasonID, boundary string, limit int, role, state, sortBy, direction string, includeInactive bool) ([]model.Enrollment, bool, int64, error) {
+func (m *Memory) ListEnrollments(_ context.Context, seasonID, boundary string, limit int, role, state, sortBy, direction string, includeInactive bool) ([]programme.EnrollmentRecord, bool, int64, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
-	items := m.listEnrollmentsLocked(func(v model.Enrollment) bool {
+	items := m.listEnrollmentsLocked(func(v programme.EnrollmentRecord) bool {
 		if v.SeasonID != seasonID || role != "" && v.Role != role || state != "" && v.State != state {
 			return false
 		}
@@ -957,19 +957,19 @@ func (m *Memory) ListEnrollments(_ context.Context, seasonID, boundary string, l
 		})
 	}
 	total := int64(len(items))
-	page, more, err := memoryPage(items, boundary, limit, direction, func(v model.Enrollment) string { return v.ID })
+	page, more, err := memoryPage(items, boundary, limit, direction, func(v programme.EnrollmentRecord) string { return v.ID })
 	return page, more, total, err
 }
 
 // ListEnrollmentsForUser lists matching values.
-func (m *Memory) ListEnrollmentsForUser(_ context.Context, userID string) ([]model.Enrollment, error) {
+func (m *Memory) ListEnrollmentsForUser(_ context.Context, userID string) ([]programme.EnrollmentRecord, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
-	return m.listEnrollmentsLocked(func(v model.Enrollment) bool { return v.UserID == userID }), nil
+	return m.listEnrollmentsLocked(func(v programme.EnrollmentRecord) bool { return v.UserID == userID }), nil
 }
 
-func (m *Memory) listEnrollmentsLocked(include func(model.Enrollment) bool) []model.Enrollment {
-	items := []model.Enrollment{}
+func (m *Memory) listEnrollmentsLocked(include func(programme.EnrollmentRecord) bool) []programme.EnrollmentRecord {
+	items := []programme.EnrollmentRecord{}
 	for _, v := range m.Enrollments {
 		v = normalizeEnrollment(v)
 		if include(v) {
@@ -984,17 +984,17 @@ func (m *Memory) listEnrollmentsLocked(include func(model.Enrollment) bool) []mo
 }
 
 // GetEnrollment retrieves a value.
-func (m *Memory) GetEnrollment(_ context.Context, enrollmentID string) (model.Enrollment, error) {
+func (m *Memory) GetEnrollment(_ context.Context, enrollmentID string) (programme.EnrollmentRecord, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 	v, ok := m.Enrollments[enrollmentID]
 	if !ok {
-		return model.Enrollment{}, ErrNotFound
+		return programme.EnrollmentRecord{}, ErrNotFound
 	}
 	return normalizeEnrollment(v), nil
 }
 
-func normalizeEnrollment(v model.Enrollment) model.Enrollment {
+func normalizeEnrollment(v programme.EnrollmentRecord) programme.EnrollmentRecord {
 	if v.Role == "student" {
 		if v.StudentLevel == "" {
 			v.StudentLevel = "novice"
@@ -1013,18 +1013,18 @@ func normalizeEnrollment(v model.Enrollment) model.Enrollment {
 }
 
 // CreateEnrollment creates a value.
-func (m *Memory) CreateEnrollment(_ context.Context, v model.Enrollment, actorID string, at time.Time) (model.Enrollment, error) {
+func (m *Memory) CreateEnrollment(_ context.Context, v programme.EnrollmentRecord, actorID string, at time.Time) (programme.EnrollmentRecord, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	if _, exists := m.Users[v.UserID]; !exists {
-		return model.Enrollment{}, ErrNotFound
+		return programme.EnrollmentRecord{}, ErrNotFound
 	}
 	if _, exists := m.Seasons[v.SeasonID]; !exists {
-		return model.Enrollment{}, ErrNotFound
+		return programme.EnrollmentRecord{}, ErrNotFound
 	}
 	for _, old := range m.Enrollments {
 		if old.SeasonID == v.SeasonID && old.UserID == v.UserID {
-			return model.Enrollment{}, ErrDuplicate
+			return programme.EnrollmentRecord{}, ErrDuplicate
 		}
 	}
 	if v.AssignmentState == "" {
@@ -1043,15 +1043,15 @@ func (m *Memory) CreateEnrollment(_ context.Context, v model.Enrollment, actorID
 }
 
 // UpdateEnrollmentDetails updates a value.
-func (m *Memory) UpdateEnrollmentDetails(_ context.Context, seasonID, enrollmentID string, revision int64, role, studentLevel, actorID string, at time.Time) (model.Enrollment, error) {
+func (m *Memory) UpdateEnrollmentDetails(_ context.Context, seasonID, enrollmentID string, revision int64, role, studentLevel, actorID string, at time.Time) (programme.EnrollmentRecord, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	v, ok := m.Enrollments[enrollmentID]
 	if !ok || v.SeasonID != seasonID {
-		return model.Enrollment{}, ErrNotFound
+		return programme.EnrollmentRecord{}, ErrNotFound
 	}
 	if v.Revision != revision || v.State != "active" {
-		return model.Enrollment{}, ErrConflict
+		return programme.EnrollmentRecord{}, ErrConflict
 	}
 	v.Role, v.StudentLevel, v.Revision = role, studentLevel, v.Revision+1
 	v.AssignmentState = "active"
@@ -1082,15 +1082,15 @@ func (m *Memory) UpdateEnrollmentDetails(_ context.Context, seasonID, enrollment
 }
 
 // UpdateEnrollment updates a value.
-func (m *Memory) UpdateEnrollment(_ context.Context, enrollmentID string, revision int64, role, state, reason, actorID string, at time.Time) (model.Enrollment, error) {
+func (m *Memory) UpdateEnrollment(_ context.Context, enrollmentID string, revision int64, role, state, reason, actorID string, at time.Time) (programme.EnrollmentRecord, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	v, ok := m.Enrollments[enrollmentID]
 	if !ok {
-		return model.Enrollment{}, ErrNotFound
+		return programme.EnrollmentRecord{}, ErrNotFound
 	}
 	if v.Revision != revision || v.State != "active" {
-		return model.Enrollment{}, ErrConflict
+		return programme.EnrollmentRecord{}, ErrConflict
 	}
 	if role != "" {
 		v.Role = role

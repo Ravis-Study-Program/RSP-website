@@ -173,7 +173,7 @@ func TestPostgres18MigrationsAndRepository(t *testing.T) {
 	if err := repository.Pool.QueryRow(ctx, `SELECT state::text,activated_at FROM app.global_role_assignments WHERE id='00000000-0000-7000-8000-000000000004'`).Scan(&assignmentState, &assignmentActivatedAt); err != nil || assignmentState != "active" || assignmentActivatedAt == nil {
 		t.Fatalf("preconfigured-MFA global role state=%q activatedAt=%v err=%v", assignmentState, assignmentActivatedAt, err)
 	}
-	if _, err := repository.CreateEnrollment(ctx, model.Enrollment{ID: "00000000-0000-7000-8000-000000000009", SeasonID: season.ID, UserID: "00000000-0000-7000-8000-000000000033", Role: "student", State: "active", Revision: 1}, "00000000-0000-7000-8000-000000000033", time.Now()); err != nil {
+	if _, err := repository.CreateEnrollment(ctx, programme.EnrollmentRecord{ID: "00000000-0000-7000-8000-000000000009", SeasonID: season.ID, UserID: "00000000-0000-7000-8000-000000000033", Role: "student", State: "active", Revision: 1}, "00000000-0000-7000-8000-000000000033", time.Now()); err != nil {
 		t.Fatal(err)
 	}
 	if users, _, _, err := repository.ListUsers(ctx, "", 25, "forward", "", "", ""); err != nil || len(users) == 0 {
@@ -188,15 +188,15 @@ func TestPostgres18MigrationsAndRepository(t *testing.T) {
 	if _, _, _, err := repository.ListEnrollmentCandidates(ctx, season.ID, "", "", 25, "forward"); err != nil {
 		t.Fatalf("empty-cursor enrollment candidate list: %v", err)
 	}
-	if _, err := repository.CreateEnrollment(ctx, model.Enrollment{ID: "00000000-0000-7000-8000-000000000012", SeasonID: season.ID, UserID: "00000000-0000-7000-8000-000000000027", Role: "mentor", State: "active", Revision: 1}, "00000000-0000-7000-8000-000000000033", time.Now()); err != nil {
+	if _, err := repository.CreateEnrollment(ctx, programme.EnrollmentRecord{ID: "00000000-0000-7000-8000-000000000012", SeasonID: season.ID, UserID: "00000000-0000-7000-8000-000000000027", Role: "mentor", State: "active", Revision: 1}, "00000000-0000-7000-8000-000000000033", time.Now()); err != nil {
 		t.Fatal(err)
 	}
 
-	coordinatorEnrollment, err := repository.CreateEnrollment(ctx, model.Enrollment{ID: "00000000-0000-7000-8000-000000000002", SeasonID: season.ID, UserID: "00000000-0000-7000-8000-000000000017", Role: "coordinator", State: "active", Revision: 1}, "00000000-0000-7000-8000-000000000033", time.Now())
+	coordinatorEnrollment, err := repository.CreateEnrollment(ctx, programme.EnrollmentRecord{ID: "00000000-0000-7000-8000-000000000002", SeasonID: season.ID, UserID: "00000000-0000-7000-8000-000000000017", Role: "coordinator", State: "active", Revision: 1}, "00000000-0000-7000-8000-000000000033", time.Now())
 	if err != nil || coordinatorEnrollment.AssignmentState != "active" {
 		t.Fatalf("preconfigured coordinator create=%#v err=%v", coordinatorEnrollment, err)
 	}
-	if _, err := repository.CreateEnrollment(ctx, model.Enrollment{ID: "00000000-0000-7000-8000-000000000005", SeasonID: season.ID, UserID: "00000000-0000-7000-8000-000000000023", Role: "student", State: "active", Revision: 1}, "00000000-0000-7000-8000-000000000033", time.Now()); err != nil {
+	if _, err := repository.CreateEnrollment(ctx, programme.EnrollmentRecord{ID: "00000000-0000-7000-8000-000000000005", SeasonID: season.ID, UserID: "00000000-0000-7000-8000-000000000023", Role: "student", State: "active", Revision: 1}, "00000000-0000-7000-8000-000000000033", time.Now()); err != nil {
 		t.Fatal(err)
 	}
 

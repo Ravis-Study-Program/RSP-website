@@ -33,7 +33,7 @@ func newFixture() fixture {
 	repo.Users["student"] = accounts.User{ID: "student", Slug: "student", Name: "Student", Email: "private@example.com", AccountState: "active", Timezone: "Australia/Adelaide", Revision: 1}
 	repo.Users["other"] = accounts.User{ID: "other", Slug: "other", Name: "Other", Email: "other@example.com", AccountState: "active", Timezone: "Australia/Adelaide", Revision: 1}
 	repo.Seasons["season"] = programme.SeasonRecord{ID: "season", Slug: "s26", Name: "Season", Status: "open", StartAt: time.Now(), EndAt: time.Now().Add(24 * time.Hour), Revision: 1}
-	repo.Enrollments["other-enrollment"] = model.Enrollment{ID: "other-enrollment", SeasonID: "season", UserID: "other", Role: "student", State: "active", Revision: 1}
+	repo.Enrollments["other-enrollment"] = programme.EnrollmentRecord{ID: "other-enrollment", SeasonID: "season", UserID: "other", Role: "student", State: "active", Revision: 1}
 	repo.Problems["problem"] = model.Problem{ID: "problem", Number: 1, Title: "Two Sum", Link: "https://rsp.test/problems/two-sum", Difficulty: "easy", Categories: []string{"arrays"}, Revision: 1}
 	repo.Attempts["owned"] = model.Attempt{ID: "owned", UserID: "student", ProblemID: "problem", Outcome: "unknown", Minutes: 10, AttemptedAt: time.Now(), Revision: 1}
 	repo.Attempts["foreign"] = model.Attempt{ID: "foreign", UserID: "other", ProblemID: "problem", Outcome: "unknown", Minutes: 10, AttemptedAt: time.Now(), Revision: 1}
@@ -257,9 +257,9 @@ func TestAdminUserListIncludesNonmembersAndSuspendedWithoutWideningDirectory(t *
 func TestPracticeSettingsRequireRelationshipEnablement(t *testing.T) {
 	f := newFixture()
 	f.repository.Users["student"] = accounts.User{ID: "student", Slug: "student", Name: "Student", Email: "private@example.com", AccountState: "active", Timezone: "Australia/Adelaide", Revision: 1}
-	f.repository.Enrollments["student-enrollment"] = model.Enrollment{ID: "student-enrollment", SeasonID: "season", UserID: "student", Role: "student", State: "active", Revision: 1}
+	f.repository.Enrollments["student-enrollment"] = programme.EnrollmentRecord{ID: "student-enrollment", SeasonID: "season", UserID: "student", Role: "student", State: "active", Revision: 1}
 	f.repository.Users["mentor"] = accounts.User{ID: "mentor", Slug: "mentor", Name: "Mentor", AccountState: "active", Timezone: "Australia/Adelaide", Revision: 1}
-	f.repository.Enrollments["mentor-enrollment"] = model.Enrollment{ID: "mentor-enrollment", SeasonID: "season", UserID: "mentor", Role: "mentor", State: "active", Revision: 1}
+	f.repository.Enrollments["mentor-enrollment"] = programme.EnrollmentRecord{ID: "mentor-enrollment", SeasonID: "season", UserID: "mentor", Role: "mentor", State: "active", Revision: 1}
 	f.repository.Mentorships["assignment"] = programme.MentorshipRecord{ID: "assignment", SeasonID: "season", MentorUserID: "mentor", StudentUserID: "student", Revision: 1}
 	f.actors["mentor"] = authz.Actor{UserID: "mentor", EmailVerified: true, AccountState: authz.AccountActive, GlobalRoles: map[authz.GlobalRole]bool{}, Enrollments: []authz.Enrollment{{SeasonID: "season", Role: authz.Mentor, State: authz.Active}}}
 
@@ -346,7 +346,7 @@ func TestCreateStatusRateLimitAndRetryAfter(t *testing.T) {
 
 func TestRecommendationProblemSatisfiesLeetcodeProblemResponseContract(t *testing.T) {
 	f := newFixture()
-	f.repository.Enrollments["student-enrollment"] = model.Enrollment{ID: "student-enrollment", SeasonID: "season", UserID: "student", Role: "student", StudentLevel: "beginner", State: "active", AssignmentState: "active", Revision: 1}
+	f.repository.Enrollments["student-enrollment"] = programme.EnrollmentRecord{ID: "student-enrollment", SeasonID: "season", UserID: "student", Role: "student", StudentLevel: "beginner", State: "active", AssignmentState: "active", Revision: 1}
 	f.repository.Problems["contract-candidate"] = model.Problem{ID: "contract-candidate", Number: 42, Title: "Contract Candidate", Link: "https://rsp.test/problems/contract-candidate", Difficulty: "easy", Categories: []string{"arrays"}, Revision: 7}
 
 	for _, phase := range []string{"generated", "active"} {
@@ -465,14 +465,14 @@ func TestIdentityLifecycleRequiresServiceTokenAndCreatesLink(t *testing.T) {
 
 func TestMockEligibilityComesFromRepositoryAndInterviewsSurviveAPIRecreation(t *testing.T) {
 	f := newFixture()
-	f.repository.Enrollments["student-member"] = model.Enrollment{ID: "student-member", SeasonID: "season", UserID: "student", Role: "student", State: "active", Revision: 1}
+	f.repository.Enrollments["student-member"] = programme.EnrollmentRecord{ID: "student-member", SeasonID: "season", UserID: "student", Role: "student", State: "active", Revision: 1}
 	body := `{"interviewee":{"userId":"other","activeMember":true},"occurredAt":"2026-08-13T00:00:00Z","durationMinutes":60,"rounds":[{"id":"round","type":"behavioural","scores":{"behavioural":7},"reviewed":false,"intervieweeComment":""}]}`
 	w := request(t, f, "POST", "/api/v2/mock-interviews", "student", body)
 	if w.Code != http.StatusBadRequest || problemCode(t, w) != "openapi_validation_failed" {
 		t.Fatalf("caller-supplied eligibility accepted: %d %s", w.Code, w.Body.String())
 	}
 
-	f.repository.Enrollments["other-member"] = model.Enrollment{ID: "other-member", SeasonID: "season", UserID: "other", Role: "mentor", State: "active", Revision: 1}
+	f.repository.Enrollments["other-member"] = programme.EnrollmentRecord{ID: "other-member", SeasonID: "season", UserID: "other", Role: "mentor", State: "active", Revision: 1}
 	body = `{"interviewee":{"userId":"other"},"occurredAt":"2026-08-13T00:00:00Z","durationMinutes":60,"rounds":[{"id":"round","type":"behavioural","scores":{"behavioural":7}}]}`
 	w = request(t, f, "POST", "/api/v2/mock-interviews", "student", body)
 	if w.Code != http.StatusCreated {
@@ -491,7 +491,7 @@ func TestClosedSeasonLocksLinkedMockMutations(t *testing.T) {
 	season := f.repository.Seasons["season"]
 	season.Status = "closed"
 	f.repository.Seasons["season"] = season
-	f.repository.Enrollments["student-member"] = model.Enrollment{ID: "student-member", SeasonID: "season", UserID: "student", Role: "student", State: "completed", Revision: 2}
+	f.repository.Enrollments["student-member"] = programme.EnrollmentRecord{ID: "student-member", SeasonID: "season", UserID: "student", Role: "student", State: "completed", Revision: 2}
 	score := 7
 	seasonID := "season"
 	f.repository.Mocks["closed-mock"] = mockinterviews.Interview{ID: "closed-mock", InterviewerID: "student", IntervieweeID: "other", SeasonID: &seasonID, OccurredAt: season.StartAt, DurationMinutes: 60, Rounds: []mockinterviews.Round{{ID: "round", Type: mockinterviews.Behavioural, Scores: mockinterviews.Scores{Behavioural: &score}}}, Revision: 1}

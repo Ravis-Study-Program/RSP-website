@@ -3,20 +3,6 @@ package model
 
 import "time"
 
-// Enrollment represents a backend data structure.
-type Enrollment struct {
-	ID              string  `json:"id"`
-	SeasonID        string  `json:"seasonId"`
-	SeasonSlug      string  `json:"seasonSlug,omitempty"`
-	UserID          string  `json:"userId"`
-	Role            string  `json:"role"`
-	StudentLevel    string  `json:"studentLevel,omitempty"`
-	State           string  `json:"state"`
-	AssignmentState string  `json:"assignmentState"`
-	RemovalReason   *string `json:"removalReason,omitempty"`
-	Revision        int64   `json:"revision"`
-}
-
 // Problem represents a backend data structure.
 type Problem struct {
 	ID         string   `json:"id"`

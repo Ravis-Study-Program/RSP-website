@@ -17,8 +17,8 @@ import (
 func TestMemoryCloseReopenRestoresOnlyCloseCompletedEnrollments(t *testing.T) {
 	repository := NewMemory()
 	repository.Seasons["season"] = programme.SeasonRecord{ID: "season", Slug: "season", Status: "open", Revision: 1}
-	repository.Enrollments["active"] = model.Enrollment{ID: "active", SeasonID: "season", UserID: "student", Role: "student", State: "active", Revision: 1}
-	repository.Enrollments["kicked"] = model.Enrollment{ID: "kicked", SeasonID: "season", UserID: "former", Role: "student", State: "kicked", Revision: 2}
+	repository.Enrollments["active"] = programme.EnrollmentRecord{ID: "active", SeasonID: "season", UserID: "student", Role: "student", State: "active", Revision: 1}
+	repository.Enrollments["kicked"] = programme.EnrollmentRecord{ID: "kicked", SeasonID: "season", UserID: "former", Role: "student", State: "kicked", Revision: 2}
 
 	closed, err := repository.CloseSeason(context.Background(), "season", 1, "coordinator", "programme completed", time.Now())
 	if err != nil || closed.Status != "closed" || repository.Enrollments["active"].State != "completed" || repository.Enrollments["kicked"].State != "kicked" {
@@ -44,7 +44,7 @@ func TestMemoryCoordinatorMFAStateSurvivesCloseReopen(t *testing.T) {
 	repository.MFAConfigured["coordinator"] = true
 	repository.Seasons["season"] = programme.SeasonRecord{ID: "season", Slug: "season", Status: "open", Revision: 1}
 
-	enrollment, err := repository.CreateEnrollment(ctx, model.Enrollment{ID: "coordinator-enrollment", SeasonID: "season", UserID: "coordinator", Role: "coordinator", State: "active", Revision: 1}, "admin", time.Now())
+	enrollment, err := repository.CreateEnrollment(ctx, programme.EnrollmentRecord{ID: "coordinator-enrollment", SeasonID: "season", UserID: "coordinator", Role: "coordinator", State: "active", Revision: 1}, "admin", time.Now())
 	if err != nil || enrollment.AssignmentState != "active" {
 		t.Fatalf("preconfigured coordinator grant=%#v err=%v", enrollment, err)
 	}
@@ -178,7 +178,7 @@ func TestMemoryMentoringRecommendationAndMockStateSurvivesAPIRestart(t *testing.
 	repository.Users["student"] = accounts.User{ID: "student", AccountState: "active"}
 	repository.Problems["problem"] = model.Problem{ID: "problem", Number: 1, Title: "Problem", Link: "https://rsp.test/problem", Difficulty: "easy", Categories: []string{"arrays"}, Revision: 1}
 	repository.Seasons["season"] = programme.SeasonRecord{ID: "season", Slug: "season", Status: "open", StartAt: seasonStart, EndAt: seasonStart.Add(14 * 24 * time.Hour), Revision: 1}
-	for _, enrollment := range []model.Enrollment{
+	for _, enrollment := range []programme.EnrollmentRecord{
 		{ID: "mentor-enrollment", SeasonID: "season", UserID: "mentor", Role: "mentor", State: "active", Revision: 1},
 		{ID: "student-enrollment", SeasonID: "season", UserID: "student", Role: "student", State: "active", StudentLevel: "beginner", Revision: 1},
 	} {
@@ -235,9 +235,9 @@ func TestMemoryMockEligibilityIsDerivedFromStoredRelationships(t *testing.T) {
 	repository.Users["eligible"] = accounts.User{ID: "eligible", AccountState: "active"}
 	repository.Users["kicked"] = accounts.User{ID: "kicked", AccountState: "active"}
 	repository.Users["test"] = accounts.User{ID: "test", AccountState: "active", IsTest: true}
-	repository.Enrollments["eligible"] = model.Enrollment{ID: "eligible", UserID: "eligible", Role: "student", State: "completed"}
-	repository.Enrollments["kicked"] = model.Enrollment{ID: "kicked", UserID: "kicked", Role: "student", State: "kicked"}
-	repository.Enrollments["test"] = model.Enrollment{ID: "test", UserID: "test", Role: "mentor", State: "active"}
+	repository.Enrollments["eligible"] = programme.EnrollmentRecord{ID: "eligible", UserID: "eligible", Role: "student", State: "completed"}
+	repository.Enrollments["kicked"] = programme.EnrollmentRecord{ID: "kicked", UserID: "kicked", Role: "student", State: "kicked"}
+	repository.Enrollments["test"] = programme.EnrollmentRecord{ID: "test", UserID: "test", Role: "mentor", State: "active"}
 
 	for userID, want := range map[string]bool{"eligible": true, "kicked": false, "test": false} {
 		participant, err := repository.GetMockParticipant(context.Background(), userID)

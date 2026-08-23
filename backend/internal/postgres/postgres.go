@@ -1159,8 +1159,8 @@ func (p *Postgres) DeleteWeek(ctx context.Context, seasonID, weekID string, revi
 
 const enrollmentColumns = `e.id,e.season_id,s.slug,e.user_id,e.role::text,e.student_level::text,e.state::text,e.assignment_state::text,CASE WHEN e.state IN ('kicked','withdrawn') THEN (SELECT reason FROM app.enrollment_removal_events WHERE enrollment_id=e.id ORDER BY occurred_at DESC,id DESC LIMIT 1) END,e.revision`
 
-func scanEnrollment(row pgx.Row) (model.Enrollment, error) {
-	var v model.Enrollment
+func scanEnrollment(row pgx.Row) (programme.EnrollmentRecord, error) {
+	var v programme.EnrollmentRecord
 	if err := row.Scan(&v.ID, &v.SeasonID, &v.SeasonSlug, &v.UserID, &v.Role, &v.StudentLevel, &v.State, &v.AssignmentState, &v.RemovalReason, &v.Revision); err != nil {
 		return v, noRows(err)
 	}
@@ -1168,7 +1168,7 @@ func scanEnrollment(row pgx.Row) (model.Enrollment, error) {
 }
 
 // ListEnrollments lists matching values.
-func (p *Postgres) ListEnrollments(ctx context.Context, seasonID, boundary string, limit int, role, state, sortBy, direction string, includeInactive bool) ([]model.Enrollment, bool, int64, error) {
+func (p *Postgres) ListEnrollments(ctx context.Context, seasonID, boundary string, limit int, role, state, sortBy, direction string, includeInactive bool) ([]programme.EnrollmentRecord, bool, int64, error) {
 	const filters = `e.season_id=$1 AND e.deleted_at IS NULL
 		AND ($2='' OR e.role::text=$2) AND ($3='' OR e.state::text=$3)
 		AND ($4 OR e.state='active' OR (e.role='student' AND e.state='completed'))`
@@ -1205,7 +1205,7 @@ func (p *Postgres) ListEnrollments(ctx context.Context, seasonID, boundary strin
 	}
 
 	defer rows.Close()
-	items := make([]model.Enrollment, 0, limit+1)
+	items := make([]programme.EnrollmentRecord, 0, limit+1)
 	for rows.Next() {
 		v, scanErr := scanEnrollment(rows)
 		if scanErr != nil {
@@ -1222,18 +1222,18 @@ func (p *Postgres) ListEnrollments(ctx context.Context, seasonID, boundary strin
 }
 
 // ListEnrollmentsForUser lists matching values.
-func (p *Postgres) ListEnrollmentsForUser(ctx context.Context, userID string) ([]model.Enrollment, error) {
+func (p *Postgres) ListEnrollmentsForUser(ctx context.Context, userID string) ([]programme.EnrollmentRecord, error) {
 	return p.listEnrollments(ctx, `e.user_id=$1`, userID)
 }
 
-func (p *Postgres) listEnrollments(ctx context.Context, predicate, value string) ([]model.Enrollment, error) {
+func (p *Postgres) listEnrollments(ctx context.Context, predicate, value string) ([]programme.EnrollmentRecord, error) {
 	rows, err := p.Pool.Query(ctx, `SELECT `+enrollmentColumns+` FROM app.enrollments e JOIN app.seasons s ON s.id=e.season_id WHERE `+predicate+` AND e.deleted_at IS NULL ORDER BY e.id`, value)
 	if err != nil {
 		return nil, err
 	}
 
 	defer rows.Close()
-	items := []model.Enrollment{}
+	items := []programme.EnrollmentRecord{}
 	for rows.Next() {
 		v, err := scanEnrollment(rows)
 		if err != nil {
@@ -1246,12 +1246,12 @@ func (p *Postgres) listEnrollments(ctx context.Context, predicate, value string)
 }
 
 // GetEnrollment retrieves a value.
-func (p *Postgres) GetEnrollment(ctx context.Context, enrollmentID string) (model.Enrollment, error) {
+func (p *Postgres) GetEnrollment(ctx context.Context, enrollmentID string) (programme.EnrollmentRecord, error) {
 	return scanEnrollment(p.Pool.QueryRow(ctx, `SELECT `+enrollmentColumns+` FROM app.enrollments e JOIN app.seasons s ON s.id=e.season_id WHERE e.id=$1 AND e.deleted_at IS NULL`, enrollmentID))
 }
 
 // CreateEnrollment creates a value.
-func (p *Postgres) CreateEnrollment(ctx context.Context, v model.Enrollment, actorID string, at time.Time) (model.Enrollment, error) {
+func (p *Postgres) CreateEnrollment(ctx context.Context, v programme.EnrollmentRecord, actorID string, at time.Time) (programme.EnrollmentRecord, error) {
 	tx, err := p.Pool.Begin(ctx)
 	if err != nil {
 		return v, err
@@ -1279,10 +1279,10 @@ func (p *Postgres) CreateEnrollment(ctx context.Context, v model.Enrollment, act
 }
 
 // UpdateEnrollmentDetails updates a value.
-func (p *Postgres) UpdateEnrollmentDetails(ctx context.Context, seasonID, enrollmentID string, revision int64, role, studentLevel, actorID string, at time.Time) (model.Enrollment, error) {
+func (p *Postgres) UpdateEnrollmentDetails(ctx context.Context, seasonID, enrollmentID string, revision int64, role, studentLevel, actorID string, at time.Time) (programme.EnrollmentRecord, error) {
 	tx, err := p.Pool.Begin(ctx)
 	if err != nil {
-		return model.Enrollment{}, err
+		return programme.EnrollmentRecord{}, err
 	}
 
 	defer tx.Rollback(ctx)
@@ -1308,10 +1308,10 @@ func (p *Postgres) UpdateEnrollmentDetails(ctx context.Context, seasonID, enroll
 }
 
 // UpdateEnrollment updates a value.
-func (p *Postgres) UpdateEnrollment(ctx context.Context, enrollmentID string, revision int64, role, state, reason, actorID string, at time.Time) (model.Enrollment, error) {
+func (p *Postgres) UpdateEnrollment(ctx context.Context, enrollmentID string, revision int64, role, state, reason, actorID string, at time.Time) (programme.EnrollmentRecord, error) {
 	tx, err := p.Pool.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
-		return model.Enrollment{}, err
+		return programme.EnrollmentRecord{}, err
 	}
 
 	defer tx.Rollback(ctx)
