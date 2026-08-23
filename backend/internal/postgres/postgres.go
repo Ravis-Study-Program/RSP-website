@@ -1367,7 +1367,7 @@ func (p *Postgres) UpdateEnrollment(ctx context.Context, enrollmentID string, re
 }
 
 // ListMentorships lists matching values.
-func (p *Postgres) ListMentorships(ctx context.Context, seasonID, boundary string, limit int, sortBy, direction, mentorUserID, studentUserID string) ([]model.Mentorship, bool, int64, error) {
+func (p *Postgres) ListMentorships(ctx context.Context, seasonID, boundary string, limit int, sortBy, direction, mentorUserID, studentUserID string) ([]programme.MentorshipRecord, bool, int64, error) {
 	const base = ` FROM app.mentorships m
 		JOIN app.enrollments mentor ON mentor.id=m.mentor_enrollment_id
 		JOIN app.enrollments student ON student.id=m.student_enrollment_id`
@@ -1404,9 +1404,9 @@ func (p *Postgres) ListMentorships(ctx context.Context, seasonID, boundary strin
 	}
 
 	defer rows.Close()
-	items := make([]model.Mentorship, 0, limit+1)
+	items := make([]programme.MentorshipRecord, 0, limit+1)
 	for rows.Next() {
-		var v model.Mentorship
+		var v programme.MentorshipRecord
 		if err := rows.Scan(&v.ID, &v.SeasonID, &v.MentorUserID, &v.StudentUserID, &v.Revision); err != nil {
 			return nil, false, 0, err
 		}
@@ -1422,7 +1422,7 @@ func (p *Postgres) ListMentorships(ctx context.Context, seasonID, boundary strin
 }
 
 // CreateMentorship creates a value.
-func (p *Postgres) CreateMentorship(ctx context.Context, v model.Mentorship, actorID string, at time.Time) (model.Mentorship, error) {
+func (p *Postgres) CreateMentorship(ctx context.Context, v programme.MentorshipRecord, actorID string, at time.Time) (programme.MentorshipRecord, error) {
 	tx, err := p.Pool.Begin(ctx)
 	if err != nil {
 		return v, err
@@ -1440,14 +1440,14 @@ func (p *Postgres) CreateMentorship(ctx context.Context, v model.Mentorship, act
 }
 
 // UpdateMentorship updates a value.
-func (p *Postgres) UpdateMentorship(ctx context.Context, seasonID, mentorshipID string, revision int64, mentorUserID, studentUserID, actorID string, at time.Time) (model.Mentorship, error) {
+func (p *Postgres) UpdateMentorship(ctx context.Context, seasonID, mentorshipID string, revision int64, mentorUserID, studentUserID, actorID string, at time.Time) (programme.MentorshipRecord, error) {
 	tx, err := p.Pool.Begin(ctx)
 	if err != nil {
-		return model.Mentorship{}, err
+		return programme.MentorshipRecord{}, err
 	}
 
 	defer tx.Rollback(ctx)
-	var v model.Mentorship
+	var v programme.MentorshipRecord
 	err = tx.QueryRow(ctx, `UPDATE app.mentorships SET mentor_enrollment_id=(SELECT id FROM app.enrollments WHERE season_id=$2 AND user_id=$4 AND role IN ('mentor','coordinator') AND state='active' AND deleted_at IS NULL),student_enrollment_id=(SELECT id FROM app.enrollments WHERE season_id=$2 AND user_id=$5 AND role='student' AND state='active' AND deleted_at IS NULL),revision=revision+1 WHERE id=$1 AND season_id=$2 AND revision=$3 AND ended_at IS NULL AND deleted_at IS NULL RETURNING id,season_id,$4::text,$5::text,revision`, mentorshipID, seasonID, revision, mentorUserID, studentUserID).Scan(&v.ID, &v.SeasonID, &v.MentorUserID, &v.StudentUserID, &v.Revision)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {

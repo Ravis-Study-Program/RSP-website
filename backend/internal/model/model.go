@@ -38,15 +38,6 @@ type Enrollment struct {
 	Revision        int64   `json:"revision"`
 }
 
-// Mentorship represents a backend data structure.
-type Mentorship struct {
-	ID            string `json:"id"`
-	SeasonID      string `json:"seasonId"`
-	MentorUserID  string `json:"mentorUserId"`
-	StudentUserID string `json:"studentUserId"`
-	Revision      int64  `json:"revision"`
-}
-
 // Problem represents a backend data structure.
 type Problem struct {
 	ID         string   `json:"id"`

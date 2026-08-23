@@ -260,7 +260,7 @@ func TestPracticeSettingsRequireRelationshipEnablement(t *testing.T) {
 	f.repository.Enrollments["student-enrollment"] = model.Enrollment{ID: "student-enrollment", SeasonID: "season", UserID: "student", Role: "student", State: "active", Revision: 1}
 	f.repository.Users["mentor"] = accounts.User{ID: "mentor", Slug: "mentor", Name: "Mentor", AccountState: "active", Timezone: "Australia/Adelaide", Revision: 1}
 	f.repository.Enrollments["mentor-enrollment"] = model.Enrollment{ID: "mentor-enrollment", SeasonID: "season", UserID: "mentor", Role: "mentor", State: "active", Revision: 1}
-	f.repository.Mentorships["assignment"] = model.Mentorship{ID: "assignment", SeasonID: "season", MentorUserID: "mentor", StudentUserID: "student", Revision: 1}
+	f.repository.Mentorships["assignment"] = programme.MentorshipRecord{ID: "assignment", SeasonID: "season", MentorUserID: "mentor", StudentUserID: "student", Revision: 1}
 	f.actors["mentor"] = authz.Actor{UserID: "mentor", EmailVerified: true, AccountState: authz.AccountActive, GlobalRoles: map[authz.GlobalRole]bool{}, Enrollments: []authz.Enrollment{{SeasonID: "season", Role: authz.Mentor, State: authz.Active}}}
 
 	w := request(t, f, "GET", "/api/v2/me/practice-settings", "student", "")

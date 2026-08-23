@@ -66,9 +66,9 @@ type Repository interface {
 	CreateEnrollment(context.Context, model.Enrollment, string, time.Time) (model.Enrollment, error)
 	UpdateEnrollmentDetails(context.Context, string, string, int64, string, string, string, time.Time) (model.Enrollment, error)
 	UpdateEnrollment(context.Context, string, int64, string, string, string, string, time.Time) (model.Enrollment, error)
-	ListMentorships(context.Context, string, string, int, string, string, string, string) ([]model.Mentorship, bool, int64, error)
-	CreateMentorship(context.Context, model.Mentorship, string, time.Time) (model.Mentorship, error)
-	UpdateMentorship(context.Context, string, string, int64, string, string, string, time.Time) (model.Mentorship, error)
+	ListMentorships(context.Context, string, string, int, string, string, string, string) ([]programme.MentorshipRecord, bool, int64, error)
+	CreateMentorship(context.Context, programme.MentorshipRecord, string, time.Time) (programme.MentorshipRecord, error)
+	UpdateMentorship(context.Context, string, string, int64, string, string, string, time.Time) (programme.MentorshipRecord, error)
 	DeleteMentorship(context.Context, string, string, int64, string, time.Time) error
 	IsMentorAssigned(context.Context, string, string, string) (bool, error)
 	ListProblems(context.Context, string, int, string, string, *bool, string) ([]model.Problem, bool, int64, error)

@@ -11,6 +11,7 @@ import (
 	"github.com/magedmg/RSP-website/backend/internal/authz"
 	"github.com/magedmg/RSP-website/backend/internal/mockinterviews"
 	"github.com/magedmg/RSP-website/backend/internal/model"
+	"github.com/magedmg/RSP-website/backend/internal/programme"
 )
 
 func decodePage[T any](t *testing.T, body []byte) Page[T] {
@@ -65,16 +66,16 @@ func TestMentorMenteeFilteringAndUnassignedStudents(t *testing.T) {
 	f.repository.Users["unassigned"] = accounts.User{ID: "unassigned", Slug: "unassigned", Name: "Unassigned", AccountState: "active", Timezone: "Australia/Adelaide", Revision: 1}
 	f.repository.Enrollments["mentor-enrollment"] = model.Enrollment{ID: "mentor-enrollment", SeasonID: "season", UserID: "mentor", Role: "mentor", State: "active", AssignmentState: "active", Revision: 1}
 	f.repository.Enrollments["unassigned-enrollment"] = model.Enrollment{ID: "unassigned-enrollment", SeasonID: "season", UserID: "unassigned", Role: "student", StudentLevel: "beginner", State: "active", AssignmentState: "active", Revision: 1}
-	f.repository.Mentorships["assigned"] = model.Mentorship{ID: "assigned", SeasonID: "season", MentorUserID: "mentor", StudentUserID: "other", Revision: 1}
+	f.repository.Mentorships["assigned"] = programme.MentorshipRecord{ID: "assigned", SeasonID: "season", MentorUserID: "mentor", StudentUserID: "other", Revision: 1}
 	f.actors["mentor"] = authz.Actor{UserID: "mentor", EmailVerified: true, AccountState: authz.AccountActive, GlobalRoles: map[authz.GlobalRole]bool{}, Enrollments: []authz.Enrollment{{SeasonID: "season", Role: authz.Mentor, State: authz.Active}}}
 
 	w := request(t, f, http.MethodGet, "/api/v2/seasons/season/mentorships?mentorUserId=mentor", "mentor", "")
-	page := decodePage[model.Mentorship](t, w.Body.Bytes())
+	page := decodePage[programme.MentorshipRecord](t, w.Body.Bytes())
 	if w.Code != http.StatusOK || len(page.Items) != 1 || page.Items[0].StudentUserID != "other" {
 		t.Fatalf("mentor assignments: %d %#v", w.Code, page)
 	}
 	w = request(t, f, http.MethodGet, "/api/v2/seasons/season/mentorships?studentUserId=unassigned", "mentor", "")
-	page = decodePage[model.Mentorship](t, w.Body.Bytes())
+	page = decodePage[programme.MentorshipRecord](t, w.Body.Bytes())
 	if w.Code != http.StatusOK || len(page.Items) != 0 || page.TotalCount != 0 {
 		t.Fatalf("unassigned relation: %d %#v", w.Code, page)
 	}
@@ -261,7 +262,7 @@ func TestAdminEnrollmentPatchReasonedRemovalMentorshipPatchAndDelete(t *testing.
 	f.repository.Enrollments["mentor-b-enrollment"] = model.Enrollment{ID: "mentor-b-enrollment", SeasonID: "season", UserID: "mentor-b", Role: "mentor", State: "active", AssignmentState: "active", Revision: 1}
 	f.repository.Enrollments["student-a-enrollment"] = model.Enrollment{ID: "student-a-enrollment", SeasonID: "season", UserID: "student-a", Role: "student", StudentLevel: "beginner", State: "active", AssignmentState: "active", Revision: 1}
 	f.repository.Enrollments["student-b-enrollment"] = model.Enrollment{ID: "student-b-enrollment", SeasonID: "season", UserID: "student-b", Role: "student", StudentLevel: "beginner", State: "active", AssignmentState: "active", Revision: 1}
-	f.repository.Mentorships["mentorship"] = model.Mentorship{ID: "mentorship", SeasonID: "season", MentorUserID: "mentor-a", StudentUserID: "student-a", Revision: 1}
+	f.repository.Mentorships["mentorship"] = programme.MentorshipRecord{ID: "mentorship", SeasonID: "season", MentorUserID: "mentor-a", StudentUserID: "student-a", Revision: 1}
 
 	w := request(t, f, http.MethodPatch, "/api/v2/seasons/season/members/student-a-enrollment", "coordinator", `{"role":"student","studentLevel":"advanced","revision":1}`)
 	if w.Code != http.StatusOK || f.repository.Enrollments["student-a-enrollment"].StudentLevel != "advanced" {

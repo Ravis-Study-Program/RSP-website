@@ -28,7 +28,7 @@ type Memory struct {
 	Seasons                  map[string]programme.SeasonRecord
 	Weeks                    map[string]model.Week
 	Enrollments              map[string]model.Enrollment
-	Mentorships              map[string]model.Mentorship
+	Mentorships              map[string]programme.MentorshipRecord
 	Problems                 map[string]model.Problem
 	Attempts                 map[string]model.Attempt
 	Recommendations          map[string]practice.Recommendation
@@ -47,7 +47,7 @@ type Memory struct {
 
 // NewMemory creates a new value.
 func NewMemory() *Memory {
-	return &Memory{Users: map[string]accounts.User{}, PracticeSettings: map[string]model.PracticeSettings{}, AuthSubjects: map[string]authz.Actor{}, Seasons: map[string]programme.SeasonRecord{}, Weeks: map[string]model.Week{}, Enrollments: map[string]model.Enrollment{}, Mentorships: map[string]model.Mentorship{}, Problems: map[string]model.Problem{}, Attempts: map[string]model.Attempt{}, Recommendations: map[string]practice.Recommendation{}, RecommendationDismissals: map[string][]practice.Dismissal{}, Mocks: map[string]mockinterviews.Interview{}, closeCompleted: map[string]map[string]bool{}, closeAssignmentStates: map[string]map[string]string{}, closeEventIDs: map[string]string{}, IdentityEventReceipts: map[string]bool{}, IdentityEventHashes: map[string]string{}, GlobalRoleAssignments: map[string]accounts.GlobalRoleAssignment{}, MFAConfigured: map[string]bool{}}
+	return &Memory{Users: map[string]accounts.User{}, PracticeSettings: map[string]model.PracticeSettings{}, AuthSubjects: map[string]authz.Actor{}, Seasons: map[string]programme.SeasonRecord{}, Weeks: map[string]model.Week{}, Enrollments: map[string]model.Enrollment{}, Mentorships: map[string]programme.MentorshipRecord{}, Problems: map[string]model.Problem{}, Attempts: map[string]model.Attempt{}, Recommendations: map[string]practice.Recommendation{}, RecommendationDismissals: map[string][]practice.Dismissal{}, Mocks: map[string]mockinterviews.Interview{}, closeCompleted: map[string]map[string]bool{}, closeAssignmentStates: map[string]map[string]string{}, closeEventIDs: map[string]string{}, IdentityEventReceipts: map[string]bool{}, IdentityEventHashes: map[string]string{}, GlobalRoleAssignments: map[string]accounts.GlobalRoleAssignment{}, MFAConfigured: map[string]bool{}}
 }
 
 func memoryPage[T any](items []T, boundary string, limit int, direction string, identity func(T) string) ([]T, bool, error) {
@@ -1129,10 +1129,10 @@ func (m *Memory) UpdateEnrollment(_ context.Context, enrollmentID string, revisi
 }
 
 // ListMentorships lists matching values.
-func (m *Memory) ListMentorships(_ context.Context, seasonID, boundary string, limit int, sortBy, direction, mentorUserID, studentUserID string) ([]model.Mentorship, bool, int64, error) {
+func (m *Memory) ListMentorships(_ context.Context, seasonID, boundary string, limit int, sortBy, direction, mentorUserID, studentUserID string) ([]programme.MentorshipRecord, bool, int64, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
-	items := []model.Mentorship{}
+	items := []programme.MentorshipRecord{}
 	for _, v := range m.Mentorships {
 		if v.SeasonID == seasonID && (mentorUserID == "" || v.MentorUserID == mentorUserID) && (studentUserID == "" || v.StudentUserID == studentUserID) {
 			items = append(items, v)
@@ -1146,12 +1146,12 @@ func (m *Memory) ListMentorships(_ context.Context, seasonID, boundary string, l
 		sort.Slice(items, func(i, j int) bool { return items[i].ID < items[j].ID })
 	}
 	total := int64(len(items))
-	page, more, err := memoryPage(items, boundary, limit, direction, func(v model.Mentorship) string { return v.ID })
+	page, more, err := memoryPage(items, boundary, limit, direction, func(v programme.MentorshipRecord) string { return v.ID })
 	return page, more, total, err
 }
 
 // CreateMentorship creates a value.
-func (m *Memory) CreateMentorship(_ context.Context, v model.Mentorship, actorID string, at time.Time) (model.Mentorship, error) {
+func (m *Memory) CreateMentorship(_ context.Context, v programme.MentorshipRecord, actorID string, at time.Time) (programme.MentorshipRecord, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	var mentorOK, studentOK bool
@@ -1163,11 +1163,11 @@ func (m *Memory) CreateMentorship(_ context.Context, v model.Mentorship, actorID
 		studentOK = studentOK || (enrollment.UserID == v.StudentUserID && enrollment.Role == "student")
 	}
 	if !mentorOK || !studentOK {
-		return model.Mentorship{}, ErrConflict
+		return programme.MentorshipRecord{}, ErrConflict
 	}
 	for _, old := range m.Mentorships {
 		if old.SeasonID == v.SeasonID && old.StudentUserID == v.StudentUserID {
-			return model.Mentorship{}, ErrDuplicate
+			return programme.MentorshipRecord{}, ErrDuplicate
 		}
 	}
 	m.Mentorships[v.ID] = v
@@ -1176,15 +1176,15 @@ func (m *Memory) CreateMentorship(_ context.Context, v model.Mentorship, actorID
 }
 
 // UpdateMentorship updates a value.
-func (m *Memory) UpdateMentorship(_ context.Context, seasonID, mentorshipID string, revision int64, mentorUserID, studentUserID, actorID string, at time.Time) (model.Mentorship, error) {
+func (m *Memory) UpdateMentorship(_ context.Context, seasonID, mentorshipID string, revision int64, mentorUserID, studentUserID, actorID string, at time.Time) (programme.MentorshipRecord, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	v, ok := m.Mentorships[mentorshipID]
 	if !ok || v.SeasonID != seasonID {
-		return model.Mentorship{}, ErrNotFound
+		return programme.MentorshipRecord{}, ErrNotFound
 	}
 	if v.Revision != revision {
-		return model.Mentorship{}, ErrConflict
+		return programme.MentorshipRecord{}, ErrConflict
 	}
 	var mentorOK, studentOK bool
 	for _, enrollment := range m.Enrollments {
@@ -1195,11 +1195,11 @@ func (m *Memory) UpdateMentorship(_ context.Context, seasonID, mentorshipID stri
 		studentOK = studentOK || (enrollment.UserID == studentUserID && enrollment.Role == "student")
 	}
 	if !mentorOK || !studentOK || mentorUserID == studentUserID {
-		return model.Mentorship{}, ErrConflict
+		return programme.MentorshipRecord{}, ErrConflict
 	}
 	for id, other := range m.Mentorships {
 		if id != mentorshipID && other.SeasonID == seasonID && other.StudentUserID == studentUserID {
-			return model.Mentorship{}, ErrDuplicate
+			return programme.MentorshipRecord{}, ErrDuplicate
 		}
 	}
 	v.MentorUserID, v.StudentUserID, v.Revision = mentorUserID, studentUserID, v.Revision+1

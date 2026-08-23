@@ -13,6 +13,7 @@ import (
 	"github.com/magedmg/RSP-website/backend/internal/mockinterviews"
 	"github.com/magedmg/RSP-website/backend/internal/model"
 	"github.com/magedmg/RSP-website/backend/internal/practice"
+	"github.com/magedmg/RSP-website/backend/internal/programme"
 )
 
 type operationSuccessCase struct {
@@ -58,7 +59,7 @@ func TestEveryProtectedOpenAPIOperationHasExecutablePrimarySuccess(t *testing.T)
 	}
 	seedMentorship := func(f *fixture) {
 		seedMentorshipParties(f)
-		f.repository.Mentorships["mentorship"] = model.Mentorship{ID: "mentorship", SeasonID: "season", MentorUserID: "mentor-a", StudentUserID: "other", Revision: 1}
+		f.repository.Mentorships["mentorship"] = programme.MentorshipRecord{ID: "mentorship", SeasonID: "season", MentorUserID: "mentor-a", StudentUserID: "other", Revision: 1}
 	}
 	seedMock := func(f *fixture, interviewerID, intervieweeID string) {
 		seedStudent(f)
@@ -185,7 +186,7 @@ func TestMutableResourceFamiliesRejectStaleRevisionsWithCompleteProblems(t *test
 		{"mentorship", http.MethodPatch, "/api/v2/seasons/season/mentorships/mentorship", "coordinator", `{"mentorUserId":"mentor","studentUserId":"other","revision":99}`, http.StatusConflict, func(f *fixture) {
 			f.repository.Users["mentor"] = accounts.User{ID: "mentor", Slug: "mentor", Name: "Mentor", AccountState: "active", Revision: 1}
 			f.repository.Enrollments["mentor-enrollment"] = model.Enrollment{ID: "mentor-enrollment", SeasonID: "season", UserID: "mentor", Role: "mentor", State: "active", AssignmentState: "active", Revision: 1}
-			f.repository.Mentorships["mentorship"] = model.Mentorship{ID: "mentorship", SeasonID: "season", MentorUserID: "mentor", StudentUserID: "other", Revision: 1}
+			f.repository.Mentorships["mentorship"] = programme.MentorshipRecord{ID: "mentorship", SeasonID: "season", MentorUserID: "mentor", StudentUserID: "other", Revision: 1}
 		}},
 		{"attempt", http.MethodPatch, "/api/v2/problem-attempts/owned", "student", attemptBody, http.StatusConflict, nil},
 		{"recommendation dismissal", http.MethodPost, "/api/v2/recommendations/current/dismiss", "student", `{"reason":"later","revision":99}`, http.StatusConflict, func(f *fixture) {

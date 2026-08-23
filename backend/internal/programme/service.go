@@ -53,6 +53,15 @@ type SeasonRecord struct {
 	Revision     int64     `json:"revision"`
 }
 
+// MentorshipRecord assigns a mentor to a student within a season.
+type MentorshipRecord struct {
+	ID            string `json:"id"`
+	SeasonID      string `json:"seasonId"`
+	MentorUserID  string `json:"mentorUserId"`
+	StudentUserID string `json:"studentUserId"`
+	Revision      int64  `json:"revision"`
+}
+
 // CloseEvent represents a backend data structure.
 type CloseEvent struct {
 	ID, ActorID, Reason string

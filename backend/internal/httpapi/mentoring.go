@@ -403,7 +403,7 @@ func (a *API) listMentorships(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	writeJSON(w, 200, Page[model.Mentorship]{Items: items, PageInfo: pageInfoForKeyset(a, binding, direction, boundary, items, more, func(v model.Mentorship) string { return v.ID }), TotalCount: total})
+	writeJSON(w, 200, Page[programme.MentorshipRecord]{Items: items, PageInfo: pageInfoForKeyset(a, binding, direction, boundary, items, more, func(v programme.MentorshipRecord) string { return v.ID }), TotalCount: total})
 }
 
 func (a *API) createMentorship(w http.ResponseWriter, r *http.Request) {
@@ -420,7 +420,7 @@ func (a *API) createMentorship(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	v := model.Mentorship{ID: id.New(), SeasonID: r.PathValue("id"), MentorUserID: in.MentorUserID, StudentUserID: in.StudentUserID, Revision: 1}
+	v := programme.MentorshipRecord{ID: id.New(), SeasonID: r.PathValue("id"), MentorUserID: in.MentorUserID, StudentUserID: in.StudentUserID, Revision: 1}
 	actor := actorFrom(r.Context())
 	created, err := a.store.CreateMentorship(r.Context(), v, actor.UserID, time.Now().UTC())
 	if err != nil {
