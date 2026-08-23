@@ -25,7 +25,7 @@ type Memory struct {
 	Users                    map[string]accounts.User
 	PracticeSettings         map[string]model.PracticeSettings
 	AuthSubjects             map[string]authz.Actor
-	Seasons                  map[string]model.Season
+	Seasons                  map[string]programme.SeasonRecord
 	Weeks                    map[string]model.Week
 	Enrollments              map[string]model.Enrollment
 	Mentorships              map[string]model.Mentorship
@@ -47,7 +47,7 @@ type Memory struct {
 
 // NewMemory creates a new value.
 func NewMemory() *Memory {
-	return &Memory{Users: map[string]accounts.User{}, PracticeSettings: map[string]model.PracticeSettings{}, AuthSubjects: map[string]authz.Actor{}, Seasons: map[string]model.Season{}, Weeks: map[string]model.Week{}, Enrollments: map[string]model.Enrollment{}, Mentorships: map[string]model.Mentorship{}, Problems: map[string]model.Problem{}, Attempts: map[string]model.Attempt{}, Recommendations: map[string]practice.Recommendation{}, RecommendationDismissals: map[string][]practice.Dismissal{}, Mocks: map[string]mockinterviews.Interview{}, closeCompleted: map[string]map[string]bool{}, closeAssignmentStates: map[string]map[string]string{}, closeEventIDs: map[string]string{}, IdentityEventReceipts: map[string]bool{}, IdentityEventHashes: map[string]string{}, GlobalRoleAssignments: map[string]accounts.GlobalRoleAssignment{}, MFAConfigured: map[string]bool{}}
+	return &Memory{Users: map[string]accounts.User{}, PracticeSettings: map[string]model.PracticeSettings{}, AuthSubjects: map[string]authz.Actor{}, Seasons: map[string]programme.SeasonRecord{}, Weeks: map[string]model.Week{}, Enrollments: map[string]model.Enrollment{}, Mentorships: map[string]model.Mentorship{}, Problems: map[string]model.Problem{}, Attempts: map[string]model.Attempt{}, Recommendations: map[string]practice.Recommendation{}, RecommendationDismissals: map[string][]practice.Dismissal{}, Mocks: map[string]mockinterviews.Interview{}, closeCompleted: map[string]map[string]bool{}, closeAssignmentStates: map[string]map[string]string{}, closeEventIDs: map[string]string{}, IdentityEventReceipts: map[string]bool{}, IdentityEventHashes: map[string]string{}, GlobalRoleAssignments: map[string]accounts.GlobalRoleAssignment{}, MFAConfigured: map[string]bool{}}
 }
 
 func memoryPage[T any](items []T, boundary string, limit int, direction string, identity func(T) string) ([]T, bool, error) {
@@ -651,21 +651,21 @@ func (m *Memory) EnablePracticeGoals(_ context.Context, userID string, revision 
 }
 
 // GetSeason retrieves a value.
-func (m *Memory) GetSeason(_ context.Context, id string) (model.Season, error) {
+func (m *Memory) GetSeason(_ context.Context, id string) (programme.SeasonRecord, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 	v, ok := m.Seasons[id]
 	if !ok {
-		return model.Season{}, ErrNotFound
+		return programme.SeasonRecord{}, ErrNotFound
 	}
 	return v, nil
 }
 
 // ListSeasons lists matching values.
-func (m *Memory) ListSeasons(_ context.Context, boundary string, limit int, direction, status string) ([]model.Season, bool, int64, error) {
+func (m *Memory) ListSeasons(_ context.Context, boundary string, limit int, direction, status string) ([]programme.SeasonRecord, bool, int64, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
-	items := make([]model.Season, 0, len(m.Seasons))
+	items := make([]programme.SeasonRecord, 0, len(m.Seasons))
 	var total int64
 	for _, v := range m.Seasons {
 		if status != "" && v.Status != status {
@@ -691,15 +691,15 @@ func (m *Memory) ListSeasons(_ context.Context, boundary string, limit int, dire
 }
 
 // CreateSeason creates a value.
-func (m *Memory) CreateSeason(_ context.Context, v model.Season, actorID string, at time.Time) (model.Season, error) {
+func (m *Memory) CreateSeason(_ context.Context, v programme.SeasonRecord, actorID string, at time.Time) (programme.SeasonRecord, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	if _, ok := m.Seasons[v.ID]; ok {
-		return model.Season{}, ErrDuplicate
+		return programme.SeasonRecord{}, ErrDuplicate
 	}
 	for _, old := range m.Seasons {
 		if old.Slug == v.Slug {
-			return model.Season{}, ErrDuplicate
+			return programme.SeasonRecord{}, ErrDuplicate
 		}
 	}
 	m.Seasons[v.ID] = v
@@ -708,28 +708,28 @@ func (m *Memory) CreateSeason(_ context.Context, v model.Season, actorID string,
 }
 
 // UpdateSeason updates a value.
-func (m *Memory) UpdateSeason(_ context.Context, id string, revision int64, fn func(*model.Season) error, actorID string, at time.Time) (model.Season, error) {
+func (m *Memory) UpdateSeason(_ context.Context, id string, revision int64, fn func(*programme.SeasonRecord) error, actorID string, at time.Time) (programme.SeasonRecord, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	v, ok := m.Seasons[id]
 	if !ok {
-		return model.Season{}, ErrNotFound
+		return programme.SeasonRecord{}, ErrNotFound
 	}
 	if v.Revision != revision || v.Status != "open" {
-		return model.Season{}, ErrConflict
+		return programme.SeasonRecord{}, ErrConflict
 	}
 	if err := fn(&v); err != nil {
-		return model.Season{}, err
+		return programme.SeasonRecord{}, err
 	}
 
 	for _, week := range m.Weeks {
 		if week.SeasonID == id && (week.StartAt.Before(v.StartAt) || week.EndAt.After(v.EndAt)) {
-			return model.Season{}, ErrConflict
+			return programme.SeasonRecord{}, ErrConflict
 		}
 	}
 	for _, interview := range m.Mocks {
 		if interview.SeasonID != nil && *interview.SeasonID == id && (interview.OccurredAt.Before(v.StartAt) || interview.OccurredAt.After(v.EndAt)) {
-			return model.Season{}, ErrConflict
+			return programme.SeasonRecord{}, ErrConflict
 		}
 	}
 	v.Revision++
@@ -739,15 +739,15 @@ func (m *Memory) UpdateSeason(_ context.Context, id string, revision int64, fn f
 }
 
 // CloseSeason closes a value.
-func (m *Memory) CloseSeason(_ context.Context, seasonID string, revision int64, actorID, reason string, at time.Time) (model.Season, error) {
+func (m *Memory) CloseSeason(_ context.Context, seasonID string, revision int64, actorID, reason string, at time.Time) (programme.SeasonRecord, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	v, ok := m.Seasons[seasonID]
 	if !ok {
-		return model.Season{}, ErrNotFound
+		return programme.SeasonRecord{}, ErrNotFound
 	}
 	if v.Revision != revision {
-		return model.Season{}, ErrConflict
+		return programme.SeasonRecord{}, ErrConflict
 	}
 	domainSeason := programme.Season{ID: v.ID, Status: v.Status, Revision: v.Revision}
 	for _, enrollment := range m.Enrollments {
@@ -757,7 +757,7 @@ func (m *Memory) CloseSeason(_ context.Context, seasonID string, revision int64,
 	}
 	transition, err := programme.Close(domainSeason, actorID, reason, id.New(), at)
 	if err != nil {
-		return model.Season{}, ErrConflict
+		return programme.SeasonRecord{}, ErrConflict
 	}
 	v.Status = transition.Season.Status
 	v.Revision = transition.Season.Revision
@@ -784,15 +784,15 @@ func (m *Memory) CloseSeason(_ context.Context, seasonID string, revision int64,
 }
 
 // ReopenSeason reopens a value.
-func (m *Memory) ReopenSeason(_ context.Context, seasonID string, revision int64, actorID, reason string, at time.Time) (model.Season, error) {
+func (m *Memory) ReopenSeason(_ context.Context, seasonID string, revision int64, actorID, reason string, at time.Time) (programme.SeasonRecord, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	v, ok := m.Seasons[seasonID]
 	if !ok {
-		return model.Season{}, ErrNotFound
+		return programme.SeasonRecord{}, ErrNotFound
 	}
 	if v.Revision != revision {
-		return model.Season{}, ErrConflict
+		return programme.SeasonRecord{}, ErrConflict
 	}
 	domainSeason := programme.Season{ID: v.ID, Status: v.Status, Revision: v.Revision}
 	closeID := m.closeEventIDs[seasonID]
@@ -818,7 +818,7 @@ func (m *Memory) ReopenSeason(_ context.Context, seasonID string, revision int64
 	}
 	reopened, err := programme.Reopen(domainSeason, programme.CloseEvent{ID: closeID}, programme.SystemAdmin)
 	if err != nil {
-		return model.Season{}, ErrConflict
+		return programme.SeasonRecord{}, ErrConflict
 	}
 	v.Status = reopened.Status
 	v.Revision = reopened.Revision

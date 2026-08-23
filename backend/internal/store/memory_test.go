@@ -11,11 +11,12 @@ import (
 	"github.com/magedmg/RSP-website/backend/internal/mockinterviews"
 	"github.com/magedmg/RSP-website/backend/internal/model"
 	"github.com/magedmg/RSP-website/backend/internal/practice"
+	"github.com/magedmg/RSP-website/backend/internal/programme"
 )
 
 func TestMemoryCloseReopenRestoresOnlyCloseCompletedEnrollments(t *testing.T) {
 	repository := NewMemory()
-	repository.Seasons["season"] = model.Season{ID: "season", Slug: "season", Status: "open", Revision: 1}
+	repository.Seasons["season"] = programme.SeasonRecord{ID: "season", Slug: "season", Status: "open", Revision: 1}
 	repository.Enrollments["active"] = model.Enrollment{ID: "active", SeasonID: "season", UserID: "student", Role: "student", State: "active", Revision: 1}
 	repository.Enrollments["kicked"] = model.Enrollment{ID: "kicked", SeasonID: "season", UserID: "former", Role: "student", State: "kicked", Revision: 2}
 
@@ -41,7 +42,7 @@ func TestMemoryCoordinatorMFAStateSurvivesCloseReopen(t *testing.T) {
 	repository := NewMemory()
 	repository.Users["coordinator"] = accounts.User{ID: "coordinator", Slug: "coordinator", AccountState: "active", Revision: 1}
 	repository.MFAConfigured["coordinator"] = true
-	repository.Seasons["season"] = model.Season{ID: "season", Slug: "season", Status: "open", Revision: 1}
+	repository.Seasons["season"] = programme.SeasonRecord{ID: "season", Slug: "season", Status: "open", Revision: 1}
 
 	enrollment, err := repository.CreateEnrollment(ctx, model.Enrollment{ID: "coordinator-enrollment", SeasonID: "season", UserID: "coordinator", Role: "coordinator", State: "active", Revision: 1}, "admin", time.Now())
 	if err != nil || enrollment.AssignmentState != "active" {
@@ -176,7 +177,7 @@ func TestMemoryMentoringRecommendationAndMockStateSurvivesAPIRestart(t *testing.
 	repository.Users["mentor"] = accounts.User{ID: "mentor", AccountState: "active"}
 	repository.Users["student"] = accounts.User{ID: "student", AccountState: "active"}
 	repository.Problems["problem"] = model.Problem{ID: "problem", Number: 1, Title: "Problem", Link: "https://rsp.test/problem", Difficulty: "easy", Categories: []string{"arrays"}, Revision: 1}
-	repository.Seasons["season"] = model.Season{ID: "season", Slug: "season", Status: "open", StartAt: seasonStart, EndAt: seasonStart.Add(14 * 24 * time.Hour), Revision: 1}
+	repository.Seasons["season"] = programme.SeasonRecord{ID: "season", Slug: "season", Status: "open", StartAt: seasonStart, EndAt: seasonStart.Add(14 * 24 * time.Hour), Revision: 1}
 	for _, enrollment := range []model.Enrollment{
 		{ID: "mentor-enrollment", SeasonID: "season", UserID: "mentor", Role: "mentor", State: "active", Revision: 1},
 		{ID: "student-enrollment", SeasonID: "season", UserID: "student", Role: "student", State: "active", StudentLevel: "beginner", Revision: 1},

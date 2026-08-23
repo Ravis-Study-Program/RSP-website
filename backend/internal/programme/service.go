@@ -39,6 +39,20 @@ type Season struct {
 	Enrollments []Enrollment
 }
 
+// SeasonRecord is the persisted and HTTP-facing season representation.
+type SeasonRecord struct {
+	ID           string    `json:"id"`
+	Slug         string    `json:"slug"`
+	Name         string    `json:"name"`
+	Status       string    `json:"status"`
+	StartAt      time.Time `json:"startAt"`
+	EndAt        time.Time `json:"endAt"`
+	Location     string    `json:"location"`
+	ImageURL     string    `json:"imageUrl"`
+	ResourcesURL string    `json:"resourcesUrl"`
+	Revision     int64     `json:"revision"`
+}
+
 // CloseEvent represents a backend data structure.
 type CloseEvent struct {
 	ID, ActorID, Reason string

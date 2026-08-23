@@ -13,20 +13,6 @@ type PracticeSettings struct {
 	Revision      int64 `json:"revision"`
 }
 
-// Season represents a backend data structure.
-type Season struct {
-	ID           string    `json:"id"`
-	Slug         string    `json:"slug"`
-	Name         string    `json:"name"`
-	Status       string    `json:"status"`
-	StartAt      time.Time `json:"startAt"`
-	EndAt        time.Time `json:"endAt"`
-	Location     string    `json:"location"`
-	ImageURL     string    `json:"imageUrl"`
-	ResourcesURL string    `json:"resourcesUrl"`
-	Revision     int64     `json:"revision"`
-}
-
 // Week represents a backend data structure.
 type Week struct {
 	ID          string    `json:"id"`

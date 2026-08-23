@@ -9,9 +9,9 @@ import (
 
 	"github.com/magedmg/RSP-website/backend/internal/accounts"
 	"github.com/magedmg/RSP-website/backend/internal/authz"
-	"github.com/magedmg/RSP-website/backend/internal/model"
 	"github.com/magedmg/RSP-website/backend/internal/platform/cursor"
 	"github.com/magedmg/RSP-website/backend/internal/platform/id"
+	"github.com/magedmg/RSP-website/backend/internal/programme"
 	"github.com/magedmg/RSP-website/backend/internal/store"
 )
 
@@ -278,12 +278,12 @@ func (a *API) seasons(w http.ResponseWriter, r *http.Request) {
 			storeFailure(a, w, r, listErr)
 			return
 		}
-		pageInfo := pageInfoForKeyset(a, binding, direction, boundary, items, more, func(v model.Season) string { return v.ID })
-		writeJSON(w, 200, Page[model.Season]{Items: items, PageInfo: pageInfo, TotalCount: total})
+		pageInfo := pageInfoForKeyset(a, binding, direction, boundary, items, more, func(v programme.SeasonRecord) string { return v.ID })
+		writeJSON(w, 200, Page[programme.SeasonRecord]{Items: items, PageInfo: pageInfo, TotalCount: total})
 		return
 	}
 
-	items := []model.Season{}
+	items := []programme.SeasonRecord{}
 	seen := map[string]bool{}
 	for _, enrollment := range actor.Enrollments {
 		if seen[enrollment.SeasonID] || !canViewSeason(actor, enrollment.SeasonID) {
@@ -302,13 +302,13 @@ func (a *API) seasons(w http.ResponseWriter, r *http.Request) {
 	}
 
 	sort.Slice(items, func(i, j int) bool { return items[i].ID < items[j].ID })
-	page, pageInfo, err := paginateOrdered(a, r, binding, items, func(v model.Season) string { return v.ID })
+	page, pageInfo, err := paginateOrdered(a, r, binding, items, func(v programme.SeasonRecord) string { return v.ID })
 	if err != nil {
 		a.fail(w, r, 400, "invalid_cursor", "Invalid cursor", "The cursor does not match the selected season sort.", nil)
 		return
 	}
 
-	writeJSON(w, 200, Page[model.Season]{Items: page, PageInfo: pageInfo, TotalCount: int64(len(items))})
+	writeJSON(w, 200, Page[programme.SeasonRecord]{Items: page, PageInfo: pageInfo, TotalCount: int64(len(items))})
 }
 
 func (a *API) season(w http.ResponseWriter, r *http.Request) {
@@ -411,7 +411,7 @@ func (a *API) createSeason(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	v := model.Season{ID: id.New(), Slug: in.Slug, Name: in.Name, Status: "open", StartAt: in.StartAt.UTC(), EndAt: in.EndAt.UTC(), Location: in.Location, ImageURL: in.ImageURL, ResourcesURL: in.ResourcesURL, Revision: 1}
+	v := programme.SeasonRecord{ID: id.New(), Slug: in.Slug, Name: in.Name, Status: "open", StartAt: in.StartAt.UTC(), EndAt: in.EndAt.UTC(), Location: in.Location, ImageURL: in.ImageURL, ResourcesURL: in.ResourcesURL, Revision: 1}
 	created, err := a.store.CreateSeason(r.Context(), v, actor.UserID, time.Now().UTC())
 	if err != nil {
 		storeFailure(a, w, r, err)
@@ -446,7 +446,7 @@ func (a *API) updateSeason(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	updated, err := a.store.UpdateSeason(r.Context(), seasonID, in.Revision, func(v *model.Season) error {
+	updated, err := a.store.UpdateSeason(r.Context(), seasonID, in.Revision, func(v *programme.SeasonRecord) error {
 		v.Name = in.Name
 		v.Slug = in.Slug
 		v.Location = in.Location
@@ -482,7 +482,7 @@ func (a *API) updateSeasonResources(w http.ResponseWriter, r *http.Request) {
 	}
 
 	actor := actorFrom(r.Context())
-	updated, err := a.store.UpdateSeason(r.Context(), seasonID, in.Revision, func(v *model.Season) error {
+	updated, err := a.store.UpdateSeason(r.Context(), seasonID, in.Revision, func(v *programme.SeasonRecord) error {
 		v.ResourcesURL = in.ResourcesURL
 		return nil
 	}, actor.UserID, time.Now().UTC())

@@ -16,6 +16,7 @@ import (
 	"github.com/magedmg/RSP-website/backend/internal/model"
 	"github.com/magedmg/RSP-website/backend/internal/platform/audit"
 	"github.com/magedmg/RSP-website/backend/internal/practice"
+	"github.com/magedmg/RSP-website/backend/internal/programme"
 	"github.com/pressly/goose/v3"
 	"github.com/testcontainers/testcontainers-go"
 	postgrescontainer "github.com/testcontainers/testcontainers-go/modules/postgres"
@@ -120,11 +121,11 @@ func TestPostgres18MigrationsAndRepository(t *testing.T) {
 		t.Fatalf("stale lifecycle event applied: actor=%#v err=%v", actor, err)
 	}
 
-	season, err := repository.CreateSeason(ctx, model.Season{ID: "00000000-0000-7000-8000-000000000028", Slug: "00000000-0000-7000-8000-000000000028", Name: "Integration Season", Status: "open", StartAt: time.Now().UTC(), EndAt: time.Now().UTC().Add(24 * time.Hour), Revision: 1}, "00000000-0000-7000-8000-000000000033", time.Now())
+	season, err := repository.CreateSeason(ctx, programme.SeasonRecord{ID: "00000000-0000-7000-8000-000000000028", Slug: "00000000-0000-7000-8000-000000000028", Name: "Integration Season", Status: "open", StartAt: time.Now().UTC(), EndAt: time.Now().UTC().Add(24 * time.Hour), Revision: 1}, "00000000-0000-7000-8000-000000000033", time.Now())
 	if err != nil || season.Revision != 1 {
 		t.Fatalf("create season: %#v %v", season, err)
 	}
-	if _, err := repository.UpdateSeason(ctx, season.ID, 99, func(*model.Season) error { return nil }, "00000000-0000-7000-8000-000000000033", time.Now()); err != ErrConflict {
+	if _, err := repository.UpdateSeason(ctx, season.ID, 99, func(*programme.SeasonRecord) error { return nil }, "00000000-0000-7000-8000-000000000033", time.Now()); err != ErrConflict {
 		t.Fatalf("stale revision returned %v", err)
 	}
 
@@ -326,7 +327,7 @@ func TestPostgres18MigrationsAndRepository(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	updatedSeason, err := repository.UpdateSeason(ctx, season.ID, currentSeason.Revision, func(value *model.Season) error {
+	updatedSeason, err := repository.UpdateSeason(ctx, season.ID, currentSeason.Revision, func(value *programme.SeasonRecord) error {
 		value.Location = "Updated Adelaide"
 		return nil
 	}, "00000000-0000-7000-8000-000000000033", time.Now().UTC())

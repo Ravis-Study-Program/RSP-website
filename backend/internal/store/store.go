@@ -12,6 +12,7 @@ import (
 	"github.com/magedmg/RSP-website/backend/internal/model"
 	"github.com/magedmg/RSP-website/backend/internal/platform/audit"
 	"github.com/magedmg/RSP-website/backend/internal/practice"
+	"github.com/magedmg/RSP-website/backend/internal/programme"
 )
 
 var (
@@ -49,12 +50,12 @@ type Repository interface {
 	GetPracticeSettings(context.Context, string) (model.PracticeSettings, error)
 	UpdatePracticeSettings(context.Context, string, int64, bool, int, int, int, string, time.Time) (model.PracticeSettings, error)
 	EnablePracticeGoals(context.Context, string, int64, string, string, time.Time) (model.PracticeSettings, error)
-	GetSeason(context.Context, string) (model.Season, error)
-	ListSeasons(context.Context, string, int, string, string) ([]model.Season, bool, int64, error)
-	CreateSeason(context.Context, model.Season, string, time.Time) (model.Season, error)
-	UpdateSeason(context.Context, string, int64, func(*model.Season) error, string, time.Time) (model.Season, error)
-	CloseSeason(context.Context, string, int64, string, string, time.Time) (model.Season, error)
-	ReopenSeason(context.Context, string, int64, string, string, time.Time) (model.Season, error)
+	GetSeason(context.Context, string) (programme.SeasonRecord, error)
+	ListSeasons(context.Context, string, int, string, string) ([]programme.SeasonRecord, bool, int64, error)
+	CreateSeason(context.Context, programme.SeasonRecord, string, time.Time) (programme.SeasonRecord, error)
+	UpdateSeason(context.Context, string, int64, func(*programme.SeasonRecord) error, string, time.Time) (programme.SeasonRecord, error)
+	CloseSeason(context.Context, string, int64, string, string, time.Time) (programme.SeasonRecord, error)
+	ReopenSeason(context.Context, string, int64, string, string, time.Time) (programme.SeasonRecord, error)
 	ListWeeks(context.Context, string, string, int, string, string) ([]model.Week, bool, int64, error)
 	CreateWeek(context.Context, model.Week, string, time.Time) (model.Week, error)
 	UpdateWeek(context.Context, string, string, int64, model.Week, string, time.Time) (model.Week, error)

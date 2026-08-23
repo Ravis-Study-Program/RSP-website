@@ -9,6 +9,7 @@ import (
 	"github.com/magedmg/RSP-website/backend/internal/authz"
 	"github.com/magedmg/RSP-website/backend/internal/model"
 	"github.com/magedmg/RSP-website/backend/internal/platform/id"
+	"github.com/magedmg/RSP-website/backend/internal/programme"
 )
 
 func (a *API) canViewSeason(r *http.Request, seasonID string) bool {
@@ -20,11 +21,11 @@ func (a *API) canViewSeason(r *http.Request, seasonID string) bool {
 	return ok && (enrollment.State == authz.Active || enrollment.State == authz.Completed && actor.EligibleMember())
 }
 
-func (a *API) seasonAdmin(r *http.Request) (model.Season, bool) {
+func (a *API) seasonAdmin(r *http.Request) (programme.SeasonRecord, bool) {
 	seasonID := r.PathValue("id")
 	season, err := a.store.GetSeason(r.Context(), seasonID)
 	if err != nil {
-		return model.Season{}, false
+		return programme.SeasonRecord{}, false
 	}
 
 	actor := actorFrom(r.Context())
