@@ -121,3 +121,15 @@ func TestRejectsUnavailableStateAndMissingSecurityVersion(t *testing.T) {
 		}
 	}
 }
+
+func TestValidateClaimsIsPure(t *testing.T) {
+	claims := Claims{EmailVerified: true, AccountState: "active", SecurityVersion: 1}
+	if err := ValidateClaims(claims); err != nil {
+		t.Fatal(err)
+	}
+
+	claims.AccountState = "suspended"
+	if err := ValidateClaims(claims); !errors.Is(err, ErrAccountUnavailable) {
+		t.Fatalf("suspended claims returned %v", err)
+	}
+}

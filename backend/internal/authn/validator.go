@@ -86,6 +86,19 @@ type Validator struct {
 	loadedAt                  time.Time
 }
 
+// ValidateClaims checks the application-level claims after JWT signature and
+// registered-claim validation have completed. It is pure and easy to test
+// without a network or key cache.
+func ValidateClaims(claims Claims) error {
+	if !claims.EmailVerified {
+		return ErrUnverified
+	}
+	if claims.AccountState != "active" || claims.SecurityVersion < 1 {
+		return ErrAccountUnavailable
+	}
+	return nil
+}
+
 // Validate validates a value.
 func (v *Validator) Validate(ctx context.Context, raw string) (Claims, error) {
 	if v.Client == nil {
@@ -121,11 +134,8 @@ func (v *Validator) Validate(ctx context.Context, raw string) (Claims, error) {
 	if err != nil || !token.Valid || claims.Subject == "" {
 		return Claims{}, fmt.Errorf("%w: %v", ErrInvalidToken, err)
 	}
-	if !claims.EmailVerified {
-		return Claims{}, ErrUnverified
-	}
-	if claims.AccountState != "active" || claims.SecurityVersion < 1 {
-		return Claims{}, ErrAccountUnavailable
+	if err := ValidateClaims(claims); err != nil {
+		return Claims{}, err
 	}
 	return claims, nil
 }
