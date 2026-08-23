@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"time"
+
+	"github.com/magedmg/RSP-website/backend/internal/authz"
 )
 
 // Version records an immutable interview snapshot.
@@ -20,6 +22,13 @@ type Version struct {
 type Repository interface {
 	CreateMockInterview(context.Context, Interview, string, time.Time) (Interview, error)
 	UpdateMockInterview(context.Context, Interview, string, string, time.Time) (Interview, error)
+}
+
+// ReadRepository defines the persistence port needed by interview queries.
+type ReadRepository interface {
+	ListMockInterviews(context.Context, authz.Actor, string, string, int, string, string) ([]Interview, bool, int64, error)
+	GetMockParticipant(context.Context, string) (Participant, error)
+	GetMockInterview(context.Context, string) (Interview, error)
 }
 
 // Application coordinates interview transitions and persistence.
