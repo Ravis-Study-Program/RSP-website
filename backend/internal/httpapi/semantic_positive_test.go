@@ -7,10 +7,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/magedmg/RSP-website/backend/internal/accounts"
 	"github.com/magedmg/RSP-website/backend/internal/authz"
 	"github.com/magedmg/RSP-website/backend/internal/mockinterviews"
 	"github.com/magedmg/RSP-website/backend/internal/model"
-	"github.com/magedmg/RSP-website/backend/internal/store"
 )
 
 func decodePage[T any](t *testing.T, body []byte) model.Page[T] {
@@ -230,7 +230,7 @@ func TestMockSuccessfulDeleteIsAbsentFromActiveLists(t *testing.T) {
 func TestAdminActiveNonmemberAndGlobalRoleRevokeAuditReason(t *testing.T) {
 	f := newFixture()
 	f.repository.Users["active-nonmember"] = model.User{ID: "active-nonmember", Slug: "active-nonmember", Name: "Active Nonmember", Email: "new@example.com", AccountState: "active", Timezone: "Australia/Adelaide", Revision: 1}
-	f.repository.GlobalRoleAssignments["other-director"] = store.GlobalRoleAssignment{ID: "other-director", UserID: "other", Role: "director", State: "active", Revision: 1}
+	f.repository.GlobalRoleAssignments["other-director"] = accounts.GlobalRoleAssignment{ID: "other-director", UserID: "other", Role: "director", State: "active", Revision: 1}
 
 	w := request(t, f, http.MethodGet, "/api/v2/admin/users?query=Active%20Nonmember", "admin", "")
 	page := decodePage[model.User](t, w.Body.Bytes())

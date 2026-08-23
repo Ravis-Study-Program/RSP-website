@@ -7,12 +7,12 @@ import (
 	"testing"
 	"time"
 
+	"github.com/magedmg/RSP-website/backend/internal/accounts"
 	"github.com/magedmg/RSP-website/backend/internal/authz"
 	"github.com/magedmg/RSP-website/backend/internal/generated"
 	"github.com/magedmg/RSP-website/backend/internal/mockinterviews"
 	"github.com/magedmg/RSP-website/backend/internal/model"
 	"github.com/magedmg/RSP-website/backend/internal/practice"
-	"github.com/magedmg/RSP-website/backend/internal/store"
 )
 
 type operationSuccessCase struct {
@@ -133,7 +133,7 @@ func TestEveryProtectedOpenAPIOperationHasExecutablePrimarySuccess(t *testing.T)
 		{"grantAdminUserGlobalRole", http.MethodPost, "/api/v2/admin/users/other/global-roles", "admin", `{"role":"director","reason":"programme oversight"}`, http.StatusCreated, nil},
 		{"listAdminUserGlobalRoles", http.MethodGet, "/api/v2/admin/users/other/global-roles", "admin", "", http.StatusOK, nil},
 		{"revokeAdminUserGlobalRole", http.MethodDelete, "/api/v2/admin/users/other/global-roles/director?revision=1&reason=role-ended", "admin", "", http.StatusOK, func(f *fixture) {
-			f.repository.GlobalRoleAssignments["other-director"] = store.GlobalRoleAssignment{ID: "other-director", UserID: "other", Role: "director", State: "active", Revision: 1}
+			f.repository.GlobalRoleAssignments["other-director"] = accounts.GlobalRoleAssignment{ID: "other-director", UserID: "other", Role: "director", State: "active", Revision: 1}
 		}},
 	}
 
@@ -198,7 +198,7 @@ func TestMutableResourceFamiliesRejectStaleRevisionsWithCompleteProblems(t *test
 		}},
 		{"account lifecycle", http.MethodPost, "/api/v2/admin/users/other/account-state", "admin", `{"state":"suspended","reason":"review","revision":99}`, http.StatusConflict, nil},
 		{"global role", http.MethodDelete, "/api/v2/admin/users/other/global-roles/director?revision=99&reason=ended", "admin", "", http.StatusConflict, func(f *fixture) {
-			f.repository.GlobalRoleAssignments["other-director"] = store.GlobalRoleAssignment{ID: "other-director", UserID: "other", Role: "director", State: "active", Revision: 1}
+			f.repository.GlobalRoleAssignments["other-director"] = accounts.GlobalRoleAssignment{ID: "other-director", UserID: "other", Role: "director", State: "active", Revision: 1}
 		}},
 	}
 	for _, testCase := range cases {

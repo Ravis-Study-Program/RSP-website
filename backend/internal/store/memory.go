@@ -40,13 +40,13 @@ type Memory struct {
 	Audits                   []model.AuditEvent
 	IdentityEventReceipts    map[string]bool
 	IdentityEventHashes      map[string]string
-	GlobalRoleAssignments    map[string]GlobalRoleAssignment
+	GlobalRoleAssignments    map[string]accounts.GlobalRoleAssignment
 	MFAConfigured            map[string]bool
 }
 
 // NewMemory creates a new value.
 func NewMemory() *Memory {
-	return &Memory{Users: map[string]model.User{}, PracticeSettings: map[string]model.PracticeSettings{}, AuthSubjects: map[string]authz.Actor{}, Seasons: map[string]model.Season{}, Weeks: map[string]model.Week{}, Enrollments: map[string]model.Enrollment{}, Mentorships: map[string]model.Mentorship{}, Problems: map[string]model.Problem{}, Attempts: map[string]model.Attempt{}, Recommendations: map[string]practice.Recommendation{}, RecommendationDismissals: map[string][]practice.Dismissal{}, Mocks: map[string]mockinterviews.Interview{}, closeCompleted: map[string]map[string]bool{}, closeAssignmentStates: map[string]map[string]string{}, closeEventIDs: map[string]string{}, IdentityEventReceipts: map[string]bool{}, IdentityEventHashes: map[string]string{}, GlobalRoleAssignments: map[string]GlobalRoleAssignment{}, MFAConfigured: map[string]bool{}}
+	return &Memory{Users: map[string]model.User{}, PracticeSettings: map[string]model.PracticeSettings{}, AuthSubjects: map[string]authz.Actor{}, Seasons: map[string]model.Season{}, Weeks: map[string]model.Week{}, Enrollments: map[string]model.Enrollment{}, Mentorships: map[string]model.Mentorship{}, Problems: map[string]model.Problem{}, Attempts: map[string]model.Attempt{}, Recommendations: map[string]practice.Recommendation{}, RecommendationDismissals: map[string][]practice.Dismissal{}, Mocks: map[string]mockinterviews.Interview{}, closeCompleted: map[string]map[string]bool{}, closeAssignmentStates: map[string]map[string]string{}, closeEventIDs: map[string]string{}, IdentityEventReceipts: map[string]bool{}, IdentityEventHashes: map[string]string{}, GlobalRoleAssignments: map[string]accounts.GlobalRoleAssignment{}, MFAConfigured: map[string]bool{}}
 }
 
 func memoryPage[T any](items []T, boundary string, limit int, direction string, identity func(T) string) ([]T, bool, error) {
@@ -287,22 +287,22 @@ func (m *Memory) ResolveAuthSubjectForUser(_ context.Context, userID string) (st
 }
 
 // GrantGlobalRole performs the operation.
-func (m *Memory) GrantGlobalRole(_ context.Context, userID, role string, activate bool, reason, actorID string, at time.Time) (GlobalRoleAssignment, error) {
+func (m *Memory) GrantGlobalRole(_ context.Context, userID, role string, activate bool, reason, actorID string, at time.Time) (accounts.GlobalRoleAssignment, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	if _, ok := m.Users[userID]; !ok {
-		return GlobalRoleAssignment{}, ErrNotFound
+		return accounts.GlobalRoleAssignment{}, ErrNotFound
 	}
 	for _, assignment := range m.GlobalRoleAssignments {
 		if assignment.UserID == userID && assignment.Role == role && assignment.State != "revoked" {
-			return GlobalRoleAssignment{}, ErrDuplicate
+			return accounts.GlobalRoleAssignment{}, ErrDuplicate
 		}
 	}
 	state := "pending_mfa"
 	if activate {
 		state = "active"
 	}
-	v := GlobalRoleAssignment{ID: id.New(), UserID: userID, Role: role, State: state, Revision: 1}
+	v := accounts.GlobalRoleAssignment{ID: id.New(), UserID: userID, Role: role, State: state, Revision: 1}
 	m.GlobalRoleAssignments[v.ID] = v
 	if activate {
 		for subject, targetActor := range m.AuthSubjects {
@@ -320,13 +320,13 @@ func (m *Memory) GrantGlobalRole(_ context.Context, userID, role string, activat
 }
 
 // ListGlobalRoles lists matching values.
-func (m *Memory) ListGlobalRoles(_ context.Context, userID string) ([]GlobalRoleAssignment, error) {
+func (m *Memory) ListGlobalRoles(_ context.Context, userID string) ([]accounts.GlobalRoleAssignment, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 	if _, ok := m.Users[userID]; !ok {
 		return nil, ErrNotFound
 	}
-	items := []GlobalRoleAssignment{}
+	items := []accounts.GlobalRoleAssignment{}
 	for _, assignment := range m.GlobalRoleAssignments {
 		if assignment.UserID == userID && assignment.State != "revoked" {
 			items = append(items, assignment)
@@ -337,7 +337,7 @@ func (m *Memory) ListGlobalRoles(_ context.Context, userID string) ([]GlobalRole
 }
 
 // RevokeGlobalRole performs the operation.
-func (m *Memory) RevokeGlobalRole(_ context.Context, userID, role string, revision int64, reason, actorID string, at time.Time) (GlobalRoleAssignment, error) {
+func (m *Memory) RevokeGlobalRole(_ context.Context, userID, role string, revision int64, reason, actorID string, at time.Time) (accounts.GlobalRoleAssignment, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	for assignmentID, assignment := range m.GlobalRoleAssignments {
@@ -345,7 +345,7 @@ func (m *Memory) RevokeGlobalRole(_ context.Context, userID, role string, revisi
 			continue
 		}
 		if assignment.Revision != revision {
-			return GlobalRoleAssignment{}, ErrConflict
+			return accounts.GlobalRoleAssignment{}, ErrConflict
 		}
 		assignment.State, assignment.Revision = "revoked", assignment.Revision+1
 		m.GlobalRoleAssignments[assignmentID] = assignment
@@ -358,7 +358,7 @@ func (m *Memory) RevokeGlobalRole(_ context.Context, userID, role string, revisi
 		m.appendAuditLocked(actorID, "global_role.revoked", "global_role_assignment", assignmentID, map[string]any{"userId": userID, "role": role, "reason": reason}, at)
 		return assignment, nil
 	}
-	return GlobalRoleAssignment{}, ErrNotFound
+	return accounts.GlobalRoleAssignment{}, ErrNotFound
 }
 
 // GetUser retrieves a value.

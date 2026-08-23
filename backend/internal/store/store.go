@@ -22,15 +22,6 @@ var (
 	ErrDuplicate = errors.New("duplicate")
 )
 
-// GlobalRoleAssignment represents a backend data structure.
-type GlobalRoleAssignment struct {
-	ID       string `json:"id"`
-	UserID   string `json:"userId"`
-	Role     string `json:"role"`
-	State    string `json:"state"`
-	Revision int64  `json:"revision"`
-}
-
 // MockVersion is a persistence record for an interview snapshot.
 type MockVersion struct {
 	InterviewID     string
@@ -75,9 +66,9 @@ type Repository interface {
 	ListEnrollmentCandidates(context.Context, string, string, string, int, string) ([]model.EnrollmentCandidate, bool, int64, error)
 	UpdateUser(context.Context, string, int64, func(*model.User) error, string, time.Time) (model.User, error)
 	ResolveAuthSubjectForUser(context.Context, string) (string, error)
-	GrantGlobalRole(context.Context, string, string, bool, string, string, time.Time) (GlobalRoleAssignment, error)
-	ListGlobalRoles(context.Context, string) ([]GlobalRoleAssignment, error)
-	RevokeGlobalRole(context.Context, string, string, int64, string, string, time.Time) (GlobalRoleAssignment, error)
+	GrantGlobalRole(context.Context, string, string, bool, string, string, time.Time) (accounts.GlobalRoleAssignment, error)
+	ListGlobalRoles(context.Context, string) ([]accounts.GlobalRoleAssignment, error)
+	RevokeGlobalRole(context.Context, string, string, int64, string, string, time.Time) (accounts.GlobalRoleAssignment, error)
 	GetPracticeSettings(context.Context, string) (model.PracticeSettings, error)
 	UpdatePracticeSettings(context.Context, string, int64, bool, int, int, int, string, time.Time) (model.PracticeSettings, error)
 	EnablePracticeGoals(context.Context, string, int64, string, string, time.Time) (model.PracticeSettings, error)

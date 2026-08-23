@@ -28,7 +28,6 @@ var (
 	ErrDuplicate = store.ErrDuplicate
 )
 
-type GlobalRoleAssignment = store.GlobalRoleAssignment
 type ObservabilitySnapshot = store.ObservabilitySnapshot
 type RecommendationSnapshot = store.RecommendationSnapshot
 
@@ -404,10 +403,10 @@ func (p *Postgres) ResolveAuthSubjectForUser(ctx context.Context, userID string)
 }
 
 // GrantGlobalRole performs the operation.
-func (p *Postgres) GrantGlobalRole(ctx context.Context, userID, role string, activate bool, reason, actorID string, at time.Time) (GlobalRoleAssignment, error) {
+func (p *Postgres) GrantGlobalRole(ctx context.Context, userID, role string, activate bool, reason, actorID string, at time.Time) (accounts.GlobalRoleAssignment, error) {
 	tx, err := p.Pool.Begin(ctx)
 	if err != nil {
-		return GlobalRoleAssignment{}, err
+		return accounts.GlobalRoleAssignment{}, err
 	}
 
 	defer tx.Rollback(ctx)
@@ -418,7 +417,7 @@ func (p *Postgres) GrantGlobalRole(ctx context.Context, userID, role string, act
 		activated := at.UTC()
 		activatedAt = &activated
 	}
-	v := GlobalRoleAssignment{ID: id.New(), UserID: userID, Role: role, State: state, Revision: 1}
+	v := accounts.GlobalRoleAssignment{ID: id.New(), UserID: userID, Role: role, State: state, Revision: 1}
 	err = tx.QueryRow(ctx, `INSERT INTO app.global_role_assignments(id,user_id,role,state,granted_by_user_id,granted_at,activated_at,revision) VALUES($1,$2,$3,$4,$5,$6,$7,1) ON CONFLICT(user_id,role) DO UPDATE SET state=$4,granted_by_user_id=$5,granted_at=$6,activated_at=$7,revoked_at=NULL,revision=app.global_role_assignments.revision+1 WHERE app.global_role_assignments.state='revoked' RETURNING id,state::text,revision`, v.ID, userID, role, state, actorID, at.UTC(), activatedAt).Scan(&v.ID, &v.State, &v.Revision)
 	if err != nil {
 		return v, mapPostgresError(err)
@@ -430,7 +429,7 @@ func (p *Postgres) GrantGlobalRole(ctx context.Context, userID, role string, act
 }
 
 // ListGlobalRoles lists matching values.
-func (p *Postgres) ListGlobalRoles(ctx context.Context, userID string) ([]GlobalRoleAssignment, error) {
+func (p *Postgres) ListGlobalRoles(ctx context.Context, userID string) ([]accounts.GlobalRoleAssignment, error) {
 	var exists bool
 	if err := p.Pool.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM app.users WHERE id=$1 AND deleted_at IS NULL)`, userID).Scan(&exists); err != nil {
 		return nil, err
@@ -444,9 +443,9 @@ func (p *Postgres) ListGlobalRoles(ctx context.Context, userID string) ([]Global
 	}
 
 	defer rows.Close()
-	items := []GlobalRoleAssignment{}
+	items := []accounts.GlobalRoleAssignment{}
 	for rows.Next() {
-		var assignment GlobalRoleAssignment
+		var assignment accounts.GlobalRoleAssignment
 		if err := rows.Scan(&assignment.ID, &assignment.UserID, &assignment.Role, &assignment.State, &assignment.Revision); err != nil {
 			return nil, err
 		}
@@ -457,14 +456,14 @@ func (p *Postgres) ListGlobalRoles(ctx context.Context, userID string) ([]Global
 }
 
 // RevokeGlobalRole performs the operation.
-func (p *Postgres) RevokeGlobalRole(ctx context.Context, userID, role string, revision int64, reason, actorID string, at time.Time) (GlobalRoleAssignment, error) {
+func (p *Postgres) RevokeGlobalRole(ctx context.Context, userID, role string, revision int64, reason, actorID string, at time.Time) (accounts.GlobalRoleAssignment, error) {
 	tx, err := p.Pool.Begin(ctx)
 	if err != nil {
-		return GlobalRoleAssignment{}, err
+		return accounts.GlobalRoleAssignment{}, err
 	}
 
 	defer tx.Rollback(ctx)
-	v := GlobalRoleAssignment{UserID: userID, Role: role}
+	v := accounts.GlobalRoleAssignment{UserID: userID, Role: role}
 	err = tx.QueryRow(ctx, `UPDATE app.global_role_assignments SET state='revoked',revoked_at=$4,activated_at=NULL,revision=revision+1 WHERE user_id=$1 AND role=$2 AND revision=$3 AND state<>'revoked' RETURNING id,state::text,revision`, userID, role, revision, at.UTC()).Scan(&v.ID, &v.State, &v.Revision)
 	if errors.Is(err, pgx.ErrNoRows) {
 		var current int64
