@@ -9,7 +9,6 @@ import (
 	"github.com/magedmg/RSP-website/backend/internal/authz"
 	"github.com/magedmg/RSP-website/backend/internal/mockinterviews"
 	"github.com/magedmg/RSP-website/backend/internal/model"
-	"github.com/magedmg/RSP-website/backend/internal/platform/id"
 )
 
 func (a *API) eligibleMockActor(r *http.Request) bool {
@@ -149,18 +148,10 @@ func (a *API) createMock(w http.ResponseWriter, r *http.Request) {
 	if !a.validMockSeason(w, r, in.SeasonID, in.OccurredAt, actor.UserID, interviewee.UserID) {
 		return
 	}
-	service := mockinterviews.Service{Sanitize: a.mockService.Sanitize}
 	now := time.Now().UTC()
-	v, err := service.Create(actor.UserID, mockinterviews.CreateInput{Interviewee: interviewee, SeasonID: in.SeasonID, OccurredAt: in.OccurredAt, DurationMinutes: in.DurationMinutes, Notes: in.Notes, Rounds: in.Rounds}, now)
+	v, err := a.mockService.Create(r.Context(), actor.UserID, mockinterviews.CreateInput{Interviewee: interviewee, SeasonID: in.SeasonID, OccurredAt: in.OccurredAt, DurationMinutes: in.DurationMinutes, Notes: in.Notes, Rounds: in.Rounds}, now)
 	if err != nil {
 		mockFailure(a, w, r, err)
-		return
-	}
-
-	v.ID = id.New()
-	v, err = a.store.CreateMockInterview(r.Context(), v, actor.UserID, now)
-	if err != nil {
-		storeFailure(a, w, r, err)
 		return
 	}
 
@@ -200,17 +191,10 @@ func (a *API) updateMock(w http.ResponseWriter, r *http.Request) {
 	if !a.mockSeasonWritable(w, r, v.SeasonID) {
 		return
 	}
-	service := mockinterviews.Service{Sanitize: a.mockService.Sanitize}
 	now := time.Now().UTC()
-	v, err = service.Update(v, actor.UserID, mockinterviews.UpdateInput{ExpectedRevision: in.Revision, OccurredAt: in.OccurredAt, DurationMinutes: in.DurationMinutes, Notes: in.Notes, Rounds: in.Rounds}, now)
+	v, err = a.mockService.Update(r.Context(), v, actor.UserID, mockinterviews.UpdateInput{ExpectedRevision: in.Revision, OccurredAt: in.OccurredAt, DurationMinutes: in.DurationMinutes, Notes: in.Notes, Rounds: in.Rounds}, now)
 	if err != nil {
 		mockFailure(a, w, r, err)
-		return
-	}
-
-	v, err = a.store.UpdateMockInterview(r.Context(), v, actor.UserID, "updated", now)
-	if err != nil {
-		storeFailure(a, w, r, err)
 		return
 	}
 
@@ -241,18 +225,12 @@ func (a *API) deleteMock(w http.ResponseWriter, r *http.Request) {
 	if !a.mockSeasonWritable(w, r, v.SeasonID) {
 		return
 	}
-	service := mockinterviews.Service{Sanitize: a.mockService.Sanitize}
 	now := time.Now().UTC()
-	v, err = service.Delete(v, actor.UserID, revision, now)
+	v, err = a.mockService.Delete(r.Context(), v, actor.UserID, revision, now)
 	if err != nil {
 		mockFailure(a, w, r, err)
 		return
 	}
-	if _, err := a.store.UpdateMockInterview(r.Context(), v, actor.UserID, "soft deleted", now); err != nil {
-		storeFailure(a, w, r, err)
-		return
-	}
-
 	w.WriteHeader(204)
 }
 
@@ -284,17 +262,10 @@ func (a *API) reviewRound(w http.ResponseWriter, r *http.Request) {
 	if !a.mockSeasonWritable(w, r, v.SeasonID) {
 		return
 	}
-	service := mockinterviews.Service{Sanitize: a.mockService.Sanitize}
 	now := time.Now().UTC()
-	v, err = service.Review(v, actor.UserID, r.PathValue("roundId"), in.Comment, in.Reviewed, in.Revision, now)
+	v, err = a.mockService.Review(r.Context(), v, actor.UserID, r.PathValue("roundId"), in.Comment, in.Reviewed, in.Revision, now)
 	if err != nil {
 		mockFailure(a, w, r, err)
-		return
-	}
-
-	v, err = a.store.UpdateMockInterview(r.Context(), v, actor.UserID, "interviewee review", now)
-	if err != nil {
-		storeFailure(a, w, r, err)
 		return
 	}
 
@@ -336,15 +307,9 @@ func (a *API) correctMockIdentities(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	now := time.Now().UTC()
-	v, err = a.mockService.CorrectIdentities(v, actor.UserID, in.InterviewerID, in.IntervieweeID, in.SeasonID, in.Reason, true, in.Revision, now)
+	v, err = a.mockService.CorrectIdentities(r.Context(), v, actor.UserID, in.InterviewerID, in.IntervieweeID, in.SeasonID, in.Reason, true, in.Revision, now)
 	if err != nil {
 		mockFailure(a, w, r, err)
-		return
-	}
-
-	v, err = a.store.UpdateMockInterview(r.Context(), v, actor.UserID, "identity correction: "+in.Reason, now)
-	if err != nil {
-		storeFailure(a, w, r, err)
 		return
 	}
 

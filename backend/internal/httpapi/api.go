@@ -63,7 +63,7 @@ type API struct {
 	setAccountState func(context.Context, string, string, string, string) error
 	getMFAState     func(context.Context, string) (bool, error)
 	telemetry       *apiMetrics
-	mockService     mockinterviews.Service
+	mockService     mockinterviews.Application
 }
 
 type strictAdapter struct{}
@@ -135,7 +135,7 @@ func New(c Config) *API {
 		secret = []byte("development-cursor-secret-change-me")
 	}
 	cleaner := sanitize.New()
-	return &API{store: c.Store, auth: c.Authenticator, publicOrigin: c.PublicOrigin, cursorSecret: secret, logger: logger, limiter: ratelimit.New(), ready: c.Ready, syncLeetCode: c.SyncLeetCode, setAccountState: c.SetAccountState, getMFAState: c.GetMFAState, telemetry: newAPIMetrics(), mockService: mockinterviews.Service{Sanitize: cleaner.String}}
+	return &API{store: c.Store, auth: c.Authenticator, publicOrigin: c.PublicOrigin, cursorSecret: secret, logger: logger, limiter: ratelimit.New(), ready: c.Ready, syncLeetCode: c.SyncLeetCode, setAccountState: c.SetAccountState, getMFAState: c.GetMFAState, telemetry: newAPIMetrics(), mockService: mockinterviews.Application{Repository: c.Store, Rules: mockinterviews.Service{Sanitize: cleaner.String}, NewID: id.New}}
 }
 
 // Handler performs the operation.
