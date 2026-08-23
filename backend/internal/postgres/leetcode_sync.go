@@ -1,5 +1,5 @@
 // Package store defines repository contracts and storage implementations.
-package store
+package postgres
 
 import (
 	"context"

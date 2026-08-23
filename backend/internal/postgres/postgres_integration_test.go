@@ -1,6 +1,6 @@
 //go:build integration
 
-package store
+package postgres
 
 import (
 	"context"

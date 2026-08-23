@@ -14,7 +14,8 @@ import (
 	"github.com/magedmg/RSP-website/backend/internal/practice"
 )
 
-func identityEventHash(event IdentityEvent) string {
+// IdentityEventHash returns the stable hash used to detect altered event replays.
+func IdentityEventHash(event IdentityEvent) string {
 	recoveryDeadline := ""
 	if event.RecoveryDeadline != nil {
 		recoveryDeadline = event.RecoveryDeadline.UTC().Format(time.RFC3339Nano)

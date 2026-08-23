@@ -16,6 +16,7 @@ import (
 	"github.com/magedmg/RSP-website/backend/internal/authz"
 	"github.com/magedmg/RSP-website/backend/internal/httpapi"
 	"github.com/magedmg/RSP-website/backend/internal/model"
+	"github.com/magedmg/RSP-website/backend/internal/postgres"
 	"github.com/magedmg/RSP-website/backend/internal/store"
 )
 
@@ -36,7 +37,7 @@ func main() {
 	var getMFAState func(context.Context, string) (bool, error)
 
 	if databaseURL := os.Getenv("DATABASE_URL"); databaseURL != "" {
-		postgres, err := store.Open(context.Background(), databaseURL)
+		postgres, err := postgres.Open(context.Background(), databaseURL)
 		if err != nil {
 			logger.Error("database connection failed", "error", err)
 			os.Exit(1)

@@ -84,7 +84,7 @@ func (m *Memory) ApplyIdentityEvent(_ context.Context, event IdentityEvent) erro
 	if event.EventID == "" {
 		return errors.New("identity event id is required")
 	}
-	payloadHash := identityEventHash(event)
+	payloadHash := IdentityEventHash(event)
 	if m.IdentityEventReceipts[event.EventID] {
 		if m.IdentityEventHashes[event.EventID] != payloadHash {
 			return ErrConflict

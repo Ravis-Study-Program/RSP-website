@@ -1,4 +1,4 @@
-package store
+package postgres
 
 import (
 	"context"
@@ -17,7 +17,21 @@ import (
 	"github.com/magedmg/RSP-website/backend/internal/platform/dbgen"
 	"github.com/magedmg/RSP-website/backend/internal/platform/id"
 	"github.com/magedmg/RSP-website/backend/internal/practice"
+	"github.com/magedmg/RSP-website/backend/internal/store"
 )
+
+var (
+	ErrNotFound  = store.ErrNotFound
+	ErrConflict  = store.ErrConflict
+	ErrDuplicate = store.ErrDuplicate
+)
+
+type IdentityEvent = store.IdentityEvent
+type GlobalRoleAssignment = store.GlobalRoleAssignment
+type ObservabilitySnapshot = store.ObservabilitySnapshot
+type RecommendationSnapshot = store.RecommendationSnapshot
+
+func identityEventHash(event IdentityEvent) string { return store.IdentityEventHash(event) }
 
 // Postgres represents a backend data structure.
 type Postgres struct {
