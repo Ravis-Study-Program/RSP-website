@@ -31,28 +31,12 @@ type MockVersion struct {
 	Snapshot        json.RawMessage
 }
 
-// ObservabilitySnapshot contains only bounded, aggregate operational data.
-// Keeping this separate from Repository lets non-PostgreSQL stores remain
-// lightweight while the API metrics endpoint can expose durable worker and
-// migration state when it is available.
-type ObservabilitySnapshot struct {
-	DBPoolAcquiredConnections int32
-	DBPoolIdleConnections     int32
-	WorkerRuns                map[string]uint64
-	MigrationState            string
-}
-
 // RecommendationSnapshot represents a backend data structure.
 type RecommendationSnapshot struct {
 	QualityAttempts  []model.Attempt
 	Problems         []model.Problem
 	ProblemHistory   map[string]practice.ProblemHistory
 	CategoryExposure map[string]int
-}
-
-// ObservabilitySource defines a backend interface.
-type ObservabilitySource interface {
-	ObservabilitySnapshot(context.Context) (ObservabilitySnapshot, error)
 }
 
 // Repository defines a backend interface.

@@ -10,6 +10,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/magedmg/RSP-website/backend/internal/platform/observability"
 	"github.com/magedmg/RSP-website/backend/internal/store"
 )
 
@@ -74,16 +75,16 @@ func (m *apiMetrics) render(ctx context.Context, writer io.Writer, repository st
 	}
 	m.mu.Unlock()
 
-	snapshot := store.ObservabilitySnapshot{
+	snapshot := observability.Snapshot{
 		WorkerRuns:     map[string]uint64{},
 		MigrationState: "none",
 	}
 	snapshotOK := true
-	if source, ok := repository.(store.ObservabilitySource); ok {
+	if source, ok := repository.(observability.Source); ok {
 		var err error
 		snapshot, err = source.ObservabilitySnapshot(ctx)
 		if err != nil {
-			snapshot = store.ObservabilitySnapshot{WorkerRuns: map[string]uint64{}, MigrationState: "none"}
+			snapshot = observability.Snapshot{WorkerRuns: map[string]uint64{}, MigrationState: "none"}
 			snapshotOK = false
 		}
 	}

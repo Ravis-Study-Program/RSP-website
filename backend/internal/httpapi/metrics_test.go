@@ -9,16 +9,17 @@ import (
 	"testing"
 	"time"
 
+	"github.com/magedmg/RSP-website/backend/internal/platform/observability"
 	"github.com/magedmg/RSP-website/backend/internal/store"
 )
 
 type observableRepository struct {
 	*store.Memory
-	snapshot store.ObservabilitySnapshot
+	snapshot observability.Snapshot
 	err      error
 }
 
-func (repository *observableRepository) ObservabilitySnapshot(context.Context) (store.ObservabilitySnapshot, error) {
+func (repository *observableRepository) ObservabilitySnapshot(context.Context) (observability.Snapshot, error) {
 	return repository.snapshot, repository.err
 }
 
@@ -31,7 +32,7 @@ func TestMetricsMatchDashboardSeriesWithBoundedLabels(t *testing.T) {
 	}
 	repository := &observableRepository{
 		Memory: store.NewMemory(),
-		snapshot: store.ObservabilitySnapshot{
+		snapshot: observability.Snapshot{
 			DBPoolAcquiredConnections: 3,
 			DBPoolIdleConnections:     7,
 			WorkerRuns: map[string]uint64{

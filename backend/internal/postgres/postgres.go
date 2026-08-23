@@ -17,6 +17,7 @@ import (
 	"github.com/magedmg/RSP-website/backend/internal/model"
 	"github.com/magedmg/RSP-website/backend/internal/platform/dbgen"
 	"github.com/magedmg/RSP-website/backend/internal/platform/id"
+	"github.com/magedmg/RSP-website/backend/internal/platform/observability"
 	"github.com/magedmg/RSP-website/backend/internal/practice"
 	"github.com/magedmg/RSP-website/backend/internal/programme"
 	"github.com/magedmg/RSP-website/backend/internal/store"
@@ -28,7 +29,6 @@ var (
 	ErrDuplicate = store.ErrDuplicate
 )
 
-type ObservabilitySnapshot = store.ObservabilitySnapshot
 type RecommendationSnapshot = store.RecommendationSnapshot
 
 // Postgres represents a backend data structure.
@@ -76,9 +76,9 @@ func (p *Postgres) Close() { p.Pool.Close() }
 func (p *Postgres) Ping(ctx context.Context) error { return p.Pool.Ping(ctx) }
 
 // ObservabilitySnapshot performs the operation.
-func (p *Postgres) ObservabilitySnapshot(ctx context.Context) (ObservabilitySnapshot, error) {
+func (p *Postgres) ObservabilitySnapshot(ctx context.Context) (observability.Snapshot, error) {
 	pool := p.Pool.Stat()
-	snapshot := ObservabilitySnapshot{
+	snapshot := observability.Snapshot{
 		DBPoolAcquiredConnections: pool.AcquiredConns(),
 		DBPoolIdleConnections:     pool.IdleConns(),
 		WorkerRuns: map[string]uint64{
@@ -99,7 +99,7 @@ FROM app.leetcode_sync_runs
 WHERE finished_at IS NOT NULL
 GROUP BY result`)
 	if err != nil {
-		return ObservabilitySnapshot{}, err
+		return observability.Snapshot{}, err
 	}
 
 	for rows.Next() {
@@ -107,7 +107,7 @@ GROUP BY result`)
 		var count uint64
 		if err := rows.Scan(&result, &count); err != nil {
 			rows.Close()
-			return ObservabilitySnapshot{}, err
+			return observability.Snapshot{}, err
 		}
 		if _, bounded := snapshot.WorkerRuns[result]; bounded {
 			snapshot.WorkerRuns[result] = count
@@ -115,7 +115,7 @@ GROUP BY result`)
 	}
 	if err := rows.Err(); err != nil {
 		rows.Close()
-		return ObservabilitySnapshot{}, err
+		return observability.Snapshot{}, err
 	}
 
 	rows.Close()
@@ -129,7 +129,7 @@ LIMIT 1`).Scan(&snapshot.MigrationState)
 		return snapshot, nil
 	}
 	if err != nil {
-		return ObservabilitySnapshot{}, err
+		return observability.Snapshot{}, err
 	}
 	return snapshot, nil
 }
