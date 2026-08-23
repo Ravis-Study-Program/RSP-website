@@ -13,9 +13,9 @@ import (
 	"github.com/magedmg/RSP-website/backend/internal/model"
 )
 
-func decodePage[T any](t *testing.T, body []byte) model.Page[T] {
+func decodePage[T any](t *testing.T, body []byte) Page[T] {
 	t.Helper()
-	var page model.Page[T]
+	var page Page[T]
 	if err := json.Unmarshal(body, &page); err != nil {
 		t.Fatal(err)
 	}

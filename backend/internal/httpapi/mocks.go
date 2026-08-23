@@ -8,7 +8,6 @@ import (
 
 	"github.com/magedmg/RSP-website/backend/internal/authz"
 	"github.com/magedmg/RSP-website/backend/internal/mockinterviews"
-	"github.com/magedmg/RSP-website/backend/internal/model"
 )
 
 func (a *API) eligibleMockActor(r *http.Request) bool {
@@ -56,7 +55,7 @@ func (a *API) listMockParticipants(w http.ResponseWriter, r *http.Request) {
 	for _, user := range users {
 		items = append(items, mockinterviews.ParticipantSummary{ID: user.ID, Slug: user.Slug, Name: user.Name, AvatarURL: user.AvatarURL})
 	}
-	writeJSON(w, http.StatusOK, model.Page[mockinterviews.ParticipantSummary]{
+	writeJSON(w, http.StatusOK, Page[mockinterviews.ParticipantSummary]{
 		Items:      items,
 		PageInfo:   pageInfoForKeyset(a, binding, direction, boundary, items, more, func(v mockinterviews.ParticipantSummary) string { return v.ID }),
 		TotalCount: total,
@@ -108,7 +107,7 @@ func (a *API) listMocks(w http.ResponseWriter, r *http.Request) {
 	for index := range items {
 		items[index] = a.withMockParticipantSummaries(r, items[index])
 	}
-	writeJSON(w, 200, model.Page[mockinterviews.Interview]{Items: items, PageInfo: pageInfoForKeyset(a, binding, direction, boundary, items, more, func(v mockinterviews.Interview) string { return v.ID }), TotalCount: total})
+	writeJSON(w, 200, Page[mockinterviews.Interview]{Items: items, PageInfo: pageInfoForKeyset(a, binding, direction, boundary, items, more, func(v mockinterviews.Interview) string { return v.ID }), TotalCount: total})
 }
 
 func historicalMockReviewer(actor authz.Actor) bool {

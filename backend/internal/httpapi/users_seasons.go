@@ -193,7 +193,7 @@ func (a *API) users(w http.ResponseWriter, r *http.Request) {
 		items[i].AccountState = ""
 	}
 	pageInfo := pageInfoForKeyset(a, binding, direction, boundary, items, more, func(v model.User) string { return v.ID })
-	writeJSON(w, 200, model.Page[model.User]{Items: items, PageInfo: pageInfo, TotalCount: total})
+	writeJSON(w, 200, Page[model.User]{Items: items, PageInfo: pageInfo, TotalCount: total})
 }
 
 func (a *API) user(w http.ResponseWriter, r *http.Request) {
@@ -278,7 +278,7 @@ func (a *API) seasons(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		pageInfo := pageInfoForKeyset(a, binding, direction, boundary, items, more, func(v model.Season) string { return v.ID })
-		writeJSON(w, 200, model.Page[model.Season]{Items: items, PageInfo: pageInfo, TotalCount: total})
+		writeJSON(w, 200, Page[model.Season]{Items: items, PageInfo: pageInfo, TotalCount: total})
 		return
 	}
 
@@ -307,7 +307,7 @@ func (a *API) seasons(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	writeJSON(w, 200, model.Page[model.Season]{Items: page, PageInfo: pageInfo, TotalCount: int64(len(items))})
+	writeJSON(w, 200, Page[model.Season]{Items: page, PageInfo: pageInfo, TotalCount: int64(len(items))})
 }
 
 func (a *API) season(w http.ResponseWriter, r *http.Request) {

@@ -74,7 +74,7 @@ func (a *API) listWeeks(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	writeJSON(w, 200, model.Page[model.Week]{Items: items, PageInfo: pageInfoForKeyset(a, binding, direction, boundary, items, more, func(v model.Week) string { return v.ID }), TotalCount: total})
+	writeJSON(w, 200, Page[model.Week]{Items: items, PageInfo: pageInfoForKeyset(a, binding, direction, boundary, items, more, func(v model.Week) string { return v.ID }), TotalCount: total})
 }
 
 func (a *API) createWeek(w http.ResponseWriter, r *http.Request) {
@@ -202,7 +202,7 @@ func (a *API) listMembers(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	writeJSON(w, 200, model.Page[model.Enrollment]{Items: items, PageInfo: pageInfoForKeyset(a, binding, direction, boundary, items, more, func(v model.Enrollment) string { return v.ID }), TotalCount: total})
+	writeJSON(w, 200, Page[model.Enrollment]{Items: items, PageInfo: pageInfoForKeyset(a, binding, direction, boundary, items, more, func(v model.Enrollment) string { return v.ID }), TotalCount: total})
 }
 
 func (a *API) listEnrollmentCandidates(w http.ResponseWriter, r *http.Request) {
@@ -235,7 +235,7 @@ func (a *API) listEnrollmentCandidates(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	writeJSON(w, 200, model.Page[model.EnrollmentCandidate]{Items: items, PageInfo: pageInfoForKeyset(a, binding, direction, boundary, items, more, func(v model.EnrollmentCandidate) string { return v.ID }), TotalCount: total})
+	writeJSON(w, 200, Page[model.EnrollmentCandidate]{Items: items, PageInfo: pageInfoForKeyset(a, binding, direction, boundary, items, more, func(v model.EnrollmentCandidate) string { return v.ID }), TotalCount: total})
 }
 
 func (a *API) createMember(w http.ResponseWriter, r *http.Request) {
@@ -401,7 +401,7 @@ func (a *API) listMentorships(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	writeJSON(w, 200, model.Page[model.Mentorship]{Items: items, PageInfo: pageInfoForKeyset(a, binding, direction, boundary, items, more, func(v model.Mentorship) string { return v.ID }), TotalCount: total})
+	writeJSON(w, 200, Page[model.Mentorship]{Items: items, PageInfo: pageInfoForKeyset(a, binding, direction, boundary, items, more, func(v model.Mentorship) string { return v.ID }), TotalCount: total})
 }
 
 func (a *API) createMentorship(w http.ResponseWriter, r *http.Request) {

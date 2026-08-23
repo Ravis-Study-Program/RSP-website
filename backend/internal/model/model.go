@@ -139,17 +139,3 @@ type AuditEvent struct {
 	Data        map[string]any `json:"data"`
 	OccurredAt  time.Time      `json:"occurredAt"`
 }
-
-// PageInfo represents a backend data structure.
-type PageInfo struct {
-	NextCursor     *string `json:"nextCursor"`
-	PreviousCursor *string `json:"previousCursor"`
-	HasMore        bool    `json:"hasMore"`
-}
-
-// Page represents a backend data structure.
-type Page[T any] struct {
-	Items      []T      `json:"items"`
-	PageInfo   PageInfo `json:"pageInfo"`
-	TotalCount int64    `json:"totalCount"`
-}

@@ -315,7 +315,7 @@ func TestPaginationCursorIsFilterBound(t *testing.T) {
 		t.Fatalf("list: %d %s", w.Code, w.Body.String())
 	}
 	var page struct {
-		PageInfo model.PageInfo `json:"pageInfo"`
+		PageInfo PageInfo `json:"pageInfo"`
 	}
 	_ = json.Unmarshal(w.Body.Bytes(), &page)
 	if page.PageInfo.NextCursor == nil {

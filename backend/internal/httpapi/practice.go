@@ -113,7 +113,7 @@ func (a *API) problems(w http.ResponseWriter, r *http.Request) {
 	}
 
 	pageInfo := pageInfoForKeyset(a, binding, direction, after, items, more, func(v model.Problem) string { return v.ID })
-	writeJSON(w, 200, model.Page[model.Problem]{Items: items, PageInfo: pageInfo, TotalCount: total})
+	writeJSON(w, 200, Page[model.Problem]{Items: items, PageInfo: pageInfo, TotalCount: total})
 }
 
 func (a *API) attempts(w http.ResponseWriter, r *http.Request) {
@@ -186,7 +186,7 @@ func (a *API) attempts(w http.ResponseWriter, r *http.Request) {
 	}
 
 	pageInfo := pageInfoForKeyset(a, binding, direction, after, items, more, func(v model.Attempt) string { return v.ID })
-	writeJSON(w, 200, model.Page[model.Attempt]{Items: items, PageInfo: pageInfo, TotalCount: total})
+	writeJSON(w, 200, Page[model.Attempt]{Items: items, PageInfo: pageInfo, TotalCount: total})
 }
 
 type attemptInput struct {

@@ -73,7 +73,7 @@ func (a *API) listAdminUsers(w http.ResponseWriter, r *http.Request) {
 	if !a.auditSystemAdminPrivateRead(w, r, "admin_user_collection", actor.UserID) {
 		return
 	}
-	writeJSON(w, http.StatusOK, model.Page[model.User]{Items: items, PageInfo: pageInfoForKeyset(a, binding, direction, boundary, items, more, func(user model.User) string { return user.ID }), TotalCount: total})
+	writeJSON(w, http.StatusOK, Page[model.User]{Items: items, PageInfo: pageInfoForKeyset(a, binding, direction, boundary, items, more, func(user model.User) string { return user.ID }), TotalCount: total})
 }
 
 func (a *API) setUserAccountState(w http.ResponseWriter, r *http.Request) {
