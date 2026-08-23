@@ -31,14 +31,6 @@ type MockVersion struct {
 	Snapshot        json.RawMessage
 }
 
-// RecommendationSnapshot represents a backend data structure.
-type RecommendationSnapshot struct {
-	QualityAttempts  []model.Attempt
-	Problems         []model.Problem
-	ProblemHistory   map[string]practice.ProblemHistory
-	CategoryExposure map[string]int
-}
-
 // Repository defines a backend interface.
 type Repository interface {
 	ApplyIdentityEvent(context.Context, accounts.IdentityEvent) error
@@ -80,7 +72,7 @@ type Repository interface {
 	ListProblems(context.Context, string, int, string, string, *bool, string) ([]model.Problem, bool, int64, error)
 	GetAttempt(context.Context, string) (model.Attempt, error)
 	ListAttempts(context.Context, string, string, int, string, string, string) ([]model.Attempt, bool, int64, error)
-	RecommendationSnapshot(context.Context, string, practice.Goals) (RecommendationSnapshot, error)
+	RecommendationSnapshot(context.Context, string, practice.Goals) (practice.RecommendationSnapshot, error)
 	RecommendationCandidates(context.Context, string, practice.Criteria, bool, practice.Goals, time.Time) ([]model.Problem, map[string]practice.ProblemHistory, error)
 	CreateAttempt(context.Context, model.Attempt) (model.Attempt, bool, error)
 	UpdateAttempt(context.Context, string, string, int64, func(*model.Attempt) error) (model.Attempt, error)

@@ -29,8 +29,6 @@ var (
 	ErrDuplicate = store.ErrDuplicate
 )
 
-type RecommendationSnapshot = store.RecommendationSnapshot
-
 // Postgres represents a backend data structure.
 type Postgres struct {
 	Pool    *pgxpool.Pool
@@ -1594,8 +1592,8 @@ func (p *Postgres) ListAttempts(ctx context.Context, userID, boundary string, li
 }
 
 // RecommendationSnapshot performs the operation.
-func (p *Postgres) RecommendationSnapshot(ctx context.Context, userID string, _ practice.Goals) (RecommendationSnapshot, error) {
-	snapshot := RecommendationSnapshot{ProblemHistory: map[string]practice.ProblemHistory{}, CategoryExposure: map[string]int{}}
+func (p *Postgres) RecommendationSnapshot(ctx context.Context, userID string, _ practice.Goals) (practice.RecommendationSnapshot, error) {
+	snapshot := practice.RecommendationSnapshot{ProblemHistory: map[string]practice.ProblemHistory{}, CategoryExposure: map[string]int{}}
 	qualityRows, err := p.Pool.Query(ctx, `SELECT `+attemptColumns+` FROM app.problem_attempts a LEFT JOIN app.enrollments e ON e.id=a.enrollment_id WHERE a.user_id=$1 AND a.deleted_at IS NULL AND a.outcome<>'unknown' AND NOT EXISTS(SELECT 1 FROM migration.row_provenance rp WHERE rp.target_table='problem_attempts' AND rp.target_id=a.id::text) ORDER BY a.attempted_at DESC,a.id ASC LIMIT 20`, userID)
 	if err != nil {
 		return snapshot, err

@@ -1322,10 +1322,10 @@ func (m *Memory) ListAttempts(_ context.Context, userID, boundary string, limit 
 }
 
 // RecommendationSnapshot performs the operation.
-func (m *Memory) RecommendationSnapshot(_ context.Context, userID string, _ practice.Goals) (RecommendationSnapshot, error) {
+func (m *Memory) RecommendationSnapshot(_ context.Context, userID string, _ practice.Goals) (practice.RecommendationSnapshot, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
-	snapshot := RecommendationSnapshot{ProblemHistory: map[string]practice.ProblemHistory{}, CategoryExposure: map[string]int{}}
+	snapshot := practice.RecommendationSnapshot{ProblemHistory: map[string]practice.ProblemHistory{}, CategoryExposure: map[string]int{}}
 	for _, attempt := range m.Attempts {
 		if attempt.UserID != userID || attempt.DeletedAt != nil {
 			continue

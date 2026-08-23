@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"sort"
 	"time"
+
+	"github.com/magedmg/RSP-website/backend/internal/model"
 )
 
 // Difficulty is a backend domain type.
@@ -90,6 +92,15 @@ type Dismissal struct {
 type ProblemHistory struct {
 	LastAttemptedAt time.Time
 	Weak            bool
+}
+
+// RecommendationSnapshot is the read model required to select a
+// recommendation. Adapters may build it from SQL rows or another catalogue.
+type RecommendationSnapshot struct {
+	QualityAttempts  []model.Attempt
+	Problems         []model.Problem
+	ProblemHistory   map[string]ProblemHistory
+	CategoryExposure map[string]int
 }
 
 // Criteria represents a backend data structure.
