@@ -114,10 +114,9 @@ type Version struct {
 	Snapshot        json.RawMessage
 }
 
-// Service represents a backend data structure.
+// Service contains deterministic interview rules and input normalization.
 type Service struct {
 	Sanitize func(string) string
-	Versions []Version
 }
 
 // CreateInput represents a backend data structure.
@@ -145,7 +144,6 @@ func (s *Service) Create(actorID string, in CreateInput, now time.Time) (Intervi
 		return Interview{}, err
 	}
 
-	s.save(m, actorID, "created", now)
 	return m, nil
 }
 
@@ -158,15 +156,15 @@ type UpdateInput struct {
 	Rounds           []Round
 }
 
-// Update updates a value.
-func (s *Service) Update(m *Interview, actorID string, in UpdateInput, now time.Time) error {
+// Update updates a value without changing the input.
+func (s Service) Update(m Interview, actorID string, in UpdateInput, now time.Time) (Interview, error) {
 	if actorID != m.InterviewerID {
-		return ErrForbidden
+		return Interview{}, ErrForbidden
 	}
 	if m.Revision != in.ExpectedRevision {
-		return ErrConflict
+		return Interview{}, ErrConflict
 	}
-	candidate := *m
+	candidate := m
 	candidate.OccurredAt = in.OccurredAt.UTC()
 	candidate.DurationMinutes = in.DurationMinutes
 	candidate.Notes = s.clean(in.Notes)
@@ -186,68 +184,66 @@ func (s *Service) Update(m *Interview, actorID string, in UpdateInput, now time.
 	}
 	candidate.Revision++
 	if err := validate(candidate); err != nil {
-		return err
+		return Interview{}, err
 	}
 
-	*m = candidate
-	s.save(*m, actorID, "updated", now)
-	return nil
+	return candidate, nil
 }
 
-// Review performs the operation.
-func (s *Service) Review(m *Interview, actorID, roundID, comment string, reviewed bool, expectedRevision int64, now time.Time) error {
+// Review updates a review without changing the input.
+func (s Service) Review(m Interview, actorID, roundID, comment string, reviewed bool, expectedRevision int64, now time.Time) (Interview, error) {
 	if actorID != m.IntervieweeID {
-		return ErrForbidden
+		return Interview{}, ErrForbidden
 	}
 	if m.Revision != expectedRevision {
-		return ErrConflict
+		return Interview{}, ErrConflict
 	}
+	candidate := cloneInterview(m)
 	found := false
-	for i := range m.Rounds {
-		if m.Rounds[i].ID == roundID {
-			m.Rounds[i].IntervieweeComment = s.clean(comment)
-			m.Rounds[i].Reviewed = reviewed
+	for i := range candidate.Rounds {
+		if candidate.Rounds[i].ID == roundID {
+			candidate.Rounds[i].IntervieweeComment = s.clean(comment)
+			candidate.Rounds[i].Reviewed = reviewed
 			found = true
 			break
 		}
 	}
 	if !found {
-		return ErrInvalid
+		return Interview{}, ErrInvalid
 	}
-	m.Revision++
-	s.save(*m, actorID, "interviewee review", now)
-	return nil
+	candidate.Revision++
+	return candidate, nil
 }
 
-// CorrectIdentities performs the operation.
-func (s *Service) CorrectIdentities(m *Interview, actorID, newInterviewer, newInterviewee string, newSeason *string, reason string, privileged bool, expectedRevision int64, now time.Time) error {
+// CorrectIdentities corrects participant identity without changing the input.
+func (s Service) CorrectIdentities(m Interview, actorID, newInterviewer, newInterviewee string, newSeason *string, reason string, privileged bool, expectedRevision int64, now time.Time) (Interview, error) {
 	if !privileged || reason == "" {
-		return ErrForbidden
+		return Interview{}, ErrForbidden
 	}
 	if m.Revision != expectedRevision {
-		return ErrConflict
+		return Interview{}, ErrConflict
 	}
-	m.InterviewerID = newInterviewer
-	m.IntervieweeID = newInterviewee
-	m.SeasonID = newSeason
-	m.Revision++
-	s.save(*m, actorID, "identity correction: "+reason, now)
-	return nil
+	updated := m
+	updated.InterviewerID = newInterviewer
+	updated.IntervieweeID = newInterviewee
+	updated.SeasonID = newSeason
+	updated.Revision++
+	return updated, nil
 }
 
-// Delete deletes a value.
-func (s *Service) Delete(m *Interview, actorID string, expectedRevision int64, now time.Time) error {
+// Delete soft-deletes an interview without changing the input.
+func (s Service) Delete(m Interview, actorID string, expectedRevision int64, now time.Time) (Interview, error) {
 	if actorID != m.InterviewerID {
-		return ErrForbidden
+		return Interview{}, ErrForbidden
 	}
 	if m.Revision != expectedRevision {
-		return ErrConflict
+		return Interview{}, ErrConflict
 	}
 	at := now.UTC()
-	m.DeletedAt = &at
-	m.Revision++
-	s.save(*m, actorID, "soft deleted", now)
-	return nil
+	updated := m
+	updated.DeletedAt = &at
+	updated.Revision++
+	return updated, nil
 }
 
 // Passed performs the operation.
@@ -349,7 +345,7 @@ func (s *Service) cleanRounds(in []Round) []Round {
 	return out
 }
 
-func (s *Service) save(m Interview, actor, reason string, now time.Time) {
-	raw, _ := json.Marshal(m)
-	s.Versions = append(s.Versions, Version{m.ID, m.Revision, actor, reason, now.UTC(), raw})
+func cloneInterview(in Interview) Interview {
+	in.Rounds = append([]Round(nil), in.Rounds...)
+	return in
 }

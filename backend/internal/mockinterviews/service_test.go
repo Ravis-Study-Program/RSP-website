@@ -16,16 +16,17 @@ func validCreate() CreateInput {
 func TestOwnershipVersionsReviewAndPass(t *testing.T) {
 	s := Service{Sanitize: func(v string) string { return strings.ReplaceAll(v, "<script>x</script>", "") }}
 	m, err := s.Create("mentor", validCreate(), time.Now())
-	if err != nil || m.InterviewerID != "mentor" || len(s.Versions) != 1 || !Passed(m) {
+	if err != nil || m.InterviewerID != "mentor" || !Passed(m) {
 		t.Fatal("create failed")
 	}
-	if err := s.Update(&m, "student", UpdateInput{ExpectedRevision: 1}, time.Now()); !errors.Is(err, ErrForbidden) {
+	if _, err := s.Update(m, "student", UpdateInput{ExpectedRevision: 1}, time.Now()); !errors.Is(err, ErrForbidden) {
 		t.Fatalf("ownership: %v", err)
 	}
-	if err := s.Review(&m, "student", "r1", "thanks", true, 1, time.Now()); err != nil || len(s.Versions) != 2 {
+	m, err = s.Review(m, "student", "r1", "thanks", true, 1, time.Now())
+	if err != nil {
 		t.Fatalf("review: %v", err)
 	}
-	if err := s.Delete(&m, "mentor", 1, time.Now()); !errors.Is(err, ErrConflict) {
+	if _, err := s.Delete(m, "mentor", 1, time.Now()); !errors.Is(err, ErrConflict) {
 		t.Fatalf("stale edit: %v", err)
 	}
 }
@@ -42,14 +43,16 @@ func TestInterviewerCannotWriteIntervieweeReview(t *testing.T) {
 	if m.Rounds[0].Reviewed || m.Rounds[0].IntervieweeComment != "" {
 		t.Fatalf("create trusted interviewer review: %#v", m.Rounds[0])
 	}
-	if err := s.Review(&m, "student", "r1", "real review", true, 1, time.Now()); err != nil {
+	m, err = s.Review(m, "student", "r1", "real review", true, 1, time.Now())
+	if err != nil {
 		t.Fatal(err)
 	}
 
 	updateRounds := append([]Round(nil), m.Rounds...)
 	updateRounds[0].Reviewed = false
 	updateRounds[0].IntervieweeComment = "forged update"
-	if err := s.Update(&m, "mentor", UpdateInput{ExpectedRevision: 2, OccurredAt: m.OccurredAt, DurationMinutes: 70, Rounds: updateRounds}, time.Now()); err != nil {
+	m, err = s.Update(m, "mentor", UpdateInput{ExpectedRevision: 2, OccurredAt: m.OccurredAt, DurationMinutes: 70, Rounds: updateRounds}, time.Now())
+	if err != nil {
 		t.Fatal(err)
 	}
 	if !m.Rounds[0].Reviewed || m.Rounds[0].IntervieweeComment != "real review" {

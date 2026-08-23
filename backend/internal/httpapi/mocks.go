@@ -202,7 +202,8 @@ func (a *API) updateMock(w http.ResponseWriter, r *http.Request) {
 	}
 	service := mockinterviews.Service{Sanitize: a.mockService.Sanitize}
 	now := time.Now().UTC()
-	if err := service.Update(&v, actor.UserID, mockinterviews.UpdateInput{ExpectedRevision: in.Revision, OccurredAt: in.OccurredAt, DurationMinutes: in.DurationMinutes, Notes: in.Notes, Rounds: in.Rounds}, now); err != nil {
+	v, err = service.Update(v, actor.UserID, mockinterviews.UpdateInput{ExpectedRevision: in.Revision, OccurredAt: in.OccurredAt, DurationMinutes: in.DurationMinutes, Notes: in.Notes, Rounds: in.Rounds}, now)
+	if err != nil {
 		mockFailure(a, w, r, err)
 		return
 	}
@@ -242,7 +243,8 @@ func (a *API) deleteMock(w http.ResponseWriter, r *http.Request) {
 	}
 	service := mockinterviews.Service{Sanitize: a.mockService.Sanitize}
 	now := time.Now().UTC()
-	if err := service.Delete(&v, actor.UserID, revision, now); err != nil {
+	v, err = service.Delete(v, actor.UserID, revision, now)
+	if err != nil {
 		mockFailure(a, w, r, err)
 		return
 	}
@@ -284,7 +286,8 @@ func (a *API) reviewRound(w http.ResponseWriter, r *http.Request) {
 	}
 	service := mockinterviews.Service{Sanitize: a.mockService.Sanitize}
 	now := time.Now().UTC()
-	if err := service.Review(&v, actor.UserID, r.PathValue("roundId"), in.Comment, in.Reviewed, in.Revision, now); err != nil {
+	v, err = service.Review(v, actor.UserID, r.PathValue("roundId"), in.Comment, in.Reviewed, in.Revision, now)
+	if err != nil {
 		mockFailure(a, w, r, err)
 		return
 	}
@@ -333,7 +336,8 @@ func (a *API) correctMockIdentities(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	now := time.Now().UTC()
-	if err := a.mockService.CorrectIdentities(&v, actor.UserID, in.InterviewerID, in.IntervieweeID, in.SeasonID, in.Reason, true, in.Revision, now); err != nil {
+	v, err = a.mockService.CorrectIdentities(v, actor.UserID, in.InterviewerID, in.IntervieweeID, in.SeasonID, in.Reason, true, in.Revision, now)
+	if err != nil {
 		mockFailure(a, w, r, err)
 		return
 	}
