@@ -64,6 +64,24 @@ func (s *syncer) Sync(context.Context) (Report, error) {
 	return Report{Fetched: 10, Updated: 10}, nil
 }
 
+func TestDecideDueIsPureAndDistinguishesScheduleFromCatchup(t *testing.T) {
+	now := time.Date(2026, time.January, 11, 3, 0, 30, 0, time.UTC)
+	decision := DecideDue(now, nil, nil)
+	if !decision.Run || decision.TriggerKind != "schedule" {
+		t.Fatalf("sunday decision=%#v", decision)
+	}
+
+	last := now.Add(-time.Second)
+	if decision := DecideDue(now, &last, nil); decision.Run {
+		t.Fatalf("successful current-window run was scheduled: %#v", decision)
+	}
+
+	catchup := DecideDue(now.Add(time.Hour), nil, nil)
+	if !catchup.Run || catchup.TriggerKind != "catch_up" {
+		t.Fatalf("catch-up decision=%#v", catchup)
+	}
+}
+
 func TestTimeoutIsRecordedAndDueWindowIsAttemptedOnlyOnce(t *testing.T) {
 	now := time.Date(2026, 8, 13, 12, 0, 0, 0, time.UTC)
 	st := &state{}

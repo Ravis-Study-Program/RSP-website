@@ -43,6 +43,30 @@ type Run struct {
 	Error                 string
 }
 
+// ScheduleDecision is the pure result of evaluating the sync schedule.
+type ScheduleDecision struct {
+	Run         bool
+	TriggerKind string
+}
+
+// DecideDue determines whether a sync should run without reading or changing
+// external state.
+func DecideDue(now time.Time, lastSuccess, lastAttempt *time.Time) ScheduleDecision {
+	now = now.UTC()
+	due := mostRecentSunday(now)
+	if lastSuccess != nil && !lastSuccess.Before(due) {
+		return ScheduleDecision{}
+	}
+	if lastAttempt != nil && !lastAttempt.Before(due) {
+		return ScheduleDecision{}
+	}
+	trigger := "catch_up"
+	if now.Sub(due) < time.Minute {
+		trigger = "schedule"
+	}
+	return ScheduleDecision{Run: true, TriggerKind: trigger}
+}
+
 // Scheduler represents a backend data structure.
 type Scheduler struct {
 	Locker  Locker
@@ -61,22 +85,15 @@ func (s Scheduler) RunDue(ctx context.Context) (bool, error) {
 		return false, err
 	}
 
-	due := mostRecentSunday(now)
-	if last != nil && !last.Before(due) {
-		return false, nil
-	}
 	lastAttempt, err := s.State.LastAttempt(ctx, "leetcode_sync")
 	if err != nil {
 		return false, err
 	}
-	if lastAttempt != nil && !lastAttempt.Before(due) {
+	decision := DecideDue(now, last, lastAttempt)
+	if !decision.Run {
 		return false, nil
 	}
-	trigger := "catch_up"
-	if now.Sub(due) < time.Minute {
-		trigger = "schedule"
-	}
-	return true, s.run(ctx, trigger)
+	return true, s.run(ctx, decision.TriggerKind)
 }
 
 // Run runs the operation.
