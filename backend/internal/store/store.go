@@ -3,24 +3,24 @@ package store
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"time"
 
 	"github.com/magedmg/RSP-website/backend/internal/accounts"
 	"github.com/magedmg/RSP-website/backend/internal/authz"
 	"github.com/magedmg/RSP-website/backend/internal/mockinterviews"
 	"github.com/magedmg/RSP-website/backend/internal/platform/audit"
+	"github.com/magedmg/RSP-website/backend/internal/platform/repository"
 	"github.com/magedmg/RSP-website/backend/internal/practice"
 	"github.com/magedmg/RSP-website/backend/internal/programme"
 )
 
 var (
 	// ErrNotFound is a public value used by the backend.
-	ErrNotFound = errors.New("not found")
+	ErrNotFound = repository.ErrNotFound
 	// ErrConflict is a public value used by the backend.
-	ErrConflict = errors.New("conflict")
+	ErrConflict = repository.ErrConflict
 	// ErrDuplicate is a public value used by the backend.
-	ErrDuplicate = errors.New("duplicate")
+	ErrDuplicate = repository.ErrDuplicate
 )
 
 // MockVersion is a persistence record for an interview snapshot.
