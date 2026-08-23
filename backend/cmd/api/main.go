@@ -30,7 +30,7 @@ func main() {
 		}
 	}
 
-	var repository store.Repository
+	var repository httpapi.Repository
 	var ready func() error
 	var syncLeetCode func(context.Context, string, string) error
 	var setAccountState func(context.Context, string, string, string, string) error
