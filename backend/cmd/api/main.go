@@ -77,7 +77,7 @@ func main() {
 				os.Exit(1)
 			}
 		}
-		authenticator = httpapi.BearerAuthenticator{Validator: &authn.Validator{Issuer: os.Getenv("AUTH_ISSUER"), Audience: os.Getenv("AUTH_AUDIENCE"), JWKSURL: os.Getenv("AUTH_JWKS_URL")}, Store: repository}
+		authenticator = httpapi.BearerAuthenticator{Validator: &authn.Validator{Issuer: os.Getenv("AUTH_ISSUER"), Audience: os.Getenv("AUTH_AUDIENCE"), JWKSURL: os.Getenv("AUTH_JWKS_URL")}, Subjects: repository}
 		authClient := authadmin.Client{BaseURL: env("AUTH_INTERNAL_URL", "http://auth:3001"), Token: os.Getenv("IDENTITY_SERVICE_TOKEN"), HTTP: &http.Client{Timeout: 5 * time.Second}}
 		setAccountState = authClient.SetAccountState
 		getMFAState = authClient.MFAConfigured
