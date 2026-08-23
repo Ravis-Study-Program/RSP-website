@@ -23,7 +23,7 @@ const (
 	SystemAdmin GlobalRole = "system_admin"
 )
 
-// Enrollment represents a backend data structure.
+// Enrollment is the part of an enrollment that season transitions change.
 type Enrollment struct {
 	ID, State          string
 	CompletedByCloseID *string
@@ -42,35 +42,49 @@ type CloseEvent struct {
 	ClosedAt            time.Time
 }
 
-// Close closes a value.
-func Close(s *Season, actorID, reason string, now time.Time) (CloseEvent, error) {
-	if s.Status != "open" {
-		return CloseEvent{}, ErrClosed
-	}
-	e := CloseEvent{"close-" + s.ID, actorID, reason, now.UTC()}
-	for i := range s.Enrollments {
-		if s.Enrollments[i].State == "active" {
-			s.Enrollments[i].State = "completed"
-			s.Enrollments[i].CompletedByCloseID = &e.ID
-		}
-	}
-	s.Status = "closed"
-	s.Revision++
-	return e, nil
+// Transition is the result of a pure season state change.
+type Transition struct {
+	Season     Season
+	CloseEvent *CloseEvent
 }
 
-// Reopen reopens a value.
-func Reopen(s *Season, e CloseEvent, role GlobalRole) error {
-	if role != Director && role != SystemAdmin {
-		return ErrForbidden
+// Close closes a season without changing the supplied value.
+func Close(s Season, actorID, reason string, now time.Time) (Transition, error) {
+	if s.Status != "open" {
+		return Transition{}, ErrClosed
 	}
-	for i := range s.Enrollments {
-		if s.Enrollments[i].CompletedByCloseID != nil && *s.Enrollments[i].CompletedByCloseID == e.ID {
-			s.Enrollments[i].State = "active"
-			s.Enrollments[i].CompletedByCloseID = nil
+	e := CloseEvent{"close-" + s.ID, actorID, reason, now.UTC()}
+	closed := cloneSeason(s)
+	for i := range closed.Enrollments {
+		if closed.Enrollments[i].State == "active" {
+			closed.Enrollments[i].State = "completed"
+			closeID := e.ID
+			closed.Enrollments[i].CompletedByCloseID = &closeID
 		}
 	}
-	s.Status = "open"
-	s.Revision++
-	return nil
+	closed.Status = "closed"
+	closed.Revision++
+	return Transition{Season: closed, CloseEvent: &e}, nil
+}
+
+// Reopen reopens a season without changing the supplied value.
+func Reopen(s Season, e CloseEvent, role GlobalRole) (Season, error) {
+	if role != Director && role != SystemAdmin {
+		return Season{}, ErrForbidden
+	}
+	reopened := cloneSeason(s)
+	for i := range reopened.Enrollments {
+		if reopened.Enrollments[i].CompletedByCloseID != nil && *reopened.Enrollments[i].CompletedByCloseID == e.ID {
+			reopened.Enrollments[i].State = "active"
+			reopened.Enrollments[i].CompletedByCloseID = nil
+		}
+	}
+	reopened.Status = "open"
+	reopened.Revision++
+	return reopened, nil
+}
+
+func cloneSeason(s Season) Season {
+	s.Enrollments = append([]Enrollment(nil), s.Enrollments...)
+	return s
 }
