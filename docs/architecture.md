@@ -26,20 +26,26 @@ Caddy routes the single local origin and denies public metrics paths.
 
 ## Source boundaries
 
-| Boundary    | Location                                        | Responsibility                                                                                                |
-| ----------- | ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
-| Browser     | `apps/web`                                      | Routes, accessible interaction, local timezone rendering and API queries.                                     |
-| Identity    | `apps/auth`                                     | Better Auth sessions, password/Google providers, verification, MFA, JWT/JWKS, credential lifecycle and email. |
-| Contract    | `api/openapi.yaml`                              | Public `/api/v2` operations, DTOs, Problem Details and generated-code source of truth.                        |
-| Transport   | `backend/internal/httpapi`                      | HTTP decoding/validation, authentication boundary, status codes and serialization.                            |
-| Domain      | `backend/internal/*` feature packages           | Authorization relationships and programme rules independent of HTTP.                                          |
-| Persistence | `backend/internal/store`, `db/queries`          | Explicit pgx/sqlc persistence and transaction boundaries; no ORM or generic repository.                       |
-| Jobs        | `backend/cmd/worker`, `backend/internal/worker` | Scheduled LeetCode synchronization, catch-up, retry and advisory locking.                                     |
-| Operations  | `deploy`, `compose.yaml`                        | Local ingress and container topology.                                                                         |
+| Boundary    | Location                                                        | Responsibility                                                                                                |
+| ----------- | --------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| Browser     | `apps/web`                                                      | Routes, accessible interaction, local timezone rendering and API queries.                                     |
+| Identity    | `apps/auth`                                                     | Better Auth sessions, password/Google providers, verification, MFA, JWT/JWKS, credential lifecycle and email. |
+| Contract    | `api/openapi.yaml`                                              | Public `/api/v2` operations, DTOs, Problem Details and generated-code source of truth.                        |
+| Transport   | `backend/internal/httpapi`                                      | HTTP decoding/validation, authentication boundary, status codes and serialization.                            |
+| Domain      | `backend/internal/{accounts,programme,practice,mockinterviews}` | Authorization relationships and programme rules independent of HTTP.                                          |
+| Persistence | `backend/internal/postgres`, `db/queries`                       | Explicit pgx/sqlc persistence and transaction boundaries; no ORM or generic repository.                       |
+| Jobs        | `backend/cmd/worker`, `backend/internal/worker`                 | Scheduled LeetCode synchronization, catch-up, retry and advisory locking.                                     |
+| Operations  | `deploy`, `compose.yaml`                                        | Local ingress and container topology.                                                                         |
 
 Feature services own business rules. Transport code must not recreate role or
 ownership checks, and SQL must not infer an actor from request data. Mutations
 that span related records use one request-scoped transaction.
+
+Feature packages define the interfaces they consume. The HTTP adapter depends
+on feature services, while the PostgreSQL adapter implements feature repository
+interfaces. Feature packages must not import either adapter. The current
+repository package remains a transitional compatibility boundary while the
+feature repositories are extracted.
 
 ## Identity and request flow
 

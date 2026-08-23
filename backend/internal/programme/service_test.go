@@ -1,4 +1,4 @@
-package seasons
+package programme
 
 import (
 	"testing"

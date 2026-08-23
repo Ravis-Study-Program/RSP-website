@@ -1,5 +1,5 @@
-// Package seasons models season lifecycle rules.
-package seasons
+// Package programme models programme lifecycle rules.
+package programme
 
 import (
 	"errors"
