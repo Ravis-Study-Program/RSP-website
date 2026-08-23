@@ -2,32 +2,16 @@ package store
 
 import (
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"time"
 
+	"github.com/magedmg/RSP-website/backend/internal/accounts"
 	"github.com/magedmg/RSP-website/backend/internal/authz"
 	"github.com/magedmg/RSP-website/backend/internal/mockinterviews"
 	"github.com/magedmg/RSP-website/backend/internal/model"
 	"github.com/magedmg/RSP-website/backend/internal/practice"
 )
-
-// IdentityEventHash returns the stable hash used to detect altered event replays.
-func IdentityEventHash(event IdentityEvent) string {
-	recoveryDeadline := ""
-	if event.RecoveryDeadline != nil {
-		recoveryDeadline = event.RecoveryDeadline.UTC().Format(time.RFC3339Nano)
-	}
-	payload, _ := json.Marshal(struct {
-		Type, AuthUserID, Email, Reason, AccountState, ActorUserID, OccurredAt, RecoveryDeadline string
-		EmailVerified                                                                            bool
-		SecurityVersion                                                                          int64
-	}{event.Type, event.AuthUserID, event.Email, event.Reason, event.AccountState, event.ActorUserID, event.OccurredAt.UTC().Format(time.RFC3339Nano), recoveryDeadline, event.EmailVerified, event.SecurityVersion})
-	sum := sha256.Sum256(payload)
-	return hex.EncodeToString(sum[:])
-}
 
 var (
 	// ErrNotFound is a public value used by the backend.
@@ -37,15 +21,6 @@ var (
 	// ErrDuplicate is a public value used by the backend.
 	ErrDuplicate = errors.New("duplicate")
 )
-
-// IdentityEvent represents a backend data structure.
-type IdentityEvent struct {
-	EventID, Type, AuthUserID, Email, Reason, AccountState, ActorUserID string
-	EmailVerified                                                       bool
-	SecurityVersion                                                     int64
-	OccurredAt                                                          time.Time
-	RecoveryDeadline                                                    *time.Time
-}
 
 // GlobalRoleAssignment represents a backend data structure.
 type GlobalRoleAssignment struct {
@@ -91,7 +66,7 @@ type ObservabilitySource interface {
 
 // Repository defines a backend interface.
 type Repository interface {
-	ApplyIdentityEvent(context.Context, IdentityEvent) error
+	ApplyIdentityEvent(context.Context, accounts.IdentityEvent) error
 	ResolveAuthSubject(context.Context, string) (authz.Actor, error)
 	GetUser(context.Context, string) (model.User, error)
 	SuggestUserSlug(context.Context) (string, error)

@@ -13,6 +13,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/magedmg/RSP-website/backend/internal/accounts"
 	"github.com/magedmg/RSP-website/backend/internal/authz"
 	"github.com/magedmg/RSP-website/backend/internal/mockinterviews"
 	"github.com/magedmg/RSP-website/backend/internal/model"
@@ -71,7 +72,7 @@ func newFixture() fixture {
 		}
 
 		now := time.Now().UTC()
-		return repo.ApplyIdentityEvent(ctx, store.IdentityEvent{EventID: "test-state-" + subject + "-" + state + "-" + now.Format(time.RFC3339Nano), Type: "account_state_changed", AuthUserID: subject, AccountState: state, Reason: reason, ActorUserID: actorUserID, SecurityVersion: target.SecurityVersion + 1, OccurredAt: now})
+		return repo.ApplyIdentityEvent(ctx, accounts.IdentityEvent{EventID: "test-state-" + subject + "-" + state + "-" + now.Format(time.RFC3339Nano), Type: "account_state_changed", AuthUserID: subject, AccountState: state, Reason: reason, ActorUserID: actorUserID, SecurityVersion: target.SecurityVersion + 1, OccurredAt: now})
 	}
 	getMFAState := func(ctx context.Context, subject string) (bool, error) {
 		target, err := repo.ResolveAuthSubject(ctx, subject)

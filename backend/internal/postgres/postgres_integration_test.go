@@ -10,6 +10,7 @@ import (
 	"time"
 
 	_ "github.com/jackc/pgx/v5/stdlib"
+	"github.com/magedmg/RSP-website/backend/internal/accounts"
 	"github.com/magedmg/RSP-website/backend/internal/authz"
 	"github.com/magedmg/RSP-website/backend/internal/mockinterviews"
 	"github.com/magedmg/RSP-website/backend/internal/model"
@@ -65,13 +66,13 @@ func TestPostgres18MigrationsAndRepository(t *testing.T) {
 
 	defer repository.Close()
 	createdAt := time.Now().UTC()
-	if err := repository.ApplyIdentityEvent(ctx, IdentityEvent{EventID: "00000000-0000-7000-8000-000000000010", Type: "auth_user_created", AuthUserID: "auth-unverified", Email: "unverified@rsp.local", EmailVerified: false, SecurityVersion: 1, OccurredAt: createdAt}); err != nil {
+	if err := repository.ApplyIdentityEvent(ctx, accounts.IdentityEvent{EventID: "00000000-0000-7000-8000-000000000010", Type: "auth_user_created", AuthUserID: "auth-unverified", Email: "unverified@rsp.local", EmailVerified: false, SecurityVersion: 1, OccurredAt: createdAt}); err != nil {
 		t.Fatalf("unverified auth user creation: %v", err)
 	}
 	if _, err := repository.ResolveAuthSubject(ctx, "auth-unverified"); err != ErrNotFound {
 		t.Fatalf("unverified inactive link resolved: %v", err)
 	}
-	if err := repository.ApplyIdentityEvent(ctx, IdentityEvent{EventID: "00000000-0000-7000-8000-000000000006", Type: "email_verified", AuthUserID: "auth-unverified", SecurityVersion: 2, OccurredAt: createdAt.Add(time.Second)}); err != nil {
+	if err := repository.ApplyIdentityEvent(ctx, accounts.IdentityEvent{EventID: "00000000-0000-7000-8000-000000000006", Type: "email_verified", AuthUserID: "auth-unverified", SecurityVersion: 2, OccurredAt: createdAt.Add(time.Second)}); err != nil {
 		t.Fatalf("email verification activation: %v", err)
 	}
 	if actor, err := repository.ResolveAuthSubject(ctx, "auth-unverified"); err != nil || !actor.EmailVerified || actor.SecurityVersion != 2 {
@@ -88,7 +89,7 @@ func TestPostgres18MigrationsAndRepository(t *testing.T) {
 	if _, err := repository.Pool.Exec(ctx, `INSERT INTO app.global_role_assignments(id,user_id,role,state) VALUES('00000000-0000-7000-8000-000000000032','00000000-0000-7000-8000-000000000033','director','pending_mfa')`); err != nil {
 		t.Fatal(err)
 	}
-	if err := repository.ApplyIdentityEvent(ctx, IdentityEvent{EventID: "00000000-0000-7000-8000-000000000014", Type: "mfa_configured", AuthUserID: "auth-integration", SecurityVersion: 2, OccurredAt: time.Now().UTC()}); err != nil {
+	if err := repository.ApplyIdentityEvent(ctx, accounts.IdentityEvent{EventID: "00000000-0000-7000-8000-000000000014", Type: "mfa_configured", AuthUserID: "auth-integration", SecurityVersion: 2, OccurredAt: time.Now().UTC()}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -103,13 +104,13 @@ func TestPostgres18MigrationsAndRepository(t *testing.T) {
 	}
 
 	deadline := time.Now().UTC().Add(30 * 24 * time.Hour)
-	if err := repository.ApplyIdentityEvent(ctx, IdentityEvent{EventID: "00000000-0000-7000-8000-000000000008", Type: "deletion_requested", AuthUserID: "auth-integration", SecurityVersion: 3, OccurredAt: time.Now().UTC(), RecoveryDeadline: &deadline}); err != nil {
+	if err := repository.ApplyIdentityEvent(ctx, accounts.IdentityEvent{EventID: "00000000-0000-7000-8000-000000000008", Type: "deletion_requested", AuthUserID: "auth-integration", SecurityVersion: 3, OccurredAt: time.Now().UTC(), RecoveryDeadline: &deadline}); err != nil {
 		t.Fatal(err)
 	}
-	if err := repository.ApplyIdentityEvent(ctx, IdentityEvent{EventID: "00000000-0000-7000-8000-000000000007", Type: "deletion_cancelled", AuthUserID: "auth-integration", SecurityVersion: 4, OccurredAt: time.Now().UTC()}); err != nil {
+	if err := repository.ApplyIdentityEvent(ctx, accounts.IdentityEvent{EventID: "00000000-0000-7000-8000-000000000007", Type: "deletion_cancelled", AuthUserID: "auth-integration", SecurityVersion: 4, OccurredAt: time.Now().UTC()}); err != nil {
 		t.Fatal(err)
 	}
-	if err := repository.ApplyIdentityEvent(ctx, IdentityEvent{EventID: "00000000-0000-7000-8000-000000000001", Type: "deletion_requested", AuthUserID: "auth-integration", SecurityVersion: 3, OccurredAt: time.Now().UTC(), RecoveryDeadline: &deadline}); err != nil {
+	if err := repository.ApplyIdentityEvent(ctx, accounts.IdentityEvent{EventID: "00000000-0000-7000-8000-000000000001", Type: "deletion_requested", AuthUserID: "auth-integration", SecurityVersion: 3, OccurredAt: time.Now().UTC(), RecoveryDeadline: &deadline}); err != nil {
 		t.Fatal(err)
 	}
 

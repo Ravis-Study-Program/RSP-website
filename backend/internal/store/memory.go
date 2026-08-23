@@ -9,6 +9,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/magedmg/RSP-website/backend/internal/accounts"
 	"github.com/magedmg/RSP-website/backend/internal/authz"
 	"github.com/magedmg/RSP-website/backend/internal/mockinterviews"
 	"github.com/magedmg/RSP-website/backend/internal/model"
@@ -80,13 +81,13 @@ func memoryPage[T any](items []T, boundary string, limit int, direction string, 
 }
 
 // ApplyIdentityEvent applies the operation.
-func (m *Memory) ApplyIdentityEvent(_ context.Context, event IdentityEvent) error {
+func (m *Memory) ApplyIdentityEvent(_ context.Context, event accounts.IdentityEvent) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	if event.EventID == "" {
 		return errors.New("identity event id is required")
 	}
-	payloadHash := IdentityEventHash(event)
+	payloadHash := accounts.IdentityEventHash(event)
 	if m.IdentityEventReceipts[event.EventID] {
 		if m.IdentityEventHashes[event.EventID] != payloadHash {
 			return ErrConflict

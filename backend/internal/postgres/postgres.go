@@ -11,6 +11,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/magedmg/RSP-website/backend/internal/accounts"
 	"github.com/magedmg/RSP-website/backend/internal/authz"
 	"github.com/magedmg/RSP-website/backend/internal/mockinterviews"
 	"github.com/magedmg/RSP-website/backend/internal/model"
@@ -27,12 +28,9 @@ var (
 	ErrDuplicate = store.ErrDuplicate
 )
 
-type IdentityEvent = store.IdentityEvent
 type GlobalRoleAssignment = store.GlobalRoleAssignment
 type ObservabilitySnapshot = store.ObservabilitySnapshot
 type RecommendationSnapshot = store.RecommendationSnapshot
-
-func identityEventHash(event IdentityEvent) string { return store.IdentityEventHash(event) }
 
 // Postgres represents a backend data structure.
 type Postgres struct {
@@ -138,7 +136,7 @@ LIMIT 1`).Scan(&snapshot.MigrationState)
 }
 
 // ApplyIdentityEvent applies the operation.
-func (p *Postgres) ApplyIdentityEvent(ctx context.Context, event IdentityEvent) error {
+func (p *Postgres) ApplyIdentityEvent(ctx context.Context, event accounts.IdentityEvent) error {
 	if event.EventID == "" {
 		return errors.New("identity event id is required")
 	}
@@ -148,7 +146,7 @@ func (p *Postgres) ApplyIdentityEvent(ctx context.Context, event IdentityEvent) 
 	}
 
 	defer tx.Rollback(ctx)
-	payloadHash := identityEventHash(event)
+	payloadHash := accounts.IdentityEventHash(event)
 	var inserted bool
 	err = tx.QueryRow(ctx, `INSERT INTO app.identity_event_receipts(event_id,auth_subject,event_type,security_version,payload_hash) VALUES($1,$2,$3,$4,$5) ON CONFLICT(event_id) DO NOTHING RETURNING true`, event.EventID, event.AuthUserID, event.Type, event.SecurityVersion, payloadHash).Scan(&inserted)
 	if errors.Is(err, pgx.ErrNoRows) {

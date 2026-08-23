@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/magedmg/RSP-website/backend/internal/store"
+	"github.com/magedmg/RSP-website/backend/internal/accounts"
 )
 
 func (a *API) identityLifecycle(w http.ResponseWriter, r *http.Request) {
@@ -40,7 +40,7 @@ func (a *API) identityLifecycle(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err := a.store.ApplyIdentityEvent(r.Context(), store.IdentityEvent{EventID: in.EventID, Type: in.Type, AuthUserID: in.AuthUserID, Email: in.Email, EmailVerified: in.EmailVerified, SecurityVersion: in.SecurityVersion, OccurredAt: in.OccurredAt.UTC(), RecoveryDeadline: in.RecoveryDeadline, Reason: in.Reason, AccountState: in.AccountState, ActorUserID: in.ActorUserID})
+	err := a.store.ApplyIdentityEvent(r.Context(), accounts.IdentityEvent{EventID: in.EventID, Type: in.Type, AuthUserID: in.AuthUserID, Email: in.Email, EmailVerified: in.EmailVerified, SecurityVersion: in.SecurityVersion, OccurredAt: in.OccurredAt.UTC(), RecoveryDeadline: in.RecoveryDeadline, Reason: in.Reason, AccountState: in.AccountState, ActorUserID: in.ActorUserID})
 	if err != nil {
 		storeFailure(a, w, r, err)
 		return

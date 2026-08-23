@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/magedmg/RSP-website/backend/internal/accounts"
 	"github.com/magedmg/RSP-website/backend/internal/mockinterviews"
 	"github.com/magedmg/RSP-website/backend/internal/model"
 	"github.com/magedmg/RSP-website/backend/internal/practice"
@@ -63,7 +64,7 @@ func TestMemoryCoordinatorMFAStateSurvivesCloseReopen(t *testing.T) {
 func TestMemoryIdentityReceiptsRejectAlteredReplayAndPseudonymizeProfile(t *testing.T) {
 	ctx := context.Background()
 	repository := NewMemory()
-	created := IdentityEvent{EventID: "event-created", Type: "auth_user_created", AuthUserID: "auth-subject", Email: "member@example.com", EmailVerified: true, SecurityVersion: 1, OccurredAt: time.Now().UTC()}
+	created := accounts.IdentityEvent{EventID: "event-created", Type: "auth_user_created", AuthUserID: "auth-subject", Email: "member@example.com", EmailVerified: true, SecurityVersion: 1, OccurredAt: time.Now().UTC()}
 	if err := repository.ApplyIdentityEvent(ctx, created); err != nil {
 		t.Fatal(err)
 	}
@@ -83,7 +84,7 @@ func TestMemoryIdentityReceiptsRejectAlteredReplayAndPseudonymizeProfile(t *test
 	if err := repository.ApplyIdentityEvent(ctx, altered); !errors.Is(err, ErrConflict) {
 		t.Fatalf("altered event-id replay returned %v", err)
 	}
-	if err := repository.ApplyIdentityEvent(ctx, IdentityEvent{EventID: "event-pseudonymized", Type: "auth_pseudonymized", AuthUserID: created.AuthUserID, SecurityVersion: 2, OccurredAt: time.Now().UTC()}); err != nil {
+	if err := repository.ApplyIdentityEvent(ctx, accounts.IdentityEvent{EventID: "event-pseudonymized", Type: "auth_pseudonymized", AuthUserID: created.AuthUserID, SecurityVersion: 2, OccurredAt: time.Now().UTC()}); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := repository.GetUser(ctx, oldSlug); !errors.Is(err, ErrNotFound) {
