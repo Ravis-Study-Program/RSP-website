@@ -25,8 +25,11 @@ const (
 
 // Enrollment is the part of an enrollment that season transitions change.
 type Enrollment struct {
-	ID, State          string
-	CompletedByCloseID *string
+	ID, State            string
+	AssignmentState      string
+	CloseAssignmentState string
+	CompletedByCloseID   *string
+	Revision             int64
 }
 
 // Season represents a backend data structure.
@@ -49,17 +52,25 @@ type Transition struct {
 }
 
 // Close closes a season without changing the supplied value.
-func Close(s Season, actorID, reason string, now time.Time) (Transition, error) {
+func Close(s Season, actorID, reason, eventID string, now time.Time) (Transition, error) {
 	if s.Status != "open" {
 		return Transition{}, ErrClosed
 	}
-	e := CloseEvent{"close-" + s.ID, actorID, reason, now.UTC()}
+	if eventID == "" {
+		eventID = "close-" + s.ID
+	}
+	e := CloseEvent{eventID, actorID, reason, now.UTC()}
 	closed := cloneSeason(s)
 	for i := range closed.Enrollments {
 		if closed.Enrollments[i].State == "active" {
 			closed.Enrollments[i].State = "completed"
+			closed.Enrollments[i].CloseAssignmentState = closed.Enrollments[i].AssignmentState
+			if closed.Enrollments[i].AssignmentState != "" {
+				closed.Enrollments[i].AssignmentState = "revoked"
+			}
 			closeID := e.ID
 			closed.Enrollments[i].CompletedByCloseID = &closeID
+			closed.Enrollments[i].Revision++
 		}
 	}
 	closed.Status = "closed"
@@ -76,7 +87,12 @@ func Reopen(s Season, e CloseEvent, role GlobalRole) (Season, error) {
 	for i := range reopened.Enrollments {
 		if reopened.Enrollments[i].CompletedByCloseID != nil && *reopened.Enrollments[i].CompletedByCloseID == e.ID {
 			reopened.Enrollments[i].State = "active"
+			if reopened.Enrollments[i].CloseAssignmentState != "" {
+				reopened.Enrollments[i].AssignmentState = reopened.Enrollments[i].CloseAssignmentState
+			}
+			reopened.Enrollments[i].CloseAssignmentState = ""
 			reopened.Enrollments[i].CompletedByCloseID = nil
+			reopened.Enrollments[i].Revision++
 		}
 	}
 	reopened.Status = "open"

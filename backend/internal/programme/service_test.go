@@ -7,7 +7,7 @@ import (
 
 func TestCloseReopenRestoresOnlyCloseCompletions(t *testing.T) {
 	s := Season{ID: "s1", Status: "open", Enrollments: []Enrollment{{ID: "active", State: "active"}, {ID: "kicked", State: "kicked"}, {ID: "old", State: "completed"}}}
-	closed, err := Close(s, "u1", "ended", time.Now())
+	closed, err := Close(s, "u1", "ended", "close-s1", time.Now())
 	if err != nil {
 		t.Fatal(err)
 	}

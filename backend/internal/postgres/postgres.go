@@ -17,6 +17,7 @@ import (
 	"github.com/magedmg/RSP-website/backend/internal/platform/dbgen"
 	"github.com/magedmg/RSP-website/backend/internal/platform/id"
 	"github.com/magedmg/RSP-website/backend/internal/practice"
+	"github.com/magedmg/RSP-website/backend/internal/programme"
 	"github.com/magedmg/RSP-website/backend/internal/store"
 )
 
@@ -952,21 +953,29 @@ func (p *Postgres) CloseSeason(ctx context.Context, seasonID string, revision in
 	}
 
 	defer tx.Rollback(ctx)
-	var currentStatus string
-	var currentRevision int64
-	if err := tx.QueryRow(ctx, `SELECT status::text,revision FROM app.seasons WHERE id=$1 AND deleted_at IS NULL FOR UPDATE`, seasonID).Scan(&currentStatus, &currentRevision); err != nil {
-		return model.Season{}, noRows(err)
+	domainSeason, enrollments, err := loadProgrammeSeason(ctx, tx, seasonID)
+	if err != nil {
+		return model.Season{}, err
 	}
-	if currentStatus != "open" || currentRevision != revision {
+	if domainSeason.Revision != revision {
 		return model.Season{}, ErrConflict
 	}
 	closedAt := at.UTC()
 	closeEventID := id.New()
+	transition, err := programme.Close(domainSeason, actorID, reason, closeEventID, closedAt)
+	if err != nil {
+		return model.Season{}, ErrConflict
+	}
 	if _, err := tx.Exec(ctx, `INSERT INTO app.season_close_events(id,season_id,closed_by_user_id,close_reason,closed_at) VALUES($1,$2,$3,$4,$5)`, closeEventID, seasonID, actorID, reason, closedAt); err != nil {
 		return model.Season{}, mapPostgresError(err)
 	}
-	if _, err := tx.Exec(ctx, `UPDATE app.enrollments SET state='completed',completed_by_close_id=$2,state_changed_at=$3,close_assignment_state=assignment_state,close_activated_at=activated_at,assignment_state='revoked',activated_at=NULL,revision=revision+1 WHERE season_id=$1 AND state='active' AND deleted_at IS NULL`, seasonID, closeEventID, closedAt); err != nil {
-		return model.Season{}, err
+	for index, enrollment := range transition.Season.Enrollments {
+		if enrollments[index].State != "active" || enrollment.State != "completed" {
+			continue
+		}
+		if _, err := tx.Exec(ctx, `UPDATE app.enrollments SET state='completed',completed_by_close_id=$2,state_changed_at=$3,close_assignment_state=assignment_state,close_activated_at=activated_at,assignment_state='revoked',activated_at=NULL,revision=revision+1 WHERE id=$1 AND revision=$4 AND state='active' AND deleted_at IS NULL`, enrollment.ID, closeEventID, closedAt, enrollments[index].Revision); err != nil {
+			return model.Season{}, err
+		}
 	}
 
 	v, err := scanSeason(tx.QueryRow(ctx, `UPDATE app.seasons SET status='closed',closed_at=$3,revision=revision+1 WHERE id=$1 AND status='open' AND revision=$2 AND deleted_at IS NULL RETURNING `+seasonColumns, seasonID, revision, closedAt))
@@ -990,25 +999,33 @@ func (p *Postgres) ReopenSeason(ctx context.Context, seasonID string, revision i
 	}
 
 	defer tx.Rollback(ctx)
-	var currentStatus string
-	var currentRevision int64
-	if err := tx.QueryRow(ctx, `SELECT status::text,revision FROM app.seasons WHERE id=$1 AND deleted_at IS NULL FOR UPDATE`, seasonID).Scan(&currentStatus, &currentRevision); err != nil {
-		return model.Season{}, noRows(err)
-	}
-	if currentStatus != "closed" || currentRevision != revision {
-		return model.Season{}, ErrConflict
-	}
 	var closeEventID string
 	if err := tx.QueryRow(ctx, `SELECT id FROM app.season_close_events WHERE season_id=$1 AND reopened_at IS NULL FOR UPDATE`, seasonID).Scan(&closeEventID); err != nil {
 		return model.Season{}, noRows(err)
 	}
+	domainSeason, enrollments, err := loadProgrammeReopenSeason(ctx, tx, seasonID, closeEventID)
+	if err != nil {
+		return model.Season{}, err
+	}
+	if domainSeason.Revision != revision {
+		return model.Season{}, ErrConflict
+	}
 
 	reopenedAt := at.UTC()
+	reopened, err := programme.Reopen(domainSeason, programme.CloseEvent{ID: closeEventID}, programme.SystemAdmin)
+	if err != nil {
+		return model.Season{}, ErrConflict
+	}
 	if _, err := tx.Exec(ctx, `UPDATE app.season_close_events SET reopened_by_user_id=$2,reopen_reason=$3,reopened_at=$4 WHERE id=$1 AND reopened_at IS NULL`, closeEventID, actorID, reason, reopenedAt); err != nil {
 		return model.Season{}, err
 	}
-	if _, err := tx.Exec(ctx, `UPDATE app.enrollments SET state='active',completed_by_close_id=NULL,state_changed_at=$2::timestamptz,assignment_state=COALESCE(close_assignment_state,'active'::app.assignment_state),activated_at=CASE WHEN COALESCE(close_assignment_state,'active'::app.assignment_state)='active' THEN COALESCE(close_activated_at,$2::timestamptz) ELSE NULL END,close_assignment_state=NULL,close_activated_at=NULL,revision=revision+1 WHERE completed_by_close_id=$1 AND state='completed' AND deleted_at IS NULL`, closeEventID, reopenedAt); err != nil {
-		return model.Season{}, err
+	for index, enrollment := range reopened.Enrollments {
+		if enrollments[index].State != "completed" || enrollment.State != "active" {
+			continue
+		}
+		if _, err := tx.Exec(ctx, `UPDATE app.enrollments SET state='active',completed_by_close_id=NULL,state_changed_at=$2::timestamptz,assignment_state=COALESCE(close_assignment_state,'active'::app.assignment_state),activated_at=CASE WHEN COALESCE(close_assignment_state,'active'::app.assignment_state)='active' THEN COALESCE(close_activated_at,$2::timestamptz) ELSE NULL END,close_assignment_state=NULL,close_activated_at=NULL,revision=revision+1 WHERE id=$1 AND revision=$3 AND completed_by_close_id=$4 AND state='completed' AND deleted_at IS NULL`, enrollment.ID, reopenedAt, enrollments[index].Revision, closeEventID); err != nil {
+			return model.Season{}, err
+		}
 	}
 
 	v, err := scanSeason(tx.QueryRow(ctx, `UPDATE app.seasons SET status='open',closed_at=NULL,revision=revision+1 WHERE id=$1 AND status='closed' AND revision=$2 AND deleted_at IS NULL RETURNING `+seasonColumns, seasonID, revision))

@@ -35,6 +35,7 @@ type Memory struct {
 	MockVersions             []MockVersion
 	closeCompleted           map[string]map[string]bool
 	closeAssignmentStates    map[string]map[string]string
+	closeEventIDs            map[string]string
 	Audits                   []model.AuditEvent
 	IdentityEventReceipts    map[string]bool
 	IdentityEventHashes      map[string]string
@@ -44,7 +45,7 @@ type Memory struct {
 
 // NewMemory creates a new value.
 func NewMemory() *Memory {
-	return &Memory{Users: map[string]model.User{}, PracticeSettings: map[string]model.PracticeSettings{}, AuthSubjects: map[string]authz.Actor{}, Seasons: map[string]model.Season{}, Weeks: map[string]model.Week{}, Enrollments: map[string]model.Enrollment{}, Mentorships: map[string]model.Mentorship{}, Problems: map[string]model.Problem{}, Attempts: map[string]model.Attempt{}, Recommendations: map[string]practice.Recommendation{}, RecommendationDismissals: map[string][]practice.Dismissal{}, Mocks: map[string]mockinterviews.Interview{}, closeCompleted: map[string]map[string]bool{}, closeAssignmentStates: map[string]map[string]string{}, IdentityEventReceipts: map[string]bool{}, IdentityEventHashes: map[string]string{}, GlobalRoleAssignments: map[string]GlobalRoleAssignment{}, MFAConfigured: map[string]bool{}}
+	return &Memory{Users: map[string]model.User{}, PracticeSettings: map[string]model.PracticeSettings{}, AuthSubjects: map[string]authz.Actor{}, Seasons: map[string]model.Season{}, Weeks: map[string]model.Week{}, Enrollments: map[string]model.Enrollment{}, Mentorships: map[string]model.Mentorship{}, Problems: map[string]model.Problem{}, Attempts: map[string]model.Attempt{}, Recommendations: map[string]practice.Recommendation{}, RecommendationDismissals: map[string][]practice.Dismissal{}, Mocks: map[string]mockinterviews.Interview{}, closeCompleted: map[string]map[string]bool{}, closeAssignmentStates: map[string]map[string]string{}, closeEventIDs: map[string]string{}, IdentityEventReceipts: map[string]bool{}, IdentityEventHashes: map[string]string{}, GlobalRoleAssignments: map[string]GlobalRoleAssignment{}, MFAConfigured: map[string]bool{}}
 }
 
 func memoryPage[T any](items []T, boundary string, limit int, direction string, identity func(T) string) ([]T, bool, error) {
@@ -749,10 +750,10 @@ func (m *Memory) CloseSeason(_ context.Context, seasonID string, revision int64,
 	domainSeason := programme.Season{ID: v.ID, Status: v.Status, Revision: v.Revision}
 	for _, enrollment := range m.Enrollments {
 		if enrollment.SeasonID == seasonID {
-			domainSeason.Enrollments = append(domainSeason.Enrollments, programme.Enrollment{ID: enrollment.ID, State: enrollment.State})
+			domainSeason.Enrollments = append(domainSeason.Enrollments, programme.Enrollment{ID: enrollment.ID, State: enrollment.State, AssignmentState: enrollment.AssignmentState, Revision: enrollment.Revision})
 		}
 	}
-	transition, err := programme.Close(domainSeason, actorID, reason, at)
+	transition, err := programme.Close(domainSeason, actorID, reason, id.New(), at)
 	if err != nil {
 		return model.Season{}, ErrConflict
 	}
@@ -774,6 +775,7 @@ func (m *Memory) CloseSeason(_ context.Context, seasonID string, revision int64,
 	}
 	m.closeCompleted[seasonID] = completed
 	m.closeAssignmentStates[seasonID] = assignmentStates
+	m.closeEventIDs[seasonID] = transition.CloseEvent.ID
 	actor := actorID
 	m.Audits = append(m.Audits, model.AuditEvent{ID: id.New(), ActorID: &actor, Action: "season.closed", SubjectType: "season", SubjectID: seasonID, Data: map[string]any{"reason": reason}, OccurredAt: at.UTC()})
 	return v, nil
@@ -791,14 +793,21 @@ func (m *Memory) ReopenSeason(_ context.Context, seasonID string, revision int64
 		return model.Season{}, ErrConflict
 	}
 	domainSeason := programme.Season{ID: v.ID, Status: v.Status, Revision: v.Revision}
-	closeID := "close-" + seasonID
+	closeID := m.closeEventIDs[seasonID]
+	if closeID == "" {
+		return model.Season{}, ErrConflict
+	}
 	for _, enrollment := range m.Enrollments {
 		if enrollment.SeasonID == seasonID {
 			completedBy := ""
 			if m.closeCompleted[seasonID][enrollment.ID] {
 				completedBy = closeID
 			}
-			domainSeason.Enrollments = append(domainSeason.Enrollments, programme.Enrollment{ID: enrollment.ID, State: enrollment.State, CompletedByCloseID: stringPointer(completedBy)})
+			closeAssignment := ""
+			if completedBy != "" {
+				closeAssignment = m.closeAssignmentStates[seasonID][enrollment.ID]
+			}
+			domainSeason.Enrollments = append(domainSeason.Enrollments, programme.Enrollment{ID: enrollment.ID, State: enrollment.State, AssignmentState: enrollment.AssignmentState, CloseAssignmentState: closeAssignment, Revision: enrollment.Revision, CompletedByCloseID: stringPointer(completedBy)})
 		}
 	}
 	reopened, err := programme.Reopen(domainSeason, programme.CloseEvent{ID: closeID}, programme.SystemAdmin)
@@ -822,6 +831,7 @@ func (m *Memory) ReopenSeason(_ context.Context, seasonID string, revision int64
 	}
 	delete(m.closeCompleted, seasonID)
 	delete(m.closeAssignmentStates, seasonID)
+	delete(m.closeEventIDs, seasonID)
 	actor := actorID
 	m.Audits = append(m.Audits, model.AuditEvent{ID: id.New(), ActorID: &actor, Action: "season.reopened", SubjectType: "season", SubjectID: seasonID, Data: map[string]any{"reason": reason}, OccurredAt: at.UTC()})
 	return v, nil
