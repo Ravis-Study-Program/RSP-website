@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/magedmg/RSP-website/backend/internal/accounts"
 	"github.com/magedmg/RSP-website/backend/internal/authz"
 	"github.com/magedmg/RSP-website/backend/internal/model"
 	"github.com/magedmg/RSP-website/backend/internal/platform/cursor"
@@ -22,14 +23,14 @@ type meSeasonRole struct {
 }
 
 type meResponse struct {
-	model.User
+	accounts.User
 	EmailVerified bool           `json:"emailVerified"`
 	MFAVerified   bool           `json:"mfaVerified"`
 	SeasonRoles   []meSeasonRole `json:"seasonRoles"`
 	Alumni        bool           `json:"alumni"`
 }
 
-func (a *API) currentUserResponse(r *http.Request, actor authz.Actor, user model.User) (meResponse, error) {
+func (a *API) currentUserResponse(r *http.Request, actor authz.Actor, user accounts.User) (meResponse, error) {
 	roles := make([]meSeasonRole, 0, len(actor.Enrollments))
 	for _, enrollment := range actor.Enrollments {
 		if enrollment.State != authz.Active && enrollment.State != authz.Completed {
@@ -109,7 +110,7 @@ func (a *API) updateMe(w http.ResponseWriter, r *http.Request) {
 		in.Slug = &slug
 	}
 
-	updated, err := a.store.UpdateUser(r.Context(), actor.UserID, in.Revision, func(u *model.User) error {
+	updated, err := a.store.UpdateUser(r.Context(), actor.UserID, in.Revision, func(u *accounts.User) error {
 		u.Name = strings.TrimSpace(in.Name)
 		if in.Slug != nil {
 			u.Slug = *in.Slug
@@ -192,8 +193,8 @@ func (a *API) users(w http.ResponseWriter, r *http.Request) {
 		items[i].Email = ""
 		items[i].AccountState = ""
 	}
-	pageInfo := pageInfoForKeyset(a, binding, direction, boundary, items, more, func(v model.User) string { return v.ID })
-	writeJSON(w, 200, Page[model.User]{Items: items, PageInfo: pageInfo, TotalCount: total})
+	pageInfo := pageInfoForKeyset(a, binding, direction, boundary, items, more, func(v accounts.User) string { return v.ID })
+	writeJSON(w, 200, Page[accounts.User]{Items: items, PageInfo: pageInfo, TotalCount: total})
 }
 
 func (a *API) user(w http.ResponseWriter, r *http.Request) {

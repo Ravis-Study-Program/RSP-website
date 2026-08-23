@@ -22,7 +22,7 @@ import (
 // Memory represents a backend data structure.
 type Memory struct {
 	mu                       sync.RWMutex
-	Users                    map[string]model.User
+	Users                    map[string]accounts.User
 	PracticeSettings         map[string]model.PracticeSettings
 	AuthSubjects             map[string]authz.Actor
 	Seasons                  map[string]model.Season
@@ -47,7 +47,7 @@ type Memory struct {
 
 // NewMemory creates a new value.
 func NewMemory() *Memory {
-	return &Memory{Users: map[string]model.User{}, PracticeSettings: map[string]model.PracticeSettings{}, AuthSubjects: map[string]authz.Actor{}, Seasons: map[string]model.Season{}, Weeks: map[string]model.Week{}, Enrollments: map[string]model.Enrollment{}, Mentorships: map[string]model.Mentorship{}, Problems: map[string]model.Problem{}, Attempts: map[string]model.Attempt{}, Recommendations: map[string]practice.Recommendation{}, RecommendationDismissals: map[string][]practice.Dismissal{}, Mocks: map[string]mockinterviews.Interview{}, closeCompleted: map[string]map[string]bool{}, closeAssignmentStates: map[string]map[string]string{}, closeEventIDs: map[string]string{}, IdentityEventReceipts: map[string]bool{}, IdentityEventHashes: map[string]string{}, GlobalRoleAssignments: map[string]accounts.GlobalRoleAssignment{}, MFAConfigured: map[string]bool{}}
+	return &Memory{Users: map[string]accounts.User{}, PracticeSettings: map[string]model.PracticeSettings{}, AuthSubjects: map[string]authz.Actor{}, Seasons: map[string]model.Season{}, Weeks: map[string]model.Week{}, Enrollments: map[string]model.Enrollment{}, Mentorships: map[string]model.Mentorship{}, Problems: map[string]model.Problem{}, Attempts: map[string]model.Attempt{}, Recommendations: map[string]practice.Recommendation{}, RecommendationDismissals: map[string][]practice.Dismissal{}, Mocks: map[string]mockinterviews.Interview{}, closeCompleted: map[string]map[string]bool{}, closeAssignmentStates: map[string]map[string]string{}, closeEventIDs: map[string]string{}, IdentityEventReceipts: map[string]bool{}, IdentityEventHashes: map[string]string{}, GlobalRoleAssignments: map[string]accounts.GlobalRoleAssignment{}, MFAConfigured: map[string]bool{}}
 }
 
 func memoryPage[T any](items []T, boundary string, limit int, direction string, identity func(T) string) ([]T, bool, error) {
@@ -118,7 +118,7 @@ func (m *Memory) ApplyIdentityEvent(_ context.Context, event accounts.IdentityEv
 		}
 		userID := id.New()
 		slug := "member-" + strings.ReplaceAll(userID, "-", "")[:12]
-		m.Users[userID] = model.User{ID: userID, Slug: slug, Name: name, Email: event.Email, Timezone: "Australia/Adelaide", TimezoneConfigured: false, AccountState: "active", Revision: 1}
+		m.Users[userID] = accounts.User{ID: userID, Slug: slug, Name: name, Email: event.Email, Timezone: "Australia/Adelaide", TimezoneConfigured: false, AccountState: "active", Revision: 1}
 		m.AuthSubjects[event.AuthUserID] = authz.Actor{UserID: userID, EmailVerified: event.EmailVerified, AccountState: authz.AccountActive, GlobalRoles: map[authz.GlobalRole]bool{}, SecurityVersion: event.SecurityVersion}
 	case "email_verified":
 		if !exists {
@@ -363,7 +363,7 @@ func (m *Memory) RevokeGlobalRole(_ context.Context, userID, role string, revisi
 }
 
 // GetUser retrieves a value.
-func (m *Memory) GetUser(_ context.Context, id string) (model.User, error) {
+func (m *Memory) GetUser(_ context.Context, id string) (accounts.User, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 	v, ok := m.Users[id]
@@ -376,7 +376,7 @@ func (m *Memory) GetUser(_ context.Context, id string) (model.User, error) {
 		}
 	}
 	if !ok {
-		return model.User{}, ErrNotFound
+		return accounts.User{}, ErrNotFound
 	}
 	return m.enrichUserLocked(v), nil
 }
@@ -399,10 +399,10 @@ func (m *Memory) SuggestUserSlug(_ context.Context) (string, error) {
 }
 
 // ListUsers lists matching values.
-func (m *Memory) ListUsers(_ context.Context, boundary string, limit int, direction, query, seasonRole, globalRole string) ([]model.User, bool, int64, error) {
+func (m *Memory) ListUsers(_ context.Context, boundary string, limit int, direction, query, seasonRole, globalRole string) ([]accounts.User, bool, int64, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
-	items := make([]model.User, 0, len(m.Users))
+	items := make([]accounts.User, 0, len(m.Users))
 	var total int64
 	for _, v := range m.Users {
 		eligible := false
@@ -443,11 +443,11 @@ func (m *Memory) ListUsers(_ context.Context, boundary string, limit int, direct
 }
 
 // ListAdminUsers lists matching values.
-func (m *Memory) ListAdminUsers(_ context.Context, boundary string, limit int, direction, query, accountState, globalRole string) ([]model.User, bool, int64, error) {
+func (m *Memory) ListAdminUsers(_ context.Context, boundary string, limit int, direction, query, accountState, globalRole string) ([]accounts.User, bool, int64, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 	query = strings.ToLower(strings.TrimSpace(query))
-	items := make([]model.User, 0, len(m.Users))
+	items := make([]accounts.User, 0, len(m.Users))
 	var total int64
 	for _, user := range m.Users {
 		if user.AccountState == "deleted" || accountState != "" && user.AccountState != accountState {
@@ -485,11 +485,11 @@ func (m *Memory) ListAdminUsers(_ context.Context, boundary string, limit int, d
 }
 
 // ListEnrollmentCandidates lists matching values.
-func (m *Memory) ListEnrollmentCandidates(_ context.Context, seasonID, query, boundary string, limit int, direction string) ([]model.EnrollmentCandidate, bool, int64, error) {
+func (m *Memory) ListEnrollmentCandidates(_ context.Context, seasonID, query, boundary string, limit int, direction string) ([]accounts.EnrollmentCandidate, bool, int64, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 	query = strings.ToLower(strings.TrimSpace(query))
-	items := []model.EnrollmentCandidate{}
+	items := []accounts.EnrollmentCandidate{}
 	var total int64
 	for _, user := range m.Users {
 		if user.AccountState != "active" || user.IsTest {
@@ -507,7 +507,7 @@ func (m *Memory) ListEnrollmentCandidates(_ context.Context, seasonID, query, bo
 		}
 		total++
 		if boundary == "" || direction != "backward" && user.ID > boundary || direction == "backward" && user.ID < boundary {
-			items = append(items, model.EnrollmentCandidate{ID: user.ID, Slug: user.Slug, Name: user.Name, AvatarURL: user.AvatarURL, Revision: user.Revision})
+			items = append(items, accounts.EnrollmentCandidate{ID: user.ID, Slug: user.Slug, Name: user.Name, AvatarURL: user.AvatarURL, Revision: user.Revision})
 		}
 	}
 	sort.Slice(items, func(i, j int) bool { return items[i].ID < items[j].ID })
@@ -524,18 +524,18 @@ func (m *Memory) ListEnrollmentCandidates(_ context.Context, seasonID, query, bo
 	return items, more, total, nil
 }
 
-func (m *Memory) enrichUserLocked(v model.User) model.User {
+func (m *Memory) enrichUserLocked(v accounts.User) accounts.User {
 	if v.GlobalRoles == nil {
 		v.GlobalRoles = []string{}
 	}
-	v.SeasonRoles = []model.UserSeasonRole{}
+	v.SeasonRoles = []accounts.UserSeasonRole{}
 	v.AttemptCount, v.MockInterviewCount = 0, 0
 	for _, enrollment := range m.Enrollments {
 		if enrollment.UserID != v.ID || (enrollment.State != "active" && !(enrollment.Role == "student" && enrollment.State == "completed")) {
 			continue
 		}
 		season := m.Seasons[enrollment.SeasonID]
-		v.SeasonRoles = append(v.SeasonRoles, model.UserSeasonRole{SeasonID: enrollment.SeasonID, SeasonSlug: season.Slug, Role: enrollment.Role, State: enrollment.State})
+		v.SeasonRoles = append(v.SeasonRoles, accounts.UserSeasonRole{SeasonID: enrollment.SeasonID, SeasonSlug: season.Slug, Role: enrollment.Role, State: enrollment.State})
 	}
 	sort.Slice(v.SeasonRoles, func(i, j int) bool { return v.SeasonRoles[i].SeasonSlug < v.SeasonRoles[j].SeasonSlug })
 	for _, attempt := range m.Attempts {
@@ -552,23 +552,23 @@ func (m *Memory) enrichUserLocked(v model.User) model.User {
 }
 
 // UpdateUser updates a value.
-func (m *Memory) UpdateUser(_ context.Context, id string, revision int64, fn func(*model.User) error, actorID string, at time.Time) (model.User, error) {
+func (m *Memory) UpdateUser(_ context.Context, id string, revision int64, fn func(*accounts.User) error, actorID string, at time.Time) (accounts.User, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	v, ok := m.Users[id]
 	if !ok {
-		return model.User{}, ErrNotFound
+		return accounts.User{}, ErrNotFound
 	}
 	if v.Revision != revision {
-		return model.User{}, ErrConflict
+		return accounts.User{}, ErrConflict
 	}
 	if err := fn(&v); err != nil {
-		return model.User{}, err
+		return accounts.User{}, err
 	}
 
 	for otherID, other := range m.Users {
 		if otherID != id && strings.EqualFold(other.Slug, v.Slug) {
-			return model.User{}, ErrDuplicate
+			return accounts.User{}, ErrDuplicate
 		}
 	}
 	v.Revision++

@@ -6,8 +6,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/magedmg/RSP-website/backend/internal/accounts"
 	"github.com/magedmg/RSP-website/backend/internal/authz"
-	"github.com/magedmg/RSP-website/backend/internal/model"
 	"github.com/magedmg/RSP-website/backend/internal/platform/audit"
 	"github.com/magedmg/RSP-website/backend/internal/platform/id"
 	"github.com/magedmg/RSP-website/backend/internal/store"
@@ -74,7 +74,7 @@ func (a *API) listAdminUsers(w http.ResponseWriter, r *http.Request) {
 	if !a.auditSystemAdminPrivateRead(w, r, "admin_user_collection", actor.UserID) {
 		return
 	}
-	writeJSON(w, http.StatusOK, Page[model.User]{Items: items, PageInfo: pageInfoForKeyset(a, binding, direction, boundary, items, more, func(user model.User) string { return user.ID }), TotalCount: total})
+	writeJSON(w, http.StatusOK, Page[accounts.User]{Items: items, PageInfo: pageInfoForKeyset(a, binding, direction, boundary, items, more, func(user accounts.User) string { return user.ID }), TotalCount: total})
 }
 
 func (a *API) setUserAccountState(w http.ResponseWriter, r *http.Request) {

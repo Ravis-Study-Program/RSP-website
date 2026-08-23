@@ -61,8 +61,8 @@ func TestMeEnrollmentRolesAndEligibleMemberDirectory(t *testing.T) {
 
 func TestMentorMenteeFilteringAndUnassignedStudents(t *testing.T) {
 	f := newFixture()
-	f.repository.Users["mentor"] = model.User{ID: "mentor", Slug: "mentor", Name: "Mentor", AccountState: "active", Timezone: "Australia/Adelaide", Revision: 1}
-	f.repository.Users["unassigned"] = model.User{ID: "unassigned", Slug: "unassigned", Name: "Unassigned", AccountState: "active", Timezone: "Australia/Adelaide", Revision: 1}
+	f.repository.Users["mentor"] = accounts.User{ID: "mentor", Slug: "mentor", Name: "Mentor", AccountState: "active", Timezone: "Australia/Adelaide", Revision: 1}
+	f.repository.Users["unassigned"] = accounts.User{ID: "unassigned", Slug: "unassigned", Name: "Unassigned", AccountState: "active", Timezone: "Australia/Adelaide", Revision: 1}
 	f.repository.Enrollments["mentor-enrollment"] = model.Enrollment{ID: "mentor-enrollment", SeasonID: "season", UserID: "mentor", Role: "mentor", State: "active", AssignmentState: "active", Revision: 1}
 	f.repository.Enrollments["unassigned-enrollment"] = model.Enrollment{ID: "unassigned-enrollment", SeasonID: "season", UserID: "unassigned", Role: "student", StudentLevel: "beginner", State: "active", AssignmentState: "active", Revision: 1}
 	f.repository.Mentorships["assigned"] = model.Mentorship{ID: "assigned", SeasonID: "season", MentorUserID: "mentor", StudentUserID: "other", Revision: 1}
@@ -87,7 +87,7 @@ func TestMentorMenteeFilteringAndUnassignedStudents(t *testing.T) {
 
 func TestStudentPromotionAndRemovalPersistReasonAndActorAudit(t *testing.T) {
 	f := newFixture()
-	f.repository.Users["removed"] = model.User{ID: "removed", Slug: "removed", Name: "Removed", AccountState: "active", Revision: 1}
+	f.repository.Users["removed"] = accounts.User{ID: "removed", Slug: "removed", Name: "Removed", AccountState: "active", Revision: 1}
 	f.repository.Enrollments["removed-enrollment"] = model.Enrollment{ID: "removed-enrollment", SeasonID: "season", UserID: "removed", Role: "student", StudentLevel: "beginner", State: "active", AssignmentState: "active", Revision: 1}
 
 	w := request(t, f, http.MethodPost, "/api/v2/seasons/season/members/other-enrollment/promote", "coordinator", `{"role":"mentor","reason":"graduated","revision":1}`)
@@ -185,7 +185,7 @@ func TestMockReceivedGivenAllExcludeUnrelatedPrivateRecords(t *testing.T) {
 	f := newFixture()
 	for _, userID := range []string{"student", "other", "third", "fourth"} {
 		if _, ok := f.repository.Users[userID]; !ok {
-			f.repository.Users[userID] = model.User{ID: userID, Slug: userID, Name: userID, AccountState: "active", Revision: 1}
+			f.repository.Users[userID] = accounts.User{ID: userID, Slug: userID, Name: userID, AccountState: "active", Revision: 1}
 		}
 		f.repository.Enrollments[userID+"-member"] = model.Enrollment{ID: userID + "-member", SeasonID: "season", UserID: userID, Role: "student", State: "active", Revision: 1}
 	}
@@ -229,11 +229,11 @@ func TestMockSuccessfulDeleteIsAbsentFromActiveLists(t *testing.T) {
 
 func TestAdminActiveNonmemberAndGlobalRoleRevokeAuditReason(t *testing.T) {
 	f := newFixture()
-	f.repository.Users["active-nonmember"] = model.User{ID: "active-nonmember", Slug: "active-nonmember", Name: "Active Nonmember", Email: "new@example.com", AccountState: "active", Timezone: "Australia/Adelaide", Revision: 1}
+	f.repository.Users["active-nonmember"] = accounts.User{ID: "active-nonmember", Slug: "active-nonmember", Name: "Active Nonmember", Email: "new@example.com", AccountState: "active", Timezone: "Australia/Adelaide", Revision: 1}
 	f.repository.GlobalRoleAssignments["other-director"] = accounts.GlobalRoleAssignment{ID: "other-director", UserID: "other", Role: "director", State: "active", Revision: 1}
 
 	w := request(t, f, http.MethodGet, "/api/v2/admin/users?query=Active%20Nonmember", "admin", "")
-	page := decodePage[model.User](t, w.Body.Bytes())
+	page := decodePage[accounts.User](t, w.Body.Bytes())
 	if w.Code != http.StatusOK || len(page.Items) != 1 || page.Items[0].ID != "active-nonmember" {
 		t.Fatalf("active nonmember admin list: %d %#v", w.Code, page.Items)
 	}
@@ -255,7 +255,7 @@ func TestAdminActiveNonmemberAndGlobalRoleRevokeAuditReason(t *testing.T) {
 func TestAdminEnrollmentPatchReasonedRemovalMentorshipPatchAndDelete(t *testing.T) {
 	f := newFixture()
 	for _, userID := range []string{"mentor-a", "mentor-b", "student-a", "student-b"} {
-		f.repository.Users[userID] = model.User{ID: userID, Slug: userID, Name: userID, AccountState: "active", Revision: 1}
+		f.repository.Users[userID] = accounts.User{ID: userID, Slug: userID, Name: userID, AccountState: "active", Revision: 1}
 	}
 	f.repository.Enrollments["mentor-a-enrollment"] = model.Enrollment{ID: "mentor-a-enrollment", SeasonID: "season", UserID: "mentor-a", Role: "mentor", State: "active", AssignmentState: "active", Revision: 1}
 	f.repository.Enrollments["mentor-b-enrollment"] = model.Enrollment{ID: "mentor-b-enrollment", SeasonID: "season", UserID: "mentor-b", Role: "mentor", State: "active", AssignmentState: "active", Revision: 1}

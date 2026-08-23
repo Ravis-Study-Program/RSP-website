@@ -36,12 +36,12 @@ type MockVersion struct {
 type Repository interface {
 	ApplyIdentityEvent(context.Context, accounts.IdentityEvent) error
 	ResolveAuthSubject(context.Context, string) (authz.Actor, error)
-	GetUser(context.Context, string) (model.User, error)
+	GetUser(context.Context, string) (accounts.User, error)
 	SuggestUserSlug(context.Context) (string, error)
-	ListUsers(context.Context, string, int, string, string, string, string) ([]model.User, bool, int64, error)
-	ListAdminUsers(context.Context, string, int, string, string, string, string) ([]model.User, bool, int64, error)
-	ListEnrollmentCandidates(context.Context, string, string, string, int, string) ([]model.EnrollmentCandidate, bool, int64, error)
-	UpdateUser(context.Context, string, int64, func(*model.User) error, string, time.Time) (model.User, error)
+	ListUsers(context.Context, string, int, string, string, string, string) ([]accounts.User, bool, int64, error)
+	ListAdminUsers(context.Context, string, int, string, string, string, string) ([]accounts.User, bool, int64, error)
+	ListEnrollmentCandidates(context.Context, string, string, string, int, string) ([]accounts.EnrollmentCandidate, bool, int64, error)
+	UpdateUser(context.Context, string, int64, func(*accounts.User) error, string, time.Time) (accounts.User, error)
 	ResolveAuthSubjectForUser(context.Context, string) (string, error)
 	GrantGlobalRole(context.Context, string, string, bool, string, string, time.Time) (accounts.GlobalRoleAssignment, error)
 	ListGlobalRoles(context.Context, string) ([]accounts.GlobalRoleAssignment, error)

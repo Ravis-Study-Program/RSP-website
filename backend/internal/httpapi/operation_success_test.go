@@ -52,7 +52,7 @@ func TestEveryProtectedOpenAPIOperationHasExecutablePrimarySuccess(t *testing.T)
 	}
 	seedMentorshipParties := func(f *fixture) {
 		for _, userID := range []string{"mentor-a", "mentor-b"} {
-			f.repository.Users[userID] = model.User{ID: userID, Slug: userID, Name: userID, AccountState: "active", Timezone: "Australia/Adelaide", Revision: 1}
+			f.repository.Users[userID] = accounts.User{ID: userID, Slug: userID, Name: userID, AccountState: "active", Timezone: "Australia/Adelaide", Revision: 1}
 			f.repository.Enrollments[userID+"-enrollment"] = model.Enrollment{ID: userID + "-enrollment", SeasonID: "season", UserID: userID, Role: "mentor", State: "active", AssignmentState: "active", Revision: 1}
 		}
 	}
@@ -99,7 +99,7 @@ func TestEveryProtectedOpenAPIOperationHasExecutablePrimarySuccess(t *testing.T)
 		{"deleteSeasonWeek", http.MethodDelete, "/api/v2/seasons/season/weeks/week?revision=1", "coordinator", "", http.StatusNoContent, seedWeek},
 		{"listSeasonMembers", http.MethodGet, "/api/v2/seasons/season/members?limit=25&direction=forward&sort=id:asc", "student", "", http.StatusOK, nil},
 		{"createSeasonMember", http.MethodPost, "/api/v2/seasons/season/members", "coordinator", `{"userId":"candidate","role":"student"}`, http.StatusCreated, func(f *fixture) {
-			f.repository.Users["candidate"] = model.User{ID: "candidate", Slug: "candidate", Name: "Candidate", AccountState: "active", Timezone: "Australia/Adelaide", Revision: 1}
+			f.repository.Users["candidate"] = accounts.User{ID: "candidate", Slug: "candidate", Name: "Candidate", AccountState: "active", Timezone: "Australia/Adelaide", Revision: 1}
 		}},
 		{"promoteSeasonMember", http.MethodPost, "/api/v2/seasons/season/members/other-enrollment/promote", "coordinator", `{"role":"mentor","reason":"progression","revision":1}`, http.StatusOK, nil},
 		{"updateSeasonMember", http.MethodPatch, "/api/v2/seasons/season/members/other-enrollment", "coordinator", `{"role":"student","studentLevel":"advanced","revision":1}`, http.StatusOK, nil},
@@ -183,7 +183,7 @@ func TestMutableResourceFamiliesRejectStaleRevisionsWithCompleteProblems(t *test
 		}},
 		{"enrollment", http.MethodPatch, "/api/v2/seasons/season/members/other-enrollment", "coordinator", `{"role":"student","studentLevel":"advanced","revision":99}`, http.StatusConflict, nil},
 		{"mentorship", http.MethodPatch, "/api/v2/seasons/season/mentorships/mentorship", "coordinator", `{"mentorUserId":"mentor","studentUserId":"other","revision":99}`, http.StatusConflict, func(f *fixture) {
-			f.repository.Users["mentor"] = model.User{ID: "mentor", Slug: "mentor", Name: "Mentor", AccountState: "active", Revision: 1}
+			f.repository.Users["mentor"] = accounts.User{ID: "mentor", Slug: "mentor", Name: "Mentor", AccountState: "active", Revision: 1}
 			f.repository.Enrollments["mentor-enrollment"] = model.Enrollment{ID: "mentor-enrollment", SeasonID: "season", UserID: "mentor", Role: "mentor", State: "active", AssignmentState: "active", Revision: 1}
 			f.repository.Mentorships["mentorship"] = model.Mentorship{ID: "mentorship", SeasonID: "season", MentorUserID: "mentor", StudentUserID: "other", Revision: 1}
 		}},

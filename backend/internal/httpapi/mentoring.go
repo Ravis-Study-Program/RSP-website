@@ -5,6 +5,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/magedmg/RSP-website/backend/internal/accounts"
 	"github.com/magedmg/RSP-website/backend/internal/authz"
 	"github.com/magedmg/RSP-website/backend/internal/model"
 	"github.com/magedmg/RSP-website/backend/internal/platform/id"
@@ -235,7 +236,7 @@ func (a *API) listEnrollmentCandidates(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	writeJSON(w, 200, Page[model.EnrollmentCandidate]{Items: items, PageInfo: pageInfoForKeyset(a, binding, direction, boundary, items, more, func(v model.EnrollmentCandidate) string { return v.ID }), TotalCount: total})
+	writeJSON(w, 200, Page[accounts.EnrollmentCandidate]{Items: items, PageInfo: pageInfoForKeyset(a, binding, direction, boundary, items, more, func(v accounts.EnrollmentCandidate) string { return v.ID }), TotalCount: total})
 }
 
 func (a *API) createMember(w http.ResponseWriter, r *http.Request) {

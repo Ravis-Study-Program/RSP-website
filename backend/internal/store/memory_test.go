@@ -39,7 +39,7 @@ func TestMemoryCloseReopenRestoresOnlyCloseCompletedEnrollments(t *testing.T) {
 func TestMemoryCoordinatorMFAStateSurvivesCloseReopen(t *testing.T) {
 	ctx := context.Background()
 	repository := NewMemory()
-	repository.Users["coordinator"] = model.User{ID: "coordinator", Slug: "coordinator", AccountState: "active", Revision: 1}
+	repository.Users["coordinator"] = accounts.User{ID: "coordinator", Slug: "coordinator", AccountState: "active", Revision: 1}
 	repository.MFAConfigured["coordinator"] = true
 	repository.Seasons["season"] = model.Season{ID: "season", Slug: "season", Status: "open", Revision: 1}
 
@@ -103,7 +103,7 @@ func TestMemoryIdentityReceiptsRejectAlteredReplayAndPseudonymizeProfile(t *test
 func TestMemoryPracticeMutationsRequireCurrentIndependentRevision(t *testing.T) {
 	ctx := context.Background()
 	repository := NewMemory()
-	repository.Users["student"] = model.User{ID: "student", AccountState: "active", Revision: 1}
+	repository.Users["student"] = accounts.User{ID: "student", AccountState: "active", Revision: 1}
 	repository.Problems["problem"] = model.Problem{ID: "problem", Number: 1, Title: "Problem", Link: "https://rsp.test/problem", Difficulty: "easy", Categories: []string{"arrays"}, Revision: 1}
 	settings, err := repository.EnablePracticeGoals(ctx, "student", 1, "mentor", "season", time.Now())
 	if err != nil || settings.Revision != 2 {
@@ -173,8 +173,8 @@ func TestMemoryMentoringRecommendationAndMockStateSurvivesAPIRestart(t *testing.
 	ctx := context.Background()
 	repository := NewMemory()
 	seasonStart := time.Now().UTC()
-	repository.Users["mentor"] = model.User{ID: "mentor", AccountState: "active"}
-	repository.Users["student"] = model.User{ID: "student", AccountState: "active"}
+	repository.Users["mentor"] = accounts.User{ID: "mentor", AccountState: "active"}
+	repository.Users["student"] = accounts.User{ID: "student", AccountState: "active"}
 	repository.Problems["problem"] = model.Problem{ID: "problem", Number: 1, Title: "Problem", Link: "https://rsp.test/problem", Difficulty: "easy", Categories: []string{"arrays"}, Revision: 1}
 	repository.Seasons["season"] = model.Season{ID: "season", Slug: "season", Status: "open", StartAt: seasonStart, EndAt: seasonStart.Add(14 * 24 * time.Hour), Revision: 1}
 	for _, enrollment := range []model.Enrollment{
@@ -231,9 +231,9 @@ func TestMemoryMentoringRecommendationAndMockStateSurvivesAPIRestart(t *testing.
 
 func TestMemoryMockEligibilityIsDerivedFromStoredRelationships(t *testing.T) {
 	repository := NewMemory()
-	repository.Users["eligible"] = model.User{ID: "eligible", AccountState: "active"}
-	repository.Users["kicked"] = model.User{ID: "kicked", AccountState: "active"}
-	repository.Users["test"] = model.User{ID: "test", AccountState: "active", IsTest: true}
+	repository.Users["eligible"] = accounts.User{ID: "eligible", AccountState: "active"}
+	repository.Users["kicked"] = accounts.User{ID: "kicked", AccountState: "active"}
+	repository.Users["test"] = accounts.User{ID: "test", AccountState: "active", IsTest: true}
 	repository.Enrollments["eligible"] = model.Enrollment{ID: "eligible", UserID: "eligible", Role: "student", State: "completed"}
 	repository.Enrollments["kicked"] = model.Enrollment{ID: "kicked", UserID: "kicked", Role: "student", State: "kicked"}
 	repository.Enrollments["test"] = model.Enrollment{ID: "test", UserID: "test", Role: "mentor", State: "active"}

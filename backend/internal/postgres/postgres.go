@@ -486,8 +486,8 @@ COALESCE((SELECT jsonb_agg(jsonb_build_object('seasonId',e.season_id,'seasonSlug
 (SELECT count(*) FROM app.problem_attempts a WHERE a.user_id=u.id AND a.deleted_at IS NULL),
 (SELECT count(*) FROM app.mock_interviews mi WHERE (mi.interviewer_user_id=u.id OR mi.interviewee_user_id=u.id) AND mi.deleted_at IS NULL)`
 
-func scanUser(row pgx.Row) (model.User, error) {
-	var v model.User
+func scanUser(row pgx.Row) (accounts.User, error) {
+	var v accounts.User
 	var seasonRoles []byte
 	if err := row.Scan(&v.ID, &v.Slug, &v.Name, &v.AvatarURL, &v.Timezone, &v.TimezoneConfigured, &v.Email, &v.AccountState, &v.GlobalRoles, &v.IsTest, &v.PremiumOptIn, &v.Revision, &seasonRoles, &v.AttemptCount, &v.MockInterviewCount); err != nil {
 		return v, noRows(err)
@@ -499,19 +499,19 @@ func scanUser(row pgx.Row) (model.User, error) {
 }
 
 // GetUser retrieves a value.
-func (p *Postgres) GetUser(ctx context.Context, id string) (model.User, error) {
+func (p *Postgres) GetUser(ctx context.Context, id string) (accounts.User, error) {
 	row, err := p.Queries.GetUserPrivateByID(ctx, dbgen.GetUserPrivateByIDParams{ID: id})
 	if err != nil {
-		return model.User{}, noRows(err)
+		return accounts.User{}, noRows(err)
 	}
 
-	v := model.User{ID: row.ID, Slug: row.Slug, Name: row.DisplayName, AvatarURL: row.AvatarUrl, Timezone: row.Timezone, TimezoneConfigured: row.TimezoneConfigured, AccountState: string(row.AccountState), GlobalRoles: []string{}, IsTest: row.IsTest, PremiumOptIn: row.LeetcodePremiumOptIn, Revision: row.Revision}
+	v := accounts.User{ID: row.ID, Slug: row.Slug, Name: row.DisplayName, AvatarURL: row.AvatarUrl, Timezone: row.Timezone, TimezoneConfigured: row.TimezoneConfigured, AccountState: string(row.AccountState), GlobalRoles: []string{}, IsTest: row.IsTest, PremiumOptIn: row.LeetcodePremiumOptIn, Revision: row.Revision}
 	if row.Email != nil {
 		v.Email = *row.Email
 	}
 	roles, err := p.Queries.ListGlobalRolesForUser(ctx, dbgen.ListGlobalRolesForUserParams{UserID: v.ID})
 	if err != nil {
-		return model.User{}, err
+		return accounts.User{}, err
 	}
 
 	for _, role := range roles {
@@ -522,10 +522,10 @@ func (p *Postgres) GetUser(ctx context.Context, id string) (model.User, error) {
 	var seasonRoles []byte
 	err = p.Pool.QueryRow(ctx, `SELECT COALESCE(jsonb_agg(jsonb_build_object('seasonId',e.season_id,'seasonSlug',s.slug,'role',e.role::text,'state',e.state::text) ORDER BY s.slug,e.id),'[]'::jsonb),(SELECT count(*) FROM app.problem_attempts a WHERE a.user_id=$1 AND a.deleted_at IS NULL),(SELECT count(*) FROM app.mock_interviews mi WHERE (mi.interviewer_user_id=$1 OR mi.interviewee_user_id=$1) AND mi.deleted_at IS NULL) FROM app.enrollments e JOIN app.seasons s ON s.id=e.season_id WHERE e.user_id=$1 AND e.deleted_at IS NULL AND (e.state='active' OR (e.role='student' AND e.state='completed'))`, v.ID).Scan(&seasonRoles, &v.AttemptCount, &v.MockInterviewCount)
 	if err != nil {
-		return model.User{}, err
+		return accounts.User{}, err
 	}
 	if err := json.Unmarshal(seasonRoles, &v.SeasonRoles); err != nil {
-		return model.User{}, err
+		return accounts.User{}, err
 	}
 	return v, nil
 }
@@ -546,7 +546,7 @@ func (p *Postgres) SuggestUserSlug(ctx context.Context) (string, error) {
 }
 
 // ListUsers lists matching values.
-func (p *Postgres) ListUsers(ctx context.Context, boundary string, limit int, direction, search, seasonRole, globalRole string) ([]model.User, bool, int64, error) {
+func (p *Postgres) ListUsers(ctx context.Context, boundary string, limit int, direction, search, seasonRole, globalRole string) ([]accounts.User, bool, int64, error) {
 	search = strings.TrimSpace(search)
 	const filters = `u.account_state='active' AND NOT u.is_test AND u.deleted_at IS NULL
 		AND ($3='' OR u.display_name ILIKE '%'||$3||'%' OR u.slug ILIKE '%'||$3||'%')
@@ -572,7 +572,7 @@ func (p *Postgres) ListUsers(ctx context.Context, boundary string, limit int, di
 	}
 
 	defer rows.Close()
-	out := []model.User{}
+	out := []accounts.User{}
 	for rows.Next() {
 		v, err := scanUser(rows)
 		if err != nil {
@@ -592,7 +592,7 @@ func (p *Postgres) ListUsers(ctx context.Context, boundary string, limit int, di
 }
 
 // ListAdminUsers lists matching values.
-func (p *Postgres) ListAdminUsers(ctx context.Context, boundary string, limit int, direction, search, accountState, globalRole string) ([]model.User, bool, int64, error) {
+func (p *Postgres) ListAdminUsers(ctx context.Context, boundary string, limit int, direction, search, accountState, globalRole string) ([]accounts.User, bool, int64, error) {
 	search = strings.TrimSpace(search)
 	const filters = `u.account_state<>'deleted' AND u.deleted_at IS NULL
 		AND ($3='' OR u.display_name ILIKE '%'||$3||'%' OR u.slug ILIKE '%'||$3||'%' OR COALESCE(u.email,'') ILIKE '%'||$3||'%')
@@ -617,7 +617,7 @@ func (p *Postgres) ListAdminUsers(ctx context.Context, boundary string, limit in
 	}
 
 	defer rows.Close()
-	items := []model.User{}
+	items := []accounts.User{}
 	for rows.Next() {
 		user, err := scanUser(rows)
 		if err != nil {
@@ -637,7 +637,7 @@ func (p *Postgres) ListAdminUsers(ctx context.Context, boundary string, limit in
 }
 
 // ListEnrollmentCandidates lists matching values.
-func (p *Postgres) ListEnrollmentCandidates(ctx context.Context, seasonID, query, boundary string, limit int, direction string) ([]model.EnrollmentCandidate, bool, int64, error) {
+func (p *Postgres) ListEnrollmentCandidates(ctx context.Context, seasonID, query, boundary string, limit int, direction string) ([]accounts.EnrollmentCandidate, bool, int64, error) {
 	query = strings.TrimSpace(query)
 	const eligible = `u.account_state='active' AND NOT u.is_test AND u.deleted_at IS NULL
 AND EXISTS(SELECT 1 FROM app.user_auth_links l WHERE l.user_id=u.id AND l.active)
@@ -660,9 +660,9 @@ AND NOT EXISTS(SELECT 1 FROM app.enrollments e WHERE e.user_id=u.id AND e.season
 	}
 
 	defer rows.Close()
-	items := []model.EnrollmentCandidate{}
+	items := []accounts.EnrollmentCandidate{}
 	for rows.Next() {
-		var candidate model.EnrollmentCandidate
+		var candidate accounts.EnrollmentCandidate
 		if err := rows.Scan(&candidate.ID, &candidate.Slug, &candidate.Name, &candidate.AvatarURL, &candidate.Revision); err != nil {
 			return nil, false, 0, err
 		}
@@ -680,14 +680,14 @@ AND NOT EXISTS(SELECT 1 FROM app.enrollments e WHERE e.user_id=u.id AND e.season
 }
 
 // UpdateUser updates a value.
-func (p *Postgres) UpdateUser(ctx context.Context, id string, revision int64, fn func(*model.User) error, actorID string, at time.Time) (model.User, error) {
+func (p *Postgres) UpdateUser(ctx context.Context, id string, revision int64, fn func(*accounts.User) error, actorID string, at time.Time) (accounts.User, error) {
 	tx, err := p.Pool.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
-		return model.User{}, err
+		return accounts.User{}, err
 	}
 
 	defer tx.Rollback(ctx)
-	var v model.User
+	var v accounts.User
 	err = tx.QueryRow(ctx, `SELECT id,slug,display_name,avatar_url,timezone,timezone_configured,COALESCE(email,''),account_state::text,is_test,leetcode_premium_opt_in,revision FROM app.users WHERE id=$1 AND deleted_at IS NULL FOR UPDATE`, id).Scan(&v.ID, &v.Slug, &v.Name, &v.AvatarURL, &v.Timezone, &v.TimezoneConfigured, &v.Email, &v.AccountState, &v.IsTest, &v.PremiumOptIn, &v.Revision)
 	if err != nil {
 		return v, noRows(err)

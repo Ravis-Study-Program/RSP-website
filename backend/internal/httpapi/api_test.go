@@ -29,8 +29,8 @@ type fixture struct {
 
 func newFixture() fixture {
 	repo := store.NewMemory()
-	repo.Users["student"] = model.User{ID: "student", Slug: "student", Name: "Student", Email: "private@example.com", AccountState: "active", Timezone: "Australia/Adelaide", Revision: 1}
-	repo.Users["other"] = model.User{ID: "other", Slug: "other", Name: "Other", Email: "other@example.com", AccountState: "active", Timezone: "Australia/Adelaide", Revision: 1}
+	repo.Users["student"] = accounts.User{ID: "student", Slug: "student", Name: "Student", Email: "private@example.com", AccountState: "active", Timezone: "Australia/Adelaide", Revision: 1}
+	repo.Users["other"] = accounts.User{ID: "other", Slug: "other", Name: "Other", Email: "other@example.com", AccountState: "active", Timezone: "Australia/Adelaide", Revision: 1}
 	repo.Seasons["season"] = model.Season{ID: "season", Slug: "s26", Name: "Season", Status: "open", StartAt: time.Now(), EndAt: time.Now().Add(24 * time.Hour), Revision: 1}
 	repo.Enrollments["other-enrollment"] = model.Enrollment{ID: "other-enrollment", SeasonID: "season", UserID: "other", Role: "student", State: "active", Revision: 1}
 	repo.Problems["problem"] = model.Problem{ID: "problem", Number: 1, Title: "Two Sum", Link: "https://rsp.test/problems/two-sum", Difficulty: "easy", Categories: []string{"arrays"}, Revision: 1}
@@ -240,8 +240,8 @@ func TestBrowserAttemptCannotUseMigratedUnknownOutcome(t *testing.T) {
 
 func TestAdminUserListIncludesNonmembersAndSuspendedWithoutWideningDirectory(t *testing.T) {
 	f := newFixture()
-	f.repository.Users["new-account"] = model.User{ID: "new-account", Slug: "new-account", Name: "New Account", Email: "new@example.com", AccountState: "active", Timezone: "Australia/Adelaide", Revision: 1}
-	f.repository.Users["suspended-account"] = model.User{ID: "suspended-account", Slug: "suspended-account", Name: "Suspended Account", Email: "suspended@example.com", AccountState: "suspended", Timezone: "Australia/Adelaide", Revision: 2}
+	f.repository.Users["new-account"] = accounts.User{ID: "new-account", Slug: "new-account", Name: "New Account", Email: "new@example.com", AccountState: "active", Timezone: "Australia/Adelaide", Revision: 1}
+	f.repository.Users["suspended-account"] = accounts.User{ID: "suspended-account", Slug: "suspended-account", Name: "Suspended Account", Email: "suspended@example.com", AccountState: "suspended", Timezone: "Australia/Adelaide", Revision: 2}
 
 	w := request(t, f, "GET", "/api/v2/admin/users?accountState=suspended&sort=id:asc", "admin", "")
 	if w.Code != http.StatusOK || !bytes.Contains(w.Body.Bytes(), []byte(`"id":"suspended-account"`)) || !bytes.Contains(w.Body.Bytes(), []byte(`"email":"suspended@example.com"`)) || bytes.Contains(w.Body.Bytes(), []byte(`"id":"new-account"`)) {
@@ -255,9 +255,9 @@ func TestAdminUserListIncludesNonmembersAndSuspendedWithoutWideningDirectory(t *
 
 func TestPracticeSettingsRequireRelationshipEnablement(t *testing.T) {
 	f := newFixture()
-	f.repository.Users["student"] = model.User{ID: "student", Slug: "student", Name: "Student", Email: "private@example.com", AccountState: "active", Timezone: "Australia/Adelaide", Revision: 1}
+	f.repository.Users["student"] = accounts.User{ID: "student", Slug: "student", Name: "Student", Email: "private@example.com", AccountState: "active", Timezone: "Australia/Adelaide", Revision: 1}
 	f.repository.Enrollments["student-enrollment"] = model.Enrollment{ID: "student-enrollment", SeasonID: "season", UserID: "student", Role: "student", State: "active", Revision: 1}
-	f.repository.Users["mentor"] = model.User{ID: "mentor", Slug: "mentor", Name: "Mentor", AccountState: "active", Timezone: "Australia/Adelaide", Revision: 1}
+	f.repository.Users["mentor"] = accounts.User{ID: "mentor", Slug: "mentor", Name: "Mentor", AccountState: "active", Timezone: "Australia/Adelaide", Revision: 1}
 	f.repository.Enrollments["mentor-enrollment"] = model.Enrollment{ID: "mentor-enrollment", SeasonID: "season", UserID: "mentor", Role: "mentor", State: "active", Revision: 1}
 	f.repository.Mentorships["assignment"] = model.Mentorship{ID: "assignment", SeasonID: "season", MentorUserID: "mentor", StudentUserID: "student", Revision: 1}
 	f.actors["mentor"] = authz.Actor{UserID: "mentor", EmailVerified: true, AccountState: authz.AccountActive, GlobalRoles: map[authz.GlobalRole]bool{}, Enrollments: []authz.Enrollment{{SeasonID: "season", Role: authz.Mentor, State: authz.Active}}}

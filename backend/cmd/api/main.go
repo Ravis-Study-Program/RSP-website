@@ -11,11 +11,11 @@ import (
 	"strings"
 	"time"
 
+	"github.com/magedmg/RSP-website/backend/internal/accounts"
 	"github.com/magedmg/RSP-website/backend/internal/authadmin"
 	"github.com/magedmg/RSP-website/backend/internal/authn"
 	"github.com/magedmg/RSP-website/backend/internal/authz"
 	"github.com/magedmg/RSP-website/backend/internal/httpapi"
-	"github.com/magedmg/RSP-website/backend/internal/model"
 	"github.com/magedmg/RSP-website/backend/internal/postgres"
 	"github.com/magedmg/RSP-website/backend/internal/store"
 )
@@ -53,7 +53,7 @@ func main() {
 		}
 	} else if appEnv == "development" {
 		memory := store.NewMemory()
-		memory.Users["dev-admin"] = model.User{ID: "dev-admin", Slug: "dev-admin", Name: "Dev Admin", Email: "admin@rsp.local", AccountState: "active", Timezone: "Australia/Adelaide", TimezoneConfigured: true, GlobalRoles: []string{"system_admin"}, Revision: 1}
+		memory.Users["dev-admin"] = accounts.User{ID: "dev-admin", Slug: "dev-admin", Name: "Dev Admin", Email: "admin@rsp.local", AccountState: "active", Timezone: "Australia/Adelaide", TimezoneConfigured: true, GlobalRoles: []string{"system_admin"}, Revision: 1}
 		repository = memory
 	} else {
 		logger.Error("DATABASE_URL is required")
