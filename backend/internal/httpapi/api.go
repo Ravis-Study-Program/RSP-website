@@ -20,7 +20,6 @@ import (
 	"github.com/magedmg/RSP-website/backend/internal/platform/problem"
 	"github.com/magedmg/RSP-website/backend/internal/platform/ratelimit"
 	"github.com/magedmg/RSP-website/backend/internal/platform/sanitize"
-	"github.com/magedmg/RSP-website/backend/internal/store"
 	nethttpmiddleware "github.com/oapi-codegen/nethttp-middleware"
 )
 
@@ -39,7 +38,7 @@ var safeRequestID = regexp.MustCompile(`^[A-Za-z0-9._-]{1,128}$`)
 
 // Config represents a backend data structure.
 type Config struct {
-	Store           store.Repository
+	Store           Repository
 	Authenticator   Authenticator
 	PublicOrigin    string
 	CursorSecret    []byte
@@ -52,7 +51,7 @@ type Config struct {
 
 // API represents a backend data structure.
 type API struct {
-	store           store.Repository
+	store           Repository
 	auth            Authenticator
 	publicOrigin    string
 	cursorSecret    []byte

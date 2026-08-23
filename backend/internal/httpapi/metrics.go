@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/magedmg/RSP-website/backend/internal/platform/observability"
-	"github.com/magedmg/RSP-website/backend/internal/store"
 )
 
 var (
@@ -63,7 +62,7 @@ func (m *apiMetrics) observeRecommendation(outcome string) {
 	m.mu.Unlock()
 }
 
-func (m *apiMetrics) render(ctx context.Context, writer io.Writer, repository store.Repository) {
+func (m *apiMetrics) render(ctx context.Context, writer io.Writer, repository any) {
 	m.mu.Lock()
 	requests := m.httpRequests
 	buckets := m.httpDurationBuckets
