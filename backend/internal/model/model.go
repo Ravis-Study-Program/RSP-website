@@ -3,16 +3,6 @@ package model
 
 import "time"
 
-// PracticeSettings represents a backend data structure.
-type PracticeSettings struct {
-	PremiumOptIn  bool  `json:"premiumOptIn"`
-	GoalsEnabled  bool  `json:"goalsEnabled"`
-	EasyMinutes   int   `json:"easyMinutes"`
-	MediumMinutes int   `json:"mediumMinutes"`
-	HardMinutes   int   `json:"hardMinutes"`
-	Revision      int64 `json:"revision"`
-}
-
 // Week represents a backend data structure.
 type Week struct {
 	ID          string    `json:"id"`

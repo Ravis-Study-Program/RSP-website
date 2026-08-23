@@ -713,8 +713,8 @@ func (p *Postgres) UpdateUser(ctx context.Context, id string, revision int64, fn
 }
 
 // GetPracticeSettings retrieves a value.
-func (p *Postgres) GetPracticeSettings(ctx context.Context, userID string) (model.PracticeSettings, error) {
-	var settings model.PracticeSettings
+func (p *Postgres) GetPracticeSettings(ctx context.Context, userID string) (practice.PracticeSettings, error) {
+	var settings practice.PracticeSettings
 	err := p.Pool.QueryRow(ctx, `
 SELECT u.leetcode_premium_opt_in,
        COALESCE(g.enabled,false), COALESCE(g.easy_minutes,20),
@@ -730,10 +730,10 @@ WHERE u.id=$1 AND u.deleted_at IS NULL`, userID).Scan(
 }
 
 // UpdatePracticeSettings updates a value.
-func (p *Postgres) UpdatePracticeSettings(ctx context.Context, userID string, revision int64, premium bool, easy, medium, hard int, actorID string, at time.Time) (model.PracticeSettings, error) {
+func (p *Postgres) UpdatePracticeSettings(ctx context.Context, userID string, revision int64, premium bool, easy, medium, hard int, actorID string, at time.Time) (practice.PracticeSettings, error) {
 	tx, err := p.Pool.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
-		return model.PracticeSettings{}, err
+		return practice.PracticeSettings{}, err
 	}
 
 	defer tx.Rollback(ctx)
@@ -745,19 +745,19 @@ VALUES($1,false,20,35,50,1)
 ON CONFLICT(user_id) DO UPDATE SET user_id=EXCLUDED.user_id
 RETURNING enabled,revision`, userID).Scan(&enabled, &currentRevision)
 	if err != nil {
-		return model.PracticeSettings{}, err
+		return practice.PracticeSettings{}, err
 	}
 	if currentRevision != revision {
-		return model.PracticeSettings{}, ErrConflict
+		return practice.PracticeSettings{}, ErrConflict
 	}
 	if easy < 1 || medium < 1 || hard < 1 {
-		return model.PracticeSettings{}, errors.New("practice goals must be positive")
+		return practice.PracticeSettings{}, errors.New("practice goals must be positive")
 	}
 	if _, err = tx.Exec(ctx, `UPDATE app.users SET leetcode_premium_opt_in=$2,revision=revision+1 WHERE id=$1 AND deleted_at IS NULL`, userID, premium); err != nil {
-		return model.PracticeSettings{}, err
+		return practice.PracticeSettings{}, err
 	}
 
-	var settings model.PracticeSettings
+	var settings practice.PracticeSettings
 	settings.PremiumOptIn = premium
 	err = tx.QueryRow(ctx, `
 UPDATE app.practice_goals
@@ -767,28 +767,28 @@ RETURNING enabled,easy_minutes,medium_minutes,hard_minutes,revision`, userID, ea
 		&settings.GoalsEnabled, &settings.EasyMinutes, &settings.MediumMinutes, &settings.HardMinutes, &settings.Revision,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
-		return model.PracticeSettings{}, ErrConflict
+		return practice.PracticeSettings{}, ErrConflict
 	}
 	if err != nil {
-		return model.PracticeSettings{}, err
+		return practice.PracticeSettings{}, err
 	}
 
 	data, _ := json.Marshal(map[string]any{"premiumOptIn": premium, "easyMinutes": easy, "mediumMinutes": medium, "hardMinutes": hard})
 	if _, err = tx.Exec(ctx, `INSERT INTO app.audit_events(id,actor_user_id,action,subject_type,subject_id,data,occurred_at) VALUES($1,$2,'practice_settings.updated','user',$3,$4,$5)`, id.New(), actorID, userID, data, at.UTC()); err != nil {
-		return model.PracticeSettings{}, err
+		return practice.PracticeSettings{}, err
 	}
 	return settings, tx.Commit(ctx)
 }
 
 // EnablePracticeGoals performs the operation.
-func (p *Postgres) EnablePracticeGoals(ctx context.Context, userID string, revision int64, actorID, seasonID string, at time.Time) (model.PracticeSettings, error) {
+func (p *Postgres) EnablePracticeGoals(ctx context.Context, userID string, revision int64, actorID, seasonID string, at time.Time) (practice.PracticeSettings, error) {
 	tx, err := p.Pool.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
-		return model.PracticeSettings{}, err
+		return practice.PracticeSettings{}, err
 	}
 
 	defer tx.Rollback(ctx)
-	var settings model.PracticeSettings
+	var settings practice.PracticeSettings
 	changed := true
 	err = tx.QueryRow(ctx, `
 INSERT INTO app.practice_goals(user_id,enabled,enabled_by_user_id,enabled_at,easy_minutes,medium_minutes,hard_minutes,revision)
@@ -803,21 +803,21 @@ RETURNING enabled,easy_minutes,medium_minutes,hard_minutes,revision`, userID, ac
 		changed = false
 		err = tx.QueryRow(ctx, `SELECT enabled,easy_minutes,medium_minutes,hard_minutes,revision FROM app.practice_goals WHERE user_id=$1`, userID).Scan(&settings.GoalsEnabled, &settings.EasyMinutes, &settings.MediumMinutes, &settings.HardMinutes, &settings.Revision)
 		if errors.Is(err, pgx.ErrNoRows) {
-			return model.PracticeSettings{}, ErrConflict
+			return practice.PracticeSettings{}, ErrConflict
 		}
 		if err == nil && settings.Revision != revision {
-			return model.PracticeSettings{}, ErrConflict
+			return practice.PracticeSettings{}, ErrConflict
 		}
 	}
 	if err != nil {
-		return model.PracticeSettings{}, noRows(err)
+		return practice.PracticeSettings{}, noRows(err)
 	}
 	if err = tx.QueryRow(ctx, `SELECT leetcode_premium_opt_in FROM app.users WHERE id=$1`, userID).Scan(&settings.PremiumOptIn); err != nil {
-		return model.PracticeSettings{}, noRows(err)
+		return practice.PracticeSettings{}, noRows(err)
 	}
 	if changed {
 		if _, err = tx.Exec(ctx, `INSERT INTO app.audit_events(id,actor_user_id,action,subject_type,subject_id,data,occurred_at) VALUES($1,$2,'practice_goals.enabled','user',$3,jsonb_build_object('seasonId',$4::text),$5)`, id.New(), actorID, userID, seasonID, at.UTC()); err != nil {
-			return model.PracticeSettings{}, err
+			return practice.PracticeSettings{}, err
 		}
 	}
 	return settings, tx.Commit(ctx)

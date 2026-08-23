@@ -55,6 +55,16 @@ const (
 // Goals represents a backend value.
 type Goals map[Difficulty]int
 
+// PracticeSettings stores a user's practice preferences and goals.
+type PracticeSettings struct {
+	PremiumOptIn  bool  `json:"premiumOptIn"`
+	GoalsEnabled  bool  `json:"goalsEnabled"`
+	EasyMinutes   int   `json:"easyMinutes"`
+	MediumMinutes int   `json:"mediumMinutes"`
+	HardMinutes   int   `json:"hardMinutes"`
+	Revision      int64 `json:"revision"`
+}
+
 // DefaultGoals performs the operation.
 func DefaultGoals() Goals { return Goals{Easy: 20, Medium: 35, Hard: 50} }
 

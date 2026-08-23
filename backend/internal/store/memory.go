@@ -23,7 +23,7 @@ import (
 type Memory struct {
 	mu                       sync.RWMutex
 	Users                    map[string]accounts.User
-	PracticeSettings         map[string]model.PracticeSettings
+	PracticeSettings         map[string]practice.PracticeSettings
 	AuthSubjects             map[string]authz.Actor
 	Seasons                  map[string]programme.SeasonRecord
 	Weeks                    map[string]model.Week
@@ -47,7 +47,7 @@ type Memory struct {
 
 // NewMemory creates a new value.
 func NewMemory() *Memory {
-	return &Memory{Users: map[string]accounts.User{}, PracticeSettings: map[string]model.PracticeSettings{}, AuthSubjects: map[string]authz.Actor{}, Seasons: map[string]programme.SeasonRecord{}, Weeks: map[string]model.Week{}, Enrollments: map[string]model.Enrollment{}, Mentorships: map[string]programme.MentorshipRecord{}, Problems: map[string]model.Problem{}, Attempts: map[string]model.Attempt{}, Recommendations: map[string]practice.Recommendation{}, RecommendationDismissals: map[string][]practice.Dismissal{}, Mocks: map[string]mockinterviews.Interview{}, closeCompleted: map[string]map[string]bool{}, closeAssignmentStates: map[string]map[string]string{}, closeEventIDs: map[string]string{}, IdentityEventReceipts: map[string]bool{}, IdentityEventHashes: map[string]string{}, GlobalRoleAssignments: map[string]accounts.GlobalRoleAssignment{}, MFAConfigured: map[string]bool{}}
+	return &Memory{Users: map[string]accounts.User{}, PracticeSettings: map[string]practice.PracticeSettings{}, AuthSubjects: map[string]authz.Actor{}, Seasons: map[string]programme.SeasonRecord{}, Weeks: map[string]model.Week{}, Enrollments: map[string]model.Enrollment{}, Mentorships: map[string]programme.MentorshipRecord{}, Problems: map[string]model.Problem{}, Attempts: map[string]model.Attempt{}, Recommendations: map[string]practice.Recommendation{}, RecommendationDismissals: map[string][]practice.Dismissal{}, Mocks: map[string]mockinterviews.Interview{}, closeCompleted: map[string]map[string]bool{}, closeAssignmentStates: map[string]map[string]string{}, closeEventIDs: map[string]string{}, IdentityEventReceipts: map[string]bool{}, IdentityEventHashes: map[string]string{}, GlobalRoleAssignments: map[string]accounts.GlobalRoleAssignment{}, MFAConfigured: map[string]bool{}}
 }
 
 func memoryPage[T any](items []T, boundary string, limit int, direction string, identity func(T) string) ([]T, bool, error) {
@@ -577,17 +577,17 @@ func (m *Memory) UpdateUser(_ context.Context, id string, revision int64, fn fun
 	return m.enrichUserLocked(v), nil
 }
 
-func defaultPracticeSettings(premium bool) model.PracticeSettings {
-	return model.PracticeSettings{PremiumOptIn: premium, EasyMinutes: 20, MediumMinutes: 35, HardMinutes: 50, Revision: 1}
+func defaultPracticeSettings(premium bool) practice.PracticeSettings {
+	return practice.PracticeSettings{PremiumOptIn: premium, EasyMinutes: 20, MediumMinutes: 35, HardMinutes: 50, Revision: 1}
 }
 
 // GetPracticeSettings retrieves a value.
-func (m *Memory) GetPracticeSettings(_ context.Context, userID string) (model.PracticeSettings, error) {
+func (m *Memory) GetPracticeSettings(_ context.Context, userID string) (practice.PracticeSettings, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 	user, ok := m.Users[userID]
 	if !ok {
-		return model.PracticeSettings{}, ErrNotFound
+		return practice.PracticeSettings{}, ErrNotFound
 	}
 	settings, ok := m.PracticeSettings[userID]
 	if !ok {
@@ -598,22 +598,22 @@ func (m *Memory) GetPracticeSettings(_ context.Context, userID string) (model.Pr
 }
 
 // UpdatePracticeSettings updates a value.
-func (m *Memory) UpdatePracticeSettings(_ context.Context, userID string, revision int64, premium bool, easy, medium, hard int, actorID string, at time.Time) (model.PracticeSettings, error) {
+func (m *Memory) UpdatePracticeSettings(_ context.Context, userID string, revision int64, premium bool, easy, medium, hard int, actorID string, at time.Time) (practice.PracticeSettings, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	user, ok := m.Users[userID]
 	if !ok {
-		return model.PracticeSettings{}, ErrNotFound
+		return practice.PracticeSettings{}, ErrNotFound
 	}
 	settings, ok := m.PracticeSettings[userID]
 	if !ok {
 		settings = defaultPracticeSettings(user.PremiumOptIn)
 	}
 	if settings.Revision != revision {
-		return model.PracticeSettings{}, ErrConflict
+		return practice.PracticeSettings{}, ErrConflict
 	}
 	if settings.GoalsEnabled && (easy < 1 || medium < 1 || hard < 1) {
-		return model.PracticeSettings{}, errors.New("practice goals must be positive")
+		return practice.PracticeSettings{}, errors.New("practice goals must be positive")
 	}
 	settings.PremiumOptIn, settings.EasyMinutes, settings.MediumMinutes, settings.HardMinutes = premium, easy, medium, hard
 	settings.Revision++
@@ -626,19 +626,19 @@ func (m *Memory) UpdatePracticeSettings(_ context.Context, userID string, revisi
 }
 
 // EnablePracticeGoals performs the operation.
-func (m *Memory) EnablePracticeGoals(_ context.Context, userID string, revision int64, actorID, seasonID string, at time.Time) (model.PracticeSettings, error) {
+func (m *Memory) EnablePracticeGoals(_ context.Context, userID string, revision int64, actorID, seasonID string, at time.Time) (practice.PracticeSettings, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	user, ok := m.Users[userID]
 	if !ok {
-		return model.PracticeSettings{}, ErrNotFound
+		return practice.PracticeSettings{}, ErrNotFound
 	}
 	settings, ok := m.PracticeSettings[userID]
 	if !ok {
 		settings = defaultPracticeSettings(user.PremiumOptIn)
 	}
 	if settings.Revision != revision {
-		return model.PracticeSettings{}, ErrConflict
+		return practice.PracticeSettings{}, ErrConflict
 	}
 	if !settings.GoalsEnabled {
 		settings.GoalsEnabled = true
