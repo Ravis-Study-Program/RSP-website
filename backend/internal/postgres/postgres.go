@@ -15,6 +15,7 @@ import (
 	"github.com/magedmg/RSP-website/backend/internal/authz"
 	"github.com/magedmg/RSP-website/backend/internal/mockinterviews"
 	"github.com/magedmg/RSP-website/backend/internal/model"
+	"github.com/magedmg/RSP-website/backend/internal/platform/audit"
 	"github.com/magedmg/RSP-website/backend/internal/platform/dbgen"
 	"github.com/magedmg/RSP-website/backend/internal/platform/id"
 	"github.com/magedmg/RSP-website/backend/internal/platform/observability"
@@ -263,7 +264,7 @@ func (p *Postgres) ApplyIdentityEvent(ctx context.Context, event accounts.Identi
 			}
 			rows.Close()
 			for assignmentID, role := range activated {
-				if auditErr := appendAuditTx(ctx, tx, model.AuditEvent{ID: id.New(), ActorID: &userID, Action: "global_role.activated", SubjectType: "global_role_assignment", SubjectID: assignmentID, Data: map[string]any{"role": role, "reason": "mfa_configured"}, OccurredAt: event.OccurredAt.UTC()}); auditErr != nil {
+				if auditErr := appendAuditTx(ctx, tx, audit.Event{ID: id.New(), ActorID: &userID, Action: "global_role.activated", SubjectType: "global_role_assignment", SubjectID: assignmentID, Data: map[string]any{"role": role, "reason": "mfa_configured"}, OccurredAt: event.OccurredAt.UTC()}); auditErr != nil {
 					return auditErr
 				}
 			}
@@ -977,7 +978,7 @@ func (p *Postgres) CloseSeason(ctx context.Context, seasonID string, revision in
 	if err != nil {
 		return model.Season{}, err
 	}
-	if err := appendAuditTx(ctx, tx, model.AuditEvent{ID: id.New(), ActorID: &actorID, Action: "season.closed", SubjectType: "season", SubjectID: seasonID, Data: map[string]any{"reason": reason, "closeEventId": closeEventID}, OccurredAt: closedAt}); err != nil {
+	if err := appendAuditTx(ctx, tx, audit.Event{ID: id.New(), ActorID: &actorID, Action: "season.closed", SubjectType: "season", SubjectID: seasonID, Data: map[string]any{"reason": reason, "closeEventId": closeEventID}, OccurredAt: closedAt}); err != nil {
 		return model.Season{}, err
 	}
 	if err := tx.Commit(ctx); err != nil {
@@ -1027,7 +1028,7 @@ func (p *Postgres) ReopenSeason(ctx context.Context, seasonID string, revision i
 	if err != nil {
 		return model.Season{}, err
 	}
-	if err := appendAuditTx(ctx, tx, model.AuditEvent{ID: id.New(), ActorID: &actorID, Action: "season.reopened", SubjectType: "season", SubjectID: seasonID, Data: map[string]any{"reason": reason, "closeEventId": closeEventID}, OccurredAt: reopenedAt}); err != nil {
+	if err := appendAuditTx(ctx, tx, audit.Event{ID: id.New(), ActorID: &actorID, Action: "season.reopened", SubjectType: "season", SubjectID: seasonID, Data: map[string]any{"reason": reason, "closeEventId": closeEventID}, OccurredAt: reopenedAt}); err != nil {
 		return model.Season{}, err
 	}
 	if err := tx.Commit(ctx); err != nil {
@@ -1335,7 +1336,7 @@ func (p *Postgres) UpdateEnrollment(ctx context.Context, enrollmentID string, re
 		if _, err := tx.Exec(ctx, `UPDATE app.mentorships SET ended_at=$2,revision=revision+1 WHERE student_enrollment_id=$1 AND ended_at IS NULL AND deleted_at IS NULL`, v.ID, at.UTC()); err != nil {
 			return v, err
 		}
-		if err := appendAuditTx(ctx, tx, model.AuditEvent{ID: id.New(), ActorID: &actorID, Action: "enrollment.promoted", SubjectType: "enrollment", SubjectID: v.ID, Data: map[string]any{"role": role}, OccurredAt: at.UTC()}); err != nil {
+		if err := appendAuditTx(ctx, tx, audit.Event{ID: id.New(), ActorID: &actorID, Action: "enrollment.promoted", SubjectType: "enrollment", SubjectID: v.ID, Data: map[string]any{"role": role}, OccurredAt: at.UTC()}); err != nil {
 			return v, err
 		}
 	}
@@ -1355,7 +1356,7 @@ func (p *Postgres) UpdateEnrollment(ctx context.Context, enrollmentID string, re
 		if _, err := tx.Exec(ctx, `INSERT INTO app.enrollment_removal_events(id,enrollment_id,season_id,subject_user_id,actor_user_id,resulting_state,reason,occurred_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8)`, id.New(), v.ID, v.SeasonID, v.UserID, actorID, state, trimmed, changedAt); err != nil {
 			return v, err
 		}
-		if err := appendAuditTx(ctx, tx, model.AuditEvent{ID: id.New(), ActorID: &actorID, Action: "enrollment.removed", SubjectType: "enrollment", SubjectID: v.ID, Data: map[string]any{"reason": trimmed, "state": state}, OccurredAt: changedAt}); err != nil {
+		if err := appendAuditTx(ctx, tx, audit.Event{ID: id.New(), ActorID: &actorID, Action: "enrollment.removed", SubjectType: "enrollment", SubjectID: v.ID, Data: map[string]any{"reason": trimmed, "state": state}, OccurredAt: changedAt}); err != nil {
 			return v, err
 		}
 	}
@@ -1745,7 +1746,7 @@ func (p *Postgres) CreateAttempt(ctx context.Context, v model.Attempt) (model.At
 	}
 
 	actorID := v.UserID
-	if err := appendAuditTx(ctx, tx, model.AuditEvent{ID: id.New(), ActorID: &actorID, Action: "attempt.created", SubjectType: "problem_attempt", SubjectID: v.ID, Data: map[string]any{}, OccurredAt: time.Now().UTC()}); err != nil {
+	if err := appendAuditTx(ctx, tx, audit.Event{ID: id.New(), ActorID: &actorID, Action: "attempt.created", SubjectType: "problem_attempt", SubjectID: v.ID, Data: map[string]any{}, OccurredAt: time.Now().UTC()}); err != nil {
 		return v, false, err
 	}
 	if err := tx.Commit(ctx); err != nil {
@@ -2223,7 +2224,7 @@ func appendMockVersionTx(ctx context.Context, tx pgx.Tx, v mockinterviews.Interv
 }
 
 // AppendAudit performs the operation.
-func (p *Postgres) AppendAudit(ctx context.Context, v model.AuditEvent) error {
+func (p *Postgres) AppendAudit(ctx context.Context, v audit.Event) error {
 	return appendAuditTx(ctx, p.Pool, v)
 }
 
@@ -2231,7 +2232,7 @@ type execer interface {
 	Exec(context.Context, string, ...any) (pgconn.CommandTag, error)
 }
 
-func appendAuditTx(ctx context.Context, db execer, v model.AuditEvent) error {
+func appendAuditTx(ctx context.Context, db execer, v audit.Event) error {
 	raw, err := json.Marshal(v.Data)
 	if err != nil {
 		return err
@@ -2241,12 +2242,12 @@ func appendAuditTx(ctx context.Context, db execer, v model.AuditEvent) error {
 	return err
 }
 
-func newAudit(actorID, action, subjectType, subjectID string, data map[string]any, at time.Time) model.AuditEvent {
+func newAudit(actorID, action, subjectType, subjectID string, data map[string]any, at time.Time) audit.Event {
 	actor := actorID
 	if data == nil {
 		data = map[string]any{}
 	}
-	return model.AuditEvent{ID: id.New(), ActorID: &actor, Action: action, SubjectType: subjectType, SubjectID: subjectID, Data: data, OccurredAt: at.UTC()}
+	return audit.Event{ID: id.New(), ActorID: &actor, Action: action, SubjectType: subjectType, SubjectID: subjectID, Data: data, OccurredAt: at.UTC()}
 }
 
 func (p *Postgres) classifyRevision(ctx context.Context, db rowQuerier, query string, args ...any) error {

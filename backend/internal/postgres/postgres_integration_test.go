@@ -14,6 +14,7 @@ import (
 	"github.com/magedmg/RSP-website/backend/internal/authz"
 	"github.com/magedmg/RSP-website/backend/internal/mockinterviews"
 	"github.com/magedmg/RSP-website/backend/internal/model"
+	"github.com/magedmg/RSP-website/backend/internal/platform/audit"
 	"github.com/magedmg/RSP-website/backend/internal/practice"
 	"github.com/pressly/goose/v3"
 	"github.com/testcontainers/testcontainers-go"
@@ -333,8 +334,8 @@ func TestPostgres18MigrationsAndRepository(t *testing.T) {
 		t.Fatalf("enum-backed season update=%#v err=%v", updatedSeason, err)
 	}
 
-	audit := model.AuditEvent{ID: "00000000-0000-7000-8000-000000000029", Action: "integration.test", SubjectType: "season", SubjectID: season.ID, Data: map[string]any{}, OccurredAt: time.Now().UTC()}
-	if err := repository.AppendAudit(ctx, audit); err != nil {
+	auditEvent := audit.Event{ID: "00000000-0000-7000-8000-000000000029", Action: "integration.test", SubjectType: "season", SubjectID: season.ID, Data: map[string]any{}, OccurredAt: time.Now().UTC()}
+	if err := repository.AppendAudit(ctx, auditEvent); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := repository.Pool.Exec(ctx, `UPDATE app.audit_events SET action='tampered' WHERE id='00000000-0000-7000-8000-000000000029'`); err == nil {

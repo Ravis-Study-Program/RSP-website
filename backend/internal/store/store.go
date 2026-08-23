@@ -10,6 +10,7 @@ import (
 	"github.com/magedmg/RSP-website/backend/internal/authz"
 	"github.com/magedmg/RSP-website/backend/internal/mockinterviews"
 	"github.com/magedmg/RSP-website/backend/internal/model"
+	"github.com/magedmg/RSP-website/backend/internal/platform/audit"
 	"github.com/magedmg/RSP-website/backend/internal/practice"
 )
 
@@ -87,5 +88,5 @@ type Repository interface {
 	GetMockInterview(context.Context, string) (mockinterviews.Interview, error)
 	CreateMockInterview(context.Context, mockinterviews.Interview, string, time.Time) (mockinterviews.Interview, error)
 	UpdateMockInterview(context.Context, mockinterviews.Interview, string, string, time.Time) (mockinterviews.Interview, error)
-	AppendAudit(context.Context, model.AuditEvent) error
+	AppendAudit(context.Context, audit.Event) error
 }

@@ -13,6 +13,7 @@ import (
 	"github.com/magedmg/RSP-website/backend/internal/authz"
 	"github.com/magedmg/RSP-website/backend/internal/mockinterviews"
 	"github.com/magedmg/RSP-website/backend/internal/model"
+	"github.com/magedmg/RSP-website/backend/internal/platform/audit"
 	"github.com/magedmg/RSP-website/backend/internal/platform/id"
 	"github.com/magedmg/RSP-website/backend/internal/practice"
 	"github.com/magedmg/RSP-website/backend/internal/programme"
@@ -37,7 +38,7 @@ type Memory struct {
 	closeCompleted           map[string]map[string]bool
 	closeAssignmentStates    map[string]map[string]string
 	closeEventIDs            map[string]string
-	Audits                   []model.AuditEvent
+	Audits                   []audit.Event
 	IdentityEventReceipts    map[string]bool
 	IdentityEventHashes      map[string]string
 	GlobalRoleAssignments    map[string]accounts.GlobalRoleAssignment
@@ -620,7 +621,7 @@ func (m *Memory) UpdatePracticeSettings(_ context.Context, userID string, revisi
 	user.Revision++
 	m.Users[userID], m.PracticeSettings[userID] = user, settings
 	actor := actorID
-	m.Audits = append(m.Audits, model.AuditEvent{ID: id.New(), ActorID: &actor, Action: "practice_settings.updated", SubjectType: "user", SubjectID: userID, Data: map[string]any{"premiumOptIn": premium, "easyMinutes": easy, "mediumMinutes": medium, "hardMinutes": hard}, OccurredAt: at.UTC()})
+	m.Audits = append(m.Audits, audit.Event{ID: id.New(), ActorID: &actor, Action: "practice_settings.updated", SubjectType: "user", SubjectID: userID, Data: map[string]any{"premiumOptIn": premium, "easyMinutes": easy, "mediumMinutes": medium, "hardMinutes": hard}, OccurredAt: at.UTC()})
 	return settings, nil
 }
 
@@ -644,7 +645,7 @@ func (m *Memory) EnablePracticeGoals(_ context.Context, userID string, revision 
 		settings.Revision++
 		m.PracticeSettings[userID] = settings
 		actor := actorID
-		m.Audits = append(m.Audits, model.AuditEvent{ID: id.New(), ActorID: &actor, Action: "practice_goals.enabled", SubjectType: "user", SubjectID: userID, Data: map[string]any{"seasonId": seasonID}, OccurredAt: at.UTC()})
+		m.Audits = append(m.Audits, audit.Event{ID: id.New(), ActorID: &actor, Action: "practice_goals.enabled", SubjectType: "user", SubjectID: userID, Data: map[string]any{"seasonId": seasonID}, OccurredAt: at.UTC()})
 	}
 	return settings, nil
 }
@@ -778,7 +779,7 @@ func (m *Memory) CloseSeason(_ context.Context, seasonID string, revision int64,
 	m.closeAssignmentStates[seasonID] = assignmentStates
 	m.closeEventIDs[seasonID] = transition.CloseEvent.ID
 	actor := actorID
-	m.Audits = append(m.Audits, model.AuditEvent{ID: id.New(), ActorID: &actor, Action: "season.closed", SubjectType: "season", SubjectID: seasonID, Data: map[string]any{"reason": reason}, OccurredAt: at.UTC()})
+	m.Audits = append(m.Audits, audit.Event{ID: id.New(), ActorID: &actor, Action: "season.closed", SubjectType: "season", SubjectID: seasonID, Data: map[string]any{"reason": reason}, OccurredAt: at.UTC()})
 	return v, nil
 }
 
@@ -838,7 +839,7 @@ func (m *Memory) ReopenSeason(_ context.Context, seasonID string, revision int64
 	delete(m.closeAssignmentStates, seasonID)
 	delete(m.closeEventIDs, seasonID)
 	actor := actorID
-	m.Audits = append(m.Audits, model.AuditEvent{ID: id.New(), ActorID: &actor, Action: "season.reopened", SubjectType: "season", SubjectID: seasonID, Data: map[string]any{"reason": reason}, OccurredAt: at.UTC()})
+	m.Audits = append(m.Audits, audit.Event{ID: id.New(), ActorID: &actor, Action: "season.reopened", SubjectType: "season", SubjectID: seasonID, Data: map[string]any{"reason": reason}, OccurredAt: at.UTC()})
 	return v, nil
 }
 
@@ -1106,7 +1107,7 @@ func (m *Memory) UpdateEnrollment(_ context.Context, enrollmentID string, revisi
 			}
 		}
 		actor := actorID
-		m.Audits = append(m.Audits, model.AuditEvent{ID: id.New(), ActorID: &actor, Action: "enrollment.promoted", SubjectType: "enrollment", SubjectID: enrollmentID, Data: map[string]any{"role": role}, OccurredAt: at.UTC()})
+		m.Audits = append(m.Audits, audit.Event{ID: id.New(), ActorID: &actor, Action: "enrollment.promoted", SubjectType: "enrollment", SubjectID: enrollmentID, Data: map[string]any{"role": role}, OccurredAt: at.UTC()})
 	}
 	if state != "" {
 		v.State = state
@@ -1119,7 +1120,7 @@ func (m *Memory) UpdateEnrollment(_ context.Context, enrollmentID string, revisi
 			}
 		}
 		actor := actorID
-		m.Audits = append(m.Audits, model.AuditEvent{ID: id.New(), ActorID: &actor, Action: "enrollment.removed", SubjectType: "enrollment", SubjectID: enrollmentID, Data: map[string]any{"reason": trimmed, "state": state}, OccurredAt: at.UTC()})
+		m.Audits = append(m.Audits, audit.Event{ID: id.New(), ActorID: &actor, Action: "enrollment.removed", SubjectType: "enrollment", SubjectID: enrollmentID, Data: map[string]any{"reason": trimmed, "state": state}, OccurredAt: at.UTC()})
 	}
 	v = normalizeEnrollment(v)
 	v.Revision++
@@ -1456,7 +1457,7 @@ func (m *Memory) CreateAttempt(_ context.Context, v model.Attempt) (model.Attemp
 		fulfilled = true
 	}
 	actor := v.UserID
-	m.Audits = append(m.Audits, model.AuditEvent{ID: id.New(), ActorID: &actor, Action: "attempt.created", SubjectType: "problem_attempt", SubjectID: v.ID, Data: map[string]any{}, OccurredAt: time.Now().UTC()})
+	m.Audits = append(m.Audits, audit.Event{ID: id.New(), ActorID: &actor, Action: "attempt.created", SubjectType: "problem_attempt", SubjectID: v.ID, Data: map[string]any{}, OccurredAt: time.Now().UTC()})
 	return v, fulfilled, nil
 }
 
@@ -1724,7 +1725,7 @@ func (m *Memory) appendMockVersionLocked(v mockinterviews.Interview, actorID, re
 }
 
 // AppendAudit performs the operation.
-func (m *Memory) AppendAudit(_ context.Context, v model.AuditEvent) error {
+func (m *Memory) AppendAudit(_ context.Context, v audit.Event) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.Audits = append(m.Audits, v)
@@ -1736,5 +1737,5 @@ func (m *Memory) appendAuditLocked(actorID, action, subjectType, subjectID strin
 	if data == nil {
 		data = map[string]any{}
 	}
-	m.Audits = append(m.Audits, model.AuditEvent{ID: id.New(), ActorID: &actor, Action: action, SubjectType: subjectType, SubjectID: subjectID, Data: data, OccurredAt: at.UTC()})
+	m.Audits = append(m.Audits, audit.Event{ID: id.New(), ActorID: &actor, Action: action, SubjectType: subjectType, SubjectID: subjectID, Data: data, OccurredAt: at.UTC()})
 }

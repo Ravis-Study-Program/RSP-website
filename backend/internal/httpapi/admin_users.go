@@ -8,6 +8,7 @@ import (
 
 	"github.com/magedmg/RSP-website/backend/internal/authz"
 	"github.com/magedmg/RSP-website/backend/internal/model"
+	"github.com/magedmg/RSP-website/backend/internal/platform/audit"
 	"github.com/magedmg/RSP-website/backend/internal/platform/id"
 	"github.com/magedmg/RSP-website/backend/internal/store"
 )
@@ -18,7 +19,7 @@ func (a *API) auditSystemAdminPrivateRead(w http.ResponseWriter, r *http.Request
 		return true
 	}
 	actorID := actor.UserID
-	err := a.store.AppendAudit(r.Context(), model.AuditEvent{ID: id.New(), ActorID: &actorID, Action: "private_data.viewed", SubjectType: subjectType, SubjectID: subjectID, Data: map[string]any{}, OccurredAt: time.Now().UTC()})
+	err := a.store.AppendAudit(r.Context(), audit.Event{ID: id.New(), ActorID: &actorID, Action: "private_data.viewed", SubjectType: subjectType, SubjectID: subjectID, Data: map[string]any{}, OccurredAt: time.Now().UTC()})
 	if err != nil {
 		a.fail(w, r, http.StatusInternalServerError, "audit_failed", "Audit failed", "Private data was not returned because its access could not be audited.", nil)
 		return false

@@ -128,14 +128,3 @@ type Attempt struct {
 	// count as exposure, but never as outcome-quality evidence.
 	Migrated bool `json:"-"`
 }
-
-// AuditEvent represents a backend data structure.
-type AuditEvent struct {
-	ID          string         `json:"id"`
-	ActorID     *string        `json:"actorId,omitempty"`
-	Action      string         `json:"action"`
-	SubjectType string         `json:"subjectType"`
-	SubjectID   string         `json:"subjectId"`
-	Data        map[string]any `json:"data"`
-	OccurredAt  time.Time      `json:"occurredAt"`
-}
