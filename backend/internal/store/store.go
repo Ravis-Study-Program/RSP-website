@@ -34,55 +34,9 @@ type MockVersion struct {
 
 // Repository defines a backend interface.
 type Repository interface {
-	ApplyIdentityEvent(context.Context, accounts.IdentityEvent) error
-	ResolveAuthSubject(context.Context, string) (authz.Actor, error)
-	GetUser(context.Context, string) (accounts.User, error)
-	SuggestUserSlug(context.Context) (string, error)
-	ListUsers(context.Context, string, int, string, string, string, string) ([]accounts.User, bool, int64, error)
-	ListAdminUsers(context.Context, string, int, string, string, string, string) ([]accounts.User, bool, int64, error)
-	ListEnrollmentCandidates(context.Context, string, string, string, int, string) ([]accounts.EnrollmentCandidate, bool, int64, error)
-	UpdateUser(context.Context, string, int64, func(*accounts.User) error, string, time.Time) (accounts.User, error)
-	ResolveAuthSubjectForUser(context.Context, string) (string, error)
-	GrantGlobalRole(context.Context, string, string, bool, string, string, time.Time) (accounts.GlobalRoleAssignment, error)
-	ListGlobalRoles(context.Context, string) ([]accounts.GlobalRoleAssignment, error)
-	RevokeGlobalRole(context.Context, string, string, int64, string, string, time.Time) (accounts.GlobalRoleAssignment, error)
-	GetPracticeSettings(context.Context, string) (practice.PracticeSettings, error)
-	UpdatePracticeSettings(context.Context, string, int64, bool, int, int, int, string, time.Time) (practice.PracticeSettings, error)
-	EnablePracticeGoals(context.Context, string, int64, string, string, time.Time) (practice.PracticeSettings, error)
-	GetSeason(context.Context, string) (programme.SeasonRecord, error)
-	ListSeasons(context.Context, string, int, string, string) ([]programme.SeasonRecord, bool, int64, error)
-	CreateSeason(context.Context, programme.SeasonRecord, string, time.Time) (programme.SeasonRecord, error)
-	UpdateSeason(context.Context, string, int64, func(*programme.SeasonRecord) error, string, time.Time) (programme.SeasonRecord, error)
-	CloseSeason(context.Context, string, int64, string, string, time.Time) (programme.SeasonRecord, error)
-	ReopenSeason(context.Context, string, int64, string, string, time.Time) (programme.SeasonRecord, error)
-	ListWeeks(context.Context, string, string, int, string, string) ([]programme.WeekRecord, bool, int64, error)
-	CreateWeek(context.Context, programme.WeekRecord, string, time.Time) (programme.WeekRecord, error)
-	UpdateWeek(context.Context, string, string, int64, programme.WeekRecord, string, time.Time) (programme.WeekRecord, error)
-	DeleteWeek(context.Context, string, string, int64, string, time.Time) error
-	ListEnrollments(context.Context, string, string, int, string, string, string, string, bool) ([]programme.EnrollmentRecord, bool, int64, error)
-	ListEnrollmentsForUser(context.Context, string) ([]programme.EnrollmentRecord, error)
-	GetEnrollment(context.Context, string) (programme.EnrollmentRecord, error)
-	CreateEnrollment(context.Context, programme.EnrollmentRecord, string, time.Time) (programme.EnrollmentRecord, error)
-	UpdateEnrollmentDetails(context.Context, string, string, int64, string, string, string, time.Time) (programme.EnrollmentRecord, error)
-	UpdateEnrollment(context.Context, string, int64, string, string, string, string, time.Time) (programme.EnrollmentRecord, error)
-	ListMentorships(context.Context, string, string, int, string, string, string, string) ([]programme.MentorshipRecord, bool, int64, error)
-	CreateMentorship(context.Context, programme.MentorshipRecord, string, time.Time) (programme.MentorshipRecord, error)
-	UpdateMentorship(context.Context, string, string, int64, string, string, string, time.Time) (programme.MentorshipRecord, error)
-	DeleteMentorship(context.Context, string, string, int64, string, time.Time) error
-	IsMentorAssigned(context.Context, string, string, string) (bool, error)
-	ListProblems(context.Context, string, int, string, string, *bool, string) ([]practice.ProblemRecord, bool, int64, error)
-	GetAttempt(context.Context, string) (practice.AttemptRecord, error)
-	ListAttempts(context.Context, string, string, int, string, string, string) ([]practice.AttemptRecord, bool, int64, error)
-	RecommendationSnapshot(context.Context, string, practice.Goals) (practice.RecommendationSnapshot, error)
-	RecommendationCandidates(context.Context, string, practice.Criteria, bool, practice.Goals, time.Time) ([]practice.ProblemRecord, map[string]practice.ProblemHistory, error)
-	CreateAttempt(context.Context, practice.AttemptRecord) (practice.AttemptRecord, bool, error)
-	UpdateAttempt(context.Context, string, string, int64, func(*practice.AttemptRecord) error) (practice.AttemptRecord, error)
-	DeleteAttempt(context.Context, string, string, int64) error
-	GetActiveRecommendation(context.Context, string) (*practice.Recommendation, error)
-	SaveRecommendation(context.Context, practice.Recommendation) (practice.Recommendation, error)
-	ListRecommendationDismissals(context.Context, string) ([]practice.Dismissal, error)
-	DismissRecommendation(context.Context, string, int64, string, time.Time, string) (practice.Recommendation, error)
-	FulfillRecommendation(context.Context, string, practice.AttemptRecord, time.Time) (bool, error)
+	accounts.Repository
+	practice.Repository
+	programme.Repository
 	ListMockInterviews(context.Context, authz.Actor, string, string, int, string, string) ([]mockinterviews.Interview, bool, int64, error)
 	GetMockParticipant(context.Context, string) (mockinterviews.Participant, error)
 	GetMockInterview(context.Context, string) (mockinterviews.Interview, error)
