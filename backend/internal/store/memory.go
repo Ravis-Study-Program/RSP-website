@@ -14,6 +14,7 @@ import (
 	"github.com/magedmg/RSP-website/backend/internal/model"
 	"github.com/magedmg/RSP-website/backend/internal/platform/id"
 	"github.com/magedmg/RSP-website/backend/internal/practice"
+	"github.com/magedmg/RSP-website/backend/internal/programme"
 )
 
 // Memory represents a backend data structure.
@@ -742,22 +743,33 @@ func (m *Memory) CloseSeason(_ context.Context, seasonID string, revision int64,
 	if !ok {
 		return model.Season{}, ErrNotFound
 	}
-	if v.Revision != revision || v.Status != "open" {
+	if v.Revision != revision {
 		return model.Season{}, ErrConflict
 	}
-	v.Status = "closed"
-	v.Revision++
+	domainSeason := programme.Season{ID: v.ID, Status: v.Status, Revision: v.Revision}
+	for _, enrollment := range m.Enrollments {
+		if enrollment.SeasonID == seasonID {
+			domainSeason.Enrollments = append(domainSeason.Enrollments, programme.Enrollment{ID: enrollment.ID, State: enrollment.State})
+		}
+	}
+	transition, err := programme.Close(domainSeason, actorID, reason, at)
+	if err != nil {
+		return model.Season{}, ErrConflict
+	}
+	v.Status = transition.Season.Status
+	v.Revision = transition.Season.Revision
 	m.Seasons[seasonID] = v
 	completed := map[string]bool{}
 	assignmentStates := map[string]string{}
-	for enrollmentID, enrollment := range m.Enrollments {
-		if enrollment.SeasonID == seasonID && enrollment.State == "active" {
-			assignmentStates[enrollmentID] = enrollment.AssignmentState
+	for _, changed := range transition.Season.Enrollments {
+		enrollment, exists := m.Enrollments[changed.ID]
+		if exists && changed.State == "completed" && enrollment.State == "active" {
+			assignmentStates[changed.ID] = enrollment.AssignmentState
 			enrollment.State = "completed"
 			enrollment.AssignmentState = "revoked"
 			enrollment.Revision++
-			m.Enrollments[enrollmentID] = enrollment
-			completed[enrollmentID] = true
+			m.Enrollments[changed.ID] = enrollment
+			completed[changed.ID] = true
 		}
 	}
 	m.closeCompleted[seasonID] = completed
@@ -775,11 +787,26 @@ func (m *Memory) ReopenSeason(_ context.Context, seasonID string, revision int64
 	if !ok {
 		return model.Season{}, ErrNotFound
 	}
-	if v.Revision != revision || v.Status != "closed" {
+	if v.Revision != revision {
 		return model.Season{}, ErrConflict
 	}
-	v.Status = "open"
-	v.Revision++
+	domainSeason := programme.Season{ID: v.ID, Status: v.Status, Revision: v.Revision}
+	closeID := "close-" + seasonID
+	for _, enrollment := range m.Enrollments {
+		if enrollment.SeasonID == seasonID {
+			completedBy := ""
+			if m.closeCompleted[seasonID][enrollment.ID] {
+				completedBy = closeID
+			}
+			domainSeason.Enrollments = append(domainSeason.Enrollments, programme.Enrollment{ID: enrollment.ID, State: enrollment.State, CompletedByCloseID: stringPointer(completedBy)})
+		}
+	}
+	reopened, err := programme.Reopen(domainSeason, programme.CloseEvent{ID: closeID}, programme.SystemAdmin)
+	if err != nil {
+		return model.Season{}, ErrConflict
+	}
+	v.Status = reopened.Status
+	v.Revision = reopened.Revision
 	m.Seasons[seasonID] = v
 	for enrollmentID := range m.closeCompleted[seasonID] {
 		enrollment, exists := m.Enrollments[enrollmentID]
@@ -798,6 +825,13 @@ func (m *Memory) ReopenSeason(_ context.Context, seasonID string, revision int64
 	actor := actorID
 	m.Audits = append(m.Audits, model.AuditEvent{ID: id.New(), ActorID: &actor, Action: "season.reopened", SubjectType: "season", SubjectID: seasonID, Data: map[string]any{"reason": reason}, OccurredAt: at.UTC()})
 	return v, nil
+}
+
+func stringPointer(value string) *string {
+	if value == "" {
+		return nil
+	}
+	return &value
 }
 
 // ListWeeks lists matching values.
