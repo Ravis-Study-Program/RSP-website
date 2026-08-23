@@ -38,60 +38,77 @@ type Account struct {
 	Revision                                 int64
 }
 
-// SessionRevoker defines a backend interface.
-type SessionRevoker interface{ RevokeAll(userID string) error }
+// EffectKind identifies an imperative action required after a transition.
+type EffectKind string
 
-// RequestDeletion requests an operation.
-func RequestDeletion(a *Account, rawToken string, now time.Time, r SessionRevoker) error {
+const (
+	// RevokeSessions requests invalidation of the account's sessions.
+	RevokeSessions EffectKind = "revoke_sessions"
+)
+
+// Effect describes work that belongs to the application shell.
+type Effect struct {
+	Kind   EffectKind
+	UserID string
+}
+
+// Transition contains the new account value and shell effects.
+type Transition struct {
+	Account Account
+	Effects []Effect
+}
+
+// RequestDeletion requests account deletion without changing the input.
+func RequestDeletion(a Account, rawToken string, now time.Time) (Transition, error) {
 	if a.State != Active {
-		return ErrInvalidState
-	}
-	if err := r.RevokeAll(a.ID); err != nil {
-		return err
+		return Transition{}, ErrInvalidState
 	}
 
 	requested := now.UTC()
 	after := requested.Add(30 * 24 * time.Hour)
 	sum := sha256.Sum256([]byte(rawToken))
-	a.RecoveryTokenHash = hex.EncodeToString(sum[:])
-	a.DeletionRequestedAt = &requested
-	a.DeleteAfter = &after
-	a.State = DeletionPending
-	a.Revision++
-	return nil
+	updated := a
+	updated.RecoveryTokenHash = hex.EncodeToString(sum[:])
+	updated.DeletionRequestedAt = &requested
+	updated.DeleteAfter = &after
+	updated.State = DeletionPending
+	updated.Revision++
+	return Transition{Account: updated, Effects: []Effect{{Kind: RevokeSessions, UserID: a.ID}}}, nil
 }
 
-// CancelDeletion cancels an operation.
-func CancelDeletion(a *Account, rawToken string, now time.Time) error {
+// CancelDeletion cancels deletion without changing the input.
+func CancelDeletion(a Account, rawToken string, now time.Time) (Account, error) {
 	if a.State != DeletionPending || a.DeleteAfter == nil || !now.UTC().Before(*a.DeleteAfter) {
-		return ErrInvalidState
+		return Account{}, ErrInvalidState
 	}
 	sum := sha256.Sum256([]byte(rawToken))
 	if a.RecoveryTokenHash != hex.EncodeToString(sum[:]) {
-		return ErrRecoveryToken
+		return Account{}, ErrRecoveryToken
 	}
-	a.State = Active
-	a.RecoveryTokenHash = ""
-	a.DeletionRequestedAt = nil
-	a.DeleteAfter = nil
-	a.Revision++
-	return nil
+	updated := a
+	updated.State = Active
+	updated.RecoveryTokenHash = ""
+	updated.DeletionRequestedAt = nil
+	updated.DeleteAfter = nil
+	updated.Revision++
+	return updated, nil
 }
 
-// Pseudonymize performs the operation.
-func Pseudonymize(a *Account, now time.Time) bool {
+// Pseudonymize pseudonymizes an expired account without changing the input.
+func Pseudonymize(a Account, now time.Time) (Account, bool) {
 	if a.State != DeletionPending || a.DeleteAfter == nil || now.UTC().Before(*a.DeleteAfter) {
-		return false
+		return Account{}, false
 	}
 	suffix := a.ID
 	if len(suffix) > 8 {
 		suffix = suffix[len(suffix)-8:]
 	}
-	a.Name = "Deleted member"
-	a.Email = ""
-	a.Slug = "deleted-" + suffix
-	a.RecoveryTokenHash = ""
-	a.State = Deleted
-	a.Revision++
-	return true
+	updated := a
+	updated.Name = "Deleted member"
+	updated.Email = ""
+	updated.Slug = "deleted-" + suffix
+	updated.RecoveryTokenHash = ""
+	updated.State = Deleted
+	updated.Revision++
+	return updated, true
 }
