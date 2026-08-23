@@ -2,8 +2,18 @@ package mockinterviews
 
 import (
 	"context"
+	"encoding/json"
 	"time"
 )
+
+// Version records an immutable interview snapshot.
+type Version struct {
+	InterviewID     string
+	Revision        int64
+	ActorID, Reason string
+	SavedAt         time.Time
+	Snapshot        json.RawMessage
+}
 
 // Repository contains only the persistence operations needed by interview
 // mutations. The application layer does not depend on the concrete database.
