@@ -31,7 +31,7 @@ type Memory struct {
 	Recommendations          map[string]practice.Recommendation
 	RecommendationDismissals map[string][]practice.Dismissal
 	Mocks                    map[string]mockinterviews.Interview
-	MockVersions             []mockinterviews.Version
+	MockVersions             []MockVersion
 	closeCompleted           map[string]map[string]bool
 	closeAssignmentStates    map[string]map[string]string
 	Audits                   []model.AuditEvent
@@ -1671,7 +1671,7 @@ func (m *Memory) UpdateMockInterview(_ context.Context, v mockinterviews.Intervi
 
 func (m *Memory) appendMockVersionLocked(v mockinterviews.Interview, actorID, reason string, at time.Time) {
 	raw, _ := json.Marshal(v)
-	m.MockVersions = append(m.MockVersions, mockinterviews.Version{InterviewID: v.ID, Revision: v.Revision, ActorID: actorID, Reason: reason, SavedAt: at.UTC(), Snapshot: raw})
+	m.MockVersions = append(m.MockVersions, MockVersion{InterviewID: v.ID, Revision: v.Revision, ActorID: actorID, Reason: reason, SavedAt: at.UTC(), Snapshot: raw})
 }
 
 // AppendAudit performs the operation.

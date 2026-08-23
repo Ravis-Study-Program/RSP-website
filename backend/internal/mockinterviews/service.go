@@ -2,7 +2,6 @@
 package mockinterviews
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"net/url"
@@ -103,15 +102,6 @@ type Interview struct {
 	Rounds          []Round            `json:"rounds"`
 	Revision        int64              `json:"revision"`
 	DeletedAt       *time.Time         `json:"-"`
-}
-
-// Version represents a backend data structure.
-type Version struct {
-	InterviewID     string
-	Revision        int64
-	ActorID, Reason string
-	SavedAt         time.Time
-	Snapshot        json.RawMessage
 }
 
 // Service contains deterministic interview rules and input normalization.

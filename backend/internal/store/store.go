@@ -56,6 +56,15 @@ type GlobalRoleAssignment struct {
 	Revision int64  `json:"revision"`
 }
 
+// MockVersion is a persistence record for an interview snapshot.
+type MockVersion struct {
+	InterviewID     string
+	Revision        int64
+	ActorID, Reason string
+	SavedAt         time.Time
+	Snapshot        json.RawMessage
+}
+
 // ObservabilitySnapshot contains only bounded, aggregate operational data.
 // Keeping this separate from Repository lets non-PostgreSQL stores remain
 // lightweight while the API metrics endpoint can expose durable worker and
