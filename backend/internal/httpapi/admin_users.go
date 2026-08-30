@@ -74,7 +74,16 @@ func (a *API) listAdminUsers(w http.ResponseWriter, r *http.Request) {
 	if !a.auditSystemAdminPrivateRead(w, r, "admin_user_collection", actor.UserID) {
 		return
 	}
-	writeJSON(w, http.StatusOK, Page[accounts.User]{Items: items, PageInfo: pageInfoForKeyset(a, binding, direction, boundary, items, more, func(user accounts.User) string { return user.ID }), TotalCount: total})
+	pageInfo := pageInfoForKeyset(
+		a, binding, direction, boundary, items, more,
+		func(user accounts.User) string { return user.ID },
+	)
+	response := Page[accounts.User]{
+		Items:      items,
+		PageInfo:   pageInfo,
+		TotalCount: total,
+	}
+	writeJSONResponse(w, http.StatusOK, response)
 }
 
 func (a *API) setUserAccountState(w http.ResponseWriter, r *http.Request) {
@@ -127,7 +136,7 @@ func (a *API) setUserAccountState(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	writeJSON(w, http.StatusOK, updated)
+	writeJSONResponse(w, http.StatusOK, updated)
 }
 
 func (a *API) grantUserGlobalRole(w http.ResponseWriter, r *http.Request) {
@@ -171,7 +180,7 @@ func (a *API) grantUserGlobalRole(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	writeJSON(w, http.StatusCreated, assignment)
+	writeJSONResponse(w, http.StatusCreated, assignment)
 }
 
 func (a *API) listUserGlobalRoles(w http.ResponseWriter, r *http.Request) {
@@ -190,7 +199,7 @@ func (a *API) listUserGlobalRoles(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	writeJSON(w, http.StatusOK, map[string]any{"items": items})
+	writeJSONResponse(w, http.StatusOK, map[string]any{"items": items})
 }
 
 func (a *API) revokeUserGlobalRole(w http.ResponseWriter, r *http.Request) {
@@ -226,5 +235,5 @@ func (a *API) revokeUserGlobalRole(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	writeJSON(w, http.StatusOK, assignment)
+	writeJSONResponse(w, http.StatusOK, assignment)
 }

@@ -62,7 +62,7 @@ func (a *API) me(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	writeJSON(w, 200, response)
+	writeJSONResponse(w, http.StatusOK, response)
 }
 
 func (a *API) suggestMeSlug(w http.ResponseWriter, r *http.Request) {
@@ -72,7 +72,7 @@ func (a *API) suggestMeSlug(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	writeJSON(w, 200, map[string]string{"slug": slug})
+	writeJSONResponse(w, http.StatusOK, map[string]string{"slug": slug})
 }
 
 func (a *API) updateMe(w http.ResponseWriter, r *http.Request) {
@@ -131,7 +131,7 @@ func (a *API) updateMe(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	writeJSON(w, 200, response)
+	writeJSONResponse(w, http.StatusOK, response)
 }
 
 func validSlug(slug string) bool {
@@ -193,8 +193,16 @@ func (a *API) users(w http.ResponseWriter, r *http.Request) {
 		items[i].Email = ""
 		items[i].AccountState = ""
 	}
-	pageInfo := pageInfoForKeyset(a, binding, direction, boundary, items, more, func(v accounts.User) string { return v.ID })
-	writeJSON(w, 200, Page[accounts.User]{Items: items, PageInfo: pageInfo, TotalCount: total})
+	pageInfo := pageInfoForKeyset(
+		a, binding, direction, boundary, items, more,
+		func(v accounts.User) string { return v.ID },
+	)
+	response := Page[accounts.User]{
+		Items:      items,
+		PageInfo:   pageInfo,
+		TotalCount: total,
+	}
+	writeJSONResponse(w, http.StatusOK, response)
 }
 
 func (a *API) user(w http.ResponseWriter, r *http.Request) {
@@ -231,7 +239,7 @@ func (a *API) user(w http.ResponseWriter, r *http.Request) {
 	if !a.auditSystemAdminPrivateRead(w, r, "user", user.ID) {
 		return
 	}
-	writeJSON(w, 200, user)
+	writeJSONResponse(w, http.StatusOK, user)
 }
 
 func canAccessDirectory(actor authz.Actor) bool {
@@ -278,8 +286,16 @@ func (a *API) seasons(w http.ResponseWriter, r *http.Request) {
 			storeFailure(a, w, r, listErr)
 			return
 		}
-		pageInfo := pageInfoForKeyset(a, binding, direction, boundary, items, more, func(v programme.SeasonRecord) string { return v.ID })
-		writeJSON(w, 200, Page[programme.SeasonRecord]{Items: items, PageInfo: pageInfo, TotalCount: total})
+		pageInfo := pageInfoForKeyset(
+			a, binding, direction, boundary, items, more,
+			func(v programme.SeasonRecord) string { return v.ID },
+		)
+		response := Page[programme.SeasonRecord]{
+			Items:      items,
+			PageInfo:   pageInfo,
+			TotalCount: total,
+		}
+		writeJSONResponse(w, http.StatusOK, response)
 		return
 	}
 
@@ -308,7 +324,12 @@ func (a *API) seasons(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	writeJSON(w, 200, Page[programme.SeasonRecord]{Items: page, PageInfo: pageInfo, TotalCount: int64(len(items))})
+	response := Page[programme.SeasonRecord]{
+		Items:      page,
+		PageInfo:   pageInfo,
+		TotalCount: int64(len(items)),
+	}
+	writeJSONResponse(w, http.StatusOK, response)
 }
 
 func (a *API) season(w http.ResponseWriter, r *http.Request) {
@@ -324,7 +345,7 @@ func (a *API) season(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	writeJSON(w, 200, v)
+	writeJSONResponse(w, http.StatusOK, v)
 }
 
 func canViewSeason(actor authz.Actor, seasonID string) bool {
@@ -418,7 +439,7 @@ func (a *API) createSeason(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	writeJSON(w, 201, created)
+	writeJSONResponse(w, http.StatusCreated, created)
 }
 
 func (a *API) updateSeason(w http.ResponseWriter, r *http.Request) {
@@ -461,7 +482,7 @@ func (a *API) updateSeason(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	writeJSON(w, 200, updated)
+	writeJSONResponse(w, http.StatusOK, updated)
 }
 
 func (a *API) updateSeasonResources(w http.ResponseWriter, r *http.Request) {
@@ -491,7 +512,7 @@ func (a *API) updateSeasonResources(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	writeJSON(w, http.StatusOK, updated)
+	writeJSONResponse(w, http.StatusOK, updated)
 }
 
 func (a *API) closeSeason(w http.ResponseWriter, r *http.Request) {
@@ -528,7 +549,7 @@ func (a *API) closeSeason(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	writeJSON(w, 200, updated)
+	writeJSONResponse(w, http.StatusOK, updated)
 }
 
 func (a *API) reopenSeason(w http.ResponseWriter, r *http.Request) {
@@ -554,5 +575,5 @@ func (a *API) reopenSeason(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	writeJSON(w, 200, updated)
+	writeJSONResponse(w, http.StatusOK, updated)
 }

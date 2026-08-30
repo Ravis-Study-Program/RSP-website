@@ -112,8 +112,16 @@ func (a *API) problems(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	pageInfo := pageInfoForKeyset(a, binding, direction, after, items, more, func(v practice.ProblemRecord) string { return v.ID })
-	writeJSON(w, 200, Page[practice.ProblemRecord]{Items: items, PageInfo: pageInfo, TotalCount: total})
+	pageInfo := pageInfoForKeyset(
+		a, binding, direction, after, items, more,
+		func(v practice.ProblemRecord) string { return v.ID },
+	)
+	response := Page[practice.ProblemRecord]{
+		Items:      items,
+		PageInfo:   pageInfo,
+		TotalCount: total,
+	}
+	writeJSONResponse(w, http.StatusOK, response)
 }
 
 func (a *API) attempts(w http.ResponseWriter, r *http.Request) {
@@ -185,8 +193,16 @@ func (a *API) attempts(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	pageInfo := pageInfoForKeyset(a, binding, direction, after, items, more, func(v practice.AttemptRecord) string { return v.ID })
-	writeJSON(w, 200, Page[practice.AttemptRecord]{Items: items, PageInfo: pageInfo, TotalCount: total})
+	pageInfo := pageInfoForKeyset(
+		a, binding, direction, after, items, more,
+		func(v practice.AttemptRecord) string { return v.ID },
+	)
+	response := Page[practice.AttemptRecord]{
+		Items:      items,
+		PageInfo:   pageInfo,
+		TotalCount: total,
+	}
+	writeJSONResponse(w, http.StatusOK, response)
 }
 
 type attemptInput struct {
@@ -231,7 +247,7 @@ func (a *API) createAttempt(w http.ResponseWriter, r *http.Request) {
 	if fulfilled {
 		a.telemetry.observeRecommendation("attempted")
 	}
-	writeJSON(w, 201, created)
+	writeJSONResponse(w, http.StatusCreated, created)
 }
 
 func (a *API) updateAttempt(w http.ResponseWriter, r *http.Request) {
@@ -262,7 +278,7 @@ func (a *API) updateAttempt(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	writeJSON(w, 200, updated)
+	writeJSONResponse(w, http.StatusOK, updated)
 }
 
 func (a *API) deleteAttempt(w http.ResponseWriter, r *http.Request) {
@@ -295,7 +311,7 @@ func (a *API) recommendation(w http.ResponseWriter, r *http.Request) {
 	}
 	if current != nil {
 		a.telemetry.observeRecommendation("reused")
-		writeJSON(w, 200, current)
+		writeJSONResponse(w, http.StatusOK, current)
 		return
 	}
 
@@ -380,7 +396,7 @@ func (a *API) recommendation(w http.ResponseWriter, r *http.Request) {
 	}
 
 	a.telemetry.observeRecommendation("generated")
-	writeJSON(w, 200, selected)
+	writeJSONResponse(w, http.StatusOK, selected)
 }
 
 func (a *API) dismissRecommendation(w http.ResponseWriter, r *http.Request) {

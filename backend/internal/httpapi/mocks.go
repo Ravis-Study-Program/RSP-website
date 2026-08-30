@@ -55,11 +55,16 @@ func (a *API) listMockParticipants(w http.ResponseWriter, r *http.Request) {
 	for _, user := range users {
 		items = append(items, mockinterviews.ParticipantSummary{ID: user.ID, Slug: user.Slug, Name: user.Name, AvatarURL: user.AvatarURL})
 	}
-	writeJSON(w, http.StatusOK, Page[mockinterviews.ParticipantSummary]{
+	pageInfo := pageInfoForKeyset(
+		a, binding, direction, boundary, items, more,
+		func(v mockinterviews.ParticipantSummary) string { return v.ID },
+	)
+	response := Page[mockinterviews.ParticipantSummary]{
 		Items:      items,
-		PageInfo:   pageInfoForKeyset(a, binding, direction, boundary, items, more, func(v mockinterviews.ParticipantSummary) string { return v.ID }),
+		PageInfo:   pageInfo,
 		TotalCount: total,
-	})
+	}
+	writeJSONResponse(w, http.StatusOK, response)
 }
 
 func (a *API) listMocks(w http.ResponseWriter, r *http.Request) {
@@ -107,7 +112,16 @@ func (a *API) listMocks(w http.ResponseWriter, r *http.Request) {
 	for index := range items {
 		items[index] = a.withMockParticipantSummaries(r, items[index])
 	}
-	writeJSON(w, 200, Page[mockinterviews.Interview]{Items: items, PageInfo: pageInfoForKeyset(a, binding, direction, boundary, items, more, func(v mockinterviews.Interview) string { return v.ID }), TotalCount: total})
+	pageInfo := pageInfoForKeyset(
+		a, binding, direction, boundary, items, more,
+		func(v mockinterviews.Interview) string { return v.ID },
+	)
+	response := Page[mockinterviews.Interview]{
+		Items:      items,
+		PageInfo:   pageInfo,
+		TotalCount: total,
+	}
+	writeJSONResponse(w, http.StatusOK, response)
 }
 
 func historicalMockReviewer(actor authz.Actor) bool {
@@ -154,7 +168,9 @@ func (a *API) createMock(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	writeJSON(w, 201, withPass(a.withMockParticipantSummaries(r, v)))
+	interview := a.withMockParticipantSummaries(r, v)
+	response := withPass(interview)
+	writeJSONResponse(w, http.StatusCreated, response)
 }
 
 func (a *API) updateMock(w http.ResponseWriter, r *http.Request) {
@@ -197,7 +213,9 @@ func (a *API) updateMock(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	writeJSON(w, 200, withPass(a.withMockParticipantSummaries(r, v)))
+	interview := a.withMockParticipantSummaries(r, v)
+	response := withPass(interview)
+	writeJSONResponse(w, http.StatusOK, response)
 }
 
 func (a *API) deleteMock(w http.ResponseWriter, r *http.Request) {
@@ -268,7 +286,9 @@ func (a *API) reviewRound(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	writeJSON(w, 200, withPass(a.withMockParticipantSummaries(r, v)))
+	interview := a.withMockParticipantSummaries(r, v)
+	response := withPass(interview)
+	writeJSONResponse(w, http.StatusOK, response)
 }
 
 func (a *API) correctMockIdentities(w http.ResponseWriter, r *http.Request) {
@@ -312,7 +332,9 @@ func (a *API) correctMockIdentities(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	writeJSON(w, 200, withPass(a.withMockParticipantSummaries(r, v)))
+	interview := a.withMockParticipantSummaries(r, v)
+	response := withPass(interview)
+	writeJSONResponse(w, http.StatusOK, response)
 }
 
 func (a *API) validMockSeason(w http.ResponseWriter, r *http.Request, seasonID *string, occurredAt time.Time, userIDs ...string) bool {
@@ -414,5 +436,5 @@ func (a *API) adminSync(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	writeJSON(w, 202, map[string]string{"status": "accepted"})
+	writeJSONResponse(w, http.StatusAccepted, map[string]string{"status": "accepted"})
 }

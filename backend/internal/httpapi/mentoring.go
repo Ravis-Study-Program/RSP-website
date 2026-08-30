@@ -75,7 +75,16 @@ func (a *API) listWeeks(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	writeJSON(w, 200, Page[programme.WeekRecord]{Items: items, PageInfo: pageInfoForKeyset(a, binding, direction, boundary, items, more, func(v programme.WeekRecord) string { return v.ID }), TotalCount: total})
+	pageInfo := pageInfoForKeyset(
+		a, binding, direction, boundary, items, more,
+		func(v programme.WeekRecord) string { return v.ID },
+	)
+	response := Page[programme.WeekRecord]{
+		Items:      items,
+		PageInfo:   pageInfo,
+		TotalCount: total,
+	}
+	writeJSONResponse(w, http.StatusOK, response)
 }
 
 func (a *API) createWeek(w http.ResponseWriter, r *http.Request) {
@@ -106,7 +115,7 @@ func (a *API) createWeek(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	writeJSON(w, 201, created)
+	writeJSONResponse(w, http.StatusCreated, created)
 }
 
 func (a *API) updateWeek(w http.ResponseWriter, r *http.Request) {
@@ -137,7 +146,7 @@ func (a *API) updateWeek(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	writeJSON(w, 200, v)
+	writeJSONResponse(w, http.StatusOK, v)
 }
 
 func (a *API) deleteWeek(w http.ResponseWriter, r *http.Request) {
@@ -203,7 +212,16 @@ func (a *API) listMembers(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	writeJSON(w, 200, Page[programme.EnrollmentRecord]{Items: items, PageInfo: pageInfoForKeyset(a, binding, direction, boundary, items, more, func(v programme.EnrollmentRecord) string { return v.ID }), TotalCount: total})
+	pageInfo := pageInfoForKeyset(
+		a, binding, direction, boundary, items, more,
+		func(v programme.EnrollmentRecord) string { return v.ID },
+	)
+	response := Page[programme.EnrollmentRecord]{
+		Items:      items,
+		PageInfo:   pageInfo,
+		TotalCount: total,
+	}
+	writeJSONResponse(w, http.StatusOK, response)
 }
 
 func (a *API) listEnrollmentCandidates(w http.ResponseWriter, r *http.Request) {
@@ -236,7 +254,16 @@ func (a *API) listEnrollmentCandidates(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	writeJSON(w, 200, Page[accounts.EnrollmentCandidate]{Items: items, PageInfo: pageInfoForKeyset(a, binding, direction, boundary, items, more, func(v accounts.EnrollmentCandidate) string { return v.ID }), TotalCount: total})
+	pageInfo := pageInfoForKeyset(
+		a, binding, direction, boundary, items, more,
+		func(v accounts.EnrollmentCandidate) string { return v.ID },
+	)
+	response := Page[accounts.EnrollmentCandidate]{
+		Items:      items,
+		PageInfo:   pageInfo,
+		TotalCount: total,
+	}
+	writeJSONResponse(w, http.StatusOK, response)
 }
 
 func (a *API) createMember(w http.ResponseWriter, r *http.Request) {
@@ -264,7 +291,7 @@ func (a *API) createMember(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	writeJSON(w, 201, created)
+	writeJSONResponse(w, http.StatusCreated, created)
 }
 
 func (a *API) updateMember(w http.ResponseWriter, r *http.Request) {
@@ -296,7 +323,7 @@ func (a *API) updateMember(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	writeJSON(w, 200, v)
+	writeJSONResponse(w, http.StatusOK, v)
 }
 
 func (a *API) promoteMember(w http.ResponseWriter, r *http.Request) { a.changeMember(w, r, true) }
@@ -367,7 +394,7 @@ func (a *API) changeMember(w http.ResponseWriter, r *http.Request, promote bool)
 		return
 	}
 
-	writeJSON(w, 200, updated)
+	writeJSONResponse(w, http.StatusOK, updated)
 }
 
 func (a *API) listMentorships(w http.ResponseWriter, r *http.Request) {
@@ -402,7 +429,16 @@ func (a *API) listMentorships(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	writeJSON(w, 200, Page[programme.MentorshipRecord]{Items: items, PageInfo: pageInfoForKeyset(a, binding, direction, boundary, items, more, func(v programme.MentorshipRecord) string { return v.ID }), TotalCount: total})
+	pageInfo := pageInfoForKeyset(
+		a, binding, direction, boundary, items, more,
+		func(v programme.MentorshipRecord) string { return v.ID },
+	)
+	response := Page[programme.MentorshipRecord]{
+		Items:      items,
+		PageInfo:   pageInfo,
+		TotalCount: total,
+	}
+	writeJSONResponse(w, http.StatusOK, response)
 }
 
 func (a *API) createMentorship(w http.ResponseWriter, r *http.Request) {
@@ -427,7 +463,7 @@ func (a *API) createMentorship(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	writeJSON(w, 201, created)
+	writeJSONResponse(w, http.StatusCreated, created)
 }
 
 func (a *API) updateMentorship(w http.ResponseWriter, r *http.Request) {
@@ -452,7 +488,7 @@ func (a *API) updateMentorship(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	writeJSON(w, 200, v)
+	writeJSONResponse(w, http.StatusOK, v)
 }
 
 func (a *API) deleteMentorship(w http.ResponseWriter, r *http.Request) {

@@ -148,11 +148,11 @@ func requestIDFrom(ctx context.Context) string {
 	return requestID
 }
 
-// writeJSON sends one JSON response with the supplied HTTP status.
-func writeJSON(w http.ResponseWriter, status int, v any) {
+// writeJSONResponse sends one JSON response with the supplied HTTP status.
+func writeJSONResponse(w http.ResponseWriter, status int, body any) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
-	_ = json.NewEncoder(w).Encode(v)
+	_ = json.NewEncoder(w).Encode(body)
 }
 
 // decodeJSON accepts exactly one JSON value and rejects unknown object fields.
@@ -192,7 +192,7 @@ func (a *API) page(r *http.Request, binding string) (int, string, error) {
 }
 
 func (a *API) live(w http.ResponseWriter, _ *http.Request) {
-	writeJSON(w, 200, map[string]string{"status": "ok"})
+	writeJSONResponse(w, http.StatusOK, map[string]string{"status": "ok"})
 }
 
 func (a *API) readiness(w http.ResponseWriter, r *http.Request) {
@@ -202,7 +202,7 @@ func (a *API) readiness(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	writeJSON(w, 200, map[string]string{"status": "ready"})
+	writeJSONResponse(w, http.StatusOK, map[string]string{"status": "ready"})
 }
 
 func (a *API) metrics(w http.ResponseWriter, r *http.Request) {
@@ -216,7 +216,7 @@ func (a *API) openapi(w http.ResponseWriter, _ *http.Request) {
 		panic(err)
 	}
 
-	writeJSON(w, 200, spec)
+	writeJSONResponse(w, http.StatusOK, spec)
 }
 
 func validation(a *API, w http.ResponseWriter, r *http.Request, detail string) {

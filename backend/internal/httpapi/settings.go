@@ -15,7 +15,7 @@ func (a *API) practiceSettings(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	writeJSON(w, http.StatusOK, settings)
+	writeJSONResponse(w, http.StatusOK, settings)
 }
 
 func (a *API) userPracticeSettings(w http.ResponseWriter, r *http.Request) {
@@ -45,7 +45,7 @@ func (a *API) userPracticeSettings(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	writeJSON(w, http.StatusOK, settings)
+	writeJSONResponse(w, http.StatusOK, settings)
 }
 
 func (a *API) updatePracticeSettings(w http.ResponseWriter, r *http.Request) {
@@ -79,7 +79,7 @@ func (a *API) updatePracticeSettings(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	writeJSON(w, http.StatusOK, updated)
+	writeJSONResponse(w, http.StatusOK, updated)
 }
 
 func validGoal(minutes int) bool { return minutes >= 5 && minutes <= 180 }
@@ -152,5 +152,5 @@ func (a *API) enablePracticeGoals(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	writeJSON(w, http.StatusOK, settings)
+	writeJSONResponse(w, http.StatusOK, settings)
 }
