@@ -1,7 +1,6 @@
 package httpapi
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -12,7 +11,6 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/getkin/kin-openapi/openapi3filter"
 	"github.com/magedmg/RSP-website/backend/internal/generated"
 	"github.com/magedmg/RSP-website/backend/internal/mockinterviews"
 	"github.com/magedmg/RSP-website/backend/internal/platform/cursor"
@@ -20,23 +18,13 @@ import (
 	"github.com/magedmg/RSP-website/backend/internal/platform/problem"
 	"github.com/magedmg/RSP-website/backend/internal/platform/ratelimit"
 	"github.com/magedmg/RSP-website/backend/internal/platform/sanitize"
-	nethttpmiddleware "github.com/oapi-codegen/nethttp-middleware"
 )
-
-//go:generate go run ./internal/genstrict
 
 type requestIDKey struct{}
 
-type rawBodyKey struct{}
-
-type validationResponseWriter struct {
-	http.ResponseWriter
-	request *http.Request
-}
-
 var safeRequestID = regexp.MustCompile(`^[A-Za-z0-9._-]{1,128}$`)
 
-// Config represents a backend data structure.
+// Config contains the dependencies needed by the HTTP API.
 type Config struct {
 	Store           Repository
 	Authenticator   Authenticator
@@ -49,7 +37,7 @@ type Config struct {
 	GetMFAState     func(context.Context, string) (bool, error)
 }
 
-// API represents a backend data structure.
+// API connects HTTP handlers to authentication, application services, and storage.
 type API struct {
 	store           Repository
 	auth            Authenticator
@@ -65,65 +53,7 @@ type API struct {
 	mockService     mockinterviews.Application
 }
 
-type strictAdapter struct{}
-
-type strictResponseKey struct{}
-
-type strictManualResponse struct {
-	header http.Header
-	status int
-	body   bytes.Buffer
-}
-
-func newStrictManualResponse() *strictManualResponse {
-	return &strictManualResponse{header: make(http.Header)}
-}
-
-// Header performs the operation.
-func (response *strictManualResponse) Header() http.Header { return response.header }
-
-// WriteHeader writes a response.
-func (response *strictManualResponse) WriteHeader(status int) {
-	if response.status == 0 {
-		response.status = status
-	}
-}
-
-// Write writes a response.
-func (response *strictManualResponse) Write(body []byte) (int, error) {
-	if response.status == 0 {
-		response.status = http.StatusOK
-	}
-	return response.body.Write(body)
-}
-
-func (response *strictManualResponse) write(w http.ResponseWriter) error {
-	for key, values := range response.header {
-		for _, value := range values {
-			w.Header().Add(key, value)
-		}
-	}
-	status := response.status
-	if status == 0 {
-		status = http.StatusOK
-	}
-	w.WriteHeader(status)
-	if response.body.Len() == 0 {
-		return nil
-	}
-	_, err := w.Write(response.body.Bytes())
-	return err
-}
-
-func strictResponse(ctx context.Context) (*strictManualResponse, error) {
-	response, ok := ctx.Value(strictResponseKey{}).(*strictManualResponse)
-	if !ok {
-		return nil, fmt.Errorf("strict response capture is missing")
-	}
-	return response, nil
-}
-
-// New creates a new value.
+// New constructs the HTTP API from its dependencies.
 func New(c Config) *API {
 	logger := c.Logger
 	if logger == nil {
@@ -134,80 +64,51 @@ func New(c Config) *API {
 		secret = []byte("development-cursor-secret-change-me")
 	}
 	cleaner := sanitize.New()
-	return &API{store: c.Store, auth: c.Authenticator, publicOrigin: c.PublicOrigin, cursorSecret: secret, logger: logger, limiter: ratelimit.New(), ready: c.Ready, syncLeetCode: c.SyncLeetCode, setAccountState: c.SetAccountState, getMFAState: c.GetMFAState, telemetry: newAPIMetrics(), mockService: mockinterviews.Application{Repository: c.Store, Rules: mockinterviews.Service{Sanitize: cleaner.String}, NewID: id.New}}
+	return &API{
+		store:           c.Store,
+		auth:            c.Authenticator,
+		publicOrigin:    c.PublicOrigin,
+		cursorSecret:    secret,
+		logger:          logger,
+		limiter:         ratelimit.New(),
+		ready:           c.Ready,
+		syncLeetCode:    c.SyncLeetCode,
+		setAccountState: c.SetAccountState,
+		getMFAState:     c.GetMFAState,
+		telemetry:       newAPIMetrics(),
+		mockService: mockinterviews.Application{
+			Repository: c.Store,
+			Rules:      mockinterviews.Service{Sanitize: cleaner.String},
+			NewID:      id.New,
+		},
+	}
 }
 
-// Handler performs the operation.
+// Handler builds the request pipeline once when the server starts.
+//
+// Public requests flow through requestContext, the body-size limit, OpenAPI
+// validation, the route mux, and finally the real endpoint handler. The
+// internal identity lifecycle endpoint deliberately skips public OpenAPI
+// validation because it is a service-to-service route.
 func (a *API) Handler() http.Handler {
-	mux := http.NewServeMux()
-	registerRoutes(mux, a)
-	spec, err := generated.GetSwagger()
-	if err != nil {
-		panic(err)
-	}
+	publicRoutes := http.NewServeMux()
+	registerRoutes(publicRoutes, a)
 
-	validatorOptions := &nethttpmiddleware.Options{
-		Options:               openapi3filter.Options{AuthenticationFunc: openapi3filter.NoopAuthenticationFunc},
-		SilenceServersWarning: true,
-		ErrorHandler: func(w http.ResponseWriter, message string, status int) {
-			r := &http.Request{}
-			if wrapped, ok := w.(*validationResponseWriter); ok {
-				r = wrapped.request
-			}
-			a.fail(w, r, status, "openapi_validation_failed", "Request validation failed", message, nil)
-		},
-	}
-	baseValidator := nethttpmiddleware.OapiRequestValidatorWithOptions(spec, validatorOptions)
-	validator := func(next http.Handler) http.Handler {
-		validated := baseValidator(next)
-		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			validated.ServeHTTP(&validationResponseWriter{ResponseWriter: w, request: r}, r)
-		})
-	}
-	strict := generated.NewStrictHandlerWithOptions(strictAdapter{}, []generated.StrictMiddlewareFunc{func(next generated.StrictHandlerFunc, _ string) generated.StrictHandlerFunc {
-		return func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
-			if raw, ok := ctx.Value(rawBodyKey{}).([]byte); ok {
-				r.Body = io.NopCloser(bytes.NewReader(raw))
-			}
-			captured := newStrictManualResponse()
-			mux.ServeHTTP(captured, r)
-			return next(context.WithValue(ctx, strictResponseKey{}, captured), w, r, request)
-		}
-	}}, generated.StrictHTTPServerOptions{
-		RequestErrorHandlerFunc: func(w http.ResponseWriter, r *http.Request, err error) {
-			a.fail(w, r, http.StatusBadRequest, "openapi_validation_failed", "Request validation failed", err.Error(), nil)
-		},
-		ResponseErrorHandlerFunc: func(w http.ResponseWriter, r *http.Request, _ error) {
-			a.fail(w, r, http.StatusInternalServerError, "internal_error", "Internal server error", "The request could not be completed.", nil)
-		},
-	})
-	strictMux := http.NewServeMux()
-	strictRouter := generated.HandlerWithOptions(strict, generated.StdHTTPServerOptions{BaseURL: "/api/v2", BaseRouter: strictMux, ErrorHandlerFunc: func(w http.ResponseWriter, r *http.Request, err error) {
-		a.fail(w, r, http.StatusBadRequest, "openapi_validation_failed", "Request validation failed", err.Error(), nil)
-	}})
-	captureBody := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Body == nil {
-			strictRouter.ServeHTTP(w, r)
-			return
-		}
-		raw, err := io.ReadAll(http.MaxBytesReader(w, r.Body, 1<<20))
-		if err != nil {
-			a.fail(w, r, http.StatusBadRequest, "invalid_request_body", "Invalid request body", "The request body is too large or unreadable.", nil)
-			return
-		}
-
-		r.Body = io.NopCloser(bytes.NewReader(raw))
-		strictRouter.ServeHTTP(w, r.WithContext(context.WithValue(r.Context(), rawBodyKey{}, raw)))
-	})
 	root := http.NewServeMux()
 	root.HandleFunc("POST /internal/auth/lifecycle-events", a.identityLifecycle)
-	root.Handle("/", validator(captureBody))
+	root.Handle("/", a.limitRequestBody(a.validateOpenAPI(publicRoutes)))
+
 	return requestContext(a.logger, a.telemetry.observeHTTP, root)
 }
 
+// requestContext is the outermost middleware, so it runs once for every request.
+// It attaches the request ID and records the final status and duration after the
+// selected endpoint handler returns.
 func requestContext(logger *slog.Logger, observe func(int, time.Duration), next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		started := time.Now()
+
+		// Reuse a safe caller-provided ID; otherwise generate one for this request.
 		requestID := r.Header.Get("X-Request-ID")
 		if !safeRequestID.MatchString(requestID) {
 			requestID = id.New()
@@ -215,9 +116,19 @@ func requestContext(logger *slog.Logger, observe func(int, time.Duration), next 
 		r = r.WithContext(context.WithValue(r.Context(), requestIDKey{}, requestID))
 		w.Header().Set("X-Request-ID", requestID)
 		response := &statusWriter{ResponseWriter: w}
+
+		// Deferred work runs after the selected endpoint returns or panics.
 		defer func() {
 			if recovered := recover(); recovered != nil {
-				problem.Write(response, problem.Details{Type: "https://rsp.example/problems/internal_error", Title: "Internal server error", Status: 500, Detail: "The request could not be completed.", Instance: r.URL.Path, Code: "internal_error", RequestID: requestID})
+				problem.Write(response, problem.Details{
+					Type:      "https://rsp.example/problems/internal_error",
+					Title:     "Internal server error",
+					Status:    http.StatusInternalServerError,
+					Detail:    "The request could not be completed.",
+					Instance:  r.URL.Path,
+					Code:      "internal_error",
+					RequestID: requestID,
+				})
 				logger.Error("request panic", "requestId", requestID, "error", fmt.Sprint(recovered))
 			}
 			if response.status == 0 {
@@ -227,6 +138,7 @@ func requestContext(logger *slog.Logger, observe func(int, time.Duration), next 
 			observe(response.status, elapsed)
 			logger.Info("request", "requestId", requestID, "method", r.Method, "path", r.URL.Path, "statusClass", statusClass(response.status), "durationMs", elapsed.Milliseconds())
 		}()
+
 		next.ServeHTTP(response, r)
 	})
 }
@@ -236,14 +148,17 @@ func requestIDFrom(ctx context.Context) string {
 	return requestID
 }
 
+// writeJSON sends one JSON response with the supplied HTTP status.
 func writeJSON(w http.ResponseWriter, status int, v any) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
 	_ = json.NewEncoder(w).Encode(v)
 }
 
+// decodeJSON accepts exactly one JSON value and rejects unknown object fields.
+// The size limit also protects internal routes that do not use OpenAPI validation.
 func decodeJSON(w http.ResponseWriter, r *http.Request, dst any) error {
-	r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
+	r.Body = http.MaxBytesReader(w, r.Body, maxRequestBodyBytes)
 	dec := json.NewDecoder(r.Body)
 	dec.DisallowUnknownFields()
 	if err := dec.Decode(dst); err != nil {

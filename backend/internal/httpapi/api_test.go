@@ -158,6 +158,19 @@ func TestRequestContextNormalizesRequestIDAndRecoversWithCompleteProblem(t *test
 	}
 }
 
+func TestRequestBodyLimitRunsBeforeOpenAPIValidation(t *testing.T) {
+	f := newFixture()
+	body := strings.Repeat("x", int(maxRequestBodyBytes)+1)
+	w := request(t, f, http.MethodPatch, "/api/v2/me", "student", body)
+
+	if w.Code != http.StatusBadRequest || problemCode(t, w) != "invalid_request_body" {
+		t.Fatalf("oversized body: %d %s", w.Code, w.Body.String())
+	}
+	if f.repository.Users["student"].Name != "Student" {
+		t.Fatal("oversized request reached the endpoint handler")
+	}
+}
+
 func TestHealthAndAuthenticationProblemContract(t *testing.T) {
 	f := newFixture()
 	if w := request(t, f, "GET", "/api/v2/health/live", "", ""); w.Code != 200 {

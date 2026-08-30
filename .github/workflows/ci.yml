@@ -64,7 +64,6 @@ jobs:
           pnpm --filter @rsp/web generate
           git diff --exit-code -- \
             backend/internal/generated/api.gen.go \
-            backend/internal/httpapi/strict_adapter.generated.go \
             backend/internal/platform/dbgen \
             apps/web/src/api/generated
       - name: Check module metadata drift
