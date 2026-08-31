@@ -38,7 +38,8 @@ RUN xcaddy build v${CADDY_VERSION} \
 
 FROM alpine:3.24 AS runtime
 
-RUN apk add --no-cache ca-certificates mailcap \
+RUN apk upgrade --no-cache \
+    && apk add --no-cache ca-certificates mailcap \
     && addgroup -S -g 10001 rsp \
     && adduser -S -D -H -u 10001 -G rsp rsp \
     && mkdir -p /config/caddy /data/caddy /srv \

@@ -64,7 +64,6 @@ jobs:
           pnpm --filter @rsp/web generate
           git diff --exit-code -- \
             backend/internal/generated/api.gen.go \
-            backend/internal/httpapi/strict_adapter.generated.go \
             backend/internal/platform/dbgen \
             apps/web/src/api/generated
       - name: Check module metadata drift
@@ -396,6 +395,9 @@ jobs:
     name: Dependency and secret security
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    permissions:
+      contents: read
+      pull-requests: read
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:

@@ -25,7 +25,8 @@ RUN pnpm --filter @rsp/auth --prod --no-optional deploy /out/auth
 
 FROM alpine:3.24 AS runtime
 ENV NODE_ENV=production
-RUN apk add --no-cache ca-certificates libstdc++ \
+RUN apk upgrade --no-cache \
+    && apk add --no-cache ca-certificates libstdc++ \
     && addgroup -S -g 10001 rsp \
     && adduser -S -D -H -u 10001 -G rsp rsp
 COPY --from=base /usr/local/bin/node /usr/local/bin/node

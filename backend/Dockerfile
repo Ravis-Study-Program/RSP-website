@@ -43,7 +43,8 @@ RUN --mount=type=cache,target=/go/pkg/mod \
       ./backend/cmd/rsp-migrate
 
 FROM alpine:${ALPINE_VERSION} AS runtime
-RUN apk add --no-cache ca-certificates tzdata \
+RUN apk upgrade --no-cache \
+    && apk add --no-cache ca-certificates tzdata \
     && addgroup -S -g 10001 rsp \
     && adduser -S -D -H -u 10001 -G rsp rsp
 COPY --from=service-build /out/rsp-service /usr/local/bin/rsp-service
@@ -52,7 +53,8 @@ EXPOSE 8080
 ENTRYPOINT ["/usr/local/bin/rsp-service"]
 
 FROM alpine:${ALPINE_VERSION} AS migrations
-RUN apk add --no-cache ca-certificates \
+RUN apk upgrade --no-cache \
+    && apk add --no-cache ca-certificates \
     && addgroup -S -g 10001 rsp \
     && adduser -S -D -H -u 10001 -G rsp rsp
 COPY --from=goose-build /out/goose /usr/local/bin/goose
@@ -64,7 +66,8 @@ ENTRYPOINT ["goose"]
 CMD ["up"]
 
 FROM alpine:${ALPINE_VERSION} AS ops
-RUN apk add --no-cache ca-certificates tzdata \
+RUN apk upgrade --no-cache \
+    && apk add --no-cache ca-certificates tzdata \
     && addgroup -S -g 10001 rsp \
     && adduser -S -D -H -u 10001 -G rsp rsp \
     && mkdir /work \
