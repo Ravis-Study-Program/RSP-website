@@ -34,7 +34,7 @@ func (a *API) validateOpenAPI(next http.Handler) http.Handler {
 			if wrapped, ok := w.(*validationResponseWriter); ok {
 				r = wrapped.request
 			}
-			a.fail(w, r, status, "openapi_validation_failed", "Request validation failed", message, nil)
+			writeErrorResponse(w, r, status, "openapi_validation_failed", "Request validation failed", message)
 		},
 	})(next)
 
@@ -53,7 +53,7 @@ func (a *API) limitRequestBody(next http.Handler) http.Handler {
 			return
 		}
 		if r.ContentLength > maxRequestBodyBytes {
-			a.fail(w, r, http.StatusBadRequest, "invalid_request_body", "Invalid request body", "The request body is too large or unreadable.", nil)
+			writeErrorResponse(w, r, http.StatusBadRequest, "invalid_request_body", "Invalid request body", "The request body is too large or unreadable.")
 			return
 		}
 

@@ -149,7 +149,7 @@ func validSlug(slug string) bool {
 func (a *API) users(w http.ResponseWriter, r *http.Request) {
 	actor := actorFrom(r.Context())
 	if !canAccessDirectory(actor) && !actor.IsPrivileged() {
-		a.fail(w, r, 403, "season_access_required", "Season access required", "No season access yet.", nil)
+		writeErrorResponse(w, r, 403, "season_access_required", "Season access required", "No season access yet.")
 		return
 	}
 
@@ -179,7 +179,7 @@ func (a *API) users(w http.ResponseWriter, r *http.Request) {
 	binding := "users|sort=id:asc|query=" + query + "|seasonRole=" + seasonRole + "|globalRole=" + globalRole
 	limit, boundary, err := a.page(r, binding)
 	if err != nil {
-		a.fail(w, r, 400, "invalid_cursor", "Invalid cursor", cursor.ErrInvalid.Error(), nil)
+		writeErrorResponse(w, r, 400, "invalid_cursor", "Invalid cursor", cursor.ErrInvalid.Error())
 		return
 	}
 
@@ -208,7 +208,7 @@ func (a *API) users(w http.ResponseWriter, r *http.Request) {
 func (a *API) user(w http.ResponseWriter, r *http.Request) {
 	actor := actorFrom(r.Context())
 	if !canAccessDirectory(actor) && !actor.IsPrivileged() {
-		a.fail(w, r, 403, "season_access_required", "Season access required", "No season access yet.", nil)
+		writeErrorResponse(w, r, 403, "season_access_required", "Season access required", "No season access yet.")
 		return
 	}
 
@@ -221,7 +221,7 @@ func (a *API) user(w http.ResponseWriter, r *http.Request) {
 	if actor.UserID != user.ID && !actor.IsPrivileged() {
 		participant, eligibilityErr := a.store.GetMockParticipant(r.Context(), user.ID)
 		if eligibilityErr != nil || !participant.DirectoryEligible() {
-			a.fail(w, r, 404, "not_found", "Not found", "The requested resource does not exist.", nil)
+			writeErrorResponse(w, r, 404, "not_found", "Not found", "The requested resource does not exist.")
 			return
 		}
 	}
@@ -249,7 +249,7 @@ func canAccessDirectory(actor authz.Actor) bool {
 func (a *API) seasons(w http.ResponseWriter, r *http.Request) {
 	actor := actorFrom(r.Context())
 	if !actor.ProgrammeAccess() && !actor.IsPrivileged() {
-		a.fail(w, r, 403, "season_access_required", "Season access required", "No season access yet.", nil)
+		writeErrorResponse(w, r, 403, "season_access_required", "Season access required", "No season access yet.")
 		return
 	}
 
@@ -278,7 +278,7 @@ func (a *API) seasons(w http.ResponseWriter, r *http.Request) {
 	if actor.IsPrivileged() {
 		limit, boundary, pageErr := a.page(r, binding)
 		if pageErr != nil {
-			a.fail(w, r, 400, "invalid_cursor", "Invalid cursor", cursor.ErrInvalid.Error(), nil)
+			writeErrorResponse(w, r, 400, "invalid_cursor", "Invalid cursor", cursor.ErrInvalid.Error())
 			return
 		}
 		items, more, total, listErr := a.store.ListSeasons(r.Context(), boundary, limit, direction, status)
@@ -320,7 +320,7 @@ func (a *API) seasons(w http.ResponseWriter, r *http.Request) {
 	sort.Slice(items, func(i, j int) bool { return items[i].ID < items[j].ID })
 	page, pageInfo, err := paginateOrdered(a, r, binding, items, func(v programme.SeasonRecord) string { return v.ID })
 	if err != nil {
-		a.fail(w, r, 400, "invalid_cursor", "Invalid cursor", "The cursor does not match the selected season sort.", nil)
+		writeErrorResponse(w, r, 400, "invalid_cursor", "Invalid cursor", "The cursor does not match the selected season sort.")
 		return
 	}
 
@@ -335,7 +335,7 @@ func (a *API) seasons(w http.ResponseWriter, r *http.Request) {
 func (a *API) season(w http.ResponseWriter, r *http.Request) {
 	actor := actorFrom(r.Context())
 	if !canViewSeason(actor, r.PathValue("id")) {
-		a.fail(w, r, 404, "not_found", "Not found", "The requested season does not exist.", nil)
+		writeErrorResponse(w, r, 404, "not_found", "Not found", "The requested season does not exist.")
 		return
 	}
 
@@ -423,7 +423,7 @@ func validWebURL(raw string, httpsOnly bool) bool {
 func (a *API) createSeason(w http.ResponseWriter, r *http.Request) {
 	actor := actorFrom(r.Context())
 	if !actor.IsPrivileged() || !actor.HasRecentMFA(time.Now()) {
-		a.fail(w, r, 403, "privileged_mfa_required", "Privileged access required", "Director or System Admin access with recent MFA is required.", nil)
+		writeErrorResponse(w, r, 403, "privileged_mfa_required", "Privileged access required", "Director or System Admin access with recent MFA is required.")
 		return
 	}
 	var in seasonInput
@@ -446,7 +446,7 @@ func (a *API) updateSeason(w http.ResponseWriter, r *http.Request) {
 	actor := actorFrom(r.Context())
 	seasonID := r.PathValue("id")
 	if !actor.IsPrivileged() || !actor.HasRecentMFA(time.Now()) {
-		a.fail(w, r, 403, "privileged_mfa_required", "Privileged access required", "Director or System Admin access with recent MFA is required.", nil)
+		writeErrorResponse(w, r, 403, "privileged_mfa_required", "Privileged access required", "Director or System Admin access with recent MFA is required.")
 		return
 	}
 
@@ -457,7 +457,7 @@ func (a *API) updateSeason(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if current.Status != "open" {
-		a.fail(w, r, http.StatusConflict, "season_closed", "Season closed", "The season must be reopened before its definition can be changed.", nil)
+		writeErrorResponse(w, r, http.StatusConflict, "season_closed", "Season closed", "The season must be reopened before its definition can be changed.")
 		return
 	}
 
@@ -489,7 +489,7 @@ func (a *API) updateSeasonResources(w http.ResponseWriter, r *http.Request) {
 	seasonID := r.PathValue("id")
 	season, ok := a.seasonAdmin(r)
 	if !ok || season.ID != seasonID {
-		a.fail(w, r, http.StatusForbidden, "season_admin_required", "Season administration required", "An administrator of this open season with recent MFA is required.", nil)
+		writeErrorResponse(w, r, http.StatusForbidden, "season_admin_required", "Season administration required", "An administrator of this open season with recent MFA is required.")
 		return
 	}
 
@@ -525,7 +525,7 @@ func (a *API) closeSeason(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if !actor.CanCloseSeason(seasonID) || !actor.HasRecentMFA(time.Now()) {
-		a.fail(w, r, 403, "season_admin_required", "Season administration required", "Recent MFA and season administration access are required.", nil)
+		writeErrorResponse(w, r, 403, "season_admin_required", "Season administration required", "Recent MFA and season administration access are required.")
 		return
 	}
 
@@ -555,7 +555,7 @@ func (a *API) closeSeason(w http.ResponseWriter, r *http.Request) {
 func (a *API) reopenSeason(w http.ResponseWriter, r *http.Request) {
 	actor := actorFrom(r.Context())
 	if !actor.CanReopenSeason(time.Now()) {
-		a.fail(w, r, 403, "privileged_mfa_required", "Privileged access required", "Director or System Admin access with recent MFA is required.", nil)
+		writeErrorResponse(w, r, 403, "privileged_mfa_required", "Privileged access required", "Director or System Admin access with recent MFA is required.")
 		return
 	}
 

@@ -21,7 +21,7 @@ func (a *API) auditSystemAdminPrivateRead(w http.ResponseWriter, r *http.Request
 	actorID := actor.UserID
 	err := a.store.AppendAudit(r.Context(), audit.Event{ID: id.New(), ActorID: &actorID, Action: "private_data.viewed", SubjectType: subjectType, SubjectID: subjectID, Data: map[string]any{}, OccurredAt: time.Now().UTC()})
 	if err != nil {
-		a.fail(w, r, http.StatusInternalServerError, "audit_failed", "Audit failed", "Private data was not returned because its access could not be audited.", nil)
+		writeErrorResponse(w, r, http.StatusInternalServerError, "audit_failed", "Audit failed", "Private data was not returned because its access could not be audited.")
 		return false
 	}
 	return true
@@ -30,7 +30,7 @@ func (a *API) auditSystemAdminPrivateRead(w http.ResponseWriter, r *http.Request
 func (a *API) systemAdmin(w http.ResponseWriter, r *http.Request) (authz.Actor, bool) {
 	actor := actorFrom(r.Context())
 	if !actor.IsGlobal(authz.SystemAdmin) || !actor.HasRecentMFA(time.Now()) {
-		a.fail(w, r, http.StatusForbidden, "system_admin_mfa_required", "System Admin access required", "System Admin access with recent MFA is required.", nil)
+		writeErrorResponse(w, r, http.StatusForbidden, "system_admin_mfa_required", "System Admin access required", "System Admin access with recent MFA is required.")
 		return authz.Actor{}, false
 	}
 	return actor, true
@@ -62,7 +62,7 @@ func (a *API) listAdminUsers(w http.ResponseWriter, r *http.Request) {
 	binding := "admin-users|sort=id:asc|query=" + query + "|accountState=" + accountState + "|globalRole=" + globalRole
 	limit, boundary, err := a.page(r, binding)
 	if err != nil {
-		a.fail(w, r, http.StatusBadRequest, "invalid_cursor", "Invalid cursor", "The cursor does not match the selected admin user filters and sort.", nil)
+		writeErrorResponse(w, r, http.StatusBadRequest, "invalid_cursor", "Invalid cursor", "The cursor does not match the selected admin user filters and sort.")
 		return
 	}
 
@@ -103,7 +103,7 @@ func (a *API) setUserAccountState(w http.ResponseWriter, r *http.Request) {
 
 	targetID := r.PathValue("id")
 	if a.setAccountState == nil {
-		a.fail(w, r, http.StatusServiceUnavailable, "auth_service_unavailable", "Authentication service unavailable", "Account state administration is temporarily unavailable.", nil)
+		writeErrorResponse(w, r, http.StatusServiceUnavailable, "auth_service_unavailable", "Authentication service unavailable", "Account state administration is temporarily unavailable.")
 		return
 	}
 	current, err := a.store.GetUser(r.Context(), targetID)
@@ -117,7 +117,7 @@ func (a *API) setUserAccountState(w http.ResponseWriter, r *http.Request) {
 	}
 	targetID = current.ID
 	if targetID == actor.UserID && in.State == "suspended" {
-		a.fail(w, r, http.StatusConflict, "self_suspension_forbidden", "Conflict", "A System Admin cannot suspend their own account.", nil)
+		writeErrorResponse(w, r, http.StatusConflict, "self_suspension_forbidden", "Conflict", "A System Admin cannot suspend their own account.")
 		return
 	}
 	subject, err := a.store.ResolveAuthSubjectForUser(r.Context(), targetID)
@@ -126,7 +126,7 @@ func (a *API) setUserAccountState(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := a.setAccountState(r.Context(), subject, in.State, strings.TrimSpace(in.Reason), actor.UserID); err != nil {
-		a.fail(w, r, http.StatusBadGateway, "auth_service_failed", "Authentication service failed", "The account state was not changed.", nil)
+		writeErrorResponse(w, r, http.StatusBadGateway, "auth_service_failed", "Authentication service failed", "The account state was not changed.")
 		return
 	}
 
@@ -153,7 +153,7 @@ func (a *API) grantUserGlobalRole(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if a.getMFAState == nil {
-		a.fail(w, r, http.StatusServiceUnavailable, "auth_service_unavailable", "Authentication service unavailable", "MFA state could not be verified.", nil)
+		writeErrorResponse(w, r, http.StatusServiceUnavailable, "auth_service_unavailable", "Authentication service unavailable", "MFA state could not be verified.")
 		return
 	}
 	target, err := a.store.GetUser(r.Context(), r.PathValue("id"))
@@ -170,7 +170,7 @@ func (a *API) grantUserGlobalRole(w http.ResponseWriter, r *http.Request) {
 
 	configured, err := a.getMFAState(r.Context(), subject)
 	if err != nil {
-		a.fail(w, r, http.StatusBadGateway, "auth_service_failed", "Authentication service failed", "MFA state could not be verified.", nil)
+		writeErrorResponse(w, r, http.StatusBadGateway, "auth_service_failed", "Authentication service failed", "MFA state could not be verified.")
 		return
 	}
 
@@ -220,7 +220,7 @@ func (a *API) revokeUserGlobalRole(w http.ResponseWriter, r *http.Request) {
 
 	targetID = target.ID
 	if targetID == actor.UserID && role == "system_admin" {
-		a.fail(w, r, http.StatusConflict, "self_role_revocation_forbidden", "Conflict", "A System Admin cannot revoke their own System Admin role.", nil)
+		writeErrorResponse(w, r, http.StatusConflict, "self_role_revocation_forbidden", "Conflict", "A System Admin cannot revoke their own System Admin role.")
 		return
 	}
 	revision, err := parseRevision(r)

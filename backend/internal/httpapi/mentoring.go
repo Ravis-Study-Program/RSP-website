@@ -42,7 +42,7 @@ func canGrantCoordinator(actor authz.Actor, seasonID string) bool {
 func (a *API) listWeeks(w http.ResponseWriter, r *http.Request) {
 	seasonID := r.PathValue("id")
 	if !a.canViewSeason(r, seasonID) {
-		a.fail(w, r, 403, "season_access_required", "Season access required", "The current account cannot access this season.", nil)
+		writeErrorResponse(w, r, 403, "season_access_required", "Season access required", "The current account cannot access this season.")
 		return
 	}
 	if _, err := a.store.GetSeason(r.Context(), seasonID); err != nil {
@@ -65,7 +65,7 @@ func (a *API) listWeeks(w http.ResponseWriter, r *http.Request) {
 	binding := "weeks|season=" + seasonID + "|sort=" + sortBy
 	limit, boundary, err := a.page(r, binding)
 	if err != nil {
-		a.fail(w, r, 400, "invalid_cursor", "Invalid cursor", "The cursor does not match the selected season and sort.", nil)
+		writeErrorResponse(w, r, 400, "invalid_cursor", "Invalid cursor", "The cursor does not match the selected season and sort.")
 		return
 	}
 
@@ -90,7 +90,7 @@ func (a *API) listWeeks(w http.ResponseWriter, r *http.Request) {
 func (a *API) createWeek(w http.ResponseWriter, r *http.Request) {
 	season, ok := a.seasonAdmin(r)
 	if !ok {
-		a.fail(w, r, 403, "season_admin_required", "Season administration required", "An administrator of an open season with recent MFA is required.", nil)
+		writeErrorResponse(w, r, 403, "season_admin_required", "Season administration required", "An administrator of an open season with recent MFA is required.")
 		return
 	}
 	var in struct {
@@ -121,7 +121,7 @@ func (a *API) createWeek(w http.ResponseWriter, r *http.Request) {
 func (a *API) updateWeek(w http.ResponseWriter, r *http.Request) {
 	season, ok := a.seasonAdmin(r)
 	if !ok {
-		a.fail(w, r, 403, "season_admin_required", "Season administration required", "An administrator of an open season with recent MFA is required.", nil)
+		writeErrorResponse(w, r, 403, "season_admin_required", "Season administration required", "An administrator of an open season with recent MFA is required.")
 		return
 	}
 	var in struct {
@@ -151,7 +151,7 @@ func (a *API) updateWeek(w http.ResponseWriter, r *http.Request) {
 
 func (a *API) deleteWeek(w http.ResponseWriter, r *http.Request) {
 	if _, ok := a.seasonAdmin(r); !ok {
-		a.fail(w, r, 403, "season_admin_required", "Season administration required", "An administrator of an open season with recent MFA is required.", nil)
+		writeErrorResponse(w, r, 403, "season_admin_required", "Season administration required", "An administrator of an open season with recent MFA is required.")
 		return
 	}
 	revision, err := parseRevision(r)
@@ -172,7 +172,7 @@ func (a *API) deleteWeek(w http.ResponseWriter, r *http.Request) {
 func (a *API) listMembers(w http.ResponseWriter, r *http.Request) {
 	seasonID := r.PathValue("id")
 	if !a.canViewSeason(r, seasonID) {
-		a.fail(w, r, 403, "season_access_required", "Season access required", "No season access yet.", nil)
+		writeErrorResponse(w, r, 403, "season_access_required", "Season access required", "No season access yet.")
 		return
 	}
 	actor := actorFrom(r.Context())
@@ -202,7 +202,7 @@ func (a *API) listMembers(w http.ResponseWriter, r *http.Request) {
 	binding := "members|season=" + seasonID + "|role=" + role + "|state=" + state + "|sort=" + sortBy
 	limit, boundary, err := a.page(r, binding)
 	if err != nil {
-		a.fail(w, r, 400, "invalid_cursor", "Invalid cursor", "The cursor does not match the selected member filters.", nil)
+		writeErrorResponse(w, r, 400, "invalid_cursor", "Invalid cursor", "The cursor does not match the selected member filters.")
 		return
 	}
 
@@ -226,7 +226,7 @@ func (a *API) listMembers(w http.ResponseWriter, r *http.Request) {
 
 func (a *API) listEnrollmentCandidates(w http.ResponseWriter, r *http.Request) {
 	if _, ok := a.seasonAdmin(r); !ok {
-		a.fail(w, r, 403, "season_admin_required", "Season administration required", "An administrator of an open season with recent MFA is required.", nil)
+		writeErrorResponse(w, r, 403, "season_admin_required", "Season administration required", "An administrator of an open season with recent MFA is required.")
 		return
 	}
 	query := strings.TrimSpace(r.URL.Query().Get("query"))
@@ -268,7 +268,7 @@ func (a *API) listEnrollmentCandidates(w http.ResponseWriter, r *http.Request) {
 
 func (a *API) createMember(w http.ResponseWriter, r *http.Request) {
 	if _, ok := a.seasonAdmin(r); !ok {
-		a.fail(w, r, 403, "season_admin_required", "Season administration required", "An administrator of an open season with recent MFA is required.", nil)
+		writeErrorResponse(w, r, 403, "season_admin_required", "Season administration required", "An administrator of an open season with recent MFA is required.")
 		return
 	}
 	var in struct {
@@ -280,7 +280,7 @@ func (a *API) createMember(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if in.Role == "coordinator" && !canGrantCoordinator(actorFrom(r.Context()), r.PathValue("id")) {
-		a.fail(w, r, 403, "privileged_role_grant_required", "Privileged role grant required", "Only the season Coordinator, a Director, or a System Admin may grant Coordinator access.", nil)
+		writeErrorResponse(w, r, 403, "privileged_role_grant_required", "Privileged role grant required", "Only the season Coordinator, a Director, or a System Admin may grant Coordinator access.")
 		return
 	}
 	v := programme.EnrollmentRecord{ID: id.New(), SeasonID: r.PathValue("id"), UserID: in.UserID, Role: in.Role, State: "active", Revision: 1}
@@ -296,7 +296,7 @@ func (a *API) createMember(w http.ResponseWriter, r *http.Request) {
 
 func (a *API) updateMember(w http.ResponseWriter, r *http.Request) {
 	if _, ok := a.seasonAdmin(r); !ok {
-		a.fail(w, r, 403, "season_admin_required", "Season administration required", "An administrator of an open season with recent MFA is required.", nil)
+		writeErrorResponse(w, r, 403, "season_admin_required", "Season administration required", "An administrator of an open season with recent MFA is required.")
 		return
 	}
 	var in struct {
@@ -339,16 +339,16 @@ func (a *API) changeMember(w http.ResponseWriter, r *http.Request, promote bool)
 		return
 	}
 	if season.Status != "open" {
-		a.fail(w, r, http.StatusConflict, "season_closed", "Season closed", "Season members cannot be changed until the season is reopened.", nil)
+		writeErrorResponse(w, r, http.StatusConflict, "season_closed", "Season closed", "Season members cannot be changed until the season is reopened.")
 		return
 	}
 	v, err := a.store.GetEnrollment(r.Context(), memberID)
 	if err != nil || v.SeasonID != seasonID {
-		a.fail(w, r, 404, "not_found", "Not found", "The enrollment does not exist.", nil)
+		writeErrorResponse(w, r, 404, "not_found", "Not found", "The enrollment does not exist.")
 		return
 	}
 	if v.Role != "student" {
-		a.fail(w, r, http.StatusForbidden, "student_action_required", "Student action required", "Only an active student enrollment can be promoted or removed through this operation.", nil)
+		writeErrorResponse(w, r, http.StatusForbidden, "student_action_required", "Student action required", "Only an active student enrollment can be promoted or removed through this operation.")
 		return
 	}
 	assigned, err := a.store.IsMentorAssigned(r.Context(), seasonID, actor.UserID, v.UserID)
@@ -357,12 +357,12 @@ func (a *API) changeMember(w http.ResponseWriter, r *http.Request, promote bool)
 		return
 	}
 	if !actor.CanPromoteOrRemove(seasonID, assigned, v.State == "active") {
-		a.fail(w, r, 403, "member_admin_required", "Member administration required", "This member cannot be changed by the current account.", nil)
+		writeErrorResponse(w, r, 403, "member_admin_required", "Member administration required", "This member cannot be changed by the current account.")
 		return
 	}
 	seasonRole, _ := actor.Enrollment(seasonID)
 	if (actor.IsPrivileged() || seasonRole.Role == authz.Coordinator) && !actor.HasRecentMFA(time.Now()) {
-		a.fail(w, r, 403, "privileged_mfa_required", "Recent MFA required", "Recent MFA is required for this administrative action.", nil)
+		writeErrorResponse(w, r, 403, "privileged_mfa_required", "Recent MFA required", "Recent MFA is required for this administrative action.")
 		return
 	}
 	var in struct {
@@ -379,7 +379,7 @@ func (a *API) changeMember(w http.ResponseWriter, r *http.Request, promote bool)
 		return
 	}
 	if promote && in.Role == "coordinator" && !canGrantCoordinator(actor, seasonID) {
-		a.fail(w, r, 403, "privileged_role_grant_required", "Privileged role grant required", "Only the season Coordinator, a Director, or a System Admin may grant Coordinator access.", nil)
+		writeErrorResponse(w, r, 403, "privileged_role_grant_required", "Privileged role grant required", "Only the season Coordinator, a Director, or a System Admin may grant Coordinator access.")
 		return
 	}
 	role, state := "", ""
@@ -400,7 +400,7 @@ func (a *API) changeMember(w http.ResponseWriter, r *http.Request, promote bool)
 func (a *API) listMentorships(w http.ResponseWriter, r *http.Request) {
 	seasonID := r.PathValue("id")
 	if !a.canViewSeason(r, seasonID) {
-		a.fail(w, r, 403, "season_access_required", "Season access required", "The current account cannot access this season.", nil)
+		writeErrorResponse(w, r, 403, "season_access_required", "Season access required", "The current account cannot access this season.")
 		return
 	}
 	sortBy, err := requestedSort(r, "id:asc", "id:asc", "student:asc")
@@ -419,7 +419,7 @@ func (a *API) listMentorships(w http.ResponseWriter, r *http.Request) {
 	binding := "mentorships|season=" + seasonID + "|sort=" + sortBy + "|mentor=" + mentorUserID + "|student=" + studentUserID
 	limit, boundary, err := a.page(r, binding)
 	if err != nil {
-		a.fail(w, r, 400, "invalid_cursor", "Invalid cursor", "The cursor does not match the selected season and sort.", nil)
+		writeErrorResponse(w, r, 400, "invalid_cursor", "Invalid cursor", "The cursor does not match the selected season and sort.")
 		return
 	}
 
@@ -443,7 +443,7 @@ func (a *API) listMentorships(w http.ResponseWriter, r *http.Request) {
 
 func (a *API) createMentorship(w http.ResponseWriter, r *http.Request) {
 	if _, ok := a.seasonAdmin(r); !ok {
-		a.fail(w, r, 403, "season_admin_required", "Season administration required", "An administrator of an open season with recent MFA is required.", nil)
+		writeErrorResponse(w, r, 403, "season_admin_required", "Season administration required", "An administrator of an open season with recent MFA is required.")
 		return
 	}
 	var in struct {
@@ -468,7 +468,7 @@ func (a *API) createMentorship(w http.ResponseWriter, r *http.Request) {
 
 func (a *API) updateMentorship(w http.ResponseWriter, r *http.Request) {
 	if _, ok := a.seasonAdmin(r); !ok {
-		a.fail(w, r, 403, "season_admin_required", "Season administration required", "An administrator of an open season with recent MFA is required.", nil)
+		writeErrorResponse(w, r, 403, "season_admin_required", "Season administration required", "An administrator of an open season with recent MFA is required.")
 		return
 	}
 	var in struct {
@@ -493,7 +493,7 @@ func (a *API) updateMentorship(w http.ResponseWriter, r *http.Request) {
 
 func (a *API) deleteMentorship(w http.ResponseWriter, r *http.Request) {
 	if _, ok := a.seasonAdmin(r); !ok {
-		a.fail(w, r, 403, "season_admin_required", "Season administration required", "An administrator of an open season with recent MFA is required.", nil)
+		writeErrorResponse(w, r, 403, "season_admin_required", "Season administration required", "An administrator of an open season with recent MFA is required.")
 		return
 	}
 	revision, err := parseRevision(r)

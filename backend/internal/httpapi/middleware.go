@@ -2,6 +2,7 @@ package httpapi
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"net/http"
 	"strconv"
@@ -10,7 +11,6 @@ import (
 
 	"github.com/magedmg/RSP-website/backend/internal/authn"
 	"github.com/magedmg/RSP-website/backend/internal/authz"
-	"github.com/magedmg/RSP-website/backend/internal/platform/problem"
 	"github.com/magedmg/RSP-website/backend/internal/platform/ratelimit"
 	"github.com/magedmg/RSP-website/backend/internal/store"
 )
@@ -85,19 +85,19 @@ func (a *API) protected(class ratelimit.Class, next http.HandlerFunc) http.Handl
 				cause = cause[:512]
 			}
 			a.logger.Warn("authentication failed", "requestId", requestIDFrom(r.Context()), "cause", cause)
-			a.fail(w, r, http.StatusUnauthorized, "authentication_required", "Authentication required", "A valid access token is required.", nil)
+			writeErrorResponse(w, r, http.StatusUnauthorized, "authentication_required", "Authentication required", "A valid access token is required.")
 			return
 		}
 		if actor.AccountState != authz.AccountActive {
-			a.fail(w, r, http.StatusForbidden, "account_unavailable", "Account unavailable", "This account cannot access the product.", nil)
+			writeErrorResponse(w, r, http.StatusForbidden, "account_unavailable", "Account unavailable", "This account cannot access the product.")
 			return
 		}
 		if !actor.EmailVerified {
-			a.fail(w, r, http.StatusForbidden, "email_verification_required", "Email verification required", "Verify the account email before accessing the product.", nil)
+			writeErrorResponse(w, r, http.StatusForbidden, "email_verification_required", "Email verification required", "Verify the account email before accessing the product.")
 			return
 		}
 		if r.Method != http.MethodGet && r.Method != http.MethodHead && r.Method != http.MethodOptions && !a.validOrigin(r) {
-			a.fail(w, r, http.StatusForbidden, "origin_rejected", "Request origin rejected", "State-changing requests must come from the configured application origin.", nil)
+			writeErrorResponse(w, r, http.StatusForbidden, "origin_rejected", "Request origin rejected", "State-changing requests must come from the configured application origin.")
 			return
 		}
 
@@ -110,7 +110,7 @@ func (a *API) protected(class ratelimit.Class, next http.HandlerFunc) http.Handl
 				seconds = 1
 			}
 			w.Header().Set("Retry-After", strconv.Itoa(seconds))
-			a.fail(w, r, http.StatusTooManyRequests, "rate_limited", "Too many requests", "Wait before trying again.", nil)
+			writeErrorResponse(w, r, http.StatusTooManyRequests, "rate_limited", "Too many requests", "Wait before trying again.")
 			return
 		}
 		next(w, r.WithContext(context.WithValue(r.Context(), actorKey{}, actor)))
@@ -122,19 +122,41 @@ func (a *API) validOrigin(r *http.Request) bool {
 	return origin == "" || a.publicOrigin == "" || strings.TrimRight(origin, "/") == strings.TrimRight(a.publicOrigin, "/")
 }
 
-func (a *API) fail(w http.ResponseWriter, r *http.Request, status int, code, title, detail string, fields []problem.FieldError) {
-	problem.Write(w, problem.Details{Type: "https://rsp.example/problems/" + code, Title: title, Status: status, Detail: detail, Instance: r.URL.Path, Code: code, RequestID: w.Header().Get("X-Request-ID"), Errors: fields})
+// writeErrorResponse sends one consistent JSON error response.
+func writeErrorResponse(w http.ResponseWriter, r *http.Request, status int, code, title, detail string) {
+	body := struct {
+		Type      string `json:"type"`
+		Title     string `json:"title"`
+		Status    int    `json:"status"`
+		Detail    string `json:"detail"`
+		Instance  string `json:"instance"`
+		Code      string `json:"code"`
+		RequestID string `json:"requestId"`
+		Errors    []any  `json:"errors"`
+	}{
+		Type:      "https://rsp.example/problems/" + code,
+		Title:     title,
+		Status:    status,
+		Detail:    detail,
+		Instance:  r.URL.Path,
+		Code:      code,
+		RequestID: w.Header().Get("X-Request-ID"),
+		Errors:    []any{},
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(status)
+	_ = json.NewEncoder(w).Encode(body)
 }
 
 func storeFailure(a *API, w http.ResponseWriter, r *http.Request, err error) {
 	switch {
 	case errors.Is(err, store.ErrNotFound):
-		a.fail(w, r, 404, "not_found", "Not found", "The requested resource does not exist.", nil)
+		writeErrorResponse(w, r, 404, "not_found", "Not found", "The requested resource does not exist.")
 	case errors.Is(err, store.ErrConflict):
-		a.fail(w, r, 409, "stale_revision", "Conflict", "The resource changed since it was loaded.", nil)
+		writeErrorResponse(w, r, 409, "stale_revision", "Conflict", "The resource changed since it was loaded.")
 	case errors.Is(err, store.ErrDuplicate):
-		a.fail(w, r, 409, "duplicate", "Conflict", "A resource with that unique value already exists.", nil)
+		writeErrorResponse(w, r, 409, "duplicate", "Conflict", "A resource with that unique value already exists.")
 	default:
-		a.fail(w, r, 500, "internal_error", "Internal server error", "The request could not be completed.", nil)
+		writeErrorResponse(w, r, 500, "internal_error", "Internal server error", "The request could not be completed.")
 	}
 }

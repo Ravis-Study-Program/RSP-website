@@ -14,12 +14,12 @@ func (a *API) identityLifecycle(w http.ResponseWriter, r *http.Request) {
 	expected := os.Getenv("IDENTITY_SERVICE_TOKEN")
 	header := r.Header.Get("Authorization")
 	if !strings.HasPrefix(header, "Bearer ") {
-		a.fail(w, r, 401, "invalid_service_token", "Internal authentication failed", "A valid service token is required.", nil)
+		writeErrorResponse(w, r, 401, "invalid_service_token", "Internal authentication failed", "A valid service token is required.")
 		return
 	}
 	provided := strings.TrimPrefix(header, "Bearer ")
 	if expected == "" || len(provided) != len(expected) || subtle.ConstantTimeCompare([]byte(provided), []byte(expected)) != 1 {
-		a.fail(w, r, 401, "invalid_service_token", "Internal authentication failed", "A valid service token is required.", nil)
+		writeErrorResponse(w, r, 401, "invalid_service_token", "Internal authentication failed", "A valid service token is required.")
 		return
 	}
 	var in struct {

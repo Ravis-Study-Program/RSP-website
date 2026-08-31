@@ -15,7 +15,6 @@ import (
 	"github.com/magedmg/RSP-website/backend/internal/mockinterviews"
 	"github.com/magedmg/RSP-website/backend/internal/platform/cursor"
 	"github.com/magedmg/RSP-website/backend/internal/platform/id"
-	"github.com/magedmg/RSP-website/backend/internal/platform/problem"
 	"github.com/magedmg/RSP-website/backend/internal/platform/ratelimit"
 	"github.com/magedmg/RSP-website/backend/internal/platform/sanitize"
 )
@@ -120,15 +119,7 @@ func requestContext(logger *slog.Logger, observe func(int, time.Duration), next 
 		// Deferred work runs after the selected endpoint returns or panics.
 		defer func() {
 			if recovered := recover(); recovered != nil {
-				problem.Write(response, problem.Details{
-					Type:      "https://rsp.example/problems/internal_error",
-					Title:     "Internal server error",
-					Status:    http.StatusInternalServerError,
-					Detail:    "The request could not be completed.",
-					Instance:  r.URL.Path,
-					Code:      "internal_error",
-					RequestID: requestID,
-				})
+				writeErrorResponse(response, r, http.StatusInternalServerError, "internal_error", "Internal server error", "The request could not be completed.")
 				logger.Error("request panic", "requestId", requestID, "error", fmt.Sprint(recovered))
 			}
 			if response.status == 0 {
@@ -198,7 +189,7 @@ func (a *API) live(w http.ResponseWriter, _ *http.Request) {
 func (a *API) readiness(w http.ResponseWriter, r *http.Request) {
 	if a.ready != nil {
 		if err := a.ready(); err != nil {
-			a.fail(w, r, 503, "not_ready", "Service unavailable", "A required dependency is unavailable.", nil)
+			writeErrorResponse(w, r, 503, "not_ready", "Service unavailable", "A required dependency is unavailable.")
 			return
 		}
 	}
@@ -220,5 +211,5 @@ func (a *API) openapi(w http.ResponseWriter, _ *http.Request) {
 }
 
 func validation(a *API, w http.ResponseWriter, r *http.Request, detail string) {
-	a.fail(w, r, 400, "validation_failed", "Validation failed", detail, nil)
+	writeErrorResponse(w, r, 400, "validation_failed", "Validation failed", detail)
 }

@@ -19,7 +19,7 @@ func (a *API) eligibleMockActor(r *http.Request) bool {
 func (a *API) listMockParticipants(w http.ResponseWriter, r *http.Request) {
 	actor := actorFrom(r.Context())
 	if !a.eligibleMockActor(r) && !actor.IsPrivileged() {
-		a.fail(w, r, http.StatusForbidden, "mock_participant_required", "Mock interview access required", "Only programme members may select eligible mock-interview participants.", nil)
+		writeErrorResponse(w, r, http.StatusForbidden, "mock_participant_required", "Mock interview access required", "Only programme members may select eligible mock-interview participants.")
 		return
 	}
 	if _, err := requestedSort(r, "id:asc", "id:asc"); err != nil {
@@ -41,7 +41,7 @@ func (a *API) listMockParticipants(w http.ResponseWriter, r *http.Request) {
 	binding := "mock-interview-participants|sort=id:asc|query=" + query
 	limit, boundary, err := a.page(r, binding)
 	if err != nil {
-		a.fail(w, r, http.StatusBadRequest, "invalid_cursor", "Invalid cursor", "The cursor does not match the selected participant filters and sort.", nil)
+		writeErrorResponse(w, r, http.StatusBadRequest, "invalid_cursor", "Invalid cursor", "The cursor does not match the selected participant filters and sort.")
 		return
 	}
 
@@ -70,7 +70,7 @@ func (a *API) listMockParticipants(w http.ResponseWriter, r *http.Request) {
 func (a *API) listMocks(w http.ResponseWriter, r *http.Request) {
 	actor := actorFrom(r.Context())
 	if !a.eligibleMockActor(r) && !actor.IsPrivileged() && !historicalMockReviewer(actor) {
-		a.fail(w, r, 403, "mock_participant_required", "Mock interview access required", "Only active members and alumni may access mock interviews.", nil)
+		writeErrorResponse(w, r, 403, "mock_participant_required", "Mock interview access required", "Only active members and alumni may access mock interviews.")
 		return
 	}
 	mode := r.URL.Query().Get("mode")
@@ -99,7 +99,7 @@ func (a *API) listMocks(w http.ResponseWriter, r *http.Request) {
 	binding := "mock-interviews|mode=" + mode + "|sort=" + sortBy
 	limit, boundary, err := a.page(r, binding)
 	if err != nil {
-		a.fail(w, r, 400, "invalid_cursor", "Invalid cursor", "The cursor does not match the selected mode and sort.", nil)
+		writeErrorResponse(w, r, 400, "invalid_cursor", "Invalid cursor", "The cursor does not match the selected mode and sort.")
 		return
 	}
 
@@ -136,7 +136,7 @@ func historicalMockReviewer(actor authz.Actor) bool {
 func (a *API) createMock(w http.ResponseWriter, r *http.Request) {
 	actor := actorFrom(r.Context())
 	if !a.eligibleMockActor(r) {
-		a.fail(w, r, 403, "mock_participant_required", "Mock interview access required", "The interviewer must be an active member or alumnus.", nil)
+		writeErrorResponse(w, r, 403, "mock_participant_required", "Mock interview access required", "The interviewer must be an active member or alumnus.")
 		return
 	}
 	var in struct {
@@ -176,7 +176,7 @@ func (a *API) createMock(w http.ResponseWriter, r *http.Request) {
 func (a *API) updateMock(w http.ResponseWriter, r *http.Request) {
 	actor := actorFrom(r.Context())
 	if !a.eligibleMockActor(r) && !actor.IsPrivileged() {
-		a.fail(w, r, 403, "mock_participant_required", "Mock interview access required", "Only active members and alumni may update mock interviews.", nil)
+		writeErrorResponse(w, r, 403, "mock_participant_required", "Mock interview access required", "Only active members and alumni may update mock interviews.")
 		return
 	}
 	var in struct {
@@ -197,7 +197,7 @@ func (a *API) updateMock(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if actor.UserID != v.InterviewerID {
-		a.fail(w, r, 404, "not_found", "Not found", "The requested resource does not exist.", nil)
+		writeErrorResponse(w, r, 404, "not_found", "Not found", "The requested resource does not exist.")
 		return
 	}
 	if !a.validMockSeason(w, r, v.SeasonID, in.OccurredAt, v.InterviewerID, v.IntervieweeID) {
@@ -221,7 +221,7 @@ func (a *API) updateMock(w http.ResponseWriter, r *http.Request) {
 func (a *API) deleteMock(w http.ResponseWriter, r *http.Request) {
 	actor := actorFrom(r.Context())
 	if !a.eligibleMockActor(r) && !actor.IsPrivileged() {
-		a.fail(w, r, 403, "mock_participant_required", "Mock interview access required", "Only active members and alumni may delete mock interviews.", nil)
+		writeErrorResponse(w, r, 403, "mock_participant_required", "Mock interview access required", "Only active members and alumni may delete mock interviews.")
 		return
 	}
 	revision, err := parseRevision(r)
@@ -236,7 +236,7 @@ func (a *API) deleteMock(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if actor.UserID != v.InterviewerID {
-		a.fail(w, r, 404, "not_found", "Not found", "The requested resource does not exist.", nil)
+		writeErrorResponse(w, r, 404, "not_found", "Not found", "The requested resource does not exist.")
 		return
 	}
 	if !a.mockSeasonWritable(w, r, v.SeasonID) {
@@ -254,7 +254,7 @@ func (a *API) deleteMock(w http.ResponseWriter, r *http.Request) {
 func (a *API) reviewRound(w http.ResponseWriter, r *http.Request) {
 	actor := actorFrom(r.Context())
 	if !a.eligibleMockActor(r) && !actor.IsPrivileged() {
-		a.fail(w, r, 403, "mock_participant_required", "Mock interview access required", "Only active members and alumni may review mock interviews.", nil)
+		writeErrorResponse(w, r, 403, "mock_participant_required", "Mock interview access required", "Only active members and alumni may review mock interviews.")
 		return
 	}
 	var in struct {
@@ -273,7 +273,7 @@ func (a *API) reviewRound(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if actor.UserID != v.IntervieweeID {
-		a.fail(w, r, 404, "not_found", "Not found", "The requested resource does not exist.", nil)
+		writeErrorResponse(w, r, 404, "not_found", "Not found", "The requested resource does not exist.")
 		return
 	}
 	if !a.mockSeasonWritable(w, r, v.SeasonID) {
@@ -294,7 +294,7 @@ func (a *API) reviewRound(w http.ResponseWriter, r *http.Request) {
 func (a *API) correctMockIdentities(w http.ResponseWriter, r *http.Request) {
 	actor := actorFrom(r.Context())
 	if !actor.IsPrivileged() || !actor.HasRecentMFA(time.Now()) {
-		a.fail(w, r, 403, "privileged_mfa_required", "Privileged access required", "Director or System Admin access with recent MFA is required.", nil)
+		writeErrorResponse(w, r, 403, "privileged_mfa_required", "Privileged access required", "Director or System Admin access with recent MFA is required.")
 		return
 	}
 	var in struct {
@@ -318,7 +318,7 @@ func (a *API) correctMockIdentities(w http.ResponseWriter, r *http.Request) {
 	for _, userID := range []string{in.InterviewerID, in.IntervieweeID} {
 		participant, err := a.store.GetMockParticipant(r.Context(), userID)
 		if err != nil || !participant.Eligible() {
-			a.fail(w, r, 400, "invalid_mock_participant", "Invalid mock participant", "Corrected participants must be active members or alumni.", nil)
+			writeErrorResponse(w, r, 400, "invalid_mock_participant", "Invalid mock participant", "Corrected participants must be active members or alumni.")
 			return
 		}
 	}
@@ -343,16 +343,16 @@ func (a *API) validMockSeason(w http.ResponseWriter, r *http.Request, seasonID *
 	}
 	season, err := a.store.GetSeason(r.Context(), *seasonID)
 	if err != nil {
-		a.fail(w, r, 400, "invalid_mock_season", "Invalid mock season", "The selected season must exist.", nil)
+		writeErrorResponse(w, r, 400, "invalid_mock_season", "Invalid mock season", "The selected season must exist.")
 		return false
 	}
 	if season.Status != "open" {
-		a.fail(w, r, http.StatusConflict, "season_closed", "Season closed", "Season-linked mock interview records are locked until the season is reopened.", nil)
+		writeErrorResponse(w, r, http.StatusConflict, "season_closed", "Season closed", "Season-linked mock interview records are locked until the season is reopened.")
 		return false
 	}
 	when := occurredAt.UTC()
 	if when.Before(season.StartAt) || when.After(season.EndAt) {
-		a.fail(w, r, 400, "invalid_mock_season", "Invalid mock season", "The interview date must fall within the selected season.", nil)
+		writeErrorResponse(w, r, 400, "invalid_mock_season", "Invalid mock season", "The interview date must fall within the selected season.")
 		return false
 	}
 	for _, userID := range userIDs {
@@ -369,7 +369,7 @@ func (a *API) validMockSeason(w http.ResponseWriter, r *http.Request, seasonID *
 			}
 		}
 		if !member {
-			a.fail(w, r, 400, "invalid_mock_season", "Invalid mock season", "Both participants must belong to the selected season.", nil)
+			writeErrorResponse(w, r, 400, "invalid_mock_season", "Invalid mock season", "Both participants must belong to the selected season.")
 			return false
 		}
 	}
@@ -386,7 +386,7 @@ func (a *API) mockSeasonWritable(w http.ResponseWriter, r *http.Request, seasonI
 		return false
 	}
 	if season.Status != "open" {
-		a.fail(w, r, http.StatusConflict, "season_closed", "Season closed", "Season-linked mock interview records are locked until the season is reopened.", nil)
+		writeErrorResponse(w, r, http.StatusConflict, "season_closed", "Season closed", "Season-linked mock interview records are locked until the season is reopened.")
 		return false
 	}
 	return true
@@ -395,11 +395,11 @@ func (a *API) mockSeasonWritable(w http.ResponseWriter, r *http.Request, seasonI
 func mockFailure(a *API, w http.ResponseWriter, r *http.Request, err error) {
 	switch {
 	case errors.Is(err, mockinterviews.ErrForbidden):
-		a.fail(w, r, 403, "forbidden", "Forbidden", "The current account cannot perform this action.", nil)
+		writeErrorResponse(w, r, 403, "forbidden", "Forbidden", "The current account cannot perform this action.")
 	case errors.Is(err, mockinterviews.ErrConflict):
-		a.fail(w, r, 409, "stale_revision", "Conflict", "The mock interview changed since it was loaded.", nil)
+		writeErrorResponse(w, r, 409, "stale_revision", "Conflict", "The mock interview changed since it was loaded.")
 	default:
-		a.fail(w, r, 400, "invalid_mock_interview", "Invalid mock interview", err.Error(), nil)
+		writeErrorResponse(w, r, 400, "invalid_mock_interview", "Invalid mock interview", err.Error())
 	}
 }
 
@@ -423,16 +423,16 @@ func (a *API) withMockParticipantSummaries(r *http.Request, interview mockinterv
 func (a *API) adminSync(w http.ResponseWriter, r *http.Request) {
 	actor := actorFrom(r.Context())
 	if !actor.IsPrivileged() || !actor.HasRecentMFA(time.Now()) {
-		a.fail(w, r, 403, "privileged_mfa_required", "Privileged access required", "Recent MFA is required.", nil)
+		writeErrorResponse(w, r, 403, "privileged_mfa_required", "Privileged access required", "Recent MFA is required.")
 		return
 	}
 	if a.syncLeetCode == nil {
-		a.fail(w, r, 503, "sync_unavailable", "Sync unavailable", "The LeetCode worker queue is unavailable.", nil)
+		writeErrorResponse(w, r, 503, "sync_unavailable", "Sync unavailable", "The LeetCode worker queue is unavailable.")
 		return
 	}
 	if err := a.syncLeetCode(r.Context(), actor.UserID, requestIDFrom(r.Context())); err != nil {
 		a.logger.Error("LeetCode sync enqueue failed", "requestId", requestIDFrom(r.Context()), "error", err.Error())
-		a.fail(w, r, 503, "sync_failed", "Sync failed", "The LeetCode sync request could not be queued.", nil)
+		writeErrorResponse(w, r, 503, "sync_failed", "Sync failed", "The LeetCode sync request could not be queued.")
 		return
 	}
 

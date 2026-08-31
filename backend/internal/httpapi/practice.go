@@ -24,7 +24,7 @@ func (a *API) requirePracticeAccess(w http.ResponseWriter, r *http.Request) bool
 	if actor.ProgrammeAccess() || actor.IsPrivileged() {
 		return true
 	}
-	a.fail(w, r, http.StatusForbidden, "season_access_required", "Season access required", "No season access yet.", nil)
+	writeErrorResponse(w, r, http.StatusForbidden, "season_access_required", "Season access required", "No season access yet.")
 	return false
 }
 
@@ -102,7 +102,7 @@ func (a *API) problems(w http.ResponseWriter, r *http.Request) {
 	binding := "problems|id:asc|difficulty=" + difficulty + "|category=" + category + "|premium=" + r.URL.Query().Get("premium")
 	limit, after, err := a.page(r, binding)
 	if err != nil {
-		a.fail(w, r, 400, "invalid_cursor", "Invalid cursor", cursor.ErrInvalid.Error(), nil)
+		writeErrorResponse(w, r, 400, "invalid_cursor", "Invalid cursor", cursor.ErrInvalid.Error())
 		return
 	}
 
@@ -135,13 +135,13 @@ func (a *API) attempts(w http.ResponseWriter, r *http.Request) {
 		targetID = actor.UserID
 	}
 	if targetID != actor.UserID && !actor.EligibleMember() && !actor.IsPrivileged() {
-		a.fail(w, r, http.StatusForbidden, "directory_access_required", "Directory access required", "Only active members and student alumni may view another member's public problem history.", nil)
+		writeErrorResponse(w, r, http.StatusForbidden, "directory_access_required", "Directory access required", "Only active members and student alumni may view another member's public problem history.")
 		return
 	}
 	if targetID != actor.UserID && !actor.IsPrivileged() {
 		participant, err := a.store.GetMockParticipant(r.Context(), targetID)
 		if err != nil || !participant.Eligible() {
-			a.fail(w, r, 404, "not_found", "Not found", "The requested member does not exist.", nil)
+			writeErrorResponse(w, r, 404, "not_found", "Not found", "The requested member does not exist.")
 			return
 		}
 	}
@@ -164,7 +164,7 @@ func (a *API) attempts(w http.ResponseWriter, r *http.Request) {
 	binding := "attempts|id:asc|user=" + targetID + "|outcome=" + outcome + "|difficulty=" + difficulty
 	limit, after, err := a.page(r, binding)
 	if err != nil {
-		a.fail(w, r, 400, "invalid_cursor", "Invalid cursor", cursor.ErrInvalid.Error(), nil)
+		writeErrorResponse(w, r, 400, "invalid_cursor", "Invalid cursor", cursor.ErrInvalid.Error())
 		return
 	}
 
@@ -384,7 +384,7 @@ func (a *API) recommendation(w http.ResponseWriter, r *http.Request) {
 	selected, err := practice.Select(practice.Request{UserID: actor.UserID, Level: level, PremiumOptIn: settings.PremiumOptIn, Problems: problems, QualityAttempts: attempts, ProblemHistory: problemHistory, CategoryExposure: snapshot.CategoryExposure, Dismissals: dismissals, Goals: goals, Now: now})
 	if err != nil {
 		a.telemetry.observeRecommendation("unavailable")
-		a.fail(w, r, 404, "no_recommendation", "No recommendation available", "No suitable problem is currently available.", nil)
+		writeErrorResponse(w, r, 404, "no_recommendation", "No recommendation available", "No suitable problem is currently available.")
 		return
 	}
 
@@ -431,7 +431,7 @@ func (a *API) dismissRecommendation(w http.ResponseWriter, r *http.Request) {
 	_, err := a.store.DismissRecommendation(r.Context(), actor.UserID, in.Revision, strings.TrimSpace(in.Reason), time.Now(), id.New())
 	if err != nil {
 		if errors.Is(err, store.ErrNotFound) {
-			a.fail(w, r, 404, "no_recommendation", "No recommendation available", "There is no active recommendation.", nil)
+			writeErrorResponse(w, r, 404, "no_recommendation", "No recommendation available", "There is no active recommendation.")
 		} else {
 			storeFailure(a, w, r, err)
 		}

@@ -32,7 +32,7 @@ func (a *API) userPracticeSettings(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if !allowed {
-		a.fail(w, r, http.StatusNotFound, "not_found", "Not found", "The requested member does not exist.", nil)
+		writeErrorResponse(w, r, http.StatusNotFound, "not_found", "Not found", "The requested member does not exist.")
 		return
 	}
 	if !a.auditSystemAdminPrivateRead(w, r, "practice_settings", target.ID) {
@@ -69,7 +69,7 @@ func (a *API) updatePracticeSettings(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if !current.GoalsEnabled && (in.EasyMinutes != current.EasyMinutes || in.MediumMinutes != current.MediumMinutes || in.HardMinutes != current.HardMinutes) {
-		a.fail(w, r, http.StatusForbidden, "practice_goals_not_enabled", "Practice goals not enabled", "An assigned mentor or programme administrator must enable personal goals before they can be changed.", nil)
+		writeErrorResponse(w, r, http.StatusForbidden, "practice_goals_not_enabled", "Practice goals not enabled", "An assigned mentor or programme administrator must enable personal goals before they can be changed.")
 		return
 	}
 
@@ -110,14 +110,14 @@ func (a *API) enablePracticeGoals(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	if !targetActiveStudent {
-		a.fail(w, r, http.StatusNotFound, "active_student_not_found", "Active student not found", "The target is not an active student in this season.", nil)
+		writeErrorResponse(w, r, http.StatusNotFound, "active_student_not_found", "Active student not found", "The target is not an active student in this season.")
 		return
 	}
 
 	allowed := false
 	if actor.IsPrivileged() {
 		if !actor.HasRecentMFA(time.Now()) {
-			a.fail(w, r, http.StatusForbidden, "privileged_mfa_required", "Privileged access required", "Recent MFA is required.", nil)
+			writeErrorResponse(w, r, http.StatusForbidden, "privileged_mfa_required", "Privileged access required", "Recent MFA is required.")
 			return
 		}
 		allowed = true
@@ -125,7 +125,7 @@ func (a *API) enablePracticeGoals(w http.ResponseWriter, r *http.Request) {
 		switch enrollment.Role {
 		case authz.Coordinator:
 			if !actor.HasRecentMFA(time.Now()) {
-				a.fail(w, r, http.StatusForbidden, "privileged_mfa_required", "Recent MFA required", "Recent MFA is required for this administrative action.", nil)
+				writeErrorResponse(w, r, http.StatusForbidden, "privileged_mfa_required", "Recent MFA required", "Recent MFA is required for this administrative action.")
 				return
 			}
 			allowed = true
@@ -138,14 +138,14 @@ func (a *API) enablePracticeGoals(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	if !allowed {
-		a.fail(w, r, http.StatusForbidden, "forbidden", "Forbidden", "Only the assigned mentor or an administrator for this season may enable personal goals.", nil)
+		writeErrorResponse(w, r, http.StatusForbidden, "forbidden", "Forbidden", "Only the assigned mentor or an administrator for this season may enable personal goals.")
 		return
 	}
 
 	settings, err := a.store.EnablePracticeGoals(r.Context(), targetID, in.Revision, actor.UserID, in.SeasonID, time.Now().UTC())
 	if err != nil {
 		if err == store.ErrNotFound {
-			a.fail(w, r, http.StatusNotFound, "not_found", "Not found", "The requested member does not exist.", nil)
+			writeErrorResponse(w, r, http.StatusNotFound, "not_found", "Not found", "The requested member does not exist.")
 		} else {
 			storeFailure(a, w, r, err)
 		}
