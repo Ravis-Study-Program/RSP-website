@@ -1,4 +1,4 @@
-import { getAccessToken, problemFromResponse } from '@/api/client';
+import { getAccessToken, errorFromResponse } from '@/api/client';
 
 export async function orvalRequest<T>(
   url: string,
@@ -11,7 +11,7 @@ export async function orvalRequest<T>(
     ...options,
     credentials: 'same-origin',
     headers: {
-      Accept: 'application/json, application/problem+json',
+      Accept: 'application/json',
       ...options.headers,
       ...(isPublicHealthCheck
         ? {}
@@ -19,7 +19,7 @@ export async function orvalRequest<T>(
     },
   });
   if (!response.ok) {
-    throw await problemFromResponse(response);
+    throw await errorFromResponse(response);
   }
   const data = response.status === 204 ? undefined : await response.json();
   return { data, status: response.status, headers: response.headers } as T;

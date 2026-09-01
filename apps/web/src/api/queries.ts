@@ -11,7 +11,7 @@ import {
   adaptUserPage,
   indexProblems,
 } from '@/api/adapters';
-import { ApiProblem, apiRequest } from '@/api/client';
+import { ApiError, apiRequest } from '@/api/client';
 import { demoModeForEnvironment } from '@/api/demoMode';
 import type {
   AttemptPage as ApiAttemptPage,
@@ -184,13 +184,10 @@ function selectedDemoUser(): CurrentUser {
   return demoUser;
 }
 
-function demoAuthenticationProblem() {
-  return new ApiProblem({
-    type: 'about:blank',
-    title: 'Authentication required',
-    status: 401,
-    detail: 'Sign in to continue.',
+function demoAuthenticationError() {
+  return new ApiError(401, {
     code: 'authentication_required',
+    message: 'Sign in to continue.',
     requestId: 'demo',
   });
 }
@@ -240,7 +237,7 @@ export const currentUserOptions = queryOptions({
   queryFn: async () => {
     if (!demoMode) return adaptCurrentUser(await apiRequest<Me>('/me'));
     if (window.localStorage.getItem('rsp-demo-auth-state') === 'signed-out')
-      throw demoAuthenticationProblem();
+      throw demoAuthenticationError();
     return wait(selectedDemoUser());
   },
   staleTime: 60_000,
@@ -461,8 +458,7 @@ export function useRecommendation(enabled = true) {
           await apiRequest<ApiRecommendation>('/recommendations/current'),
         );
       } catch (error) {
-        if (error instanceof ApiProblem && error.problem.status === 404)
-          return null;
+        if (error instanceof ApiError && error.status === 404) return null;
         throw error;
       }
     },

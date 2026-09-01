@@ -14,7 +14,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useMemo, useState, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 
-import { ApiProblem, apiRequest } from '@/api/client';
+import { ApiError, apiRequest } from '@/api/client';
 import type {
   AccountStateMutation,
   Enrollment,
@@ -1191,10 +1191,7 @@ function WeekDialog({ seasonId, week }: { seasonId: string; week?: Week }) {
       );
       setOpen(false);
     } catch (requestError) {
-      if (
-        requestError instanceof ApiProblem &&
-        requestError.problem.status === 409
-      ) {
+      if (requestError instanceof ApiError && requestError.status === 409) {
         await queryClient.invalidateQueries({
           queryKey: seasonWeeksQueryKey(seasonId),
         });
@@ -1467,10 +1464,7 @@ export function EnrollmentDialog({
       }
       setOpen(false);
     } catch (requestError) {
-      if (
-        requestError instanceof ApiProblem &&
-        requestError.problem.status === 409
-      ) {
+      if (requestError instanceof ApiError && requestError.status === 409) {
         await queryClient.invalidateQueries({
           queryKey: seasonEnrollmentsQueryKey(seasonId),
         });
@@ -1793,10 +1787,7 @@ function MentorshipDialog({
       );
       setOpen(false);
     } catch (requestError) {
-      if (
-        requestError instanceof ApiProblem &&
-        requestError.problem.status === 409
-      ) {
+      if (requestError instanceof ApiError && requestError.status === 409) {
         await queryClient.invalidateQueries({
           queryKey: seasonMentorshipsQueryKey(seasonId),
         });

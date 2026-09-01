@@ -5,15 +5,9 @@
  * Same-origin API for the Ravi's Study Program application.
  * OpenAPI spec version: 2.0.0
  */
-import type { FieldError } from './fieldError';
 
-export interface ProblemDetails {
-  type: string;
-  title: string;
-  status: number;
-  detail: string;
-  instance: string;
+export interface ErrorResponse {
   code: string;
+  message: string;
   requestId: string;
-  errors: FieldError[];
 }

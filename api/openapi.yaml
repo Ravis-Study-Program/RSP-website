@@ -13,22 +13,22 @@ paths:
       operationId: getLiveness
       security: []
       responses:
-        default: { $ref: '#/components/responses/Problem' }
+        default: { $ref: '#/components/responses/Error' }
         '200': { $ref: '#/components/responses/Health' }
   /health/ready:
     get:
       operationId: getReadiness
       security: []
       responses:
-        default: { $ref: '#/components/responses/Problem' }
+        default: { $ref: '#/components/responses/Error' }
         '200': { $ref: '#/components/responses/Health' }
-        '503': { $ref: '#/components/responses/Problem' }
+        '503': { $ref: '#/components/responses/Error' }
   /metrics:
     get:
       operationId: getMetrics
       security: []
       responses:
-        default: { $ref: '#/components/responses/Problem' }
+        default: { $ref: '#/components/responses/Error' }
         '200':
           description: Internal Prometheus metrics
           content: { text/plain: { schema: { type: string } } }
@@ -37,7 +37,7 @@ paths:
       operationId: getOpenAPI
       security: []
       responses:
-        default: { $ref: '#/components/responses/Problem' }
+        default: { $ref: '#/components/responses/Error' }
         '200':
           description: This OpenAPI document as JSON
           content:
@@ -49,7 +49,7 @@ paths:
     get:
       operationId: getMe
       responses:
-        default: { $ref: '#/components/responses/Problem' }
+        default: { $ref: '#/components/responses/Error' }
         '200':
           {
             description: Current user and effective programme access,
@@ -59,8 +59,8 @@ paths:
                   { schema: { $ref: '#/components/schemas/Me' } },
               },
           }
-        '401': { $ref: '#/components/responses/Problem' }
-        '403': { $ref: '#/components/responses/Problem' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
         '429': { $ref: '#/components/responses/RateLimited' }
     patch:
       operationId: updateMe
@@ -74,7 +74,7 @@ paths:
             },
         }
       responses:
-        default: { $ref: '#/components/responses/Problem' }
+        default: { $ref: '#/components/responses/Error' }
         '200':
           {
             description: Updated current user,
@@ -84,17 +84,17 @@ paths:
                   { schema: { $ref: '#/components/schemas/Me' } },
               },
           }
-        '400': { $ref: '#/components/responses/Problem' }
-        '409': { $ref: '#/components/responses/Problem' }
-        '401': { $ref: '#/components/responses/Problem' }
-        '403': { $ref: '#/components/responses/Problem' }
+        '400': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
         '429': { $ref: '#/components/responses/RateLimited' }
   /me/slug-suggestion:
     get:
       operationId: suggestMeSlug
       description: Returns a server-generated profile slug candidate that is unique at response time. PATCH /me remains authoritative and returns 409 if a concurrent claim wins.
       responses:
-        default: { $ref: '#/components/responses/Problem' }
+        default: { $ref: '#/components/responses/Error' }
         '200':
           {
             description: Unique profile slug candidate,
@@ -104,14 +104,14 @@ paths:
                   { schema: { $ref: '#/components/schemas/SlugSuggestion' } },
               },
           }
-        '401': { $ref: '#/components/responses/Problem' }
-        '403': { $ref: '#/components/responses/Problem' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
         '429': { $ref: '#/components/responses/RateLimited' }
   /me/practice-settings:
     get:
       operationId: getPracticeSettings
       responses:
-        default: { $ref: '#/components/responses/Problem' }
+        default: { $ref: '#/components/responses/Error' }
         '200':
           {
             description: Current member practice preferences,
@@ -121,8 +121,8 @@ paths:
                   { schema: { $ref: '#/components/schemas/PracticeSettings' } },
               },
           }
-        '401': { $ref: '#/components/responses/Problem' }
-        '403': { $ref: '#/components/responses/Problem' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
         '429': { $ref: '#/components/responses/RateLimited' }
     patch:
       operationId: updatePracticeSettings
@@ -139,7 +139,7 @@ paths:
             },
         }
       responses:
-        default: { $ref: '#/components/responses/Problem' }
+        default: { $ref: '#/components/responses/Error' }
         '200':
           {
             description: Updated practice preferences,
@@ -149,10 +149,10 @@ paths:
                   { schema: { $ref: '#/components/schemas/PracticeSettings' } },
               },
           }
-        '400': { $ref: '#/components/responses/Problem' }
-        '409': { $ref: '#/components/responses/Problem' }
-        '401': { $ref: '#/components/responses/Problem' }
-        '403': { $ref: '#/components/responses/Problem' }
+        '400': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
         '429': { $ref: '#/components/responses/RateLimited' }
   /users:
     get:
@@ -176,7 +176,7 @@ paths:
           },
         ]
       responses:
-        default: { $ref: '#/components/responses/Problem' }
+        default: { $ref: '#/components/responses/Error' }
         '200':
           {
             description: User page,
@@ -186,9 +186,9 @@ paths:
                   { schema: { $ref: '#/components/schemas/UserPage' } },
               },
           }
-        '400': { $ref: '#/components/responses/Problem' }
-        '403': { $ref: '#/components/responses/Problem' }
-        '401': { $ref: '#/components/responses/Problem' }
+        '400': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '401': { $ref: '#/components/responses/Error' }
         '429': { $ref: '#/components/responses/RateLimited' }
   /users/{id}:
     parameters:
@@ -204,7 +204,7 @@ paths:
     get:
       operationId: getUser
       responses:
-        default: { $ref: '#/components/responses/Problem' }
+        default: { $ref: '#/components/responses/Error' }
         '200':
           {
             description: Member profile. Private fields are included only for the member or an authorised relationship.,
@@ -223,9 +223,9 @@ paths:
                   },
               },
           }
-        '403': { $ref: '#/components/responses/Problem' }
-        '404': { $ref: '#/components/responses/Problem' }
-        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '401': { $ref: '#/components/responses/Error' }
         '429': { $ref: '#/components/responses/RateLimited' }
   /users/{id}/practice-goals/enable:
     parameters: [{ $ref: '#/components/parameters/ID' }]
@@ -244,7 +244,7 @@ paths:
             },
         }
       responses:
-        default: { $ref: '#/components/responses/Problem' }
+        default: { $ref: '#/components/responses/Error' }
         '200':
           {
             description: Personal practice goals enabled,
@@ -254,10 +254,10 @@ paths:
                   { schema: { $ref: '#/components/schemas/PracticeSettings' } },
               },
           }
-        '400': { $ref: '#/components/responses/Problem' }
-        '403': { $ref: '#/components/responses/Problem' }
-        '404': { $ref: '#/components/responses/Problem' }
-        '401': { $ref: '#/components/responses/Problem' }
+        '400': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '401': { $ref: '#/components/responses/Error' }
         '429': { $ref: '#/components/responses/RateLimited' }
   /users/{id}/practice-settings:
     parameters: [{ $ref: '#/components/parameters/ID' }]
@@ -265,7 +265,7 @@ paths:
       operationId: getUserPracticeSettings
       description: Returns private practice settings, including the independent settings revision, to the member, their assigned mentor, their season Coordinator, a Director, or a System Admin.
       responses:
-        default: { $ref: '#/components/responses/Problem' }
+        default: { $ref: '#/components/responses/Error' }
         '200':
           {
             description: Member practice settings,
@@ -275,9 +275,9 @@ paths:
                   { schema: { $ref: '#/components/schemas/PracticeSettings' } },
               },
           }
-        '401': { $ref: '#/components/responses/Problem' }
-        '403': { $ref: '#/components/responses/Problem' }
-        '404': { $ref: '#/components/responses/Problem' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
         '429': { $ref: '#/components/responses/RateLimited' }
   /seasons:
     get:
@@ -295,7 +295,7 @@ paths:
           },
         ]
       responses:
-        default: { $ref: '#/components/responses/Problem' }
+        default: { $ref: '#/components/responses/Error' }
         '200':
           {
             description: Season page,
@@ -305,9 +305,9 @@ paths:
                   { schema: { $ref: '#/components/schemas/SeasonPage' } },
               },
           }
-        '400': { $ref: '#/components/responses/Problem' }
-        '401': { $ref: '#/components/responses/Problem' }
-        '403': { $ref: '#/components/responses/Problem' }
+        '400': { $ref: '#/components/responses/Error' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
         '429': { $ref: '#/components/responses/RateLimited' }
     post:
       operationId: createSeason
@@ -321,7 +321,7 @@ paths:
             },
         }
       responses:
-        default: { $ref: '#/components/responses/Problem' }
+        default: { $ref: '#/components/responses/Error' }
         '201':
           {
             description: Created season,
@@ -331,17 +331,17 @@ paths:
                   { schema: { $ref: '#/components/schemas/Season' } },
               },
           }
-        '400': { $ref: '#/components/responses/Problem' }
-        '403': { $ref: '#/components/responses/Problem' }
-        '409': { $ref: '#/components/responses/Problem' }
-        '401': { $ref: '#/components/responses/Problem' }
+        '400': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+        '401': { $ref: '#/components/responses/Error' }
         '429': { $ref: '#/components/responses/RateLimited' }
   /seasons/{id}:
     parameters: [{ $ref: '#/components/parameters/ID' }]
     get:
       operationId: getSeason
       responses:
-        default: { $ref: '#/components/responses/Problem' }
+        default: { $ref: '#/components/responses/Error' }
         '200':
           {
             description: Season,
@@ -351,9 +351,9 @@ paths:
                   { schema: { $ref: '#/components/schemas/Season' } },
               },
           }
-        '404': { $ref: '#/components/responses/Problem' }
-        '401': { $ref: '#/components/responses/Problem' }
-        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Error' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
         '429': { $ref: '#/components/responses/RateLimited' }
     patch:
       operationId: updateSeason
@@ -367,7 +367,7 @@ paths:
             },
         }
       responses:
-        default: { $ref: '#/components/responses/Problem' }
+        default: { $ref: '#/components/responses/Error' }
         '200':
           {
             description: Updated season,
@@ -377,10 +377,10 @@ paths:
                   { schema: { $ref: '#/components/schemas/Season' } },
               },
           }
-        '400': { $ref: '#/components/responses/Problem' }
-        '403': { $ref: '#/components/responses/Problem' }
-        '409': { $ref: '#/components/responses/Problem' }
-        '401': { $ref: '#/components/responses/Problem' }
+        '400': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+        '401': { $ref: '#/components/responses/Error' }
         '429': { $ref: '#/components/responses/RateLimited' }
   /seasons/{id}/close:
     parameters: [{ $ref: '#/components/parameters/ID' }]
@@ -396,7 +396,7 @@ paths:
             },
         }
       responses:
-        default: { $ref: '#/components/responses/Problem' }
+        default: { $ref: '#/components/responses/Error' }
         '200':
           {
             description: Closed season,
@@ -406,9 +406,9 @@ paths:
                   { schema: { $ref: '#/components/schemas/Season' } },
               },
           }
-        '403': { $ref: '#/components/responses/Problem' }
-        '409': { $ref: '#/components/responses/Problem' }
-        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+        '401': { $ref: '#/components/responses/Error' }
         '429': { $ref: '#/components/responses/RateLimited' }
   /seasons/{id}/resources:
     parameters: [{ $ref: '#/components/parameters/ID' }]
@@ -427,7 +427,7 @@ paths:
             },
         }
       responses:
-        default: { $ref: '#/components/responses/Problem' }
+        default: { $ref: '#/components/responses/Error' }
         '200':
           {
             description: Updated season,
@@ -437,10 +437,10 @@ paths:
                   { schema: { $ref: '#/components/schemas/Season' } },
               },
           }
-        '400': { $ref: '#/components/responses/Problem' }
-        '403': { $ref: '#/components/responses/Problem' }
-        '409': { $ref: '#/components/responses/Problem' }
-        '401': { $ref: '#/components/responses/Problem' }
+        '400': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+        '401': { $ref: '#/components/responses/Error' }
         '429': { $ref: '#/components/responses/RateLimited' }
   /seasons/{id}/enrollment-candidates:
     parameters: [{ $ref: '#/components/parameters/ID' }]
@@ -454,7 +454,7 @@ paths:
         - { $ref: '#/components/parameters/Sort' }
         - { name: query, in: query, schema: { type: string, maxLength: 100 } }
       responses:
-        default: { $ref: '#/components/responses/Problem' }
+        default: { $ref: '#/components/responses/Error' }
         '200':
           {
             description: Enrollment candidate page,
@@ -467,10 +467,10 @@ paths:
                   },
               },
           }
-        '400': { $ref: '#/components/responses/Problem' }
-        '403': { $ref: '#/components/responses/Problem' }
-        '404': { $ref: '#/components/responses/Problem' }
-        '401': { $ref: '#/components/responses/Problem' }
+        '400': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '401': { $ref: '#/components/responses/Error' }
         '429': { $ref: '#/components/responses/RateLimited' }
   /seasons/{id}/reopen:
     parameters: [{ $ref: '#/components/parameters/ID' }]
@@ -486,7 +486,7 @@ paths:
             },
         }
       responses:
-        default: { $ref: '#/components/responses/Problem' }
+        default: { $ref: '#/components/responses/Error' }
         '200':
           {
             description: Reopened season,
@@ -496,9 +496,9 @@ paths:
                   { schema: { $ref: '#/components/schemas/Season' } },
               },
           }
-        '403': { $ref: '#/components/responses/Problem' }
-        '409': { $ref: '#/components/responses/Problem' }
-        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+        '401': { $ref: '#/components/responses/Error' }
         '429': { $ref: '#/components/responses/RateLimited' }
   /seasons/{id}/weeks:
     parameters: [{ $ref: '#/components/parameters/ID' }]
@@ -512,7 +512,7 @@ paths:
           { $ref: '#/components/parameters/Sort' },
         ]
       responses:
-        default: { $ref: '#/components/responses/Problem' }
+        default: { $ref: '#/components/responses/Error' }
         '200':
           {
             description: Week page,
@@ -522,8 +522,8 @@ paths:
                   { schema: { $ref: '#/components/schemas/WeekPage' } },
               },
           }
-        '401': { $ref: '#/components/responses/Problem' }
-        '403': { $ref: '#/components/responses/Problem' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
         '429': { $ref: '#/components/responses/RateLimited' }
     post:
       operationId: createSeasonWeek
@@ -537,7 +537,7 @@ paths:
             },
         }
       responses:
-        default: { $ref: '#/components/responses/Problem' }
+        default: { $ref: '#/components/responses/Error' }
         '201':
           {
             description: Created week,
@@ -547,10 +547,10 @@ paths:
                   { schema: { $ref: '#/components/schemas/Week' } },
               },
           }
-        '400': { $ref: '#/components/responses/Problem' }
-        '403': { $ref: '#/components/responses/Problem' }
-        '409': { $ref: '#/components/responses/Problem' }
-        '401': { $ref: '#/components/responses/Problem' }
+        '400': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+        '401': { $ref: '#/components/responses/Error' }
         '429': { $ref: '#/components/responses/RateLimited' }
   /seasons/{id}/weeks/{weekId}:
     parameters:
@@ -570,7 +570,7 @@ paths:
             },
         }
       responses:
-        default: { $ref: '#/components/responses/Problem' }
+        default: { $ref: '#/components/responses/Error' }
         '200':
           {
             description: Updated week,
@@ -580,22 +580,22 @@ paths:
                   { schema: { $ref: '#/components/schemas/Week' } },
               },
           }
-        '400': { $ref: '#/components/responses/Problem' }
-        '403': { $ref: '#/components/responses/Problem' }
-        '404': { $ref: '#/components/responses/Problem' }
-        '409': { $ref: '#/components/responses/Problem' }
-        '401': { $ref: '#/components/responses/Problem' }
+        '400': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+        '401': { $ref: '#/components/responses/Error' }
         '429': { $ref: '#/components/responses/RateLimited' }
     delete:
       operationId: deleteSeasonWeek
       parameters: [{ $ref: '#/components/parameters/Revision' }]
       responses:
-        default: { $ref: '#/components/responses/Problem' }
+        default: { $ref: '#/components/responses/Error' }
         '204': { description: Deleted }
-        '403': { $ref: '#/components/responses/Problem' }
-        '404': { $ref: '#/components/responses/Problem' }
-        '409': { $ref: '#/components/responses/Problem' }
-        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+        '401': { $ref: '#/components/responses/Error' }
         '429': { $ref: '#/components/responses/RateLimited' }
   /seasons/{id}/members:
     parameters: [{ $ref: '#/components/parameters/ID' }]
@@ -619,7 +619,7 @@ paths:
           },
         ]
       responses:
-        default: { $ref: '#/components/responses/Problem' }
+        default: { $ref: '#/components/responses/Error' }
         '200':
           {
             description: Enrollment page,
@@ -629,8 +629,8 @@ paths:
                   { schema: { $ref: '#/components/schemas/EnrollmentPage' } },
               },
           }
-        '403': { $ref: '#/components/responses/Problem' }
-        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Error' }
+        '401': { $ref: '#/components/responses/Error' }
         '429': { $ref: '#/components/responses/RateLimited' }
     post:
       operationId: createSeasonMember
@@ -644,7 +644,7 @@ paths:
             },
         }
       responses:
-        default: { $ref: '#/components/responses/Problem' }
+        default: { $ref: '#/components/responses/Error' }
         '201':
           {
             description: Created enrollment,
@@ -654,9 +654,9 @@ paths:
                   { schema: { $ref: '#/components/schemas/Enrollment' } },
               },
           }
-        '403': { $ref: '#/components/responses/Problem' }
-        '409': { $ref: '#/components/responses/Problem' }
-        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+        '401': { $ref: '#/components/responses/Error' }
         '429': { $ref: '#/components/responses/RateLimited' }
   /seasons/{id}/members/{memberId}/promote:
     parameters:
@@ -676,7 +676,7 @@ paths:
             },
         }
       responses:
-        default: { $ref: '#/components/responses/Problem' }
+        default: { $ref: '#/components/responses/Error' }
         '200':
           {
             description: Promoted enrollment,
@@ -686,9 +686,9 @@ paths:
                   { schema: { $ref: '#/components/schemas/Enrollment' } },
               },
           }
-        '403': { $ref: '#/components/responses/Problem' }
-        '409': { $ref: '#/components/responses/Problem' }
-        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+        '401': { $ref: '#/components/responses/Error' }
         '429': { $ref: '#/components/responses/RateLimited' }
   /seasons/{id}/members/{memberId}:
     parameters:
@@ -708,7 +708,7 @@ paths:
             },
         }
       responses:
-        default: { $ref: '#/components/responses/Problem' }
+        default: { $ref: '#/components/responses/Error' }
         '200':
           {
             description: Updated enrollment,
@@ -718,11 +718,11 @@ paths:
                   { schema: { $ref: '#/components/schemas/Enrollment' } },
               },
           }
-        '400': { $ref: '#/components/responses/Problem' }
-        '403': { $ref: '#/components/responses/Problem' }
-        '404': { $ref: '#/components/responses/Problem' }
-        '409': { $ref: '#/components/responses/Problem' }
-        '401': { $ref: '#/components/responses/Problem' }
+        '400': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+        '401': { $ref: '#/components/responses/Error' }
         '429': { $ref: '#/components/responses/RateLimited' }
   /seasons/{id}/members/{memberId}/remove:
     parameters:
@@ -742,7 +742,7 @@ paths:
             },
         }
       responses:
-        default: { $ref: '#/components/responses/Problem' }
+        default: { $ref: '#/components/responses/Error' }
         '200':
           {
             description: Removed enrollment,
@@ -752,9 +752,9 @@ paths:
                   { schema: { $ref: '#/components/schemas/Enrollment' } },
               },
           }
-        '403': { $ref: '#/components/responses/Problem' }
-        '409': { $ref: '#/components/responses/Problem' }
-        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+        '401': { $ref: '#/components/responses/Error' }
         '429': { $ref: '#/components/responses/RateLimited' }
   /seasons/{id}/mentorships:
     parameters: [{ $ref: '#/components/parameters/ID' }]
@@ -770,7 +770,7 @@ paths:
           { name: studentUserId, in: query, schema: { type: string } },
         ]
       responses:
-        default: { $ref: '#/components/responses/Problem' }
+        default: { $ref: '#/components/responses/Error' }
         '200':
           {
             description: Mentorship page,
@@ -780,8 +780,8 @@ paths:
                   { schema: { $ref: '#/components/schemas/MentorshipPage' } },
               },
           }
-        '401': { $ref: '#/components/responses/Problem' }
-        '403': { $ref: '#/components/responses/Problem' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
         '429': { $ref: '#/components/responses/RateLimited' }
     post:
       operationId: createMentorship
@@ -795,7 +795,7 @@ paths:
             },
         }
       responses:
-        default: { $ref: '#/components/responses/Problem' }
+        default: { $ref: '#/components/responses/Error' }
         '201':
           {
             description: Created mentorship,
@@ -805,9 +805,9 @@ paths:
                   { schema: { $ref: '#/components/schemas/Mentorship' } },
               },
           }
-        '403': { $ref: '#/components/responses/Problem' }
-        '409': { $ref: '#/components/responses/Problem' }
-        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+        '401': { $ref: '#/components/responses/Error' }
         '429': { $ref: '#/components/responses/RateLimited' }
   /seasons/{id}/mentorships/{mentorshipId}:
     parameters:
@@ -832,7 +832,7 @@ paths:
             },
         }
       responses:
-        default: { $ref: '#/components/responses/Problem' }
+        default: { $ref: '#/components/responses/Error' }
         '200':
           {
             description: Updated mentorship,
@@ -842,22 +842,22 @@ paths:
                   { schema: { $ref: '#/components/schemas/Mentorship' } },
               },
           }
-        '400': { $ref: '#/components/responses/Problem' }
-        '403': { $ref: '#/components/responses/Problem' }
-        '404': { $ref: '#/components/responses/Problem' }
-        '409': { $ref: '#/components/responses/Problem' }
-        '401': { $ref: '#/components/responses/Problem' }
+        '400': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+        '401': { $ref: '#/components/responses/Error' }
         '429': { $ref: '#/components/responses/RateLimited' }
     delete:
       operationId: deleteMentorship
       parameters: [{ $ref: '#/components/parameters/Revision' }]
       responses:
-        default: { $ref: '#/components/responses/Problem' }
+        default: { $ref: '#/components/responses/Error' }
         '204': { description: Ended }
-        '403': { $ref: '#/components/responses/Problem' }
-        '404': { $ref: '#/components/responses/Problem' }
-        '409': { $ref: '#/components/responses/Problem' }
-        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+        '401': { $ref: '#/components/responses/Error' }
         '429': { $ref: '#/components/responses/RateLimited' }
   /leetcode-problems:
     get:
@@ -877,7 +877,7 @@ paths:
           { name: premium, in: query, schema: { type: boolean } },
         ]
       responses:
-        default: { $ref: '#/components/responses/Problem' }
+        default: { $ref: '#/components/responses/Error' }
         '200':
           {
             description: Problem page,
@@ -887,9 +887,9 @@ paths:
                   { schema: { $ref: '#/components/schemas/ProblemPage' } },
               },
           }
-        '400': { $ref: '#/components/responses/Problem' }
-        '401': { $ref: '#/components/responses/Problem' }
-        '403': { $ref: '#/components/responses/Problem' }
+        '400': { $ref: '#/components/responses/Error' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
         '429': { $ref: '#/components/responses/RateLimited' }
   /problem-attempts:
     get:
@@ -918,7 +918,7 @@ paths:
           },
         ]
       responses:
-        default: { $ref: '#/components/responses/Problem' }
+        default: { $ref: '#/components/responses/Error' }
         '200':
           {
             description: Attempt page,
@@ -928,9 +928,9 @@ paths:
                   { schema: { $ref: '#/components/schemas/AttemptPage' } },
               },
           }
-        '400': { $ref: '#/components/responses/Problem' }
-        '401': { $ref: '#/components/responses/Problem' }
-        '403': { $ref: '#/components/responses/Problem' }
+        '400': { $ref: '#/components/responses/Error' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
         '429': { $ref: '#/components/responses/RateLimited' }
     post:
       operationId: createProblemAttempt
@@ -944,7 +944,7 @@ paths:
             },
         }
       responses:
-        default: { $ref: '#/components/responses/Problem' }
+        default: { $ref: '#/components/responses/Error' }
         '201':
           {
             description: Created attempt,
@@ -954,9 +954,9 @@ paths:
                   { schema: { $ref: '#/components/schemas/Attempt' } },
               },
           }
-        '400': { $ref: '#/components/responses/Problem' }
-        '401': { $ref: '#/components/responses/Problem' }
-        '403': { $ref: '#/components/responses/Problem' }
+        '400': { $ref: '#/components/responses/Error' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
         '429': { $ref: '#/components/responses/RateLimited' }
   /problem-attempts/{id}:
     parameters: [{ $ref: '#/components/parameters/ID' }]
@@ -972,7 +972,7 @@ paths:
             },
         }
       responses:
-        default: { $ref: '#/components/responses/Problem' }
+        default: { $ref: '#/components/responses/Error' }
         '200':
           {
             description: Updated attempt,
@@ -982,27 +982,27 @@ paths:
                   { schema: { $ref: '#/components/schemas/Attempt' } },
               },
           }
-        '404': { $ref: '#/components/responses/Problem' }
-        '409': { $ref: '#/components/responses/Problem' }
-        '401': { $ref: '#/components/responses/Problem' }
-        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
         '429': { $ref: '#/components/responses/RateLimited' }
     delete:
       operationId: deleteProblemAttempt
       parameters: [{ $ref: '#/components/parameters/Revision' }]
       responses:
-        default: { $ref: '#/components/responses/Problem' }
+        default: { $ref: '#/components/responses/Error' }
         '204': { description: Deleted }
-        '404': { $ref: '#/components/responses/Problem' }
-        '409': { $ref: '#/components/responses/Problem' }
-        '401': { $ref: '#/components/responses/Problem' }
-        '403': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
         '429': { $ref: '#/components/responses/RateLimited' }
   /recommendations/current:
     get:
       operationId: getCurrentRecommendation
       responses:
-        default: { $ref: '#/components/responses/Problem' }
+        default: { $ref: '#/components/responses/Error' }
         '200':
           {
             description: Active recommendation,
@@ -1012,10 +1012,10 @@ paths:
                   { schema: { $ref: '#/components/schemas/Recommendation' } },
               },
           }
-        '404': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Error' }
         '429': { $ref: '#/components/responses/RateLimited' }
-        '401': { $ref: '#/components/responses/Problem' }
-        '403': { $ref: '#/components/responses/Problem' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
   /recommendations/current/dismiss:
     post:
       operationId: dismissCurrentRecommendation
@@ -1041,12 +1041,12 @@ paths:
             },
         }
       responses:
-        default: { $ref: '#/components/responses/Problem' }
+        default: { $ref: '#/components/responses/Error' }
         '204': { description: Dismissed }
-        '404': { $ref: '#/components/responses/Problem' }
+        '404': { $ref: '#/components/responses/Error' }
         '429': { $ref: '#/components/responses/RateLimited' }
-        '401': { $ref: '#/components/responses/Problem' }
-        '403': { $ref: '#/components/responses/Problem' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
   /mock-interviews/participants:
     get:
       operationId: listMockInterviewParticipants
@@ -1060,7 +1060,7 @@ paths:
           { name: query, in: query, schema: { type: string, maxLength: 100 } },
         ]
       responses:
-        default: { $ref: '#/components/responses/Problem' }
+        default: { $ref: '#/components/responses/Error' }
         '200':
           {
             description: Eligible mock-interview participant page,
@@ -1075,9 +1075,9 @@ paths:
                   },
               },
           }
-        '400': { $ref: '#/components/responses/Problem' }
-        '401': { $ref: '#/components/responses/Problem' }
-        '403': { $ref: '#/components/responses/Problem' }
+        '400': { $ref: '#/components/responses/Error' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
         '429': { $ref: '#/components/responses/RateLimited' }
   /mock-interviews:
     get:
@@ -1096,7 +1096,7 @@ paths:
           },
         ]
       responses:
-        default: { $ref: '#/components/responses/Problem' }
+        default: { $ref: '#/components/responses/Error' }
         '200':
           {
             description: Mock interview page,
@@ -1108,8 +1108,8 @@ paths:
                   },
               },
           }
-        '401': { $ref: '#/components/responses/Problem' }
-        '403': { $ref: '#/components/responses/Problem' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
         '429': { $ref: '#/components/responses/RateLimited' }
     post:
       operationId: createMockInterview
@@ -1125,7 +1125,7 @@ paths:
             },
         }
       responses:
-        default: { $ref: '#/components/responses/Problem' }
+        default: { $ref: '#/components/responses/Error' }
         '201':
           {
             description: Created mock interview,
@@ -1138,9 +1138,9 @@ paths:
                   },
               },
           }
-        '400': { $ref: '#/components/responses/Problem' }
-        '403': { $ref: '#/components/responses/Problem' }
-        '401': { $ref: '#/components/responses/Problem' }
+        '400': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '401': { $ref: '#/components/responses/Error' }
         '429': { $ref: '#/components/responses/RateLimited' }
   /mock-interviews/{id}:
     parameters: [{ $ref: '#/components/parameters/ID' }]
@@ -1159,7 +1159,7 @@ paths:
             },
         }
       responses:
-        default: { $ref: '#/components/responses/Problem' }
+        default: { $ref: '#/components/responses/Error' }
         '200':
           {
             description: Updated mock interview,
@@ -1172,19 +1172,19 @@ paths:
                   },
               },
           }
-        '403': { $ref: '#/components/responses/Problem' }
-        '409': { $ref: '#/components/responses/Problem' }
-        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+        '401': { $ref: '#/components/responses/Error' }
         '429': { $ref: '#/components/responses/RateLimited' }
     delete:
       operationId: deleteMockInterview
       parameters: [{ $ref: '#/components/parameters/Revision' }]
       responses:
-        default: { $ref: '#/components/responses/Problem' }
+        default: { $ref: '#/components/responses/Error' }
         '204': { description: Soft deleted }
-        '403': { $ref: '#/components/responses/Problem' }
-        '409': { $ref: '#/components/responses/Problem' }
-        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+        '401': { $ref: '#/components/responses/Error' }
         '429': { $ref: '#/components/responses/RateLimited' }
   /mock-interviews/{id}/rounds/{roundId}/review:
     parameters:
@@ -1204,7 +1204,7 @@ paths:
             },
         }
       responses:
-        default: { $ref: '#/components/responses/Problem' }
+        default: { $ref: '#/components/responses/Error' }
         '200':
           {
             description: Reviewed mock interview,
@@ -1217,9 +1217,9 @@ paths:
                   },
               },
           }
-        '403': { $ref: '#/components/responses/Problem' }
-        '409': { $ref: '#/components/responses/Problem' }
-        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+        '401': { $ref: '#/components/responses/Error' }
         '429': { $ref: '#/components/responses/RateLimited' }
   /mock-interviews/{id}/identity-correction:
     parameters: [{ $ref: '#/components/parameters/ID' }]
@@ -1238,7 +1238,7 @@ paths:
             },
         }
       responses:
-        default: { $ref: '#/components/responses/Problem' }
+        default: { $ref: '#/components/responses/Error' }
         '200':
           {
             description: Corrected mock interview,
@@ -1251,17 +1251,17 @@ paths:
                   },
               },
           }
-        '400': { $ref: '#/components/responses/Problem' }
-        '403': { $ref: '#/components/responses/Problem' }
-        '404': { $ref: '#/components/responses/Problem' }
-        '409': { $ref: '#/components/responses/Problem' }
-        '401': { $ref: '#/components/responses/Problem' }
+        '400': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+        '401': { $ref: '#/components/responses/Error' }
         '429': { $ref: '#/components/responses/RateLimited' }
   /admin/leetcode/sync:
     post:
       operationId: requestLeetcodeSync
       responses:
-        default: { $ref: '#/components/responses/Problem' }
+        default: { $ref: '#/components/responses/Error' }
         '202':
           {
             description: Sync accepted,
@@ -1271,9 +1271,9 @@ paths:
                   { schema: { $ref: '#/components/schemas/SyncAccepted' } },
               },
           }
-        '403': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Error' }
         '429': { $ref: '#/components/responses/RateLimited' }
-        '401': { $ref: '#/components/responses/Problem' }
+        '401': { $ref: '#/components/responses/Error' }
   /admin/users:
     get:
       operationId: listAdminUsers
@@ -1298,7 +1298,7 @@ paths:
           },
         ]
       responses:
-        default: { $ref: '#/components/responses/Problem' }
+        default: { $ref: '#/components/responses/Error' }
         '200':
           {
             description: Audited private account page,
@@ -1308,9 +1308,9 @@ paths:
                   { schema: { $ref: '#/components/schemas/UserPrivatePage' } },
               },
           }
-        '400': { $ref: '#/components/responses/Problem' }
-        '401': { $ref: '#/components/responses/Problem' }
-        '403': { $ref: '#/components/responses/Problem' }
+        '400': { $ref: '#/components/responses/Error' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
         '429': { $ref: '#/components/responses/RateLimited' }
   /admin/users/{id}/account-state:
     parameters: [{ $ref: '#/components/parameters/ID' }]
@@ -1328,7 +1328,7 @@ paths:
             },
         }
       responses:
-        default: { $ref: '#/components/responses/Problem' }
+        default: { $ref: '#/components/responses/Error' }
         '200':
           {
             description: Updated user after the authentication service synchronously applied and published the state change,
@@ -1338,13 +1338,13 @@ paths:
                   { schema: { $ref: '#/components/schemas/UserPrivate' } },
               },
           }
-        '400': { $ref: '#/components/responses/Problem' }
-        '403': { $ref: '#/components/responses/Problem' }
-        '404': { $ref: '#/components/responses/Problem' }
-        '409': { $ref: '#/components/responses/Problem' }
-        '502': { $ref: '#/components/responses/Problem' }
-        '503': { $ref: '#/components/responses/Problem' }
-        '401': { $ref: '#/components/responses/Problem' }
+        '400': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+        '502': { $ref: '#/components/responses/Error' }
+        '503': { $ref: '#/components/responses/Error' }
+        '401': { $ref: '#/components/responses/Error' }
         '429': { $ref: '#/components/responses/RateLimited' }
   /admin/users/{id}/global-roles:
     parameters: [{ $ref: '#/components/parameters/ID' }]
@@ -1360,7 +1360,7 @@ paths:
             },
         }
       responses:
-        default: { $ref: '#/components/responses/Problem' }
+        default: { $ref: '#/components/responses/Error' }
         '201':
           {
             description: Granted role. State is active only when the auth service confirms TOTP is configured; otherwise pending_mfa.,
@@ -1373,17 +1373,17 @@ paths:
                   },
               },
           }
-        '400': { $ref: '#/components/responses/Problem' }
-        '403': { $ref: '#/components/responses/Problem' }
-        '404': { $ref: '#/components/responses/Problem' }
-        '409': { $ref: '#/components/responses/Problem' }
-        '502': { $ref: '#/components/responses/Problem' }
-        '401': { $ref: '#/components/responses/Problem' }
+        '400': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+        '502': { $ref: '#/components/responses/Error' }
+        '401': { $ref: '#/components/responses/Error' }
         '429': { $ref: '#/components/responses/RateLimited' }
     get:
       operationId: listAdminUserGlobalRoles
       responses:
-        default: { $ref: '#/components/responses/Problem' }
+        default: { $ref: '#/components/responses/Error' }
         '200':
           {
             description: Active and pending global role assignments including their independent revisions,
@@ -1396,9 +1396,9 @@ paths:
                   },
               },
           }
-        '403': { $ref: '#/components/responses/Problem' }
-        '404': { $ref: '#/components/responses/Problem' }
-        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '401': { $ref: '#/components/responses/Error' }
         '429': { $ref: '#/components/responses/RateLimited' }
   /admin/users/{id}/global-roles/{role}:
     parameters:
@@ -1420,7 +1420,7 @@ paths:
             schema: { type: string, minLength: 1, maxLength: 500 },
           }
       responses:
-        default: { $ref: '#/components/responses/Problem' }
+        default: { $ref: '#/components/responses/Error' }
         '200':
           {
             description: Revoked role assignment,
@@ -1433,11 +1433,11 @@ paths:
                   },
               },
           }
-        '400': { $ref: '#/components/responses/Problem' }
-        '403': { $ref: '#/components/responses/Problem' }
-        '404': { $ref: '#/components/responses/Problem' }
-        '409': { $ref: '#/components/responses/Problem' }
-        '401': { $ref: '#/components/responses/Problem' }
+        '400': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+        '401': { $ref: '#/components/responses/Error' }
         '429': { $ref: '#/components/responses/RateLimited' }
 components:
   securitySchemes:
@@ -1472,12 +1472,12 @@ components:
         {
           application/json: { schema: { $ref: '#/components/schemas/Health' } },
         }
-    Problem:
+    Error:
       description: Request failed
       content:
         {
-          application/problem+json:
-            { schema: { $ref: '#/components/schemas/ProblemDetails' } },
+          application/json:
+            { schema: { $ref: '#/components/schemas/ErrorResponse' } },
         }
     RateLimited:
       description: Rate limited
@@ -1488,8 +1488,8 @@ components:
         }
       content:
         {
-          application/problem+json:
-            { schema: { $ref: '#/components/schemas/ProblemDetails' } },
+          application/json:
+            { schema: { $ref: '#/components/schemas/ErrorResponse' } },
         }
   schemas:
     Revision: { type: integer, format: int64, minimum: 1 }
@@ -2364,20 +2364,11 @@ components:
           pageInfo: { $ref: '#/components/schemas/PageInfo' },
           totalCount: { type: integer, format: int64, minimum: 0 },
         }
-    FieldError:
+    ErrorResponse:
       type: object
-      required: [field, message]
-      properties: { field: { type: string }, message: { type: string } }
-    ProblemDetails:
-      type: object
-      required: [type, title, status, detail, instance, code, requestId, errors]
+      required: [code, message, requestId]
+      additionalProperties: false
       properties:
-        type: { type: string, format: uri-reference }
-        title: { type: string }
-        status: { type: integer }
-        detail: { type: string }
-        instance: { type: string }
         code: { type: string }
+        message: { type: string }
         requestId: { type: string }
-        errors:
-          { type: array, items: { $ref: '#/components/schemas/FieldError' } }

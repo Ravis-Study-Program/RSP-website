@@ -84,7 +84,9 @@ func main() {
 	}
 
 	api := httpapi.New(httpapi.Config{Store: repository, Authenticator: authenticator, PublicOrigin: env("PUBLIC_ORIGIN", "http://localhost:8080"), CursorSecret: []byte(env("CURSOR_SECRET", "development-cursor-secret-change-me")), Logger: logger, Ready: ready, SyncLeetCode: syncLeetCode, SetAccountState: setAccountState, GetMFAState: getMFAState})
-	server := &http.Server{Addr: env("API_ADDR", ":4000"), Handler: api.Handler(), ReadHeaderTimeout: 5 * time.Second}
+	apiHandler := api.Handler()
+
+	server := &http.Server{Addr: env("API_ADDR", ":4000"), Handler: apiHandler, ReadHeaderTimeout: 5 * time.Second}
 	logger.Info("api listening", "address", server.Addr)
 	if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 		logger.Error("api stopped", "error", err)

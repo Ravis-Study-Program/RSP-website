@@ -115,9 +115,9 @@ func request(t *testing.T, f fixture, method, path, actor, body string) *httptes
 	return w
 }
 
-func problemCode(t *testing.T, w *httptest.ResponseRecorder) string {
+func errorCode(t *testing.T, w *httptest.ResponseRecorder) string {
 	t.Helper()
-	if got := w.Header().Get("Content-Type"); got != "application/problem+json" {
+	if got := w.Header().Get("Content-Type"); got != "application/json" {
 		t.Fatalf("content type %q body %s", got, w.Body.String())
 	}
 	var p map[string]any
@@ -125,15 +125,18 @@ func problemCode(t *testing.T, w *httptest.ResponseRecorder) string {
 		t.Fatal(err)
 	}
 
-	for _, key := range []string{"type", "title", "status", "detail", "instance", "code", "requestId", "errors"} {
+	for _, key := range []string{"code", "message", "requestId"} {
 		if _, ok := p[key]; !ok {
 			t.Fatalf("missing %s in %#v", key, p)
 		}
 	}
+	if len(p) != 3 {
+		t.Fatalf("unexpected error response fields: %#v", p)
+	}
 	return p["code"].(string)
 }
 
-func TestRequestContextNormalizesRequestIDAndRecoversWithCompleteProblem(t *testing.T) {
+func TestRequestContextNormalizesRequestIDAndRecoversWithCompleteError(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	handler := requestContext(logger, func(int, time.Duration) {}, http.HandlerFunc(func(http.ResponseWriter, *http.Request) {
 		panic("boom")
@@ -145,7 +148,7 @@ func TestRequestContextNormalizesRequestIDAndRecoversWithCompleteProblem(t *test
 	if w.Code != http.StatusInternalServerError || w.Header().Get("X-Request-ID") == r.Header.Get("X-Request-ID") {
 		t.Fatalf("status=%d requestID=%q", w.Code, w.Header().Get("X-Request-ID"))
 	}
-	if got := problemCode(t, w); got != "internal_error" {
+	if got := errorCode(t, w); got != "internal_error" {
 		t.Fatalf("code=%s body=%s", got, w.Body.String())
 	}
 
@@ -153,8 +156,8 @@ func TestRequestContextNormalizesRequestIDAndRecoversWithCompleteProblem(t *test
 	if err := json.Unmarshal(w.Body.Bytes(), &details); err != nil {
 		t.Fatal(err)
 	}
-	if details["detail"] == "" || details["instance"] != "/panic" {
-		t.Fatalf("incomplete problem: %#v", details)
+	if details["message"] == "" || details["requestId"] != w.Header().Get("X-Request-ID") {
+		t.Fatalf("incomplete error response: %#v", details)
 	}
 }
 
@@ -163,7 +166,7 @@ func TestRequestBodyLimitRunsBeforeOpenAPIValidation(t *testing.T) {
 	body := strings.Repeat("x", int(maxRequestBodyBytes)+1)
 	w := request(t, f, http.MethodPatch, "/api/v2/me", "student", body)
 
-	if w.Code != http.StatusBadRequest || problemCode(t, w) != "invalid_request_body" {
+	if w.Code != http.StatusBadRequest || errorCode(t, w) != "invalid_request_body" {
 		t.Fatalf("oversized body: %d %s", w.Code, w.Body.String())
 	}
 	if f.repository.Users["student"].Name != "Student" {
@@ -177,14 +180,14 @@ func TestHealthAndAuthenticationProblemContract(t *testing.T) {
 		t.Fatal(w.Code)
 	}
 	w := request(t, f, "GET", "/api/v2/me", "", "")
-	if w.Code != 401 || problemCode(t, w) != "authentication_required" {
+	if w.Code != 401 || errorCode(t, w) != "authentication_required" {
 		t.Fatalf("got %d %s", w.Code, w.Body.String())
 	}
 	if bytes.Contains(w.Body.Bytes(), []byte("missing token")) || !bytes.Contains(w.Body.Bytes(), []byte("valid access token")) {
 		t.Fatalf("authentication cause leaked or stable detail missing: %s", w.Body.String())
 	}
 	w = request(t, f, "GET", "/api/v2/me", "suspended", "")
-	if w.Code != 403 || problemCode(t, w) != "account_unavailable" {
+	if w.Code != 403 || errorCode(t, w) != "account_unavailable" {
 		t.Fatal(w.Code)
 	}
 }
@@ -197,7 +200,7 @@ func TestPrivateFieldsAndActorIDSpoofing(t *testing.T) {
 	}
 	body := `{"problemId":"problem","outcome":"independently_solved","confidence":5,"minutes":12,"attemptedAt":"2026-08-13T00:00:00Z","userId":"other"}`
 	w = request(t, f, "POST", "/api/v2/problem-attempts", "student", body)
-	if w.Code != 400 || problemCode(t, w) != "openapi_validation_failed" {
+	if w.Code != 400 || errorCode(t, w) != "openapi_validation_failed" {
 		t.Fatalf("actor id accepted: %d %s", w.Code, w.Body.String())
 	}
 }
@@ -226,7 +229,7 @@ func TestProfileUpdateChangesOnlyActorAndUsesServerUniqueSlugSuggestion(t *testi
 		t.Fatalf("another profile changed: %#v", f.repository.Users["other"])
 	}
 	w = request(t, f, http.MethodPatch, "/api/v2/me", "student", `{"name":"Updated Student","slug":"other","timezone":"Australia/Adelaide","revision":2}`)
-	if w.Code != http.StatusConflict || problemCode(t, w) != "duplicate" {
+	if w.Code != http.StatusConflict || errorCode(t, w) != "duplicate" {
 		t.Fatalf("duplicate slug update: %d %s", w.Code, w.Body.String())
 	}
 }
@@ -238,7 +241,7 @@ func TestFormerMemberCanUseOwnPracticeButNotAnotherMembersHistory(t *testing.T) 
 		t.Fatalf("former member own practice: %d %s", w.Code, w.Body.String())
 	}
 	w = request(t, f, "GET", "/api/v2/problem-attempts?userId=other", "former-mentor", "")
-	if w.Code != http.StatusForbidden || problemCode(t, w) != "directory_access_required" {
+	if w.Code != http.StatusForbidden || errorCode(t, w) != "directory_access_required" {
 		t.Fatalf("former member viewed another history: %d %s", w.Code, w.Body.String())
 	}
 }
@@ -285,7 +288,7 @@ func TestPracticeSettingsRequireRelationshipEnablement(t *testing.T) {
 		t.Fatalf("mentor target settings: %d %s", w.Code, w.Body.String())
 	}
 	w = request(t, f, "PATCH", "/api/v2/me/practice-settings", "student", `{"premiumOptIn":true,"easyMinutes":25,"mediumMinutes":35,"hardMinutes":50,"revision":1}`)
-	if w.Code != http.StatusForbidden || problemCode(t, w) != "practice_goals_not_enabled" {
+	if w.Code != http.StatusForbidden || errorCode(t, w) != "practice_goals_not_enabled" {
 		t.Fatalf("unapproved goals changed: %d %s", w.Code, w.Body.String())
 	}
 	w = request(t, f, "POST", "/api/v2/users/student/practice-goals/enable", "mentor", `{"seasonId":"season","revision":1}`)
@@ -305,7 +308,7 @@ func TestIDORRevisionConflictAndOrigin(t *testing.T) {
 		t.Fatalf("foreign delete leaked existence: %d", w.Code)
 	}
 	w = request(t, f, "DELETE", "/api/v2/problem-attempts/owned?revision=2", "student", "")
-	if w.Code != 409 || problemCode(t, w) != "stale_revision" {
+	if w.Code != 409 || errorCode(t, w) != "stale_revision" {
 		t.Fatalf("stale delete: %d", w.Code)
 	}
 	r := httptest.NewRequest("DELETE", "/api/v2/problem-attempts/owned?revision=1", nil)
@@ -313,7 +316,7 @@ func TestIDORRevisionConflictAndOrigin(t *testing.T) {
 	r.Header.Set("Origin", "https://evil.test")
 	w = httptest.NewRecorder()
 	f.handler.ServeHTTP(w, r)
-	if w.Code != 403 || problemCode(t, w) != "origin_rejected" {
+	if w.Code != 403 || errorCode(t, w) != "origin_rejected" {
 		t.Fatalf("origin: %d", w.Code)
 	}
 }
@@ -336,7 +339,7 @@ func TestPaginationCursorIsFilterBound(t *testing.T) {
 		t.Fatal("missing next cursor")
 	}
 	w = request(t, f, "GET", "/api/v2/leetcode-problems?limit=2&difficulty=hard&cursor="+*page.PageInfo.NextCursor, "student", "")
-	if w.Code != 400 || problemCode(t, w) != "invalid_cursor" {
+	if w.Code != 400 || errorCode(t, w) != "invalid_cursor" {
 		t.Fatalf("cursor rebound: %d", w.Code)
 	}
 }
@@ -352,7 +355,7 @@ func TestCreateStatusRateLimitAndRetryAfter(t *testing.T) {
 		_ = request(t, f, "GET", "/api/v2/recommendations/current", "student", "")
 	}
 	w = request(t, f, "GET", "/api/v2/recommendations/current", "student", "")
-	if w.Code != 429 || w.Header().Get("Retry-After") == "" || problemCode(t, w) != "rate_limited" {
+	if w.Code != 429 || w.Header().Get("Retry-After") == "" || errorCode(t, w) != "rate_limited" {
 		t.Fatalf("rate limit: %d %#v", w.Code, w.Header())
 	}
 }
@@ -419,12 +422,12 @@ func TestSeasonSlugWeekBoundsAndClosedWriteLocks(t *testing.T) {
 	season.Status = "closed"
 	f.repository.Seasons["season"] = season
 	w = request(t, f, "POST", "/api/v2/seasons/season/members/other-enrollment/promote", "director", `{"role":"mentor","revision":1}`)
-	if w.Code != http.StatusConflict || problemCode(t, w) != "season_closed" {
+	if w.Code != http.StatusConflict || errorCode(t, w) != "season_closed" {
 		t.Fatalf("closed enrollment promoted: %d %s", w.Code, w.Body.String())
 	}
 	update := `{"name":"Season","slug":"season","startAt":"` + season.StartAt.UTC().Format(time.RFC3339) + `","endAt":"` + season.EndAt.UTC().Format(time.RFC3339) + `","location":"Adelaide","imageUrl":"https://rsp.test/image","resourcesUrl":"https://rsp.test/resources","revision":1}`
 	w = request(t, f, "PATCH", "/api/v2/seasons/season", "director", update)
-	if w.Code != http.StatusConflict || problemCode(t, w) != "season_closed" {
+	if w.Code != http.StatusConflict || errorCode(t, w) != "season_closed" {
 		t.Fatalf("closed season definition updated: %d %s", w.Code, w.Body.String())
 	}
 }
@@ -460,7 +463,7 @@ func TestIdentityLifecycleRequiresServiceTokenAndCreatesLink(t *testing.T) {
 	trailing.Header.Set("Content-Type", "application/json")
 	w = httptest.NewRecorder()
 	f.handler.ServeHTTP(w, trailing)
-	if w.Code != http.StatusBadRequest || problemCode(t, w) != "validation_failed" {
+	if w.Code != http.StatusBadRequest || errorCode(t, w) != "validation_failed" {
 		t.Fatalf("malformed trailing JSON accepted: %d %s", w.Code, w.Body.String())
 	}
 	r := httptest.NewRequest("POST", "/internal/auth/lifecycle-events", strings.NewReader(body))
@@ -481,7 +484,7 @@ func TestMockEligibilityComesFromRepositoryAndInterviewsSurviveAPIRecreation(t *
 	f.repository.Enrollments["student-member"] = programme.EnrollmentRecord{ID: "student-member", SeasonID: "season", UserID: "student", Role: "student", State: "active", Revision: 1}
 	body := `{"interviewee":{"userId":"other","activeMember":true},"occurredAt":"2026-08-13T00:00:00Z","durationMinutes":60,"rounds":[{"id":"round","type":"behavioural","scores":{"behavioural":7},"reviewed":false,"intervieweeComment":""}]}`
 	w := request(t, f, "POST", "/api/v2/mock-interviews", "student", body)
-	if w.Code != http.StatusBadRequest || problemCode(t, w) != "openapi_validation_failed" {
+	if w.Code != http.StatusBadRequest || errorCode(t, w) != "openapi_validation_failed" {
 		t.Fatalf("caller-supplied eligibility accepted: %d %s", w.Code, w.Body.String())
 	}
 
@@ -510,7 +513,7 @@ func TestClosedSeasonLocksLinkedMockMutations(t *testing.T) {
 	f.repository.Mocks["closed-mock"] = mockinterviews.Interview{ID: "closed-mock", InterviewerID: "student", IntervieweeID: "other", SeasonID: &seasonID, OccurredAt: season.StartAt, DurationMinutes: 60, Rounds: []mockinterviews.Round{{ID: "round", Type: mockinterviews.Behavioural, Scores: mockinterviews.Scores{Behavioural: &score}}}, Revision: 1}
 
 	w := request(t, f, "DELETE", "/api/v2/mock-interviews/closed-mock?revision=1", "student", "")
-	if w.Code != http.StatusConflict || problemCode(t, w) != "season_closed" {
+	if w.Code != http.StatusConflict || errorCode(t, w) != "season_closed" {
 		t.Fatalf("closed mock mutation: %d %s", w.Code, w.Body.String())
 	}
 }

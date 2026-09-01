@@ -8,7 +8,7 @@ import { useParams } from 'react-router-dom';
 import { z } from 'zod';
 
 import { adaptCurrentPerson, adaptCurrentUser } from '@/api/adapters';
-import { ApiProblem, apiRequest } from '@/api/client';
+import { ApiError, apiRequest } from '@/api/client';
 import type { Me } from '@/api/generated/models';
 import {
   currentUserOptions,
@@ -391,7 +391,7 @@ function EditProfileDialog({
       setOpen(false);
     } catch (error) {
       setRequestError(
-        error instanceof ApiProblem && error.problem.status === 409
+        error instanceof ApiError && error.status === 409
           ? 'That profile slug is already in use, or this profile changed elsewhere. Choose another slug or reopen the form.'
           : error instanceof Error
             ? error.message

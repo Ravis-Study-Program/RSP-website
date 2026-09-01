@@ -16,7 +16,7 @@ import { useBeforeUnload } from 'react-router-dom';
 import { z } from 'zod';
 
 import { adaptCurrentPerson, adaptMockInterview } from '@/api/adapters';
-import { ApiProblem, apiRequest } from '@/api/client';
+import { ApiError, apiRequest } from '@/api/client';
 import type {
   LeetcodeProblem,
   MockIdentityCorrection,
@@ -758,10 +758,7 @@ function EditMockDialog({
       onChanged(changed);
       setOpen(false);
     } catch (requestError) {
-      if (
-        requestError instanceof ApiProblem &&
-        requestError.problem.status === 409
-      ) {
+      if (requestError instanceof ApiError && requestError.status === 409) {
         onChanged();
         setError(
           'This interview changed elsewhere. The latest version is being loaded; close and reopen before editing.',
@@ -939,10 +936,7 @@ function RoundReviewDialog({
       onChanged();
       setOpen(false);
     } catch (requestError) {
-      if (
-        requestError instanceof ApiProblem &&
-        requestError.problem.status === 409
-      ) {
+      if (requestError instanceof ApiError && requestError.status === 409) {
         onChanged();
         setError(
           'This interview changed elsewhere. The latest version is being loaded; reopen the review before trying again.',
@@ -1133,10 +1127,7 @@ function IdentityCorrectionDialog({
       }
       setOpen(false);
     } catch (requestError) {
-      if (
-        requestError instanceof ApiProblem &&
-        requestError.problem.status === 409
-      ) {
+      if (requestError instanceof ApiError && requestError.status === 409) {
         onChanged();
         setError(
           'This interview changed elsewhere. The latest version is being loaded.',

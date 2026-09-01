@@ -1,4 +1,8 @@
-import { clearAccessToken, getAccessToken } from '@/api/client';
+import {
+  clearAccessToken,
+  errorFromResponse,
+  getAccessToken,
+} from '@/api/client';
 
 function jwt(payload: Record<string, unknown>) {
   const encoded = btoa(JSON.stringify(payload))
@@ -62,7 +66,32 @@ describe('Better Auth access token acquisition', () => {
     );
 
     await expect(getAccessToken()).rejects.toMatchObject({
-      problem: { code: 'invalid_auth_token' },
+      response: { code: 'invalid_auth_token' },
+    });
+  });
+});
+
+describe('API errors', () => {
+  it('keeps the HTTP status outside the compact JSON error response', async () => {
+    const error = await errorFromResponse(
+      new Response(
+        JSON.stringify({
+          code: 'stale_revision',
+          message: 'The resource changed since it was loaded.',
+          requestId: 'request-123',
+        }),
+        { status: 409, headers: { 'Content-Type': 'application/json' } },
+      ),
+    );
+
+    expect(error).toMatchObject({
+      status: 409,
+      message: 'The resource changed since it was loaded.',
+      response: {
+        code: 'stale_revision',
+        message: 'The resource changed since it was loaded.',
+        requestId: 'request-123',
+      },
     });
   });
 });

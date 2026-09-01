@@ -119,7 +119,7 @@ func requestContext(logger *slog.Logger, observe func(int, time.Duration), next 
 		// Deferred work runs after the selected endpoint returns or panics.
 		defer func() {
 			if recovered := recover(); recovered != nil {
-				writeErrorResponse(response, r, http.StatusInternalServerError, "internal_error", "Internal server error", "The request could not be completed.")
+				writeErrorResponse(response, http.StatusInternalServerError, "internal_error", "The request could not be completed.")
 				logger.Error("request panic", "requestId", requestID, "error", fmt.Sprint(recovered))
 			}
 			if response.status == 0 {
@@ -189,7 +189,7 @@ func (a *API) live(w http.ResponseWriter, _ *http.Request) {
 func (a *API) readiness(w http.ResponseWriter, r *http.Request) {
 	if a.ready != nil {
 		if err := a.ready(); err != nil {
-			writeErrorResponse(w, r, 503, "not_ready", "Service unavailable", "A required dependency is unavailable.")
+			writeErrorResponse(w, 503, "not_ready", "A required dependency is unavailable.")
 			return
 		}
 	}
@@ -208,8 +208,4 @@ func (a *API) openapi(w http.ResponseWriter, _ *http.Request) {
 	}
 
 	writeJSONResponse(w, http.StatusOK, spec)
-}
-
-func validation(a *API, w http.ResponseWriter, r *http.Request, detail string) {
-	writeErrorResponse(w, r, 400, "validation_failed", "Validation failed", detail)
 }

@@ -208,7 +208,7 @@ func TestMutableResourceFamiliesRejectStaleRevisionsWithCompleteProblems(t *test
 				testCase.setup(&f)
 			}
 			response := request(t, f, testCase.method, testCase.path, testCase.actor, testCase.body)
-			if response.Code != testCase.want || problemCode(t, response) != "stale_revision" {
+			if response.Code != testCase.want || errorCode(t, response) != "stale_revision" {
 				t.Fatalf("status=%d want=%d body=%s", response.Code, testCase.want, response.Body.String())
 			}
 		})

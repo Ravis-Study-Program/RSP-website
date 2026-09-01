@@ -10,13 +10,6 @@ import (
 
 const maxRequestBodyBytes int64 = 1 << 20
 
-// validationResponseWriter lets the validator's error callback access the
-// request that failed, so problem responses can include its path and request ID.
-type validationResponseWriter struct {
-	http.ResponseWriter
-	request *http.Request
-}
-
 // validateOpenAPI checks the HTTP request against api/openapi.yaml before the
 // route handler runs. Authentication is intentionally left to protected, which
 // validates the bearer token and loads the application's actor.
@@ -30,22 +23,16 @@ func (a *API) validateOpenAPI(next http.Handler) http.Handler {
 		Options:               openapi3filter.Options{AuthenticationFunc: openapi3filter.NoopAuthenticationFunc},
 		SilenceServersWarning: true,
 		ErrorHandler: func(w http.ResponseWriter, message string, status int) {
-			r := &http.Request{}
-			if wrapped, ok := w.(*validationResponseWriter); ok {
-				r = wrapped.request
-			}
-			writeErrorResponse(w, r, status, "openapi_validation_failed", "Request validation failed", message)
+			writeErrorResponse(w, status, "openapi_validation_failed", message)
 		},
 	})(next)
 
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		validator.ServeHTTP(&validationResponseWriter{ResponseWriter: w, request: r}, r)
-	})
+	return validator
 }
 
 // limitRequestBody prevents the OpenAPI validator from reading an unbounded
 // request body. When Content-Length is known, it can also return the API's
-// specific oversized-body problem before validation starts.
+// specific oversized-body error before validation starts.
 func (a *API) limitRequestBody(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Body == nil {
@@ -53,7 +40,7 @@ func (a *API) limitRequestBody(next http.Handler) http.Handler {
 			return
 		}
 		if r.ContentLength > maxRequestBodyBytes {
-			writeErrorResponse(w, r, http.StatusBadRequest, "invalid_request_body", "Invalid request body", "The request body is too large or unreadable.")
+			writeErrorResponse(w, http.StatusBadRequest, "invalid_request_body", "The request body is too large or unreadable.")
 			return
 		}
 

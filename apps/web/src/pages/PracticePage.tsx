@@ -14,7 +14,7 @@ import { useBeforeUnload } from 'react-router-dom';
 import { z } from 'zod';
 
 import { adaptAttempt, displayDifficulty, indexProblems } from '@/api/adapters';
-import { ApiProblem, apiRequest } from '@/api/client';
+import { ApiError, apiRequest } from '@/api/client';
 import type {
   Attempt as ApiAttempt,
   AttemptMutation,
@@ -198,13 +198,13 @@ export function PracticePage() {
     } catch (error) {
       setRemovedIds((ids) => ids.filter((id) => id !== attempt.id));
       setOperationMessage(
-        error instanceof ApiProblem && error.problem.status === 409
+        error instanceof ApiError && error.status === 409
           ? 'That attempt changed elsewhere. Refreshing the latest history.'
           : error instanceof Error
             ? error.message
             : 'Unable to delete the attempt.',
       );
-      if (error instanceof ApiProblem && error.problem.status === 409)
+      if (error instanceof ApiError && error.status === 409)
         void attemptsQuery.refetch();
     }
   };
@@ -506,7 +506,7 @@ function AttemptDialog({
         );
         onSaved(adaptAttempt(apiSaved, indexProblems(problems)));
       } catch (error) {
-        if (error instanceof ApiProblem && error.problem.status === 409) {
+        if (error instanceof ApiError && error.status === 409) {
           await onConflict?.();
           reset();
           setRequestError(

@@ -37,6 +37,7 @@ import type {
   EnrollmentCreate,
   EnrollmentPage,
   EnrollmentUpdate,
+  ErrorResponse,
   GetOpenAPI200,
   GetUser200,
   GlobalRole,
@@ -70,7 +71,6 @@ import type {
   PracticeSettings,
   PracticeSettingsMutation,
   ProblemPage,
-  ProblemResponse,
   Promotion,
   RateLimitedResponse,
   ReasonedRevision,
@@ -145,7 +145,7 @@ export type getLivenessResponse200 = {
 };
 
 export type getLivenessResponseDefault = {
-  data: ProblemResponse;
+  data: ErrorResponse;
   status: Exclude<HTTPStatusCodes, 200>;
 };
 
@@ -179,7 +179,7 @@ export const getGetLivenessQueryKey = () => {
 
 export const getGetLivenessQueryOptions = <
   TData = Awaited<ReturnType<typeof getLiveness>>,
-  TError = ProblemResponse,
+  TError = ErrorResponse,
 >(options?: {
   query?: Partial<
     UseQueryOptions<Awaited<ReturnType<typeof getLiveness>>, TError, TData>
@@ -204,11 +204,11 @@ export const getGetLivenessQueryOptions = <
 export type GetLivenessQueryResult = NonNullable<
   Awaited<ReturnType<typeof getLiveness>>
 >;
-export type GetLivenessQueryError = ProblemResponse;
+export type GetLivenessQueryError = ErrorResponse;
 
 export function useGetLiveness<
   TData = Awaited<ReturnType<typeof getLiveness>>,
-  TError = ProblemResponse,
+  TError = ErrorResponse,
 >(
   options: {
     query: Partial<
@@ -230,7 +230,7 @@ export function useGetLiveness<
 };
 export function useGetLiveness<
   TData = Awaited<ReturnType<typeof getLiveness>>,
-  TError = ProblemResponse,
+  TError = ErrorResponse,
 >(
   options?: {
     query?: Partial<
@@ -252,7 +252,7 @@ export function useGetLiveness<
 };
 export function useGetLiveness<
   TData = Awaited<ReturnType<typeof getLiveness>>,
-  TError = ProblemResponse,
+  TError = ErrorResponse,
 >(
   options?: {
     query?: Partial<
@@ -267,7 +267,7 @@ export function useGetLiveness<
 
 export function useGetLiveness<
   TData = Awaited<ReturnType<typeof getLiveness>>,
-  TError = ProblemResponse,
+  TError = ErrorResponse,
 >(
   options?: {
     query?: Partial<
@@ -297,12 +297,12 @@ export type getReadinessResponse200 = {
 };
 
 export type getReadinessResponse503 = {
-  data: ProblemResponse;
+  data: ErrorResponse;
   status: 503;
 };
 
 export type getReadinessResponseDefault = {
-  data: ProblemResponse;
+  data: ErrorResponse;
   status: Exclude<HTTPStatusCodes, 200 | 503>;
 };
 
@@ -339,7 +339,7 @@ export const getGetReadinessQueryKey = () => {
 
 export const getGetReadinessQueryOptions = <
   TData = Awaited<ReturnType<typeof getReadiness>>,
-  TError = ProblemResponse,
+  TError = ErrorResponse,
 >(options?: {
   query?: Partial<
     UseQueryOptions<Awaited<ReturnType<typeof getReadiness>>, TError, TData>
@@ -364,11 +364,11 @@ export const getGetReadinessQueryOptions = <
 export type GetReadinessQueryResult = NonNullable<
   Awaited<ReturnType<typeof getReadiness>>
 >;
-export type GetReadinessQueryError = ProblemResponse;
+export type GetReadinessQueryError = ErrorResponse;
 
 export function useGetReadiness<
   TData = Awaited<ReturnType<typeof getReadiness>>,
-  TError = ProblemResponse,
+  TError = ErrorResponse,
 >(
   options: {
     query: Partial<
@@ -390,7 +390,7 @@ export function useGetReadiness<
 };
 export function useGetReadiness<
   TData = Awaited<ReturnType<typeof getReadiness>>,
-  TError = ProblemResponse,
+  TError = ErrorResponse,
 >(
   options?: {
     query?: Partial<
@@ -412,7 +412,7 @@ export function useGetReadiness<
 };
 export function useGetReadiness<
   TData = Awaited<ReturnType<typeof getReadiness>>,
-  TError = ProblemResponse,
+  TError = ErrorResponse,
 >(
   options?: {
     query?: Partial<
@@ -427,7 +427,7 @@ export function useGetReadiness<
 
 export function useGetReadiness<
   TData = Awaited<ReturnType<typeof getReadiness>>,
-  TError = ProblemResponse,
+  TError = ErrorResponse,
 >(
   options?: {
     query?: Partial<
@@ -457,7 +457,7 @@ export type getMetricsResponse200 = {
 };
 
 export type getMetricsResponseDefault = {
-  data: ProblemResponse;
+  data: ErrorResponse;
   status: Exclude<HTTPStatusCodes, 200>;
 };
 
@@ -491,7 +491,7 @@ export const getGetMetricsQueryKey = () => {
 
 export const getGetMetricsQueryOptions = <
   TData = Awaited<ReturnType<typeof getMetrics>>,
-  TError = ProblemResponse,
+  TError = ErrorResponse,
 >(options?: {
   query?: Partial<
     UseQueryOptions<Awaited<ReturnType<typeof getMetrics>>, TError, TData>
@@ -516,11 +516,11 @@ export const getGetMetricsQueryOptions = <
 export type GetMetricsQueryResult = NonNullable<
   Awaited<ReturnType<typeof getMetrics>>
 >;
-export type GetMetricsQueryError = ProblemResponse;
+export type GetMetricsQueryError = ErrorResponse;
 
 export function useGetMetrics<
   TData = Awaited<ReturnType<typeof getMetrics>>,
-  TError = ProblemResponse,
+  TError = ErrorResponse,
 >(
   options: {
     query: Partial<
@@ -542,7 +542,7 @@ export function useGetMetrics<
 };
 export function useGetMetrics<
   TData = Awaited<ReturnType<typeof getMetrics>>,
-  TError = ProblemResponse,
+  TError = ErrorResponse,
 >(
   options?: {
     query?: Partial<
@@ -564,7 +564,7 @@ export function useGetMetrics<
 };
 export function useGetMetrics<
   TData = Awaited<ReturnType<typeof getMetrics>>,
-  TError = ProblemResponse,
+  TError = ErrorResponse,
 >(
   options?: {
     query?: Partial<
@@ -579,7 +579,7 @@ export function useGetMetrics<
 
 export function useGetMetrics<
   TData = Awaited<ReturnType<typeof getMetrics>>,
-  TError = ProblemResponse,
+  TError = ErrorResponse,
 >(
   options?: {
     query?: Partial<
@@ -609,7 +609,7 @@ export type getOpenAPIResponse200 = {
 };
 
 export type getOpenAPIResponseDefault = {
-  data: ProblemResponse;
+  data: ErrorResponse;
   status: Exclude<HTTPStatusCodes, 200>;
 };
 
@@ -643,7 +643,7 @@ export const getGetOpenAPIQueryKey = () => {
 
 export const getGetOpenAPIQueryOptions = <
   TData = Awaited<ReturnType<typeof getOpenAPI>>,
-  TError = ProblemResponse,
+  TError = ErrorResponse,
 >(options?: {
   query?: Partial<
     UseQueryOptions<Awaited<ReturnType<typeof getOpenAPI>>, TError, TData>
@@ -668,11 +668,11 @@ export const getGetOpenAPIQueryOptions = <
 export type GetOpenAPIQueryResult = NonNullable<
   Awaited<ReturnType<typeof getOpenAPI>>
 >;
-export type GetOpenAPIQueryError = ProblemResponse;
+export type GetOpenAPIQueryError = ErrorResponse;
 
 export function useGetOpenAPI<
   TData = Awaited<ReturnType<typeof getOpenAPI>>,
-  TError = ProblemResponse,
+  TError = ErrorResponse,
 >(
   options: {
     query: Partial<
@@ -694,7 +694,7 @@ export function useGetOpenAPI<
 };
 export function useGetOpenAPI<
   TData = Awaited<ReturnType<typeof getOpenAPI>>,
-  TError = ProblemResponse,
+  TError = ErrorResponse,
 >(
   options?: {
     query?: Partial<
@@ -716,7 +716,7 @@ export function useGetOpenAPI<
 };
 export function useGetOpenAPI<
   TData = Awaited<ReturnType<typeof getOpenAPI>>,
-  TError = ProblemResponse,
+  TError = ErrorResponse,
 >(
   options?: {
     query?: Partial<
@@ -731,7 +731,7 @@ export function useGetOpenAPI<
 
 export function useGetOpenAPI<
   TData = Awaited<ReturnType<typeof getOpenAPI>>,
-  TError = ProblemResponse,
+  TError = ErrorResponse,
 >(
   options?: {
     query?: Partial<
@@ -761,12 +761,12 @@ export type getMeResponse200 = {
 };
 
 export type getMeResponse401 = {
-  data: ProblemResponse;
+  data: ErrorResponse;
   status: 401;
 };
 
 export type getMeResponse403 = {
-  data: ProblemResponse;
+  data: ErrorResponse;
   status: 403;
 };
 
@@ -776,7 +776,7 @@ export type getMeResponse429 = {
 };
 
 export type getMeResponseDefault = {
-  data: ProblemResponse;
+  data: ErrorResponse;
   status: Exclude<HTTPStatusCodes, 200 | 401 | 403 | 429>;
 };
 
@@ -811,7 +811,7 @@ export const getGetMeQueryKey = () => {
 
 export const getGetMeQueryOptions = <
   TData = Awaited<ReturnType<typeof getMe>>,
-  TError = ProblemResponse | RateLimitedResponse,
+  TError = ErrorResponse | RateLimitedResponse,
 >(options?: {
   query?: Partial<
     UseQueryOptions<Awaited<ReturnType<typeof getMe>>, TError, TData>
@@ -834,11 +834,11 @@ export const getGetMeQueryOptions = <
 };
 
 export type GetMeQueryResult = NonNullable<Awaited<ReturnType<typeof getMe>>>;
-export type GetMeQueryError = ProblemResponse | RateLimitedResponse;
+export type GetMeQueryError = ErrorResponse | RateLimitedResponse;
 
 export function useGetMe<
   TData = Awaited<ReturnType<typeof getMe>>,
-  TError = ProblemResponse | RateLimitedResponse,
+  TError = ErrorResponse | RateLimitedResponse,
 >(
   options: {
     query: Partial<
@@ -860,7 +860,7 @@ export function useGetMe<
 };
 export function useGetMe<
   TData = Awaited<ReturnType<typeof getMe>>,
-  TError = ProblemResponse | RateLimitedResponse,
+  TError = ErrorResponse | RateLimitedResponse,
 >(
   options?: {
     query?: Partial<
@@ -882,7 +882,7 @@ export function useGetMe<
 };
 export function useGetMe<
   TData = Awaited<ReturnType<typeof getMe>>,
-  TError = ProblemResponse | RateLimitedResponse,
+  TError = ErrorResponse | RateLimitedResponse,
 >(
   options?: {
     query?: Partial<
@@ -897,7 +897,7 @@ export function useGetMe<
 
 export function useGetMe<
   TData = Awaited<ReturnType<typeof getMe>>,
-  TError = ProblemResponse | RateLimitedResponse,
+  TError = ErrorResponse | RateLimitedResponse,
 >(
   options?: {
     query?: Partial<
@@ -927,22 +927,22 @@ export type updateMeResponse200 = {
 };
 
 export type updateMeResponse400 = {
-  data: ProblemResponse;
+  data: ErrorResponse;
   status: 400;
 };
 
 export type updateMeResponse401 = {
-  data: ProblemResponse;
+  data: ErrorResponse;
   status: 401;
 };
 
 export type updateMeResponse403 = {
-  data: ProblemResponse;
+  data: ErrorResponse;
   status: 403;
 };
 
 export type updateMeResponse409 = {
-  data: ProblemResponse;
+  data: ErrorResponse;
   status: 409;
 };
 
@@ -952,7 +952,7 @@ export type updateMeResponse429 = {
 };
 
 export type updateMeResponseDefault = {
-  data: ProblemResponse;
+  data: ErrorResponse;
   status: Exclude<HTTPStatusCodes, 200 | 400 | 401 | 403 | 409 | 429>;
 };
 
@@ -989,7 +989,7 @@ export const updateMe = async (
 };
 
 export const getUpdateMeMutationOptions = <
-  TError = ProblemResponse | RateLimitedResponse,
+  TError = ErrorResponse | RateLimitedResponse,
   TContext = unknown,
 >(options?: {
   mutation?: UseMutationOptions<
@@ -1030,10 +1030,10 @@ export type UpdateMeMutationResult = NonNullable<
   Awaited<ReturnType<typeof updateMe>>
 >;
 export type UpdateMeMutationBody = UpdateMe;
-export type UpdateMeMutationError = ProblemResponse | RateLimitedResponse;
+export type UpdateMeMutationError = ErrorResponse | RateLimitedResponse;
 
 export const useUpdateMe = <
-  TError = ProblemResponse | RateLimitedResponse,
+  TError = ErrorResponse | RateLimitedResponse,
   TContext = unknown,
 >(
   options?: {
@@ -1066,12 +1066,12 @@ export type suggestMeSlugResponse200 = {
 };
 
 export type suggestMeSlugResponse401 = {
-  data: ProblemResponse;
+  data: ErrorResponse;
   status: 401;
 };
 
 export type suggestMeSlugResponse403 = {
-  data: ProblemResponse;
+  data: ErrorResponse;
   status: 403;
 };
 
@@ -1081,7 +1081,7 @@ export type suggestMeSlugResponse429 = {
 };
 
 export type suggestMeSlugResponseDefault = {
-  data: ProblemResponse;
+  data: ErrorResponse;
   status: Exclude<HTTPStatusCodes, 200 | 401 | 403 | 429>;
 };
 
@@ -1120,7 +1120,7 @@ export const getSuggestMeSlugQueryKey = () => {
 
 export const getSuggestMeSlugQueryOptions = <
   TData = Awaited<ReturnType<typeof suggestMeSlug>>,
-  TError = ProblemResponse | RateLimitedResponse,
+  TError = ErrorResponse | RateLimitedResponse,
 >(options?: {
   query?: Partial<
     UseQueryOptions<Awaited<ReturnType<typeof suggestMeSlug>>, TError, TData>
@@ -1145,11 +1145,11 @@ export const getSuggestMeSlugQueryOptions = <
 export type SuggestMeSlugQueryResult = NonNullable<
   Awaited<ReturnType<typeof suggestMeSlug>>
 >;
-export type SuggestMeSlugQueryError = ProblemResponse | RateLimitedResponse;
+export type SuggestMeSlugQueryError = ErrorResponse | RateLimitedResponse;
 
 export function useSuggestMeSlug<
   TData = Awaited<ReturnType<typeof suggestMeSlug>>,
-  TError = ProblemResponse | RateLimitedResponse,
+  TError = ErrorResponse | RateLimitedResponse,
 >(
   options: {
     query: Partial<
@@ -1171,7 +1171,7 @@ export function useSuggestMeSlug<
 };
 export function useSuggestMeSlug<
   TData = Awaited<ReturnType<typeof suggestMeSlug>>,
-  TError = ProblemResponse | RateLimitedResponse,
+  TError = ErrorResponse | RateLimitedResponse,
 >(
   options?: {
     query?: Partial<
@@ -1193,7 +1193,7 @@ export function useSuggestMeSlug<
 };
 export function useSuggestMeSlug<
   TData = Awaited<ReturnType<typeof suggestMeSlug>>,
-  TError = ProblemResponse | RateLimitedResponse,
+  TError = ErrorResponse | RateLimitedResponse,
 >(
   options?: {
     query?: Partial<
@@ -1208,7 +1208,7 @@ export function useSuggestMeSlug<
 
 export function useSuggestMeSlug<
   TData = Awaited<ReturnType<typeof suggestMeSlug>>,
-  TError = ProblemResponse | RateLimitedResponse,
+  TError = ErrorResponse | RateLimitedResponse,
 >(
   options?: {
     query?: Partial<
@@ -1238,12 +1238,12 @@ export type getPracticeSettingsResponse200 = {
 };
 
 export type getPracticeSettingsResponse401 = {
-  data: ProblemResponse;
+  data: ErrorResponse;
   status: 401;
 };
 
 export type getPracticeSettingsResponse403 = {
-  data: ProblemResponse;
+  data: ErrorResponse;
   status: 403;
 };
 
@@ -1253,7 +1253,7 @@ export type getPracticeSettingsResponse429 = {
 };
 
 export type getPracticeSettingsResponseDefault = {
-  data: ProblemResponse;
+  data: ErrorResponse;
   status: Exclude<HTTPStatusCodes, 200 | 401 | 403 | 429>;
 };
 
@@ -1296,7 +1296,7 @@ export const getGetPracticeSettingsQueryKey = () => {
 
 export const getGetPracticeSettingsQueryOptions = <
   TData = Awaited<ReturnType<typeof getPracticeSettings>>,
-  TError = ProblemResponse | RateLimitedResponse,
+  TError = ErrorResponse | RateLimitedResponse,
 >(options?: {
   query?: Partial<
     UseQueryOptions<
@@ -1325,13 +1325,11 @@ export const getGetPracticeSettingsQueryOptions = <
 export type GetPracticeSettingsQueryResult = NonNullable<
   Awaited<ReturnType<typeof getPracticeSettings>>
 >;
-export type GetPracticeSettingsQueryError =
-  | ProblemResponse
-  | RateLimitedResponse;
+export type GetPracticeSettingsQueryError = ErrorResponse | RateLimitedResponse;
 
 export function useGetPracticeSettings<
   TData = Awaited<ReturnType<typeof getPracticeSettings>>,
-  TError = ProblemResponse | RateLimitedResponse,
+  TError = ErrorResponse | RateLimitedResponse,
 >(
   options: {
     query: Partial<
@@ -1357,7 +1355,7 @@ export function useGetPracticeSettings<
 };
 export function useGetPracticeSettings<
   TData = Awaited<ReturnType<typeof getPracticeSettings>>,
-  TError = ProblemResponse | RateLimitedResponse,
+  TError = ErrorResponse | RateLimitedResponse,
 >(
   options?: {
     query?: Partial<
@@ -1383,7 +1381,7 @@ export function useGetPracticeSettings<
 };
 export function useGetPracticeSettings<
   TData = Awaited<ReturnType<typeof getPracticeSettings>>,
-  TError = ProblemResponse | RateLimitedResponse,
+  TError = ErrorResponse | RateLimitedResponse,
 >(
   options?: {
     query?: Partial<
@@ -1402,7 +1400,7 @@ export function useGetPracticeSettings<
 
 export function useGetPracticeSettings<
   TData = Awaited<ReturnType<typeof getPracticeSettings>>,
-  TError = ProblemResponse | RateLimitedResponse,
+  TError = ErrorResponse | RateLimitedResponse,
 >(
   options?: {
     query?: Partial<
@@ -1436,22 +1434,22 @@ export type updatePracticeSettingsResponse200 = {
 };
 
 export type updatePracticeSettingsResponse400 = {
-  data: ProblemResponse;
+  data: ErrorResponse;
   status: 400;
 };
 
 export type updatePracticeSettingsResponse401 = {
-  data: ProblemResponse;
+  data: ErrorResponse;
   status: 401;
 };
 
 export type updatePracticeSettingsResponse403 = {
-  data: ProblemResponse;
+  data: ErrorResponse;
   status: 403;
 };
 
 export type updatePracticeSettingsResponse409 = {
-  data: ProblemResponse;
+  data: ErrorResponse;
   status: 409;
 };
 
@@ -1461,7 +1459,7 @@ export type updatePracticeSettingsResponse429 = {
 };
 
 export type updatePracticeSettingsResponseDefault = {
-  data: ProblemResponse;
+  data: ErrorResponse;
   status: Exclude<HTTPStatusCodes, 200 | 400 | 401 | 403 | 409 | 429>;
 };
 
@@ -1504,7 +1502,7 @@ export const updatePracticeSettings = async (
 };
 
 export const getUpdatePracticeSettingsMutationOptions = <
-  TError = ProblemResponse | RateLimitedResponse,
+  TError = ErrorResponse | RateLimitedResponse,
   TContext = unknown,
 >(options?: {
   mutation?: UseMutationOptions<
@@ -1546,11 +1544,11 @@ export type UpdatePracticeSettingsMutationResult = NonNullable<
 >;
 export type UpdatePracticeSettingsMutationBody = PracticeSettingsMutation;
 export type UpdatePracticeSettingsMutationError =
-  | ProblemResponse
+  | ErrorResponse
   | RateLimitedResponse;
 
 export const useUpdatePracticeSettings = <
-  TError = ProblemResponse | RateLimitedResponse,
+  TError = ErrorResponse | RateLimitedResponse,
   TContext = unknown,
 >(
   options?: {
@@ -1580,17 +1578,17 @@ export type listUsersResponse200 = {
 };
 
 export type listUsersResponse400 = {
-  data: ProblemResponse;
+  data: ErrorResponse;
   status: 400;
 };
 
 export type listUsersResponse401 = {
-  data: ProblemResponse;
+  data: ErrorResponse;
   status: 401;
 };
 
 export type listUsersResponse403 = {
-  data: ProblemResponse;
+  data: ErrorResponse;
   status: 403;
 };
 
@@ -1600,7 +1598,7 @@ export type listUsersResponse429 = {
 };
 
 export type listUsersResponseDefault = {
-  data: ProblemResponse;
+  data: ErrorResponse;
   status: Exclude<HTTPStatusCodes, 200 | 400 | 401 | 403 | 429>;
 };
 
@@ -1653,7 +1651,7 @@ export const getListUsersQueryKey = (params?: ListUsersParams) => {
 
 export const getListUsersQueryOptions = <
   TData = Awaited<ReturnType<typeof listUsers>>,
-  TError = ProblemResponse | RateLimitedResponse,
+  TError = ErrorResponse | RateLimitedResponse,
 >(
   params?: ListUsersParams,
   options?: {
@@ -1681,11 +1679,11 @@ export const getListUsersQueryOptions = <
 export type ListUsersQueryResult = NonNullable<
   Awaited<ReturnType<typeof listUsers>>
 >;
-export type ListUsersQueryError = ProblemResponse | RateLimitedResponse;
+export type ListUsersQueryError = ErrorResponse | RateLimitedResponse;
 
 export function useListUsers<
   TData = Awaited<ReturnType<typeof listUsers>>,
-  TError = ProblemResponse | RateLimitedResponse,
+  TError = ErrorResponse | RateLimitedResponse,
 >(
   params: undefined | ListUsersParams,
   options: {
@@ -1708,7 +1706,7 @@ export function useListUsers<
 };
 export function useListUsers<
   TData = Awaited<ReturnType<typeof listUsers>>,
-  TError = ProblemResponse | RateLimitedResponse,
+  TError = ErrorResponse | RateLimitedResponse,
 >(
   params?: ListUsersParams,
   options?: {
@@ -1731,7 +1729,7 @@ export function useListUsers<
 };
 export function useListUsers<
   TData = Awaited<ReturnType<typeof listUsers>>,
-  TError = ProblemResponse | RateLimitedResponse,
+  TError = ErrorResponse | RateLimitedResponse,
 >(
   params?: ListUsersParams,
   options?: {
@@ -1747,7 +1745,7 @@ export function useListUsers<
 
 export function useListUsers<
   TData = Awaited<ReturnType<typeof listUsers>>,
-  TError = ProblemResponse | RateLimitedResponse,
+  TError = ErrorResponse | RateLimitedResponse,
 >(
   params?: ListUsersParams,
   options?: {
@@ -1778,17 +1776,17 @@ export type getUserResponse200 = {
 };
 
 export type getUserResponse401 = {
-  data: ProblemResponse;
+  data: ErrorResponse;
   status: 401;
 };
 
 export type getUserResponse403 = {
-  data: ProblemResponse;
+  data: ErrorResponse;
   status: 403;
 };
 
 export type getUserResponse404 = {
-  data: ProblemResponse;
+  data: ErrorResponse;
   status: 404;
 };
 
@@ -1798,7 +1796,7 @@ export type getUserResponse429 = {
 };
 
 export type getUserResponseDefault = {
-  data: ProblemResponse;
+  data: ErrorResponse;
   status: Exclude<HTTPStatusCodes, 200 | 401 | 403 | 404 | 429>;
 };
 
@@ -1837,7 +1835,7 @@ export const getGetUserQueryKey = (id?: string) => {
 
 export const getGetUserQueryOptions = <
   TData = Awaited<ReturnType<typeof getUser>>,
-  TError = ProblemResponse | RateLimitedResponse,
+  TError = ErrorResponse | RateLimitedResponse,
 >(
   id: string,
   options?: {
@@ -1868,11 +1866,11 @@ export const getGetUserQueryOptions = <
 export type GetUserQueryResult = NonNullable<
   Awaited<ReturnType<typeof getUser>>
 >;
-export type GetUserQueryError = ProblemResponse | RateLimitedResponse;
+export type GetUserQueryError = ErrorResponse | RateLimitedResponse;
 
 export function useGetUser<
   TData = Awaited<ReturnType<typeof getUser>>,
-  TError = ProblemResponse | RateLimitedResponse,
+  TError = ErrorResponse | RateLimitedResponse,
 >(
   id: string,
   options: {
@@ -1895,7 +1893,7 @@ export function useGetUser<
 };
 export function useGetUser<
   TData = Awaited<ReturnType<typeof getUser>>,
-  TError = ProblemResponse | RateLimitedResponse,
+  TError = ErrorResponse | RateLimitedResponse,
 >(
   id: string,
   options?: {
@@ -1918,7 +1916,7 @@ export function useGetUser<
 };
 export function useGetUser<
   TData = Awaited<ReturnType<typeof getUser>>,
-  TError = ProblemResponse | RateLimitedResponse,
+  TError = ErrorResponse | RateLimitedResponse,
 >(
   id: string,
   options?: {
@@ -1934,7 +1932,7 @@ export function useGetUser<
 
 export function useGetUser<
   TData = Awaited<ReturnType<typeof getUser>>,
-  TError = ProblemResponse | RateLimitedResponse,
+  TError = ErrorResponse | RateLimitedResponse,
 >(
   id: string,
   options?: {
@@ -1965,22 +1963,22 @@ export type enableUserPracticeGoalsResponse200 = {
 };
 
 export type enableUserPracticeGoalsResponse400 = {
-  data: ProblemResponse;
+  data: ErrorResponse;
   status: 400;
 };
 
 export type enableUserPracticeGoalsResponse401 = {
-  data: ProblemResponse;
+  data: ErrorResponse;
   status: 401;
 };
 
 export type enableUserPracticeGoalsResponse403 = {
-  data: ProblemResponse;
+  data: ErrorResponse;
   status: 403;
 };
 
 export type enableUserPracticeGoalsResponse404 = {
-  data: ProblemResponse;
+  data: ErrorResponse;
   status: 404;
 };
 
@@ -1990,7 +1988,7 @@ export type enableUserPracticeGoalsResponse429 = {
 };
 
 export type enableUserPracticeGoalsResponseDefault = {
-  data: ProblemResponse;
+  data: ErrorResponse;
   status: Exclude<HTTPStatusCodes, 200 | 400 | 401 | 403 | 404 | 429>;
 };
 
@@ -2034,7 +2032,7 @@ export const enableUserPracticeGoals = async (
 };
 
 export const getEnableUserPracticeGoalsMutationOptions = <
-  TError = ProblemResponse | RateLimitedResponse,
+  TError = ErrorResponse | RateLimitedResponse,
   TContext = unknown,
 >(options?: {
   mutation?: UseMutationOptions<
@@ -2076,11 +2074,11 @@ export type EnableUserPracticeGoalsMutationResult = NonNullable<
 >;
 export type EnableUserPracticeGoalsMutationBody = PracticeGoalsEnablement;
 export type EnableUserPracticeGoalsMutationError =
-  | ProblemResponse
+  | ErrorResponse
   | RateLimitedResponse;
 
 export const useEnableUserPracticeGoals = <
-  TError = ProblemResponse | RateLimitedResponse,
+  TError = ErrorResponse | RateLimitedResponse,
   TContext = unknown,
 >(
   options?: {
@@ -2113,17 +2111,17 @@ export type getUserPracticeSettingsResponse200 = {
 };
 
 export type getUserPracticeSettingsResponse401 = {
-  data: ProblemResponse;
+  data: ErrorResponse;
   status: 401;
 };
 
 export type getUserPracticeSettingsResponse403 = {
-  data: ProblemResponse;
+  data: ErrorResponse;
   status: 403;
 };
 
 export type getUserPracticeSettingsResponse404 = {
-  data: ProblemResponse;
+  data: ErrorResponse;
   status: 404;
 };
 
@@ -2133,7 +2131,7 @@ export type getUserPracticeSettingsResponse429 = {
 };
 
 export type getUserPracticeSettingsResponseDefault = {
-  data: ProblemResponse;
+  data: ErrorResponse;
   status: Exclude<HTTPStatusCodes, 200 | 401 | 403 | 404 | 429>;
 };
 
@@ -2178,7 +2176,7 @@ export const getGetUserPracticeSettingsQueryKey = (id?: string) => {
 
 export const getGetUserPracticeSettingsQueryOptions = <
   TData = Awaited<ReturnType<typeof getUserPracticeSettings>>,
-  TError = ProblemResponse | RateLimitedResponse,
+  TError = ErrorResponse | RateLimitedResponse,
 >(
   id: string,
   options?: {
@@ -2218,12 +2216,12 @@ export type GetUserPracticeSettingsQueryResult = NonNullable<
   Awaited<ReturnType<typeof getUserPracticeSettings>>
 >;
 export type GetUserPracticeSettingsQueryError =
-  | ProblemResponse
+  | ErrorResponse
   | RateLimitedResponse;
 
 export function useGetUserPracticeSettings<
   TData = Awaited<ReturnType<typeof getUserPracticeSettings>>,
-  TError = ProblemResponse | RateLimitedResponse,
+  TError = ErrorResponse | RateLimitedResponse,
 >(
   id: string,
   options: {
@@ -2250,7 +2248,7 @@ export function useGetUserPracticeSettings<
 };
 export function useGetUserPracticeSettings<
   TData = Awaited<ReturnType<typeof getUserPracticeSettings>>,
-  TError = ProblemResponse | RateLimitedResponse,
+  TError = ErrorResponse | RateLimitedResponse,
 >(
   id: string,
   options?: {
@@ -2277,7 +2275,7 @@ export function useGetUserPracticeSettings<
 };
 export function useGetUserPracticeSettings<
   TData = Awaited<ReturnType<typeof getUserPracticeSettings>>,
-  TError = ProblemResponse | RateLimitedResponse,
+  TError = ErrorResponse | RateLimitedResponse,
 >(
   id: string,
   options?: {
@@ -2297,7 +2295,7 @@ export function useGetUserPracticeSettings<
 
 export function useGetUserPracticeSettings<
   TData = Awaited<ReturnType<typeof getUserPracticeSettings>>,
-  TError = ProblemResponse | RateLimitedResponse,
+  TError = ErrorResponse | RateLimitedResponse,
 >(
   id: string,
   options?: {
@@ -2332,17 +2330,17 @@ export type listSeasonsResponse200 = {
 };
 
 export type listSeasonsResponse400 = {
-  data: ProblemResponse;
+  data: ErrorResponse;
   status: 400;
 };
 
 export type listSeasonsResponse401 = {
-  data: ProblemResponse;
+  data: ErrorResponse;
   status: 401;
 };
 
 export type listSeasonsResponse403 = {
-  data: ProblemResponse;
+  data: ErrorResponse;
   status: 403;
 };
 
@@ -2352,7 +2350,7 @@ export type listSeasonsResponse429 = {
 };
 
 export type listSeasonsResponseDefault = {
-  data: ProblemResponse;
+  data: ErrorResponse;
   status: Exclude<HTTPStatusCodes, 200 | 400 | 401 | 403 | 429>;
 };
 
@@ -2405,7 +2403,7 @@ export const getListSeasonsQueryKey = (params?: ListSeasonsParams) => {
 
 export const getListSeasonsQueryOptions = <
   TData = Awaited<ReturnType<typeof listSeasons>>,
-  TError = ProblemResponse | RateLimitedResponse,
+  TError = ErrorResponse | RateLimitedResponse,
 >(
   params?: ListSeasonsParams,
   options?: {
@@ -2433,11 +2431,11 @@ export const getListSeasonsQueryOptions = <
 export type ListSeasonsQueryResult = NonNullable<
   Awaited<ReturnType<typeof listSeasons>>
 >;
-export type ListSeasonsQueryError = ProblemResponse | RateLimitedResponse;
+export type ListSeasonsQueryError = ErrorResponse | RateLimitedResponse;
 
 export function useListSeasons<
   TData = Awaited<ReturnType<typeof listSeasons>>,
-  TError = ProblemResponse | RateLimitedResponse,
+  TError = ErrorResponse | RateLimitedResponse,
 >(
   params: undefined | ListSeasonsParams,
   options: {
@@ -2460,7 +2458,7 @@ export function useListSeasons<
 };
 export function useListSeasons<
   TData = Awaited<ReturnType<typeof listSeasons>>,
-  TError = ProblemResponse | RateLimitedResponse,
+  TError = ErrorResponse | RateLimitedResponse,
 >(
   params?: ListSeasonsParams,
   options?: {
@@ -2483,7 +2481,7 @@ export function useListSeasons<
 };
 export function useListSeasons<
   TData = Awaited<ReturnType<typeof listSeasons>>,
-  TError = ProblemResponse | RateLimitedResponse,
+  TError = ErrorResponse | RateLimitedResponse,
 >(
   params?: ListSeasonsParams,
   options?: {
@@ -2499,7 +2497,7 @@ export function useListSeasons<
 
 export function useListSeasons<
   TData = Awaited<ReturnType<typeof listSeasons>>,
-  TError = ProblemResponse | RateLimitedResponse,
+  TError = ErrorResponse | RateLimitedResponse,
 >(
   params?: ListSeasonsParams,
   options?: {
@@ -2530,22 +2528,22 @@ export type createSeasonResponse201 = {
 };
 
 export type createSeasonResponse400 = {
-  data: ProblemResponse;
+  data: ErrorResponse;
   status: 400;
 };
 
 export type createSeasonResponse401 = {
-  data: ProblemResponse;
+  data: ErrorResponse;
   status: 401;
 };
 
 export type createSeasonResponse403 = {
-  data: ProblemResponse;
+  data: ErrorResponse;
   status: 403;
 };
 
 export type createSeasonResponse409 = {
-  data: ProblemResponse;
+  data: ErrorResponse;
   status: 409;
 };
 
@@ -2555,7 +2553,7 @@ export type createSeasonResponse429 = {
 };
 
 export type createSeasonResponseDefault = {
-  data: ProblemResponse;
+  data: ErrorResponse;
   status: Exclude<HTTPStatusCodes, 201 | 400 | 401 | 403 | 409 | 429>;
 };
 
@@ -2594,7 +2592,7 @@ export const createSeason = async (
 };
 
 export const getCreateSeasonMutationOptions = <
-  TError = ProblemResponse | RateLimitedResponse,
+  TError = ErrorResponse | RateLimitedResponse,
   TContext = unknown,
 >(options?: {
   mutation?: UseMutationOptions<
@@ -2635,10 +2633,10 @@ export type CreateSeasonMutationResult = NonNullable<
   Awaited<ReturnType<typeof createSeason>>
 >;
 export type CreateSeasonMutationBody = SeasonMutation;
-export type CreateSeasonMutationError = ProblemResponse | RateLimitedResponse;
+export type CreateSeasonMutationError = ErrorResponse | RateLimitedResponse;
 
 export const useCreateSeason = <
-  TError = ProblemResponse | RateLimitedResponse,
+  TError = ErrorResponse | RateLimitedResponse,
   TContext = unknown,
 >(
   options?: {
@@ -2668,17 +2666,17 @@ export type getSeasonResponse200 = {
 };
 
 export type getSeasonResponse401 = {
-  data: ProblemResponse;
+  data: ErrorResponse;
   status: 401;
 };
 
 export type getSeasonResponse403 = {
-  data: ProblemResponse;
+  data: ErrorResponse;
   status: 403;
 };
 
 export type getSeasonResponse404 = {
-  data: ProblemResponse;
+  data: ErrorResponse;
   status: 404;
 };
 
@@ -2688,7 +2686,7 @@ export type getSeasonResponse429 = {
 };
 
 export type getSeasonResponseDefault = {
-  data: ProblemResponse;
+  data: ErrorResponse;
   status: Exclude<HTTPStatusCodes, 200 | 401 | 403 | 404 | 429>;
 };
 
@@ -2729,7 +2727,7 @@ export const getGetSeasonQueryKey = (id?: string) => {
 
 export const getGetSeasonQueryOptions = <
   TData = Awaited<ReturnType<typeof getSeason>>,
-  TError = ProblemResponse | RateLimitedResponse,
+  TError = ErrorResponse | RateLimitedResponse,
 >(
   id: string,
   options?: {
@@ -2760,11 +2758,11 @@ export const getGetSeasonQueryOptions = <
 export type GetSeasonQueryResult = NonNullable<
   Awaited<ReturnType<typeof getSeason>>
 >;
-export type GetSeasonQueryError = ProblemResponse | RateLimitedResponse;
+export type GetSeasonQueryError = ErrorResponse | RateLimitedResponse;
 
 export function useGetSeason<
   TData = Awaited<ReturnType<typeof getSeason>>,
-  TError = ProblemResponse | RateLimitedResponse,
+  TError = ErrorResponse | RateLimitedResponse,
 >(
   id: string,
   options: {
@@ -2787,7 +2785,7 @@ export function useGetSeason<
 };
 export function useGetSeason<
   TData = Awaited<ReturnType<typeof getSeason>>,
-  TError = ProblemResponse | RateLimitedResponse,
+  TError = ErrorResponse | RateLimitedResponse,
 >(
   id: string,
   options?: {
@@ -2810,7 +2808,7 @@ export function useGetSeason<
 };
 export function useGetSeason<
   TData = Awaited<ReturnType<typeof getSeason>>,
-  TError = ProblemResponse | RateLimitedResponse,
+  TError = ErrorResponse | RateLimitedResponse,
 >(
   id: string,
   options?: {
@@ -2826,7 +2824,7 @@ export function useGetSeason<
 
 export function useGetSeason<
   TData = Awaited<ReturnType<typeof getSeason>>,
-  TError = ProblemResponse | RateLimitedResponse,
+  TError = ErrorResponse | RateLimitedResponse,
 >(
   id: string,
   options?: {
@@ -2857,22 +2855,22 @@ export type updateSeasonResponse200 = {
 };
 
 export type updateSeasonResponse400 = {
-  data: ProblemResponse;
+  data: ErrorResponse;
   status: 400;
 };
 
 export type updateSeasonResponse401 = {
-  data: ProblemResponse;
+  data: ErrorResponse;
   status: 401;
 };
 
 export type updateSeasonResponse403 = {
-  data: ProblemResponse;
+  data: ErrorResponse;
   status: 403;
 };
 
 export type updateSeasonResponse409 = {
-  data: ProblemResponse;
+  data: ErrorResponse;
   status: 409;
 };
 
@@ -2882,7 +2880,7 @@ export type updateSeasonResponse429 = {
 };
 
 export type updateSeasonResponseDefault = {
-  data: ProblemResponse;
+  data: ErrorResponse;
   status: Exclude<HTTPStatusCodes, 200 | 400 | 401 | 403 | 409 | 429>;
 };
 
@@ -2922,7 +2920,7 @@ export const updateSeason = async (
 };
 
 export const getUpdateSeasonMutationOptions = <
-  TError = ProblemResponse | RateLimitedResponse,
+  TError = ErrorResponse | RateLimitedResponse,
   TContext = unknown,
 >(options?: {
   mutation?: UseMutationOptions<
@@ -2963,10 +2961,10 @@ export type UpdateSeasonMutationResult = NonNullable<
   Awaited<ReturnType<typeof updateSeason>>
 >;
 export type UpdateSeasonMutationBody = SeasonUpdate;
-export type UpdateSeasonMutationError = ProblemResponse | RateLimitedResponse;
+export type UpdateSeasonMutationError = ErrorResponse | RateLimitedResponse;
 
 export const useUpdateSeason = <
-  TError = ProblemResponse | RateLimitedResponse,
+  TError = ErrorResponse | RateLimitedResponse,
   TContext = unknown,
 >(
   options?: {
@@ -2996,17 +2994,17 @@ export type closeSeasonResponse200 = {
 };
 
 export type closeSeasonResponse401 = {
-  data: ProblemResponse;
+  data: ErrorResponse;
   status: 401;
 };
 
 export type closeSeasonResponse403 = {
-  data: ProblemResponse;
+  data: ErrorResponse;
   status: 403;
 };
 
 export type closeSeasonResponse409 = {
-  data: ProblemResponse;
+  data: ErrorResponse;
   status: 409;
 };
 
@@ -3016,7 +3014,7 @@ export type closeSeasonResponse429 = {
 };
 
 export type closeSeasonResponseDefault = {
-  data: ProblemResponse;
+  data: ErrorResponse;
   status: Exclude<HTTPStatusCodes, 200 | 401 | 403 | 409 | 429>;
 };
 
@@ -3055,7 +3053,7 @@ export const closeSeason = async (
 };
 
 export const getCloseSeasonMutationOptions = <
-  TError = ProblemResponse | RateLimitedResponse,
+  TError = ErrorResponse | RateLimitedResponse,
   TContext = unknown,
 >(options?: {
   mutation?: UseMutationOptions<
@@ -3096,10 +3094,10 @@ export type CloseSeasonMutationResult = NonNullable<
   Awaited<ReturnType<typeof closeSeason>>
 >;
 export type CloseSeasonMutationBody = ReasonedRevision;
-export type CloseSeasonMutationError = ProblemResponse | RateLimitedResponse;
+export type CloseSeasonMutationError = ErrorResponse | RateLimitedResponse;
 
 export const useCloseSeason = <
-  TError = ProblemResponse | RateLimitedResponse,
+  TError = ErrorResponse | RateLimitedResponse,
   TContext = unknown,
 >(
   options?: {
@@ -3132,22 +3130,22 @@ export type updateSeasonResourcesResponse200 = {
 };
 
 export type updateSeasonResourcesResponse400 = {
-  data: ProblemResponse;
+  data: ErrorResponse;
   status: 400;
 };
 
 export type updateSeasonResourcesResponse401 = {
-  data: ProblemResponse;
+  data: ErrorResponse;
   status: 401;
 };
 
 export type updateSeasonResourcesResponse403 = {
-  data: ProblemResponse;
+  data: ErrorResponse;
   status: 403;
 };
 
 export type updateSeasonResourcesResponse409 = {
-  data: ProblemResponse;
+  data: ErrorResponse;
   status: 409;
 };
 
@@ -3157,7 +3155,7 @@ export type updateSeasonResourcesResponse429 = {
 };
 
 export type updateSeasonResourcesResponseDefault = {
-  data: ProblemResponse;
+  data: ErrorResponse;
   status: Exclude<HTTPStatusCodes, 200 | 400 | 401 | 403 | 409 | 429>;
 };
 
@@ -3201,7 +3199,7 @@ export const updateSeasonResources = async (
 };
 
 export const getUpdateSeasonResourcesMutationOptions = <
-  TError = ProblemResponse | RateLimitedResponse,
+  TError = ErrorResponse | RateLimitedResponse,
   TContext = unknown,
 >(options?: {
   mutation?: UseMutationOptions<
@@ -3243,11 +3241,11 @@ export type UpdateSeasonResourcesMutationResult = NonNullable<
 >;
 export type UpdateSeasonResourcesMutationBody = SeasonResourceUpdate;
 export type UpdateSeasonResourcesMutationError =
-  | ProblemResponse
+  | ErrorResponse
   | RateLimitedResponse;
 
 export const useUpdateSeasonResources = <
-  TError = ProblemResponse | RateLimitedResponse,
+  TError = ErrorResponse | RateLimitedResponse,
   TContext = unknown,
 >(
   options?: {
@@ -3280,22 +3278,22 @@ export type listEnrollmentCandidatesResponse200 = {
 };
 
 export type listEnrollmentCandidatesResponse400 = {
-  data: ProblemResponse;
+  data: ErrorResponse;
   status: 400;
 };
 
 export type listEnrollmentCandidatesResponse401 = {
-  data: ProblemResponse;
+  data: ErrorResponse;
   status: 401;
 };
 
 export type listEnrollmentCandidatesResponse403 = {
-  data: ProblemResponse;
+  data: ErrorResponse;
   status: 403;
 };
 
 export type listEnrollmentCandidatesResponse404 = {
-  data: ProblemResponse;
+  data: ErrorResponse;
   status: 404;
 };
 
@@ -3305,7 +3303,7 @@ export type listEnrollmentCandidatesResponse429 = {
 };
 
 export type listEnrollmentCandidatesResponseDefault = {
-  data: ProblemResponse;
+  data: ErrorResponse;
   status: Exclude<HTTPStatusCodes, 200 | 400 | 401 | 403 | 404 | 429>;
 };
 
@@ -3373,7 +3371,7 @@ export const getListEnrollmentCandidatesQueryKey = (
 
 export const getListEnrollmentCandidatesQueryOptions = <
   TData = Awaited<ReturnType<typeof listEnrollmentCandidates>>,
-  TError = ProblemResponse | RateLimitedResponse,
+  TError = ErrorResponse | RateLimitedResponse,
 >(
   id: string,
   params?: ListEnrollmentCandidatesParams,
@@ -3414,12 +3412,12 @@ export type ListEnrollmentCandidatesQueryResult = NonNullable<
   Awaited<ReturnType<typeof listEnrollmentCandidates>>
 >;
 export type ListEnrollmentCandidatesQueryError =
-  | ProblemResponse
+  | ErrorResponse
   | RateLimitedResponse;
 
 export function useListEnrollmentCandidates<
   TData = Awaited<ReturnType<typeof listEnrollmentCandidates>>,
-  TError = ProblemResponse | RateLimitedResponse,
+  TError = ErrorResponse | RateLimitedResponse,
 >(
   id: string,
   params: undefined | ListEnrollmentCandidatesParams,
@@ -3447,7 +3445,7 @@ export function useListEnrollmentCandidates<
 };
 export function useListEnrollmentCandidates<
   TData = Awaited<ReturnType<typeof listEnrollmentCandidates>>,
-  TError = ProblemResponse | RateLimitedResponse,
+  TError = ErrorResponse | RateLimitedResponse,
 >(
   id: string,
   params?: ListEnrollmentCandidatesParams,
@@ -3475,7 +3473,7 @@ export function useListEnrollmentCandidates<
 };
 export function useListEnrollmentCandidates<
   TData = Awaited<ReturnType<typeof listEnrollmentCandidates>>,
-  TError = ProblemResponse | RateLimitedResponse,
+  TError = ErrorResponse | RateLimitedResponse,
 >(
   id: string,
   params?: ListEnrollmentCandidatesParams,
@@ -3496,7 +3494,7 @@ export function useListEnrollmentCandidates<
 
 export function useListEnrollmentCandidates<
   TData = Awaited<ReturnType<typeof listEnrollmentCandidates>>,
-  TError = ProblemResponse | RateLimitedResponse,
+  TError = ErrorResponse | RateLimitedResponse,
 >(
   id: string,
   params?: ListEnrollmentCandidatesParams,
@@ -3536,17 +3534,17 @@ export type reopenSeasonResponse200 = {
 };
 
 export type reopenSeasonResponse401 = {
-  data: ProblemResponse;
+  data: ErrorResponse;
   status: 401;
 };
 
 export type reopenSeasonResponse403 = {
-  data: ProblemResponse;
+  data: ErrorResponse;
   status: 403;
 };
 
 export type reopenSeasonResponse409 = {
-  data: ProblemResponse;
+  data: ErrorResponse;
   status: 409;
 };
 
@@ -3556,7 +3554,7 @@ export type reopenSeasonResponse429 = {
 };
 
 export type reopenSeasonResponseDefault = {
-  data: ProblemResponse;
+  data: ErrorResponse;
   status: Exclude<HTTPStatusCodes, 200 | 401 | 403 | 409 | 429>;
 };
 
@@ -3595,7 +3593,7 @@ export const reopenSeason = async (
 };
 
 export const getReopenSeasonMutationOptions = <
-  TError = ProblemResponse | RateLimitedResponse,
+  TError = ErrorResponse | RateLimitedResponse,
   TContext = unknown,
 >(options?: {
   mutation?: UseMutationOptions<
@@ -3636,10 +3634,10 @@ export type ReopenSeasonMutationResult = NonNullable<
   Awaited<ReturnType<typeof reopenSeason>>
 >;
 export type ReopenSeasonMutationBody = ReasonedRevision;
-export type ReopenSeasonMutationError = ProblemResponse | RateLimitedResponse;
+export type ReopenSeasonMutationError = ErrorResponse | RateLimitedResponse;
 
 export const useReopenSeason = <
-  TError = ProblemResponse | RateLimitedResponse,
+  TError = ErrorResponse | RateLimitedResponse,
   TContext = unknown,
 >(
   options?: {
@@ -3669,12 +3667,12 @@ export type listSeasonWeeksResponse200 = {
 };
 
 export type listSeasonWeeksResponse401 = {
-  data: ProblemResponse;
+  data: ErrorResponse;
   status: 401;
 };
 
 export type listSeasonWeeksResponse403 = {
-  data: ProblemResponse;
+  data: ErrorResponse;
   status: 403;
 };
 
@@ -3684,7 +3682,7 @@ export type listSeasonWeeksResponse429 = {
 };
 
 export type listSeasonWeeksResponseDefault = {
-  data: ProblemResponse;
+  data: ErrorResponse;
   status: Exclude<HTTPStatusCodes, 200 | 401 | 403 | 429>;
 };
 
@@ -3746,7 +3744,7 @@ export const getListSeasonWeeksQueryKey = (
 
 export const getListSeasonWeeksQueryOptions = <
   TData = Awaited<ReturnType<typeof listSeasonWeeks>>,
-  TError = ProblemResponse | RateLimitedResponse,
+  TError = ErrorResponse | RateLimitedResponse,
 >(
   id: string,
   params?: ListSeasonWeeksParams,
@@ -3785,11 +3783,11 @@ export const getListSeasonWeeksQueryOptions = <
 export type ListSeasonWeeksQueryResult = NonNullable<
   Awaited<ReturnType<typeof listSeasonWeeks>>
 >;
-export type ListSeasonWeeksQueryError = ProblemResponse | RateLimitedResponse;
+export type ListSeasonWeeksQueryError = ErrorResponse | RateLimitedResponse;
 
 export function useListSeasonWeeks<
   TData = Awaited<ReturnType<typeof listSeasonWeeks>>,
-  TError = ProblemResponse | RateLimitedResponse,
+  TError = ErrorResponse | RateLimitedResponse,
 >(
   id: string,
   params: undefined | ListSeasonWeeksParams,
@@ -3817,7 +3815,7 @@ export function useListSeasonWeeks<
 };
 export function useListSeasonWeeks<
   TData = Awaited<ReturnType<typeof listSeasonWeeks>>,
-  TError = ProblemResponse | RateLimitedResponse,
+  TError = ErrorResponse | RateLimitedResponse,
 >(
   id: string,
   params?: ListSeasonWeeksParams,
@@ -3845,7 +3843,7 @@ export function useListSeasonWeeks<
 };
 export function useListSeasonWeeks<
   TData = Awaited<ReturnType<typeof listSeasonWeeks>>,
-  TError = ProblemResponse | RateLimitedResponse,
+  TError = ErrorResponse | RateLimitedResponse,
 >(
   id: string,
   params?: ListSeasonWeeksParams,
@@ -3866,7 +3864,7 @@ export function useListSeasonWeeks<
 
 export function useListSeasonWeeks<
   TData = Awaited<ReturnType<typeof listSeasonWeeks>>,
-  TError = ProblemResponse | RateLimitedResponse,
+  TError = ErrorResponse | RateLimitedResponse,
 >(
   id: string,
   params?: ListSeasonWeeksParams,
@@ -3902,22 +3900,22 @@ export type createSeasonWeekResponse201 = {
 };
 
 export type createSeasonWeekResponse400 = {
-  data: ProblemResponse;
+  data: ErrorResponse;
   status: 400;
 };
 
 export type createSeasonWeekResponse401 = {
-  data: ProblemResponse;
+  data: ErrorResponse;
   status: 401;
 };
 
 export type createSeasonWeekResponse403 = {
-  data: ProblemResponse;
+  data: ErrorResponse;
   status: 403;
 };
 
 export type createSeasonWeekResponse409 = {
-  data: ProblemResponse;
+  data: ErrorResponse;
   status: 409;
 };
 
@@ -3927,7 +3925,7 @@ export type createSeasonWeekResponse429 = {
 };
 
 export type createSeasonWeekResponseDefault = {
-  data: ProblemResponse;
+  data: ErrorResponse;
   status: Exclude<HTTPStatusCodes, 201 | 400 | 401 | 403 | 409 | 429>;
 };
 
@@ -3967,7 +3965,7 @@ export const createSeasonWeek = async (
 };
 
 export const getCreateSeasonWeekMutationOptions = <
-  TError = ProblemResponse | RateLimitedResponse,
+  TError = ErrorResponse | RateLimitedResponse,
   TContext = unknown,
 >(options?: {
   mutation?: UseMutationOptions<
@@ -4008,12 +4006,10 @@ export type CreateSeasonWeekMutationResult = NonNullable<
   Awaited<ReturnType<typeof createSeasonWeek>>
 >;
 export type CreateSeasonWeekMutationBody = WeekMutation;
-export type CreateSeasonWeekMutationError =
-  | ProblemResponse
-  | RateLimitedResponse;
+export type CreateSeasonWeekMutationError = ErrorResponse | RateLimitedResponse;
 
 export const useCreateSeasonWeek = <
-  TError = ProblemResponse | RateLimitedResponse,
+  TError = ErrorResponse | RateLimitedResponse,
   TContext = unknown,
 >(
   options?: {
@@ -4043,27 +4039,27 @@ export type updateSeasonWeekResponse200 = {
 };
 
 export type updateSeasonWeekResponse400 = {
-  data: ProblemResponse;
+  data: ErrorResponse;
   status: 400;
 };
 
 export type updateSeasonWeekResponse401 = {
-  data: ProblemResponse;
+  data: ErrorResponse;
   status: 401;
 };
 
 export type updateSeasonWeekResponse403 = {
-  data: ProblemResponse;
+  data: ErrorResponse;
   status: 403;
 };
 
 export type updateSeasonWeekResponse404 = {
-  data: ProblemResponse;
+  data: ErrorResponse;
   status: 404;
 };
 
 export type updateSeasonWeekResponse409 = {
-  data: ProblemResponse;
+  data: ErrorResponse;
   status: 409;
 };
 
@@ -4073,7 +4069,7 @@ export type updateSeasonWeekResponse429 = {
 };
 
 export type updateSeasonWeekResponseDefault = {
-  data: ProblemResponse;
+  data: ErrorResponse;
   status: Exclude<HTTPStatusCodes, 200 | 400 | 401 | 403 | 404 | 409 | 429>;
 };
 
@@ -4118,7 +4114,7 @@ export const updateSeasonWeek = async (
 };
 
 export const getUpdateSeasonWeekMutationOptions = <
-  TError = ProblemResponse | RateLimitedResponse,
+  TError = ErrorResponse | RateLimitedResponse,
   TContext = unknown,
 >(options?: {
   mutation?: UseMutationOptions<
@@ -4159,12 +4155,10 @@ export type UpdateSeasonWeekMutationResult = NonNullable<
   Awaited<ReturnType<typeof updateSeasonWeek>>
 >;
 export type UpdateSeasonWeekMutationBody = WeekUpdate;
-export type UpdateSeasonWeekMutationError =
-  | ProblemResponse
-  | RateLimitedResponse;
+export type UpdateSeasonWeekMutationError = ErrorResponse | RateLimitedResponse;
 
 export const useUpdateSeasonWeek = <
-  TError = ProblemResponse | RateLimitedResponse,
+  TError = ErrorResponse | RateLimitedResponse,
   TContext = unknown,
 >(
   options?: {
@@ -4194,22 +4188,22 @@ export type deleteSeasonWeekResponse204 = {
 };
 
 export type deleteSeasonWeekResponse401 = {
-  data: ProblemResponse;
+  data: ErrorResponse;
   status: 401;
 };
 
 export type deleteSeasonWeekResponse403 = {
-  data: ProblemResponse;
+  data: ErrorResponse;
   status: 403;
 };
 
 export type deleteSeasonWeekResponse404 = {
-  data: ProblemResponse;
+  data: ErrorResponse;
   status: 404;
 };
 
 export type deleteSeasonWeekResponse409 = {
-  data: ProblemResponse;
+  data: ErrorResponse;
   status: 409;
 };
 
@@ -4219,7 +4213,7 @@ export type deleteSeasonWeekResponse429 = {
 };
 
 export type deleteSeasonWeekResponseDefault = {
-  data: ProblemResponse;
+  data: ErrorResponse;
   status: Exclude<HTTPStatusCodes, 204 | 401 | 403 | 404 | 409 | 429>;
 };
 
@@ -4277,7 +4271,7 @@ export const deleteSeasonWeek = async (
 };
 
 export const getDeleteSeasonWeekMutationOptions = <
-  TError = ProblemResponse | RateLimitedResponse,
+  TError = ErrorResponse | RateLimitedResponse,
   TContext = unknown,
 >(options?: {
   mutation?: UseMutationOptions<
@@ -4318,12 +4312,10 @@ export type DeleteSeasonWeekMutationResult = NonNullable<
   Awaited<ReturnType<typeof deleteSeasonWeek>>
 >;
 
-export type DeleteSeasonWeekMutationError =
-  | ProblemResponse
-  | RateLimitedResponse;
+export type DeleteSeasonWeekMutationError = ErrorResponse | RateLimitedResponse;
 
 export const useDeleteSeasonWeek = <
-  TError = ProblemResponse | RateLimitedResponse,
+  TError = ErrorResponse | RateLimitedResponse,
   TContext = unknown,
 >(
   options?: {
@@ -4353,12 +4345,12 @@ export type listSeasonMembersResponse200 = {
 };
 
 export type listSeasonMembersResponse401 = {
-  data: ProblemResponse;
+  data: ErrorResponse;
   status: 401;
 };
 
 export type listSeasonMembersResponse403 = {
-  data: ProblemResponse;
+  data: ErrorResponse;
   status: 403;
 };
 
@@ -4368,7 +4360,7 @@ export type listSeasonMembersResponse429 = {
 };
 
 export type listSeasonMembersResponseDefault = {
-  data: ProblemResponse;
+  data: ErrorResponse;
   status: Exclude<HTTPStatusCodes, 200 | 401 | 403 | 429>;
 };
 
@@ -4430,7 +4422,7 @@ export const getListSeasonMembersQueryKey = (
 
 export const getListSeasonMembersQueryOptions = <
   TData = Awaited<ReturnType<typeof listSeasonMembers>>,
-  TError = ProblemResponse | RateLimitedResponse,
+  TError = ErrorResponse | RateLimitedResponse,
 >(
   id: string,
   params?: ListSeasonMembersParams,
@@ -4470,11 +4462,11 @@ export const getListSeasonMembersQueryOptions = <
 export type ListSeasonMembersQueryResult = NonNullable<
   Awaited<ReturnType<typeof listSeasonMembers>>
 >;
-export type ListSeasonMembersQueryError = ProblemResponse | RateLimitedResponse;
+export type ListSeasonMembersQueryError = ErrorResponse | RateLimitedResponse;
 
 export function useListSeasonMembers<
   TData = Awaited<ReturnType<typeof listSeasonMembers>>,
-  TError = ProblemResponse | RateLimitedResponse,
+  TError = ErrorResponse | RateLimitedResponse,
 >(
   id: string,
   params: undefined | ListSeasonMembersParams,
@@ -4502,7 +4494,7 @@ export function useListSeasonMembers<
 };
 export function useListSeasonMembers<
   TData = Awaited<ReturnType<typeof listSeasonMembers>>,
-  TError = ProblemResponse | RateLimitedResponse,
+  TError = ErrorResponse | RateLimitedResponse,
 >(
   id: string,
   params?: ListSeasonMembersParams,
@@ -4530,7 +4522,7 @@ export function useListSeasonMembers<
 };
 export function useListSeasonMembers<
   TData = Awaited<ReturnType<typeof listSeasonMembers>>,
-  TError = ProblemResponse | RateLimitedResponse,
+  TError = ErrorResponse | RateLimitedResponse,
 >(
   id: string,
   params?: ListSeasonMembersParams,
@@ -4551,7 +4543,7 @@ export function useListSeasonMembers<
 
 export function useListSeasonMembers<
   TData = Awaited<ReturnType<typeof listSeasonMembers>>,
-  TError = ProblemResponse | RateLimitedResponse,
+  TError = ErrorResponse | RateLimitedResponse,
 >(
   id: string,
   params?: ListSeasonMembersParams,
@@ -4587,17 +4579,17 @@ export type createSeasonMemberResponse201 = {
 };
 
 export type createSeasonMemberResponse401 = {
-  data: ProblemResponse;
+  data: ErrorResponse;
   status: 401;
 };
 
 export type createSeasonMemberResponse403 = {
-  data: ProblemResponse;
+  data: ErrorResponse;
   status: 403;
 };
 
 export type createSeasonMemberResponse409 = {
-  data: ProblemResponse;
+  data: ErrorResponse;
   status: 409;
 };
 
@@ -4607,7 +4599,7 @@ export type createSeasonMemberResponse429 = {
 };
 
 export type createSeasonMemberResponseDefault = {
-  data: ProblemResponse;
+  data: ErrorResponse;
   status: Exclude<HTTPStatusCodes, 201 | 401 | 403 | 409 | 429>;
 };
 
@@ -4650,7 +4642,7 @@ export const createSeasonMember = async (
 };
 
 export const getCreateSeasonMemberMutationOptions = <
-  TError = ProblemResponse | RateLimitedResponse,
+  TError = ErrorResponse | RateLimitedResponse,
   TContext = unknown,
 >(options?: {
   mutation?: UseMutationOptions<
@@ -4692,11 +4684,11 @@ export type CreateSeasonMemberMutationResult = NonNullable<
 >;
 export type CreateSeasonMemberMutationBody = EnrollmentCreate;
 export type CreateSeasonMemberMutationError =
-  | ProblemResponse
+  | ErrorResponse
   | RateLimitedResponse;
 
 export const useCreateSeasonMember = <
-  TError = ProblemResponse | RateLimitedResponse,
+  TError = ErrorResponse | RateLimitedResponse,
   TContext = unknown,
 >(
   options?: {
@@ -4726,17 +4718,17 @@ export type promoteSeasonMemberResponse200 = {
 };
 
 export type promoteSeasonMemberResponse401 = {
-  data: ProblemResponse;
+  data: ErrorResponse;
   status: 401;
 };
 
 export type promoteSeasonMemberResponse403 = {
-  data: ProblemResponse;
+  data: ErrorResponse;
   status: 403;
 };
 
 export type promoteSeasonMemberResponse409 = {
-  data: ProblemResponse;
+  data: ErrorResponse;
   status: 409;
 };
 
@@ -4746,7 +4738,7 @@ export type promoteSeasonMemberResponse429 = {
 };
 
 export type promoteSeasonMemberResponseDefault = {
-  data: ProblemResponse;
+  data: ErrorResponse;
   status: Exclude<HTTPStatusCodes, 200 | 401 | 403 | 409 | 429>;
 };
 
@@ -4790,7 +4782,7 @@ export const promoteSeasonMember = async (
 };
 
 export const getPromoteSeasonMemberMutationOptions = <
-  TError = ProblemResponse | RateLimitedResponse,
+  TError = ErrorResponse | RateLimitedResponse,
   TContext = unknown,
 >(options?: {
   mutation?: UseMutationOptions<
@@ -4832,11 +4824,11 @@ export type PromoteSeasonMemberMutationResult = NonNullable<
 >;
 export type PromoteSeasonMemberMutationBody = Promotion;
 export type PromoteSeasonMemberMutationError =
-  | ProblemResponse
+  | ErrorResponse
   | RateLimitedResponse;
 
 export const usePromoteSeasonMember = <
-  TError = ProblemResponse | RateLimitedResponse,
+  TError = ErrorResponse | RateLimitedResponse,
   TContext = unknown,
 >(
   options?: {
@@ -4866,27 +4858,27 @@ export type updateSeasonMemberResponse200 = {
 };
 
 export type updateSeasonMemberResponse400 = {
-  data: ProblemResponse;
+  data: ErrorResponse;
   status: 400;
 };
 
 export type updateSeasonMemberResponse401 = {
-  data: ProblemResponse;
+  data: ErrorResponse;
   status: 401;
 };
 
 export type updateSeasonMemberResponse403 = {
-  data: ProblemResponse;
+  data: ErrorResponse;
   status: 403;
 };
 
 export type updateSeasonMemberResponse404 = {
-  data: ProblemResponse;
+  data: ErrorResponse;
   status: 404;
 };
 
 export type updateSeasonMemberResponse409 = {
-  data: ProblemResponse;
+  data: ErrorResponse;
   status: 409;
 };
 
@@ -4896,7 +4888,7 @@ export type updateSeasonMemberResponse429 = {
 };
 
 export type updateSeasonMemberResponseDefault = {
-  data: ProblemResponse;
+  data: ErrorResponse;
   status: Exclude<HTTPStatusCodes, 200 | 400 | 401 | 403 | 404 | 409 | 429>;
 };
 
@@ -4942,7 +4934,7 @@ export const updateSeasonMember = async (
 };
 
 export const getUpdateSeasonMemberMutationOptions = <
-  TError = ProblemResponse | RateLimitedResponse,
+  TError = ErrorResponse | RateLimitedResponse,
   TContext = unknown,
 >(options?: {
   mutation?: UseMutationOptions<
@@ -4984,11 +4976,11 @@ export type UpdateSeasonMemberMutationResult = NonNullable<
 >;
 export type UpdateSeasonMemberMutationBody = EnrollmentUpdate;
 export type UpdateSeasonMemberMutationError =
-  | ProblemResponse
+  | ErrorResponse
   | RateLimitedResponse;
 
 export const useUpdateSeasonMember = <
-  TError = ProblemResponse | RateLimitedResponse,
+  TError = ErrorResponse | RateLimitedResponse,
   TContext = unknown,
 >(
   options?: {
@@ -5018,17 +5010,17 @@ export type removeSeasonMemberResponse200 = {
 };
 
 export type removeSeasonMemberResponse401 = {
-  data: ProblemResponse;
+  data: ErrorResponse;
   status: 401;
 };
 
 export type removeSeasonMemberResponse403 = {
-  data: ProblemResponse;
+  data: ErrorResponse;
   status: 403;
 };
 
 export type removeSeasonMemberResponse409 = {
-  data: ProblemResponse;
+  data: ErrorResponse;
   status: 409;
 };
 
@@ -5038,7 +5030,7 @@ export type removeSeasonMemberResponse429 = {
 };
 
 export type removeSeasonMemberResponseDefault = {
-  data: ProblemResponse;
+  data: ErrorResponse;
   status: Exclude<HTTPStatusCodes, 200 | 401 | 403 | 409 | 429>;
 };
 
@@ -5082,7 +5074,7 @@ export const removeSeasonMember = async (
 };
 
 export const getRemoveSeasonMemberMutationOptions = <
-  TError = ProblemResponse | RateLimitedResponse,
+  TError = ErrorResponse | RateLimitedResponse,
   TContext = unknown,
 >(options?: {
   mutation?: UseMutationOptions<
@@ -5124,11 +5116,11 @@ export type RemoveSeasonMemberMutationResult = NonNullable<
 >;
 export type RemoveSeasonMemberMutationBody = ReasonedRevision;
 export type RemoveSeasonMemberMutationError =
-  | ProblemResponse
+  | ErrorResponse
   | RateLimitedResponse;
 
 export const useRemoveSeasonMember = <
-  TError = ProblemResponse | RateLimitedResponse,
+  TError = ErrorResponse | RateLimitedResponse,
   TContext = unknown,
 >(
   options?: {
@@ -5158,12 +5150,12 @@ export type listSeasonMentorshipsResponse200 = {
 };
 
 export type listSeasonMentorshipsResponse401 = {
-  data: ProblemResponse;
+  data: ErrorResponse;
   status: 401;
 };
 
 export type listSeasonMentorshipsResponse403 = {
-  data: ProblemResponse;
+  data: ErrorResponse;
   status: 403;
 };
 
@@ -5173,7 +5165,7 @@ export type listSeasonMentorshipsResponse429 = {
 };
 
 export type listSeasonMentorshipsResponseDefault = {
-  data: ProblemResponse;
+  data: ErrorResponse;
   status: Exclude<HTTPStatusCodes, 200 | 401 | 403 | 429>;
 };
 
@@ -5236,7 +5228,7 @@ export const getListSeasonMentorshipsQueryKey = (
 
 export const getListSeasonMentorshipsQueryOptions = <
   TData = Awaited<ReturnType<typeof listSeasonMentorships>>,
-  TError = ProblemResponse | RateLimitedResponse,
+  TError = ErrorResponse | RateLimitedResponse,
 >(
   id: string,
   params?: ListSeasonMentorshipsParams,
@@ -5277,12 +5269,12 @@ export type ListSeasonMentorshipsQueryResult = NonNullable<
   Awaited<ReturnType<typeof listSeasonMentorships>>
 >;
 export type ListSeasonMentorshipsQueryError =
-  | ProblemResponse
+  | ErrorResponse
   | RateLimitedResponse;
 
 export function useListSeasonMentorships<
   TData = Awaited<ReturnType<typeof listSeasonMentorships>>,
-  TError = ProblemResponse | RateLimitedResponse,
+  TError = ErrorResponse | RateLimitedResponse,
 >(
   id: string,
   params: undefined | ListSeasonMentorshipsParams,
@@ -5310,7 +5302,7 @@ export function useListSeasonMentorships<
 };
 export function useListSeasonMentorships<
   TData = Awaited<ReturnType<typeof listSeasonMentorships>>,
-  TError = ProblemResponse | RateLimitedResponse,
+  TError = ErrorResponse | RateLimitedResponse,
 >(
   id: string,
   params?: ListSeasonMentorshipsParams,
@@ -5338,7 +5330,7 @@ export function useListSeasonMentorships<
 };
 export function useListSeasonMentorships<
   TData = Awaited<ReturnType<typeof listSeasonMentorships>>,
-  TError = ProblemResponse | RateLimitedResponse,
+  TError = ErrorResponse | RateLimitedResponse,
 >(
   id: string,
   params?: ListSeasonMentorshipsParams,
@@ -5359,7 +5351,7 @@ export function useListSeasonMentorships<
 
 export function useListSeasonMentorships<
   TData = Awaited<ReturnType<typeof listSeasonMentorships>>,
-  TError = ProblemResponse | RateLimitedResponse,
+  TError = ErrorResponse | RateLimitedResponse,
 >(
   id: string,
   params?: ListSeasonMentorshipsParams,
@@ -5399,17 +5391,17 @@ export type createMentorshipResponse201 = {
 };
 
 export type createMentorshipResponse401 = {
-  data: ProblemResponse;
+  data: ErrorResponse;
   status: 401;
 };
 
 export type createMentorshipResponse403 = {
-  data: ProblemResponse;
+  data: ErrorResponse;
   status: 403;
 };
 
 export type createMentorshipResponse409 = {
-  data: ProblemResponse;
+  data: ErrorResponse;
   status: 409;
 };
 
@@ -5419,7 +5411,7 @@ export type createMentorshipResponse429 = {
 };
 
 export type createMentorshipResponseDefault = {
-  data: ProblemResponse;
+  data: ErrorResponse;
   status: Exclude<HTTPStatusCodes, 201 | 401 | 403 | 409 | 429>;
 };
 
@@ -5458,7 +5450,7 @@ export const createMentorship = async (
 };
 
 export const getCreateMentorshipMutationOptions = <
-  TError = ProblemResponse | RateLimitedResponse,
+  TError = ErrorResponse | RateLimitedResponse,
   TContext = unknown,
 >(options?: {
   mutation?: UseMutationOptions<
@@ -5499,12 +5491,10 @@ export type CreateMentorshipMutationResult = NonNullable<
   Awaited<ReturnType<typeof createMentorship>>
 >;
 export type CreateMentorshipMutationBody = MentorshipCreate;
-export type CreateMentorshipMutationError =
-  | ProblemResponse
-  | RateLimitedResponse;
+export type CreateMentorshipMutationError = ErrorResponse | RateLimitedResponse;
 
 export const useCreateMentorship = <
-  TError = ProblemResponse | RateLimitedResponse,
+  TError = ErrorResponse | RateLimitedResponse,
   TContext = unknown,
 >(
   options?: {
@@ -5534,27 +5524,27 @@ export type updateMentorshipResponse200 = {
 };
 
 export type updateMentorshipResponse400 = {
-  data: ProblemResponse;
+  data: ErrorResponse;
   status: 400;
 };
 
 export type updateMentorshipResponse401 = {
-  data: ProblemResponse;
+  data: ErrorResponse;
   status: 401;
 };
 
 export type updateMentorshipResponse403 = {
-  data: ProblemResponse;
+  data: ErrorResponse;
   status: 403;
 };
 
 export type updateMentorshipResponse404 = {
-  data: ProblemResponse;
+  data: ErrorResponse;
   status: 404;
 };
 
 export type updateMentorshipResponse409 = {
-  data: ProblemResponse;
+  data: ErrorResponse;
   status: 409;
 };
 
@@ -5564,7 +5554,7 @@ export type updateMentorshipResponse429 = {
 };
 
 export type updateMentorshipResponseDefault = {
-  data: ProblemResponse;
+  data: ErrorResponse;
   status: Exclude<HTTPStatusCodes, 200 | 400 | 401 | 403 | 404 | 409 | 429>;
 };
 
@@ -5609,7 +5599,7 @@ export const updateMentorship = async (
 };
 
 export const getUpdateMentorshipMutationOptions = <
-  TError = ProblemResponse | RateLimitedResponse,
+  TError = ErrorResponse | RateLimitedResponse,
   TContext = unknown,
 >(options?: {
   mutation?: UseMutationOptions<
@@ -5650,12 +5640,10 @@ export type UpdateMentorshipMutationResult = NonNullable<
   Awaited<ReturnType<typeof updateMentorship>>
 >;
 export type UpdateMentorshipMutationBody = MentorshipUpdate;
-export type UpdateMentorshipMutationError =
-  | ProblemResponse
-  | RateLimitedResponse;
+export type UpdateMentorshipMutationError = ErrorResponse | RateLimitedResponse;
 
 export const useUpdateMentorship = <
-  TError = ProblemResponse | RateLimitedResponse,
+  TError = ErrorResponse | RateLimitedResponse,
   TContext = unknown,
 >(
   options?: {
@@ -5685,22 +5673,22 @@ export type deleteMentorshipResponse204 = {
 };
 
 export type deleteMentorshipResponse401 = {
-  data: ProblemResponse;
+  data: ErrorResponse;
   status: 401;
 };
 
 export type deleteMentorshipResponse403 = {
-  data: ProblemResponse;
+  data: ErrorResponse;
   status: 403;
 };
 
 export type deleteMentorshipResponse404 = {
-  data: ProblemResponse;
+  data: ErrorResponse;
   status: 404;
 };
 
 export type deleteMentorshipResponse409 = {
-  data: ProblemResponse;
+  data: ErrorResponse;
   status: 409;
 };
 
@@ -5710,7 +5698,7 @@ export type deleteMentorshipResponse429 = {
 };
 
 export type deleteMentorshipResponseDefault = {
-  data: ProblemResponse;
+  data: ErrorResponse;
   status: Exclude<HTTPStatusCodes, 204 | 401 | 403 | 404 | 409 | 429>;
 };
 
@@ -5768,7 +5756,7 @@ export const deleteMentorship = async (
 };
 
 export const getDeleteMentorshipMutationOptions = <
-  TError = ProblemResponse | RateLimitedResponse,
+  TError = ErrorResponse | RateLimitedResponse,
   TContext = unknown,
 >(options?: {
   mutation?: UseMutationOptions<
@@ -5809,12 +5797,10 @@ export type DeleteMentorshipMutationResult = NonNullable<
   Awaited<ReturnType<typeof deleteMentorship>>
 >;
 
-export type DeleteMentorshipMutationError =
-  | ProblemResponse
-  | RateLimitedResponse;
+export type DeleteMentorshipMutationError = ErrorResponse | RateLimitedResponse;
 
 export const useDeleteMentorship = <
-  TError = ProblemResponse | RateLimitedResponse,
+  TError = ErrorResponse | RateLimitedResponse,
   TContext = unknown,
 >(
   options?: {
@@ -5844,17 +5830,17 @@ export type listLeetcodeProblemsResponse200 = {
 };
 
 export type listLeetcodeProblemsResponse400 = {
-  data: ProblemResponse;
+  data: ErrorResponse;
   status: 400;
 };
 
 export type listLeetcodeProblemsResponse401 = {
-  data: ProblemResponse;
+  data: ErrorResponse;
   status: 401;
 };
 
 export type listLeetcodeProblemsResponse403 = {
-  data: ProblemResponse;
+  data: ErrorResponse;
   status: 403;
 };
 
@@ -5864,7 +5850,7 @@ export type listLeetcodeProblemsResponse429 = {
 };
 
 export type listLeetcodeProblemsResponseDefault = {
-  data: ProblemResponse;
+  data: ErrorResponse;
   status: Exclude<HTTPStatusCodes, 200 | 400 | 401 | 403 | 429>;
 };
 
@@ -5925,7 +5911,7 @@ export const getListLeetcodeProblemsQueryKey = (
 
 export const getListLeetcodeProblemsQueryOptions = <
   TData = Awaited<ReturnType<typeof listLeetcodeProblems>>,
-  TError = ProblemResponse | RateLimitedResponse,
+  TError = ErrorResponse | RateLimitedResponse,
 >(
   params?: ListLeetcodeProblemsParams,
   options?: {
@@ -5960,12 +5946,12 @@ export type ListLeetcodeProblemsQueryResult = NonNullable<
   Awaited<ReturnType<typeof listLeetcodeProblems>>
 >;
 export type ListLeetcodeProblemsQueryError =
-  | ProblemResponse
+  | ErrorResponse
   | RateLimitedResponse;
 
 export function useListLeetcodeProblems<
   TData = Awaited<ReturnType<typeof listLeetcodeProblems>>,
-  TError = ProblemResponse | RateLimitedResponse,
+  TError = ErrorResponse | RateLimitedResponse,
 >(
   params: undefined | ListLeetcodeProblemsParams,
   options: {
@@ -5992,7 +5978,7 @@ export function useListLeetcodeProblems<
 };
 export function useListLeetcodeProblems<
   TData = Awaited<ReturnType<typeof listLeetcodeProblems>>,
-  TError = ProblemResponse | RateLimitedResponse,
+  TError = ErrorResponse | RateLimitedResponse,
 >(
   params?: ListLeetcodeProblemsParams,
   options?: {
@@ -6019,7 +6005,7 @@ export function useListLeetcodeProblems<
 };
 export function useListLeetcodeProblems<
   TData = Awaited<ReturnType<typeof listLeetcodeProblems>>,
-  TError = ProblemResponse | RateLimitedResponse,
+  TError = ErrorResponse | RateLimitedResponse,
 >(
   params?: ListLeetcodeProblemsParams,
   options?: {
@@ -6039,7 +6025,7 @@ export function useListLeetcodeProblems<
 
 export function useListLeetcodeProblems<
   TData = Awaited<ReturnType<typeof listLeetcodeProblems>>,
-  TError = ProblemResponse | RateLimitedResponse,
+  TError = ErrorResponse | RateLimitedResponse,
 >(
   params?: ListLeetcodeProblemsParams,
   options?: {
@@ -6074,17 +6060,17 @@ export type listProblemAttemptsResponse200 = {
 };
 
 export type listProblemAttemptsResponse400 = {
-  data: ProblemResponse;
+  data: ErrorResponse;
   status: 400;
 };
 
 export type listProblemAttemptsResponse401 = {
-  data: ProblemResponse;
+  data: ErrorResponse;
   status: 401;
 };
 
 export type listProblemAttemptsResponse403 = {
-  data: ProblemResponse;
+  data: ErrorResponse;
   status: 403;
 };
 
@@ -6094,7 +6080,7 @@ export type listProblemAttemptsResponse429 = {
 };
 
 export type listProblemAttemptsResponseDefault = {
-  data: ProblemResponse;
+  data: ErrorResponse;
   status: Exclude<HTTPStatusCodes, 200 | 400 | 401 | 403 | 429>;
 };
 
@@ -6155,7 +6141,7 @@ export const getListProblemAttemptsQueryKey = (
 
 export const getListProblemAttemptsQueryOptions = <
   TData = Awaited<ReturnType<typeof listProblemAttempts>>,
-  TError = ProblemResponse | RateLimitedResponse,
+  TError = ErrorResponse | RateLimitedResponse,
 >(
   params?: ListProblemAttemptsParams,
   options?: {
@@ -6189,13 +6175,11 @@ export const getListProblemAttemptsQueryOptions = <
 export type ListProblemAttemptsQueryResult = NonNullable<
   Awaited<ReturnType<typeof listProblemAttempts>>
 >;
-export type ListProblemAttemptsQueryError =
-  | ProblemResponse
-  | RateLimitedResponse;
+export type ListProblemAttemptsQueryError = ErrorResponse | RateLimitedResponse;
 
 export function useListProblemAttempts<
   TData = Awaited<ReturnType<typeof listProblemAttempts>>,
-  TError = ProblemResponse | RateLimitedResponse,
+  TError = ErrorResponse | RateLimitedResponse,
 >(
   params: undefined | ListProblemAttemptsParams,
   options: {
@@ -6222,7 +6206,7 @@ export function useListProblemAttempts<
 };
 export function useListProblemAttempts<
   TData = Awaited<ReturnType<typeof listProblemAttempts>>,
-  TError = ProblemResponse | RateLimitedResponse,
+  TError = ErrorResponse | RateLimitedResponse,
 >(
   params?: ListProblemAttemptsParams,
   options?: {
@@ -6249,7 +6233,7 @@ export function useListProblemAttempts<
 };
 export function useListProblemAttempts<
   TData = Awaited<ReturnType<typeof listProblemAttempts>>,
-  TError = ProblemResponse | RateLimitedResponse,
+  TError = ErrorResponse | RateLimitedResponse,
 >(
   params?: ListProblemAttemptsParams,
   options?: {
@@ -6269,7 +6253,7 @@ export function useListProblemAttempts<
 
 export function useListProblemAttempts<
   TData = Awaited<ReturnType<typeof listProblemAttempts>>,
-  TError = ProblemResponse | RateLimitedResponse,
+  TError = ErrorResponse | RateLimitedResponse,
 >(
   params?: ListProblemAttemptsParams,
   options?: {
@@ -6304,17 +6288,17 @@ export type createProblemAttemptResponse201 = {
 };
 
 export type createProblemAttemptResponse400 = {
-  data: ProblemResponse;
+  data: ErrorResponse;
   status: 400;
 };
 
 export type createProblemAttemptResponse401 = {
-  data: ProblemResponse;
+  data: ErrorResponse;
   status: 401;
 };
 
 export type createProblemAttemptResponse403 = {
-  data: ProblemResponse;
+  data: ErrorResponse;
   status: 403;
 };
 
@@ -6324,7 +6308,7 @@ export type createProblemAttemptResponse429 = {
 };
 
 export type createProblemAttemptResponseDefault = {
-  data: ProblemResponse;
+  data: ErrorResponse;
   status: Exclude<HTTPStatusCodes, 201 | 400 | 401 | 403 | 429>;
 };
 
@@ -6366,7 +6350,7 @@ export const createProblemAttempt = async (
 };
 
 export const getCreateProblemAttemptMutationOptions = <
-  TError = ProblemResponse | RateLimitedResponse,
+  TError = ErrorResponse | RateLimitedResponse,
   TContext = unknown,
 >(options?: {
   mutation?: UseMutationOptions<
@@ -6408,11 +6392,11 @@ export type CreateProblemAttemptMutationResult = NonNullable<
 >;
 export type CreateProblemAttemptMutationBody = AttemptMutation;
 export type CreateProblemAttemptMutationError =
-  | ProblemResponse
+  | ErrorResponse
   | RateLimitedResponse;
 
 export const useCreateProblemAttempt = <
-  TError = ProblemResponse | RateLimitedResponse,
+  TError = ErrorResponse | RateLimitedResponse,
   TContext = unknown,
 >(
   options?: {
@@ -6442,22 +6426,22 @@ export type updateProblemAttemptResponse200 = {
 };
 
 export type updateProblemAttemptResponse401 = {
-  data: ProblemResponse;
+  data: ErrorResponse;
   status: 401;
 };
 
 export type updateProblemAttemptResponse403 = {
-  data: ProblemResponse;
+  data: ErrorResponse;
   status: 403;
 };
 
 export type updateProblemAttemptResponse404 = {
-  data: ProblemResponse;
+  data: ErrorResponse;
   status: 404;
 };
 
 export type updateProblemAttemptResponse409 = {
-  data: ProblemResponse;
+  data: ErrorResponse;
   status: 409;
 };
 
@@ -6467,7 +6451,7 @@ export type updateProblemAttemptResponse429 = {
 };
 
 export type updateProblemAttemptResponseDefault = {
-  data: ProblemResponse;
+  data: ErrorResponse;
   status: Exclude<HTTPStatusCodes, 200 | 401 | 403 | 404 | 409 | 429>;
 };
 
@@ -6511,7 +6495,7 @@ export const updateProblemAttempt = async (
 };
 
 export const getUpdateProblemAttemptMutationOptions = <
-  TError = ProblemResponse | RateLimitedResponse,
+  TError = ErrorResponse | RateLimitedResponse,
   TContext = unknown,
 >(options?: {
   mutation?: UseMutationOptions<
@@ -6553,11 +6537,11 @@ export type UpdateProblemAttemptMutationResult = NonNullable<
 >;
 export type UpdateProblemAttemptMutationBody = AttemptUpdate;
 export type UpdateProblemAttemptMutationError =
-  | ProblemResponse
+  | ErrorResponse
   | RateLimitedResponse;
 
 export const useUpdateProblemAttempt = <
-  TError = ProblemResponse | RateLimitedResponse,
+  TError = ErrorResponse | RateLimitedResponse,
   TContext = unknown,
 >(
   options?: {
@@ -6587,22 +6571,22 @@ export type deleteProblemAttemptResponse204 = {
 };
 
 export type deleteProblemAttemptResponse401 = {
-  data: ProblemResponse;
+  data: ErrorResponse;
   status: 401;
 };
 
 export type deleteProblemAttemptResponse403 = {
-  data: ProblemResponse;
+  data: ErrorResponse;
   status: 403;
 };
 
 export type deleteProblemAttemptResponse404 = {
-  data: ProblemResponse;
+  data: ErrorResponse;
   status: 404;
 };
 
 export type deleteProblemAttemptResponse409 = {
-  data: ProblemResponse;
+  data: ErrorResponse;
   status: 409;
 };
 
@@ -6612,7 +6596,7 @@ export type deleteProblemAttemptResponse429 = {
 };
 
 export type deleteProblemAttemptResponseDefault = {
-  data: ProblemResponse;
+  data: ErrorResponse;
   status: Exclude<HTTPStatusCodes, 204 | 401 | 403 | 404 | 409 | 429>;
 };
 
@@ -6669,7 +6653,7 @@ export const deleteProblemAttempt = async (
 };
 
 export const getDeleteProblemAttemptMutationOptions = <
-  TError = ProblemResponse | RateLimitedResponse,
+  TError = ErrorResponse | RateLimitedResponse,
   TContext = unknown,
 >(options?: {
   mutation?: UseMutationOptions<
@@ -6711,11 +6695,11 @@ export type DeleteProblemAttemptMutationResult = NonNullable<
 >;
 
 export type DeleteProblemAttemptMutationError =
-  | ProblemResponse
+  | ErrorResponse
   | RateLimitedResponse;
 
 export const useDeleteProblemAttempt = <
-  TError = ProblemResponse | RateLimitedResponse,
+  TError = ErrorResponse | RateLimitedResponse,
   TContext = unknown,
 >(
   options?: {
@@ -6745,17 +6729,17 @@ export type getCurrentRecommendationResponse200 = {
 };
 
 export type getCurrentRecommendationResponse401 = {
-  data: ProblemResponse;
+  data: ErrorResponse;
   status: 401;
 };
 
 export type getCurrentRecommendationResponse403 = {
-  data: ProblemResponse;
+  data: ErrorResponse;
   status: 403;
 };
 
 export type getCurrentRecommendationResponse404 = {
-  data: ProblemResponse;
+  data: ErrorResponse;
   status: 404;
 };
 
@@ -6765,7 +6749,7 @@ export type getCurrentRecommendationResponse429 = {
 };
 
 export type getCurrentRecommendationResponseDefault = {
-  data: ProblemResponse;
+  data: ErrorResponse;
   status: Exclude<HTTPStatusCodes, 200 | 401 | 403 | 404 | 429>;
 };
 
@@ -6809,7 +6793,7 @@ export const getGetCurrentRecommendationQueryKey = () => {
 
 export const getGetCurrentRecommendationQueryOptions = <
   TData = Awaited<ReturnType<typeof getCurrentRecommendation>>,
-  TError = ProblemResponse | RateLimitedResponse,
+  TError = ErrorResponse | RateLimitedResponse,
 >(options?: {
   query?: Partial<
     UseQueryOptions<
@@ -6840,12 +6824,12 @@ export type GetCurrentRecommendationQueryResult = NonNullable<
   Awaited<ReturnType<typeof getCurrentRecommendation>>
 >;
 export type GetCurrentRecommendationQueryError =
-  | ProblemResponse
+  | ErrorResponse
   | RateLimitedResponse;
 
 export function useGetCurrentRecommendation<
   TData = Awaited<ReturnType<typeof getCurrentRecommendation>>,
-  TError = ProblemResponse | RateLimitedResponse,
+  TError = ErrorResponse | RateLimitedResponse,
 >(
   options: {
     query: Partial<
@@ -6871,7 +6855,7 @@ export function useGetCurrentRecommendation<
 };
 export function useGetCurrentRecommendation<
   TData = Awaited<ReturnType<typeof getCurrentRecommendation>>,
-  TError = ProblemResponse | RateLimitedResponse,
+  TError = ErrorResponse | RateLimitedResponse,
 >(
   options?: {
     query?: Partial<
@@ -6897,7 +6881,7 @@ export function useGetCurrentRecommendation<
 };
 export function useGetCurrentRecommendation<
   TData = Awaited<ReturnType<typeof getCurrentRecommendation>>,
-  TError = ProblemResponse | RateLimitedResponse,
+  TError = ErrorResponse | RateLimitedResponse,
 >(
   options?: {
     query?: Partial<
@@ -6916,7 +6900,7 @@ export function useGetCurrentRecommendation<
 
 export function useGetCurrentRecommendation<
   TData = Awaited<ReturnType<typeof getCurrentRecommendation>>,
-  TError = ProblemResponse | RateLimitedResponse,
+  TError = ErrorResponse | RateLimitedResponse,
 >(
   options?: {
     query?: Partial<
@@ -6950,17 +6934,17 @@ export type dismissCurrentRecommendationResponse204 = {
 };
 
 export type dismissCurrentRecommendationResponse401 = {
-  data: ProblemResponse;
+  data: ErrorResponse;
   status: 401;
 };
 
 export type dismissCurrentRecommendationResponse403 = {
-  data: ProblemResponse;
+  data: ErrorResponse;
   status: 403;
 };
 
 export type dismissCurrentRecommendationResponse404 = {
-  data: ProblemResponse;
+  data: ErrorResponse;
   status: 404;
 };
 
@@ -6970,7 +6954,7 @@ export type dismissCurrentRecommendationResponse429 = {
 };
 
 export type dismissCurrentRecommendationResponseDefault = {
-  data: ProblemResponse;
+  data: ErrorResponse;
   status: Exclude<HTTPStatusCodes, 204 | 401 | 403 | 404 | 429>;
 };
 
@@ -7012,7 +6996,7 @@ export const dismissCurrentRecommendation = async (
 };
 
 export const getDismissCurrentRecommendationMutationOptions = <
-  TError = ProblemResponse | RateLimitedResponse,
+  TError = ErrorResponse | RateLimitedResponse,
   TContext = unknown,
 >(options?: {
   mutation?: UseMutationOptions<
@@ -7055,11 +7039,11 @@ export type DismissCurrentRecommendationMutationResult = NonNullable<
 export type DismissCurrentRecommendationMutationBody =
   DismissCurrentRecommendationBody;
 export type DismissCurrentRecommendationMutationError =
-  | ProblemResponse
+  | ErrorResponse
   | RateLimitedResponse;
 
 export const useDismissCurrentRecommendation = <
-  TError = ProblemResponse | RateLimitedResponse,
+  TError = ErrorResponse | RateLimitedResponse,
   TContext = unknown,
 >(
   options?: {
@@ -7093,17 +7077,17 @@ export type listMockInterviewParticipantsResponse200 = {
 };
 
 export type listMockInterviewParticipantsResponse400 = {
-  data: ProblemResponse;
+  data: ErrorResponse;
   status: 400;
 };
 
 export type listMockInterviewParticipantsResponse401 = {
-  data: ProblemResponse;
+  data: ErrorResponse;
   status: 401;
 };
 
 export type listMockInterviewParticipantsResponse403 = {
-  data: ProblemResponse;
+  data: ErrorResponse;
   status: 403;
 };
 
@@ -7113,7 +7097,7 @@ export type listMockInterviewParticipantsResponse429 = {
 };
 
 export type listMockInterviewParticipantsResponseDefault = {
-  data: ProblemResponse;
+  data: ErrorResponse;
   status: Exclude<HTTPStatusCodes, 200 | 400 | 401 | 403 | 429>;
 };
 
@@ -7177,7 +7161,7 @@ export const getListMockInterviewParticipantsQueryKey = (
 
 export const getListMockInterviewParticipantsQueryOptions = <
   TData = Awaited<ReturnType<typeof listMockInterviewParticipants>>,
-  TError = ProblemResponse | RateLimitedResponse,
+  TError = ErrorResponse | RateLimitedResponse,
 >(
   params?: ListMockInterviewParticipantsParams,
   options?: {
@@ -7212,12 +7196,12 @@ export type ListMockInterviewParticipantsQueryResult = NonNullable<
   Awaited<ReturnType<typeof listMockInterviewParticipants>>
 >;
 export type ListMockInterviewParticipantsQueryError =
-  | ProblemResponse
+  | ErrorResponse
   | RateLimitedResponse;
 
 export function useListMockInterviewParticipants<
   TData = Awaited<ReturnType<typeof listMockInterviewParticipants>>,
-  TError = ProblemResponse | RateLimitedResponse,
+  TError = ErrorResponse | RateLimitedResponse,
 >(
   params: undefined | ListMockInterviewParticipantsParams,
   options: {
@@ -7244,7 +7228,7 @@ export function useListMockInterviewParticipants<
 };
 export function useListMockInterviewParticipants<
   TData = Awaited<ReturnType<typeof listMockInterviewParticipants>>,
-  TError = ProblemResponse | RateLimitedResponse,
+  TError = ErrorResponse | RateLimitedResponse,
 >(
   params?: ListMockInterviewParticipantsParams,
   options?: {
@@ -7271,7 +7255,7 @@ export function useListMockInterviewParticipants<
 };
 export function useListMockInterviewParticipants<
   TData = Awaited<ReturnType<typeof listMockInterviewParticipants>>,
-  TError = ProblemResponse | RateLimitedResponse,
+  TError = ErrorResponse | RateLimitedResponse,
 >(
   params?: ListMockInterviewParticipantsParams,
   options?: {
@@ -7291,7 +7275,7 @@ export function useListMockInterviewParticipants<
 
 export function useListMockInterviewParticipants<
   TData = Awaited<ReturnType<typeof listMockInterviewParticipants>>,
-  TError = ProblemResponse | RateLimitedResponse,
+  TError = ErrorResponse | RateLimitedResponse,
 >(
   params?: ListMockInterviewParticipantsParams,
   options?: {
@@ -7329,12 +7313,12 @@ export type listMockInterviewsResponse200 = {
 };
 
 export type listMockInterviewsResponse401 = {
-  data: ProblemResponse;
+  data: ErrorResponse;
   status: 401;
 };
 
 export type listMockInterviewsResponse403 = {
-  data: ProblemResponse;
+  data: ErrorResponse;
   status: 403;
 };
 
@@ -7344,7 +7328,7 @@ export type listMockInterviewsResponse429 = {
 };
 
 export type listMockInterviewsResponseDefault = {
-  data: ProblemResponse;
+  data: ErrorResponse;
   status: Exclude<HTTPStatusCodes, 200 | 401 | 403 | 429>;
 };
 
@@ -7402,7 +7386,7 @@ export const getListMockInterviewsQueryKey = (
 
 export const getListMockInterviewsQueryOptions = <
   TData = Awaited<ReturnType<typeof listMockInterviews>>,
-  TError = ProblemResponse | RateLimitedResponse,
+  TError = ErrorResponse | RateLimitedResponse,
 >(
   params?: ListMockInterviewsParams,
   options?: {
@@ -7435,13 +7419,11 @@ export const getListMockInterviewsQueryOptions = <
 export type ListMockInterviewsQueryResult = NonNullable<
   Awaited<ReturnType<typeof listMockInterviews>>
 >;
-export type ListMockInterviewsQueryError =
-  | ProblemResponse
-  | RateLimitedResponse;
+export type ListMockInterviewsQueryError = ErrorResponse | RateLimitedResponse;
 
 export function useListMockInterviews<
   TData = Awaited<ReturnType<typeof listMockInterviews>>,
-  TError = ProblemResponse | RateLimitedResponse,
+  TError = ErrorResponse | RateLimitedResponse,
 >(
   params: undefined | ListMockInterviewsParams,
   options: {
@@ -7468,7 +7450,7 @@ export function useListMockInterviews<
 };
 export function useListMockInterviews<
   TData = Awaited<ReturnType<typeof listMockInterviews>>,
-  TError = ProblemResponse | RateLimitedResponse,
+  TError = ErrorResponse | RateLimitedResponse,
 >(
   params?: ListMockInterviewsParams,
   options?: {
@@ -7495,7 +7477,7 @@ export function useListMockInterviews<
 };
 export function useListMockInterviews<
   TData = Awaited<ReturnType<typeof listMockInterviews>>,
-  TError = ProblemResponse | RateLimitedResponse,
+  TError = ErrorResponse | RateLimitedResponse,
 >(
   params?: ListMockInterviewsParams,
   options?: {
@@ -7515,7 +7497,7 @@ export function useListMockInterviews<
 
 export function useListMockInterviews<
   TData = Awaited<ReturnType<typeof listMockInterviews>>,
-  TError = ProblemResponse | RateLimitedResponse,
+  TError = ErrorResponse | RateLimitedResponse,
 >(
   params?: ListMockInterviewsParams,
   options?: {
@@ -7550,17 +7532,17 @@ export type createMockInterviewResponse201 = {
 };
 
 export type createMockInterviewResponse400 = {
-  data: ProblemResponse;
+  data: ErrorResponse;
   status: 400;
 };
 
 export type createMockInterviewResponse401 = {
-  data: ProblemResponse;
+  data: ErrorResponse;
   status: 401;
 };
 
 export type createMockInterviewResponse403 = {
-  data: ProblemResponse;
+  data: ErrorResponse;
   status: 403;
 };
 
@@ -7570,7 +7552,7 @@ export type createMockInterviewResponse429 = {
 };
 
 export type createMockInterviewResponseDefault = {
-  data: ProblemResponse;
+  data: ErrorResponse;
   status: Exclude<HTTPStatusCodes, 201 | 400 | 401 | 403 | 429>;
 };
 
@@ -7612,7 +7594,7 @@ export const createMockInterview = async (
 };
 
 export const getCreateMockInterviewMutationOptions = <
-  TError = ProblemResponse | RateLimitedResponse,
+  TError = ErrorResponse | RateLimitedResponse,
   TContext = unknown,
 >(options?: {
   mutation?: UseMutationOptions<
@@ -7654,11 +7636,11 @@ export type CreateMockInterviewMutationResult = NonNullable<
 >;
 export type CreateMockInterviewMutationBody = MockInterviewCreate;
 export type CreateMockInterviewMutationError =
-  | ProblemResponse
+  | ErrorResponse
   | RateLimitedResponse;
 
 export const useCreateMockInterview = <
-  TError = ProblemResponse | RateLimitedResponse,
+  TError = ErrorResponse | RateLimitedResponse,
   TContext = unknown,
 >(
   options?: {
@@ -7688,17 +7670,17 @@ export type updateMockInterviewResponse200 = {
 };
 
 export type updateMockInterviewResponse401 = {
-  data: ProblemResponse;
+  data: ErrorResponse;
   status: 401;
 };
 
 export type updateMockInterviewResponse403 = {
-  data: ProblemResponse;
+  data: ErrorResponse;
   status: 403;
 };
 
 export type updateMockInterviewResponse409 = {
-  data: ProblemResponse;
+  data: ErrorResponse;
   status: 409;
 };
 
@@ -7708,7 +7690,7 @@ export type updateMockInterviewResponse429 = {
 };
 
 export type updateMockInterviewResponseDefault = {
-  data: ProblemResponse;
+  data: ErrorResponse;
   status: Exclude<HTTPStatusCodes, 200 | 401 | 403 | 409 | 429>;
 };
 
@@ -7751,7 +7733,7 @@ export const updateMockInterview = async (
 };
 
 export const getUpdateMockInterviewMutationOptions = <
-  TError = ProblemResponse | RateLimitedResponse,
+  TError = ErrorResponse | RateLimitedResponse,
   TContext = unknown,
 >(options?: {
   mutation?: UseMutationOptions<
@@ -7793,11 +7775,11 @@ export type UpdateMockInterviewMutationResult = NonNullable<
 >;
 export type UpdateMockInterviewMutationBody = MockInterviewMutation;
 export type UpdateMockInterviewMutationError =
-  | ProblemResponse
+  | ErrorResponse
   | RateLimitedResponse;
 
 export const useUpdateMockInterview = <
-  TError = ProblemResponse | RateLimitedResponse,
+  TError = ErrorResponse | RateLimitedResponse,
   TContext = unknown,
 >(
   options?: {
@@ -7827,17 +7809,17 @@ export type deleteMockInterviewResponse204 = {
 };
 
 export type deleteMockInterviewResponse401 = {
-  data: ProblemResponse;
+  data: ErrorResponse;
   status: 401;
 };
 
 export type deleteMockInterviewResponse403 = {
-  data: ProblemResponse;
+  data: ErrorResponse;
   status: 403;
 };
 
 export type deleteMockInterviewResponse409 = {
-  data: ProblemResponse;
+  data: ErrorResponse;
   status: 409;
 };
 
@@ -7847,7 +7829,7 @@ export type deleteMockInterviewResponse429 = {
 };
 
 export type deleteMockInterviewResponseDefault = {
-  data: ProblemResponse;
+  data: ErrorResponse;
   status: Exclude<HTTPStatusCodes, 204 | 401 | 403 | 409 | 429>;
 };
 
@@ -7903,7 +7885,7 @@ export const deleteMockInterview = async (
 };
 
 export const getDeleteMockInterviewMutationOptions = <
-  TError = ProblemResponse | RateLimitedResponse,
+  TError = ErrorResponse | RateLimitedResponse,
   TContext = unknown,
 >(options?: {
   mutation?: UseMutationOptions<
@@ -7945,11 +7927,11 @@ export type DeleteMockInterviewMutationResult = NonNullable<
 >;
 
 export type DeleteMockInterviewMutationError =
-  | ProblemResponse
+  | ErrorResponse
   | RateLimitedResponse;
 
 export const useDeleteMockInterview = <
-  TError = ProblemResponse | RateLimitedResponse,
+  TError = ErrorResponse | RateLimitedResponse,
   TContext = unknown,
 >(
   options?: {
@@ -7979,17 +7961,17 @@ export type reviewMockInterviewRoundResponse200 = {
 };
 
 export type reviewMockInterviewRoundResponse401 = {
-  data: ProblemResponse;
+  data: ErrorResponse;
   status: 401;
 };
 
 export type reviewMockInterviewRoundResponse403 = {
-  data: ProblemResponse;
+  data: ErrorResponse;
   status: 403;
 };
 
 export type reviewMockInterviewRoundResponse409 = {
-  data: ProblemResponse;
+  data: ErrorResponse;
   status: 409;
 };
 
@@ -7999,7 +7981,7 @@ export type reviewMockInterviewRoundResponse429 = {
 };
 
 export type reviewMockInterviewRoundResponseDefault = {
-  data: ProblemResponse;
+  data: ErrorResponse;
   status: Exclude<HTTPStatusCodes, 200 | 401 | 403 | 409 | 429>;
 };
 
@@ -8043,7 +8025,7 @@ export const reviewMockInterviewRound = async (
 };
 
 export const getReviewMockInterviewRoundMutationOptions = <
-  TError = ProblemResponse | RateLimitedResponse,
+  TError = ErrorResponse | RateLimitedResponse,
   TContext = unknown,
 >(options?: {
   mutation?: UseMutationOptions<
@@ -8085,11 +8067,11 @@ export type ReviewMockInterviewRoundMutationResult = NonNullable<
 >;
 export type ReviewMockInterviewRoundMutationBody = RoundReview;
 export type ReviewMockInterviewRoundMutationError =
-  | ProblemResponse
+  | ErrorResponse
   | RateLimitedResponse;
 
 export const useReviewMockInterviewRound = <
-  TError = ProblemResponse | RateLimitedResponse,
+  TError = ErrorResponse | RateLimitedResponse,
   TContext = unknown,
 >(
   options?: {
@@ -8119,27 +8101,27 @@ export type correctMockInterviewIdentitiesResponse200 = {
 };
 
 export type correctMockInterviewIdentitiesResponse400 = {
-  data: ProblemResponse;
+  data: ErrorResponse;
   status: 400;
 };
 
 export type correctMockInterviewIdentitiesResponse401 = {
-  data: ProblemResponse;
+  data: ErrorResponse;
   status: 401;
 };
 
 export type correctMockInterviewIdentitiesResponse403 = {
-  data: ProblemResponse;
+  data: ErrorResponse;
   status: 403;
 };
 
 export type correctMockInterviewIdentitiesResponse404 = {
-  data: ProblemResponse;
+  data: ErrorResponse;
   status: 404;
 };
 
 export type correctMockInterviewIdentitiesResponse409 = {
-  data: ProblemResponse;
+  data: ErrorResponse;
   status: 409;
 };
 
@@ -8149,7 +8131,7 @@ export type correctMockInterviewIdentitiesResponse429 = {
 };
 
 export type correctMockInterviewIdentitiesResponseDefault = {
-  data: ProblemResponse;
+  data: ErrorResponse;
   status: Exclude<HTTPStatusCodes, 200 | 400 | 401 | 403 | 404 | 409 | 429>;
 };
 
@@ -8194,7 +8176,7 @@ export const correctMockInterviewIdentities = async (
 };
 
 export const getCorrectMockInterviewIdentitiesMutationOptions = <
-  TError = ProblemResponse | RateLimitedResponse,
+  TError = ErrorResponse | RateLimitedResponse,
   TContext = unknown,
 >(options?: {
   mutation?: UseMutationOptions<
@@ -8236,11 +8218,11 @@ export type CorrectMockInterviewIdentitiesMutationResult = NonNullable<
 >;
 export type CorrectMockInterviewIdentitiesMutationBody = MockIdentityCorrection;
 export type CorrectMockInterviewIdentitiesMutationError =
-  | ProblemResponse
+  | ErrorResponse
   | RateLimitedResponse;
 
 export const useCorrectMockInterviewIdentities = <
-  TError = ProblemResponse | RateLimitedResponse,
+  TError = ErrorResponse | RateLimitedResponse,
   TContext = unknown,
 >(
   options?: {
@@ -8271,12 +8253,12 @@ export type requestLeetcodeSyncResponse202 = {
 };
 
 export type requestLeetcodeSyncResponse401 = {
-  data: ProblemResponse;
+  data: ErrorResponse;
   status: 401;
 };
 
 export type requestLeetcodeSyncResponse403 = {
-  data: ProblemResponse;
+  data: ErrorResponse;
   status: 403;
 };
 
@@ -8286,7 +8268,7 @@ export type requestLeetcodeSyncResponse429 = {
 };
 
 export type requestLeetcodeSyncResponseDefault = {
-  data: ProblemResponse;
+  data: ErrorResponse;
   status: Exclude<HTTPStatusCodes, 202 | 401 | 403 | 429>;
 };
 
@@ -8324,7 +8306,7 @@ export const requestLeetcodeSync = async (
 };
 
 export const getRequestLeetcodeSyncMutationOptions = <
-  TError = ProblemResponse | RateLimitedResponse,
+  TError = ErrorResponse | RateLimitedResponse,
   TContext = unknown,
 >(options?: {
   mutation?: UseMutationOptions<
@@ -8364,11 +8346,11 @@ export type RequestLeetcodeSyncMutationResult = NonNullable<
 >;
 
 export type RequestLeetcodeSyncMutationError =
-  | ProblemResponse
+  | ErrorResponse
   | RateLimitedResponse;
 
 export const useRequestLeetcodeSync = <
-  TError = ProblemResponse | RateLimitedResponse,
+  TError = ErrorResponse | RateLimitedResponse,
   TContext = unknown,
 >(
   options?: {
@@ -8401,17 +8383,17 @@ export type listAdminUsersResponse200 = {
 };
 
 export type listAdminUsersResponse400 = {
-  data: ProblemResponse;
+  data: ErrorResponse;
   status: 400;
 };
 
 export type listAdminUsersResponse401 = {
-  data: ProblemResponse;
+  data: ErrorResponse;
   status: 401;
 };
 
 export type listAdminUsersResponse403 = {
-  data: ProblemResponse;
+  data: ErrorResponse;
   status: 403;
 };
 
@@ -8421,7 +8403,7 @@ export type listAdminUsersResponse429 = {
 };
 
 export type listAdminUsersResponseDefault = {
-  data: ProblemResponse;
+  data: ErrorResponse;
   status: Exclude<HTTPStatusCodes, 200 | 400 | 401 | 403 | 429>;
 };
 
@@ -8474,7 +8456,7 @@ export const getListAdminUsersQueryKey = (params?: ListAdminUsersParams) => {
 
 export const getListAdminUsersQueryOptions = <
   TData = Awaited<ReturnType<typeof listAdminUsers>>,
-  TError = ProblemResponse | RateLimitedResponse,
+  TError = ErrorResponse | RateLimitedResponse,
 >(
   params?: ListAdminUsersParams,
   options?: {
@@ -8502,11 +8484,11 @@ export const getListAdminUsersQueryOptions = <
 export type ListAdminUsersQueryResult = NonNullable<
   Awaited<ReturnType<typeof listAdminUsers>>
 >;
-export type ListAdminUsersQueryError = ProblemResponse | RateLimitedResponse;
+export type ListAdminUsersQueryError = ErrorResponse | RateLimitedResponse;
 
 export function useListAdminUsers<
   TData = Awaited<ReturnType<typeof listAdminUsers>>,
-  TError = ProblemResponse | RateLimitedResponse,
+  TError = ErrorResponse | RateLimitedResponse,
 >(
   params: undefined | ListAdminUsersParams,
   options: {
@@ -8529,7 +8511,7 @@ export function useListAdminUsers<
 };
 export function useListAdminUsers<
   TData = Awaited<ReturnType<typeof listAdminUsers>>,
-  TError = ProblemResponse | RateLimitedResponse,
+  TError = ErrorResponse | RateLimitedResponse,
 >(
   params?: ListAdminUsersParams,
   options?: {
@@ -8552,7 +8534,7 @@ export function useListAdminUsers<
 };
 export function useListAdminUsers<
   TData = Awaited<ReturnType<typeof listAdminUsers>>,
-  TError = ProblemResponse | RateLimitedResponse,
+  TError = ErrorResponse | RateLimitedResponse,
 >(
   params?: ListAdminUsersParams,
   options?: {
@@ -8568,7 +8550,7 @@ export function useListAdminUsers<
 
 export function useListAdminUsers<
   TData = Awaited<ReturnType<typeof listAdminUsers>>,
-  TError = ProblemResponse | RateLimitedResponse,
+  TError = ErrorResponse | RateLimitedResponse,
 >(
   params?: ListAdminUsersParams,
   options?: {
@@ -8599,27 +8581,27 @@ export type setAdminUserAccountStateResponse200 = {
 };
 
 export type setAdminUserAccountStateResponse400 = {
-  data: ProblemResponse;
+  data: ErrorResponse;
   status: 400;
 };
 
 export type setAdminUserAccountStateResponse401 = {
-  data: ProblemResponse;
+  data: ErrorResponse;
   status: 401;
 };
 
 export type setAdminUserAccountStateResponse403 = {
-  data: ProblemResponse;
+  data: ErrorResponse;
   status: 403;
 };
 
 export type setAdminUserAccountStateResponse404 = {
-  data: ProblemResponse;
+  data: ErrorResponse;
   status: 404;
 };
 
 export type setAdminUserAccountStateResponse409 = {
-  data: ProblemResponse;
+  data: ErrorResponse;
   status: 409;
 };
 
@@ -8629,17 +8611,17 @@ export type setAdminUserAccountStateResponse429 = {
 };
 
 export type setAdminUserAccountStateResponse502 = {
-  data: ProblemResponse;
+  data: ErrorResponse;
   status: 502;
 };
 
 export type setAdminUserAccountStateResponse503 = {
-  data: ProblemResponse;
+  data: ErrorResponse;
   status: 503;
 };
 
 export type setAdminUserAccountStateResponseDefault = {
-  data: ProblemResponse;
+  data: ErrorResponse;
   status: Exclude<
     HTTPStatusCodes,
     200 | 400 | 401 | 403 | 404 | 409 | 429 | 502 | 503
@@ -8689,7 +8671,7 @@ export const setAdminUserAccountState = async (
 };
 
 export const getSetAdminUserAccountStateMutationOptions = <
-  TError = ProblemResponse | RateLimitedResponse,
+  TError = ErrorResponse | RateLimitedResponse,
   TContext = unknown,
 >(options?: {
   mutation?: UseMutationOptions<
@@ -8731,11 +8713,11 @@ export type SetAdminUserAccountStateMutationResult = NonNullable<
 >;
 export type SetAdminUserAccountStateMutationBody = AccountStateMutation;
 export type SetAdminUserAccountStateMutationError =
-  | ProblemResponse
+  | ErrorResponse
   | RateLimitedResponse;
 
 export const useSetAdminUserAccountState = <
-  TError = ProblemResponse | RateLimitedResponse,
+  TError = ErrorResponse | RateLimitedResponse,
   TContext = unknown,
 >(
   options?: {
@@ -8765,27 +8747,27 @@ export type grantAdminUserGlobalRoleResponse201 = {
 };
 
 export type grantAdminUserGlobalRoleResponse400 = {
-  data: ProblemResponse;
+  data: ErrorResponse;
   status: 400;
 };
 
 export type grantAdminUserGlobalRoleResponse401 = {
-  data: ProblemResponse;
+  data: ErrorResponse;
   status: 401;
 };
 
 export type grantAdminUserGlobalRoleResponse403 = {
-  data: ProblemResponse;
+  data: ErrorResponse;
   status: 403;
 };
 
 export type grantAdminUserGlobalRoleResponse404 = {
-  data: ProblemResponse;
+  data: ErrorResponse;
   status: 404;
 };
 
 export type grantAdminUserGlobalRoleResponse409 = {
-  data: ProblemResponse;
+  data: ErrorResponse;
   status: 409;
 };
 
@@ -8795,12 +8777,12 @@ export type grantAdminUserGlobalRoleResponse429 = {
 };
 
 export type grantAdminUserGlobalRoleResponse502 = {
-  data: ProblemResponse;
+  data: ErrorResponse;
   status: 502;
 };
 
 export type grantAdminUserGlobalRoleResponseDefault = {
-  data: ProblemResponse;
+  data: ErrorResponse;
   status: Exclude<
     HTTPStatusCodes,
     201 | 400 | 401 | 403 | 404 | 409 | 429 | 502
@@ -8849,7 +8831,7 @@ export const grantAdminUserGlobalRole = async (
 };
 
 export const getGrantAdminUserGlobalRoleMutationOptions = <
-  TError = ProblemResponse | RateLimitedResponse,
+  TError = ErrorResponse | RateLimitedResponse,
   TContext = unknown,
 >(options?: {
   mutation?: UseMutationOptions<
@@ -8891,11 +8873,11 @@ export type GrantAdminUserGlobalRoleMutationResult = NonNullable<
 >;
 export type GrantAdminUserGlobalRoleMutationBody = GlobalRoleGrant;
 export type GrantAdminUserGlobalRoleMutationError =
-  | ProblemResponse
+  | ErrorResponse
   | RateLimitedResponse;
 
 export const useGrantAdminUserGlobalRole = <
-  TError = ProblemResponse | RateLimitedResponse,
+  TError = ErrorResponse | RateLimitedResponse,
   TContext = unknown,
 >(
   options?: {
@@ -8925,17 +8907,17 @@ export type listAdminUserGlobalRolesResponse200 = {
 };
 
 export type listAdminUserGlobalRolesResponse401 = {
-  data: ProblemResponse;
+  data: ErrorResponse;
   status: 401;
 };
 
 export type listAdminUserGlobalRolesResponse403 = {
-  data: ProblemResponse;
+  data: ErrorResponse;
   status: 403;
 };
 
 export type listAdminUserGlobalRolesResponse404 = {
-  data: ProblemResponse;
+  data: ErrorResponse;
   status: 404;
 };
 
@@ -8945,7 +8927,7 @@ export type listAdminUserGlobalRolesResponse429 = {
 };
 
 export type listAdminUserGlobalRolesResponseDefault = {
-  data: ProblemResponse;
+  data: ErrorResponse;
   status: Exclude<HTTPStatusCodes, 200 | 401 | 403 | 404 | 429>;
 };
 
@@ -8990,7 +8972,7 @@ export const getListAdminUserGlobalRolesQueryKey = (id?: string) => {
 
 export const getListAdminUserGlobalRolesQueryOptions = <
   TData = Awaited<ReturnType<typeof listAdminUserGlobalRoles>>,
-  TError = ProblemResponse | RateLimitedResponse,
+  TError = ErrorResponse | RateLimitedResponse,
 >(
   id: string,
   options?: {
@@ -9030,12 +9012,12 @@ export type ListAdminUserGlobalRolesQueryResult = NonNullable<
   Awaited<ReturnType<typeof listAdminUserGlobalRoles>>
 >;
 export type ListAdminUserGlobalRolesQueryError =
-  | ProblemResponse
+  | ErrorResponse
   | RateLimitedResponse;
 
 export function useListAdminUserGlobalRoles<
   TData = Awaited<ReturnType<typeof listAdminUserGlobalRoles>>,
-  TError = ProblemResponse | RateLimitedResponse,
+  TError = ErrorResponse | RateLimitedResponse,
 >(
   id: string,
   options: {
@@ -9062,7 +9044,7 @@ export function useListAdminUserGlobalRoles<
 };
 export function useListAdminUserGlobalRoles<
   TData = Awaited<ReturnType<typeof listAdminUserGlobalRoles>>,
-  TError = ProblemResponse | RateLimitedResponse,
+  TError = ErrorResponse | RateLimitedResponse,
 >(
   id: string,
   options?: {
@@ -9089,7 +9071,7 @@ export function useListAdminUserGlobalRoles<
 };
 export function useListAdminUserGlobalRoles<
   TData = Awaited<ReturnType<typeof listAdminUserGlobalRoles>>,
-  TError = ProblemResponse | RateLimitedResponse,
+  TError = ErrorResponse | RateLimitedResponse,
 >(
   id: string,
   options?: {
@@ -9109,7 +9091,7 @@ export function useListAdminUserGlobalRoles<
 
 export function useListAdminUserGlobalRoles<
   TData = Awaited<ReturnType<typeof listAdminUserGlobalRoles>>,
-  TError = ProblemResponse | RateLimitedResponse,
+  TError = ErrorResponse | RateLimitedResponse,
 >(
   id: string,
   options?: {
@@ -9144,27 +9126,27 @@ export type revokeAdminUserGlobalRoleResponse200 = {
 };
 
 export type revokeAdminUserGlobalRoleResponse400 = {
-  data: ProblemResponse;
+  data: ErrorResponse;
   status: 400;
 };
 
 export type revokeAdminUserGlobalRoleResponse401 = {
-  data: ProblemResponse;
+  data: ErrorResponse;
   status: 401;
 };
 
 export type revokeAdminUserGlobalRoleResponse403 = {
-  data: ProblemResponse;
+  data: ErrorResponse;
   status: 403;
 };
 
 export type revokeAdminUserGlobalRoleResponse404 = {
-  data: ProblemResponse;
+  data: ErrorResponse;
   status: 404;
 };
 
 export type revokeAdminUserGlobalRoleResponse409 = {
-  data: ProblemResponse;
+  data: ErrorResponse;
   status: 409;
 };
 
@@ -9174,7 +9156,7 @@ export type revokeAdminUserGlobalRoleResponse429 = {
 };
 
 export type revokeAdminUserGlobalRoleResponseDefault = {
-  data: ProblemResponse;
+  data: ErrorResponse;
   status: Exclude<HTTPStatusCodes, 200 | 400 | 401 | 403 | 404 | 409 | 429>;
 };
 
@@ -9234,7 +9216,7 @@ export const revokeAdminUserGlobalRole = async (
 };
 
 export const getRevokeAdminUserGlobalRoleMutationOptions = <
-  TError = ProblemResponse | RateLimitedResponse,
+  TError = ErrorResponse | RateLimitedResponse,
   TContext = unknown,
 >(options?: {
   mutation?: UseMutationOptions<
@@ -9276,11 +9258,11 @@ export type RevokeAdminUserGlobalRoleMutationResult = NonNullable<
 >;
 
 export type RevokeAdminUserGlobalRoleMutationError =
-  | ProblemResponse
+  | ErrorResponse
   | RateLimitedResponse;
 
 export const useRevokeAdminUserGlobalRole = <
-  TError = ProblemResponse | RateLimitedResponse,
+  TError = ErrorResponse | RateLimitedResponse,
   TContext = unknown,
 >(
   options?: {

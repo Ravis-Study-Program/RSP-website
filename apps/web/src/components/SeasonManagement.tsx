@@ -12,7 +12,7 @@ import { Controller, useForm, type Resolver } from 'react-hook-form';
 import { z } from 'zod';
 
 import { adaptSeason } from '@/api/adapters';
-import { ApiProblem, apiRequest } from '@/api/client';
+import { ApiError, apiRequest } from '@/api/client';
 import type {
   Season as ApiSeason,
   ReasonedRevision,
@@ -171,7 +171,7 @@ export function SeasonEditorDialog({
       form.reset(defaultValues(saved));
       setOpen(false);
     } catch (error) {
-      if (error instanceof ApiProblem && error.problem.status === 409) {
+      if (error instanceof ApiError && error.status === 409) {
         await queryClient.invalidateQueries({
           queryKey: seasonsOptions.queryKey,
         });
@@ -390,10 +390,7 @@ export function SeasonResourcesDialog({ season }: { season: Season }) {
       setResourcesUrl(saved.resourcesUrl);
       setOpen(false);
     } catch (requestError) {
-      if (
-        requestError instanceof ApiProblem &&
-        requestError.problem.status === 409
-      ) {
+      if (requestError instanceof ApiError && requestError.status === 409) {
         await queryClient.invalidateQueries({
           queryKey: seasonsOptions.queryKey,
         });
@@ -552,10 +549,7 @@ export function SeasonLifecycleDialog({
       setReason('');
       setConfirmation('');
     } catch (requestError) {
-      if (
-        requestError instanceof ApiProblem &&
-        requestError.problem.status === 409
-      ) {
+      if (requestError instanceof ApiError && requestError.status === 409) {
         await queryClient.invalidateQueries({
           queryKey: seasonsOptions.queryKey,
         });

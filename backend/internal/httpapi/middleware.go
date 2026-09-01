@@ -3,7 +3,6 @@ package httpapi
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"net/http"
 	"strconv"
 	"strings"
@@ -12,7 +11,6 @@ import (
 	"github.com/magedmg/RSP-website/backend/internal/authn"
 	"github.com/magedmg/RSP-website/backend/internal/authz"
 	"github.com/magedmg/RSP-website/backend/internal/platform/ratelimit"
-	"github.com/magedmg/RSP-website/backend/internal/store"
 )
 
 // Authenticator defines a backend interface.
@@ -85,19 +83,19 @@ func (a *API) protected(class ratelimit.Class, next http.HandlerFunc) http.Handl
 				cause = cause[:512]
 			}
 			a.logger.Warn("authentication failed", "requestId", requestIDFrom(r.Context()), "cause", cause)
-			writeErrorResponse(w, r, http.StatusUnauthorized, "authentication_required", "Authentication required", "A valid access token is required.")
+			writeErrorResponse(w, http.StatusUnauthorized, "authentication_required", "A valid access token is required.")
 			return
 		}
 		if actor.AccountState != authz.AccountActive {
-			writeErrorResponse(w, r, http.StatusForbidden, "account_unavailable", "Account unavailable", "This account cannot access the product.")
+			writeErrorResponse(w, http.StatusForbidden, "account_unavailable", "This account cannot access the product.")
 			return
 		}
 		if !actor.EmailVerified {
-			writeErrorResponse(w, r, http.StatusForbidden, "email_verification_required", "Email verification required", "Verify the account email before accessing the product.")
+			writeErrorResponse(w, http.StatusForbidden, "email_verification_required", "Verify the account email before accessing the product.")
 			return
 		}
 		if r.Method != http.MethodGet && r.Method != http.MethodHead && r.Method != http.MethodOptions && !a.validOrigin(r) {
-			writeErrorResponse(w, r, http.StatusForbidden, "origin_rejected", "Request origin rejected", "State-changing requests must come from the configured application origin.")
+			writeErrorResponse(w, http.StatusForbidden, "origin_rejected", "State-changing requests must come from the configured application origin.")
 			return
 		}
 
@@ -110,7 +108,7 @@ func (a *API) protected(class ratelimit.Class, next http.HandlerFunc) http.Handl
 				seconds = 1
 			}
 			w.Header().Set("Retry-After", strconv.Itoa(seconds))
-			writeErrorResponse(w, r, http.StatusTooManyRequests, "rate_limited", "Too many requests", "Wait before trying again.")
+			writeErrorResponse(w, http.StatusTooManyRequests, "rate_limited", "Wait before trying again.")
 			return
 		}
 		next(w, r.WithContext(context.WithValue(r.Context(), actorKey{}, actor)))
@@ -123,40 +121,17 @@ func (a *API) validOrigin(r *http.Request) bool {
 }
 
 // writeErrorResponse sends one consistent JSON error response.
-func writeErrorResponse(w http.ResponseWriter, r *http.Request, status int, code, title, detail string) {
+func writeErrorResponse(w http.ResponseWriter, status int, code, message string) {
 	body := struct {
-		Type      string `json:"type"`
-		Title     string `json:"title"`
-		Status    int    `json:"status"`
-		Detail    string `json:"detail"`
-		Instance  string `json:"instance"`
 		Code      string `json:"code"`
+		Message   string `json:"message"`
 		RequestID string `json:"requestId"`
-		Errors    []any  `json:"errors"`
 	}{
-		Type:      "https://rsp.example/problems/" + code,
-		Title:     title,
-		Status:    status,
-		Detail:    detail,
-		Instance:  r.URL.Path,
 		Code:      code,
+		Message:   message,
 		RequestID: w.Header().Get("X-Request-ID"),
-		Errors:    []any{},
 	}
-	w.Header().Set("Content-Type", "application/problem+json")
+	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
 	_ = json.NewEncoder(w).Encode(body)
-}
-
-func storeFailure(a *API, w http.ResponseWriter, r *http.Request, err error) {
-	switch {
-	case errors.Is(err, store.ErrNotFound):
-		writeErrorResponse(w, r, 404, "not_found", "Not found", "The requested resource does not exist.")
-	case errors.Is(err, store.ErrConflict):
-		writeErrorResponse(w, r, 409, "stale_revision", "Conflict", "The resource changed since it was loaded.")
-	case errors.Is(err, store.ErrDuplicate):
-		writeErrorResponse(w, r, 409, "duplicate", "Conflict", "A resource with that unique value already exists.")
-	default:
-		writeErrorResponse(w, r, 500, "internal_error", "Internal server error", "The request could not be completed.")
-	}
 }

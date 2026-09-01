@@ -30,7 +30,7 @@ Legacy action-shaped routes map to resource-oriented families:
   `user_auth_links` row identify the caller.
 - Creation returns `201`; successful deletion returns `204`; stale revisions
   and invariant conflicts return `409`.
-- Rate limits return `429`, `Retry-After`, and a Problem Details body.
+- Rate limits return `429`, `Retry-After`, and the standard API error body.
 - All mutable resources carry a positive `revision` used for optimistic
   concurrency.
 - All timestamps are RFC3339 UTC. The frontend, not the API, renders local time.
@@ -40,22 +40,17 @@ Legacy action-shaped routes map to resource-oriented families:
 
 ## Errors
 
-Errors use `application/problem+json`:
+Errors use `application/json`:
 
 ```json
 {
-  "type": "https://rsp.example/problems/validation-failed",
-  "title": "Validation failed",
-  "status": 400,
-  "detail": "One or more fields are invalid.",
-  "instance": "/api/v2/problem-attempts",
   "code": "validation_failed",
-  "requestId": "request-id",
-  "errors": [{ "field": "confidence", "message": "Must be between 1 and 5." }]
+  "message": "confidence must be between 1 and 5",
+  "requestId": "request-id"
 }
 ```
 
-Clients may branch on stable `code`; titles and details remain human-facing.
+Clients may branch on stable `code`; `message` remains human-facing.
 Support should ask for `requestId` and must not ask a member to copy a JWT.
 
 ## Pagination

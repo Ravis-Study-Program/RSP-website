@@ -38,7 +38,7 @@ func TestSeasonWeeksOrderedRoundTripAndUnknownSeasonNotFound(t *testing.T) {
 		t.Fatalf("ordered week round trip: %#v", page.Items)
 	}
 	w = request(t, f, http.MethodGet, "/api/v2/seasons/missing/weeks", "director", "")
-	if w.Code != http.StatusNotFound || problemCode(t, w) != "not_found" {
+	if w.Code != http.StatusNotFound || errorCode(t, w) != "not_found" {
 		t.Fatalf("unknown season: %d %s", w.Code, w.Body.String())
 	}
 }

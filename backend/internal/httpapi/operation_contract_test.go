@@ -137,15 +137,8 @@ func TestEveryOpenAPIOperationHasExecutableRouteAndAuthenticationCoverage(t *tes
 				}
 				return
 			}
-			if response.Code != http.StatusUnauthorized || problemCode(t, response) != "authentication_required" {
+			if response.Code != http.StatusUnauthorized || errorCode(t, response) != "authentication_required" {
 				t.Fatalf("protected operation status=%d body=%s", response.Code, response.Body.String())
-			}
-			var details map[string]any
-			if err := json.Unmarshal(response.Body.Bytes(), &details); err != nil {
-				t.Fatal(err)
-			}
-			if details["instance"] != strings.Split(testCase.path, "?")[0] {
-				t.Fatalf("problem instance=%v path=%s", details["instance"], testCase.path)
 			}
 		})
 	}
