@@ -176,18 +176,18 @@ func TestRequestBodyLimitRejectsOversizedBodies(t *testing.T) {
 
 func TestHealthAndAuthenticationProblemContract(t *testing.T) {
 	f := newFixture()
-	if w := request(t, f, "GET", "/api/v2/health/live", "", ""); w.Code != 200 {
+	if w := request(t, f, "GET", "/api/v2/health/live", "", ""); w.Code != http.StatusOK {
 		t.Fatal(w.Code)
 	}
 	w := request(t, f, "GET", "/api/v2/me", "", "")
-	if w.Code != 401 || errorCode(t, w) != "authentication_required" {
+	if w.Code != http.StatusUnauthorized || errorCode(t, w) != "authentication_required" {
 		t.Fatalf("got %d %s", w.Code, w.Body.String())
 	}
 	if bytes.Contains(w.Body.Bytes(), []byte("missing token")) || !bytes.Contains(w.Body.Bytes(), []byte("valid access token")) {
 		t.Fatalf("authentication cause leaked or stable detail missing: %s", w.Body.String())
 	}
 	w = request(t, f, "GET", "/api/v2/me", "suspended", "")
-	if w.Code != 403 || errorCode(t, w) != "account_unavailable" {
+	if w.Code != http.StatusForbidden || errorCode(t, w) != "account_unavailable" {
 		t.Fatal(w.Code)
 	}
 }
@@ -195,12 +195,12 @@ func TestHealthAndAuthenticationProblemContract(t *testing.T) {
 func TestPrivateFieldsAndActorIDSpoofing(t *testing.T) {
 	f := newFixture()
 	w := request(t, f, "GET", "/api/v2/users/other", "student", "")
-	if w.Code != 200 || bytes.Contains(w.Body.Bytes(), []byte("other@example.com")) {
+	if w.Code != http.StatusOK || bytes.Contains(w.Body.Bytes(), []byte("other@example.com")) {
 		t.Fatalf("private field leaked: %s", w.Body.String())
 	}
 	body := `{"problemId":"problem","outcome":"independently_solved","confidence":5,"minutes":12,"attemptedAt":"2026-08-13T00:00:00Z","userId":"other"}`
 	w = request(t, f, "POST", "/api/v2/problem-attempts", "student", body)
-	if w.Code != 400 || errorCode(t, w) != "validation_failed" {
+	if w.Code != http.StatusBadRequest || errorCode(t, w) != "validation_failed" {
 		t.Fatalf("actor id accepted: %d %s", w.Code, w.Body.String())
 	}
 }
@@ -304,11 +304,11 @@ func TestPracticeSettingsRequireRelationshipEnablement(t *testing.T) {
 func TestIDORRevisionConflictAndOrigin(t *testing.T) {
 	f := newFixture()
 	w := request(t, f, "DELETE", "/api/v2/problem-attempts/foreign?revision=1", "student", "")
-	if w.Code != 404 {
+	if w.Code != http.StatusNotFound {
 		t.Fatalf("foreign delete leaked existence: %d", w.Code)
 	}
 	w = request(t, f, "DELETE", "/api/v2/problem-attempts/owned?revision=2", "student", "")
-	if w.Code != 409 || errorCode(t, w) != "stale_revision" {
+	if w.Code != http.StatusConflict || errorCode(t, w) != "stale_revision" {
 		t.Fatalf("stale delete: %d", w.Code)
 	}
 	r := httptest.NewRequest("DELETE", "/api/v2/problem-attempts/owned?revision=1", nil)
@@ -316,7 +316,7 @@ func TestIDORRevisionConflictAndOrigin(t *testing.T) {
 	r.Header.Set("Origin", "https://evil.test")
 	w = httptest.NewRecorder()
 	f.handler.ServeHTTP(w, r)
-	if w.Code != 403 || errorCode(t, w) != "origin_rejected" {
+	if w.Code != http.StatusForbidden || errorCode(t, w) != "origin_rejected" {
 		t.Fatalf("origin: %d", w.Code)
 	}
 }
@@ -328,7 +328,7 @@ func TestPaginationCursorIsFilterBound(t *testing.T) {
 		f.repository.Problems[id] = practice.ProblemRecord{ID: id, Difficulty: "easy", Categories: []string{"arrays"}}
 	}
 	w := request(t, f, "GET", "/api/v2/leetcode-problems?limit=2&difficulty=easy", "student", "")
-	if w.Code != 200 {
+	if w.Code != http.StatusOK {
 		t.Fatalf("list: %d %s", w.Code, w.Body.String())
 	}
 	var page struct {
@@ -339,7 +339,7 @@ func TestPaginationCursorIsFilterBound(t *testing.T) {
 		t.Fatal("missing next cursor")
 	}
 	w = request(t, f, "GET", "/api/v2/leetcode-problems?limit=2&difficulty=hard&cursor="+*page.PageInfo.NextCursor, "student", "")
-	if w.Code != 400 || errorCode(t, w) != "invalid_cursor" {
+	if w.Code != http.StatusBadRequest || errorCode(t, w) != "invalid_cursor" {
 		t.Fatalf("cursor rebound: %d", w.Code)
 	}
 }
@@ -348,14 +348,14 @@ func TestCreateStatusRateLimitAndRetryAfter(t *testing.T) {
 	f := newFixture()
 	body := `{"problemId":"problem","outcome":"independently_solved","confidence":5,"minutes":12,"attemptedAt":"2026-08-13T00:00:00Z"}`
 	w := request(t, f, "POST", "/api/v2/problem-attempts", "student", body)
-	if w.Code != 201 {
+	if w.Code != http.StatusCreated {
 		t.Fatalf("create status %d %s", w.Code, w.Body.String())
 	}
 	for i := 0; i < 5; i++ {
 		_ = request(t, f, "POST", "/api/v2/admin/leetcode/sync", "director", "")
 	}
 	w = request(t, f, "POST", "/api/v2/admin/leetcode/sync", "director", "")
-	if w.Code != 429 || w.Header().Get("Retry-After") == "" || errorCode(t, w) != "rate_limited" {
+	if w.Code != http.StatusTooManyRequests || w.Header().Get("Retry-After") == "" || errorCode(t, w) != "rate_limited" {
 		t.Fatalf("rate limit: %d %#v", w.Code, w.Header())
 	}
 }
@@ -364,7 +364,7 @@ func TestPrivilegedSeasonCreationRequiresMFACsrfAndUses201(t *testing.T) {
 	f := newFixture()
 	body := `{"name":"New","slug":"new","location":"Adelaide","imageUrl":"https://example.com/image","resourcesUrl":"https://example.com/resources","startAt":"2026-08-13T00:00:00Z","endAt":"2026-08-14T00:00:00Z"}`
 	w := request(t, f, "POST", "/api/v2/seasons", "student", body)
-	if w.Code != 403 {
+	if w.Code != http.StatusForbidden {
 		t.Fatalf("student created season: %d", w.Code)
 	}
 	r := httptest.NewRequest("POST", "/api/v2/seasons", strings.NewReader(body))
@@ -373,7 +373,7 @@ func TestPrivilegedSeasonCreationRequiresMFACsrfAndUses201(t *testing.T) {
 	r.Header.Set("Content-Type", "application/json")
 	w = httptest.NewRecorder()
 	f.handler.ServeHTTP(w, r)
-	if w.Code != 201 {
+	if w.Code != http.StatusCreated {
 		t.Fatalf("director create: %d %s", w.Code, w.Body.String())
 	}
 }
@@ -419,7 +419,7 @@ func TestIdentityLifecycleRequiresServiceTokenAndCreatesLink(t *testing.T) {
 	f := newFixture()
 	body := `{"eventId":"event-create-auth-new","type":"auth_user_created","authUserId":"auth-new","email":"new@example.com","emailVerified":false,"securityVersion":1,"occurredAt":"2026-08-13T00:00:00Z"}`
 	w := request(t, f, "POST", "/internal/auth/lifecycle-events", "", body)
-	if w.Code != 401 {
+	if w.Code != http.StatusUnauthorized {
 		t.Fatalf("unauthorized lifecycle=%d", w.Code)
 	}
 	raw := httptest.NewRequest("POST", "/internal/auth/lifecycle-events", strings.NewReader(body))
@@ -443,7 +443,7 @@ func TestIdentityLifecycleRequiresServiceTokenAndCreatesLink(t *testing.T) {
 	r.Header.Set("Content-Type", "application/json")
 	w = httptest.NewRecorder()
 	f.handler.ServeHTTP(w, r)
-	if w.Code != 204 {
+	if w.Code != http.StatusNoContent {
 		t.Fatalf("lifecycle=%d %s", w.Code, w.Body.String())
 	}
 	if _, ok := f.repository.AuthSubjects["auth-new"]; !ok {

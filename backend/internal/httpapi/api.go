@@ -202,7 +202,7 @@ func (a *API) live(w http.ResponseWriter, _ *http.Request) {
 func (a *API) readiness(w http.ResponseWriter, r *http.Request) {
 	if a.ready != nil {
 		if err := a.ready(); err != nil {
-			writeErrorResponse(w, 503, "not_ready", "A required dependency is unavailable.")
+			writeErrorResponse(w, http.StatusServiceUnavailable, "not_ready", "A required dependency is unavailable.")
 			return
 		}
 	}

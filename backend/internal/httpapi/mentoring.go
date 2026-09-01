@@ -1,7 +1,6 @@
 package httpapi
 
 import (
-	"errors"
 	"net/http"
 	"strings"
 	"time"
@@ -10,7 +9,6 @@ import (
 	"github.com/magedmg/RSP-website/backend/internal/authz"
 	"github.com/magedmg/RSP-website/backend/internal/platform/id"
 	"github.com/magedmg/RSP-website/backend/internal/programme"
-	"github.com/magedmg/RSP-website/backend/internal/store"
 )
 
 func (a *API) canViewSeason(r *http.Request, seasonID string) bool {
@@ -44,20 +42,11 @@ func canGrantCoordinator(actor authz.Actor, seasonID string) bool {
 func (a *API) listWeeks(w http.ResponseWriter, r *http.Request) {
 	seasonID := r.PathValue("id")
 	if !a.canViewSeason(r, seasonID) {
-		writeErrorResponse(w, 403, "season_access_required", "The current account cannot access this season.")
+		writeErrorResponse(w, http.StatusForbidden, "season_access_required", "The current account cannot access this season.")
 		return
 	}
 	if _, err := a.store.GetSeason(r.Context(), seasonID); err != nil {
-		switch {
-		case errors.Is(err, store.ErrNotFound):
-			writeErrorResponse(w, http.StatusNotFound, "not_found", "The requested resource does not exist.")
-		case errors.Is(err, store.ErrConflict):
-			writeErrorResponse(w, http.StatusConflict, "stale_revision", "The resource changed since it was loaded.")
-		case errors.Is(err, store.ErrDuplicate):
-			writeErrorResponse(w, http.StatusConflict, "duplicate", "A resource with that unique value already exists.")
-		default:
-			writeErrorResponse(w, http.StatusInternalServerError, "internal_error", "The request could not be completed.")
-		}
+		a.writeStoreErrorResponse(w, err)
 		return
 	}
 
@@ -76,22 +65,13 @@ func (a *API) listWeeks(w http.ResponseWriter, r *http.Request) {
 	binding := "weeks|season=" + seasonID + "|sort=" + sortBy
 	limit, boundary, err := a.page(r, binding)
 	if err != nil {
-		writeErrorResponse(w, 400, "invalid_cursor", "The cursor does not match the selected season and sort.")
+		writeErrorResponse(w, http.StatusBadRequest, "invalid_cursor", "The cursor does not match the selected season and sort.")
 		return
 	}
 
 	items, more, total, err := a.store.ListWeeks(r.Context(), seasonID, boundary, limit, sortBy, direction)
 	if err != nil {
-		switch {
-		case errors.Is(err, store.ErrNotFound):
-			writeErrorResponse(w, http.StatusNotFound, "not_found", "The requested resource does not exist.")
-		case errors.Is(err, store.ErrConflict):
-			writeErrorResponse(w, http.StatusConflict, "stale_revision", "The resource changed since it was loaded.")
-		case errors.Is(err, store.ErrDuplicate):
-			writeErrorResponse(w, http.StatusConflict, "duplicate", "A resource with that unique value already exists.")
-		default:
-			writeErrorResponse(w, http.StatusInternalServerError, "internal_error", "The request could not be completed.")
-		}
+		a.writeStoreErrorResponse(w, err)
 		return
 	}
 
@@ -110,7 +90,7 @@ func (a *API) listWeeks(w http.ResponseWriter, r *http.Request) {
 func (a *API) createWeek(w http.ResponseWriter, r *http.Request) {
 	season, ok := a.seasonAdmin(r)
 	if !ok {
-		writeErrorResponse(w, 403, "season_admin_required", "An administrator of an open season with recent MFA is required.")
+		writeErrorResponse(w, http.StatusForbidden, "season_admin_required", "An administrator of an open season with recent MFA is required.")
 		return
 	}
 	var in struct {
@@ -131,16 +111,7 @@ func (a *API) createWeek(w http.ResponseWriter, r *http.Request) {
 	actor := actorFrom(r.Context())
 	created, err := a.store.CreateWeek(r.Context(), v, actor.UserID, time.Now().UTC())
 	if err != nil {
-		switch {
-		case errors.Is(err, store.ErrNotFound):
-			writeErrorResponse(w, http.StatusNotFound, "not_found", "The requested resource does not exist.")
-		case errors.Is(err, store.ErrConflict):
-			writeErrorResponse(w, http.StatusConflict, "stale_revision", "The resource changed since it was loaded.")
-		case errors.Is(err, store.ErrDuplicate):
-			writeErrorResponse(w, http.StatusConflict, "duplicate", "A resource with that unique value already exists.")
-		default:
-			writeErrorResponse(w, http.StatusInternalServerError, "internal_error", "The request could not be completed.")
-		}
+		a.writeStoreErrorResponse(w, err)
 		return
 	}
 
@@ -150,7 +121,7 @@ func (a *API) createWeek(w http.ResponseWriter, r *http.Request) {
 func (a *API) updateWeek(w http.ResponseWriter, r *http.Request) {
 	season, ok := a.seasonAdmin(r)
 	if !ok {
-		writeErrorResponse(w, 403, "season_admin_required", "An administrator of an open season with recent MFA is required.")
+		writeErrorResponse(w, http.StatusForbidden, "season_admin_required", "An administrator of an open season with recent MFA is required.")
 		return
 	}
 	var in struct {
@@ -171,16 +142,7 @@ func (a *API) updateWeek(w http.ResponseWriter, r *http.Request) {
 	actor := actorFrom(r.Context())
 	v, err := a.store.UpdateWeek(r.Context(), r.PathValue("id"), r.PathValue("weekId"), in.Revision, programme.WeekRecord{Number: in.Number, StartAt: in.StartAt.UTC(), EndAt: in.EndAt.UTC(), ResourceURL: in.ResourceURL}, actor.UserID, time.Now().UTC())
 	if err != nil {
-		switch {
-		case errors.Is(err, store.ErrNotFound):
-			writeErrorResponse(w, http.StatusNotFound, "not_found", "The requested resource does not exist.")
-		case errors.Is(err, store.ErrConflict):
-			writeErrorResponse(w, http.StatusConflict, "stale_revision", "The resource changed since it was loaded.")
-		case errors.Is(err, store.ErrDuplicate):
-			writeErrorResponse(w, http.StatusConflict, "duplicate", "A resource with that unique value already exists.")
-		default:
-			writeErrorResponse(w, http.StatusInternalServerError, "internal_error", "The request could not be completed.")
-		}
+		a.writeStoreErrorResponse(w, err)
 		return
 	}
 
@@ -189,7 +151,7 @@ func (a *API) updateWeek(w http.ResponseWriter, r *http.Request) {
 
 func (a *API) deleteWeek(w http.ResponseWriter, r *http.Request) {
 	if _, ok := a.seasonAdmin(r); !ok {
-		writeErrorResponse(w, 403, "season_admin_required", "An administrator of an open season with recent MFA is required.")
+		writeErrorResponse(w, http.StatusForbidden, "season_admin_required", "An administrator of an open season with recent MFA is required.")
 		return
 	}
 	revision, err := parseRevision(r)
@@ -200,26 +162,17 @@ func (a *API) deleteWeek(w http.ResponseWriter, r *http.Request) {
 
 	actor := actorFrom(r.Context())
 	if err := a.store.DeleteWeek(r.Context(), r.PathValue("id"), r.PathValue("weekId"), revision, actor.UserID, time.Now().UTC()); err != nil {
-		switch {
-		case errors.Is(err, store.ErrNotFound):
-			writeErrorResponse(w, http.StatusNotFound, "not_found", "The requested resource does not exist.")
-		case errors.Is(err, store.ErrConflict):
-			writeErrorResponse(w, http.StatusConflict, "stale_revision", "The resource changed since it was loaded.")
-		case errors.Is(err, store.ErrDuplicate):
-			writeErrorResponse(w, http.StatusConflict, "duplicate", "A resource with that unique value already exists.")
-		default:
-			writeErrorResponse(w, http.StatusInternalServerError, "internal_error", "The request could not be completed.")
-		}
+		a.writeStoreErrorResponse(w, err)
 		return
 	}
 
-	w.WriteHeader(204)
+	w.WriteHeader(http.StatusNoContent)
 }
 
 func (a *API) listMembers(w http.ResponseWriter, r *http.Request) {
 	seasonID := r.PathValue("id")
 	if !a.canViewSeason(r, seasonID) {
-		writeErrorResponse(w, 403, "season_access_required", "No season access yet.")
+		writeErrorResponse(w, http.StatusForbidden, "season_access_required", "No season access yet.")
 		return
 	}
 	actor := actorFrom(r.Context())
@@ -249,22 +202,13 @@ func (a *API) listMembers(w http.ResponseWriter, r *http.Request) {
 	binding := "members|season=" + seasonID + "|role=" + role + "|state=" + state + "|sort=" + sortBy
 	limit, boundary, err := a.page(r, binding)
 	if err != nil {
-		writeErrorResponse(w, 400, "invalid_cursor", "The cursor does not match the selected member filters.")
+		writeErrorResponse(w, http.StatusBadRequest, "invalid_cursor", "The cursor does not match the selected member filters.")
 		return
 	}
 
 	items, more, total, err := a.store.ListEnrollments(r.Context(), seasonID, boundary, limit, role, state, sortBy, direction, canSeeInactive)
 	if err != nil {
-		switch {
-		case errors.Is(err, store.ErrNotFound):
-			writeErrorResponse(w, http.StatusNotFound, "not_found", "The requested resource does not exist.")
-		case errors.Is(err, store.ErrConflict):
-			writeErrorResponse(w, http.StatusConflict, "stale_revision", "The resource changed since it was loaded.")
-		case errors.Is(err, store.ErrDuplicate):
-			writeErrorResponse(w, http.StatusConflict, "duplicate", "A resource with that unique value already exists.")
-		default:
-			writeErrorResponse(w, http.StatusInternalServerError, "internal_error", "The request could not be completed.")
-		}
+		a.writeStoreErrorResponse(w, err)
 		return
 	}
 
@@ -282,7 +226,7 @@ func (a *API) listMembers(w http.ResponseWriter, r *http.Request) {
 
 func (a *API) listEnrollmentCandidates(w http.ResponseWriter, r *http.Request) {
 	if _, ok := a.seasonAdmin(r); !ok {
-		writeErrorResponse(w, 403, "season_admin_required", "An administrator of an open season with recent MFA is required.")
+		writeErrorResponse(w, http.StatusForbidden, "season_admin_required", "An administrator of an open season with recent MFA is required.")
 		return
 	}
 	query := strings.TrimSpace(r.URL.Query().Get("query"))
@@ -306,16 +250,7 @@ func (a *API) listEnrollmentCandidates(w http.ResponseWriter, r *http.Request) {
 
 	items, more, total, err := a.store.ListEnrollmentCandidates(r.Context(), r.PathValue("id"), query, boundary, limit, direction)
 	if err != nil {
-		switch {
-		case errors.Is(err, store.ErrNotFound):
-			writeErrorResponse(w, http.StatusNotFound, "not_found", "The requested resource does not exist.")
-		case errors.Is(err, store.ErrConflict):
-			writeErrorResponse(w, http.StatusConflict, "stale_revision", "The resource changed since it was loaded.")
-		case errors.Is(err, store.ErrDuplicate):
-			writeErrorResponse(w, http.StatusConflict, "duplicate", "A resource with that unique value already exists.")
-		default:
-			writeErrorResponse(w, http.StatusInternalServerError, "internal_error", "The request could not be completed.")
-		}
+		a.writeStoreErrorResponse(w, err)
 		return
 	}
 
@@ -333,7 +268,7 @@ func (a *API) listEnrollmentCandidates(w http.ResponseWriter, r *http.Request) {
 
 func (a *API) createMember(w http.ResponseWriter, r *http.Request) {
 	if _, ok := a.seasonAdmin(r); !ok {
-		writeErrorResponse(w, 403, "season_admin_required", "An administrator of an open season with recent MFA is required.")
+		writeErrorResponse(w, http.StatusForbidden, "season_admin_required", "An administrator of an open season with recent MFA is required.")
 		return
 	}
 	var in struct {
@@ -345,23 +280,14 @@ func (a *API) createMember(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if in.Role == "coordinator" && !canGrantCoordinator(actorFrom(r.Context()), r.PathValue("id")) {
-		writeErrorResponse(w, 403, "privileged_role_grant_required", "Only the season Coordinator, a Director, or a System Admin may grant Coordinator access.")
+		writeErrorResponse(w, http.StatusForbidden, "privileged_role_grant_required", "Only the season Coordinator, a Director, or a System Admin may grant Coordinator access.")
 		return
 	}
 	v := programme.EnrollmentRecord{ID: id.New(), SeasonID: r.PathValue("id"), UserID: in.UserID, Role: in.Role, State: "active", Revision: 1}
 	actor := actorFrom(r.Context())
 	created, err := a.store.CreateEnrollment(r.Context(), v, actor.UserID, time.Now().UTC())
 	if err != nil {
-		switch {
-		case errors.Is(err, store.ErrNotFound):
-			writeErrorResponse(w, http.StatusNotFound, "not_found", "The requested resource does not exist.")
-		case errors.Is(err, store.ErrConflict):
-			writeErrorResponse(w, http.StatusConflict, "stale_revision", "The resource changed since it was loaded.")
-		case errors.Is(err, store.ErrDuplicate):
-			writeErrorResponse(w, http.StatusConflict, "duplicate", "A resource with that unique value already exists.")
-		default:
-			writeErrorResponse(w, http.StatusInternalServerError, "internal_error", "The request could not be completed.")
-		}
+		a.writeStoreErrorResponse(w, err)
 		return
 	}
 
@@ -370,7 +296,7 @@ func (a *API) createMember(w http.ResponseWriter, r *http.Request) {
 
 func (a *API) updateMember(w http.ResponseWriter, r *http.Request) {
 	if _, ok := a.seasonAdmin(r); !ok {
-		writeErrorResponse(w, 403, "season_admin_required", "An administrator of an open season with recent MFA is required.")
+		writeErrorResponse(w, http.StatusForbidden, "season_admin_required", "An administrator of an open season with recent MFA is required.")
 		return
 	}
 	var in struct {
@@ -393,16 +319,7 @@ func (a *API) updateMember(w http.ResponseWriter, r *http.Request) {
 	actor := actorFrom(r.Context())
 	v, err := a.store.UpdateEnrollmentDetails(r.Context(), r.PathValue("id"), r.PathValue("memberId"), in.Revision, in.Role, in.StudentLevel, actor.UserID, time.Now().UTC())
 	if err != nil {
-		switch {
-		case errors.Is(err, store.ErrNotFound):
-			writeErrorResponse(w, http.StatusNotFound, "not_found", "The requested resource does not exist.")
-		case errors.Is(err, store.ErrConflict):
-			writeErrorResponse(w, http.StatusConflict, "stale_revision", "The resource changed since it was loaded.")
-		case errors.Is(err, store.ErrDuplicate):
-			writeErrorResponse(w, http.StatusConflict, "duplicate", "A resource with that unique value already exists.")
-		default:
-			writeErrorResponse(w, http.StatusInternalServerError, "internal_error", "The request could not be completed.")
-		}
+		a.writeStoreErrorResponse(w, err)
 		return
 	}
 
@@ -418,16 +335,7 @@ func (a *API) changeMember(w http.ResponseWriter, r *http.Request, promote bool)
 	seasonID, memberID := r.PathValue("id"), r.PathValue("memberId")
 	season, err := a.store.GetSeason(r.Context(), seasonID)
 	if err != nil {
-		switch {
-		case errors.Is(err, store.ErrNotFound):
-			writeErrorResponse(w, http.StatusNotFound, "not_found", "The requested resource does not exist.")
-		case errors.Is(err, store.ErrConflict):
-			writeErrorResponse(w, http.StatusConflict, "stale_revision", "The resource changed since it was loaded.")
-		case errors.Is(err, store.ErrDuplicate):
-			writeErrorResponse(w, http.StatusConflict, "duplicate", "A resource with that unique value already exists.")
-		default:
-			writeErrorResponse(w, http.StatusInternalServerError, "internal_error", "The request could not be completed.")
-		}
+		a.writeStoreErrorResponse(w, err)
 		return
 	}
 	if season.Status != "open" {
@@ -436,7 +344,7 @@ func (a *API) changeMember(w http.ResponseWriter, r *http.Request, promote bool)
 	}
 	v, err := a.store.GetEnrollment(r.Context(), memberID)
 	if err != nil || v.SeasonID != seasonID {
-		writeErrorResponse(w, 404, "not_found", "The enrollment does not exist.")
+		writeErrorResponse(w, http.StatusNotFound, "not_found", "The enrollment does not exist.")
 		return
 	}
 	if v.Role != "student" {
@@ -445,25 +353,16 @@ func (a *API) changeMember(w http.ResponseWriter, r *http.Request, promote bool)
 	}
 	assigned, err := a.store.IsMentorAssigned(r.Context(), seasonID, actor.UserID, v.UserID)
 	if err != nil {
-		switch {
-		case errors.Is(err, store.ErrNotFound):
-			writeErrorResponse(w, http.StatusNotFound, "not_found", "The requested resource does not exist.")
-		case errors.Is(err, store.ErrConflict):
-			writeErrorResponse(w, http.StatusConflict, "stale_revision", "The resource changed since it was loaded.")
-		case errors.Is(err, store.ErrDuplicate):
-			writeErrorResponse(w, http.StatusConflict, "duplicate", "A resource with that unique value already exists.")
-		default:
-			writeErrorResponse(w, http.StatusInternalServerError, "internal_error", "The request could not be completed.")
-		}
+		a.writeStoreErrorResponse(w, err)
 		return
 	}
 	if !actor.CanPromoteOrRemove(seasonID, assigned, v.State == "active") {
-		writeErrorResponse(w, 403, "member_admin_required", "This member cannot be changed by the current account.")
+		writeErrorResponse(w, http.StatusForbidden, "member_admin_required", "This member cannot be changed by the current account.")
 		return
 	}
 	seasonRole, _ := actor.Enrollment(seasonID)
 	if (actor.IsPrivileged() || seasonRole.Role == authz.Coordinator) && !actor.HasRecentMFA(time.Now()) {
-		writeErrorResponse(w, 403, "privileged_mfa_required", "Recent MFA is required for this administrative action.")
+		writeErrorResponse(w, http.StatusForbidden, "privileged_mfa_required", "Recent MFA is required for this administrative action.")
 		return
 	}
 	var in struct {
@@ -480,7 +379,7 @@ func (a *API) changeMember(w http.ResponseWriter, r *http.Request, promote bool)
 		return
 	}
 	if promote && in.Role == "coordinator" && !canGrantCoordinator(actor, seasonID) {
-		writeErrorResponse(w, 403, "privileged_role_grant_required", "Only the season Coordinator, a Director, or a System Admin may grant Coordinator access.")
+		writeErrorResponse(w, http.StatusForbidden, "privileged_role_grant_required", "Only the season Coordinator, a Director, or a System Admin may grant Coordinator access.")
 		return
 	}
 	role, state := "", ""
@@ -491,16 +390,7 @@ func (a *API) changeMember(w http.ResponseWriter, r *http.Request, promote bool)
 	}
 	updated, err := a.store.UpdateEnrollment(r.Context(), memberID, in.Revision, role, state, in.Reason, actor.UserID, time.Now())
 	if err != nil {
-		switch {
-		case errors.Is(err, store.ErrNotFound):
-			writeErrorResponse(w, http.StatusNotFound, "not_found", "The requested resource does not exist.")
-		case errors.Is(err, store.ErrConflict):
-			writeErrorResponse(w, http.StatusConflict, "stale_revision", "The resource changed since it was loaded.")
-		case errors.Is(err, store.ErrDuplicate):
-			writeErrorResponse(w, http.StatusConflict, "duplicate", "A resource with that unique value already exists.")
-		default:
-			writeErrorResponse(w, http.StatusInternalServerError, "internal_error", "The request could not be completed.")
-		}
+		a.writeStoreErrorResponse(w, err)
 		return
 	}
 
@@ -510,7 +400,7 @@ func (a *API) changeMember(w http.ResponseWriter, r *http.Request, promote bool)
 func (a *API) listMentorships(w http.ResponseWriter, r *http.Request) {
 	seasonID := r.PathValue("id")
 	if !a.canViewSeason(r, seasonID) {
-		writeErrorResponse(w, 403, "season_access_required", "The current account cannot access this season.")
+		writeErrorResponse(w, http.StatusForbidden, "season_access_required", "The current account cannot access this season.")
 		return
 	}
 	sortBy, err := requestedSort(r, "id:asc", "id:asc", "student:asc")
@@ -529,22 +419,13 @@ func (a *API) listMentorships(w http.ResponseWriter, r *http.Request) {
 	binding := "mentorships|season=" + seasonID + "|sort=" + sortBy + "|mentor=" + mentorUserID + "|student=" + studentUserID
 	limit, boundary, err := a.page(r, binding)
 	if err != nil {
-		writeErrorResponse(w, 400, "invalid_cursor", "The cursor does not match the selected season and sort.")
+		writeErrorResponse(w, http.StatusBadRequest, "invalid_cursor", "The cursor does not match the selected season and sort.")
 		return
 	}
 
 	items, more, total, err := a.store.ListMentorships(r.Context(), seasonID, boundary, limit, sortBy, direction, mentorUserID, studentUserID)
 	if err != nil {
-		switch {
-		case errors.Is(err, store.ErrNotFound):
-			writeErrorResponse(w, http.StatusNotFound, "not_found", "The requested resource does not exist.")
-		case errors.Is(err, store.ErrConflict):
-			writeErrorResponse(w, http.StatusConflict, "stale_revision", "The resource changed since it was loaded.")
-		case errors.Is(err, store.ErrDuplicate):
-			writeErrorResponse(w, http.StatusConflict, "duplicate", "A resource with that unique value already exists.")
-		default:
-			writeErrorResponse(w, http.StatusInternalServerError, "internal_error", "The request could not be completed.")
-		}
+		a.writeStoreErrorResponse(w, err)
 		return
 	}
 
@@ -562,7 +443,7 @@ func (a *API) listMentorships(w http.ResponseWriter, r *http.Request) {
 
 func (a *API) createMentorship(w http.ResponseWriter, r *http.Request) {
 	if _, ok := a.seasonAdmin(r); !ok {
-		writeErrorResponse(w, 403, "season_admin_required", "An administrator of an open season with recent MFA is required.")
+		writeErrorResponse(w, http.StatusForbidden, "season_admin_required", "An administrator of an open season with recent MFA is required.")
 		return
 	}
 	var in struct {
@@ -578,16 +459,7 @@ func (a *API) createMentorship(w http.ResponseWriter, r *http.Request) {
 	actor := actorFrom(r.Context())
 	created, err := a.store.CreateMentorship(r.Context(), v, actor.UserID, time.Now().UTC())
 	if err != nil {
-		switch {
-		case errors.Is(err, store.ErrNotFound):
-			writeErrorResponse(w, http.StatusNotFound, "not_found", "The requested resource does not exist.")
-		case errors.Is(err, store.ErrConflict):
-			writeErrorResponse(w, http.StatusConflict, "stale_revision", "The resource changed since it was loaded.")
-		case errors.Is(err, store.ErrDuplicate):
-			writeErrorResponse(w, http.StatusConflict, "duplicate", "A resource with that unique value already exists.")
-		default:
-			writeErrorResponse(w, http.StatusInternalServerError, "internal_error", "The request could not be completed.")
-		}
+		a.writeStoreErrorResponse(w, err)
 		return
 	}
 
@@ -596,7 +468,7 @@ func (a *API) createMentorship(w http.ResponseWriter, r *http.Request) {
 
 func (a *API) updateMentorship(w http.ResponseWriter, r *http.Request) {
 	if _, ok := a.seasonAdmin(r); !ok {
-		writeErrorResponse(w, 403, "season_admin_required", "An administrator of an open season with recent MFA is required.")
+		writeErrorResponse(w, http.StatusForbidden, "season_admin_required", "An administrator of an open season with recent MFA is required.")
 		return
 	}
 	var in struct {
@@ -612,16 +484,7 @@ func (a *API) updateMentorship(w http.ResponseWriter, r *http.Request) {
 	actor := actorFrom(r.Context())
 	v, err := a.store.UpdateMentorship(r.Context(), r.PathValue("id"), r.PathValue("mentorshipId"), in.Revision, in.MentorUserID, in.StudentUserID, actor.UserID, time.Now().UTC())
 	if err != nil {
-		switch {
-		case errors.Is(err, store.ErrNotFound):
-			writeErrorResponse(w, http.StatusNotFound, "not_found", "The requested resource does not exist.")
-		case errors.Is(err, store.ErrConflict):
-			writeErrorResponse(w, http.StatusConflict, "stale_revision", "The resource changed since it was loaded.")
-		case errors.Is(err, store.ErrDuplicate):
-			writeErrorResponse(w, http.StatusConflict, "duplicate", "A resource with that unique value already exists.")
-		default:
-			writeErrorResponse(w, http.StatusInternalServerError, "internal_error", "The request could not be completed.")
-		}
+		a.writeStoreErrorResponse(w, err)
 		return
 	}
 
@@ -630,7 +493,7 @@ func (a *API) updateMentorship(w http.ResponseWriter, r *http.Request) {
 
 func (a *API) deleteMentorship(w http.ResponseWriter, r *http.Request) {
 	if _, ok := a.seasonAdmin(r); !ok {
-		writeErrorResponse(w, 403, "season_admin_required", "An administrator of an open season with recent MFA is required.")
+		writeErrorResponse(w, http.StatusForbidden, "season_admin_required", "An administrator of an open season with recent MFA is required.")
 		return
 	}
 	revision, err := parseRevision(r)
@@ -641,18 +504,9 @@ func (a *API) deleteMentorship(w http.ResponseWriter, r *http.Request) {
 
 	actor := actorFrom(r.Context())
 	if err := a.store.DeleteMentorship(r.Context(), r.PathValue("id"), r.PathValue("mentorshipId"), revision, actor.UserID, time.Now().UTC()); err != nil {
-		switch {
-		case errors.Is(err, store.ErrNotFound):
-			writeErrorResponse(w, http.StatusNotFound, "not_found", "The requested resource does not exist.")
-		case errors.Is(err, store.ErrConflict):
-			writeErrorResponse(w, http.StatusConflict, "stale_revision", "The resource changed since it was loaded.")
-		case errors.Is(err, store.ErrDuplicate):
-			writeErrorResponse(w, http.StatusConflict, "duplicate", "A resource with that unique value already exists.")
-		default:
-			writeErrorResponse(w, http.StatusInternalServerError, "internal_error", "The request could not be completed.")
-		}
+		a.writeStoreErrorResponse(w, err)
 		return
 	}
 
-	w.WriteHeader(204)
+	w.WriteHeader(http.StatusNoContent)
 }

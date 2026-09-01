@@ -2,7 +2,6 @@
 package httpapi
 
 import (
-	"errors"
 	"net/http"
 	"strings"
 	"time"
@@ -11,7 +10,6 @@ import (
 	"github.com/magedmg/RSP-website/backend/internal/authz"
 	"github.com/magedmg/RSP-website/backend/internal/platform/audit"
 	"github.com/magedmg/RSP-website/backend/internal/platform/id"
-	"github.com/magedmg/RSP-website/backend/internal/store"
 )
 
 func (a *API) auditSystemAdminPrivateRead(w http.ResponseWriter, r *http.Request, subjectType, subjectID string) bool {
@@ -69,16 +67,7 @@ func (a *API) listAdminUsers(w http.ResponseWriter, r *http.Request) {
 
 	items, more, total, err := a.store.ListAdminUsers(r.Context(), boundary, limit, direction, query, accountState, globalRole)
 	if err != nil {
-		switch {
-		case errors.Is(err, store.ErrNotFound):
-			writeErrorResponse(w, http.StatusNotFound, "not_found", "The requested resource does not exist.")
-		case errors.Is(err, store.ErrConflict):
-			writeErrorResponse(w, http.StatusConflict, "stale_revision", "The resource changed since it was loaded.")
-		case errors.Is(err, store.ErrDuplicate):
-			writeErrorResponse(w, http.StatusConflict, "duplicate", "A resource with that unique value already exists.")
-		default:
-			writeErrorResponse(w, http.StatusInternalServerError, "internal_error", "The request could not be completed.")
-		}
+		a.writeStoreErrorResponse(w, err)
 		return
 	}
 	if !a.auditSystemAdminPrivateRead(w, r, "admin_user_collection", actor.UserID) {
@@ -118,16 +107,7 @@ func (a *API) setUserAccountState(w http.ResponseWriter, r *http.Request) {
 	}
 	current, err := a.store.GetUser(r.Context(), targetID)
 	if err != nil {
-		switch {
-		case errors.Is(err, store.ErrNotFound):
-			writeErrorResponse(w, http.StatusNotFound, "not_found", "The requested resource does not exist.")
-		case errors.Is(err, store.ErrConflict):
-			writeErrorResponse(w, http.StatusConflict, "stale_revision", "The resource changed since it was loaded.")
-		case errors.Is(err, store.ErrDuplicate):
-			writeErrorResponse(w, http.StatusConflict, "duplicate", "A resource with that unique value already exists.")
-		default:
-			writeErrorResponse(w, http.StatusInternalServerError, "internal_error", "The request could not be completed.")
-		}
+		a.writeStoreErrorResponse(w, err)
 		return
 	}
 	if current.Revision != in.Revision {
@@ -141,16 +121,7 @@ func (a *API) setUserAccountState(w http.ResponseWriter, r *http.Request) {
 	}
 	subject, err := a.store.ResolveAuthSubjectForUser(r.Context(), targetID)
 	if err != nil {
-		switch {
-		case errors.Is(err, store.ErrNotFound):
-			writeErrorResponse(w, http.StatusNotFound, "not_found", "The requested resource does not exist.")
-		case errors.Is(err, store.ErrConflict):
-			writeErrorResponse(w, http.StatusConflict, "stale_revision", "The resource changed since it was loaded.")
-		case errors.Is(err, store.ErrDuplicate):
-			writeErrorResponse(w, http.StatusConflict, "duplicate", "A resource with that unique value already exists.")
-		default:
-			writeErrorResponse(w, http.StatusInternalServerError, "internal_error", "The request could not be completed.")
-		}
+		a.writeStoreErrorResponse(w, err)
 		return
 	}
 	if err := a.setAccountState(r.Context(), subject, in.State, strings.TrimSpace(in.Reason), actor.UserID); err != nil {
@@ -160,16 +131,7 @@ func (a *API) setUserAccountState(w http.ResponseWriter, r *http.Request) {
 
 	updated, err := a.store.GetUser(r.Context(), targetID)
 	if err != nil {
-		switch {
-		case errors.Is(err, store.ErrNotFound):
-			writeErrorResponse(w, http.StatusNotFound, "not_found", "The requested resource does not exist.")
-		case errors.Is(err, store.ErrConflict):
-			writeErrorResponse(w, http.StatusConflict, "stale_revision", "The resource changed since it was loaded.")
-		case errors.Is(err, store.ErrDuplicate):
-			writeErrorResponse(w, http.StatusConflict, "duplicate", "A resource with that unique value already exists.")
-		default:
-			writeErrorResponse(w, http.StatusInternalServerError, "internal_error", "The request could not be completed.")
-		}
+		a.writeStoreErrorResponse(w, err)
 		return
 	}
 
@@ -195,31 +157,13 @@ func (a *API) grantUserGlobalRole(w http.ResponseWriter, r *http.Request) {
 	}
 	target, err := a.store.GetUser(r.Context(), r.PathValue("id"))
 	if err != nil {
-		switch {
-		case errors.Is(err, store.ErrNotFound):
-			writeErrorResponse(w, http.StatusNotFound, "not_found", "The requested resource does not exist.")
-		case errors.Is(err, store.ErrConflict):
-			writeErrorResponse(w, http.StatusConflict, "stale_revision", "The resource changed since it was loaded.")
-		case errors.Is(err, store.ErrDuplicate):
-			writeErrorResponse(w, http.StatusConflict, "duplicate", "A resource with that unique value already exists.")
-		default:
-			writeErrorResponse(w, http.StatusInternalServerError, "internal_error", "The request could not be completed.")
-		}
+		a.writeStoreErrorResponse(w, err)
 		return
 	}
 
 	subject, err := a.store.ResolveAuthSubjectForUser(r.Context(), target.ID)
 	if err != nil {
-		switch {
-		case errors.Is(err, store.ErrNotFound):
-			writeErrorResponse(w, http.StatusNotFound, "not_found", "The requested resource does not exist.")
-		case errors.Is(err, store.ErrConflict):
-			writeErrorResponse(w, http.StatusConflict, "stale_revision", "The resource changed since it was loaded.")
-		case errors.Is(err, store.ErrDuplicate):
-			writeErrorResponse(w, http.StatusConflict, "duplicate", "A resource with that unique value already exists.")
-		default:
-			writeErrorResponse(w, http.StatusInternalServerError, "internal_error", "The request could not be completed.")
-		}
+		a.writeStoreErrorResponse(w, err)
 		return
 	}
 
@@ -231,16 +175,7 @@ func (a *API) grantUserGlobalRole(w http.ResponseWriter, r *http.Request) {
 
 	assignment, err := a.store.GrantGlobalRole(r.Context(), target.ID, in.Role, configured, strings.TrimSpace(in.Reason), actor.UserID, time.Now().UTC())
 	if err != nil {
-		switch {
-		case errors.Is(err, store.ErrNotFound):
-			writeErrorResponse(w, http.StatusNotFound, "not_found", "The requested resource does not exist.")
-		case errors.Is(err, store.ErrConflict):
-			writeErrorResponse(w, http.StatusConflict, "stale_revision", "The resource changed since it was loaded.")
-		case errors.Is(err, store.ErrDuplicate):
-			writeErrorResponse(w, http.StatusConflict, "duplicate", "A resource with that unique value already exists.")
-		default:
-			writeErrorResponse(w, http.StatusInternalServerError, "internal_error", "The request could not be completed.")
-		}
+		a.writeStoreErrorResponse(w, err)
 		return
 	}
 
@@ -253,31 +188,13 @@ func (a *API) listUserGlobalRoles(w http.ResponseWriter, r *http.Request) {
 	}
 	target, err := a.store.GetUser(r.Context(), r.PathValue("id"))
 	if err != nil {
-		switch {
-		case errors.Is(err, store.ErrNotFound):
-			writeErrorResponse(w, http.StatusNotFound, "not_found", "The requested resource does not exist.")
-		case errors.Is(err, store.ErrConflict):
-			writeErrorResponse(w, http.StatusConflict, "stale_revision", "The resource changed since it was loaded.")
-		case errors.Is(err, store.ErrDuplicate):
-			writeErrorResponse(w, http.StatusConflict, "duplicate", "A resource with that unique value already exists.")
-		default:
-			writeErrorResponse(w, http.StatusInternalServerError, "internal_error", "The request could not be completed.")
-		}
+		a.writeStoreErrorResponse(w, err)
 		return
 	}
 
 	items, err := a.store.ListGlobalRoles(r.Context(), target.ID)
 	if err != nil {
-		switch {
-		case errors.Is(err, store.ErrNotFound):
-			writeErrorResponse(w, http.StatusNotFound, "not_found", "The requested resource does not exist.")
-		case errors.Is(err, store.ErrConflict):
-			writeErrorResponse(w, http.StatusConflict, "stale_revision", "The resource changed since it was loaded.")
-		case errors.Is(err, store.ErrDuplicate):
-			writeErrorResponse(w, http.StatusConflict, "duplicate", "A resource with that unique value already exists.")
-		default:
-			writeErrorResponse(w, http.StatusInternalServerError, "internal_error", "The request could not be completed.")
-		}
+		a.writeStoreErrorResponse(w, err)
 		return
 	}
 
@@ -296,16 +213,7 @@ func (a *API) revokeUserGlobalRole(w http.ResponseWriter, r *http.Request) {
 	}
 	target, err := a.store.GetUser(r.Context(), targetID)
 	if err != nil {
-		switch {
-		case errors.Is(err, store.ErrNotFound):
-			writeErrorResponse(w, http.StatusNotFound, "not_found", "The requested resource does not exist.")
-		case errors.Is(err, store.ErrConflict):
-			writeErrorResponse(w, http.StatusConflict, "stale_revision", "The resource changed since it was loaded.")
-		case errors.Is(err, store.ErrDuplicate):
-			writeErrorResponse(w, http.StatusConflict, "duplicate", "A resource with that unique value already exists.")
-		default:
-			writeErrorResponse(w, http.StatusInternalServerError, "internal_error", "The request could not be completed.")
-		}
+		a.writeStoreErrorResponse(w, err)
 		return
 	}
 
@@ -322,16 +230,7 @@ func (a *API) revokeUserGlobalRole(w http.ResponseWriter, r *http.Request) {
 
 	assignment, err := a.store.RevokeGlobalRole(r.Context(), targetID, role, revision, strings.TrimSpace(r.URL.Query().Get("reason")), actor.UserID, time.Now().UTC())
 	if err != nil {
-		switch {
-		case errors.Is(err, store.ErrNotFound):
-			writeErrorResponse(w, http.StatusNotFound, "not_found", "The requested resource does not exist.")
-		case errors.Is(err, store.ErrConflict):
-			writeErrorResponse(w, http.StatusConflict, "stale_revision", "The resource changed since it was loaded.")
-		case errors.Is(err, store.ErrDuplicate):
-			writeErrorResponse(w, http.StatusConflict, "duplicate", "A resource with that unique value already exists.")
-		default:
-			writeErrorResponse(w, http.StatusInternalServerError, "internal_error", "The request could not be completed.")
-		}
+		a.writeStoreErrorResponse(w, err)
 		return
 	}
 

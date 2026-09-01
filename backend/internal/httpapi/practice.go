@@ -1,7 +1,6 @@
 package httpapi
 
 import (
-	"errors"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -13,7 +12,6 @@ import (
 	"github.com/magedmg/RSP-website/backend/internal/platform/sanitize"
 	"github.com/magedmg/RSP-website/backend/internal/practice"
 	"github.com/magedmg/RSP-website/backend/internal/programme"
-	"github.com/magedmg/RSP-website/backend/internal/store"
 )
 
 func (a *API) requirePracticeAccess(w http.ResponseWriter, r *http.Request) bool {
@@ -99,22 +97,13 @@ func (a *API) problems(w http.ResponseWriter, r *http.Request) {
 	binding := "problems|id:asc|difficulty=" + difficulty + "|category=" + category + "|premium=" + r.URL.Query().Get("premium")
 	limit, after, err := a.page(r, binding)
 	if err != nil {
-		writeErrorResponse(w, 400, "invalid_cursor", cursor.ErrInvalid.Error())
+		writeErrorResponse(w, http.StatusBadRequest, "invalid_cursor", cursor.ErrInvalid.Error())
 		return
 	}
 
 	items, more, total, err := a.store.ListProblems(r.Context(), after, limit, difficulty, category, premium, direction)
 	if err != nil {
-		switch {
-		case errors.Is(err, store.ErrNotFound):
-			writeErrorResponse(w, http.StatusNotFound, "not_found", "The requested resource does not exist.")
-		case errors.Is(err, store.ErrConflict):
-			writeErrorResponse(w, http.StatusConflict, "stale_revision", "The resource changed since it was loaded.")
-		case errors.Is(err, store.ErrDuplicate):
-			writeErrorResponse(w, http.StatusConflict, "duplicate", "A resource with that unique value already exists.")
-		default:
-			writeErrorResponse(w, http.StatusInternalServerError, "internal_error", "The request could not be completed.")
-		}
+		a.writeStoreErrorResponse(w, err)
 		return
 	}
 
@@ -147,7 +136,7 @@ func (a *API) attempts(w http.ResponseWriter, r *http.Request) {
 	if targetID != actor.UserID && !actor.IsPrivileged() {
 		participant, err := a.store.GetMockParticipant(r.Context(), targetID)
 		if err != nil || !participant.Eligible() {
-			writeErrorResponse(w, 404, "not_found", "The requested member does not exist.")
+			writeErrorResponse(w, http.StatusNotFound, "not_found", "The requested member does not exist.")
 			return
 		}
 	}
@@ -170,22 +159,13 @@ func (a *API) attempts(w http.ResponseWriter, r *http.Request) {
 	binding := "attempts|id:asc|user=" + targetID + "|outcome=" + outcome + "|difficulty=" + difficulty
 	limit, after, err := a.page(r, binding)
 	if err != nil {
-		writeErrorResponse(w, 400, "invalid_cursor", cursor.ErrInvalid.Error())
+		writeErrorResponse(w, http.StatusBadRequest, "invalid_cursor", cursor.ErrInvalid.Error())
 		return
 	}
 
 	items, more, total, err := a.store.ListAttempts(r.Context(), targetID, after, limit, outcome, difficulty, direction)
 	if err != nil {
-		switch {
-		case errors.Is(err, store.ErrNotFound):
-			writeErrorResponse(w, http.StatusNotFound, "not_found", "The requested resource does not exist.")
-		case errors.Is(err, store.ErrConflict):
-			writeErrorResponse(w, http.StatusConflict, "stale_revision", "The resource changed since it was loaded.")
-		case errors.Is(err, store.ErrDuplicate):
-			writeErrorResponse(w, http.StatusConflict, "duplicate", "A resource with that unique value already exists.")
-		default:
-			writeErrorResponse(w, http.StatusInternalServerError, "internal_error", "The request could not be completed.")
-		}
+		a.writeStoreErrorResponse(w, err)
 		return
 	}
 
@@ -195,16 +175,7 @@ func (a *API) attempts(w http.ResponseWriter, r *http.Request) {
 	if targetID != actor.UserID && !actor.IsPrivileged() {
 		canPrivate, err := a.canViewMemberPrivate(r, targetID)
 		if err != nil {
-			switch {
-			case errors.Is(err, store.ErrNotFound):
-				writeErrorResponse(w, http.StatusNotFound, "not_found", "The requested resource does not exist.")
-			case errors.Is(err, store.ErrConflict):
-				writeErrorResponse(w, http.StatusConflict, "stale_revision", "The resource changed since it was loaded.")
-			case errors.Is(err, store.ErrDuplicate):
-				writeErrorResponse(w, http.StatusConflict, "duplicate", "A resource with that unique value already exists.")
-			default:
-				writeErrorResponse(w, http.StatusInternalServerError, "internal_error", "The request could not be completed.")
-			}
+			a.writeStoreErrorResponse(w, err)
 			return
 		}
 		if !canPrivate {
@@ -264,16 +235,7 @@ func (a *API) createAttempt(w http.ResponseWriter, r *http.Request) {
 	v := practice.AttemptRecord{ID: id.New(), UserID: actor.UserID, ProblemID: in.ProblemID, Outcome: in.Outcome, Confidence: in.Confidence, Minutes: in.Minutes, Notes: sanitize.New().String(in.Notes), AttemptedAt: in.AttemptedAt.UTC(), SeasonID: in.SeasonID, WeekID: in.WeekID, Revision: 1}
 	created, err := a.store.CreateAttempt(r.Context(), v)
 	if err != nil {
-		switch {
-		case errors.Is(err, store.ErrNotFound):
-			writeErrorResponse(w, http.StatusNotFound, "not_found", "The requested resource does not exist.")
-		case errors.Is(err, store.ErrConflict):
-			writeErrorResponse(w, http.StatusConflict, "stale_revision", "The resource changed since it was loaded.")
-		case errors.Is(err, store.ErrDuplicate):
-			writeErrorResponse(w, http.StatusConflict, "duplicate", "A resource with that unique value already exists.")
-		default:
-			writeErrorResponse(w, http.StatusInternalServerError, "internal_error", "The request could not be completed.")
-		}
+		a.writeStoreErrorResponse(w, err)
 		return
 	}
 
@@ -304,16 +266,7 @@ func (a *API) updateAttempt(w http.ResponseWriter, r *http.Request) {
 		return nil
 	})
 	if err != nil {
-		switch {
-		case errors.Is(err, store.ErrNotFound):
-			writeErrorResponse(w, http.StatusNotFound, "not_found", "The requested resource does not exist.")
-		case errors.Is(err, store.ErrConflict):
-			writeErrorResponse(w, http.StatusConflict, "stale_revision", "The resource changed since it was loaded.")
-		case errors.Is(err, store.ErrDuplicate):
-			writeErrorResponse(w, http.StatusConflict, "duplicate", "A resource with that unique value already exists.")
-		default:
-			writeErrorResponse(w, http.StatusInternalServerError, "internal_error", "The request could not be completed.")
-		}
+		a.writeStoreErrorResponse(w, err)
 		return
 	}
 
@@ -331,20 +284,11 @@ func (a *API) deleteAttempt(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := a.store.DeleteAttempt(r.Context(), r.PathValue("id"), actor.UserID, revision); err != nil {
-		switch {
-		case errors.Is(err, store.ErrNotFound):
-			writeErrorResponse(w, http.StatusNotFound, "not_found", "The requested resource does not exist.")
-		case errors.Is(err, store.ErrConflict):
-			writeErrorResponse(w, http.StatusConflict, "stale_revision", "The resource changed since it was loaded.")
-		case errors.Is(err, store.ErrDuplicate):
-			writeErrorResponse(w, http.StatusConflict, "duplicate", "A resource with that unique value already exists.")
-		default:
-			writeErrorResponse(w, http.StatusInternalServerError, "internal_error", "The request could not be completed.")
-		}
+		a.writeStoreErrorResponse(w, err)
 		return
 	}
 
-	w.WriteHeader(204)
+	w.WriteHeader(http.StatusNoContent)
 }
 
 func parseRevision(r *http.Request) (int64, error) {

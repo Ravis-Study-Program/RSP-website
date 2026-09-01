@@ -1,27 +1,16 @@
 package httpapi
 
 import (
-	"errors"
 	"net/http"
 	"time"
 
 	"github.com/magedmg/RSP-website/backend/internal/authz"
-	"github.com/magedmg/RSP-website/backend/internal/store"
 )
 
 func (a *API) practiceSettings(w http.ResponseWriter, r *http.Request) {
 	settings, err := a.store.GetPracticeSettings(r.Context(), actorFrom(r.Context()).UserID)
 	if err != nil {
-		switch {
-		case errors.Is(err, store.ErrNotFound):
-			writeErrorResponse(w, http.StatusNotFound, "not_found", "The requested resource does not exist.")
-		case errors.Is(err, store.ErrConflict):
-			writeErrorResponse(w, http.StatusConflict, "stale_revision", "The resource changed since it was loaded.")
-		case errors.Is(err, store.ErrDuplicate):
-			writeErrorResponse(w, http.StatusConflict, "duplicate", "A resource with that unique value already exists.")
-		default:
-			writeErrorResponse(w, http.StatusInternalServerError, "internal_error", "The request could not be completed.")
-		}
+		a.writeStoreErrorResponse(w, err)
 		return
 	}
 
@@ -31,31 +20,13 @@ func (a *API) practiceSettings(w http.ResponseWriter, r *http.Request) {
 func (a *API) userPracticeSettings(w http.ResponseWriter, r *http.Request) {
 	target, err := a.store.GetUser(r.Context(), r.PathValue("id"))
 	if err != nil {
-		switch {
-		case errors.Is(err, store.ErrNotFound):
-			writeErrorResponse(w, http.StatusNotFound, "not_found", "The requested resource does not exist.")
-		case errors.Is(err, store.ErrConflict):
-			writeErrorResponse(w, http.StatusConflict, "stale_revision", "The resource changed since it was loaded.")
-		case errors.Is(err, store.ErrDuplicate):
-			writeErrorResponse(w, http.StatusConflict, "duplicate", "A resource with that unique value already exists.")
-		default:
-			writeErrorResponse(w, http.StatusInternalServerError, "internal_error", "The request could not be completed.")
-		}
+		a.writeStoreErrorResponse(w, err)
 		return
 	}
 
 	allowed, err := a.canViewMemberPrivate(r, target.ID)
 	if err != nil {
-		switch {
-		case errors.Is(err, store.ErrNotFound):
-			writeErrorResponse(w, http.StatusNotFound, "not_found", "The requested resource does not exist.")
-		case errors.Is(err, store.ErrConflict):
-			writeErrorResponse(w, http.StatusConflict, "stale_revision", "The resource changed since it was loaded.")
-		case errors.Is(err, store.ErrDuplicate):
-			writeErrorResponse(w, http.StatusConflict, "duplicate", "A resource with that unique value already exists.")
-		default:
-			writeErrorResponse(w, http.StatusInternalServerError, "internal_error", "The request could not be completed.")
-		}
+		a.writeStoreErrorResponse(w, err)
 		return
 	}
 
@@ -69,16 +40,7 @@ func (a *API) userPracticeSettings(w http.ResponseWriter, r *http.Request) {
 
 	settings, err := a.store.GetPracticeSettings(r.Context(), target.ID)
 	if err != nil {
-		switch {
-		case errors.Is(err, store.ErrNotFound):
-			writeErrorResponse(w, http.StatusNotFound, "not_found", "The requested resource does not exist.")
-		case errors.Is(err, store.ErrConflict):
-			writeErrorResponse(w, http.StatusConflict, "stale_revision", "The resource changed since it was loaded.")
-		case errors.Is(err, store.ErrDuplicate):
-			writeErrorResponse(w, http.StatusConflict, "duplicate", "A resource with that unique value already exists.")
-		default:
-			writeErrorResponse(w, http.StatusInternalServerError, "internal_error", "The request could not be completed.")
-		}
+		a.writeStoreErrorResponse(w, err)
 		return
 	}
 
@@ -100,16 +62,7 @@ func (a *API) updatePracticeSettings(w http.ResponseWriter, r *http.Request) {
 
 	current, err := a.store.GetPracticeSettings(r.Context(), actor.UserID)
 	if err != nil {
-		switch {
-		case errors.Is(err, store.ErrNotFound):
-			writeErrorResponse(w, http.StatusNotFound, "not_found", "The requested resource does not exist.")
-		case errors.Is(err, store.ErrConflict):
-			writeErrorResponse(w, http.StatusConflict, "stale_revision", "The resource changed since it was loaded.")
-		case errors.Is(err, store.ErrDuplicate):
-			writeErrorResponse(w, http.StatusConflict, "duplicate", "A resource with that unique value already exists.")
-		default:
-			writeErrorResponse(w, http.StatusInternalServerError, "internal_error", "The request could not be completed.")
-		}
+		a.writeStoreErrorResponse(w, err)
 		return
 	}
 
@@ -120,16 +73,7 @@ func (a *API) updatePracticeSettings(w http.ResponseWriter, r *http.Request) {
 
 	updated, err := a.store.UpdatePracticeSettings(r.Context(), actor.UserID, in.Revision, in.EasyMinutes, in.MediumMinutes, in.HardMinutes, actor.UserID, time.Now().UTC())
 	if err != nil {
-		switch {
-		case errors.Is(err, store.ErrNotFound):
-			writeErrorResponse(w, http.StatusNotFound, "not_found", "The requested resource does not exist.")
-		case errors.Is(err, store.ErrConflict):
-			writeErrorResponse(w, http.StatusConflict, "stale_revision", "The resource changed since it was loaded.")
-		case errors.Is(err, store.ErrDuplicate):
-			writeErrorResponse(w, http.StatusConflict, "duplicate", "A resource with that unique value already exists.")
-		default:
-			writeErrorResponse(w, http.StatusInternalServerError, "internal_error", "The request could not be completed.")
-		}
+		a.writeStoreErrorResponse(w, err)
 		return
 	}
 
@@ -153,16 +97,7 @@ func (a *API) enablePracticeGoals(w http.ResponseWriter, r *http.Request) {
 	targetActiveStudent := false
 	enrollments, err := a.store.ListEnrollmentsForUser(r.Context(), targetID)
 	if err != nil {
-		switch {
-		case errors.Is(err, store.ErrNotFound):
-			writeErrorResponse(w, http.StatusNotFound, "not_found", "The requested resource does not exist.")
-		case errors.Is(err, store.ErrConflict):
-			writeErrorResponse(w, http.StatusConflict, "stale_revision", "The resource changed since it was loaded.")
-		case errors.Is(err, store.ErrDuplicate):
-			writeErrorResponse(w, http.StatusConflict, "duplicate", "A resource with that unique value already exists.")
-		default:
-			writeErrorResponse(w, http.StatusInternalServerError, "internal_error", "The request could not be completed.")
-		}
+		a.writeStoreErrorResponse(w, err)
 		return
 	}
 
@@ -195,16 +130,7 @@ func (a *API) enablePracticeGoals(w http.ResponseWriter, r *http.Request) {
 		case authz.Mentor:
 			allowed, err = a.store.IsMentorAssigned(r.Context(), in.SeasonID, actor.UserID, targetID)
 			if err != nil {
-				switch {
-				case errors.Is(err, store.ErrNotFound):
-					writeErrorResponse(w, http.StatusNotFound, "not_found", "The requested resource does not exist.")
-				case errors.Is(err, store.ErrConflict):
-					writeErrorResponse(w, http.StatusConflict, "stale_revision", "The resource changed since it was loaded.")
-				case errors.Is(err, store.ErrDuplicate):
-					writeErrorResponse(w, http.StatusConflict, "duplicate", "A resource with that unique value already exists.")
-				default:
-					writeErrorResponse(w, http.StatusInternalServerError, "internal_error", "The request could not be completed.")
-				}
+				a.writeStoreErrorResponse(w, err)
 				return
 			}
 		}
@@ -216,20 +142,7 @@ func (a *API) enablePracticeGoals(w http.ResponseWriter, r *http.Request) {
 
 	settings, err := a.store.EnablePracticeGoals(r.Context(), targetID, in.Revision, actor.UserID, in.SeasonID, time.Now().UTC())
 	if err != nil {
-		if err == store.ErrNotFound {
-			writeErrorResponse(w, http.StatusNotFound, "not_found", "The requested member does not exist.")
-		} else {
-			switch {
-			case errors.Is(err, store.ErrNotFound):
-				writeErrorResponse(w, http.StatusNotFound, "not_found", "The requested resource does not exist.")
-			case errors.Is(err, store.ErrConflict):
-				writeErrorResponse(w, http.StatusConflict, "stale_revision", "The resource changed since it was loaded.")
-			case errors.Is(err, store.ErrDuplicate):
-				writeErrorResponse(w, http.StatusConflict, "duplicate", "A resource with that unique value already exists.")
-			default:
-				writeErrorResponse(w, http.StatusInternalServerError, "internal_error", "The request could not be completed.")
-			}
-		}
+		a.writeStoreErrorResponse(w, err)
 		return
 	}
 

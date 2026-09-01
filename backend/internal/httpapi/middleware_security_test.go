@@ -1,10 +1,17 @@
 package httpapi
 
 import (
+	"bytes"
+	"errors"
+	"log/slog"
+	"net/http"
+	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/magedmg/RSP-website/backend/internal/authn"
 	"github.com/magedmg/RSP-website/backend/internal/authz"
+	"github.com/magedmg/RSP-website/backend/internal/platform/repository"
 )
 
 func TestClaimsMustMatchCurrentAccountStateAndSecurityVersion(t *testing.T) {
@@ -19,5 +26,42 @@ func TestClaimsMustMatchCurrentAccountStateAndSecurityVersion(t *testing.T) {
 		if got := claimsMatchActor(claims, actor); got != want {
 			t.Fatalf("%s: got %v, want %v", name, got, want)
 		}
+	}
+}
+
+func TestWriteStoreErrorResponse(t *testing.T) {
+	unexpected := errors.New("private database failure")
+	tests := []struct {
+		name       string
+		err        error
+		wantStatus int
+		wantCode   string
+		wantLog    bool
+	}{
+		{"not found", repository.ErrNotFound, http.StatusNotFound, "not_found", false},
+		{"wrapped conflict", errors.Join(errors.New("update failed"), repository.ErrConflict), http.StatusConflict, "stale_revision", false},
+		{"duplicate", repository.ErrDuplicate, http.StatusConflict, "duplicate", false},
+		{"unexpected", unexpected, http.StatusInternalServerError, "internal_error", true},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			var logs bytes.Buffer
+			api := New(Config{Logger: slog.New(slog.NewJSONHandler(&logs, nil))})
+			response := httptest.NewRecorder()
+			response.Header().Set("X-Request-ID", "test-request")
+
+			api.writeStoreErrorResponse(response, test.err)
+
+			if response.Code != test.wantStatus || errorCode(t, response) != test.wantCode {
+				t.Fatalf("status=%d body=%s", response.Code, response.Body.String())
+			}
+			if strings.Contains(response.Body.String(), unexpected.Error()) {
+				t.Fatal("response exposed the internal error")
+			}
+			if got := strings.Contains(logs.String(), unexpected.Error()); got != test.wantLog {
+				t.Fatalf("unexpected error logged=%v, want %v: %s", got, test.wantLog, logs.String())
+			}
+		})
 	}
 }

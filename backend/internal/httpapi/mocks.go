@@ -8,7 +8,6 @@ import (
 
 	"github.com/magedmg/RSP-website/backend/internal/authz"
 	"github.com/magedmg/RSP-website/backend/internal/mockinterviews"
-	"github.com/magedmg/RSP-website/backend/internal/store"
 )
 
 type mockRoundRequest struct {
@@ -72,16 +71,7 @@ func (a *API) listMockParticipants(w http.ResponseWriter, r *http.Request) {
 
 	users, more, total, err := a.store.ListUsers(r.Context(), boundary, limit, direction, query, "", "")
 	if err != nil {
-		switch {
-		case errors.Is(err, store.ErrNotFound):
-			writeErrorResponse(w, http.StatusNotFound, "not_found", "The requested resource does not exist.")
-		case errors.Is(err, store.ErrConflict):
-			writeErrorResponse(w, http.StatusConflict, "stale_revision", "The resource changed since it was loaded.")
-		case errors.Is(err, store.ErrDuplicate):
-			writeErrorResponse(w, http.StatusConflict, "duplicate", "A resource with that unique value already exists.")
-		default:
-			writeErrorResponse(w, http.StatusInternalServerError, "internal_error", "The request could not be completed.")
-		}
+		a.writeStoreErrorResponse(w, err)
 		return
 	}
 
@@ -104,7 +94,7 @@ func (a *API) listMockParticipants(w http.ResponseWriter, r *http.Request) {
 func (a *API) listMocks(w http.ResponseWriter, r *http.Request) {
 	actor := actorFrom(r.Context())
 	if !a.eligibleMockActor(r) && !actor.IsPrivileged() && !historicalMockReviewer(actor) {
-		writeErrorResponse(w, 403, "mock_participant_required", "Only active members and alumni may access mock interviews.")
+		writeErrorResponse(w, http.StatusForbidden, "mock_participant_required", "Only active members and alumni may access mock interviews.")
 		return
 	}
 	mode := r.URL.Query().Get("mode")
@@ -133,22 +123,13 @@ func (a *API) listMocks(w http.ResponseWriter, r *http.Request) {
 	binding := "mock-interviews|mode=" + mode + "|sort=" + sortBy
 	limit, boundary, err := a.page(r, binding)
 	if err != nil {
-		writeErrorResponse(w, 400, "invalid_cursor", "The cursor does not match the selected mode and sort.")
+		writeErrorResponse(w, http.StatusBadRequest, "invalid_cursor", "The cursor does not match the selected mode and sort.")
 		return
 	}
 
 	items, more, total, err := a.store.ListMockInterviews(r.Context(), actor, mode, boundary, limit, sortBy, direction)
 	if err != nil {
-		switch {
-		case errors.Is(err, store.ErrNotFound):
-			writeErrorResponse(w, http.StatusNotFound, "not_found", "The requested resource does not exist.")
-		case errors.Is(err, store.ErrConflict):
-			writeErrorResponse(w, http.StatusConflict, "stale_revision", "The resource changed since it was loaded.")
-		case errors.Is(err, store.ErrDuplicate):
-			writeErrorResponse(w, http.StatusConflict, "duplicate", "A resource with that unique value already exists.")
-		default:
-			writeErrorResponse(w, http.StatusInternalServerError, "internal_error", "The request could not be completed.")
-		}
+		a.writeStoreErrorResponse(w, err)
 		return
 	}
 
@@ -179,7 +160,7 @@ func historicalMockReviewer(actor authz.Actor) bool {
 func (a *API) createMock(w http.ResponseWriter, r *http.Request) {
 	actor := actorFrom(r.Context())
 	if !a.eligibleMockActor(r) {
-		writeErrorResponse(w, 403, "mock_participant_required", "The interviewer must be an active member or alumnus.")
+		writeErrorResponse(w, http.StatusForbidden, "mock_participant_required", "The interviewer must be an active member or alumnus.")
 		return
 	}
 	var in struct {
@@ -200,16 +181,7 @@ func (a *API) createMock(w http.ResponseWriter, r *http.Request) {
 	// interviewee.
 	interviewee, err := a.store.GetMockParticipant(r.Context(), in.Interviewee.UserID)
 	if err != nil {
-		switch {
-		case errors.Is(err, store.ErrNotFound):
-			writeErrorResponse(w, http.StatusNotFound, "not_found", "The requested resource does not exist.")
-		case errors.Is(err, store.ErrConflict):
-			writeErrorResponse(w, http.StatusConflict, "stale_revision", "The resource changed since it was loaded.")
-		case errors.Is(err, store.ErrDuplicate):
-			writeErrorResponse(w, http.StatusConflict, "duplicate", "A resource with that unique value already exists.")
-		default:
-			writeErrorResponse(w, http.StatusInternalServerError, "internal_error", "The request could not be completed.")
-		}
+		a.writeStoreErrorResponse(w, err)
 		return
 	}
 	if !a.validMockSeason(w, r, in.SeasonID, in.OccurredAt, actor.UserID, interviewee.UserID) {
@@ -230,7 +202,7 @@ func (a *API) createMock(w http.ResponseWriter, r *http.Request) {
 func (a *API) updateMock(w http.ResponseWriter, r *http.Request) {
 	actor := actorFrom(r.Context())
 	if !a.eligibleMockActor(r) && !actor.IsPrivileged() {
-		writeErrorResponse(w, 403, "mock_participant_required", "Only active members and alumni may update mock interviews.")
+		writeErrorResponse(w, http.StatusForbidden, "mock_participant_required", "Only active members and alumni may update mock interviews.")
 		return
 	}
 	var in struct {
@@ -247,20 +219,11 @@ func (a *API) updateMock(w http.ResponseWriter, r *http.Request) {
 
 	v, err := a.store.GetMockInterview(r.Context(), r.PathValue("id"))
 	if err != nil {
-		switch {
-		case errors.Is(err, store.ErrNotFound):
-			writeErrorResponse(w, http.StatusNotFound, "not_found", "The requested resource does not exist.")
-		case errors.Is(err, store.ErrConflict):
-			writeErrorResponse(w, http.StatusConflict, "stale_revision", "The resource changed since it was loaded.")
-		case errors.Is(err, store.ErrDuplicate):
-			writeErrorResponse(w, http.StatusConflict, "duplicate", "A resource with that unique value already exists.")
-		default:
-			writeErrorResponse(w, http.StatusInternalServerError, "internal_error", "The request could not be completed.")
-		}
+		a.writeStoreErrorResponse(w, err)
 		return
 	}
 	if actor.UserID != v.InterviewerID {
-		writeErrorResponse(w, 404, "not_found", "The requested resource does not exist.")
+		writeErrorResponse(w, http.StatusNotFound, "not_found", "The requested resource does not exist.")
 		return
 	}
 	if !a.validMockSeason(w, r, v.SeasonID, in.OccurredAt, v.InterviewerID, v.IntervieweeID) {
@@ -284,7 +247,7 @@ func (a *API) updateMock(w http.ResponseWriter, r *http.Request) {
 func (a *API) deleteMock(w http.ResponseWriter, r *http.Request) {
 	actor := actorFrom(r.Context())
 	if !a.eligibleMockActor(r) && !actor.IsPrivileged() {
-		writeErrorResponse(w, 403, "mock_participant_required", "Only active members and alumni may delete mock interviews.")
+		writeErrorResponse(w, http.StatusForbidden, "mock_participant_required", "Only active members and alumni may delete mock interviews.")
 		return
 	}
 	revision, err := parseRevision(r)
@@ -295,20 +258,11 @@ func (a *API) deleteMock(w http.ResponseWriter, r *http.Request) {
 
 	v, err := a.store.GetMockInterview(r.Context(), r.PathValue("id"))
 	if err != nil {
-		switch {
-		case errors.Is(err, store.ErrNotFound):
-			writeErrorResponse(w, http.StatusNotFound, "not_found", "The requested resource does not exist.")
-		case errors.Is(err, store.ErrConflict):
-			writeErrorResponse(w, http.StatusConflict, "stale_revision", "The resource changed since it was loaded.")
-		case errors.Is(err, store.ErrDuplicate):
-			writeErrorResponse(w, http.StatusConflict, "duplicate", "A resource with that unique value already exists.")
-		default:
-			writeErrorResponse(w, http.StatusInternalServerError, "internal_error", "The request could not be completed.")
-		}
+		a.writeStoreErrorResponse(w, err)
 		return
 	}
 	if actor.UserID != v.InterviewerID {
-		writeErrorResponse(w, 404, "not_found", "The requested resource does not exist.")
+		writeErrorResponse(w, http.StatusNotFound, "not_found", "The requested resource does not exist.")
 		return
 	}
 	if !a.mockSeasonWritable(w, r, v.SeasonID) {
@@ -320,13 +274,13 @@ func (a *API) deleteMock(w http.ResponseWriter, r *http.Request) {
 		mockFailure(a, w, r, err)
 		return
 	}
-	w.WriteHeader(204)
+	w.WriteHeader(http.StatusNoContent)
 }
 
 func (a *API) reviewRound(w http.ResponseWriter, r *http.Request) {
 	actor := actorFrom(r.Context())
 	if !a.eligibleMockActor(r) && !actor.IsPrivileged() {
-		writeErrorResponse(w, 403, "mock_participant_required", "Only active members and alumni may review mock interviews.")
+		writeErrorResponse(w, http.StatusForbidden, "mock_participant_required", "Only active members and alumni may review mock interviews.")
 		return
 	}
 	var in struct {
@@ -341,20 +295,11 @@ func (a *API) reviewRound(w http.ResponseWriter, r *http.Request) {
 
 	v, err := a.store.GetMockInterview(r.Context(), r.PathValue("id"))
 	if err != nil {
-		switch {
-		case errors.Is(err, store.ErrNotFound):
-			writeErrorResponse(w, http.StatusNotFound, "not_found", "The requested resource does not exist.")
-		case errors.Is(err, store.ErrConflict):
-			writeErrorResponse(w, http.StatusConflict, "stale_revision", "The resource changed since it was loaded.")
-		case errors.Is(err, store.ErrDuplicate):
-			writeErrorResponse(w, http.StatusConflict, "duplicate", "A resource with that unique value already exists.")
-		default:
-			writeErrorResponse(w, http.StatusInternalServerError, "internal_error", "The request could not be completed.")
-		}
+		a.writeStoreErrorResponse(w, err)
 		return
 	}
 	if actor.UserID != v.IntervieweeID {
-		writeErrorResponse(w, 404, "not_found", "The requested resource does not exist.")
+		writeErrorResponse(w, http.StatusNotFound, "not_found", "The requested resource does not exist.")
 		return
 	}
 	if !a.mockSeasonWritable(w, r, v.SeasonID) {
@@ -375,7 +320,7 @@ func (a *API) reviewRound(w http.ResponseWriter, r *http.Request) {
 func (a *API) correctMockIdentities(w http.ResponseWriter, r *http.Request) {
 	actor := actorFrom(r.Context())
 	if !actor.IsPrivileged() || !actor.HasRecentMFA(time.Now()) {
-		writeErrorResponse(w, 403, "privileged_mfa_required", "Director or System Admin access with recent MFA is required.")
+		writeErrorResponse(w, http.StatusForbidden, "privileged_mfa_required", "Director or System Admin access with recent MFA is required.")
 		return
 	}
 	var in struct {
@@ -392,23 +337,14 @@ func (a *API) correctMockIdentities(w http.ResponseWriter, r *http.Request) {
 
 	v, err := a.store.GetMockInterview(r.Context(), r.PathValue("id"))
 	if err != nil {
-		switch {
-		case errors.Is(err, store.ErrNotFound):
-			writeErrorResponse(w, http.StatusNotFound, "not_found", "The requested resource does not exist.")
-		case errors.Is(err, store.ErrConflict):
-			writeErrorResponse(w, http.StatusConflict, "stale_revision", "The resource changed since it was loaded.")
-		case errors.Is(err, store.ErrDuplicate):
-			writeErrorResponse(w, http.StatusConflict, "duplicate", "A resource with that unique value already exists.")
-		default:
-			writeErrorResponse(w, http.StatusInternalServerError, "internal_error", "The request could not be completed.")
-		}
+		a.writeStoreErrorResponse(w, err)
 		return
 	}
 
 	for _, userID := range []string{in.InterviewerID, in.IntervieweeID} {
 		participant, err := a.store.GetMockParticipant(r.Context(), userID)
 		if err != nil || !participant.Eligible() {
-			writeErrorResponse(w, 400, "invalid_mock_participant", "Corrected participants must be active members or alumni.")
+			writeErrorResponse(w, http.StatusBadRequest, "invalid_mock_participant", "Corrected participants must be active members or alumni.")
 			return
 		}
 	}
@@ -433,7 +369,7 @@ func (a *API) validMockSeason(w http.ResponseWriter, r *http.Request, seasonID *
 	}
 	season, err := a.store.GetSeason(r.Context(), *seasonID)
 	if err != nil {
-		writeErrorResponse(w, 400, "invalid_mock_season", "The selected season must exist.")
+		writeErrorResponse(w, http.StatusBadRequest, "invalid_mock_season", "The selected season must exist.")
 		return false
 	}
 	if season.Status != "open" {
@@ -442,22 +378,13 @@ func (a *API) validMockSeason(w http.ResponseWriter, r *http.Request, seasonID *
 	}
 	when := occurredAt.UTC()
 	if when.Before(season.StartAt) || when.After(season.EndAt) {
-		writeErrorResponse(w, 400, "invalid_mock_season", "The interview date must fall within the selected season.")
+		writeErrorResponse(w, http.StatusBadRequest, "invalid_mock_season", "The interview date must fall within the selected season.")
 		return false
 	}
 	for _, userID := range userIDs {
 		enrollments, listErr := a.store.ListEnrollmentsForUser(r.Context(), userID)
 		if listErr != nil {
-			switch {
-			case errors.Is(listErr, store.ErrNotFound):
-				writeErrorResponse(w, http.StatusNotFound, "not_found", "The requested resource does not exist.")
-			case errors.Is(listErr, store.ErrConflict):
-				writeErrorResponse(w, http.StatusConflict, "stale_revision", "The resource changed since it was loaded.")
-			case errors.Is(listErr, store.ErrDuplicate):
-				writeErrorResponse(w, http.StatusConflict, "duplicate", "A resource with that unique value already exists.")
-			default:
-				writeErrorResponse(w, http.StatusInternalServerError, "internal_error", "The request could not be completed.")
-			}
+			a.writeStoreErrorResponse(w, listErr)
 			return false
 		}
 		member := false
@@ -468,7 +395,7 @@ func (a *API) validMockSeason(w http.ResponseWriter, r *http.Request, seasonID *
 			}
 		}
 		if !member {
-			writeErrorResponse(w, 400, "invalid_mock_season", "Both participants must belong to the selected season.")
+			writeErrorResponse(w, http.StatusBadRequest, "invalid_mock_season", "Both participants must belong to the selected season.")
 			return false
 		}
 	}
@@ -481,16 +408,7 @@ func (a *API) mockSeasonWritable(w http.ResponseWriter, r *http.Request, seasonI
 	}
 	season, err := a.store.GetSeason(r.Context(), *seasonID)
 	if err != nil {
-		switch {
-		case errors.Is(err, store.ErrNotFound):
-			writeErrorResponse(w, http.StatusNotFound, "not_found", "The requested resource does not exist.")
-		case errors.Is(err, store.ErrConflict):
-			writeErrorResponse(w, http.StatusConflict, "stale_revision", "The resource changed since it was loaded.")
-		case errors.Is(err, store.ErrDuplicate):
-			writeErrorResponse(w, http.StatusConflict, "duplicate", "A resource with that unique value already exists.")
-		default:
-			writeErrorResponse(w, http.StatusInternalServerError, "internal_error", "The request could not be completed.")
-		}
+		a.writeStoreErrorResponse(w, err)
 		return false
 	}
 	if season.Status != "open" {
@@ -503,11 +421,11 @@ func (a *API) mockSeasonWritable(w http.ResponseWriter, r *http.Request, seasonI
 func mockFailure(a *API, w http.ResponseWriter, r *http.Request, err error) {
 	switch {
 	case errors.Is(err, mockinterviews.ErrForbidden):
-		writeErrorResponse(w, 403, "forbidden", "The current account cannot perform this action.")
+		writeErrorResponse(w, http.StatusForbidden, "forbidden", "The current account cannot perform this action.")
 	case errors.Is(err, mockinterviews.ErrConflict):
-		writeErrorResponse(w, 409, "stale_revision", "The mock interview changed since it was loaded.")
+		writeErrorResponse(w, http.StatusConflict, "stale_revision", "The mock interview changed since it was loaded.")
 	default:
-		writeErrorResponse(w, 400, "invalid_mock_interview", err.Error())
+		writeErrorResponse(w, http.StatusBadRequest, "invalid_mock_interview", err.Error())
 	}
 }
 
@@ -531,16 +449,16 @@ func (a *API) withMockParticipantSummaries(r *http.Request, interview mockinterv
 func (a *API) adminSync(w http.ResponseWriter, r *http.Request) {
 	actor := actorFrom(r.Context())
 	if !actor.IsPrivileged() || !actor.HasRecentMFA(time.Now()) {
-		writeErrorResponse(w, 403, "privileged_mfa_required", "Recent MFA is required.")
+		writeErrorResponse(w, http.StatusForbidden, "privileged_mfa_required", "Recent MFA is required.")
 		return
 	}
 	if a.syncLeetCode == nil {
-		writeErrorResponse(w, 503, "sync_unavailable", "The LeetCode worker queue is unavailable.")
+		writeErrorResponse(w, http.StatusServiceUnavailable, "sync_unavailable", "The LeetCode worker queue is unavailable.")
 		return
 	}
 	if err := a.syncLeetCode(r.Context(), actor.UserID, requestIDFrom(r.Context())); err != nil {
 		a.logger.Error("LeetCode sync enqueue failed", "requestId", requestIDFrom(r.Context()), "error", err.Error())
-		writeErrorResponse(w, 503, "sync_failed", "The LeetCode sync request could not be queued.")
+		writeErrorResponse(w, http.StatusServiceUnavailable, "sync_failed", "The LeetCode sync request could not be queued.")
 		return
 	}
 

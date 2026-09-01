@@ -3,6 +3,7 @@ package httpapi
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"strconv"
 	"strings"
@@ -11,6 +12,7 @@ import (
 	"github.com/magedmg/RSP-website/backend/internal/authn"
 	"github.com/magedmg/RSP-website/backend/internal/authz"
 	"github.com/magedmg/RSP-website/backend/internal/platform/ratelimit"
+	"github.com/magedmg/RSP-website/backend/internal/platform/repository"
 )
 
 // Authenticator defines a backend interface.
@@ -134,4 +136,24 @@ func writeErrorResponse(w http.ResponseWriter, status int, code, message string)
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
 	_ = json.NewEncoder(w).Encode(body)
+}
+
+// writeStoreErrorResponse translates storage failures into safe HTTP errors.
+// Unexpected errors are logged with their request ID but are never exposed.
+func (a *API) writeStoreErrorResponse(w http.ResponseWriter, err error) {
+	switch {
+	case errors.Is(err, repository.ErrNotFound):
+		writeErrorResponse(w, http.StatusNotFound, "not_found", "The requested resource does not exist.")
+	case errors.Is(err, repository.ErrConflict):
+		writeErrorResponse(w, http.StatusConflict, "stale_revision", "The resource changed since it was loaded.")
+	case errors.Is(err, repository.ErrDuplicate):
+		writeErrorResponse(w, http.StatusConflict, "duplicate", "A resource with that unique value already exists.")
+	default:
+		a.logger.Error(
+			"storage operation failed",
+			"requestId", w.Header().Get("X-Request-ID"),
+			"error", err,
+		)
+		writeErrorResponse(w, http.StatusInternalServerError, "internal_error", "The request could not be completed.")
+	}
 }
