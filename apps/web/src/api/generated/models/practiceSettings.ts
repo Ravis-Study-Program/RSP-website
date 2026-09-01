@@ -8,7 +8,6 @@
 import type { Revision } from './revision';
 
 export interface PracticeSettings {
-  premiumOptIn: boolean;
   goalsEnabled: boolean;
   /**
    * @minimum 5

@@ -52,7 +52,7 @@ the check. Student and Coordinator dashboards passed the desktop navigation,
 reading-order and command-dialog subset exercised here:
 
 - Page title, current role/workspace, primary navigation, level-one heading,
-  summary metrics, recommendation and chart text were exposed with meaningful
+  summary metrics, practice and chart text were exposed with meaningful
   accessible names and reading order.
 - VoiceOver's read-all command moved its visible cursor to the named `RSP home`
   link on the Coordinator dashboard; the Student dashboard exposed the

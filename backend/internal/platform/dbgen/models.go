@@ -360,50 +360,6 @@ func (ns NullAppProblemDifficulty) Value() (driver.Value, error) {
 	return string(ns.AppProblemDifficulty), nil
 }
 
-type AppRecommendationState string
-
-const (
-	AppRecommendationStateActive     AppRecommendationState = "active"
-	AppRecommendationStateAttempted  AppRecommendationState = "attempted"
-	AppRecommendationStateDismissed  AppRecommendationState = "dismissed"
-	AppRecommendationStateSuperseded AppRecommendationState = "superseded"
-)
-
-func (e *AppRecommendationState) Scan(src interface{}) error {
-	switch s := src.(type) {
-	case []byte:
-		*e = AppRecommendationState(s)
-	case string:
-		*e = AppRecommendationState(s)
-	default:
-		return fmt.Errorf("unsupported scan type for AppRecommendationState: %T", src)
-	}
-	return nil
-}
-
-type NullAppRecommendationState struct {
-	AppRecommendationState AppRecommendationState `json:"app_recommendation_state"`
-	Valid                  bool                   `json:"valid"` // Valid is true if AppRecommendationState is not NULL
-}
-
-// Scan implements the Scanner interface.
-func (ns *NullAppRecommendationState) Scan(value interface{}) error {
-	if value == nil {
-		ns.AppRecommendationState, ns.Valid = "", false
-		return nil
-	}
-	ns.Valid = true
-	return ns.AppRecommendationState.Scan(value)
-}
-
-// Value implements the driver Valuer interface.
-func (ns NullAppRecommendationState) Value() (driver.Value, error) {
-	if !ns.Valid {
-		return nil, nil
-	}
-	return string(ns.AppRecommendationState), nil
-}
-
 type AppReviewStatus string
 
 const (
@@ -916,34 +872,6 @@ type AppProblemAttempt struct {
 	UpdatedAt                pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
 }
 
-type AppRecommendation struct {
-	ID                   string                 `db:"id" json:"id"`
-	UserID               string                 `db:"user_id" json:"user_id"`
-	LeetcodeProblemID    string                 `db:"leetcode_problem_id" json:"leetcode_problem_id"`
-	CategoryID           *string                `db:"category_id" json:"category_id"`
-	Difficulty           AppProblemDifficulty   `db:"difficulty" json:"difficulty"`
-	Rationale            string                 `db:"rationale" json:"rationale"`
-	RuleVersion          string                 `db:"rule_version" json:"rule_version"`
-	State                AppRecommendationState `db:"state" json:"state"`
-	GeneratedAt          pgtype.Timestamptz     `db:"generated_at" json:"generated_at"`
-	FulfilledByAttemptID *string                `db:"fulfilled_by_attempt_id" json:"fulfilled_by_attempt_id"`
-	StateChangedAt       pgtype.Timestamptz     `db:"state_changed_at" json:"state_changed_at"`
-	DeletedAt            pgtype.Timestamptz     `db:"deleted_at" json:"deleted_at"`
-	Revision             int64                  `db:"revision" json:"revision"`
-	CreatedAt            pgtype.Timestamptz     `db:"created_at" json:"created_at"`
-	UpdatedAt            pgtype.Timestamptz     `db:"updated_at" json:"updated_at"`
-}
-
-type AppRecommendationDismissal struct {
-	ID                string             `db:"id" json:"id"`
-	RecommendationID  string             `db:"recommendation_id" json:"recommendation_id"`
-	UserID            string             `db:"user_id" json:"user_id"`
-	LeetcodeProblemID string             `db:"leetcode_problem_id" json:"leetcode_problem_id"`
-	Reason            *string            `db:"reason" json:"reason"`
-	DismissedAt       pgtype.Timestamptz `db:"dismissed_at" json:"dismissed_at"`
-	ExcludedUntil     pgtype.Timestamptz `db:"excluded_until" json:"excluded_until"`
-}
-
 type AppSeason struct {
 	ID                   string             `db:"id" json:"id"`
 	Slug                 string             `db:"slug" json:"slug"`
@@ -988,29 +916,28 @@ type AppSeasonWeek struct {
 }
 
 type AppUser struct {
-	ID                   string             `db:"id" json:"id"`
-	Slug                 string             `db:"slug" json:"slug"`
-	DisplayName          string             `db:"display_name" json:"display_name"`
-	Email                *string            `db:"email" json:"email"`
-	DiscordID            *string            `db:"discord_id" json:"discord_id"`
-	AvatarUrl            *string            `db:"avatar_url" json:"avatar_url"`
-	AccountState         AppAccountState    `db:"account_state" json:"account_state"`
-	Timezone             string             `db:"timezone" json:"timezone"`
-	IsTest               bool               `db:"is_test" json:"is_test"`
-	LeetcodePremiumOptIn bool               `db:"leetcode_premium_opt_in" json:"leetcode_premium_opt_in"`
-	LegacyIsAdmin        *bool              `db:"legacy_is_admin" json:"legacy_is_admin"`
-	LegacyIsGraduate     *bool              `db:"legacy_is_graduate" json:"legacy_is_graduate"`
-	SuspendedAt          pgtype.Timestamptz `db:"suspended_at" json:"suspended_at"`
-	DeletionRequestedAt  pgtype.Timestamptz `db:"deletion_requested_at" json:"deletion_requested_at"`
-	DeletionDueAt        pgtype.Timestamptz `db:"deletion_due_at" json:"deletion_due_at"`
-	PseudonymizedAt      pgtype.Timestamptz `db:"pseudonymized_at" json:"pseudonymized_at"`
-	DeletedAt            pgtype.Timestamptz `db:"deleted_at" json:"deleted_at"`
-	Revision             int64              `db:"revision" json:"revision"`
-	CreatedAt            pgtype.Timestamptz `db:"created_at" json:"created_at"`
-	UpdatedAt            pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
-	SecurityVersion      int64              `db:"security_version" json:"security_version"`
-	TimezoneConfigured   bool               `db:"timezone_configured" json:"timezone_configured"`
-	MfaConfigured        bool               `db:"mfa_configured" json:"mfa_configured"`
+	ID                  string             `db:"id" json:"id"`
+	Slug                string             `db:"slug" json:"slug"`
+	DisplayName         string             `db:"display_name" json:"display_name"`
+	Email               *string            `db:"email" json:"email"`
+	DiscordID           *string            `db:"discord_id" json:"discord_id"`
+	AvatarUrl           *string            `db:"avatar_url" json:"avatar_url"`
+	AccountState        AppAccountState    `db:"account_state" json:"account_state"`
+	Timezone            string             `db:"timezone" json:"timezone"`
+	IsTest              bool               `db:"is_test" json:"is_test"`
+	LegacyIsAdmin       *bool              `db:"legacy_is_admin" json:"legacy_is_admin"`
+	LegacyIsGraduate    *bool              `db:"legacy_is_graduate" json:"legacy_is_graduate"`
+	SuspendedAt         pgtype.Timestamptz `db:"suspended_at" json:"suspended_at"`
+	DeletionRequestedAt pgtype.Timestamptz `db:"deletion_requested_at" json:"deletion_requested_at"`
+	DeletionDueAt       pgtype.Timestamptz `db:"deletion_due_at" json:"deletion_due_at"`
+	PseudonymizedAt     pgtype.Timestamptz `db:"pseudonymized_at" json:"pseudonymized_at"`
+	DeletedAt           pgtype.Timestamptz `db:"deleted_at" json:"deleted_at"`
+	Revision            int64              `db:"revision" json:"revision"`
+	CreatedAt           pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	UpdatedAt           pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+	SecurityVersion     int64              `db:"security_version" json:"security_version"`
+	TimezoneConfigured  bool               `db:"timezone_configured" json:"timezone_configured"`
+	MfaConfigured       bool               `db:"mfa_configured" json:"mfa_configured"`
 }
 
 type AppUserAuthLink struct {

@@ -6,7 +6,6 @@ import {
   adaptMockInterviewPage,
   adaptMockParticipantPage,
   adaptPerson,
-  adaptRecommendation,
   adaptSeasonPage,
   adaptUserPage,
   indexProblems,
@@ -27,7 +26,6 @@ import type {
   Mentorship,
   ProblemPage,
   PracticeSettings,
-  Recommendation as ApiRecommendation,
   SeasonPage as ApiSeasonPage,
   User as ApiUser,
   UserPrivate,
@@ -41,7 +39,6 @@ import {
   demoUser,
   mockInterviews,
   people,
-  recommendation,
   seasonWeeks,
   seasons,
 } from '@/data/demo';
@@ -100,7 +97,6 @@ async function fetchAllPages<T>(path: string): Promise<ApiPage<T>> {
 }
 
 export const demoPracticeSettings: PracticeSettings = {
-  premiumOptIn: false,
   goalsEnabled: true,
   easyMinutes: 20,
   mediumMinutes: 35,
@@ -205,17 +201,6 @@ const demoProblems: LeetcodeProblem[] = [
     premium: false,
     revision: 1,
   })),
-  {
-    id: recommendation.problemId,
-    number: 347,
-    title: recommendation.title,
-    link: recommendation.externalUrl,
-    difficulty:
-      recommendation.difficulty.toLowerCase() as LeetcodeProblem['difficulty'],
-    categories: [recommendation.category],
-    premium: false,
-    revision: 1,
-  },
 ];
 
 async function getProblems(): Promise<ProblemPage> {
@@ -444,24 +429,6 @@ export function useLeetcodeProblems() {
     queryKey: ['leetcode-problems'],
     queryFn: () => (demoMode ? wait(page(demoProblems)) : getProblems()),
     staleTime: 5 * 60_000,
-  });
-}
-
-export function useRecommendation(enabled = true) {
-  return useQuery({
-    queryKey: ['recommendations', 'current'],
-    enabled,
-    queryFn: async () => {
-      if (demoMode) return wait(recommendation);
-      try {
-        return adaptRecommendation(
-          await apiRequest<ApiRecommendation>('/recommendations/current'),
-        );
-      } catch (error) {
-        if (error instanceof ApiError && error.status === 404) return null;
-        throw error;
-      }
-    },
   });
 }
 

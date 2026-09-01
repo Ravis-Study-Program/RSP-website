@@ -985,55 +985,6 @@ paths:
         '401': { $ref: '#/components/responses/Error' }
         '403': { $ref: '#/components/responses/Error' }
         '429': { $ref: '#/components/responses/RateLimited' }
-  /recommendations/current:
-    get:
-      operationId: getCurrentRecommendation
-      responses:
-        default: { $ref: '#/components/responses/Error' }
-        '200':
-          {
-            description: Active recommendation,
-            content:
-              {
-                application/json:
-                  { schema: { $ref: '#/components/schemas/Recommendation' } },
-              },
-          }
-        '404': { $ref: '#/components/responses/Error' }
-        '429': { $ref: '#/components/responses/RateLimited' }
-        '401': { $ref: '#/components/responses/Error' }
-        '403': { $ref: '#/components/responses/Error' }
-  /recommendations/current/dismiss:
-    post:
-      operationId: dismissCurrentRecommendation
-      requestBody:
-        {
-          required: true,
-          content:
-            {
-              application/json:
-                {
-                  schema:
-                    {
-                      type: object,
-                      additionalProperties: false,
-                      required: [revision],
-                      properties:
-                        {
-                          revision: { $ref: '#/components/schemas/Revision' },
-                          reason: { type: string, maxLength: 1000 },
-                        },
-                    },
-                },
-            },
-        }
-      responses:
-        default: { $ref: '#/components/responses/Error' }
-        '204': { description: Dismissed }
-        '404': { $ref: '#/components/responses/Error' }
-        '429': { $ref: '#/components/responses/RateLimited' }
-        '401': { $ref: '#/components/responses/Error' }
-        '403': { $ref: '#/components/responses/Error' }
   /mock-interviews/participants:
     get:
       operationId: listMockInterviewParticipants
@@ -1639,16 +1590,8 @@ components:
       type: object
       additionalProperties: false
       required:
-        [
-          premiumOptIn,
-          goalsEnabled,
-          easyMinutes,
-          mediumMinutes,
-          hardMinutes,
-          revision,
-        ]
+        [goalsEnabled, easyMinutes, mediumMinutes, hardMinutes, revision]
       properties:
-        premiumOptIn: { type: boolean }
         goalsEnabled: { type: boolean }
         easyMinutes: { type: integer, minimum: 5, maximum: 180 }
         mediumMinutes: { type: integer, minimum: 5, maximum: 180 }
@@ -1657,10 +1600,8 @@ components:
     PracticeSettingsMutation:
       type: object
       additionalProperties: false
-      required:
-        [premiumOptIn, easyMinutes, mediumMinutes, hardMinutes, revision]
+      required: [easyMinutes, mediumMinutes, hardMinutes, revision]
       properties:
-        premiumOptIn: { type: boolean }
         easyMinutes: { type: integer, minimum: 5, maximum: 180 }
         mediumMinutes: { type: integer, minimum: 5, maximum: 180 }
         hardMinutes: { type: integer, minimum: 5, maximum: 180 }
@@ -2116,31 +2057,6 @@ components:
             },
           ],
       }
-    Recommendation:
-      type: object
-      required:
-        [
-          id,
-          userId,
-          problem,
-          difficulty,
-          rationale,
-          ruleVersion,
-          createdAt,
-          revision,
-        ]
-      properties:
-        {
-          id: { type: string },
-          userId: { type: string },
-          problem: { $ref: '#/components/schemas/LeetcodeProblem' },
-          difficulty: { $ref: '#/components/schemas/Difficulty' },
-          category: { type: string },
-          rationale: { type: string },
-          ruleVersion: { type: string },
-          createdAt: { type: string, format: date-time },
-          revision: { $ref: '#/components/schemas/Revision' },
-        }
     Scores:
       type: object
       properties:

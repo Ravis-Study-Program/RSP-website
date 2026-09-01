@@ -10,7 +10,6 @@ import (
 	"github.com/magedmg/RSP-website/backend/internal/accounts"
 	"github.com/magedmg/RSP-website/backend/internal/authz"
 	"github.com/magedmg/RSP-website/backend/internal/mockinterviews"
-	"github.com/magedmg/RSP-website/backend/internal/practice"
 	"github.com/magedmg/RSP-website/backend/internal/programme"
 )
 
@@ -67,7 +66,7 @@ func TestProtectedRoutesHaveExecutablePrimarySuccess(t *testing.T) {
 		{"updateMe", http.MethodPatch, "/api/v2/me", "student", `{"name":"Updated student","slug":"updated-student","timezone":"Australia/Adelaide","revision":1}`, http.StatusOK, nil},
 		{"suggestMeSlug", http.MethodGet, "/api/v2/me/slug-suggestion", "student", "", http.StatusOK, nil},
 		{"getPracticeSettings", http.MethodGet, "/api/v2/me/practice-settings", "student", "", http.StatusOK, nil},
-		{"updatePracticeSettings", http.MethodPatch, "/api/v2/me/practice-settings", "student", `{"premiumOptIn":false,"easyMinutes":20,"mediumMinutes":35,"hardMinutes":50,"revision":1}`, http.StatusOK, nil},
+		{"updatePracticeSettings", http.MethodPatch, "/api/v2/me/practice-settings", "student", `{"easyMinutes":20,"mediumMinutes":35,"hardMinutes":50,"revision":1}`, http.StatusOK, nil},
 		{"listUsers", http.MethodGet, "/api/v2/users?limit=25&direction=forward&sort=id:asc", "student", "", http.StatusOK, nil},
 		{"getUser", http.MethodGet, "/api/v2/users/other", "student", "", http.StatusOK, nil},
 		{"enableUserPracticeGoals", http.MethodPost, "/api/v2/users/other/practice-goals/enable", "coordinator", `{"seasonId":"season","revision":1}`, http.StatusOK, nil},
@@ -108,13 +107,6 @@ func TestProtectedRoutesHaveExecutablePrimarySuccess(t *testing.T) {
 		{"createProblemAttempt", http.MethodPost, "/api/v2/problem-attempts", "student", attemptCreate, http.StatusCreated, nil},
 		{"updateProblemAttempt", http.MethodPatch, "/api/v2/problem-attempts/owned", "student", attemptUpdate, http.StatusOK, nil},
 		{"deleteProblemAttempt", http.MethodDelete, "/api/v2/problem-attempts/owned?revision=1", "student", "", http.StatusNoContent, nil},
-		{"getCurrentRecommendation", http.MethodGet, "/api/v2/recommendations/current", "student", "", http.StatusOK, func(f *fixture) {
-			seedStudent(f)
-			f.repository.Problems["candidate"] = practice.ProblemRecord{ID: "candidate", Number: 2, Title: "Candidate", Link: "https://rsp.test/problems/candidate", Difficulty: "easy", Categories: []string{"arrays"}, Revision: 1}
-		}},
-		{"dismissCurrentRecommendation", http.MethodPost, "/api/v2/recommendations/current/dismiss", "student", `{"reason":"later","revision":1}`, http.StatusNoContent, func(f *fixture) {
-			f.repository.Recommendations["student"] = practice.Recommendation{ID: "recommendation", UserID: "student", Problem: practice.Problem{ID: "problem", Title: "Two Sum", Difficulty: practice.Easy, Categories: []string{"arrays"}}, Difficulty: practice.Easy, Category: "arrays", Rationale: "Practice arrays", RuleVersion: "v1", CreatedAt: base, Revision: 1}
-		}},
 		{"listMockInterviewParticipants", http.MethodGet, "/api/v2/mock-interviews/participants?limit=25&direction=forward&sort=id:asc", "student", "", http.StatusOK, func(f *fixture) { seedStudent(f) }},
 		{"listMockInterviews", http.MethodGet, "/api/v2/mock-interviews?limit=25&direction=forward&sort=occurredAt:desc&mode=received", "student", "", http.StatusOK, func(f *fixture) { seedStudent(f) }},
 		{"createMockInterview", http.MethodPost, "/api/v2/mock-interviews", "student", mockCreate, http.StatusCreated, func(f *fixture) { seedStudent(f) }},
@@ -153,7 +145,7 @@ func TestMutableResourceFamiliesRejectStaleRevisionsWithCompleteProblems(t *test
 	mockBody := fmt.Sprintf(`{"occurredAt":%q,"durationMinutes":60,"rounds":[{"id":"round","type":"behavioural","scores":{"behavioural":7}}],"revision":99}`, base.Format(time.RFC3339))
 	cases := []operationSuccessCase{
 		{"profile", http.MethodPatch, "/api/v2/me", "student", `{"name":"Student","timezone":"Australia/Adelaide","revision":99}`, http.StatusConflict, nil},
-		{"practice settings", http.MethodPatch, "/api/v2/me/practice-settings", "student", `{"premiumOptIn":false,"easyMinutes":20,"mediumMinutes":35,"hardMinutes":50,"revision":99}`, http.StatusConflict, nil},
+		{"practice settings", http.MethodPatch, "/api/v2/me/practice-settings", "student", `{"easyMinutes":20,"mediumMinutes":35,"hardMinutes":50,"revision":99}`, http.StatusConflict, nil},
 		{"practice goal enablement", http.MethodPost, "/api/v2/users/other/practice-goals/enable", "coordinator", `{"seasonId":"season","revision":99}`, http.StatusConflict, nil},
 		{"season definition", http.MethodPatch, "/api/v2/seasons/season", "director", seasonBody, http.StatusConflict, nil},
 		{"season close", http.MethodPost, "/api/v2/seasons/season/close", "coordinator", `{"reason":"complete","revision":99}`, http.StatusConflict, nil},
@@ -170,9 +162,6 @@ func TestMutableResourceFamiliesRejectStaleRevisionsWithCompleteProblems(t *test
 			f.repository.Mentorships["mentorship"] = programme.MentorshipRecord{ID: "mentorship", SeasonID: "season", MentorUserID: "mentor", StudentUserID: "other", Revision: 1}
 		}},
 		{"attempt", http.MethodPatch, "/api/v2/problem-attempts/owned", "student", attemptBody, http.StatusConflict, nil},
-		{"recommendation dismissal", http.MethodPost, "/api/v2/recommendations/current/dismiss", "student", `{"reason":"later","revision":99}`, http.StatusConflict, func(f *fixture) {
-			f.repository.Recommendations["student"] = practice.Recommendation{ID: "recommendation", UserID: "student", Problem: practice.Problem{ID: "problem", Difficulty: practice.Easy}, Difficulty: practice.Easy, Rationale: "Practice", RuleVersion: "v1", CreatedAt: base, Revision: 1}
-		}},
 		{"mock interview", http.MethodPatch, "/api/v2/mock-interviews/mock", "student", mockBody, http.StatusConflict, func(f *fixture) {
 			score := 7
 			f.repository.Enrollments["student-enrollment"] = programme.EnrollmentRecord{ID: "student-enrollment", SeasonID: "season", UserID: "student", Role: "student", State: "active", AssignmentState: "active", Revision: 1}

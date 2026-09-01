@@ -38,7 +38,7 @@ serialization, malformed/replayed cursors and kicked-only alumni access.
 ## Instrumentation constraint
 
 The checked-in Grafana dashboard covers API latency/error, auth failure, DB
-pool, worker, recommendation and migration signals. A missing series is an
+pool, worker and migration signals. A missing series is an
 exporter/scrape fault, not a measured zero. Every new metric must use bounded
 labels and must never contain member IDs, emails, slugs, request IDs or raw URL
 values.

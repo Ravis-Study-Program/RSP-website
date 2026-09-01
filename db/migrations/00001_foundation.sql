@@ -28,12 +28,6 @@ CREATE TYPE app.attempt_outcome AS ENUM (
   'not_solved',
   'unknown'
 );
-CREATE TYPE app.recommendation_state AS ENUM (
-  'active',
-  'attempted',
-  'dismissed',
-  'superseded'
-);
 CREATE TYPE app.mock_round_kind AS ENUM ('behavioural', 'leetcode', 'custom');
 CREATE TYPE app.review_status AS ENUM ('pending', 'reviewed');
 CREATE TYPE app.migration_run_state AS ENUM (
@@ -86,7 +80,6 @@ CREATE TABLE app.users (
   account_state app.account_state NOT NULL DEFAULT 'active',
   timezone text NOT NULL DEFAULT 'Australia/Adelaide',
   is_test boolean NOT NULL DEFAULT false,
-  leetcode_premium_opt_in boolean NOT NULL DEFAULT false,
   legacy_is_admin boolean,
   legacy_is_graduate boolean,
   suspended_at timestamptz,
@@ -493,74 +486,6 @@ CREATE TRIGGER problem_attempts_validate_scope
   ON app.problem_attempts
   FOR EACH ROW EXECUTE FUNCTION app.validate_problem_attempt_scope();
 
-CREATE TABLE app.recommendations (
-  id uuid PRIMARY KEY DEFAULT uuidv7(),
-  user_id uuid NOT NULL REFERENCES app.users(id) ON DELETE RESTRICT,
-  leetcode_problem_id uuid NOT NULL REFERENCES app.leetcode_problems(id) ON DELETE RESTRICT,
-  category_id uuid REFERENCES app.leetcode_problem_categories(id) ON DELETE RESTRICT,
-  difficulty app.problem_difficulty NOT NULL,
-  rationale text NOT NULL,
-  rule_version text NOT NULL,
-  state app.recommendation_state NOT NULL DEFAULT 'active',
-  generated_at timestamptz NOT NULL,
-  fulfilled_by_attempt_id uuid REFERENCES app.problem_attempts(id) ON DELETE RESTRICT,
-  state_changed_at timestamptz,
-  deleted_at timestamptz,
-  revision bigint NOT NULL DEFAULT 1 CHECK (revision > 0),
-  created_at timestamptz NOT NULL DEFAULT now(),
-  updated_at timestamptz NOT NULL DEFAULT now(),
-  CONSTRAINT recommendations_rationale_nonempty CHECK (length(trim(rationale)) > 0),
-  CONSTRAINT recommendations_rule_version_nonempty CHECK (length(trim(rule_version)) > 0),
-  CONSTRAINT recommendations_attempt_state CHECK (
-    (state = 'attempted' AND fulfilled_by_attempt_id IS NOT NULL)
-    OR (state <> 'attempted' AND fulfilled_by_attempt_id IS NULL)
-  )
-);
-CREATE UNIQUE INDEX recommendations_one_active
-  ON app.recommendations (user_id)
-  WHERE state = 'active' AND deleted_at IS NULL;
-
--- +goose StatementBegin
-CREATE FUNCTION app.validate_recommendation_attempt()
-RETURNS trigger
-LANGUAGE plpgsql
-AS $function$
-DECLARE
-  attempt_user_id uuid;
-  attempt_problem_id uuid;
-  recommended_problem_id uuid;
-BEGIN
-  IF NEW.fulfilled_by_attempt_id IS NULL THEN
-    RETURN NEW;
-  END IF;
-  SELECT user_id, problem_id INTO STRICT attempt_user_id, attempt_problem_id
-  FROM app.problem_attempts WHERE id = NEW.fulfilled_by_attempt_id;
-  SELECT problem_id INTO STRICT recommended_problem_id
-  FROM app.leetcode_problems WHERE id = NEW.leetcode_problem_id;
-  IF attempt_user_id <> NEW.user_id OR attempt_problem_id <> recommended_problem_id THEN
-    RAISE EXCEPTION 'recommendation attempt must belong to the same user and problem'
-      USING ERRCODE = '23514';
-  END IF;
-  RETURN NEW;
-END
-$function$;
--- +goose StatementEnd
-CREATE TRIGGER recommendations_validate_attempt
-  BEFORE INSERT OR UPDATE OF user_id, leetcode_problem_id, fulfilled_by_attempt_id
-  ON app.recommendations
-  FOR EACH ROW EXECUTE FUNCTION app.validate_recommendation_attempt();
-
-CREATE TABLE app.recommendation_dismissals (
-  id uuid PRIMARY KEY DEFAULT uuidv7(),
-  recommendation_id uuid NOT NULL UNIQUE REFERENCES app.recommendations(id) ON DELETE RESTRICT,
-  user_id uuid NOT NULL REFERENCES app.users(id) ON DELETE RESTRICT,
-  leetcode_problem_id uuid NOT NULL REFERENCES app.leetcode_problems(id) ON DELETE RESTRICT,
-  reason text,
-  dismissed_at timestamptz NOT NULL,
-  excluded_until timestamptz NOT NULL,
-  CONSTRAINT recommendation_dismissals_window CHECK (excluded_until > dismissed_at)
-);
-
 CREATE TABLE app.mock_interviews (
   id uuid PRIMARY KEY DEFAULT uuidv7(),
   interviewer_user_id uuid NOT NULL REFERENCES app.users(id) ON DELETE RESTRICT,
@@ -807,8 +732,6 @@ CREATE TRIGGER practice_goals_touch_updated_at
   BEFORE UPDATE ON app.practice_goals FOR EACH ROW EXECUTE FUNCTION app.touch_updated_at();
 CREATE TRIGGER problem_attempts_touch_updated_at
   BEFORE UPDATE ON app.problem_attempts FOR EACH ROW EXECUTE FUNCTION app.touch_updated_at();
-CREATE TRIGGER recommendations_touch_updated_at
-  BEFORE UPDATE ON app.recommendations FOR EACH ROW EXECUTE FUNCTION app.touch_updated_at();
 CREATE TRIGGER mock_interviews_touch_updated_at
   BEFORE UPDATE ON app.mock_interviews FOR EACH ROW EXECUTE FUNCTION app.touch_updated_at();
 CREATE TRIGGER mock_interview_rounds_touch_updated_at

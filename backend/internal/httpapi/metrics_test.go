@@ -27,9 +27,6 @@ func TestMetricsMatchDashboardSeriesWithBoundedLabels(t *testing.T) {
 	metrics := newAPIMetrics()
 	metrics.observeHTTP(http.StatusCreated, 12*time.Millisecond)
 	metrics.observeHTTP(http.StatusServiceUnavailable, 2*time.Second)
-	for _, outcome := range []string{"generated", "reused", "attempted", "dismissed", "unavailable", "user-123"} {
-		metrics.observeRecommendation(outcome)
-	}
 	repository := &observableRepository{
 		Memory: store.NewMemory(),
 		snapshot: observability.Snapshot{
@@ -56,7 +53,6 @@ func TestMetricsMatchDashboardSeriesWithBoundedLabels(t *testing.T) {
 		`rsp_worker_runs_total{result="success"} 8`,
 		`rsp_worker_runs_total{result="partial_failure"} 1`,
 		`rsp_worker_runs_total{result="failure"} 2`,
-		`rsp_recommendation_outcomes_total{outcome="attempted"} 1`,
 		`rsp_migration_status{state="verified"} 1`,
 		`rsp_migration_status{state="applied"} 0`,
 		`rsp_observability_snapshot_success 1`,
@@ -64,9 +60,6 @@ func TestMetricsMatchDashboardSeriesWithBoundedLabels(t *testing.T) {
 		if !strings.Contains(body, expected) {
 			t.Errorf("missing %q in metrics:\n%s", expected, body)
 		}
-	}
-	if strings.Contains(body, "user-123") {
-		t.Fatal("unbounded recommendation label was exported")
 	}
 }
 

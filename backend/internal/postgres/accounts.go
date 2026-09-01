@@ -356,7 +356,7 @@ func (p *Postgres) RevokeGlobalRole(ctx context.Context, userID, role string, re
 	return v, tx.Commit(ctx)
 }
 
-const userColumns = `u.id,u.slug,u.display_name,u.avatar_url,u.timezone,u.timezone_configured,COALESCE(u.email,''),u.account_state::text,COALESCE(array_agg(g.role::text) FILTER (WHERE g.state='active'),'{}')::text[],u.is_test,u.leetcode_premium_opt_in,u.revision,
+const userColumns = `u.id,u.slug,u.display_name,u.avatar_url,u.timezone,u.timezone_configured,COALESCE(u.email,''),u.account_state::text,COALESCE(array_agg(g.role::text) FILTER (WHERE g.state='active'),'{}')::text[],u.is_test,u.revision,
 COALESCE((SELECT jsonb_agg(jsonb_build_object('seasonId',e.season_id,'seasonSlug',s.slug,'role',e.role::text,'state',e.state::text) ORDER BY s.slug,e.id) FROM app.enrollments e JOIN app.seasons s ON s.id=e.season_id WHERE e.user_id=u.id AND e.deleted_at IS NULL AND (e.state='active' OR (e.role='student' AND e.state='completed'))),'[]'::jsonb),
 (SELECT count(*) FROM app.problem_attempts a WHERE a.user_id=u.id AND a.deleted_at IS NULL),
 (SELECT count(*) FROM app.mock_interviews mi WHERE (mi.interviewer_user_id=u.id OR mi.interviewee_user_id=u.id) AND mi.deleted_at IS NULL)`
@@ -364,7 +364,7 @@ COALESCE((SELECT jsonb_agg(jsonb_build_object('seasonId',e.season_id,'seasonSlug
 func scanUser(row pgx.Row) (accounts.User, error) {
 	var v accounts.User
 	var seasonRoles []byte
-	if err := row.Scan(&v.ID, &v.Slug, &v.Name, &v.AvatarURL, &v.Timezone, &v.TimezoneConfigured, &v.Email, &v.AccountState, &v.GlobalRoles, &v.IsTest, &v.PremiumOptIn, &v.Revision, &seasonRoles, &v.AttemptCount, &v.MockInterviewCount); err != nil {
+	if err := row.Scan(&v.ID, &v.Slug, &v.Name, &v.AvatarURL, &v.Timezone, &v.TimezoneConfigured, &v.Email, &v.AccountState, &v.GlobalRoles, &v.IsTest, &v.Revision, &seasonRoles, &v.AttemptCount, &v.MockInterviewCount); err != nil {
 		return v, noRows(err)
 	}
 	if err := json.Unmarshal(seasonRoles, &v.SeasonRoles); err != nil {
@@ -380,7 +380,7 @@ func (p *Postgres) GetUser(ctx context.Context, id string) (accounts.User, error
 		return accounts.User{}, noRows(err)
 	}
 
-	v := accounts.User{ID: row.ID, Slug: row.Slug, Name: row.DisplayName, AvatarURL: row.AvatarUrl, Timezone: row.Timezone, TimezoneConfigured: row.TimezoneConfigured, AccountState: string(row.AccountState), GlobalRoles: []string{}, IsTest: row.IsTest, PremiumOptIn: row.LeetcodePremiumOptIn, Revision: row.Revision}
+	v := accounts.User{ID: row.ID, Slug: row.Slug, Name: row.DisplayName, AvatarURL: row.AvatarUrl, Timezone: row.Timezone, TimezoneConfigured: row.TimezoneConfigured, AccountState: string(row.AccountState), GlobalRoles: []string{}, IsTest: row.IsTest, Revision: row.Revision}
 	if row.Email != nil {
 		v.Email = *row.Email
 	}
@@ -563,7 +563,7 @@ func (p *Postgres) UpdateUser(ctx context.Context, id string, revision int64, fn
 
 	defer tx.Rollback(ctx)
 	var v accounts.User
-	err = tx.QueryRow(ctx, `SELECT id,slug,display_name,avatar_url,timezone,timezone_configured,COALESCE(email,''),account_state::text,is_test,leetcode_premium_opt_in,revision FROM app.users WHERE id=$1 AND deleted_at IS NULL FOR UPDATE`, id).Scan(&v.ID, &v.Slug, &v.Name, &v.AvatarURL, &v.Timezone, &v.TimezoneConfigured, &v.Email, &v.AccountState, &v.IsTest, &v.PremiumOptIn, &v.Revision)
+	err = tx.QueryRow(ctx, `SELECT id,slug,display_name,avatar_url,timezone,timezone_configured,COALESCE(email,''),account_state::text,is_test,revision FROM app.users WHERE id=$1 AND deleted_at IS NULL FOR UPDATE`, id).Scan(&v.ID, &v.Slug, &v.Name, &v.AvatarURL, &v.Timezone, &v.TimezoneConfigured, &v.Email, &v.AccountState, &v.IsTest, &v.Revision)
 	if err != nil {
 		return v, noRows(err)
 	}

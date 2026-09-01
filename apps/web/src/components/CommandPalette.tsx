@@ -39,7 +39,7 @@ export function CommandPalette() {
             },
             {
               label: 'Practice',
-              description: 'Recommendation and attempt history',
+              description: 'Problem attempt history',
               to: `${seasonBase}/practice`,
             },
             {
@@ -113,7 +113,7 @@ export function CommandPalette() {
                   },
                   {
                     label: 'Practice',
-                    description: 'Recommendation and attempt history',
+                    description: 'Problem attempt history',
                     to: '/practice',
                   },
                   {
@@ -126,7 +126,7 @@ export function CommandPalette() {
                 ? [
                     {
                       label: 'Practice',
-                      description: 'Recommendation and attempt history',
+                      description: 'Problem attempt history',
                       to: '/practice',
                     },
                     {

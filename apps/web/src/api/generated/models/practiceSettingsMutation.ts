@@ -8,7 +8,6 @@
 import type { Revision } from './revision';
 
 export interface PracticeSettingsMutation {
-  premiumOptIn: boolean;
   /**
    * @minimum 5
    * @maximum 180

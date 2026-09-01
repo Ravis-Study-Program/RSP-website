@@ -13,33 +13,31 @@ import (
 
 // Memory represents a backend data structure.
 type Memory struct {
-	mu                       sync.RWMutex
-	Users                    map[string]accounts.User
-	PracticeSettings         map[string]practice.PracticeSettings
-	AuthSubjects             map[string]authz.Actor
-	Seasons                  map[string]programme.SeasonRecord
-	Weeks                    map[string]programme.WeekRecord
-	Enrollments              map[string]programme.EnrollmentRecord
-	Mentorships              map[string]programme.MentorshipRecord
-	Problems                 map[string]practice.ProblemRecord
-	Attempts                 map[string]practice.AttemptRecord
-	Recommendations          map[string]practice.Recommendation
-	RecommendationDismissals map[string][]practice.Dismissal
-	Mocks                    map[string]mockinterviews.Interview
-	MockVersions             []mockinterviews.Version
-	closeCompleted           map[string]map[string]bool
-	closeAssignmentStates    map[string]map[string]string
-	closeEventIDs            map[string]string
-	Audits                   []audit.Event
-	IdentityEventReceipts    map[string]bool
-	IdentityEventHashes      map[string]string
-	GlobalRoleAssignments    map[string]accounts.GlobalRoleAssignment
-	MFAConfigured            map[string]bool
+	mu                    sync.RWMutex
+	Users                 map[string]accounts.User
+	PracticeSettings      map[string]practice.PracticeSettings
+	AuthSubjects          map[string]authz.Actor
+	Seasons               map[string]programme.SeasonRecord
+	Weeks                 map[string]programme.WeekRecord
+	Enrollments           map[string]programme.EnrollmentRecord
+	Mentorships           map[string]programme.MentorshipRecord
+	Problems              map[string]practice.ProblemRecord
+	Attempts              map[string]practice.AttemptRecord
+	Mocks                 map[string]mockinterviews.Interview
+	MockVersions          []mockinterviews.Version
+	closeCompleted        map[string]map[string]bool
+	closeAssignmentStates map[string]map[string]string
+	closeEventIDs         map[string]string
+	Audits                []audit.Event
+	IdentityEventReceipts map[string]bool
+	IdentityEventHashes   map[string]string
+	GlobalRoleAssignments map[string]accounts.GlobalRoleAssignment
+	MFAConfigured         map[string]bool
 }
 
 // NewMemory creates a new value.
 func NewMemory() *Memory {
-	return &Memory{Users: map[string]accounts.User{}, PracticeSettings: map[string]practice.PracticeSettings{}, AuthSubjects: map[string]authz.Actor{}, Seasons: map[string]programme.SeasonRecord{}, Weeks: map[string]programme.WeekRecord{}, Enrollments: map[string]programme.EnrollmentRecord{}, Mentorships: map[string]programme.MentorshipRecord{}, Problems: map[string]practice.ProblemRecord{}, Attempts: map[string]practice.AttemptRecord{}, Recommendations: map[string]practice.Recommendation{}, RecommendationDismissals: map[string][]practice.Dismissal{}, Mocks: map[string]mockinterviews.Interview{}, closeCompleted: map[string]map[string]bool{}, closeAssignmentStates: map[string]map[string]string{}, closeEventIDs: map[string]string{}, IdentityEventReceipts: map[string]bool{}, IdentityEventHashes: map[string]string{}, GlobalRoleAssignments: map[string]accounts.GlobalRoleAssignment{}, MFAConfigured: map[string]bool{}}
+	return &Memory{Users: map[string]accounts.User{}, PracticeSettings: map[string]practice.PracticeSettings{}, AuthSubjects: map[string]authz.Actor{}, Seasons: map[string]programme.SeasonRecord{}, Weeks: map[string]programme.WeekRecord{}, Enrollments: map[string]programme.EnrollmentRecord{}, Mentorships: map[string]programme.MentorshipRecord{}, Problems: map[string]practice.ProblemRecord{}, Attempts: map[string]practice.AttemptRecord{}, Mocks: map[string]mockinterviews.Interview{}, closeCompleted: map[string]map[string]bool{}, closeAssignmentStates: map[string]map[string]string{}, closeEventIDs: map[string]string{}, IdentityEventReceipts: map[string]bool{}, IdentityEventHashes: map[string]string{}, GlobalRoleAssignments: map[string]accounts.GlobalRoleAssignment{}, MFAConfigured: map[string]bool{}}
 }
 
 func memoryPage[T any](items []T, boundary string, limit int, direction string, identity func(T) string) ([]T, bool, error) {

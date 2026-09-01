@@ -39,7 +39,6 @@ SET slug = sqlc.arg(slug),
     display_name = sqlc.arg(display_name),
     avatar_url = sqlc.narg(avatar_url),
     timezone = sqlc.arg(timezone),
-    leetcode_premium_opt_in = sqlc.arg(leetcode_premium_opt_in),
     revision = revision + 1
 WHERE id = sqlc.arg(id)
   AND revision = sqlc.arg(revision)

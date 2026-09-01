@@ -1,10 +1,8 @@
 import { fireEvent, render, screen } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
 
 import { PracticePreferencesPanel } from '@/pages/SettingsPage';
 
 const disabledGoals = {
-  premiumOptIn: false,
   goalsEnabled: false,
   easyMinutes: 20,
   mediumMinutes: 35,
@@ -13,20 +11,15 @@ const disabledGoals = {
 };
 
 describe('PracticePreferencesPanel', () => {
-  it('lets the member change premium opt-in but not self-enable personal goals', async () => {
-    const user = userEvent.setup();
+  it('does not let the member self-enable personal goals', () => {
     const onChange = vi.fn();
     render(
       <PracticePreferencesPanel value={disabledGoals} onChange={onChange} />,
     );
 
-    const premium = screen.getByRole('switch', {
-      name: 'Include premium LeetCode problems',
-    });
     const goals = screen.getByRole('switch', {
       name: 'Use personal time goals',
     });
-    expect(premium).toBeEnabled();
     expect(goals).toHaveAttribute('aria-disabled', 'true');
     expect(goals).toHaveAttribute('tabindex', '-1');
     expect(screen.getByLabelText('Easy minutes')).toBeDisabled();
@@ -36,11 +29,7 @@ describe('PracticePreferencesPanel', () => {
       ),
     ).toBeVisible();
 
-    await user.click(premium);
-    expect(onChange).toHaveBeenCalledWith({
-      ...disabledGoals,
-      premiumOptIn: true,
-    });
+    expect(onChange).not.toHaveBeenCalled();
   });
 
   it('enables goal values after relationship-based enablement and reports invalid ranges', () => {

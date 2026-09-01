@@ -89,17 +89,6 @@
         "LeetcodeProblemEntityLeetcodeProblemId": "leetcode-1"
       }
     ],
-    "LeetcodeProblemRecommendation": [
-      {
-        "LeetcodeProblemRecommendationId": "recommendation-1",
-        "UserId": "user-student",
-        "LeetcodeProblemId": "leetcode-1",
-        "ProblemAttemptId": "attempt-1",
-        "CreatedAtUtc": "2026-07-15T00:00:00Z",
-        "UpdatedAtUtc": "2026-07-20T00:00:00Z",
-        "DeletedAtUtc": null
-      }
-    ],
     "Mentorship": [
       {
         "MentorshipId": "mentorship-1",

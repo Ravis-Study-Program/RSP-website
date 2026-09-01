@@ -21,13 +21,10 @@ type Querier interface {
 	CreateMigrationRun(ctx context.Context, arg CreateMigrationRunParams) (MigrationRun, error)
 	CreateMockInterview(ctx context.Context, arg CreateMockInterviewParams) (AppMockInterview, error)
 	CreateProblemAttempt(ctx context.Context, arg CreateProblemAttemptParams) (AppProblemAttempt, error)
-	CreateRecommendation(ctx context.Context, arg CreateRecommendationParams) (AppRecommendation, error)
 	CreateSeason(ctx context.Context, arg CreateSeasonParams) (AppSeason, error)
 	CreateSeasonCloseEvent(ctx context.Context, arg CreateSeasonCloseEventParams) (AppSeasonCloseEvent, error)
-	DismissRecommendation(ctx context.Context, arg DismissRecommendationParams) (AppRecommendation, error)
 	EndMentorship(ctx context.Context, arg EndMentorshipParams) (AppMentorship, error)
 	FinishLeetcodeSync(ctx context.Context, arg FinishLeetcodeSyncParams) (AppLeetcodeSyncRun, error)
-	GetActiveRecommendation(ctx context.Context, arg GetActiveRecommendationParams) (GetActiveRecommendationRow, error)
 	GetLastSuccessfulLeetcodeSync(ctx context.Context) (AppLeetcodeSyncRun, error)
 	GetMigrationRun(ctx context.Context, arg GetMigrationRunParams) (MigrationRun, error)
 	GetMockInterview(ctx context.Context, arg GetMockInterviewParams) (AppMockInterview, error)
@@ -57,7 +54,6 @@ type Querier interface {
 	MarkSeasonOpen(ctx context.Context, arg MarkSeasonOpenParams) (AppSeason, error)
 	PromoteStudentLevel(ctx context.Context, arg PromoteStudentLevelParams) (AppEnrollment, error)
 	RecordEnrollmentRemoval(ctx context.Context, arg RecordEnrollmentRemovalParams) (AppEnrollmentRemovalEvent, error)
-	RecordRecommendationDismissal(ctx context.Context, arg RecordRecommendationDismissalParams) (AppRecommendationDismissal, error)
 	RecordRowProvenance(ctx context.Context, arg RecordRowProvenanceParams) error
 	RecordSourceTable(ctx context.Context, arg RecordSourceTableParams) error
 	RemoveEnrollment(ctx context.Context, arg RemoveEnrollmentParams) (AppEnrollment, error)

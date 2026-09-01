@@ -1,11 +1,5 @@
 import { zodResolver } from '@hookform/resolvers/zod';
-import {
-  IconArrowUpRight,
-  IconClock,
-  IconEdit,
-  IconPlus,
-  IconX,
-} from '@tabler/icons-react';
+import { IconEdit, IconPlus } from '@tabler/icons-react';
 import type { ColumnDef } from '@tanstack/react-table';
 import type { Resolver } from 'react-hook-form';
 import { useMemo, useState } from 'react';
@@ -20,12 +14,7 @@ import type {
   AttemptMutation,
   LeetcodeProblem,
 } from '@/api/generated/models';
-import {
-  demoMode,
-  useAttempts,
-  useLeetcodeProblems,
-  useRecommendation,
-} from '@/api/queries';
+import { demoMode, useAttempts, useLeetcodeProblems } from '@/api/queries';
 import { ActivityChart } from '@/components/ActivityChart';
 import { AppDatePicker } from '@/components/AppDatePicker';
 import { PageHeader, usePageTitle } from '@/components/Common';
@@ -33,7 +22,7 @@ import { DataTable, HighlightText } from '@/components/DataTable';
 import { FormDialog, NamedConfirmation } from '@/components/Dialogs';
 import { RichTextEditor } from '@/components/RichTextEditor';
 import { RichTextContent } from '@/components/RichTextContent';
-import { ErrorState, InlineNotice } from '@/components/StatusViews';
+import { InlineNotice } from '@/components/StatusViews';
 import styles from '@/styles/App.module.css';
 import type { Attempt } from '@/types';
 import {
@@ -158,7 +147,6 @@ const baseColumns: ColumnDef<Attempt, any>[] = [
 export function PracticePage() {
   usePageTitle('Practice');
   const attemptsQuery = useAttempts();
-  const recommendationQuery = useRecommendation();
   const problemsQuery = useLeetcodeProblems();
   const [localAttempts, setLocalAttempts] = useState<Attempt[]>([]);
   const [updatedAttempts, setUpdatedAttempts] = useState<
@@ -166,7 +154,6 @@ export function PracticePage() {
   >({});
   const [removedIds, setRemovedIds] = useState<string[]>([]);
   const [operationMessage, setOperationMessage] = useState('');
-  const [dismissed, setDismissed] = useState(false);
   const data = useMemo(
     () =>
       [...localAttempts, ...(attemptsQuery.data?.items ?? [])]
@@ -240,7 +227,7 @@ export function PracticePage() {
           <NamedConfirmation
             name={row.original.problem}
             actionLabel="Delete attempt"
-            description="This permanently removes the attempt. Your recommendation may change."
+            description="This permanently removes the attempt from your practice history."
             onConfirm={() => void deleteAttempt(row.original)}
           />
         </div>
@@ -254,7 +241,7 @@ export function PracticePage() {
       <PageHeader
         eyebrow="Practice"
         title="Problem practice"
-        description="Record what happened, not just whether a problem was completed. Outcomes, confidence and time help your next recommendation stay useful."
+        description="Record what happened, not just whether a problem was completed. Track outcomes, confidence and time across your practice history."
         actions={
           <AttemptDialog
             problems={problemsQuery.data?.items ?? []}
@@ -278,65 +265,6 @@ export function PracticePage() {
           {operationMessage}
         </InlineNotice>
       ) : null}
-
-      <section aria-labelledby="recommendation-title">
-        <div className={styles.sectionHeader}>
-          <h2 id="recommendation-title" className={styles.sectionTitle}>
-            Current recommendation
-          </h2>
-        </div>
-        {recommendationQuery.isLoading ? (
-          <div className={styles.recommendation} aria-busy="true">
-            <span
-              className={`${styles.skeleton} ${styles.skeletonRecommendation}`}
-            >
-              Loading recommendation
-            </span>
-          </div>
-        ) : recommendationQuery.isError ? (
-          <ErrorState onRetry={() => void recommendationQuery.refetch()} />
-        ) : dismissed ? (
-          <InlineNotice tone="success">
-            Recommendation dismissed. This problem will be excluded for 30 days;
-            refresh to generate another when you are ready.
-          </InlineNotice>
-        ) : recommendationQuery.data ? (
-          <article className={styles.recommendation}>
-            <div className={styles.inline}>
-              <span className={styles.badge}>
-                {recommendationQuery.data.difficulty}
-              </span>
-              <span className={styles.badge}>
-                {recommendationQuery.data.category}
-              </span>
-              <span className={styles.badgeNeutral}>
-                <IconClock size={15} aria-hidden="true" /> Goal{' '}
-                {recommendationQuery.data.estimatedMinutes} min
-              </span>
-            </div>
-            <h3 className={styles.recommendationTitle}>
-              {recommendationQuery.data.title}
-            </h3>
-            <p>{recommendationQuery.data.rationale}</p>
-            <div className={styles.buttonRow}>
-              <a
-                className={styles.button}
-                href={recommendationQuery.data.externalUrl}
-                target="_blank"
-                rel="noreferrer"
-              >
-                Start on LeetCode{' '}
-                <IconArrowUpRight size={18} aria-hidden="true" />
-              </a>
-              <DismissDialog onDismiss={() => setDismissed(true)} />
-            </div>
-          </article>
-        ) : (
-          <InlineNotice>
-            Complete an outcome-known attempt to generate a recommendation.
-          </InlineNotice>
-        )}
-      </section>
 
       <section className={styles.section} aria-labelledby="attempts-title">
         <div className={styles.sectionHeader}>
@@ -408,7 +336,7 @@ export function PracticePage() {
                 <NamedConfirmation
                   name={row.original.problem}
                   actionLabel="Delete attempt"
-                  description="This permanently removes the attempt. Your recommendation may change."
+                  description="This permanently removes the attempt from your practice history."
                   onConfirm={() => void deleteAttempt(row.original)}
                 />
               </div>
@@ -546,7 +474,7 @@ function AttemptDialog({
     <>
       <FormDialog
         title={attempt ? `Edit ${attempt.problem}` : 'Log problem attempt'}
-        description="Record enough detail for your progress history and next recommendation."
+        description="Record enough detail to make your progress history useful."
         open={open}
         onOpenChange={requestOpenChange}
         trigger={
@@ -700,95 +628,5 @@ function AttemptDialog({
         {announcement}
       </span>
     </>
-  );
-}
-
-function DismissDialog({ onDismiss }: { onDismiss: () => void }) {
-  const [open, setOpen] = useState(false);
-  const [reason, setReason] = useState('');
-  const [pending, setPending] = useState(false);
-  const [error, setError] = useState('');
-  const dirty = reason.length > 0;
-  const requestOpenChange = (next: boolean) => {
-    if (
-      !next &&
-      dirty &&
-      !window.confirm('Discard your recommendation dismissal reason?')
-    )
-      return;
-    if (next) {
-      setReason('');
-      setError('');
-    }
-    setOpen(next);
-  };
-  const dismiss = async () => {
-    setPending(true);
-    setError('');
-    try {
-      if (!demoMode)
-        await apiRequest<void>('/recommendations/current/dismiss', {
-          method: 'POST',
-          body: JSON.stringify({ reason: reason || undefined }),
-        });
-      onDismiss();
-      setReason('');
-      setOpen(false);
-    } catch (requestError) {
-      setError(
-        requestError instanceof Error
-          ? requestError.message
-          : 'Unable to dismiss this recommendation.',
-      );
-    } finally {
-      setPending(false);
-    }
-  };
-  return (
-    <FormDialog
-      title="Dismiss recommendation"
-      description="This problem will not be recommended again for 30 days."
-      open={open}
-      onOpenChange={requestOpenChange}
-      trigger={
-        <>
-          <IconX size={18} aria-hidden="true" /> Dismiss
-        </>
-      }
-    >
-      <div className={styles.field}>
-        <label htmlFor="dismiss-reason">Reason (optional)</label>
-        <textarea
-          id="dismiss-reason"
-          className={styles.textarea}
-          value={reason}
-          onChange={(event) => setReason(event.target.value)}
-          placeholder="For example: already completed elsewhere"
-        />
-      </div>
-      {error ? (
-        <p className={styles.fieldError} role="alert">
-          {error}
-        </p>
-      ) : null}
-      <div className={styles.dialogActions}>
-        <button
-          className={styles.buttonSecondary}
-          type="button"
-          disabled={pending}
-          onClick={() => requestOpenChange(false)}
-        >
-          Cancel
-        </button>
-        <button
-          className={styles.button}
-          type="button"
-          disabled={pending}
-          onClick={() => void dismiss()}
-        >
-          {pending ? 'Dismissing…' : 'Dismiss for 30 days'}
-        </button>
-      </div>
-    </FormDialog>
   );
 }

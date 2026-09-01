@@ -25,7 +25,6 @@ var LegacyTables = []string{
 	"LeetcodeProblem",
 	"LeetcodeProblemCategory",
 	"LeetcodeProblemCategoryMapping",
-	"LeetcodeProblemRecommendation",
 	"Mentorship",
 	"MockInterview",
 	"MockInterviewRound",
@@ -46,7 +45,6 @@ var legacyIDFields = map[string][]string{
 	"LeetcodeProblem":                {"LeetcodeProblemId"},
 	"LeetcodeProblemCategory":        {"LeetcodeProblemCategoryId"},
 	"LeetcodeProblemCategoryMapping": {"LeetcodeProblemCategoriesLeetcodeProblemCategoryId", "LeetcodeProblemEntityLeetcodeProblemId"},
-	"LeetcodeProblemRecommendation":  {"LeetcodeProblemRecommendationId"},
 	"Mentorship":                     {"MentorshipId"},
 	"MockInterview":                  {"MockInterviewId"},
 	"MockInterviewRound":             {"MockInterviewRoundId"},
@@ -72,7 +70,6 @@ var targetOrder = []string{
 	"leetcode_problem_categories",
 	"leetcode_problem_category_mappings",
 	"problem_attempts",
-	"recommendations",
 	"mock_interviews",
 	"mock_interview_rounds",
 	"behavioural_mock_interview_rounds",
@@ -98,8 +95,6 @@ var uuidReferenceTables = map[string]map[string]string{
 	"leetcode_problem_category_mappings": {"leetcode_problem_id": "leetcode_problems", "category_id": "leetcode_problem_categories"},
 	"practice_goals":                     {"user_id": "users", "enabled_by_user_id": "users"},
 	"problem_attempts":                   {"user_id": "users", "problem_id": "problems", "enrollment_id": "enrollments", "season_week_id": "season_weeks"},
-	"recommendations":                    {"user_id": "users", "leetcode_problem_id": "leetcode_problems", "category_id": "leetcode_problem_categories", "fulfilled_by_attempt_id": "problem_attempts"},
-	"recommendation_dismissals":          {"recommendation_id": "recommendations", "user_id": "users", "leetcode_problem_id": "leetcode_problems"},
 	"mock_interviews":                    {"interviewer_user_id": "users", "interviewee_user_id": "users", "season_id": "seasons", "season_week_id": "season_weeks"},
 	"mock_interview_rounds":              {"mock_interview_id": "mock_interviews"},
 	"behavioural_mock_interview_rounds":  {"mock_interview_round_id": "mock_interview_rounds"},
@@ -312,7 +307,6 @@ func analyzeSnapshot(snapshot Snapshot) []Anomaly {
 	leetcodes := indexRows(snapshot, "LeetcodeProblem")
 	customProblems := indexRows(snapshot, "CustomProblem")
 	categories := indexRows(snapshot, "LeetcodeProblemCategory")
-	attempts := indexRows(snapshot, "ProblemAttempt")
 	mocks := indexRows(snapshot, "MockInterview")
 	behaviouralRounds := indexRows(snapshot, "BehaviouralMockInterviewRound")
 	leetcodeRounds := indexRows(snapshot, "LeetcodeMockInterviewRound")
@@ -484,16 +478,6 @@ func analyzeSnapshot(snapshot Snapshot) []Anomaly {
 				result = append(result, anomaly("CROSS_SEASON_ATTEMPT", "ProblemAttempt", id, "blocking", "attempt enrollment and week belong to different seasons", Row{"field": "SeasonWeekId"}))
 			}
 		}
-	}
-	for _, row := range snapshot.Tables["LeetcodeProblemRecommendation"] {
-		id := sourceID("LeetcodeProblemRecommendation", row)
-		if _, ok := users[stringValue(row["UserId"])]; !ok {
-			result = append(result, orphan("LeetcodeProblemRecommendation", id, "UserId", stringValue(row["UserId"])))
-		}
-		if _, ok := leetcodes[stringValue(row["LeetcodeProblemId"])]; !ok {
-			result = append(result, orphan("LeetcodeProblemRecommendation", id, "LeetcodeProblemId", stringValue(row["LeetcodeProblemId"])))
-		}
-		validateOptionalReference(&result, "LeetcodeProblemRecommendation", id, "ProblemAttemptId", row, attempts)
 	}
 	for _, row := range snapshot.Tables["MockInterview"] {
 		id := sourceID("MockInterview", row)
@@ -731,7 +715,7 @@ func transformSnapshot(snapshot Snapshot, now time.Time, autoFixes *[]AutoFix) (
 		if accountState == "deleted" {
 			timezone = "UTC"
 		}
-		values := Row{"id": id, "slug": slug, "display_name": displayName, "email": email, "discord_id": discordID, "avatar_url": avatarURL, "account_state": accountState, "timezone": timezone, "timezone_configured": false, "is_test": source["IsTestUser"], "leetcode_premium_opt_in": false, "legacy_is_admin": source["IsAdmin"], "legacy_is_graduate": source["IsGraduate"], "pseudonymized_at": pseudonymizedAt, "deleted_at": source["DeletedAtUtc"], "created_at": source["CreatedAtUtc"], "updated_at": source["UpdatedAtUtc"]}
+		values := Row{"id": id, "slug": slug, "display_name": displayName, "email": email, "discord_id": discordID, "avatar_url": avatarURL, "account_state": accountState, "timezone": timezone, "timezone_configured": false, "is_test": source["IsTestUser"], "legacy_is_admin": source["IsAdmin"], "legacy_is_graduate": source["IsGraduate"], "pseudonymized_at": pseudonymizedAt, "deleted_at": source["DeletedAtUtc"], "created_at": source["CreatedAtUtc"], "updated_at": source["UpdatedAtUtc"]}
 		if err := add("users", "User", source, id, values, ""); err != nil {
 			return nil, nil, err
 		}
@@ -862,25 +846,6 @@ func transformSnapshot(snapshot Snapshot, now time.Time, autoFixes *[]AutoFix) (
 		}
 		values := Row{"id": id, "user_id": source["UserId"], "problem_id": problemID, "enrollment_id": source["EnrollmentId"], "season_week_id": source["SeasonWeekId"], "attempted_at": source["AttemptStartDateUtc"], "time_taken_minutes": source["TimeTakenInMinutes"], "outcome": "unknown", "confidence": nil, "notes_html": nilIfEmpty(notes), "notes_sanitization_changed": changed, "deleted_at": source["DeletedAtUtc"], "created_at": source["CreatedAtUtc"], "updated_at": source["UpdatedAtUtc"]}
 		if err := add("problem_attempts", "ProblemAttempt", source, id, values, ""); err != nil {
-			return nil, nil, err
-		}
-	}
-	for _, source := range snapshot.Tables["LeetcodeProblemRecommendation"] {
-		id := sourceID("LeetcodeProblemRecommendation", source)
-		leetcodeID := stringValue(source["LeetcodeProblemId"])
-		difficulty := "medium"
-		if sourceProblem := leetcodes[leetcodeID]; sourceProblem != nil {
-			difficulty = mapEnum(numberValue(sourceProblem["LeetcodeProblemDifficulty"]), []string{"easy", "medium", "hard"})
-		}
-		state := "active"
-		attemptID := source["ProblemAttemptId"]
-		if stringValue(attemptID) != "" {
-			state = "attempted"
-		} else {
-			attemptID = nil
-		}
-		values := Row{"id": id, "user_id": source["UserId"], "leetcode_problem_id": leetcodeID, "category_id": nil, "difficulty": difficulty, "rationale": "Migrated legacy recommendation", "rule_version": "legacy-v1", "state": state, "generated_at": source["CreatedAtUtc"], "fulfilled_by_attempt_id": attemptID, "state_changed_at": source["UpdatedAtUtc"], "deleted_at": source["DeletedAtUtc"], "created_at": source["CreatedAtUtc"], "updated_at": source["UpdatedAtUtc"]}
-		if err := add("recommendations", "LeetcodeProblemRecommendation", source, id, values, ""); err != nil {
 			return nil, nil, err
 		}
 	}

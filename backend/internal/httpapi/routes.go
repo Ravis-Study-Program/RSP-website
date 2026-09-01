@@ -68,8 +68,6 @@ func registerPracticeRoutes(mux *http.ServeMux, a *API) {
 	mux.HandleFunc("POST /api/v2/problem-attempts", a.protected(ratelimit.Write, a.createAttempt))
 	mux.HandleFunc("PATCH /api/v2/problem-attempts/{id}", a.protected(ratelimit.Write, a.updateAttempt))
 	mux.HandleFunc("DELETE /api/v2/problem-attempts/{id}", a.protected(ratelimit.Write, a.deleteAttempt))
-	mux.HandleFunc("GET /api/v2/recommendations/current", a.protected(ratelimit.Sensitive, a.recommendation))
-	mux.HandleFunc("POST /api/v2/recommendations/current/dismiss", a.protected(ratelimit.Sensitive, a.dismissRecommendation))
 }
 
 func registerMockInterviewRoutes(mux *http.ServeMux, a *API) {

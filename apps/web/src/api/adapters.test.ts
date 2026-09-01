@@ -2,7 +2,6 @@ import {
   adaptAttemptPage,
   adaptCurrentUser,
   adaptMockInterviewPage,
-  adaptRecommendation,
   adaptSeasonPage,
   adaptUserPage,
   indexProblems,
@@ -12,7 +11,6 @@ import type {
   LeetcodeProblem,
   Me,
   MockInterviewPage,
-  Recommendation,
   SeasonPage,
   UserPage,
 } from '@/api/generated/models';
@@ -128,7 +126,7 @@ describe('OpenAPI DTO adapters', () => {
     });
   });
 
-  it('joins attempt and recommendation DTOs to their catalog problem', () => {
+  it('joins attempt DTOs to their catalog problem', () => {
     const attempts: AttemptPage = {
       pageInfo,
       totalCount: 1,
@@ -145,30 +143,11 @@ describe('OpenAPI DTO adapters', () => {
         },
       ],
     };
-    const recommendation: Recommendation = {
-      id: 'recommendation-1',
-      userId: 'user-1',
-      problem,
-      difficulty: 'medium',
-      category: 'Hash maps',
-      rationale: 'This category needs more exposure.',
-      ruleVersion: 'v1',
-      createdAt: '2026-08-14T00:00:00Z',
-      revision: 1,
-    };
-
     expect(adaptAttemptPage(attempts, [problem]).items[0]).toMatchObject({
       problemId: problem.id,
       problem: problem.title,
       difficulty: 'Medium',
       category: 'Hash maps',
-    });
-    expect(adaptRecommendation(recommendation)).toMatchObject({
-      problemId: problem.id,
-      title: problem.title,
-      difficulty: 'Medium',
-      estimatedMinutes: 35,
-      externalUrl: problem.link,
     });
   });
 

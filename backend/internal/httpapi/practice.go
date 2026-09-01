@@ -1,13 +1,10 @@
 package httpapi
 
 import (
-	"bytes"
 	"errors"
 	"fmt"
-	"io"
 	"net/http"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/magedmg/RSP-website/backend/internal/authz"
@@ -265,7 +262,7 @@ func (a *API) createAttempt(w http.ResponseWriter, r *http.Request) {
 	}
 
 	v := practice.AttemptRecord{ID: id.New(), UserID: actor.UserID, ProblemID: in.ProblemID, Outcome: in.Outcome, Confidence: in.Confidence, Minutes: in.Minutes, Notes: sanitize.New().String(in.Notes), AttemptedAt: in.AttemptedAt.UTC(), SeasonID: in.SeasonID, WeekID: in.WeekID, Revision: 1}
-	created, fulfilled, err := a.store.CreateAttempt(r.Context(), v)
+	created, err := a.store.CreateAttempt(r.Context(), v)
 	if err != nil {
 		switch {
 		case errors.Is(err, store.ErrNotFound):
@@ -280,9 +277,6 @@ func (a *API) createAttempt(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if fulfilled {
-		a.telemetry.observeRecommendation("attempted")
-	}
 	writeJSONResponse(w, http.StatusCreated, created)
 }
 
@@ -350,221 +344,6 @@ func (a *API) deleteAttempt(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.WriteHeader(204)
-}
-
-func (a *API) recommendation(w http.ResponseWriter, r *http.Request) {
-	if !a.requirePracticeAccess(w, r) {
-		return
-	}
-	actor := actorFrom(r.Context())
-	current, err := a.store.GetActiveRecommendation(r.Context(), actor.UserID)
-	if err != nil {
-		switch {
-		case errors.Is(err, store.ErrNotFound):
-			writeErrorResponse(w, http.StatusNotFound, "not_found", "The requested resource does not exist.")
-		case errors.Is(err, store.ErrConflict):
-			writeErrorResponse(w, http.StatusConflict, "stale_revision", "The resource changed since it was loaded.")
-		case errors.Is(err, store.ErrDuplicate):
-			writeErrorResponse(w, http.StatusConflict, "duplicate", "A resource with that unique value already exists.")
-		default:
-			writeErrorResponse(w, http.StatusInternalServerError, "internal_error", "The request could not be completed.")
-		}
-		return
-	}
-	if current != nil {
-		a.telemetry.observeRecommendation("reused")
-		writeJSONResponse(w, http.StatusOK, current)
-		return
-	}
-
-	dismissals, err := a.store.ListRecommendationDismissals(r.Context(), actor.UserID)
-	if err != nil {
-		switch {
-		case errors.Is(err, store.ErrNotFound):
-			writeErrorResponse(w, http.StatusNotFound, "not_found", "The requested resource does not exist.")
-		case errors.Is(err, store.ErrConflict):
-			writeErrorResponse(w, http.StatusConflict, "stale_revision", "The resource changed since it was loaded.")
-		case errors.Is(err, store.ErrDuplicate):
-			writeErrorResponse(w, http.StatusConflict, "duplicate", "A resource with that unique value already exists.")
-		default:
-			writeErrorResponse(w, http.StatusInternalServerError, "internal_error", "The request could not be completed.")
-		}
-		return
-	}
-
-	settings, err := a.store.GetPracticeSettings(r.Context(), actor.UserID)
-	if err != nil {
-		switch {
-		case errors.Is(err, store.ErrNotFound):
-			writeErrorResponse(w, http.StatusNotFound, "not_found", "The requested resource does not exist.")
-		case errors.Is(err, store.ErrConflict):
-			writeErrorResponse(w, http.StatusConflict, "stale_revision", "The resource changed since it was loaded.")
-		case errors.Is(err, store.ErrDuplicate):
-			writeErrorResponse(w, http.StatusConflict, "duplicate", "A resource with that unique value already exists.")
-		default:
-			writeErrorResponse(w, http.StatusInternalServerError, "internal_error", "The request could not be completed.")
-		}
-		return
-	}
-
-	goals := practice.DefaultGoals()
-	if settings.GoalsEnabled {
-		goals = practice.Goals{practice.Easy: settings.EasyMinutes, practice.Medium: settings.MediumMinutes, practice.Hard: settings.HardMinutes}
-	}
-	snapshot, err := a.store.RecommendationSnapshot(r.Context(), actor.UserID, goals)
-	if err != nil {
-		switch {
-		case errors.Is(err, store.ErrNotFound):
-			writeErrorResponse(w, http.StatusNotFound, "not_found", "The requested resource does not exist.")
-		case errors.Is(err, store.ErrConflict):
-			writeErrorResponse(w, http.StatusConflict, "stale_revision", "The resource changed since it was loaded.")
-		case errors.Is(err, store.ErrDuplicate):
-			writeErrorResponse(w, http.StatusConflict, "duplicate", "A resource with that unique value already exists.")
-		default:
-			writeErrorResponse(w, http.StatusInternalServerError, "internal_error", "The request could not be completed.")
-		}
-		return
-	}
-
-	attempts := make([]practice.Attempt, 0, len(snapshot.QualityAttempts))
-	problemByID := map[string]practice.ProblemRecord{}
-	for _, p := range snapshot.Problems {
-		problemByID[p.ID] = p
-	}
-	for _, v := range snapshot.QualityAttempts {
-		p := problemByID[v.ProblemID]
-		attempts = append(attempts, practice.Attempt{ProblemID: v.ProblemID, Difficulty: practice.Difficulty(p.Difficulty), Categories: p.Categories, Outcome: practice.Outcome(v.Outcome), Confidence: v.Confidence, Minutes: v.Minutes, AttemptedAt: v.AttemptedAt, Migrated: v.Migrated})
-	}
-	level := practice.NonStudent
-	enrollments, err := a.store.ListEnrollmentsForUser(r.Context(), actor.UserID)
-	if err != nil {
-		switch {
-		case errors.Is(err, store.ErrNotFound):
-			writeErrorResponse(w, http.StatusNotFound, "not_found", "The requested resource does not exist.")
-		case errors.Is(err, store.ErrConflict):
-			writeErrorResponse(w, http.StatusConflict, "stale_revision", "The resource changed since it was loaded.")
-		case errors.Is(err, store.ErrDuplicate):
-			writeErrorResponse(w, http.StatusConflict, "duplicate", "A resource with that unique value already exists.")
-		default:
-			writeErrorResponse(w, http.StatusInternalServerError, "internal_error", "The request could not be completed.")
-		}
-		return
-	}
-
-	for _, enrollment := range enrollments {
-		if enrollment.Role == "student" && enrollment.State == "active" {
-			switch enrollment.StudentLevel {
-			case "novice":
-				level = practice.Novice
-			case "beginner":
-				level = practice.Beginner
-			case "intermediate":
-				level = practice.Intermediate
-			case "advanced":
-				level = practice.Advanced
-			}
-			break
-		}
-	}
-
-	now := time.Now().UTC()
-	criteria := practice.CriteriaFor(practice.Request{Level: level, QualityAttempts: attempts, CategoryExposure: snapshot.CategoryExposure, Goals: goals})
-	candidateModels, problemHistory, err := a.store.RecommendationCandidates(r.Context(), actor.UserID, criteria, settings.PremiumOptIn, goals, now)
-	if err != nil {
-		switch {
-		case errors.Is(err, store.ErrNotFound):
-			writeErrorResponse(w, http.StatusNotFound, "not_found", "The requested resource does not exist.")
-		case errors.Is(err, store.ErrConflict):
-			writeErrorResponse(w, http.StatusConflict, "stale_revision", "The resource changed since it was loaded.")
-		case errors.Is(err, store.ErrDuplicate):
-			writeErrorResponse(w, http.StatusConflict, "duplicate", "A resource with that unique value already exists.")
-		default:
-			writeErrorResponse(w, http.StatusInternalServerError, "internal_error", "The request could not be completed.")
-		}
-		return
-	}
-
-	problems := make([]practice.Problem, 0, len(candidateModels))
-	for _, p := range candidateModels {
-		problems = append(problems, practice.Problem{ID: p.ID, Number: p.Number, Title: p.Title, Link: p.Link, Difficulty: practice.Difficulty(p.Difficulty), Categories: p.Categories, Premium: p.Premium, Revision: p.Revision})
-	}
-	selected, err := practice.Select(practice.Request{UserID: actor.UserID, Level: level, PremiumOptIn: settings.PremiumOptIn, Problems: problems, QualityAttempts: attempts, ProblemHistory: problemHistory, CategoryExposure: snapshot.CategoryExposure, Dismissals: dismissals, Goals: goals, Now: now})
-	if err != nil {
-		a.telemetry.observeRecommendation("unavailable")
-		writeErrorResponse(w, 404, "no_recommendation", "No suitable problem is currently available.")
-		return
-	}
-
-	selected.ID = id.New()
-	selected, err = a.store.SaveRecommendation(r.Context(), selected)
-	if err != nil {
-		switch {
-		case errors.Is(err, store.ErrNotFound):
-			writeErrorResponse(w, http.StatusNotFound, "not_found", "The requested resource does not exist.")
-		case errors.Is(err, store.ErrConflict):
-			writeErrorResponse(w, http.StatusConflict, "stale_revision", "The resource changed since it was loaded.")
-		case errors.Is(err, store.ErrDuplicate):
-			writeErrorResponse(w, http.StatusConflict, "duplicate", "A resource with that unique value already exists.")
-		default:
-			writeErrorResponse(w, http.StatusInternalServerError, "internal_error", "The request could not be completed.")
-		}
-		return
-	}
-
-	a.telemetry.observeRecommendation("generated")
-	writeJSONResponse(w, http.StatusOK, selected)
-}
-
-func (a *API) dismissRecommendation(w http.ResponseWriter, r *http.Request) {
-	if !a.requirePracticeAccess(w, r) {
-		return
-	}
-
-	actor := actorFrom(r.Context())
-	var in struct {
-		Reason   string `json:"reason"`
-		Revision int64  `json:"revision"`
-	}
-	if r.Body != nil && r.ContentLength != 0 {
-		body, err := io.ReadAll(http.MaxBytesReader(w, r.Body, 1<<20))
-		if err != nil {
-			writeErrorResponse(w, http.StatusBadRequest, "validation_failed", err.Error())
-			return
-		}
-		if len(bytes.TrimSpace(body)) > 0 {
-			r.Body = io.NopCloser(bytes.NewReader(body))
-			if err := decodeJSON(w, r, &in); err != nil {
-				writeErrorResponse(w, http.StatusBadRequest, "validation_failed", err.Error())
-				return
-			}
-		}
-	}
-	if in.Revision < 1 {
-		writeErrorResponse(w, http.StatusBadRequest, "validation_failed", "revision is required")
-		return
-	}
-
-	_, err := a.store.DismissRecommendation(r.Context(), actor.UserID, in.Revision, strings.TrimSpace(in.Reason), time.Now(), id.New())
-	if err != nil {
-		if errors.Is(err, store.ErrNotFound) {
-			writeErrorResponse(w, 404, "no_recommendation", "There is no active recommendation.")
-		} else {
-			switch {
-			case errors.Is(err, store.ErrNotFound):
-				writeErrorResponse(w, http.StatusNotFound, "not_found", "The requested resource does not exist.")
-			case errors.Is(err, store.ErrConflict):
-				writeErrorResponse(w, http.StatusConflict, "stale_revision", "The resource changed since it was loaded.")
-			case errors.Is(err, store.ErrDuplicate):
-				writeErrorResponse(w, http.StatusConflict, "duplicate", "A resource with that unique value already exists.")
-			default:
-				writeErrorResponse(w, http.StatusInternalServerError, "internal_error", "The request could not be completed.")
-			}
-		}
-		return
-	}
-
-	a.telemetry.observeRecommendation("dismissed")
 	w.WriteHeader(204)
 }
 

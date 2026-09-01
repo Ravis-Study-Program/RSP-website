@@ -46,18 +46,6 @@ export interface Season {
   revision: number;
 }
 
-export interface Recommendation {
-  id: string;
-  problemId: string;
-  title: string;
-  difficulty: Difficulty;
-  category: string;
-  rationale: string;
-  estimatedMinutes: number;
-  externalUrl: string;
-  active: boolean;
-}
-
 export interface Attempt {
   id: string;
   problemId: string;

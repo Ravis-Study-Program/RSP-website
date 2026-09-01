@@ -8,7 +8,6 @@ import type {
   MockParticipantSummary,
   MockParticipantSummaryPage,
   MockRound as ApiMockRound,
-  Recommendation as ApiRecommendation,
   Season as ApiSeason,
   SeasonPage as ApiSeasonPage,
   User as ApiUser,
@@ -22,11 +21,10 @@ import type {
   MockRound,
   Page,
   Person,
-  Recommendation,
   Role,
   Season,
 } from '@/types';
-import { difficultyGoal, initials } from '@/utils';
+import { initials } from '@/utils';
 
 type ApiPage<T> = {
   items: T[];
@@ -240,26 +238,6 @@ export function adaptAttemptPage(
 ): Page<Attempt> {
   const problemIndex = indexProblems(problems);
   return adaptPage(source, (attempt) => adaptAttempt(attempt, problemIndex));
-}
-
-export function adaptRecommendation(
-  recommendation: ApiRecommendation,
-): Recommendation {
-  const difficulty = displayDifficulty(recommendation.difficulty);
-  return {
-    id: recommendation.id,
-    problemId: recommendation.problem.id,
-    title: recommendation.problem.title,
-    difficulty,
-    category:
-      recommendation.category ??
-      recommendation.problem.categories[0] ??
-      'Mixed practice',
-    rationale: recommendation.rationale,
-    estimatedMinutes: difficultyGoal(difficulty),
-    externalUrl: recommendation.problem.link,
-    active: true,
-  };
 }
 
 function scoresForRound(round: ApiMockRound): Record<string, number> {

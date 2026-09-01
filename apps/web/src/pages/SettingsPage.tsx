@@ -78,8 +78,7 @@ export function SettingsPage() {
   const practiceDirty = Boolean(
     practiceDraft &&
     practiceSettings.data &&
-    (practiceDraft.premiumOptIn !== practiceSettings.data.premiumOptIn ||
-      practiceDraft.easyMinutes !== practiceSettings.data.easyMinutes ||
+    (practiceDraft.easyMinutes !== practiceSettings.data.easyMinutes ||
       practiceDraft.mediumMinutes !== practiceSettings.data.mediumMinutes ||
       practiceDraft.hardMinutes !== practiceSettings.data.hardMinutes),
   );
@@ -160,7 +159,6 @@ export function SettingsPage() {
         }
         if (practiceDirty) {
           const mutation: PracticeSettingsMutation = {
-            premiumOptIn: practiceDraft.premiumOptIn,
             easyMinutes: practiceDraft.easyMinutes,
             mediumMinutes: practiceDraft.mediumMinutes,
             hardMinutes: practiceDraft.hardMinutes,
@@ -312,7 +310,7 @@ export function SettingsPage() {
         <section className={styles.section} aria-labelledby="goals-title">
           <div className={styles.sectionHeader}>
             <h2 id="goals-title" className={styles.sectionTitle}>
-              Practice recommendations
+              Practice goals
             </h2>
           </div>
           <PracticePreferencesPanel
@@ -467,12 +465,6 @@ export function PracticePreferencesPanel({
   ) => onChange({ ...value, [field]: minutes });
   return (
     <div className={styles.panel}>
-      <SettingSwitch
-        label="Include premium LeetCode problems"
-        description="Allow premium problems to appear in your recommendation candidates."
-        checked={value.premiumOptIn}
-        onCheckedChange={(premiumOptIn) => onChange({ ...value, premiumOptIn })}
-      />
       <SettingSwitch
         label="Use personal time goals"
         description={

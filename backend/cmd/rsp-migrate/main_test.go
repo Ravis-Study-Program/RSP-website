@@ -26,7 +26,7 @@ func TestFixtureCommandLifecycle(t *testing.T) {
 	if code != 0 {
 		t.Fatalf("dry-run code=%d stdout=%s stderr=%s", code, stdout.String(), stderr.String())
 	}
-	if !strings.Contains(stdout.String(), "sourceTables=18") {
+	if !strings.Contains(stdout.String(), "sourceTables=17") {
 		t.Fatalf("dry-run output = %s", stdout.String())
 	}
 	stdout.Reset()

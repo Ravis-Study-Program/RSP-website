@@ -141,11 +141,11 @@ func TestPostgres18MigrationsAndRepository(t *testing.T) {
 		t.Fatalf("enable practice goals=%#v err=%v", settings, err)
 	}
 
-	settings, err = repository.UpdatePracticeSettings(ctx, "00000000-0000-7000-8000-000000000033", settings.Revision, true, 25, 40, 60, "00000000-0000-7000-8000-000000000033", time.Now().UTC())
-	if err != nil || !settings.PremiumOptIn || settings.HardMinutes != 60 {
+	settings, err = repository.UpdatePracticeSettings(ctx, "00000000-0000-7000-8000-000000000033", settings.Revision, 25, 40, 60, "00000000-0000-7000-8000-000000000033", time.Now().UTC())
+	if err != nil || settings.HardMinutes != 60 {
 		t.Fatalf("update practice settings=%#v err=%v", settings, err)
 	}
-	if _, err := repository.UpdatePracticeSettings(ctx, "00000000-0000-7000-8000-000000000033", 1, false, 20, 35, 50, "00000000-0000-7000-8000-000000000033", time.Now().UTC()); err != ErrConflict {
+	if _, err := repository.UpdatePracticeSettings(ctx, "00000000-0000-7000-8000-000000000033", 1, 20, 35, 50, "00000000-0000-7000-8000-000000000033", time.Now().UTC()); err != ErrConflict {
 		t.Fatalf("stale practice settings returned %v", err)
 	}
 	if _, err := repository.Pool.Exec(ctx, `INSERT INTO app.users(id,slug,display_name,email,account_state,timezone,revision) VALUES('00000000-0000-7000-8000-000000000027','00000000-0000-7000-8000-000000000027','Integration Mentor','mentor@rsp.local','active','Australia/Adelaide',1)`); err != nil {
@@ -256,44 +256,12 @@ func TestPostgres18MigrationsAndRepository(t *testing.T) {
 		t.Fatalf("empty-cursor problem list=%#v err=%v", problems, err)
 	}
 
-	candidates, history, err := repository.RecommendationCandidates(ctx, "00000000-0000-7000-8000-000000000033", practice.Criteria{Difficulty: practice.Easy}, false, practice.DefaultGoals(), time.Now().UTC())
-	if err != nil || len(candidates) != 1 || candidates[0].ID != "00000000-0000-7000-8000-000000000025" || len(history) != 0 {
-		t.Fatalf("database-side recommendation candidate=%#v history=%#v err=%v", candidates, history, err)
-	}
-
-	recommendation := practice.Recommendation{ID: "00000000-0000-7000-8000-000000000015", UserID: "00000000-0000-7000-8000-000000000033", Problem: practice.Problem{ID: "00000000-0000-7000-8000-000000000025", Number: 1, Title: "Two Sum", Link: "https://leetcode.com/problems/two-sum/", Difficulty: practice.Easy, Revision: 1}, Difficulty: practice.Easy, Rationale: "Practice arrays", RuleVersion: "v1", CreatedAt: time.Now().UTC()}
-	if _, err := repository.SaveRecommendation(ctx, recommendation); err != nil {
-		t.Fatal(err)
-	}
-
-	active, err := repository.GetActiveRecommendation(ctx, "00000000-0000-7000-8000-000000000033")
-	if err != nil || active == nil || active.ID != recommendation.ID || active.Problem.Number != 1 || active.Problem.Revision != 1 {
-		t.Fatalf("active recommendation=%#v err=%v", active, err)
-	}
-
-	_, fulfilled, err := repository.CreateAttempt(ctx, practice.AttemptRecord{ID: "00000000-0000-7000-8000-000000000024", UserID: "00000000-0000-7000-8000-000000000033", ProblemID: "00000000-0000-7000-8000-000000000025", Outcome: "independently_solved", Confidence: intPointer(5), Minutes: 12, AttemptedAt: time.Now().UTC(), Revision: 1})
+	_, err = repository.CreateAttempt(ctx, practice.AttemptRecord{ID: "00000000-0000-7000-8000-000000000024", UserID: "00000000-0000-7000-8000-000000000033", ProblemID: "00000000-0000-7000-8000-000000000025", Outcome: "independently_solved", Confidence: intPointer(5), Minutes: 12, AttemptedAt: time.Now().UTC(), Revision: 1})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !fulfilled {
-		t.Fatalf("recommendation fulfilled=%v err=%v", fulfilled, err)
-	}
 	if attempts, _, _, err := repository.ListAttempts(ctx, "00000000-0000-7000-8000-000000000033", "", 25, "", "", "forward"); err != nil || len(attempts) != 1 {
 		t.Fatalf("empty-cursor attempt list=%#v err=%v", attempts, err)
-	}
-	if snapshot, err := repository.RecommendationSnapshot(ctx, "00000000-0000-7000-8000-000000000033", practice.DefaultGoals()); err != nil || len(snapshot.QualityAttempts) != 1 {
-		t.Fatalf("runtime-role recommendation snapshot=%#v err=%v", snapshot, err)
-	}
-
-	recommendation.ID = "00000000-0000-7000-8000-000000000013"
-	if _, err := repository.SaveRecommendation(ctx, recommendation); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := repository.DismissRecommendation(ctx, "00000000-0000-7000-8000-000000000033", 1, "not now", time.Now().UTC(), "00000000-0000-7000-8000-000000000021"); err != nil {
-		t.Fatal(err)
-	}
-	if dismissals, err := repository.ListRecommendationDismissals(ctx, "00000000-0000-7000-8000-000000000033"); err != nil || len(dismissals) != 1 {
-		t.Fatalf("dismissals=%#v err=%v", dismissals, err)
 	}
 
 	score := 7

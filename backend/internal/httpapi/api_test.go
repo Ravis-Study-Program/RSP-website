@@ -287,7 +287,7 @@ func TestPracticeSettingsRequireRelationshipEnablement(t *testing.T) {
 	if w.Code != http.StatusOK || !bytes.Contains(w.Body.Bytes(), []byte(`"revision":1`)) {
 		t.Fatalf("mentor target settings: %d %s", w.Code, w.Body.String())
 	}
-	w = request(t, f, "PATCH", "/api/v2/me/practice-settings", "student", `{"premiumOptIn":true,"easyMinutes":25,"mediumMinutes":35,"hardMinutes":50,"revision":1}`)
+	w = request(t, f, "PATCH", "/api/v2/me/practice-settings", "student", `{"easyMinutes":25,"mediumMinutes":35,"hardMinutes":50,"revision":1}`)
 	if w.Code != http.StatusForbidden || errorCode(t, w) != "practice_goals_not_enabled" {
 		t.Fatalf("unapproved goals changed: %d %s", w.Code, w.Body.String())
 	}
@@ -295,8 +295,8 @@ func TestPracticeSettingsRequireRelationshipEnablement(t *testing.T) {
 	if w.Code != http.StatusOK || !bytes.Contains(w.Body.Bytes(), []byte(`"goalsEnabled":true`)) {
 		t.Fatalf("mentor enablement: %d %s", w.Code, w.Body.String())
 	}
-	w = request(t, f, "PATCH", "/api/v2/me/practice-settings", "student", `{"premiumOptIn":true,"easyMinutes":25,"mediumMinutes":40,"hardMinutes":60,"revision":2}`)
-	if w.Code != http.StatusOK || !bytes.Contains(w.Body.Bytes(), []byte(`"premiumOptIn":true`)) || !bytes.Contains(w.Body.Bytes(), []byte(`"hardMinutes":60`)) {
+	w = request(t, f, "PATCH", "/api/v2/me/practice-settings", "student", `{"easyMinutes":25,"mediumMinutes":40,"hardMinutes":60,"revision":2}`)
+	if w.Code != http.StatusOK || !bytes.Contains(w.Body.Bytes(), []byte(`"hardMinutes":60`)) {
 		t.Fatalf("approved goals update: %d %s", w.Code, w.Body.String())
 	}
 }
@@ -352,39 +352,11 @@ func TestCreateStatusRateLimitAndRetryAfter(t *testing.T) {
 		t.Fatalf("create status %d %s", w.Code, w.Body.String())
 	}
 	for i := 0; i < 5; i++ {
-		_ = request(t, f, "GET", "/api/v2/recommendations/current", "student", "")
+		_ = request(t, f, "POST", "/api/v2/admin/leetcode/sync", "director", "")
 	}
-	w = request(t, f, "GET", "/api/v2/recommendations/current", "student", "")
+	w = request(t, f, "POST", "/api/v2/admin/leetcode/sync", "director", "")
 	if w.Code != 429 || w.Header().Get("Retry-After") == "" || errorCode(t, w) != "rate_limited" {
 		t.Fatalf("rate limit: %d %#v", w.Code, w.Header())
-	}
-}
-
-func TestRecommendationProblemSatisfiesLeetcodeProblemResponseContract(t *testing.T) {
-	f := newFixture()
-	f.repository.Enrollments["student-enrollment"] = programme.EnrollmentRecord{ID: "student-enrollment", SeasonID: "season", UserID: "student", Role: "student", StudentLevel: "beginner", State: "active", AssignmentState: "active", Revision: 1}
-	f.repository.Problems["contract-candidate"] = practice.ProblemRecord{ID: "contract-candidate", Number: 42, Title: "Contract Candidate", Link: "https://rsp.test/problems/contract-candidate", Difficulty: "easy", Categories: []string{"arrays"}, Revision: 7}
-
-	for _, phase := range []string{"generated", "active"} {
-		w := request(t, f, http.MethodGet, "/api/v2/recommendations/current", "student", "")
-		if w.Code != http.StatusOK {
-			t.Fatalf("%s recommendation: %d %s", phase, w.Code, w.Body.String())
-		}
-		var response struct {
-			Problem map[string]any `json:"problem"`
-		}
-		if err := json.Unmarshal(w.Body.Bytes(), &response); err != nil {
-			t.Fatal(err)
-		}
-
-		for _, field := range []string{"id", "number", "title", "link", "difficulty", "categories", "premium", "revision"} {
-			if _, ok := response.Problem[field]; !ok {
-				t.Fatalf("%s recommendation problem missing %s: %s", phase, field, w.Body.String())
-			}
-		}
-		if response.Problem["number"] != float64(42) || response.Problem["revision"] != float64(7) {
-			t.Fatalf("%s recommendation problem has zero/wrong required values: %s", phase, w.Body.String())
-		}
 	}
 }
 

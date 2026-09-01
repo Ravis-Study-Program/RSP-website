@@ -44,8 +44,6 @@ BEGIN
   UNION ALL SELECT 'app.custom_problems', id FROM app.custom_problems
   UNION ALL SELECT 'app.leetcode_problem_categories', id FROM app.leetcode_problem_categories
   UNION ALL SELECT 'app.problem_attempts', id FROM app.problem_attempts
-  UNION ALL SELECT 'app.recommendations', id FROM app.recommendations
-  UNION ALL SELECT 'app.recommendation_dismissals', id FROM app.recommendation_dismissals
   UNION ALL SELECT 'app.mock_interviews', id FROM app.mock_interviews
   UNION ALL SELECT 'app.mock_interview_rounds', id FROM app.mock_interview_rounds
   UNION ALL SELECT 'app.behavioural_mock_interview_rounds', id FROM app.behavioural_mock_interview_rounds
@@ -140,20 +138,6 @@ BEGIN
     FROM native_uuid_map m WHERE m.table_name = 'app.enrollments' AND m.old_id = t.enrollment_id;
   UPDATE app.problem_attempts t SET season_week_id = m.new_id::text
     FROM native_uuid_map m WHERE m.table_name = 'app.season_weeks' AND m.old_id = t.season_week_id;
-  UPDATE app.recommendations t SET user_id = m.new_id::text
-    FROM native_uuid_map m WHERE m.table_name = 'app.users' AND m.old_id = t.user_id;
-  UPDATE app.recommendations t SET leetcode_problem_id = m.new_id::text
-    FROM native_uuid_map m WHERE m.table_name = 'app.leetcode_problems' AND m.old_id = t.leetcode_problem_id;
-  UPDATE app.recommendations t SET category_id = m.new_id::text
-    FROM native_uuid_map m WHERE m.table_name = 'app.leetcode_problem_categories' AND m.old_id = t.category_id;
-  UPDATE app.recommendations t SET fulfilled_by_attempt_id = m.new_id::text
-    FROM native_uuid_map m WHERE m.table_name = 'app.problem_attempts' AND m.old_id = t.fulfilled_by_attempt_id;
-  UPDATE app.recommendation_dismissals t SET recommendation_id = m.new_id::text
-    FROM native_uuid_map m WHERE m.table_name = 'app.recommendations' AND m.old_id = t.recommendation_id;
-  UPDATE app.recommendation_dismissals t SET user_id = m.new_id::text
-    FROM native_uuid_map m WHERE m.table_name = 'app.users' AND m.old_id = t.user_id;
-  UPDATE app.recommendation_dismissals t SET leetcode_problem_id = m.new_id::text
-    FROM native_uuid_map m WHERE m.table_name = 'app.leetcode_problems' AND m.old_id = t.leetcode_problem_id;
   UPDATE app.mock_interviews t SET interviewer_user_id = m.new_id::text
     FROM native_uuid_map m WHERE m.table_name = 'app.users' AND m.old_id = t.interviewer_user_id;
   UPDATE app.mock_interviews t SET interviewee_user_id = m.new_id::text
@@ -218,7 +202,6 @@ BEGIN
       ('app','enrollment_removal_events','id'), ('app','enrollment_removal_events','enrollment_id'), ('app','enrollment_removal_events','season_id'), ('app','enrollment_removal_events','subject_user_id'), ('app','enrollment_removal_events','actor_user_id'),
       ('app','problems','id'), ('app','leetcode_problems','id'), ('app','leetcode_problems','problem_id'), ('app','custom_problems','id'), ('app','custom_problems','problem_id'), ('app','leetcode_problem_categories','id'), ('app','leetcode_problem_category_mappings','leetcode_problem_id'), ('app','leetcode_problem_category_mappings','category_id'),
       ('app','practice_goals','user_id'), ('app','practice_goals','enabled_by_user_id'), ('app','problem_attempts','id'), ('app','problem_attempts','user_id'), ('app','problem_attempts','problem_id'), ('app','problem_attempts','enrollment_id'), ('app','problem_attempts','season_week_id'),
-      ('app','recommendations','id'), ('app','recommendations','user_id'), ('app','recommendations','leetcode_problem_id'), ('app','recommendations','category_id'), ('app','recommendations','fulfilled_by_attempt_id'), ('app','recommendation_dismissals','id'), ('app','recommendation_dismissals','recommendation_id'), ('app','recommendation_dismissals','user_id'), ('app','recommendation_dismissals','leetcode_problem_id'),
       ('app','mock_interviews','id'), ('app','mock_interviews','interviewer_user_id'), ('app','mock_interviews','interviewee_user_id'), ('app','mock_interviews','season_id'), ('app','mock_interviews','season_week_id'), ('app','mock_interview_rounds','id'), ('app','mock_interview_rounds','mock_interview_id'), ('app','behavioural_mock_interview_rounds','id'), ('app','behavioural_mock_interview_rounds','mock_interview_round_id'), ('app','leetcode_mock_interview_rounds','id'), ('app','leetcode_mock_interview_rounds','mock_interview_round_id'), ('app','leetcode_mock_interview_rounds','leetcode_problem_id'), ('app','custom_mock_interview_rounds','id'), ('app','custom_mock_interview_rounds','mock_interview_round_id'), ('app','mock_interview_versions','id'), ('app','mock_interview_versions','mock_interview_id'), ('app','mock_interview_versions','actor_user_id'), ('app','leetcode_sync_runs','id'), ('app','leetcode_sync_runs','requested_by_user_id'), ('app','audit_events','id'), ('app','audit_events','actor_user_id'),
       ('migration','runs','id'), ('migration','source_tables','run_id'), ('migration','row_provenance','run_id'), ('migration','anomalies','run_id'), ('migration','resolutions','run_id'), ('migration','auto_fixes','run_id'), ('migration','auth0_identity_imports','run_id'), ('migration','auth0_identity_imports','app_user_id')
     ) AS columns(schema_name, table_name, column_name)
@@ -292,32 +275,6 @@ BEGIN
   IF enrollment_season_id IS NOT NULL AND week_season_id IS NOT NULL
      AND enrollment_season_id <> week_season_id THEN
     RAISE EXCEPTION 'attempt enrollment and week belong to different seasons'
-      USING ERRCODE = '23514';
-  END IF;
-  RETURN NEW;
-END
-$function$;
--- +goose StatementEnd
-
--- +goose StatementBegin
-CREATE OR REPLACE FUNCTION app.validate_recommendation_attempt()
-RETURNS trigger
-LANGUAGE plpgsql
-AS $function$
-DECLARE
-  attempt_user_id uuid;
-  attempt_problem_id uuid;
-  recommended_problem_id uuid;
-BEGIN
-  IF NEW.fulfilled_by_attempt_id IS NULL THEN
-    RETURN NEW;
-  END IF;
-  SELECT user_id, problem_id INTO STRICT attempt_user_id, attempt_problem_id
-  FROM app.problem_attempts WHERE id = NEW.fulfilled_by_attempt_id;
-  SELECT problem_id INTO STRICT recommended_problem_id
-  FROM app.leetcode_problems WHERE id = NEW.leetcode_problem_id;
-  IF attempt_user_id <> NEW.user_id OR attempt_problem_id <> recommended_problem_id THEN
-    RAISE EXCEPTION 'recommendation attempt must belong to the same user and problem'
       USING ERRCODE = '23514';
   END IF;
   RETURN NEW;

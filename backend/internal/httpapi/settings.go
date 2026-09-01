@@ -88,14 +88,13 @@ func (a *API) userPracticeSettings(w http.ResponseWriter, r *http.Request) {
 func (a *API) updatePracticeSettings(w http.ResponseWriter, r *http.Request) {
 	actor := actorFrom(r.Context())
 	var in struct {
-		PremiumOptIn  bool  `json:"premiumOptIn"`
 		EasyMinutes   int   `json:"easyMinutes"`
 		MediumMinutes int   `json:"mediumMinutes"`
 		HardMinutes   int   `json:"hardMinutes"`
 		Revision      int64 `json:"revision"`
 	}
 	if err := decodeJSON(w, r, &in); err != nil || in.Revision < 1 || !validGoal(in.EasyMinutes) || !validGoal(in.MediumMinutes) || !validGoal(in.HardMinutes) {
-		writeErrorResponse(w, http.StatusBadRequest, "validation_failed", "premium preference, goals between 5 and 180 minutes, and revision are required")
+		writeErrorResponse(w, http.StatusBadRequest, "validation_failed", "goals between 5 and 180 minutes and revision are required")
 		return
 	}
 
@@ -119,7 +118,7 @@ func (a *API) updatePracticeSettings(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	updated, err := a.store.UpdatePracticeSettings(r.Context(), actor.UserID, in.Revision, in.PremiumOptIn, in.EasyMinutes, in.MediumMinutes, in.HardMinutes, actor.UserID, time.Now().UTC())
+	updated, err := a.store.UpdatePracticeSettings(r.Context(), actor.UserID, in.Revision, in.EasyMinutes, in.MediumMinutes, in.HardMinutes, actor.UserID, time.Now().UTC())
 	if err != nil {
 		switch {
 		case errors.Is(err, store.ErrNotFound):

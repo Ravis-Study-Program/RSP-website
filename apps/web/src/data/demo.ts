@@ -3,7 +3,6 @@ import type {
   CurrentUser,
   MockInterview,
   Person,
-  Recommendation,
   Season,
 } from '@/types';
 
@@ -67,19 +66,6 @@ export const seasons: Season[] = [
     revision: 13,
   },
 ];
-
-export const recommendation: Recommendation = {
-  id: 'rec_01j_6d1',
-  problemId: 'lc_347',
-  title: 'Top K Frequent Elements',
-  difficulty: 'Medium',
-  category: 'Hash maps',
-  rationale:
-    'Your recent array problems are going well. Hash maps have less recent exposure, so this keeps the difficulty steady while strengthening that pattern.',
-  estimatedMinutes: 35,
-  externalUrl: 'https://leetcode.com/problems/top-k-frequent-elements/',
-  active: true,
-};
 
 export const attempts: Attempt[] = [
   {

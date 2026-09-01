@@ -12,37 +12,34 @@ import (
 	"github.com/magedmg/RSP-website/backend/internal/practice"
 )
 
-func defaultPracticeSettings(premium bool) practice.PracticeSettings {
-	return practice.PracticeSettings{PremiumOptIn: premium, EasyMinutes: 20, MediumMinutes: 35, HardMinutes: 50, Revision: 1}
+func defaultPracticeSettings() practice.PracticeSettings {
+	return practice.PracticeSettings{EasyMinutes: 20, MediumMinutes: 35, HardMinutes: 50, Revision: 1}
 }
 
 // GetPracticeSettings retrieves a value.
 func (m *Memory) GetPracticeSettings(_ context.Context, userID string) (practice.PracticeSettings, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
-	user, ok := m.Users[userID]
-	if !ok {
+	if _, ok := m.Users[userID]; !ok {
 		return practice.PracticeSettings{}, ErrNotFound
 	}
 	settings, ok := m.PracticeSettings[userID]
 	if !ok {
-		settings = defaultPracticeSettings(user.PremiumOptIn)
+		settings = defaultPracticeSettings()
 	}
-	settings.PremiumOptIn = user.PremiumOptIn
 	return settings, nil
 }
 
 // UpdatePracticeSettings updates a value.
-func (m *Memory) UpdatePracticeSettings(_ context.Context, userID string, revision int64, premium bool, easy, medium, hard int, actorID string, at time.Time) (practice.PracticeSettings, error) {
+func (m *Memory) UpdatePracticeSettings(_ context.Context, userID string, revision int64, easy, medium, hard int, actorID string, at time.Time) (practice.PracticeSettings, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	user, ok := m.Users[userID]
-	if !ok {
+	if _, ok := m.Users[userID]; !ok {
 		return practice.PracticeSettings{}, ErrNotFound
 	}
 	settings, ok := m.PracticeSettings[userID]
 	if !ok {
-		settings = defaultPracticeSettings(user.PremiumOptIn)
+		settings = defaultPracticeSettings()
 	}
 	if settings.Revision != revision {
 		return practice.PracticeSettings{}, ErrConflict
@@ -50,13 +47,11 @@ func (m *Memory) UpdatePracticeSettings(_ context.Context, userID string, revisi
 	if settings.GoalsEnabled && (easy < 1 || medium < 1 || hard < 1) {
 		return practice.PracticeSettings{}, errors.New("practice goals must be positive")
 	}
-	settings.PremiumOptIn, settings.EasyMinutes, settings.MediumMinutes, settings.HardMinutes = premium, easy, medium, hard
+	settings.EasyMinutes, settings.MediumMinutes, settings.HardMinutes = easy, medium, hard
 	settings.Revision++
-	user.PremiumOptIn = premium
-	user.Revision++
-	m.Users[userID], m.PracticeSettings[userID] = user, settings
+	m.PracticeSettings[userID] = settings
 	actor := actorID
-	m.Audits = append(m.Audits, audit.Event{ID: id.New(), ActorID: &actor, Action: "practice_settings.updated", SubjectType: "user", SubjectID: userID, Data: map[string]any{"premiumOptIn": premium, "easyMinutes": easy, "mediumMinutes": medium, "hardMinutes": hard}, OccurredAt: at.UTC()})
+	m.Audits = append(m.Audits, audit.Event{ID: id.New(), ActorID: &actor, Action: "practice_settings.updated", SubjectType: "user", SubjectID: userID, Data: map[string]any{"easyMinutes": easy, "mediumMinutes": medium, "hardMinutes": hard}, OccurredAt: at.UTC()})
 	return settings, nil
 }
 
@@ -64,13 +59,12 @@ func (m *Memory) UpdatePracticeSettings(_ context.Context, userID string, revisi
 func (m *Memory) EnablePracticeGoals(_ context.Context, userID string, revision int64, actorID, seasonID string, at time.Time) (practice.PracticeSettings, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	user, ok := m.Users[userID]
-	if !ok {
+	if _, ok := m.Users[userID]; !ok {
 		return practice.PracticeSettings{}, ErrNotFound
 	}
 	settings, ok := m.PracticeSettings[userID]
 	if !ok {
-		settings = defaultPracticeSettings(user.PremiumOptIn)
+		settings = defaultPracticeSettings()
 	}
 	if settings.Revision != revision {
 		return practice.PracticeSettings{}, ErrConflict
@@ -171,115 +165,18 @@ func (m *Memory) ListAttempts(_ context.Context, userID, boundary string, limit 
 	return items, more, total, nil
 }
 
-// RecommendationSnapshot performs the operation.
-func (m *Memory) RecommendationSnapshot(_ context.Context, userID string, _ practice.Goals) (practice.RecommendationSnapshot, error) {
-	m.mu.RLock()
-	defer m.mu.RUnlock()
-	snapshot := practice.RecommendationSnapshot{ProblemHistory: map[string]practice.ProblemHistory{}, CategoryExposure: map[string]int{}}
-	for _, attempt := range m.Attempts {
-		if attempt.UserID != userID || attempt.DeletedAt != nil {
-			continue
-		}
-		problem, exists := m.Problems[attempt.ProblemID]
-		if !exists {
-			continue
-		}
-		for _, category := range problem.Categories {
-			snapshot.CategoryExposure[category]++
-		}
-		if !attempt.Migrated && attempt.Outcome != string(practice.Unknown) {
-			snapshot.QualityAttempts = append(snapshot.QualityAttempts, attempt)
-		}
-	}
-	sort.Slice(snapshot.QualityAttempts, func(i, j int) bool {
-		return snapshot.QualityAttempts[i].AttemptedAt.After(snapshot.QualityAttempts[j].AttemptedAt) || snapshot.QualityAttempts[i].AttemptedAt.Equal(snapshot.QualityAttempts[j].AttemptedAt) && snapshot.QualityAttempts[i].ID < snapshot.QualityAttempts[j].ID
-	})
-	if len(snapshot.QualityAttempts) > 20 {
-		snapshot.QualityAttempts = snapshot.QualityAttempts[:20]
-	}
-	qualityProblems := map[string]bool{}
-	for _, attempt := range snapshot.QualityAttempts {
-		if !qualityProblems[attempt.ProblemID] {
-			snapshot.Problems = append(snapshot.Problems, m.Problems[attempt.ProblemID])
-			qualityProblems[attempt.ProblemID] = true
-		}
-	}
-	return snapshot, nil
-}
-
-// RecommendationCandidates performs the operation.
-func (m *Memory) RecommendationCandidates(_ context.Context, userID string, criteria practice.Criteria, premiumOptIn bool, goals practice.Goals, now time.Time) ([]practice.ProblemRecord, map[string]practice.ProblemHistory, error) {
-	m.mu.RLock()
-	defer m.mu.RUnlock()
-	dismissed := map[string]bool{}
-	for _, dismissal := range m.RecommendationDismissals[userID] {
-		if now.UTC().Sub(dismissal.DismissedAt.UTC()) < 30*24*time.Hour {
-			dismissed[dismissal.ProblemID] = true
-		}
-	}
-	history := map[string]practice.ProblemHistory{}
-	for _, attempt := range m.Attempts {
-		if attempt.UserID != userID || attempt.DeletedAt != nil {
-			continue
-		}
-		problem, exists := m.Problems[attempt.ProblemID]
-		if !exists {
-			continue
-		}
-		entry := history[attempt.ProblemID]
-		if attempt.AttemptedAt.After(entry.LastAttemptedAt) {
-			entry.LastAttemptedAt = attempt.AttemptedAt
-		}
-		if !attempt.Migrated && (attempt.Outcome == string(practice.NotSolved) || attempt.Outcome == string(practice.WithHints) || attempt.Confidence != nil && *attempt.Confidence < 4 || attempt.Minutes > goals[practice.Difficulty(problem.Difficulty)]) {
-			entry.Weak = true
-		}
-		history[attempt.ProblemID] = entry
-	}
-	better := func(candidate practice.ProblemRecord, current *practice.ProblemRecord) bool {
-		return current == nil || candidate.Number < current.Number || candidate.Number == current.Number && candidate.ID < current.ID
-	}
-	var unseen, retry *practice.ProblemRecord
-	for _, value := range m.Problems {
-		problem := value
-		hasCategory := criteria.Category == ""
-		for _, category := range problem.Categories {
-			hasCategory = hasCategory || strings.EqualFold(category, criteria.Category)
-		}
-		if problem.Difficulty != string(criteria.Difficulty) || !premiumOptIn && problem.Premium || dismissed[problem.ID] || !hasCategory {
-			continue
-		}
-		entry, seen := history[problem.ID]
-		if !seen && better(problem, unseen) {
-			copy := problem
-			unseen = &copy
-			continue
-		}
-		if unseen == nil && entry.Weak && !entry.LastAttemptedAt.IsZero() && now.UTC().Sub(entry.LastAttemptedAt.UTC()) >= 90*24*time.Hour && better(problem, retry) {
-			copy := problem
-			retry = &copy
-		}
-	}
-	if unseen != nil {
-		return []practice.ProblemRecord{*unseen}, map[string]practice.ProblemHistory{}, nil
-	}
-	if retry != nil {
-		return []practice.ProblemRecord{*retry}, map[string]practice.ProblemHistory{retry.ID: history[retry.ID]}, nil
-	}
-	return []practice.ProblemRecord{}, map[string]practice.ProblemHistory{}, nil
-}
-
 // CreateAttempt creates a value.
-func (m *Memory) CreateAttempt(_ context.Context, v practice.AttemptRecord) (practice.AttemptRecord, bool, error) {
+func (m *Memory) CreateAttempt(_ context.Context, v practice.AttemptRecord) (practice.AttemptRecord, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	if _, ok := m.Attempts[v.ID]; ok {
-		return practice.AttemptRecord{}, false, ErrDuplicate
+		return practice.AttemptRecord{}, ErrDuplicate
 	}
 	if _, ok := m.Problems[v.ProblemID]; !ok {
-		return practice.AttemptRecord{}, false, ErrNotFound
+		return practice.AttemptRecord{}, ErrNotFound
 	}
 	if v.WeekID != nil && v.SeasonID == nil {
-		return practice.AttemptRecord{}, false, ErrNotFound
+		return practice.AttemptRecord{}, ErrNotFound
 	}
 	if v.SeasonID != nil {
 		season, seasonExists := m.Seasons[*v.SeasonID]
@@ -288,26 +185,19 @@ func (m *Memory) CreateAttempt(_ context.Context, v practice.AttemptRecord) (pra
 			activeEnrollment = activeEnrollment || (enrollment.UserID == v.UserID && enrollment.SeasonID == *v.SeasonID && enrollment.State == "active")
 		}
 		if !seasonExists || season.Status != "open" || !activeEnrollment {
-			return practice.AttemptRecord{}, false, ErrNotFound
+			return practice.AttemptRecord{}, ErrNotFound
 		}
 		if v.WeekID != nil {
 			week, ok := m.Weeks[*v.WeekID]
 			if !ok || week.SeasonID != *v.SeasonID {
-				return practice.AttemptRecord{}, false, ErrNotFound
+				return practice.AttemptRecord{}, ErrNotFound
 			}
 		}
 	}
 	m.Attempts[v.ID] = v
-	fulfilled := false
-	if recommendation, ok := m.Recommendations[v.UserID]; ok && recommendation.DismissedAt == nil && recommendation.FulfilledAt == nil && recommendation.Problem.ID == v.ProblemID {
-		at := time.Now().UTC()
-		recommendation.FulfilledAt = &at
-		m.Recommendations[v.UserID] = recommendation
-		fulfilled = true
-	}
 	actor := v.UserID
 	m.Audits = append(m.Audits, audit.Event{ID: id.New(), ActorID: &actor, Action: "attempt.created", SubjectType: "problem_attempt", SubjectID: v.ID, Data: map[string]any{}, OccurredAt: time.Now().UTC()})
-	return v, fulfilled, nil
+	return v, nil
 }
 
 // UpdateAttempt updates a value.
@@ -366,85 +256,4 @@ func (m *Memory) DeleteAttempt(_ context.Context, id, userID string, revision in
 	m.Attempts[id] = v
 	m.appendAuditLocked(userID, "attempt.deleted", "problem_attempt", id, nil, now)
 	return nil
-}
-
-// GetActiveRecommendation retrieves a value.
-func (m *Memory) GetActiveRecommendation(_ context.Context, userID string) (*practice.Recommendation, error) {
-	m.mu.RLock()
-	defer m.mu.RUnlock()
-	v, ok := m.Recommendations[userID]
-	if !ok || v.DismissedAt != nil || v.FulfilledAt != nil {
-		return nil, nil
-	}
-	problem, ok := m.Problems[v.Problem.ID]
-	if !ok {
-		return nil, ErrNotFound
-	}
-	v.Problem = practiceProblem(problem)
-	return &v, nil
-}
-
-// SaveRecommendation saves a value.
-func (m *Memory) SaveRecommendation(_ context.Context, v practice.Recommendation) (practice.Recommendation, error) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	if active, ok := m.Recommendations[v.UserID]; ok && active.DismissedAt == nil && active.FulfilledAt == nil && active.ID != v.ID {
-		return practice.Recommendation{}, ErrConflict
-	}
-	if v.Revision < 1 {
-		v.Revision = 1
-	}
-	problem, ok := m.Problems[v.Problem.ID]
-	if !ok {
-		return practice.Recommendation{}, ErrNotFound
-	}
-	v.Problem = practiceProblem(problem)
-	m.Recommendations[v.UserID] = v
-	return v, nil
-}
-
-func practiceProblem(problem practice.ProblemRecord) practice.Problem {
-	return practice.Problem{ID: problem.ID, Number: problem.Number, Title: problem.Title, Link: problem.Link, Difficulty: practice.Difficulty(problem.Difficulty), Categories: append([]string(nil), problem.Categories...), Premium: problem.Premium, Revision: problem.Revision}
-}
-
-// ListRecommendationDismissals lists matching values.
-func (m *Memory) ListRecommendationDismissals(_ context.Context, userID string) ([]practice.Dismissal, error) {
-	m.mu.RLock()
-	defer m.mu.RUnlock()
-	return append([]practice.Dismissal(nil), m.RecommendationDismissals[userID]...), nil
-}
-
-// DismissRecommendation performs the operation.
-func (m *Memory) DismissRecommendation(_ context.Context, userID string, revision int64, reason string, at time.Time, dismissalID string) (practice.Recommendation, error) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	v, ok := m.Recommendations[userID]
-	if !ok || v.DismissedAt != nil || v.FulfilledAt != nil {
-		return practice.Recommendation{}, ErrNotFound
-	}
-	if v.Revision != revision {
-		return practice.Recommendation{}, ErrConflict
-	}
-	dismissedAt := at.UTC()
-	v.DismissedAt = &dismissedAt
-	v.Revision++
-	m.Recommendations[userID] = v
-	m.RecommendationDismissals[userID] = append(m.RecommendationDismissals[userID], practice.Dismissal{ProblemID: v.Problem.ID, DismissedAt: dismissedAt})
-	m.appendAuditLocked(userID, "recommendation.dismissed", "recommendation", v.ID, map[string]any{"reason": strings.TrimSpace(reason)}, dismissedAt)
-	_ = dismissalID
-	return v, nil
-}
-
-// FulfillRecommendation performs the operation.
-func (m *Memory) FulfillRecommendation(_ context.Context, userID string, attempt practice.AttemptRecord, at time.Time) (bool, error) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	v, ok := m.Recommendations[userID]
-	if !ok || v.DismissedAt != nil || v.FulfilledAt != nil || v.Problem.ID != attempt.ProblemID {
-		return false, nil
-	}
-	fulfilledAt := at.UTC()
-	v.FulfilledAt = &fulfilledAt
-	m.Recommendations[userID] = v
-	return true, nil
 }

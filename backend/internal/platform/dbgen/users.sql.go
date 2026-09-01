@@ -20,7 +20,7 @@ SET account_state = 'deletion_pending',
 WHERE id = $3
   AND account_state = 'active'
   AND revision = $4
-RETURNING id, slug, display_name, email, discord_id, avatar_url, account_state, timezone, is_test, leetcode_premium_opt_in, legacy_is_admin, legacy_is_graduate, suspended_at, deletion_requested_at, deletion_due_at, pseudonymized_at, deleted_at, revision, created_at, updated_at, security_version, timezone_configured, mfa_configured
+RETURNING id, slug, display_name, email, discord_id, avatar_url, account_state, timezone, is_test, legacy_is_admin, legacy_is_graduate, suspended_at, deletion_requested_at, deletion_due_at, pseudonymized_at, deleted_at, revision, created_at, updated_at, security_version, timezone_configured, mfa_configured
 `
 
 type BeginAccountDeletionParams struct {
@@ -48,7 +48,6 @@ func (q *Queries) BeginAccountDeletion(ctx context.Context, arg BeginAccountDele
 		&i.AccountState,
 		&i.Timezone,
 		&i.IsTest,
-		&i.LeetcodePremiumOptIn,
 		&i.LegacyIsAdmin,
 		&i.LegacyIsGraduate,
 		&i.SuspendedAt,
@@ -74,7 +73,7 @@ SET account_state = 'active',
     revision = revision + 1
 WHERE id = $1
   AND account_state = 'deletion_pending'
-RETURNING id, slug, display_name, email, discord_id, avatar_url, account_state, timezone, is_test, leetcode_premium_opt_in, legacy_is_admin, legacy_is_graduate, suspended_at, deletion_requested_at, deletion_due_at, pseudonymized_at, deleted_at, revision, created_at, updated_at, security_version, timezone_configured, mfa_configured
+RETURNING id, slug, display_name, email, discord_id, avatar_url, account_state, timezone, is_test, legacy_is_admin, legacy_is_graduate, suspended_at, deletion_requested_at, deletion_due_at, pseudonymized_at, deleted_at, revision, created_at, updated_at, security_version, timezone_configured, mfa_configured
 `
 
 type CancelAccountDeletionParams struct {
@@ -94,7 +93,6 @@ func (q *Queries) CancelAccountDeletion(ctx context.Context, arg CancelAccountDe
 		&i.AccountState,
 		&i.Timezone,
 		&i.IsTest,
-		&i.LeetcodePremiumOptIn,
 		&i.LegacyIsAdmin,
 		&i.LegacyIsGraduate,
 		&i.SuspendedAt,
@@ -113,7 +111,7 @@ func (q *Queries) CancelAccountDeletion(ctx context.Context, arg CancelAccountDe
 }
 
 const getUserPrivateByID = `-- name: GetUserPrivateByID :one
-SELECT id, slug, display_name, email, discord_id, avatar_url, account_state, timezone, is_test, leetcode_premium_opt_in, legacy_is_admin, legacy_is_graduate, suspended_at, deletion_requested_at, deletion_due_at, pseudonymized_at, deleted_at, revision, created_at, updated_at, security_version, timezone_configured, mfa_configured FROM app.users
+SELECT id, slug, display_name, email, discord_id, avatar_url, account_state, timezone, is_test, legacy_is_admin, legacy_is_graduate, suspended_at, deletion_requested_at, deletion_due_at, pseudonymized_at, deleted_at, revision, created_at, updated_at, security_version, timezone_configured, mfa_configured FROM app.users
 WHERE (id::text = $1::text OR lower(slug) = lower($1::text))
   AND deleted_at IS NULL
 `
@@ -135,7 +133,6 @@ func (q *Queries) GetUserPrivateByID(ctx context.Context, arg GetUserPrivateByID
 		&i.AccountState,
 		&i.Timezone,
 		&i.IsTest,
-		&i.LeetcodePremiumOptIn,
 		&i.LegacyIsAdmin,
 		&i.LegacyIsGraduate,
 		&i.SuspendedAt,
@@ -369,7 +366,7 @@ func (q *Queries) ListGlobalRolesForUser(ctx context.Context, arg ListGlobalRole
 }
 
 const resolveActiveAuthSubject = `-- name: ResolveActiveAuthSubject :one
-SELECT u.id, u.slug, u.display_name, u.email, u.discord_id, u.avatar_url, u.account_state, u.timezone, u.is_test, u.leetcode_premium_opt_in, u.legacy_is_admin, u.legacy_is_graduate, u.suspended_at, u.deletion_requested_at, u.deletion_due_at, u.pseudonymized_at, u.deleted_at, u.revision, u.created_at, u.updated_at, u.security_version, u.timezone_configured, u.mfa_configured
+SELECT u.id, u.slug, u.display_name, u.email, u.discord_id, u.avatar_url, u.account_state, u.timezone, u.is_test, u.legacy_is_admin, u.legacy_is_graduate, u.suspended_at, u.deletion_requested_at, u.deletion_due_at, u.pseudonymized_at, u.deleted_at, u.revision, u.created_at, u.updated_at, u.security_version, u.timezone_configured, u.mfa_configured
 FROM app.user_auth_links AS l
 JOIN app.users AS u ON u.id = l.user_id
 WHERE l.auth_subject = $1
@@ -395,7 +392,6 @@ func (q *Queries) ResolveActiveAuthSubject(ctx context.Context, arg ResolveActiv
 		&i.AccountState,
 		&i.Timezone,
 		&i.IsTest,
-		&i.LeetcodePremiumOptIn,
 		&i.LegacyIsAdmin,
 		&i.LegacyIsGraduate,
 		&i.SuspendedAt,
@@ -438,23 +434,21 @@ SET slug = $1,
     display_name = $2,
     avatar_url = $3,
     timezone = $4,
-    leetcode_premium_opt_in = $5,
     revision = revision + 1
-WHERE id = $6
-  AND revision = $7
+WHERE id = $5
+  AND revision = $6
   AND account_state = 'active'
   AND deleted_at IS NULL
-RETURNING id, slug, display_name, email, discord_id, avatar_url, account_state, timezone, is_test, leetcode_premium_opt_in, legacy_is_admin, legacy_is_graduate, suspended_at, deletion_requested_at, deletion_due_at, pseudonymized_at, deleted_at, revision, created_at, updated_at, security_version, timezone_configured, mfa_configured
+RETURNING id, slug, display_name, email, discord_id, avatar_url, account_state, timezone, is_test, legacy_is_admin, legacy_is_graduate, suspended_at, deletion_requested_at, deletion_due_at, pseudonymized_at, deleted_at, revision, created_at, updated_at, security_version, timezone_configured, mfa_configured
 `
 
 type UpdateUserProfileParams struct {
-	Slug                 string  `db:"slug" json:"slug"`
-	DisplayName          string  `db:"display_name" json:"display_name"`
-	AvatarUrl            *string `db:"avatar_url" json:"avatar_url"`
-	Timezone             string  `db:"timezone" json:"timezone"`
-	LeetcodePremiumOptIn bool    `db:"leetcode_premium_opt_in" json:"leetcode_premium_opt_in"`
-	ID                   string  `db:"id" json:"id"`
-	Revision             int64   `db:"revision" json:"revision"`
+	Slug        string  `db:"slug" json:"slug"`
+	DisplayName string  `db:"display_name" json:"display_name"`
+	AvatarUrl   *string `db:"avatar_url" json:"avatar_url"`
+	Timezone    string  `db:"timezone" json:"timezone"`
+	ID          string  `db:"id" json:"id"`
+	Revision    int64   `db:"revision" json:"revision"`
 }
 
 func (q *Queries) UpdateUserProfile(ctx context.Context, arg UpdateUserProfileParams) (AppUser, error) {
@@ -463,7 +457,6 @@ func (q *Queries) UpdateUserProfile(ctx context.Context, arg UpdateUserProfilePa
 		arg.DisplayName,
 		arg.AvatarUrl,
 		arg.Timezone,
-		arg.LeetcodePremiumOptIn,
 		arg.ID,
 		arg.Revision,
 	)
@@ -478,7 +471,6 @@ func (q *Queries) UpdateUserProfile(ctx context.Context, arg UpdateUserProfilePa
 		&i.AccountState,
 		&i.Timezone,
 		&i.IsTest,
-		&i.LeetcodePremiumOptIn,
 		&i.LegacyIsAdmin,
 		&i.LegacyIsGraduate,
 		&i.SuspendedAt,

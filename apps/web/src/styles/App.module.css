@@ -399,7 +399,6 @@
 .card,
 .metricCard,
 .panel,
-.recommendation,
 .statusCard {
   padding: 1.15rem;
   background: var(--surface);
@@ -551,22 +550,6 @@
 .badgeNeutral {
   color: var(--text-muted);
   background: var(--surface-subtle);
-}
-
-.recommendation {
-  position: relative;
-  overflow: hidden;
-  padding: 1.35rem;
-  background: var(--surface);
-}
-
-.recommendation::before {
-  display: none;
-}
-
-.recommendationTitle {
-  margin: 0.75rem 0 0.35rem;
-  font-size: 1.35rem;
 }
 
 .metaList,
@@ -960,10 +943,6 @@
 .skeletonPanel {
   height: 18rem;
   margin-top: 1rem;
-}
-
-.skeletonRecommendation {
-  height: 8rem;
 }
 
 .tableSkeletonSearch {

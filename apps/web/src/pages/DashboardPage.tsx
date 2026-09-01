@@ -1,6 +1,5 @@
 import {
   IconArrowRight,
-  IconBulb,
   IconCalendarEvent,
   IconClipboardCheck,
   IconUsers,
@@ -11,7 +10,6 @@ import {
   useAttempts,
   useCurrentUser,
   useMockInterviews,
-  useRecommendation,
   useSeasonEnrollments,
   useSeasonPeople,
   useSeasonWeeks,
@@ -32,7 +30,6 @@ export function DashboardPage() {
     user.data && (user.data.seasonRoles.length > 0 || user.data.alumni),
   );
   const attempts = useAttempts(eligibleForGlobalPractice);
-  const recommendation = useRecommendation(eligibleForGlobalPractice);
   const interviews = useMockInterviews(eligibleForGlobalPractice);
   const { activeWorkspace } = useWorkspace();
 
@@ -291,31 +288,19 @@ export function DashboardPage() {
                 </p>
               )}
             </div>
-          ) : recommendation.isLoading ? (
-            <div className={styles.recommendation} aria-busy="true">
-              <span
-                className={`${styles.skeleton} ${styles.skeletonRecommendation}`}
-              >
-                Loading recommendation
-              </span>
-            </div>
-          ) : recommendation.data ? (
-            <article className={styles.recommendation}>
-              <span className={styles.badge}>
-                {recommendation.data.difficulty} ·{' '}
-                {recommendation.data.category}
-              </span>
-              <h3 className={styles.recommendationTitle}>
-                {recommendation.data.title}
-              </h3>
-              <p>{recommendation.data.rationale}</p>
+          ) : (
+            <div className={styles.panel}>
+              <p>
+                Review your recorded problem attempts, outcomes and practice
+                time.
+              </p>
               <div className={styles.buttonRow}>
                 <Link className={styles.button} to="/practice">
-                  <IconBulb size={18} aria-hidden="true" /> Open recommendation
+                  View practice history
                 </Link>
               </div>
-            </article>
-          ) : null}
+            </div>
+          )}
         </section>
 
         <section className={styles.section} aria-labelledby="activity-title">
@@ -344,5 +329,5 @@ function dashboardIntro(role: string) {
     return 'Your cross-season practice and interview history stays with you.';
   if (role === 'former_member')
     return 'Your global practice and mock interview access remains available after a completed season.';
-  return 'Your recommendation and recorded practice history are ready.';
+  return 'Your recorded practice and mock interview history are ready.';
 }

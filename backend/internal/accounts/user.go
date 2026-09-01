@@ -15,7 +15,6 @@ type User struct {
 	AttemptCount       int64            `json:"attemptCount"`
 	MockInterviewCount int64            `json:"mockInterviewCount"`
 	IsTest             bool             `json:"-"`
-	PremiumOptIn       bool             `json:"-"`
 	Revision           int64            `json:"revision"`
 }
 

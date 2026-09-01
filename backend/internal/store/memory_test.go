@@ -3,7 +3,6 @@ package store
 import (
 	"context"
 	"errors"
-	"fmt"
 	"testing"
 	"time"
 
@@ -113,63 +112,9 @@ func TestMemoryPracticeMutationsRequireCurrentIndependentRevision(t *testing.T) 
 		t.Fatalf("stale settings mutation returned %v", err)
 	}
 
-	recommendation, err := repository.SaveRecommendation(ctx, practice.Recommendation{ID: "recommendation", UserID: "student", Problem: practice.Problem{ID: "problem"}, CreatedAt: time.Now()})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, err := repository.DismissRecommendation(ctx, "student", recommendation.Revision+1, "later", time.Now(), "dismissal-stale"); !errors.Is(err, ErrConflict) {
-		t.Fatalf("stale dismissal returned %v", err)
-	}
-	if _, err := repository.DismissRecommendation(ctx, "student", recommendation.Revision, "later", time.Now(), "dismissal"); err != nil {
-		t.Fatal(err)
-	}
 }
 
-func TestMemoryRecommendationSnapshotUsesNewestQualityAndEntireCatalogue(t *testing.T) {
-	repository := NewMemory()
-	now := time.Now().UTC()
-	for index := 0; index < 10001; index++ {
-		identifier := fmt.Sprintf("%05d", index)
-		repository.Problems[identifier] = practice.ProblemRecord{ID: identifier, Difficulty: "medium"}
-		repository.Attempts[identifier] = practice.AttemptRecord{ID: identifier, UserID: "student", ProblemID: identifier, Outcome: "unknown", AttemptedAt: now.Add(time.Duration(index) * time.Second), Migrated: true}
-	}
-	newest := repository.Attempts["00000"]
-	newest.Outcome, newest.Migrated, newest.Minutes, newest.AttemptedAt = "independently_solved", false, 10, now.Add(20000*time.Second)
-	repository.Attempts[newest.ID] = newest
-	repository.Attempts["zzzzz-old-quality"] = practice.AttemptRecord{ID: "zzzzz-old-quality", UserID: "student", ProblemID: "00001", Outcome: "independently_solved", Minutes: 10, AttemptedAt: now.Add(-time.Hour)}
-	repository.Problems["zzzzz-unseen"] = practice.ProblemRecord{ID: "zzzzz-unseen", Number: 10002, Difficulty: "medium"}
-
-	snapshot, err := repository.RecommendationSnapshot(context.Background(), "student", practice.DefaultGoals())
-	if err != nil || len(snapshot.Problems) != 2 || len(snapshot.QualityAttempts) != 2 || snapshot.QualityAttempts[0].ID != "00000" {
-		t.Fatalf("snapshot problems=%d quality=%#v err=%v", len(snapshot.Problems), snapshot.QualityAttempts, err)
-	}
-
-	qualityProblems := map[string]practice.ProblemRecord{}
-	for _, problem := range snapshot.Problems {
-		qualityProblems[problem.ID] = problem
-	}
-	qualityAttempts := make([]practice.Attempt, 0, len(snapshot.QualityAttempts))
-	for _, attempt := range snapshot.QualityAttempts {
-		problem := qualityProblems[attempt.ProblemID]
-		qualityAttempts = append(qualityAttempts, practice.Attempt{ProblemID: attempt.ProblemID, Difficulty: practice.Difficulty(problem.Difficulty), Outcome: practice.Outcome(attempt.Outcome), Minutes: attempt.Minutes, AttemptedAt: attempt.AttemptedAt})
-	}
-	criteria := practice.CriteriaFor(practice.Request{Level: practice.NonStudent, QualityAttempts: qualityAttempts, CategoryExposure: snapshot.CategoryExposure, Goals: practice.DefaultGoals()})
-	candidates, history, err := repository.RecommendationCandidates(context.Background(), "student", criteria, false, practice.DefaultGoals(), now.Add(30000*time.Second))
-	if err != nil || len(candidates) != 1 || candidates[0].ID != "zzzzz-unseen" {
-		t.Fatalf("candidate beyond previous 10k cap candidates=%#v err=%v", candidates, err)
-	}
-
-	problems := make([]practice.Problem, 0, len(candidates))
-	for _, problem := range candidates {
-		problems = append(problems, practice.Problem{ID: problem.ID, Difficulty: practice.Difficulty(problem.Difficulty)})
-	}
-	selected, err := practice.Select(practice.Request{UserID: "student", Level: practice.NonStudent, Problems: problems, QualityAttempts: qualityAttempts, ProblemHistory: history, CategoryExposure: snapshot.CategoryExposure, Goals: practice.DefaultGoals(), Now: now.Add(30000 * time.Second)})
-	if err != nil || selected.Problem.ID != "zzzzz-unseen" {
-		t.Fatalf("candidate beyond previous 10k cap result=%#v err=%v", selected, err)
-	}
-}
-
-func TestMemoryMentoringRecommendationAndMockStateSurvivesAPIRestart(t *testing.T) {
+func TestMemoryMentoringAndMockStateSurvivesAPIRestart(t *testing.T) {
 	ctx := context.Background()
 	repository := NewMemory()
 	seasonStart := time.Now().UTC()
@@ -195,20 +140,6 @@ func TestMemoryMentoringRecommendationAndMockStateSurvivesAPIRestart(t *testing.
 	assigned, err := repository.IsMentorAssigned(ctx, "season", "mentor", "student")
 	if err != nil || !assigned {
 		t.Fatalf("assigned=%v err=%v", assigned, err)
-	}
-
-	recommendation := practice.Recommendation{ID: "recommendation", UserID: "student", Problem: practice.Problem{ID: "problem", Difficulty: practice.Easy}, Difficulty: practice.Easy, Rationale: "practice", RuleVersion: "v1", CreatedAt: time.Now().UTC()}
-	if _, err := repository.SaveRecommendation(ctx, recommendation); err != nil {
-		t.Fatal(err)
-	}
-
-	attempt := practice.AttemptRecord{ID: "attempt", UserID: "student", ProblemID: "problem", Revision: 1}
-	fulfilled, err := repository.FulfillRecommendation(ctx, "student", attempt, time.Now())
-	if err != nil || !fulfilled {
-		t.Fatalf("fulfilled=%v err=%v", fulfilled, err)
-	}
-	if active, err := repository.GetActiveRecommendation(ctx, "student"); err != nil || active != nil {
-		t.Fatalf("fulfilled recommendation remained active: %#v %v", active, err)
 	}
 
 	score := 7

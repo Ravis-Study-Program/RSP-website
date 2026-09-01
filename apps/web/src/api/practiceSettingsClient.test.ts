@@ -15,7 +15,6 @@ describe('practice settings API', () => {
 
   it('loads and updates the current member settings with a revision', async () => {
     apiRequestMock.mockResolvedValueOnce({
-      premiumOptIn: false,
       goalsEnabled: true,
       easyMinutes: 20,
       mediumMinutes: 35,
@@ -23,7 +22,6 @@ describe('practice settings API', () => {
       revision: 3,
     });
     apiRequestMock.mockResolvedValueOnce({
-      premiumOptIn: true,
       goalsEnabled: true,
       easyMinutes: 25,
       mediumMinutes: 40,
@@ -33,7 +31,6 @@ describe('practice settings API', () => {
 
     await fetchPracticeSettings();
     await patchPracticeSettings({
-      premiumOptIn: true,
       easyMinutes: 25,
       mediumMinutes: 40,
       hardMinutes: 60,
@@ -44,7 +41,6 @@ describe('practice settings API', () => {
     expect(apiRequestMock).toHaveBeenNthCalledWith(2, '/me/practice-settings', {
       method: 'PATCH',
       body: JSON.stringify({
-        premiumOptIn: true,
         easyMinutes: 25,
         mediumMinutes: 40,
         hardMinutes: 60,
@@ -55,7 +51,6 @@ describe('practice settings API', () => {
 
   it('uses the season-scoped mentor/admin goal enablement endpoint', async () => {
     apiRequestMock.mockResolvedValueOnce({
-      premiumOptIn: false,
       goalsEnabled: false,
       easyMinutes: 20,
       mediumMinutes: 35,
@@ -63,7 +58,6 @@ describe('practice settings API', () => {
       revision: 4,
     });
     apiRequestMock.mockResolvedValueOnce({
-      premiumOptIn: false,
       goalsEnabled: true,
       easyMinutes: 20,
       mediumMinutes: 35,
