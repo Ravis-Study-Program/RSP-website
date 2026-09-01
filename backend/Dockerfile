@@ -23,9 +23,18 @@ RUN --mount=type=cache,target=/go/pkg/mod \
 FROM dependencies AS goose-build
 ARG GOOSE_VERSION=v3.27.3
 RUN --mount=type=cache,target=/go/pkg/mod \
+    go mod download "github.com/pressly/goose/v3@${GOOSE_VERSION}" \
+    && cp -R "/go/pkg/mod/github.com/pressly/goose/v3@${GOOSE_VERSION}" /goose \
+    && chmod -R u+w /goose
+WORKDIR /goose
+RUN --mount=type=cache,target=/go/pkg/mod \
     --mount=type=cache,target=/root/.cache/go-build \
-    CGO_ENABLED=0 GOBIN=/out go install \
-      "github.com/pressly/goose/v3/cmd/goose@${GOOSE_VERSION}"
+    go get golang.org/x/crypto@v0.55.0 \
+    && CGO_ENABLED=0 go build \
+      -trimpath \
+      -ldflags="-s -w -X main.version=${GOOSE_VERSION}" \
+      -o /out/goose \
+      ./cmd/goose
 
 FROM dependencies AS ops-build
 COPY backend ./backend
