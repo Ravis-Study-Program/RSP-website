@@ -161,7 +161,7 @@ func TestRequestContextNormalizesRequestIDAndRecoversWithCompleteError(t *testin
 	}
 }
 
-func TestRequestBodyLimitRunsBeforeOpenAPIValidation(t *testing.T) {
+func TestRequestBodyLimitRejectsOversizedBodies(t *testing.T) {
 	f := newFixture()
 	body := strings.Repeat("x", int(maxRequestBodyBytes)+1)
 	w := request(t, f, http.MethodPatch, "/api/v2/me", "student", body)
@@ -200,7 +200,7 @@ func TestPrivateFieldsAndActorIDSpoofing(t *testing.T) {
 	}
 	body := `{"problemId":"problem","outcome":"independently_solved","confidence":5,"minutes":12,"attemptedAt":"2026-08-13T00:00:00Z","userId":"other"}`
 	w = request(t, f, "POST", "/api/v2/problem-attempts", "student", body)
-	if w.Code != 400 || errorCode(t, w) != "openapi_validation_failed" {
+	if w.Code != 400 || errorCode(t, w) != "validation_failed" {
 		t.Fatalf("actor id accepted: %d %s", w.Code, w.Body.String())
 	}
 }
@@ -484,7 +484,7 @@ func TestMockEligibilityComesFromRepositoryAndInterviewsSurviveAPIRecreation(t *
 	f.repository.Enrollments["student-member"] = programme.EnrollmentRecord{ID: "student-member", SeasonID: "season", UserID: "student", Role: "student", State: "active", Revision: 1}
 	body := `{"interviewee":{"userId":"other","activeMember":true},"occurredAt":"2026-08-13T00:00:00Z","durationMinutes":60,"rounds":[{"id":"round","type":"behavioural","scores":{"behavioural":7},"reviewed":false,"intervieweeComment":""}]}`
 	w := request(t, f, "POST", "/api/v2/mock-interviews", "student", body)
-	if w.Code != http.StatusBadRequest || errorCode(t, w) != "openapi_validation_failed" {
+	if w.Code != http.StatusBadRequest || errorCode(t, w) != "validation_failed" {
 		t.Fatalf("caller-supplied eligibility accepted: %d %s", w.Code, w.Body.String())
 	}
 

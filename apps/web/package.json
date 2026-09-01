@@ -18,7 +18,7 @@
     "e2e": "playwright test",
     "e2e:chromium": "playwright test --project=desktop-chromium --project=mobile-chromium",
     "e2e:real": "playwright test --config playwright.real.config.ts",
-    "generate": "orval --config orval.config.ts",
+    "generate": "orval --config orval.config.ts && rm -f src/api/generated/rsp.ts",
     "generate:check": "pnpm generate && git diff --exit-code -- src/api/generated",
     "lint": "eslint src e2e e2e-real *.config.ts --max-warnings 0"
   },

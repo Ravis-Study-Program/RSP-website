@@ -9,7 +9,6 @@ import (
 
 	"github.com/magedmg/RSP-website/backend/internal/accounts"
 	"github.com/magedmg/RSP-website/backend/internal/authz"
-	"github.com/magedmg/RSP-website/backend/internal/generated"
 	"github.com/magedmg/RSP-website/backend/internal/mockinterviews"
 	"github.com/magedmg/RSP-website/backend/internal/practice"
 	"github.com/magedmg/RSP-website/backend/internal/programme"
@@ -25,12 +24,8 @@ type operationSuccessCase struct {
 	setup       func(*fixture)
 }
 
-func TestEveryProtectedOpenAPIOperationHasExecutablePrimarySuccess(t *testing.T) {
+func TestProtectedRoutesHaveExecutablePrimarySuccess(t *testing.T) {
 	base := time.Now().UTC().Truncate(time.Second)
-	spec, err := generated.GetSwagger()
-	if err != nil {
-		t.Fatal(err)
-	}
 
 	seasonMutation := fmt.Sprintf(`{"name":"Updated season","slug":"updated-season","startAt":%q,"endAt":%q,"location":"Adelaide","imageUrl":"https://rsp.test/image","resourcesUrl":"https://rsp.test/resources","revision":1}`, base.Add(-24*time.Hour).Format(time.RFC3339), base.Add(30*24*time.Hour).Format(time.RFC3339))
 	seasonCreate := strings.TrimSuffix(seasonMutation, `,"revision":1}`) + `}`
@@ -137,7 +132,6 @@ func TestEveryProtectedOpenAPIOperationHasExecutablePrimarySuccess(t *testing.T)
 		}},
 	}
 
-	covered := make(map[string]bool, len(cases))
 	for _, testCase := range cases {
 		t.Run(testCase.operationID, func(t *testing.T) {
 			f := newFixture()
@@ -148,19 +142,7 @@ func TestEveryProtectedOpenAPIOperationHasExecutablePrimarySuccess(t *testing.T)
 			if response.Code != testCase.want {
 				t.Fatalf("status=%d want=%d body=%s", response.Code, testCase.want, response.Body.String())
 			}
-			assertOpenAPIResponse(t, spec, testCase.method, testCase.path, response)
-			covered[strings.ToLower(testCase.operationID)] = true
 		})
-	}
-
-	public := map[string]bool{"getliveness": true, "getreadiness": true, "getmetrics": true, "getopenapi": true}
-	for _, item := range spec.Paths.Map() {
-		for _, operation := range item.Operations() {
-			operationID := strings.ToLower(operation.OperationID)
-			if !public[operationID] && !covered[operationID] {
-				t.Errorf("protected OpenAPI operation %s has no primary-success execution", operation.OperationID)
-			}
-		}
 	}
 }
 

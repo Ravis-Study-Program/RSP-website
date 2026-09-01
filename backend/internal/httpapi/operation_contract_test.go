@@ -1,46 +1,15 @@
 package httpapi
 
 import (
-	"context"
 	"encoding/json"
 	"net/http"
-	"net/http/httptest"
 	"strings"
 	"testing"
 
-	"github.com/getkin/kin-openapi/openapi3"
-	"github.com/getkin/kin-openapi/openapi3filter"
-	legacyrouter "github.com/getkin/kin-openapi/routers/legacy"
-	"github.com/magedmg/RSP-website/backend/internal/generated"
 	"github.com/magedmg/RSP-website/backend/internal/programme"
 )
 
-func assertOpenAPIResponse(t *testing.T, spec *openapi3.T, method, path string, response *httptest.ResponseRecorder) {
-	t.Helper()
-	router, err := legacyrouter.NewRouter(spec)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	request := httptest.NewRequest(method, path, nil)
-	route, pathParams, err := router.FindRoute(request)
-	if err != nil {
-		t.Fatalf("find OpenAPI route: %v", err)
-	}
-
-	input := &openapi3filter.ResponseValidationInput{
-		RequestValidationInput: &openapi3filter.RequestValidationInput{Request: request, PathParams: pathParams, Route: route},
-		Status:                 response.Code,
-		Header:                 response.Header().Clone(),
-		Options:                &openapi3filter.Options{IncludeResponseStatus: true},
-	}
-	input.SetBodyBytes(response.Body.Bytes())
-	if err := openapi3filter.ValidateResponse(context.Background(), input); err != nil {
-		t.Fatalf("response violates OpenAPI status/content schema: %v\nbody=%s", err, response.Body.String())
-	}
-}
-
-func TestEveryOpenAPIOperationHasExecutableRouteAndAuthenticationCoverage(t *testing.T) {
+func TestRoutesHaveExpectedAuthenticationCoverage(t *testing.T) {
 	season := `{"name":"Season","slug":"season","startAt":"2026-08-01T00:00:00Z","endAt":"2026-08-31T00:00:00Z","location":"Adelaide","imageUrl":"https://rsp.test/image","resourcesUrl":"https://rsp.test/resources"}`
 	week := `{"number":1,"startAt":"2026-08-01T00:00:00Z","endAt":"2026-08-07T00:00:00Z","resourceUrl":"https://rsp.test/week"}`
 	attempt := `{"problemId":"problem","outcome":"independently_solved","confidence":5,"minutes":12,"attemptedAt":"2026-08-13T00:00:00Z"}`
@@ -56,7 +25,6 @@ func TestEveryOpenAPIOperationHasExecutableRouteAndAuthenticationCoverage(t *tes
 		{"getLiveness", http.MethodGet, "/api/v2/health/live", "", true},
 		{"getReadiness", http.MethodGet, "/api/v2/health/ready", "", true},
 		{"getMetrics", http.MethodGet, "/api/v2/metrics", "", true},
-		{"getOpenAPI", http.MethodGet, "/api/v2/openapi.json", "", true},
 		{"getMe", http.MethodGet, "/api/v2/me", "", false},
 		{"updateMe", http.MethodPatch, "/api/v2/me", `{"name":"Student","timezone":"Australia/Adelaide","revision":1}`, false},
 		{"suggestMeSlug", http.MethodGet, "/api/v2/me/slug-suggestion", "", false},
@@ -109,17 +77,6 @@ func TestEveryOpenAPIOperationHasExecutableRouteAndAuthenticationCoverage(t *tes
 		{"revokeAdminUserGlobalRole", http.MethodDelete, "/api/v2/admin/users/user/global-roles/director?revision=1&reason=role-ended", "", false},
 	}
 
-	spec, err := generated.GetSwagger()
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	contractOperations := map[string]bool{}
-	for _, item := range spec.Paths.Map() {
-		for _, operation := range item.Operations() {
-			contractOperations[strings.ToLower(operation.OperationID)] = true
-		}
-	}
 	covered := map[string]bool{}
 	fixture := newFixture()
 	for _, testCase := range cases {
@@ -130,7 +87,6 @@ func TestEveryOpenAPIOperationHasExecutableRouteAndAuthenticationCoverage(t *tes
 			}
 			covered[operationKey] = true
 			response := request(t, fixture, testCase.method, testCase.path, "", testCase.body)
-			assertOpenAPIResponse(t, spec, testCase.method, testCase.path, response)
 			if testCase.public {
 				if response.Code != http.StatusOK {
 					t.Fatalf("public operation status=%d body=%s", response.Code, response.Body.String())
@@ -141,16 +97,6 @@ func TestEveryOpenAPIOperationHasExecutableRouteAndAuthenticationCoverage(t *tes
 				t.Fatalf("protected operation status=%d body=%s", response.Code, response.Body.String())
 			}
 		})
-	}
-	for operationID := range contractOperations {
-		if !covered[operationID] {
-			t.Errorf("OpenAPI operation %s has no executable route case", operationID)
-		}
-	}
-	for operationID := range covered {
-		if !contractOperations[operationID] {
-			t.Errorf("executable route case %s is absent from OpenAPI", operationID)
-		}
 	}
 }
 

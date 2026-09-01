@@ -38,7 +38,6 @@ export * from './enrollmentUpdate';
 export * from './enrollmentUpdateRole';
 export * from './enrollmentUpdateStudentLevel';
 export * from './errorResponse';
-export * from './getOpenAPI200';
 export * from './getUser200';
 export * from './globalRole';
 export * from './globalRoleAssignment';

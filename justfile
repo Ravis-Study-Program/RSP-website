@@ -10,7 +10,7 @@ bootstrap:
 dev:
     docker compose up --build -d
 
-# Regenerate checked-in Go and TypeScript clients from api/openapi.yaml.
+# Regenerate checked-in SQL code and TypeScript API models.
 generate:
     go generate ./...
     pnpm --filter @rsp/web generate

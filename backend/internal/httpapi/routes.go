@@ -19,7 +19,6 @@ func registerSystemRoutes(mux *http.ServeMux, a *API) {
 	mux.HandleFunc("GET /api/v2/health/live", a.live)
 	mux.HandleFunc("GET /api/v2/health/ready", a.readiness)
 	mux.HandleFunc("GET /api/v2/metrics", a.metrics)
-	mux.HandleFunc("GET /api/v2/openapi.json", a.openapi)
 }
 
 func registerAccountRoutes(mux *http.ServeMux, a *API) {

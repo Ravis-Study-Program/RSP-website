@@ -11,7 +11,6 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/magedmg/RSP-website/backend/internal/generated"
 	"github.com/magedmg/RSP-website/backend/internal/mockinterviews"
 	"github.com/magedmg/RSP-website/backend/internal/platform/cursor"
 	"github.com/magedmg/RSP-website/backend/internal/platform/id"
@@ -22,6 +21,8 @@ import (
 type requestIDKey struct{}
 
 var safeRequestID = regexp.MustCompile(`^[A-Za-z0-9._-]{1,128}$`)
+
+const maxRequestBodyBytes int64 = 1 << 20
 
 // Config contains the dependencies needed by the HTTP API.
 type Config struct {
@@ -85,19 +86,14 @@ func New(c Config) *API {
 
 // Handler builds the request pipeline once when the server starts.
 //
-// Public requests flow through requestContext, the body-size limit, OpenAPI
-// validation, the route mux, and finally the real endpoint handler. The
-// internal identity lifecycle endpoint deliberately skips public OpenAPI
-// validation because it is a service-to-service route.
+// Requests flow through requestContext, the body-size limit, the route mux,
+// and finally the selected endpoint handler.
 func (a *API) Handler() http.Handler {
-	publicRoutes := http.NewServeMux()
-	registerRoutes(publicRoutes, a)
+	routes := http.NewServeMux()
+	registerRoutes(routes, a)
+	routes.HandleFunc("POST /internal/auth/lifecycle-events", a.identityLifecycle)
 
-	root := http.NewServeMux()
-	root.HandleFunc("POST /internal/auth/lifecycle-events", a.identityLifecycle)
-	root.Handle("/", a.limitRequestBody(a.validateOpenAPI(publicRoutes)))
-
-	return requestContext(a.logger, a.telemetry.observeHTTP, root)
+	return requestContext(a.logger, a.telemetry.observeHTTP, a.limitRequestBody(routes))
 }
 
 // requestContext is the outermost middleware, so it runs once for every request.
@@ -146,8 +142,25 @@ func writeJSONResponse(w http.ResponseWriter, status int, body any) {
 	_ = json.NewEncoder(w).Encode(body)
 }
 
+// limitRequestBody rejects requests larger than the API accepts and also caps
+// streaming bodies whose size was not declared in Content-Length.
+func (a *API) limitRequestBody(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Body == nil {
+			next.ServeHTTP(w, r)
+			return
+		}
+		if r.ContentLength > maxRequestBodyBytes {
+			writeErrorResponse(w, http.StatusBadRequest, "invalid_request_body", "The request body is too large or unreadable.")
+			return
+		}
+
+		r.Body = http.MaxBytesReader(w, r.Body, maxRequestBodyBytes)
+		next.ServeHTTP(w, r)
+	})
+}
+
 // decodeJSON accepts exactly one JSON value and rejects unknown object fields.
-// The size limit also protects internal routes that do not use OpenAPI validation.
 func decodeJSON(w http.ResponseWriter, r *http.Request, dst any) error {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestBodyBytes)
 	dec := json.NewDecoder(r.Body)
@@ -199,13 +212,4 @@ func (a *API) readiness(w http.ResponseWriter, r *http.Request) {
 func (a *API) metrics(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/plain; version=0.0.4; charset=utf-8")
 	a.telemetry.render(r.Context(), w, a.store)
-}
-
-func (a *API) openapi(w http.ResponseWriter, _ *http.Request) {
-	spec, err := generated.GetSwagger()
-	if err != nil {
-		panic(err)
-	}
-
-	writeJSONResponse(w, http.StatusOK, spec)
 }

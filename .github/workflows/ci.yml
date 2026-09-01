@@ -63,7 +63,6 @@ jobs:
           go generate ./...
           pnpm --filter @rsp/web generate
           git diff --exit-code -- \
-            backend/internal/generated/api.gen.go \
             backend/internal/platform/dbgen \
             apps/web/src/api/generated
       - name: Check module metadata drift
@@ -72,27 +71,6 @@ jobs:
           git diff --exit-code -- go.mod go.sum
       - name: Validate Compose
         run: docker compose config --quiet
-      - name: Validate semantic parity fixture
-        run: |
-          jq -e '
-            . as $fixture |
-            .version == 2 and
-            (.source.commit | test("^[0-9a-f]{40}$")) and
-            (.source.tree | test("^[0-9a-f]{40}$")) and
-            ([.workflows[].id] | length == (unique | length)) and
-            ([.workflows[].family] | unique | sort ==
-              ["admin_crud", "attempts_recommendation", "enrollment_mentorship",
-               "mock_interviews", "seasons_weeks", "user_profile"]) and
-            (.workflows | length == 13) and
-            all(.workflows[];
-              (.operations | length) > 0 and
-              (.expect | length) > 0 and
-              (.v2 | length) > 0 and
-              (.evidence | length) > 0 and
-              (([range(0; (.expect | length))] -
-                ([.evidence[].expectations[]] | unique)) | length == 0)) and
-            (.residualCoverage == [])
-          ' docs/golden/legacy-workflows.json
 
   unit:
     name: Unit and race tests

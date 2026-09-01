@@ -1,8 +1,7 @@
 # Known defects, fixes and launch constraints
 
-Valid legacy behavior is recorded separately in
-[`semantic-parity.md`](semantic-parity.md). Items below must not be reintroduced
-merely to make a v2 workflow resemble the old implementation.
+The legacy defects below must not be reintroduced merely to make a current
+workflow resemble the old implementation.
 
 ## Legacy defects intentionally corrected
 

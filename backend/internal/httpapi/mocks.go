@@ -11,6 +11,30 @@ import (
 	"github.com/magedmg/RSP-website/backend/internal/store"
 )
 
+type mockRoundRequest struct {
+	ID        string                   `json:"id"`
+	Type      mockinterviews.RoundType `json:"type"`
+	ProblemID string                   `json:"problemId"`
+	Content   string                   `json:"content"`
+	Link      string                   `json:"link"`
+	Scores    mockinterviews.Scores    `json:"scores"`
+}
+
+func mockRoundsFromRequest(rounds []mockRoundRequest) []mockinterviews.Round {
+	result := make([]mockinterviews.Round, len(rounds))
+	for i, round := range rounds {
+		result[i] = mockinterviews.Round{
+			ID:        round.ID,
+			Type:      round.Type,
+			ProblemID: round.ProblemID,
+			Content:   round.Content,
+			Link:      round.Link,
+			Scores:    round.Scores,
+		}
+	}
+	return result
+}
+
 func (a *API) eligibleMockActor(r *http.Request) bool {
 	actor := actorFrom(r.Context())
 	participant, err := a.store.GetMockParticipant(r.Context(), actor.UserID)
@@ -159,19 +183,21 @@ func (a *API) createMock(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var in struct {
-		Interviewee     mockinterviews.Participant `json:"interviewee"`
-		SeasonID        *string                    `json:"seasonId"`
-		OccurredAt      time.Time                  `json:"occurredAt"`
-		DurationMinutes int                        `json:"durationMinutes"`
-		Notes           string                     `json:"notes"`
-		Rounds          []mockinterviews.Round     `json:"rounds"`
+		Interviewee struct {
+			UserID string `json:"userId"`
+		} `json:"interviewee"`
+		SeasonID        *string            `json:"seasonId"`
+		OccurredAt      time.Time          `json:"occurredAt"`
+		DurationMinutes int                `json:"durationMinutes"`
+		Notes           string             `json:"notes"`
+		Rounds          []mockRoundRequest `json:"rounds"`
 	}
 	if err := decodeJSON(w, r, &in); err != nil {
 		writeErrorResponse(w, http.StatusBadRequest, "validation_failed", err.Error())
 		return
 	}
-	// Every eligibility flag is derived from app state; request booleans are
-	// ignored so a client cannot make an unaffiliated identity eligible.
+	// Eligibility is loaded from app state; the request can only identify the
+	// interviewee.
 	interviewee, err := a.store.GetMockParticipant(r.Context(), in.Interviewee.UserID)
 	if err != nil {
 		switch {
@@ -190,7 +216,7 @@ func (a *API) createMock(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	now := time.Now().UTC()
-	v, err := a.mockService.Create(r.Context(), actor.UserID, mockinterviews.CreateInput{Interviewee: interviewee, SeasonID: in.SeasonID, OccurredAt: in.OccurredAt, DurationMinutes: in.DurationMinutes, Notes: in.Notes, Rounds: in.Rounds}, now)
+	v, err := a.mockService.Create(r.Context(), actor.UserID, mockinterviews.CreateInput{Interviewee: interviewee, SeasonID: in.SeasonID, OccurredAt: in.OccurredAt, DurationMinutes: in.DurationMinutes, Notes: in.Notes, Rounds: mockRoundsFromRequest(in.Rounds)}, now)
 	if err != nil {
 		mockFailure(a, w, r, err)
 		return
@@ -208,11 +234,11 @@ func (a *API) updateMock(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var in struct {
-		Revision        int64                  `json:"revision"`
-		OccurredAt      time.Time              `json:"occurredAt"`
-		DurationMinutes int                    `json:"durationMinutes"`
-		Notes           string                 `json:"notes"`
-		Rounds          []mockinterviews.Round `json:"rounds"`
+		Revision        int64              `json:"revision"`
+		OccurredAt      time.Time          `json:"occurredAt"`
+		DurationMinutes int                `json:"durationMinutes"`
+		Notes           string             `json:"notes"`
+		Rounds          []mockRoundRequest `json:"rounds"`
 	}
 	if err := decodeJSON(w, r, &in); err != nil {
 		writeErrorResponse(w, http.StatusBadRequest, "validation_failed", err.Error())
@@ -244,7 +270,7 @@ func (a *API) updateMock(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	now := time.Now().UTC()
-	v, err = a.mockService.Update(r.Context(), v, actor.UserID, mockinterviews.UpdateInput{ExpectedRevision: in.Revision, OccurredAt: in.OccurredAt, DurationMinutes: in.DurationMinutes, Notes: in.Notes, Rounds: in.Rounds}, now)
+	v, err = a.mockService.Update(r.Context(), v, actor.UserID, mockinterviews.UpdateInput{ExpectedRevision: in.Revision, OccurredAt: in.OccurredAt, DurationMinutes: in.DurationMinutes, Notes: in.Notes, Rounds: mockRoundsFromRequest(in.Rounds)}, now)
 	if err != nil {
 		mockFailure(a, w, r, err)
 		return

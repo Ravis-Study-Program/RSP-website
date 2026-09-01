@@ -32,19 +32,6 @@ paths:
         '200':
           description: Internal Prometheus metrics
           content: { text/plain: { schema: { type: string } } }
-  /openapi.json:
-    get:
-      operationId: getOpenAPI
-      security: []
-      responses:
-        default: { $ref: '#/components/responses/Error' }
-        '200':
-          description: This OpenAPI document as JSON
-          content:
-            {
-              application/json:
-                { schema: { type: object, additionalProperties: true } },
-            }
   /me:
     get:
       operationId: getMe
