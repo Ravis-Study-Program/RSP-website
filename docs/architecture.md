@@ -33,7 +33,7 @@ Caddy routes the single local origin and denies public metrics paths.
 | Contract    | `api/openapi.yaml`                                                           | Frontend API client/types and API documentation; Go handlers own server-side decoding and validation.         |
 | Transport   | `backend/internal/httpapi`                                                   | HTTP decoding/validation, authentication boundary, status codes and serialization.                            |
 | Domain      | `backend/internal/{accounts,programme,practice,mockinterviews}`              | Authorization relationships and programme rules independent of HTTP.                                          |
-| Persistence | `backend/internal/postgres`, `backend/internal/platform/dbtable`              | GORM persistence with explicit transactions and raw SQL for PostgreSQL-specific operations.                   |
+| Persistence | `backend/internal/postgres`, `backend/internal/platform/dbtable`             | GORM persistence with explicit transactions and raw SQL for PostgreSQL-specific operations.                   |
 | Jobs        | `backend/cmd/worker`, `backend/internal/worker`, `backend/internal/postgres` | Scheduled LeetCode synchronization, catch-up, retry, advisory locking and PostgreSQL run state.               |
 | Operations  | `deploy`, `compose.yaml`                                                     | Local ingress and container topology.                                                                         |
 
