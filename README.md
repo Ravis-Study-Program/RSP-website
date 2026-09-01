@@ -14,7 +14,7 @@ apps/web/       React, Vite, Base UI, TanStack Query and Table
 apps/auth/      Better Auth TypeScript service
 backend/        Go API, worker, administration CLI and migration CLI
 api/            OpenAPI 3 contract used to generate the TypeScript API client
-db/             Goose migrations and sqlc queries
+db/             Goose database migrations
 deploy/         Caddy, observability, and local-runtime configuration
 docs/           Architecture, migration, security and operations runbooks
 compose.yaml    Local development stack
@@ -50,7 +50,7 @@ Caddy is the browser application origin.
 | ----------------- | --------------------------------------------------------------------------------------------------------- |
 | `just bootstrap`  | Install pinned Go and pnpm dependencies.                                                                  |
 | `just dev`        | Start the application, PostgreSQL, Mailpit, Prometheus, and Grafana.                                      |
-| `just generate`   | Regenerate SQL code and the browser API client.                                                           |
+| `just generate`   | Regenerate the browser API client.                                                                        |
 | `just migrate-up` | Apply app Goose migrations and the pinned Better Auth schema.                                             |
 | `just seed`       | Load deterministic local-only fixture data.                                                               |
 | `just fake-data`  | Create local email/password Student, Mentor, Coordinator and Site Admin accounts with fixture data.       |

@@ -12,7 +12,6 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/jackc/pgx/v5"
 	"github.com/magedmg/RSP-website/backend/internal/leetcode"
 	"github.com/magedmg/RSP-website/backend/internal/postgres"
 	"github.com/magedmg/RSP-website/backend/internal/worker"
@@ -35,15 +34,22 @@ func main() {
 		os.Exit(1)
 	}
 
-	conn, err := pgx.Connect(ctx, url)
+	repository, err := postgres.Open(ctx, url)
 	if err != nil {
 		logger.Error("database connection failed", "error", err)
 		os.Exit(1)
 	}
 
-	defer conn.Close(context.WithoutCancel(ctx))
-	state := &postgres.WorkerState{Conn: conn}
-	scheduler := worker.Scheduler{Locker: state, State: state, Syncer: leetcode.Client{URL: syncURL, Sink: leetcode.PostgresSink{DB: conn}}, Retries: 3, Timeout: 2 * time.Minute}
+	defer repository.Close()
+	db, closeConnection, err := repository.PinnedConnection(ctx)
+	if err != nil {
+		logger.Error("database connection pinning failed", "error", err)
+		os.Exit(1)
+	}
+	defer closeConnection()
+
+	state := &postgres.WorkerState{DB: db}
+	scheduler := worker.Scheduler{Locker: state, State: state, Syncer: leetcode.Client{URL: syncURL, Sink: leetcode.PostgresSink{DB: db}}, Retries: 3, Timeout: 2 * time.Minute}
 	ticker := time.NewTicker(time.Minute)
 	defer ticker.Stop()
 

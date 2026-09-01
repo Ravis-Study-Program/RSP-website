@@ -5,31 +5,33 @@ import (
 	"context"
 	"time"
 
-	"github.com/jackc/pgx/v5"
+	"github.com/magedmg/RSP-website/backend/internal/platform/dbtable"
 	"github.com/magedmg/RSP-website/backend/internal/platform/id"
+	"gorm.io/gorm"
 )
 
-// QueueLeetCodeSync durably records the worker request and immutable audit
-// event in one transaction. The worker claims unfinished manual runs first.
+// QueueLeetCodeSync records the worker request and audit event atomically.
 func (p *Postgres) QueueLeetCodeSync(ctx context.Context, actorID, requestID string) error {
-	tx, err := p.Pool.BeginTx(ctx, pgx.TxOptions{})
+	tx, err := begin(ctx, p.DB)
 	if err != nil {
 		return err
 	}
-
-	defer tx.Rollback(ctx)
+	defer rollback(tx)
 
 	now := time.Now().UTC()
 	runID := id.New()
-	if _, err = tx.Exec(ctx, `
-INSERT INTO app.leetcode_sync_runs(id,trigger_kind,requested_by_user_id,started_at)
-VALUES($1,'manual',$2,$3)`, runID, actorID, now); err != nil {
+	if err := tx.Table(dbtable.LeetcodeSyncRuns).Create(map[string]any{
+		"id": runID, "trigger_kind": "manual", "requested_by_user_id": actorID, "started_at": now,
+	}).Error; err != nil {
 		return err
 	}
-	if _, err = tx.Exec(ctx, `
-INSERT INTO app.audit_events(id,actor_user_id,action,subject_type,subject_id,request_id,data,occurred_at)
-VALUES($1,$2,'leetcode.sync_requested','worker',$3,$4,'{}'::jsonb,$5)`, id.New(), actorID, runID, requestID, now); err != nil {
+	if err := tx.Table(dbtable.AuditEvents).Create(map[string]any{
+		"id": id.New(), "actor_user_id": actorID,
+		"action": "leetcode.sync_requested", "subject_type": "worker",
+		"subject_id": runID, "request_id": requestID, "data": gorm.Expr("'{}'::jsonb"),
+		"occurred_at": now,
+	}).Error; err != nil {
 		return err
 	}
-	return tx.Commit(ctx)
+	return commit(tx)
 }

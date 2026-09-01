@@ -2,14 +2,18 @@ package postgres
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
-	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/magedmg/RSP-website/backend/internal/platform/dbgen"
+	"github.com/jackc/pgx/v5/stdlib"
+	"github.com/magedmg/RSP-website/backend/internal/platform/dbtable"
 	"github.com/magedmg/RSP-website/backend/internal/platform/observability"
 	"github.com/magedmg/RSP-website/backend/internal/platform/repository"
+	gormpostgres "gorm.io/driver/postgres"
+	"gorm.io/gorm"
+	"gorm.io/gorm/logger"
 )
 
 var (
@@ -18,10 +22,11 @@ var (
 	ErrDuplicate = repository.ErrDuplicate
 )
 
-// Postgres represents a backend data structure.
+// Postgres owns the GORM handle and its underlying database/sql pool. Goose,
+// rather than GORM AutoMigrate, remains responsible for the schema.
 type Postgres struct {
-	Pool    *pgxpool.Pool
-	Queries *dbgen.Queries
+	DB  *gorm.DB
+	SQL *sql.DB
 }
 
 func finishPostgresPage[T any](items []T, limit int, direction string) ([]T, bool) {
@@ -37,37 +42,52 @@ func finishPostgresPage[T any](items []T, limit int, direction string) ([]T, boo
 	return items, more
 }
 
-// Open opens a connection.
-func Open(ctx context.Context, url string) (*Postgres, error) {
-	config, err := pgxpool.ParseConfig(url)
+// Open creates one database/sql pool and lets GORM use it. pgx remains the
+// PostgreSQL driver underneath GORM.
+func Open(ctx context.Context, databaseURL string) (*Postgres, error) {
+	config, err := pgx.ParseConfig(databaseURL)
 	if err != nil {
 		return nil, err
 	}
+	config.RuntimeParams["timezone"] = "UTC"
 
-	config.ConnConfig.RuntimeParams["timezone"] = "UTC"
-	pool, err := pgxpool.NewWithConfig(ctx, config)
+	sqlDB := stdlib.OpenDB(*config)
+	if err := sqlDB.PingContext(ctx); err != nil {
+		_ = sqlDB.Close()
+		return nil, err
+	}
+	db, err := gorm.Open(gormpostgres.New(gormpostgres.Config{Conn: sqlDB}), &gorm.Config{
+		Logger: logger.Default.LogMode(logger.Silent),
+	})
 	if err != nil {
+		_ = sqlDB.Close()
 		return nil, err
 	}
-	if err := pool.Ping(ctx); err != nil {
-		pool.Close()
-		return nil, err
-	}
-	return &Postgres{Pool: pool, Queries: dbgen.New(pool)}, nil
+	return &Postgres{DB: db, SQL: sqlDB}, nil
 }
 
-// Close closes a value.
-func (p *Postgres) Close() { p.Pool.Close() }
+func (p *Postgres) Close() error { return p.SQL.Close() }
 
-// Ping performs the operation.
-func (p *Postgres) Ping(ctx context.Context) error { return p.Pool.Ping(ctx) }
+func (p *Postgres) Ping(ctx context.Context) error { return p.SQL.PingContext(ctx) }
 
-// ObservabilitySnapshot performs the operation.
+// PinnedConnection returns a GORM handle that always uses one physical SQL
+// connection. Session-scoped PostgreSQL features, such as advisory locks, must
+// be acquired and released through this same handle.
+func (p *Postgres) PinnedConnection(ctx context.Context) (*gorm.DB, func() error, error) {
+	connection, err := p.SQL.Conn(ctx)
+	if err != nil {
+		return nil, nil, err
+	}
+	db := p.DB.Session(&gorm.Session{NewDB: true})
+	db.ConnPool = connection
+	return db, connection.Close, nil
+}
+
 func (p *Postgres) ObservabilitySnapshot(ctx context.Context) (observability.Snapshot, error) {
-	pool := p.Pool.Stat()
+	pool := p.SQL.Stats()
 	snapshot := observability.Snapshot{
-		DBPoolAcquiredConnections: pool.AcquiredConns(),
-		DBPoolIdleConnections:     pool.IdleConns(),
+		DBPoolAcquiredConnections: int32(pool.InUse),
+		DBPoolIdleConnections:     int32(pool.Idle),
 		WorkerRuns: map[string]uint64{
 			"success":         0,
 			"partial_failure": 0,
@@ -75,72 +95,67 @@ func (p *Postgres) ObservabilitySnapshot(ctx context.Context) (observability.Sna
 		},
 		MigrationState: "none",
 	}
-	rows, err := p.Pool.Query(ctx, `
-SELECT CASE
-         WHEN succeeded THEN 'success'
-         WHEN error_summary = 'partial LeetCode sync failure' THEN 'partial_failure'
-         ELSE 'failure'
-       END AS result,
-       count(*)
-FROM app.leetcode_sync_runs
-WHERE finished_at IS NOT NULL
-GROUP BY result`)
-	if err != nil {
+
+	var counts []struct {
+		Result   string
+		RunCount int64
+	}
+	if err := p.DB.WithContext(ctx).Table(dbtable.LeetcodeSyncRuns).
+		Select("CASE WHEN succeeded THEN 'success' WHEN error_summary IS NOT NULL THEN 'failure' ELSE 'partial_failure' END AS result, count(*) AS run_count").
+		Where("finished_at IS NOT NULL").
+		Group("result").
+		Scan(&counts).Error; err != nil {
 		return observability.Snapshot{}, err
 	}
-
-	for rows.Next() {
-		var result string
-		var count uint64
-		if err := rows.Scan(&result, &count); err != nil {
-			rows.Close()
-			return observability.Snapshot{}, err
-		}
-		if _, bounded := snapshot.WorkerRuns[result]; bounded {
-			snapshot.WorkerRuns[result] = count
+	for _, count := range counts {
+		if _, bounded := snapshot.WorkerRuns[count.Result]; bounded {
+			snapshot.WorkerRuns[count.Result] = uint64(count.RunCount)
 		}
 	}
-	if err := rows.Err(); err != nil {
-		rows.Close()
-		return observability.Snapshot{}, err
-	}
 
-	rows.Close()
-	err = p.Pool.QueryRow(ctx, `
-SELECT state::text
-FROM migration.runs
-ORDER BY created_at DESC, id DESC
-LIMIT 1`).Scan(&snapshot.MigrationState)
-	if errors.Is(err, pgx.ErrNoRows) {
+	result := p.DB.WithContext(ctx).Table(dbtable.MigrationRuns).
+		Select("state::text").
+		Order("started_at DESC, id DESC").
+		Limit(1).
+		Scan(&snapshot.MigrationState)
+	if result.Error != nil {
+		return observability.Snapshot{}, result.Error
+	}
+	if result.RowsAffected == 0 {
 		snapshot.MigrationState = "none"
-		return snapshot, nil
-	}
-	if err != nil {
-		return observability.Snapshot{}, err
 	}
 	return snapshot, nil
 }
 
+func begin(ctx context.Context, db *gorm.DB) (*gorm.DB, error) {
+	tx := db.WithContext(ctx).Begin()
+	return tx, tx.Error
+}
+
+func rollback(tx *gorm.DB) { _ = tx.Rollback().Error }
+
+func commit(tx *gorm.DB) error { return tx.Commit().Error }
+
 func noRows(err error) error {
-	if errors.Is(err, pgx.ErrNoRows) {
+	if errors.Is(err, sql.ErrNoRows) || errors.Is(err, gorm.ErrRecordNotFound) {
 		return ErrNotFound
 	}
 	return err
 }
 
-func (p *Postgres) classifyRevision(ctx context.Context, db rowQuerier, query string, args ...any) error {
+func (p *Postgres) classifyRevision(ctx context.Context, db *gorm.DB, query string, args ...any) error {
 	var revision int64
-	if err := db.QueryRow(ctx, query, args...).Scan(&revision); err != nil {
-		return noRows(err)
+	err := db.WithContext(ctx).Raw(query, args...).Row().Scan(&revision)
+	if err == nil {
+		return ErrConflict
 	}
-	return ErrConflict
+	return noRows(err)
 }
 
 func mapPostgresError(err error) error {
 	if isUnique(err) {
 		return ErrDuplicate
 	}
-
 	var pgErr *pgconn.PgError
 	if errors.As(err, &pgErr) && (pgErr.Code == "23503" || pgErr.Code == "23514" || pgErr.Code == "23502") {
 		return ErrConflict

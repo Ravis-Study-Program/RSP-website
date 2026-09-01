@@ -60,10 +60,8 @@ jobs:
         run: pnpm -r check
       - name: Regenerate API clients
         run: |
-          go generate ./...
           pnpm --filter @rsp/web generate
           git diff --exit-code -- \
-            backend/internal/platform/dbgen \
             apps/web/src/api/generated
       - name: Check module metadata drift
         run: |

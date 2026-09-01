@@ -10,9 +10,8 @@ bootstrap:
 dev:
     docker compose up --build -d
 
-# Regenerate checked-in SQL code and TypeScript API models.
+# Regenerate the checked-in TypeScript API client.
 generate:
-    go generate ./...
     pnpm --filter @rsp/web generate
 
 # Apply app and pinned Better Auth schema migrations to local PostgreSQL.

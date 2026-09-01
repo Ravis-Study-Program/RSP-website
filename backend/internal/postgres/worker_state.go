@@ -2,28 +2,35 @@ package postgres
 
 import (
 	"context"
+	"database/sql"
 	"time"
 
-	"github.com/jackc/pgx/v5"
+	"github.com/magedmg/RSP-website/backend/internal/platform/dbtable"
 	"github.com/magedmg/RSP-website/backend/internal/platform/id"
 	"github.com/magedmg/RSP-website/backend/internal/worker"
+	"gorm.io/gorm"
 )
 
-// WorkerState persists scheduler locks and run state in PostgreSQL.
+// WorkerState uses a GORM handle pinned to one SQL connection. Advisory locks
+// are session-scoped, so TryLock and Unlock must run on that same connection.
 type WorkerState struct {
-	Conn        *pgx.Conn
+	DB          *gorm.DB
 	ManualRunID string
 }
 
-// RunPendingManual runs the oldest unfinished manual sync, if one exists.
 func (p *WorkerState) RunPendingManual(ctx context.Context, scheduler worker.Scheduler) (bool, error) {
 	var runID string
-	err := p.Conn.QueryRow(ctx, `SELECT id FROM app.leetcode_sync_runs WHERE trigger_kind='manual' AND finished_at IS NULL ORDER BY started_at,id LIMIT 1`).Scan(&runID)
-	if err == pgx.ErrNoRows {
-		return false, nil
+	result := p.DB.WithContext(ctx).Table(dbtable.LeetcodeSyncRuns).
+		Select("id").
+		Where("trigger_kind = ? AND finished_at IS NULL", "manual").
+		Order("started_at, id").
+		Limit(1).
+		Scan(&runID)
+	if result.Error != nil {
+		return false, result.Error
 	}
-	if err != nil {
-		return false, err
+	if result.RowsAffected == 0 {
+		return false, nil
 	}
 
 	p.ManualRunID = runID
@@ -31,51 +38,63 @@ func (p *WorkerState) RunPendingManual(ctx context.Context, scheduler worker.Sch
 	return true, scheduler.Run(ctx)
 }
 
-// TryLock obtains the PostgreSQL advisory lock for a job.
 func (p *WorkerState) TryLock(ctx context.Context, key int64) (bool, error) {
-	var ok bool
-	err := p.Conn.QueryRow(ctx, "SELECT pg_try_advisory_lock($1)", key).Scan(&ok)
-	return ok, err
+	var locked bool
+	err := p.DB.WithContext(ctx).Raw("SELECT pg_try_advisory_lock(?)", key).Scan(&locked).Error
+	return locked, err
 }
 
-// Unlock releases the PostgreSQL advisory lock for a job.
 func (p *WorkerState) Unlock(ctx context.Context, key int64) error {
-	_, err := p.Conn.Exec(ctx, "SELECT pg_advisory_unlock($1)", key)
-	return err
+	return p.DB.WithContext(ctx).Exec("SELECT pg_advisory_unlock(?)", key).Error
 }
 
-// LastSuccess returns the last successful sync time.
 func (p *WorkerState) LastSuccess(ctx context.Context, _ string) (*time.Time, error) {
-	var at *time.Time
-	err := p.Conn.QueryRow(ctx, "SELECT max(finished_at) FROM app.leetcode_sync_runs WHERE succeeded").Scan(&at)
-	return at, err
+	var at sql.NullTime
+	err := p.DB.WithContext(ctx).Table(dbtable.LeetcodeSyncRuns).
+		Select("max(finished_at)").Where("succeeded").Scan(&at).Error
+	if err != nil || !at.Valid {
+		return nil, err
+	}
+	return &at.Time, nil
 }
 
-// LastAttempt returns the last scheduled or catch-up sync time.
 func (p *WorkerState) LastAttempt(ctx context.Context, _ string) (*time.Time, error) {
-	var at *time.Time
-	err := p.Conn.QueryRow(ctx, "SELECT max(finished_at) FROM app.leetcode_sync_runs WHERE trigger_kind IN ('schedule','catch_up')").Scan(&at)
-	return at, err
+	var at sql.NullTime
+	err := p.DB.WithContext(ctx).Table(dbtable.LeetcodeSyncRuns).
+		Select("max(started_at)").Where("trigger_kind IN ?", []string{"schedule", "catch_up"}).Scan(&at).Error
+	if err != nil || !at.Valid {
+		return nil, err
+	}
+	return &at.Time, nil
 }
 
-// Record persists a completed scheduler run.
 func (p *WorkerState) Record(ctx context.Context, run worker.Run) error {
+	errorSummary := nullableString(run.Error)
 	if p.ManualRunID != "" {
-		_, err := p.Conn.Exec(ctx, `UPDATE app.leetcode_sync_runs SET finished_at=$2,succeeded=$3,fetched_count=$4,changed_count=$5,error_summary=$6 WHERE id=$1 AND finished_at IS NULL`, p.ManualRunID, run.FinishedAt, run.Error == "", run.Report.Fetched, run.Report.Inserted+run.Report.Updated, nullString(run.Error))
-		return err
+		return p.DB.WithContext(ctx).Table(dbtable.LeetcodeSyncRuns).
+			Where("id = ?", p.ManualRunID).
+			Updates(map[string]any{
+				"finished_at": run.FinishedAt.UTC(), "succeeded": run.Error == "",
+				"fetched_count": run.Report.Fetched, "changed_count": run.Report.Inserted + run.Report.Updated,
+				"error_summary": errorSummary,
+			}).Error
 	}
 
 	trigger := run.TriggerKind
 	if trigger != "catch_up" {
 		trigger = "schedule"
 	}
-	_, err := p.Conn.Exec(ctx, `INSERT INTO app.leetcode_sync_runs(id,trigger_kind,started_at,finished_at,succeeded,fetched_count,changed_count,error_summary) VALUES($1,$2,$3,$4,$5,$6,$7,$8)`, id.New(), trigger, run.StartedAt, run.FinishedAt, run.Error == "", run.Report.Fetched, run.Report.Inserted+run.Report.Updated, nullString(run.Error))
-	return err
+	return p.DB.WithContext(ctx).Table(dbtable.LeetcodeSyncRuns).Create(map[string]any{
+		"id": id.New(), "trigger_kind": trigger, "started_at": run.StartedAt.UTC(),
+		"finished_at": run.FinishedAt.UTC(), "succeeded": run.Error == "",
+		"fetched_count": run.Report.Fetched, "changed_count": run.Report.Inserted + run.Report.Updated,
+		"error_summary": errorSummary,
+	}).Error
 }
 
-func nullString(v string) any {
-	if v == "" {
+func nullableString(value string) any {
+	if value == "" {
 		return nil
 	}
-	return v
+	return value
 }

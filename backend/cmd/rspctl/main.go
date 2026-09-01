@@ -11,9 +11,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/jackc/pgx/v5"
+	"database/sql"
 	"github.com/magedmg/RSP-website/backend/internal/platform/id"
+	"github.com/magedmg/RSP-website/backend/internal/postgres"
 	"github.com/magedmg/RSP-website/backend/internal/worker"
+	"gorm.io/gorm"
 )
 
 func main() {
@@ -33,12 +35,12 @@ func run(ctx context.Context, args []string) error {
 		return errors.New("DATABASE_URL is required")
 	}
 
-	conn, err := pgx.Connect(ctx, dsn)
+	repository, err := postgres.Open(ctx, dsn)
 	if err != nil {
 		return err
 	}
 
-	defer conn.Close(context.WithoutCancel(ctx))
+	defer repository.Close()
 	switch args[0] {
 	case "seed":
 		appEnv := strings.ToLower(strings.TrimSpace(os.Getenv("APP_ENV")))
@@ -49,7 +51,7 @@ func run(ctx context.Context, args []string) error {
 		if err != nil {
 			return err
 		}
-		return seed(ctx, conn, options)
+		return seed(ctx, repository.DB, options)
 	case "bootstrap-admin":
 		set := flag.NewFlagSet("bootstrap-admin", flag.ContinueOnError)
 		subject := set.String("auth-subject", "", "Better Auth user id")
@@ -57,7 +59,7 @@ func run(ctx context.Context, args []string) error {
 		if err := set.Parse(args[1:]); err != nil {
 			return err
 		}
-		return bootstrap(ctx, conn, *subject, *email)
+		return bootstrap(ctx, repository.DB, *subject, *email)
 	default:
 		return errors.New("usage: rspctl seed|bootstrap-admin")
 	}
@@ -139,10 +141,10 @@ type seedUser struct {
 	DisplayName   string
 }
 
-func resolveSeedUser(ctx context.Context, tx pgx.Tx, user seedUser) (string, error) {
+func resolveSeedUser(ctx context.Context, tx *gorm.DB, user seedUser) (string, error) {
 	if user.Email == "" {
 		var userID string
-		err := tx.QueryRow(ctx, `INSERT INTO app.users(slug,display_name,email,account_state,timezone,timezone_configured,is_test,revision) VALUES($1,$2,$3,'active','Australia/Adelaide',true,true,1) RETURNING id`, user.Slug, user.DisplayName, user.FallbackEmail).Scan(&userID)
+		err := tx.WithContext(ctx).Raw(`INSERT INTO app.users(slug,display_name,email,account_state,timezone,timezone_configured,is_test,revision) VALUES($1,$2,$3,'active','Australia/Adelaide',true,true,1) RETURNING id`, user.Slug, user.DisplayName, user.FallbackEmail).Row().Scan(&userID)
 		if err != nil {
 			return "", err
 		}
@@ -150,7 +152,7 @@ func resolveSeedUser(ctx context.Context, tx pgx.Tx, user seedUser) (string, err
 	}
 
 	var userID string
-	err := tx.QueryRow(ctx, `
+	err := tx.WithContext(ctx).Raw(`
 SELECT u.id
 FROM app.users u
 WHERE lower(u.email)=lower($1)
@@ -160,15 +162,15 @@ WHERE lower(u.email)=lower($1)
     SELECT 1 FROM app.user_auth_links l
     WHERE l.user_id=u.id AND l.active
   )
-FOR UPDATE`, user.Email).Scan(&userID)
-	if errors.Is(err, pgx.ErrNoRows) {
+FOR UPDATE`, user.Email).Row().Scan(&userID)
+	if errors.Is(err, sql.ErrNoRows) {
 		return "", fmt.Errorf("verified active auth-linked seed user not found for %s", user.Email)
 	}
 	if err != nil {
 		return "", err
 	}
 
-	_, err = tx.Exec(ctx, `UPDATE app.users SET slug=$2,display_name=$3,timezone='Australia/Adelaide',timezone_configured=true,is_test=false,revision=revision+1 WHERE id=$1`, userID, user.Slug, user.DisplayName)
+	err = tx.WithContext(ctx).Exec(`UPDATE app.users SET slug=$2,display_name=$3,timezone='Australia/Adelaide',timezone_configured=true,is_test=false,revision=revision+1 WHERE id=$1`, userID, user.Slug, user.DisplayName).Error
 	if err != nil {
 		return "", err
 	}
@@ -176,21 +178,21 @@ FOR UPDATE`, user.Email).Scan(&userID)
 	return userID, nil
 }
 
-func seed(ctx context.Context, conn *pgx.Conn, options seedOptions) error {
-	tx, err := conn.Begin(ctx)
-	if err != nil {
-		return err
+func seed(ctx context.Context, db *gorm.DB, options seedOptions) error {
+	tx := db.WithContext(ctx).Begin()
+	if tx.Error != nil {
+		return tx.Error
 	}
 
-	defer tx.Rollback(ctx)
+	defer tx.Rollback()
 	// The worker may populate the catalogue as soon as the test stack starts.
 	// Use its lock so the fixture can safely reuse problem 1 instead of racing
 	// the catalogue sync into a unique-key violation.
-	if _, err := tx.Exec(ctx, `SELECT pg_advisory_xact_lock($1)`, worker.LeetCodeAdvisoryLock); err != nil {
+	if err := tx.WithContext(ctx).Exec(`SELECT pg_advisory_xact_lock($1)`, worker.LeetCodeAdvisoryLock).Error; err != nil {
 		return err
 	}
 	var exists bool
-	if err := tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM app.seasons WHERE slug='dev-season')`).Scan(&exists); err != nil {
+	if err := tx.WithContext(ctx).Raw(`SELECT EXISTS(SELECT 1 FROM app.seasons WHERE slug='dev-season')`).Row().Scan(&exists); err != nil {
 		return err
 	}
 
@@ -232,7 +234,7 @@ func seed(ctx context.Context, conn *pgx.Conn, options seedOptions) error {
 
 	now := time.Now().UTC()
 	var seasonID string
-	if err := tx.QueryRow(ctx, `INSERT INTO app.seasons(slug,name,status,start_at,end_at,location,image_url,resources_url,revision) VALUES('dev-season','Development Season','open',$1,$2,'Adelaide','https://example.invalid/rsp-season','https://example.invalid/rsp-resources',1) RETURNING id`, now.AddDate(0, 0, -7), now.AddDate(0, 0, 49)).Scan(&seasonID); err != nil {
+	if err := tx.WithContext(ctx).Raw(`INSERT INTO app.seasons(slug,name,status,start_at,end_at,location,image_url,resources_url,revision) VALUES('dev-season','Development Season','open',$1,$2,'Adelaide','https://example.invalid/rsp-season','https://example.invalid/rsp-resources',1) RETURNING id`, now.AddDate(0, 0, -7), now.AddDate(0, 0, 49)).Row().Scan(&seasonID); err != nil {
 		return fmt.Errorf("seed season: %w", err)
 	}
 
@@ -245,14 +247,14 @@ func seed(ctx context.Context, conn *pgx.Conn, options seedOptions) error {
 		{mentorID, "mentor", "not_applicable", &mentorEnrollmentID},
 		{coordinatorID, "coordinator", "not_applicable", &coordinatorEnrollmentID},
 	} {
-		if err := tx.QueryRow(ctx, `INSERT INTO app.enrollments(user_id,season_id,role,student_level,state,revision) VALUES($1,$2,$3,$4,'active',1) RETURNING id`, item.userID, seasonID, item.role, item.level).Scan(item.out); err != nil {
+		if err := tx.WithContext(ctx).Raw(`INSERT INTO app.enrollments(user_id,season_id,role,student_level,state,revision) VALUES($1,$2,$3,$4,'active',1) RETURNING id`, item.userID, seasonID, item.role, item.level).Row().Scan(item.out); err != nil {
 			return fmt.Errorf("seed enrollment: %w", err)
 		}
 	}
 	// The coordinator insert trigger starts every new coordinator assignment in
 	// pending_mfa. These users completed MFA before the seed ran, so reconcile
 	// the fixture without waiting for another identity event.
-	if _, err := tx.Exec(ctx, `
+	if err := tx.WithContext(ctx).Exec(`
 UPDATE app.enrollments e
 SET assignment_state='active',activated_at=$2,revision=e.revision+1
 FROM app.users u
@@ -261,10 +263,10 @@ WHERE e.id=$1
   AND e.role='coordinator'
   AND e.state='active'
   AND e.assignment_state='pending_mfa'
-  AND u.mfa_configured`, coordinatorEnrollmentID, now); err != nil {
+  AND u.mfa_configured`, coordinatorEnrollmentID, now).Error; err != nil {
 		return fmt.Errorf("seed coordinator role: %w", err)
 	}
-	if _, err := tx.Exec(ctx, `INSERT INTO app.mentorships(season_id,mentor_enrollment_id,student_enrollment_id,revision) VALUES($1,$2,$3,1)`, seasonID, mentorEnrollmentID, studentEnrollmentID); err != nil {
+	if err := tx.WithContext(ctx).Exec(`INSERT INTO app.mentorships(season_id,mentor_enrollment_id,student_enrollment_id,revision) VALUES($1,$2,$3,1)`, seasonID, mentorEnrollmentID, studentEnrollmentID).Error; err != nil {
 		return fmt.Errorf("seed mentorship: %w", err)
 	}
 	if err := seedLeetcodeProblem(ctx, tx); err != nil {
@@ -272,67 +274,67 @@ WHERE e.id=$1
 	}
 
 	var privilegedAssignmentID string
-	if err := tx.QueryRow(ctx, `
+	if err := tx.WithContext(ctx).Raw(`
 INSERT INTO app.global_role_assignments(user_id,role,state,granted_by_user_id,granted_at,activated_at,revision)
 SELECT $1,$2::app.global_role,'pending_mfa'::app.assignment_state,NULL,$3::timestamptz,NULL::timestamptz,1
 FROM app.users
 WHERE id=$1
-RETURNING id`, privilegedID, privilegedRole, now).Scan(&privilegedAssignmentID); err != nil {
+RETURNING id`, privilegedID, privilegedRole, now).Row().Scan(&privilegedAssignmentID); err != nil {
 		return fmt.Errorf("seed privileged role: %w", err)
 	}
-	if _, err := tx.Exec(ctx, `INSERT INTO app.audit_events(actor_user_id,action,subject_type,subject_id,data,occurred_at) VALUES(NULL,'development_seed.coordinator_granted','enrollment',$1,jsonb_build_object('userId',$2::text,'seasonId',$3::text),$4), (NULL,$5,'global_role_assignment',$6,jsonb_build_object('userId',$7::text),$4)`, coordinatorEnrollmentID, coordinatorID, seasonID, now, privilegedAuditAction, privilegedAssignmentID, privilegedID); err != nil {
+	if err := tx.WithContext(ctx).Exec(`INSERT INTO app.audit_events(actor_user_id,action,subject_type,subject_id,data,occurred_at) VALUES(NULL,'development_seed.coordinator_granted','enrollment',$1,jsonb_build_object('userId',$2::text,'seasonId',$3::text),$4), (NULL,$5,'global_role_assignment',$6,jsonb_build_object('userId',$7::text),$4)`, coordinatorEnrollmentID, coordinatorID, seasonID, now, privilegedAuditAction, privilegedAssignmentID, privilegedID).Error; err != nil {
 		return fmt.Errorf("seed audit: %w", err)
 	}
 
-	return tx.Commit(ctx)
+	return tx.Commit().Error
 }
 
-func seedLeetcodeProblem(ctx context.Context, tx pgx.Tx) error {
+func seedLeetcodeProblem(ctx context.Context, tx *gorm.DB) error {
 	const leetcodeNumber = 1
 	var problemID, leetcodeID string
-	err := tx.QueryRow(ctx, `
+	err := tx.WithContext(ctx).Raw(`
 SELECT p.id, l.id
 FROM app.leetcode_problems AS l
 JOIN app.problems AS p ON p.id=l.problem_id
 WHERE l.leetcode_number=$1
-FOR UPDATE OF p, l`, leetcodeNumber).Scan(&problemID, &leetcodeID)
+FOR UPDATE OF p, l`, leetcodeNumber).Row().Scan(&problemID, &leetcodeID)
 	switch {
-	case errors.Is(err, pgx.ErrNoRows):
-		if err := tx.QueryRow(ctx, `INSERT INTO app.problems(title,url,revision) VALUES('Two Sum','https://leetcode.com/problems/two-sum/',1) RETURNING id`).Scan(&problemID); err != nil {
+	case errors.Is(err, sql.ErrNoRows):
+		if err := tx.WithContext(ctx).Raw(`INSERT INTO app.problems(title,url,revision) VALUES('Two Sum','https://leetcode.com/problems/two-sum/',1) RETURNING id`).Row().Scan(&problemID); err != nil {
 			return err
 		}
-		_, err = tx.Exec(ctx, `INSERT INTO app.leetcode_problems(problem_id,leetcode_number,difficulty,is_premium,revision) VALUES($1,$2,'easy',false,1)`, problemID, leetcodeNumber)
+		err = tx.WithContext(ctx).Exec(`INSERT INTO app.leetcode_problems(problem_id,leetcode_number,difficulty,is_premium,revision) VALUES($1,$2,'easy',false,1)`, problemID, leetcodeNumber).Error
 		return err
 	case err != nil:
 		return err
 	default:
-		if _, err := tx.Exec(ctx, `UPDATE app.problems SET title='Two Sum',url='https://leetcode.com/problems/two-sum/',deleted_at=NULL,revision=revision+1 WHERE id=$1`, problemID); err != nil {
+		if err := tx.WithContext(ctx).Exec(`UPDATE app.problems SET title='Two Sum',url='https://leetcode.com/problems/two-sum/',deleted_at=NULL,revision=revision+1 WHERE id=$1`, problemID).Error; err != nil {
 			return err
 		}
-		_, err = tx.Exec(ctx, `UPDATE app.leetcode_problems SET difficulty='easy',is_premium=false,deleted_at=NULL,revision=revision+1 WHERE id=$1`, leetcodeID)
+		err = tx.WithContext(ctx).Exec(`UPDATE app.leetcode_problems SET difficulty='easy',is_premium=false,deleted_at=NULL,revision=revision+1 WHERE id=$1`, leetcodeID).Error
 		return err
 	}
 }
 
-func bootstrap(ctx context.Context, conn *pgx.Conn, subject, email string) error {
+func bootstrap(ctx context.Context, db *gorm.DB, subject, email string) error {
 	subject = strings.TrimSpace(subject)
 	email = strings.TrimSpace(strings.ToLower(email))
 	if subject == "" || email == "" {
 		return errors.New("--auth-subject and --email are required")
 	}
 
-	tx, err := conn.Begin(ctx)
-	if err != nil {
-		return err
+	tx := db.WithContext(ctx).Begin()
+	if tx.Error != nil {
+		return tx.Error
 	}
 
-	defer tx.Rollback(ctx)
-	if _, err := tx.Exec(ctx, `SELECT pg_advisory_xact_lock(7277500101)`); err != nil {
+	defer tx.Rollback()
+	if err := tx.WithContext(ctx).Exec(`SELECT pg_advisory_xact_lock(7277500101)`).Error; err != nil {
 		return err
 	}
 
 	var count int
-	if err := tx.QueryRow(ctx, `SELECT count(*) FROM app.global_role_assignments WHERE role='system_admin'`).Scan(&count); err != nil {
+	if err := tx.WithContext(ctx).Raw(`SELECT count(*) FROM app.global_role_assignments WHERE role='system_admin'`).Row().Scan(&count); err != nil {
 		return err
 	}
 	if count > 0 {
@@ -340,14 +342,14 @@ func bootstrap(ctx context.Context, conn *pgx.Conn, subject, email string) error
 	}
 
 	var userID string
-	err = tx.QueryRow(ctx, `SELECT u.id FROM app.users u JOIN app.user_auth_links l ON l.user_id=u.id WHERE l.auth_subject=$1 AND lower(u.email)=lower($2) AND l.active AND u.account_state='active' FOR UPDATE`, subject, email).Scan(&userID)
+	err := tx.WithContext(ctx).Raw(`SELECT u.id FROM app.users u JOIN app.user_auth_links l ON l.user_id=u.id WHERE l.auth_subject=$1 AND lower(u.email)=lower($2) AND l.active AND u.account_state='active' FOR UPDATE`, subject, email).Row().Scan(&userID)
 	if err != nil {
 		return fmt.Errorf("verified linked user not found: %w", err)
 	}
 
 	assignmentID := id.New()
 	var assignmentState string
-	err = tx.QueryRow(ctx, `INSERT INTO app.global_role_assignments(id,user_id,role,state,granted_by_user_id,granted_at,revision) VALUES($1,$2,'system_admin','pending_mfa',NULL,now(),1) RETURNING state::text`, assignmentID, userID).Scan(&assignmentState)
+	err = tx.WithContext(ctx).Raw(`INSERT INTO app.global_role_assignments(id,user_id,role,state,granted_by_user_id,granted_at,revision) VALUES($1,$2,'system_admin','pending_mfa',NULL,now(),1) RETURNING state::text`, assignmentID, userID).Row().Scan(&assignmentState)
 	if err != nil {
 		return err
 	}
@@ -357,12 +359,12 @@ func bootstrap(ctx context.Context, conn *pgx.Conn, subject, email string) error
 		return err
 	}
 
-	_, err = tx.Exec(ctx, `INSERT INTO app.audit_events(id,actor_user_id,action,subject_type,subject_id,data) VALUES($1,NULL,$2,'global_role_assignment',$3,jsonb_build_object('userId',$4,'state',$5))`, id.New(), auditAction, assignmentID, userID, assignmentState)
+	err = tx.WithContext(ctx).Exec(`INSERT INTO app.audit_events(id,actor_user_id,action,subject_type,subject_id,data) VALUES($1,NULL,$2,'global_role_assignment',$3,jsonb_build_object('userId',$4,'state',$5))`, id.New(), auditAction, assignmentID, userID, assignmentState).Error
 	if err != nil {
 		return err
 	}
 
-	return tx.Commit(ctx)
+	return tx.Commit().Error
 }
 
 func bootstrapAuditAction(assignmentState string) (string, error) {

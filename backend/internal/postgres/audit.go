@@ -5,27 +5,30 @@ import (
 	"encoding/json"
 	"time"
 
-	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/magedmg/RSP-website/backend/internal/platform/audit"
+	"github.com/magedmg/RSP-website/backend/internal/platform/dbtable"
 	"github.com/magedmg/RSP-website/backend/internal/platform/id"
+	"gorm.io/gorm"
 )
 
-func (p *Postgres) AppendAudit(ctx context.Context, v audit.Event) error {
-	return appendAuditTx(ctx, p.Pool, v)
+func (p *Postgres) AppendAudit(ctx context.Context, event audit.Event) error {
+	return appendAuditTx(ctx, p.DB, event)
 }
 
-type execer interface {
-	Exec(context.Context, string, ...any) (pgconn.CommandTag, error)
-}
-
-func appendAuditTx(ctx context.Context, db execer, v audit.Event) error {
-	raw, err := json.Marshal(v.Data)
+func appendAuditTx(ctx context.Context, db *gorm.DB, event audit.Event) error {
+	raw, err := json.Marshal(event.Data)
 	if err != nil {
 		return err
 	}
-
-	_, err = db.Exec(ctx, `INSERT INTO app.audit_events(id,actor_user_id,action,subject_type,subject_id,data,occurred_at) VALUES($1,$2,$3,$4,$5,$6,$7)`, v.ID, v.ActorID, v.Action, v.SubjectType, v.SubjectID, raw, v.OccurredAt)
-	return err
+	return db.WithContext(ctx).Table(dbtable.AuditEvents).Create(map[string]any{
+		"id":            event.ID,
+		"actor_user_id": event.ActorID,
+		"action":        event.Action,
+		"subject_type":  event.SubjectType,
+		"subject_id":    event.SubjectID,
+		"data":          gorm.Expr("?::jsonb", string(raw)),
+		"occurred_at":   event.OccurredAt.UTC(),
+	}).Error
 }
 
 func newAudit(actorID, action, subjectType, subjectID string, data map[string]any, at time.Time) audit.Event {
