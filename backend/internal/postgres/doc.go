@@ -1,2 +1,2 @@
-// Package postgres implements the PostgreSQL adapters for backend features.
+// Package postgres implements the backend's PostgreSQL store.
 package postgres

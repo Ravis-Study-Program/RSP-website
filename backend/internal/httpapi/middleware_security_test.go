@@ -11,7 +11,7 @@ import (
 
 	"github.com/magedmg/RSP-website/backend/internal/authn"
 	"github.com/magedmg/RSP-website/backend/internal/authz"
-	"github.com/magedmg/RSP-website/backend/internal/platform/repository"
+	"github.com/magedmg/RSP-website/backend/internal/postgres"
 )
 
 func TestClaimsMustMatchCurrentAccountStateAndSecurityVersion(t *testing.T) {
@@ -38,9 +38,9 @@ func TestWriteStoreErrorResponse(t *testing.T) {
 		wantCode   string
 		wantLog    bool
 	}{
-		{"not found", repository.ErrNotFound, http.StatusNotFound, "not_found", false},
-		{"wrapped conflict", errors.Join(errors.New("update failed"), repository.ErrConflict), http.StatusConflict, "stale_revision", false},
-		{"duplicate", repository.ErrDuplicate, http.StatusConflict, "duplicate", false},
+		{"not found", postgres.ErrNotFound, http.StatusNotFound, "not_found", false},
+		{"wrapped conflict", errors.Join(errors.New("update failed"), postgres.ErrConflict), http.StatusConflict, "stale_revision", false},
+		{"duplicate", postgres.ErrDuplicate, http.StatusConflict, "duplicate", false},
 		{"unexpected", unexpected, http.StatusInternalServerError, "internal_error", true},
 	}
 

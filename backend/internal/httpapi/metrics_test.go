@@ -4,31 +4,27 @@ import (
 	"context"
 	"errors"
 	"net/http"
-	"net/http/httptest"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/magedmg/RSP-website/backend/internal/platform/observability"
-	"github.com/magedmg/RSP-website/backend/internal/store"
 )
 
-type observableRepository struct {
-	*store.Memory
+type observableSource struct {
 	snapshot observability.Snapshot
 	err      error
 }
 
-func (repository *observableRepository) ObservabilitySnapshot(context.Context) (observability.Snapshot, error) {
-	return repository.snapshot, repository.err
+func (source *observableSource) ObservabilitySnapshot(context.Context) (observability.Snapshot, error) {
+	return source.snapshot, source.err
 }
 
 func TestMetricsMatchDashboardSeriesWithBoundedLabels(t *testing.T) {
 	metrics := newAPIMetrics()
 	metrics.observeHTTP(http.StatusCreated, 12*time.Millisecond)
 	metrics.observeHTTP(http.StatusServiceUnavailable, 2*time.Second)
-	repository := &observableRepository{
-		Memory: store.NewMemory(),
+	source := &observableSource{
 		snapshot: observability.Snapshot{
 			DBPoolAcquiredConnections: 3,
 			DBPoolIdleConnections:     7,
@@ -41,7 +37,7 @@ func TestMetricsMatchDashboardSeriesWithBoundedLabels(t *testing.T) {
 		},
 	}
 	var output strings.Builder
-	metrics.render(context.Background(), &output, repository)
+	metrics.render(context.Background(), &output, source)
 	body := output.String()
 	for _, expected := range []string{
 		`rsp_http_requests_total{status_class="2xx"} 1`,
@@ -65,9 +61,9 @@ func TestMetricsMatchDashboardSeriesWithBoundedLabels(t *testing.T) {
 
 func TestMetricsSnapshotFailureIsSafeAndDoesNotLeakError(t *testing.T) {
 	metrics := newAPIMetrics()
-	repository := &observableRepository{Memory: store.NewMemory(), err: errors.New("private@example.com")}
+	source := &observableSource{err: errors.New("private@example.com")}
 	var output strings.Builder
-	metrics.render(context.Background(), &output, repository)
+	metrics.render(context.Background(), &output, source)
 	body := output.String()
 	if !strings.Contains(body, `rsp_migration_status{state="none"} 1`) ||
 		!strings.Contains(body, "rsp_observability_snapshot_success 0") {
@@ -75,31 +71,5 @@ func TestMetricsSnapshotFailureIsSafeAndDoesNotLeakError(t *testing.T) {
 	}
 	if strings.Contains(body, "private@example.com") {
 		t.Fatal("snapshot error leaked into metrics")
-	}
-}
-
-func TestMetricsEndpointRecordsResponseClassesAndLatency(t *testing.T) {
-	fixture := newFixture()
-	if response := request(t, fixture, http.MethodGet, "/api/v2/health/live", "", ""); response.Code != http.StatusOK {
-		t.Fatal(response.Code)
-	}
-	if response := request(t, fixture, http.MethodGet, "/api/v2/me", "", ""); response.Code != http.StatusUnauthorized {
-		t.Fatal(response.Code)
-	}
-	request := httptest.NewRequest(http.MethodGet, "/api/v2/metrics", nil)
-	response := httptest.NewRecorder()
-	fixture.handler.ServeHTTP(response, request)
-	body := response.Body.String()
-	for _, expected := range []string{
-		`rsp_http_requests_total{status_class="2xx"} 1`,
-		`rsp_http_requests_total{status_class="4xx"} 1`,
-		`rsp_http_request_duration_seconds_count 2`,
-	} {
-		if !strings.Contains(body, expected) {
-			t.Fatalf("missing %q in endpoint metrics:\n%s", expected, body)
-		}
-	}
-	if contentType := response.Header().Get("Content-Type"); contentType != "text/plain; version=0.0.4; charset=utf-8" {
-		t.Fatalf("content type = %q", contentType)
 	}
 }

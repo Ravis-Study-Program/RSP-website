@@ -8,6 +8,7 @@ import (
 
 	"github.com/magedmg/RSP-website/backend/internal/authz"
 	"github.com/magedmg/RSP-website/backend/internal/mockinterviews"
+	"github.com/magedmg/RSP-website/backend/internal/platform/id"
 )
 
 type mockRoundRequest struct {
@@ -36,7 +37,7 @@ func mockRoundsFromRequest(rounds []mockRoundRequest) []mockinterviews.Round {
 
 func (a *API) eligibleMockActor(r *http.Request) bool {
 	actor := actorFrom(r.Context())
-	participant, err := a.store.GetMockParticipant(r.Context(), actor.UserID)
+	participant, err := a.db.GetMockParticipant(r.Context(), actor.UserID)
 	return err == nil && participant.ProgrammeAccessEligible()
 }
 
@@ -69,7 +70,7 @@ func (a *API) listMockParticipants(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	users, more, total, err := a.store.ListUsers(r.Context(), boundary, limit, direction, query, "", "")
+	users, more, total, err := a.db.ListUsers(r.Context(), boundary, limit, direction, query, "", "")
 	if err != nil {
 		a.writeStoreErrorResponse(w, err)
 		return
@@ -127,7 +128,7 @@ func (a *API) listMocks(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	items, more, total, err := a.store.ListMockInterviews(r.Context(), actor, mode, boundary, limit, sortBy, direction)
+	items, more, total, err := a.db.ListMockInterviews(r.Context(), actor, mode, boundary, limit, sortBy, direction)
 	if err != nil {
 		a.writeStoreErrorResponse(w, err)
 		return
@@ -179,7 +180,7 @@ func (a *API) createMock(w http.ResponseWriter, r *http.Request) {
 	}
 	// Eligibility is loaded from app state; the request can only identify the
 	// interviewee.
-	interviewee, err := a.store.GetMockParticipant(r.Context(), in.Interviewee.UserID)
+	interviewee, err := a.db.GetMockParticipant(r.Context(), in.Interviewee.UserID)
 	if err != nil {
 		a.writeStoreErrorResponse(w, err)
 		return
@@ -188,9 +189,23 @@ func (a *API) createMock(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	now := time.Now().UTC()
-	v, err := a.mockService.Create(r.Context(), actor.UserID, mockinterviews.CreateInput{Interviewee: interviewee, SeasonID: in.SeasonID, OccurredAt: in.OccurredAt, DurationMinutes: in.DurationMinutes, Notes: in.Notes, Rounds: mockRoundsFromRequest(in.Rounds)}, now)
+	input := mockinterviews.CreateInput{
+		Interviewee:     interviewee,
+		SeasonID:        in.SeasonID,
+		OccurredAt:      in.OccurredAt,
+		DurationMinutes: in.DurationMinutes,
+		Notes:           in.Notes,
+		Rounds:          mockRoundsFromRequest(in.Rounds),
+	}
+	v, err := a.mockRules.Create(actor.UserID, input, now)
 	if err != nil {
 		mockFailure(a, w, r, err)
+		return
+	}
+	v.ID = id.New()
+	v, err = a.db.CreateMockInterview(r.Context(), v, actor.UserID, now)
+	if err != nil {
+		a.writeStoreErrorResponse(w, err)
 		return
 	}
 
@@ -217,7 +232,7 @@ func (a *API) updateMock(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	v, err := a.store.GetMockInterview(r.Context(), r.PathValue("id"))
+	v, err := a.db.GetMockInterview(r.Context(), r.PathValue("id"))
 	if err != nil {
 		a.writeStoreErrorResponse(w, err)
 		return
@@ -233,9 +248,21 @@ func (a *API) updateMock(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	now := time.Now().UTC()
-	v, err = a.mockService.Update(r.Context(), v, actor.UserID, mockinterviews.UpdateInput{ExpectedRevision: in.Revision, OccurredAt: in.OccurredAt, DurationMinutes: in.DurationMinutes, Notes: in.Notes, Rounds: mockRoundsFromRequest(in.Rounds)}, now)
+	input := mockinterviews.UpdateInput{
+		ExpectedRevision: in.Revision,
+		OccurredAt:       in.OccurredAt,
+		DurationMinutes:  in.DurationMinutes,
+		Notes:            in.Notes,
+		Rounds:           mockRoundsFromRequest(in.Rounds),
+	}
+	v, err = a.mockRules.Update(v, actor.UserID, input, now)
 	if err != nil {
 		mockFailure(a, w, r, err)
+		return
+	}
+	v, err = a.db.UpdateMockInterview(r.Context(), v, actor.UserID, "updated", now)
+	if err != nil {
+		a.writeStoreErrorResponse(w, err)
 		return
 	}
 
@@ -256,7 +283,7 @@ func (a *API) deleteMock(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	v, err := a.store.GetMockInterview(r.Context(), r.PathValue("id"))
+	v, err := a.db.GetMockInterview(r.Context(), r.PathValue("id"))
 	if err != nil {
 		a.writeStoreErrorResponse(w, err)
 		return
@@ -269,9 +296,13 @@ func (a *API) deleteMock(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	now := time.Now().UTC()
-	v, err = a.mockService.Delete(r.Context(), v, actor.UserID, revision, now)
+	v, err = a.mockRules.Delete(v, actor.UserID, revision, now)
 	if err != nil {
 		mockFailure(a, w, r, err)
+		return
+	}
+	if _, err = a.db.UpdateMockInterview(r.Context(), v, actor.UserID, "soft deleted", now); err != nil {
+		a.writeStoreErrorResponse(w, err)
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
@@ -293,7 +324,7 @@ func (a *API) reviewRound(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	v, err := a.store.GetMockInterview(r.Context(), r.PathValue("id"))
+	v, err := a.db.GetMockInterview(r.Context(), r.PathValue("id"))
 	if err != nil {
 		a.writeStoreErrorResponse(w, err)
 		return
@@ -306,9 +337,14 @@ func (a *API) reviewRound(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	now := time.Now().UTC()
-	v, err = a.mockService.Review(r.Context(), v, actor.UserID, r.PathValue("roundId"), in.Comment, in.Reviewed, in.Revision, now)
+	v, err = a.mockRules.Review(v, actor.UserID, r.PathValue("roundId"), in.Comment, in.Reviewed, in.Revision, now)
 	if err != nil {
 		mockFailure(a, w, r, err)
+		return
+	}
+	v, err = a.db.UpdateMockInterview(r.Context(), v, actor.UserID, "interviewee review", now)
+	if err != nil {
+		a.writeStoreErrorResponse(w, err)
 		return
 	}
 
@@ -335,14 +371,14 @@ func (a *API) correctMockIdentities(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	v, err := a.store.GetMockInterview(r.Context(), r.PathValue("id"))
+	v, err := a.db.GetMockInterview(r.Context(), r.PathValue("id"))
 	if err != nil {
 		a.writeStoreErrorResponse(w, err)
 		return
 	}
 
 	for _, userID := range []string{in.InterviewerID, in.IntervieweeID} {
-		participant, err := a.store.GetMockParticipant(r.Context(), userID)
+		participant, err := a.db.GetMockParticipant(r.Context(), userID)
 		if err != nil || !participant.Eligible() {
 			writeErrorResponse(w, http.StatusBadRequest, "invalid_mock_participant", "Corrected participants must be active members or alumni.")
 			return
@@ -352,9 +388,14 @@ func (a *API) correctMockIdentities(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	now := time.Now().UTC()
-	v, err = a.mockService.CorrectIdentities(r.Context(), v, actor.UserID, in.InterviewerID, in.IntervieweeID, in.SeasonID, in.Reason, true, in.Revision, now)
+	v, err = a.mockRules.CorrectIdentities(v, actor.UserID, in.InterviewerID, in.IntervieweeID, in.SeasonID, in.Reason, true, in.Revision, now)
 	if err != nil {
 		mockFailure(a, w, r, err)
+		return
+	}
+	v, err = a.db.UpdateMockInterview(r.Context(), v, actor.UserID, "identity correction: "+in.Reason, now)
+	if err != nil {
+		a.writeStoreErrorResponse(w, err)
 		return
 	}
 
@@ -367,7 +408,7 @@ func (a *API) validMockSeason(w http.ResponseWriter, r *http.Request, seasonID *
 	if seasonID == nil {
 		return true
 	}
-	season, err := a.store.GetSeason(r.Context(), *seasonID)
+	season, err := a.db.GetSeason(r.Context(), *seasonID)
 	if err != nil {
 		writeErrorResponse(w, http.StatusBadRequest, "invalid_mock_season", "The selected season must exist.")
 		return false
@@ -382,7 +423,7 @@ func (a *API) validMockSeason(w http.ResponseWriter, r *http.Request, seasonID *
 		return false
 	}
 	for _, userID := range userIDs {
-		enrollments, listErr := a.store.ListEnrollmentsForUser(r.Context(), userID)
+		enrollments, listErr := a.db.ListEnrollmentsForUser(r.Context(), userID)
 		if listErr != nil {
 			a.writeStoreErrorResponse(w, listErr)
 			return false
@@ -406,7 +447,7 @@ func (a *API) mockSeasonWritable(w http.ResponseWriter, r *http.Request, seasonI
 	if seasonID == nil {
 		return true
 	}
-	season, err := a.store.GetSeason(r.Context(), *seasonID)
+	season, err := a.db.GetSeason(r.Context(), *seasonID)
 	if err != nil {
 		a.writeStoreErrorResponse(w, err)
 		return false
@@ -436,7 +477,7 @@ func withPass(v mockinterviews.Interview) map[string]any {
 func (a *API) withMockParticipantSummaries(r *http.Request, interview mockinterviews.Interview) mockinterviews.Interview {
 	load := func(userID string) mockinterviews.ParticipantSummary {
 		summary := mockinterviews.ParticipantSummary{ID: userID, Name: "Deleted member"}
-		if user, err := a.store.GetUser(r.Context(), userID); err == nil {
+		if user, err := a.db.GetUser(r.Context(), userID); err == nil {
 			summary.Slug, summary.Name, summary.AvatarURL = user.Slug, user.Name, user.AvatarURL
 		}
 		return summary

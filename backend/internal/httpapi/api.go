@@ -16,6 +16,7 @@ import (
 	"github.com/magedmg/RSP-website/backend/internal/platform/id"
 	"github.com/magedmg/RSP-website/backend/internal/platform/ratelimit"
 	"github.com/magedmg/RSP-website/backend/internal/platform/sanitize"
+	"github.com/magedmg/RSP-website/backend/internal/postgres"
 )
 
 type requestIDKey struct{}
@@ -26,7 +27,7 @@ const maxRequestBodyBytes int64 = 1 << 20
 
 // Config contains the dependencies needed by the HTTP API.
 type Config struct {
-	Store           Repository
+	DB              *postgres.Postgres
 	Authenticator   Authenticator
 	PublicOrigin    string
 	CursorSecret    []byte
@@ -39,7 +40,7 @@ type Config struct {
 
 // API connects HTTP handlers to authentication, application services, and storage.
 type API struct {
-	store           Repository
+	db              *postgres.Postgres
 	auth            Authenticator
 	publicOrigin    string
 	cursorSecret    []byte
@@ -50,7 +51,7 @@ type API struct {
 	setAccountState func(context.Context, string, string, string, string) error
 	getMFAState     func(context.Context, string) (bool, error)
 	telemetry       *apiMetrics
-	mockService     mockinterviews.Application
+	mockRules       mockinterviews.Service
 }
 
 // New constructs the HTTP API from its dependencies.
@@ -65,7 +66,7 @@ func New(c Config) *API {
 	}
 	cleaner := sanitize.New()
 	return &API{
-		store:           c.Store,
+		db:              c.DB,
 		auth:            c.Authenticator,
 		publicOrigin:    c.PublicOrigin,
 		cursorSecret:    secret,
@@ -76,11 +77,7 @@ func New(c Config) *API {
 		setAccountState: c.SetAccountState,
 		getMFAState:     c.GetMFAState,
 		telemetry:       newAPIMetrics(),
-		mockService: mockinterviews.Application{
-			Repository: c.Store,
-			Rules:      mockinterviews.Service{Sanitize: cleaner.String},
-			NewID:      id.New,
-		},
+		mockRules:       mockinterviews.Service{Sanitize: cleaner.String},
 	}
 }
 
@@ -211,5 +208,5 @@ func (a *API) readiness(w http.ResponseWriter, r *http.Request) {
 
 func (a *API) metrics(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/plain; version=0.0.4; charset=utf-8")
-	a.telemetry.render(r.Context(), w, a.store)
+	a.telemetry.render(r.Context(), w, a.db)
 }

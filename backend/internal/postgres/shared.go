@@ -10,16 +10,15 @@ import (
 	"github.com/jackc/pgx/v5/stdlib"
 	"github.com/magedmg/RSP-website/backend/internal/platform/dbtable"
 	"github.com/magedmg/RSP-website/backend/internal/platform/observability"
-	"github.com/magedmg/RSP-website/backend/internal/platform/repository"
 	gormpostgres "gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 )
 
 var (
-	ErrNotFound  = repository.ErrNotFound
-	ErrConflict  = repository.ErrConflict
-	ErrDuplicate = repository.ErrDuplicate
+	ErrNotFound  = errors.New("not found")
+	ErrConflict  = errors.New("conflict")
+	ErrDuplicate = errors.New("duplicate")
 )
 
 // Postgres owns the GORM handle and its underlying database/sql pool. Goose,

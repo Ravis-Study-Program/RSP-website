@@ -36,7 +36,7 @@ func (a *API) currentUserResponse(r *http.Request, actor authz.Actor, user accou
 			continue
 		}
 
-		season, err := a.store.GetSeason(r.Context(), enrollment.SeasonID)
+		season, err := a.db.GetSeason(r.Context(), enrollment.SeasonID)
 		if err != nil {
 			return meResponse{}, err
 		}
@@ -49,7 +49,7 @@ func (a *API) currentUserResponse(r *http.Request, actor authz.Actor, user accou
 
 func (a *API) me(w http.ResponseWriter, r *http.Request) {
 	actor := actorFrom(r.Context())
-	user, err := a.store.GetUser(r.Context(), actor.UserID)
+	user, err := a.db.GetUser(r.Context(), actor.UserID)
 	if err != nil {
 		a.writeStoreErrorResponse(w, err)
 		return
@@ -65,7 +65,7 @@ func (a *API) me(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *API) suggestMeSlug(w http.ResponseWriter, r *http.Request) {
-	slug, err := a.store.SuggestUserSlug(r.Context())
+	slug, err := a.db.SuggestUserSlug(r.Context())
 	if err != nil {
 		a.writeStoreErrorResponse(w, err)
 		return
@@ -109,7 +109,7 @@ func (a *API) updateMe(w http.ResponseWriter, r *http.Request) {
 		in.Slug = &slug
 	}
 
-	updated, err := a.store.UpdateUser(r.Context(), actor.UserID, in.Revision, func(u *accounts.User) error {
+	updated, err := a.db.UpdateUser(r.Context(), actor.UserID, in.Revision, func(u *accounts.User) error {
 		u.Name = strings.TrimSpace(in.Name)
 		if in.Slug != nil {
 			u.Slug = *in.Slug
@@ -182,7 +182,7 @@ func (a *API) users(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	items, more, total, err := a.store.ListUsers(r.Context(), boundary, limit, direction, query, seasonRole, globalRole)
+	items, more, total, err := a.db.ListUsers(r.Context(), boundary, limit, direction, query, seasonRole, globalRole)
 	if err != nil {
 		a.writeStoreErrorResponse(w, err)
 		return
@@ -211,14 +211,14 @@ func (a *API) user(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	user, err := a.store.GetUser(r.Context(), r.PathValue("id"))
+	user, err := a.db.GetUser(r.Context(), r.PathValue("id"))
 	if err != nil {
 		a.writeStoreErrorResponse(w, err)
 		return
 	}
 
 	if actor.UserID != user.ID && !actor.IsPrivileged() {
-		participant, eligibilityErr := a.store.GetMockParticipant(r.Context(), user.ID)
+		participant, eligibilityErr := a.db.GetMockParticipant(r.Context(), user.ID)
 		if eligibilityErr != nil || !participant.DirectoryEligible() {
 			writeErrorResponse(w, http.StatusNotFound, "not_found", "The requested resource does not exist.")
 			return
@@ -280,7 +280,7 @@ func (a *API) seasons(w http.ResponseWriter, r *http.Request) {
 			writeErrorResponse(w, http.StatusBadRequest, "invalid_cursor", cursor.ErrInvalid.Error())
 			return
 		}
-		items, more, total, listErr := a.store.ListSeasons(r.Context(), boundary, limit, direction, status)
+		items, more, total, listErr := a.db.ListSeasons(r.Context(), boundary, limit, direction, status)
 		if listErr != nil {
 			a.writeStoreErrorResponse(w, listErr)
 			return
@@ -304,7 +304,7 @@ func (a *API) seasons(w http.ResponseWriter, r *http.Request) {
 		if seen[enrollment.SeasonID] || !canViewSeason(actor, enrollment.SeasonID) {
 			continue
 		}
-		season, seasonErr := a.store.GetSeason(r.Context(), enrollment.SeasonID)
+		season, seasonErr := a.db.GetSeason(r.Context(), enrollment.SeasonID)
 		if seasonErr != nil {
 			a.writeStoreErrorResponse(w, seasonErr)
 			return
@@ -338,7 +338,7 @@ func (a *API) season(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	v, err := a.store.GetSeason(r.Context(), r.PathValue("id"))
+	v, err := a.db.GetSeason(r.Context(), r.PathValue("id"))
 	if err != nil {
 		a.writeStoreErrorResponse(w, err)
 		return
@@ -432,7 +432,7 @@ func (a *API) createSeason(w http.ResponseWriter, r *http.Request) {
 	}
 
 	v := programme.SeasonRecord{ID: id.New(), Slug: in.Slug, Name: in.Name, Status: "open", StartAt: in.StartAt.UTC(), EndAt: in.EndAt.UTC(), Location: in.Location, ImageURL: in.ImageURL, ResourcesURL: in.ResourcesURL, Revision: 1}
-	created, err := a.store.CreateSeason(r.Context(), v, actor.UserID, time.Now().UTC())
+	created, err := a.db.CreateSeason(r.Context(), v, actor.UserID, time.Now().UTC())
 	if err != nil {
 		a.writeStoreErrorResponse(w, err)
 		return
@@ -449,7 +449,7 @@ func (a *API) updateSeason(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	current, err := a.store.GetSeason(r.Context(), seasonID)
+	current, err := a.db.GetSeason(r.Context(), seasonID)
 	if err != nil {
 		a.writeStoreErrorResponse(w, err)
 		return
@@ -466,7 +466,7 @@ func (a *API) updateSeason(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	updated, err := a.store.UpdateSeason(r.Context(), seasonID, in.Revision, func(v *programme.SeasonRecord) error {
+	updated, err := a.db.UpdateSeason(r.Context(), seasonID, in.Revision, func(v *programme.SeasonRecord) error {
 		v.Name = in.Name
 		v.Slug = in.Slug
 		v.Location = in.Location
@@ -502,7 +502,7 @@ func (a *API) updateSeasonResources(w http.ResponseWriter, r *http.Request) {
 	}
 
 	actor := actorFrom(r.Context())
-	updated, err := a.store.UpdateSeason(r.Context(), seasonID, in.Revision, func(v *programme.SeasonRecord) error {
+	updated, err := a.db.UpdateSeason(r.Context(), seasonID, in.Revision, func(v *programme.SeasonRecord) error {
 		v.ResourcesURL = in.ResourcesURL
 		return nil
 	}, actor.UserID, time.Now().UTC())
@@ -517,7 +517,7 @@ func (a *API) updateSeasonResources(w http.ResponseWriter, r *http.Request) {
 func (a *API) closeSeason(w http.ResponseWriter, r *http.Request) {
 	actor := actorFrom(r.Context())
 	seasonID := r.PathValue("id")
-	season, err := a.store.GetSeason(r.Context(), seasonID)
+	season, err := a.db.GetSeason(r.Context(), seasonID)
 	if err != nil {
 		a.writeStoreErrorResponse(w, err)
 		return
@@ -542,7 +542,7 @@ func (a *API) closeSeason(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	updated, err := a.store.CloseSeason(r.Context(), seasonID, in.Revision, actor.UserID, strings.TrimSpace(in.Reason), time.Now().UTC())
+	updated, err := a.db.CloseSeason(r.Context(), seasonID, in.Revision, actor.UserID, strings.TrimSpace(in.Reason), time.Now().UTC())
 	if err != nil {
 		a.writeStoreErrorResponse(w, err)
 		return
@@ -568,7 +568,7 @@ func (a *API) reopenSeason(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	updated, err := a.store.ReopenSeason(r.Context(), seasonID, in.Revision, actor.UserID, strings.TrimSpace(in.Reason), time.Now().UTC())
+	updated, err := a.db.ReopenSeason(r.Context(), seasonID, in.Revision, actor.UserID, strings.TrimSpace(in.Reason), time.Now().UTC())
 	if err != nil {
 		a.writeStoreErrorResponse(w, err)
 		return

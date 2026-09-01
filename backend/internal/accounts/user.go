@@ -1,6 +1,6 @@
 package accounts
 
-// User is the account read model exposed by account-related adapters.
+// User is the account read model returned by the backend.
 type User struct {
 	ID                 string           `json:"id"`
 	Slug               string           `json:"slug"`

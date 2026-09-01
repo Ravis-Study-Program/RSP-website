@@ -12,7 +12,7 @@ import (
 	"github.com/magedmg/RSP-website/backend/internal/authn"
 	"github.com/magedmg/RSP-website/backend/internal/authz"
 	"github.com/magedmg/RSP-website/backend/internal/platform/ratelimit"
-	"github.com/magedmg/RSP-website/backend/internal/platform/repository"
+	"github.com/magedmg/RSP-website/backend/internal/postgres"
 )
 
 // Authenticator defines a backend interface.
@@ -27,7 +27,7 @@ type AuthenticatorFunc func(*http.Request) (authz.Actor, error)
 func (f AuthenticatorFunc) Authenticate(r *http.Request) (authz.Actor, error) { return f(r) }
 
 // SubjectResolver resolves a validated token subject into a domain actor.
-// Authentication does not need the rest of the application's repository.
+// Authentication needs only subject resolution, not every database operation.
 type SubjectResolver interface {
 	ResolveAuthSubject(context.Context, string) (authz.Actor, error)
 }
@@ -142,11 +142,11 @@ func writeErrorResponse(w http.ResponseWriter, status int, code, message string)
 // Unexpected errors are logged with their request ID but are never exposed.
 func (a *API) writeStoreErrorResponse(w http.ResponseWriter, err error) {
 	switch {
-	case errors.Is(err, repository.ErrNotFound):
+	case errors.Is(err, postgres.ErrNotFound):
 		writeErrorResponse(w, http.StatusNotFound, "not_found", "The requested resource does not exist.")
-	case errors.Is(err, repository.ErrConflict):
+	case errors.Is(err, postgres.ErrConflict):
 		writeErrorResponse(w, http.StatusConflict, "stale_revision", "The resource changed since it was loaded.")
-	case errors.Is(err, repository.ErrDuplicate):
+	case errors.Is(err, postgres.ErrDuplicate):
 		writeErrorResponse(w, http.StatusConflict, "duplicate", "A resource with that unique value already exists.")
 	default:
 		a.logger.Error(

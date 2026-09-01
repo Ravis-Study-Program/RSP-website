@@ -5,7 +5,6 @@ services:
   api:
     environment:
       APP_ENV: test
-      DEV_AUTH_BYPASS: 'false'
 
   worker:
     environment:

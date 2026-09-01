@@ -93,7 +93,6 @@ services:
       AUTH_JWKS_URL: http://auth:3001/api/auth/jwks
       AUTH_INTERNAL_URL: http://auth:3001
       IDENTITY_SERVICE_TOKEN: ${IDENTITY_SERVICE_TOKEN:-rsp-local-identity-service-token-change-me}
-      DEV_AUTH_BYPASS: ${DEV_AUTH_BYPASS:-false}
     volumes:
       - ./backend:/workspace/backend
       - ./api:/workspace/api

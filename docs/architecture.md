@@ -41,11 +41,11 @@ Feature services own business rules. Transport code must not recreate role or
 ownership checks, and SQL must not infer an actor from request data. Mutations
 that span related records use one request-scoped transaction.
 
-Feature packages define the interfaces they consume. The HTTP adapter depends
-on feature repository ports, while the PostgreSQL adapter implements those
-ports. Feature packages must not import either adapter. The in-memory store
-remains a transitional development and test adapter; production persistence
-uses PostgreSQL directly.
+HTTP handlers call the concrete PostgreSQL store. Feature packages contain
+plain data types and business rules, and they do not import HTTP or database
+code. PostgreSQL is the only runtime database; local development and
+integration tests use disposable PostgreSQL data instead of a second storage
+implementation.
 
 ## Identity and request flow
 

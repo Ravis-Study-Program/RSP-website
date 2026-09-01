@@ -8,7 +8,7 @@ import (
 )
 
 func (a *API) practiceSettings(w http.ResponseWriter, r *http.Request) {
-	settings, err := a.store.GetPracticeSettings(r.Context(), actorFrom(r.Context()).UserID)
+	settings, err := a.db.GetPracticeSettings(r.Context(), actorFrom(r.Context()).UserID)
 	if err != nil {
 		a.writeStoreErrorResponse(w, err)
 		return
@@ -18,7 +18,7 @@ func (a *API) practiceSettings(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *API) userPracticeSettings(w http.ResponseWriter, r *http.Request) {
-	target, err := a.store.GetUser(r.Context(), r.PathValue("id"))
+	target, err := a.db.GetUser(r.Context(), r.PathValue("id"))
 	if err != nil {
 		a.writeStoreErrorResponse(w, err)
 		return
@@ -38,7 +38,7 @@ func (a *API) userPracticeSettings(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	settings, err := a.store.GetPracticeSettings(r.Context(), target.ID)
+	settings, err := a.db.GetPracticeSettings(r.Context(), target.ID)
 	if err != nil {
 		a.writeStoreErrorResponse(w, err)
 		return
@@ -60,7 +60,7 @@ func (a *API) updatePracticeSettings(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	current, err := a.store.GetPracticeSettings(r.Context(), actor.UserID)
+	current, err := a.db.GetPracticeSettings(r.Context(), actor.UserID)
 	if err != nil {
 		a.writeStoreErrorResponse(w, err)
 		return
@@ -71,7 +71,7 @@ func (a *API) updatePracticeSettings(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	updated, err := a.store.UpdatePracticeSettings(r.Context(), actor.UserID, in.Revision, in.EasyMinutes, in.MediumMinutes, in.HardMinutes, actor.UserID, time.Now().UTC())
+	updated, err := a.db.UpdatePracticeSettings(r.Context(), actor.UserID, in.Revision, in.EasyMinutes, in.MediumMinutes, in.HardMinutes, actor.UserID, time.Now().UTC())
 	if err != nil {
 		a.writeStoreErrorResponse(w, err)
 		return
@@ -95,7 +95,7 @@ func (a *API) enablePracticeGoals(w http.ResponseWriter, r *http.Request) {
 
 	targetID := r.PathValue("id")
 	targetActiveStudent := false
-	enrollments, err := a.store.ListEnrollmentsForUser(r.Context(), targetID)
+	enrollments, err := a.db.ListEnrollmentsForUser(r.Context(), targetID)
 	if err != nil {
 		a.writeStoreErrorResponse(w, err)
 		return
@@ -128,7 +128,7 @@ func (a *API) enablePracticeGoals(w http.ResponseWriter, r *http.Request) {
 			}
 			allowed = true
 		case authz.Mentor:
-			allowed, err = a.store.IsMentorAssigned(r.Context(), in.SeasonID, actor.UserID, targetID)
+			allowed, err = a.db.IsMentorAssigned(r.Context(), in.SeasonID, actor.UserID, targetID)
 			if err != nil {
 				a.writeStoreErrorResponse(w, err)
 				return
@@ -140,7 +140,7 @@ func (a *API) enablePracticeGoals(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	settings, err := a.store.EnablePracticeGoals(r.Context(), targetID, in.Revision, actor.UserID, in.SeasonID, time.Now().UTC())
+	settings, err := a.db.EnablePracticeGoals(r.Context(), targetID, in.Revision, actor.UserID, in.SeasonID, time.Now().UTC())
 	if err != nil {
 		a.writeStoreErrorResponse(w, err)
 		return

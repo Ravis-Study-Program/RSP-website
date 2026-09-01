@@ -22,7 +22,7 @@ func (a *API) canViewSeason(r *http.Request, seasonID string) bool {
 
 func (a *API) seasonAdmin(r *http.Request) (programme.SeasonRecord, bool) {
 	seasonID := r.PathValue("id")
-	season, err := a.store.GetSeason(r.Context(), seasonID)
+	season, err := a.db.GetSeason(r.Context(), seasonID)
 	if err != nil {
 		return programme.SeasonRecord{}, false
 	}
@@ -45,7 +45,7 @@ func (a *API) listWeeks(w http.ResponseWriter, r *http.Request) {
 		writeErrorResponse(w, http.StatusForbidden, "season_access_required", "The current account cannot access this season.")
 		return
 	}
-	if _, err := a.store.GetSeason(r.Context(), seasonID); err != nil {
+	if _, err := a.db.GetSeason(r.Context(), seasonID); err != nil {
 		a.writeStoreErrorResponse(w, err)
 		return
 	}
@@ -69,7 +69,7 @@ func (a *API) listWeeks(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	items, more, total, err := a.store.ListWeeks(r.Context(), seasonID, boundary, limit, sortBy, direction)
+	items, more, total, err := a.db.ListWeeks(r.Context(), seasonID, boundary, limit, sortBy, direction)
 	if err != nil {
 		a.writeStoreErrorResponse(w, err)
 		return
@@ -109,7 +109,7 @@ func (a *API) createWeek(w http.ResponseWriter, r *http.Request) {
 	}
 	v := programme.WeekRecord{ID: id.New(), SeasonID: r.PathValue("id"), Number: in.Number, StartAt: in.StartAt.UTC(), EndAt: in.EndAt.UTC(), ResourceURL: in.ResourceURL, Revision: 1}
 	actor := actorFrom(r.Context())
-	created, err := a.store.CreateWeek(r.Context(), v, actor.UserID, time.Now().UTC())
+	created, err := a.db.CreateWeek(r.Context(), v, actor.UserID, time.Now().UTC())
 	if err != nil {
 		a.writeStoreErrorResponse(w, err)
 		return
@@ -140,7 +140,7 @@ func (a *API) updateWeek(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	actor := actorFrom(r.Context())
-	v, err := a.store.UpdateWeek(r.Context(), r.PathValue("id"), r.PathValue("weekId"), in.Revision, programme.WeekRecord{Number: in.Number, StartAt: in.StartAt.UTC(), EndAt: in.EndAt.UTC(), ResourceURL: in.ResourceURL}, actor.UserID, time.Now().UTC())
+	v, err := a.db.UpdateWeek(r.Context(), r.PathValue("id"), r.PathValue("weekId"), in.Revision, programme.WeekRecord{Number: in.Number, StartAt: in.StartAt.UTC(), EndAt: in.EndAt.UTC(), ResourceURL: in.ResourceURL}, actor.UserID, time.Now().UTC())
 	if err != nil {
 		a.writeStoreErrorResponse(w, err)
 		return
@@ -161,7 +161,7 @@ func (a *API) deleteWeek(w http.ResponseWriter, r *http.Request) {
 	}
 
 	actor := actorFrom(r.Context())
-	if err := a.store.DeleteWeek(r.Context(), r.PathValue("id"), r.PathValue("weekId"), revision, actor.UserID, time.Now().UTC()); err != nil {
+	if err := a.db.DeleteWeek(r.Context(), r.PathValue("id"), r.PathValue("weekId"), revision, actor.UserID, time.Now().UTC()); err != nil {
 		a.writeStoreErrorResponse(w, err)
 		return
 	}
@@ -206,7 +206,7 @@ func (a *API) listMembers(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	items, more, total, err := a.store.ListEnrollments(r.Context(), seasonID, boundary, limit, role, state, sortBy, direction, canSeeInactive)
+	items, more, total, err := a.db.ListEnrollments(r.Context(), seasonID, boundary, limit, role, state, sortBy, direction, canSeeInactive)
 	if err != nil {
 		a.writeStoreErrorResponse(w, err)
 		return
@@ -248,7 +248,7 @@ func (a *API) listEnrollmentCandidates(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	items, more, total, err := a.store.ListEnrollmentCandidates(r.Context(), r.PathValue("id"), query, boundary, limit, direction)
+	items, more, total, err := a.db.ListEnrollmentCandidates(r.Context(), r.PathValue("id"), query, boundary, limit, direction)
 	if err != nil {
 		a.writeStoreErrorResponse(w, err)
 		return
@@ -285,7 +285,7 @@ func (a *API) createMember(w http.ResponseWriter, r *http.Request) {
 	}
 	v := programme.EnrollmentRecord{ID: id.New(), SeasonID: r.PathValue("id"), UserID: in.UserID, Role: in.Role, State: "active", Revision: 1}
 	actor := actorFrom(r.Context())
-	created, err := a.store.CreateEnrollment(r.Context(), v, actor.UserID, time.Now().UTC())
+	created, err := a.db.CreateEnrollment(r.Context(), v, actor.UserID, time.Now().UTC())
 	if err != nil {
 		a.writeStoreErrorResponse(w, err)
 		return
@@ -317,7 +317,7 @@ func (a *API) updateMember(w http.ResponseWriter, r *http.Request) {
 		in.StudentLevel = "not_applicable"
 	}
 	actor := actorFrom(r.Context())
-	v, err := a.store.UpdateEnrollmentDetails(r.Context(), r.PathValue("id"), r.PathValue("memberId"), in.Revision, in.Role, in.StudentLevel, actor.UserID, time.Now().UTC())
+	v, err := a.db.UpdateEnrollmentDetails(r.Context(), r.PathValue("id"), r.PathValue("memberId"), in.Revision, in.Role, in.StudentLevel, actor.UserID, time.Now().UTC())
 	if err != nil {
 		a.writeStoreErrorResponse(w, err)
 		return
@@ -333,7 +333,7 @@ func (a *API) removeMember(w http.ResponseWriter, r *http.Request) { a.changeMem
 func (a *API) changeMember(w http.ResponseWriter, r *http.Request, promote bool) {
 	actor := actorFrom(r.Context())
 	seasonID, memberID := r.PathValue("id"), r.PathValue("memberId")
-	season, err := a.store.GetSeason(r.Context(), seasonID)
+	season, err := a.db.GetSeason(r.Context(), seasonID)
 	if err != nil {
 		a.writeStoreErrorResponse(w, err)
 		return
@@ -342,7 +342,7 @@ func (a *API) changeMember(w http.ResponseWriter, r *http.Request, promote bool)
 		writeErrorResponse(w, http.StatusConflict, "season_closed", "Season members cannot be changed until the season is reopened.")
 		return
 	}
-	v, err := a.store.GetEnrollment(r.Context(), memberID)
+	v, err := a.db.GetEnrollment(r.Context(), memberID)
 	if err != nil || v.SeasonID != seasonID {
 		writeErrorResponse(w, http.StatusNotFound, "not_found", "The enrollment does not exist.")
 		return
@@ -351,7 +351,7 @@ func (a *API) changeMember(w http.ResponseWriter, r *http.Request, promote bool)
 		writeErrorResponse(w, http.StatusForbidden, "student_action_required", "Only an active student enrollment can be promoted or removed through this operation.")
 		return
 	}
-	assigned, err := a.store.IsMentorAssigned(r.Context(), seasonID, actor.UserID, v.UserID)
+	assigned, err := a.db.IsMentorAssigned(r.Context(), seasonID, actor.UserID, v.UserID)
 	if err != nil {
 		a.writeStoreErrorResponse(w, err)
 		return
@@ -388,7 +388,7 @@ func (a *API) changeMember(w http.ResponseWriter, r *http.Request, promote bool)
 	} else {
 		state = "kicked"
 	}
-	updated, err := a.store.UpdateEnrollment(r.Context(), memberID, in.Revision, role, state, in.Reason, actor.UserID, time.Now())
+	updated, err := a.db.UpdateEnrollment(r.Context(), memberID, in.Revision, role, state, in.Reason, actor.UserID, time.Now())
 	if err != nil {
 		a.writeStoreErrorResponse(w, err)
 		return
@@ -423,7 +423,7 @@ func (a *API) listMentorships(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	items, more, total, err := a.store.ListMentorships(r.Context(), seasonID, boundary, limit, sortBy, direction, mentorUserID, studentUserID)
+	items, more, total, err := a.db.ListMentorships(r.Context(), seasonID, boundary, limit, sortBy, direction, mentorUserID, studentUserID)
 	if err != nil {
 		a.writeStoreErrorResponse(w, err)
 		return
@@ -457,7 +457,7 @@ func (a *API) createMentorship(w http.ResponseWriter, r *http.Request) {
 
 	v := programme.MentorshipRecord{ID: id.New(), SeasonID: r.PathValue("id"), MentorUserID: in.MentorUserID, StudentUserID: in.StudentUserID, Revision: 1}
 	actor := actorFrom(r.Context())
-	created, err := a.store.CreateMentorship(r.Context(), v, actor.UserID, time.Now().UTC())
+	created, err := a.db.CreateMentorship(r.Context(), v, actor.UserID, time.Now().UTC())
 	if err != nil {
 		a.writeStoreErrorResponse(w, err)
 		return
@@ -482,7 +482,7 @@ func (a *API) updateMentorship(w http.ResponseWriter, r *http.Request) {
 	}
 
 	actor := actorFrom(r.Context())
-	v, err := a.store.UpdateMentorship(r.Context(), r.PathValue("id"), r.PathValue("mentorshipId"), in.Revision, in.MentorUserID, in.StudentUserID, actor.UserID, time.Now().UTC())
+	v, err := a.db.UpdateMentorship(r.Context(), r.PathValue("id"), r.PathValue("mentorshipId"), in.Revision, in.MentorUserID, in.StudentUserID, actor.UserID, time.Now().UTC())
 	if err != nil {
 		a.writeStoreErrorResponse(w, err)
 		return
@@ -503,7 +503,7 @@ func (a *API) deleteMentorship(w http.ResponseWriter, r *http.Request) {
 	}
 
 	actor := actorFrom(r.Context())
-	if err := a.store.DeleteMentorship(r.Context(), r.PathValue("id"), r.PathValue("mentorshipId"), revision, actor.UserID, time.Now().UTC()); err != nil {
+	if err := a.db.DeleteMentorship(r.Context(), r.PathValue("id"), r.PathValue("mentorshipId"), revision, actor.UserID, time.Now().UTC()); err != nil {
 		a.writeStoreErrorResponse(w, err)
 		return
 	}

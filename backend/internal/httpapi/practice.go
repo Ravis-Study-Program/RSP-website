@@ -38,7 +38,7 @@ func (a *API) canViewMemberPrivate(r *http.Request, targetID string) (bool, erro
 		if enrollment.Role == authz.Coordinator {
 			if !targetLoaded {
 				var err error
-				targetEnrollments, err = a.store.ListEnrollmentsForUser(r.Context(), targetID)
+				targetEnrollments, err = a.db.ListEnrollmentsForUser(r.Context(), targetID)
 				if err != nil {
 					return false, err
 				}
@@ -52,7 +52,7 @@ func (a *API) canViewMemberPrivate(r *http.Request, targetID string) (bool, erro
 			}
 		}
 		if enrollment.Role == authz.Mentor {
-			assigned, err := a.store.IsMentorAssigned(r.Context(), enrollment.SeasonID, actor.UserID, targetID)
+			assigned, err := a.db.IsMentorAssigned(r.Context(), enrollment.SeasonID, actor.UserID, targetID)
 			if err != nil {
 				return false, err
 			}
@@ -101,7 +101,7 @@ func (a *API) problems(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	items, more, total, err := a.store.ListProblems(r.Context(), after, limit, difficulty, category, premium, direction)
+	items, more, total, err := a.db.ListProblems(r.Context(), after, limit, difficulty, category, premium, direction)
 	if err != nil {
 		a.writeStoreErrorResponse(w, err)
 		return
@@ -134,7 +134,7 @@ func (a *API) attempts(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if targetID != actor.UserID && !actor.IsPrivileged() {
-		participant, err := a.store.GetMockParticipant(r.Context(), targetID)
+		participant, err := a.db.GetMockParticipant(r.Context(), targetID)
 		if err != nil || !participant.Eligible() {
 			writeErrorResponse(w, http.StatusNotFound, "not_found", "The requested member does not exist.")
 			return
@@ -163,7 +163,7 @@ func (a *API) attempts(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	items, more, total, err := a.store.ListAttempts(r.Context(), targetID, after, limit, outcome, difficulty, direction)
+	items, more, total, err := a.db.ListAttempts(r.Context(), targetID, after, limit, outcome, difficulty, direction)
 	if err != nil {
 		a.writeStoreErrorResponse(w, err)
 		return
@@ -233,7 +233,7 @@ func (a *API) createAttempt(w http.ResponseWriter, r *http.Request) {
 	}
 
 	v := practice.AttemptRecord{ID: id.New(), UserID: actor.UserID, ProblemID: in.ProblemID, Outcome: in.Outcome, Confidence: in.Confidence, Minutes: in.Minutes, Notes: sanitize.New().String(in.Notes), AttemptedAt: in.AttemptedAt.UTC(), SeasonID: in.SeasonID, WeekID: in.WeekID, Revision: 1}
-	created, err := a.store.CreateAttempt(r.Context(), v)
+	created, err := a.db.CreateAttempt(r.Context(), v)
 	if err != nil {
 		a.writeStoreErrorResponse(w, err)
 		return
@@ -254,7 +254,7 @@ func (a *API) updateAttempt(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	updated, err := a.store.UpdateAttempt(r.Context(), r.PathValue("id"), actor.UserID, in.Revision, func(v *practice.AttemptRecord) error {
+	updated, err := a.db.UpdateAttempt(r.Context(), r.PathValue("id"), actor.UserID, in.Revision, func(v *practice.AttemptRecord) error {
 		v.ProblemID = in.ProblemID
 		v.Outcome = in.Outcome
 		v.Confidence = in.Confidence
@@ -283,7 +283,7 @@ func (a *API) deleteAttempt(w http.ResponseWriter, r *http.Request) {
 		writeErrorResponse(w, http.StatusBadRequest, "validation_failed", "revision query parameter is required")
 		return
 	}
-	if err := a.store.DeleteAttempt(r.Context(), r.PathValue("id"), actor.UserID, revision); err != nil {
+	if err := a.db.DeleteAttempt(r.Context(), r.PathValue("id"), actor.UserID, revision); err != nil {
 		a.writeStoreErrorResponse(w, err)
 		return
 	}

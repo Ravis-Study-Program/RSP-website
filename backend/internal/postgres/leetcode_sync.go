@@ -1,4 +1,4 @@
-// Package store defines repository contracts and storage implementations.
+// Package postgres implements the backend's PostgreSQL store.
 package postgres
 
 import (

@@ -51,7 +51,7 @@ func (m *apiMetrics) observeHTTP(status int, elapsed time.Duration) {
 	m.mu.Unlock()
 }
 
-func (m *apiMetrics) render(ctx context.Context, writer io.Writer, repository any) {
+func (m *apiMetrics) render(ctx context.Context, writer io.Writer, dataSource any) {
 	m.mu.Lock()
 	requests := m.httpRequests
 	buckets := m.httpDurationBuckets
@@ -64,7 +64,7 @@ func (m *apiMetrics) render(ctx context.Context, writer io.Writer, repository an
 		MigrationState: "none",
 	}
 	snapshotOK := true
-	if source, ok := repository.(observability.Source); ok {
+	if source, ok := dataSource.(observability.Source); ok {
 		var err error
 		snapshot, err = source.ObservabilitySnapshot(ctx)
 		if err != nil {

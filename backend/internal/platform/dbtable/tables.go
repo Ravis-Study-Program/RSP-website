@@ -1,5 +1,5 @@
 // Package dbtable contains schema-qualified PostgreSQL table names used by the
-// runtime database adapters.
+// runtime database code.
 package dbtable
 
 const (

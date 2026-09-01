@@ -18,7 +18,7 @@ func (a *API) auditSystemAdminPrivateRead(w http.ResponseWriter, r *http.Request
 		return true
 	}
 	actorID := actor.UserID
-	err := a.store.AppendAudit(r.Context(), audit.Event{ID: id.New(), ActorID: &actorID, Action: "private_data.viewed", SubjectType: subjectType, SubjectID: subjectID, Data: map[string]any{}, OccurredAt: time.Now().UTC()})
+	err := a.db.AppendAudit(r.Context(), audit.Event{ID: id.New(), ActorID: &actorID, Action: "private_data.viewed", SubjectType: subjectType, SubjectID: subjectID, Data: map[string]any{}, OccurredAt: time.Now().UTC()})
 	if err != nil {
 		writeErrorResponse(w, http.StatusInternalServerError, "audit_failed", "Private data was not returned because its access could not be audited.")
 		return false
@@ -65,7 +65,7 @@ func (a *API) listAdminUsers(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	items, more, total, err := a.store.ListAdminUsers(r.Context(), boundary, limit, direction, query, accountState, globalRole)
+	items, more, total, err := a.db.ListAdminUsers(r.Context(), boundary, limit, direction, query, accountState, globalRole)
 	if err != nil {
 		a.writeStoreErrorResponse(w, err)
 		return
@@ -105,7 +105,7 @@ func (a *API) setUserAccountState(w http.ResponseWriter, r *http.Request) {
 		writeErrorResponse(w, http.StatusServiceUnavailable, "auth_service_unavailable", "Account state administration is temporarily unavailable.")
 		return
 	}
-	current, err := a.store.GetUser(r.Context(), targetID)
+	current, err := a.db.GetUser(r.Context(), targetID)
 	if err != nil {
 		a.writeStoreErrorResponse(w, err)
 		return
@@ -119,7 +119,7 @@ func (a *API) setUserAccountState(w http.ResponseWriter, r *http.Request) {
 		writeErrorResponse(w, http.StatusConflict, "self_suspension_forbidden", "A System Admin cannot suspend their own account.")
 		return
 	}
-	subject, err := a.store.ResolveAuthSubjectForUser(r.Context(), targetID)
+	subject, err := a.db.ResolveAuthSubjectForUser(r.Context(), targetID)
 	if err != nil {
 		a.writeStoreErrorResponse(w, err)
 		return
@@ -129,7 +129,7 @@ func (a *API) setUserAccountState(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	updated, err := a.store.GetUser(r.Context(), targetID)
+	updated, err := a.db.GetUser(r.Context(), targetID)
 	if err != nil {
 		a.writeStoreErrorResponse(w, err)
 		return
@@ -155,13 +155,13 @@ func (a *API) grantUserGlobalRole(w http.ResponseWriter, r *http.Request) {
 		writeErrorResponse(w, http.StatusServiceUnavailable, "auth_service_unavailable", "MFA state could not be verified.")
 		return
 	}
-	target, err := a.store.GetUser(r.Context(), r.PathValue("id"))
+	target, err := a.db.GetUser(r.Context(), r.PathValue("id"))
 	if err != nil {
 		a.writeStoreErrorResponse(w, err)
 		return
 	}
 
-	subject, err := a.store.ResolveAuthSubjectForUser(r.Context(), target.ID)
+	subject, err := a.db.ResolveAuthSubjectForUser(r.Context(), target.ID)
 	if err != nil {
 		a.writeStoreErrorResponse(w, err)
 		return
@@ -173,7 +173,7 @@ func (a *API) grantUserGlobalRole(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	assignment, err := a.store.GrantGlobalRole(r.Context(), target.ID, in.Role, configured, strings.TrimSpace(in.Reason), actor.UserID, time.Now().UTC())
+	assignment, err := a.db.GrantGlobalRole(r.Context(), target.ID, in.Role, configured, strings.TrimSpace(in.Reason), actor.UserID, time.Now().UTC())
 	if err != nil {
 		a.writeStoreErrorResponse(w, err)
 		return
@@ -186,13 +186,13 @@ func (a *API) listUserGlobalRoles(w http.ResponseWriter, r *http.Request) {
 	if _, ok := a.systemAdmin(w, r); !ok {
 		return
 	}
-	target, err := a.store.GetUser(r.Context(), r.PathValue("id"))
+	target, err := a.db.GetUser(r.Context(), r.PathValue("id"))
 	if err != nil {
 		a.writeStoreErrorResponse(w, err)
 		return
 	}
 
-	items, err := a.store.ListGlobalRoles(r.Context(), target.ID)
+	items, err := a.db.ListGlobalRoles(r.Context(), target.ID)
 	if err != nil {
 		a.writeStoreErrorResponse(w, err)
 		return
@@ -211,7 +211,7 @@ func (a *API) revokeUserGlobalRole(w http.ResponseWriter, r *http.Request) {
 		writeErrorResponse(w, http.StatusBadRequest, "validation_failed", "valid role, revision, and reason up to 500 characters are required")
 		return
 	}
-	target, err := a.store.GetUser(r.Context(), targetID)
+	target, err := a.db.GetUser(r.Context(), targetID)
 	if err != nil {
 		a.writeStoreErrorResponse(w, err)
 		return
@@ -228,7 +228,7 @@ func (a *API) revokeUserGlobalRole(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	assignment, err := a.store.RevokeGlobalRole(r.Context(), targetID, role, revision, strings.TrimSpace(r.URL.Query().Get("reason")), actor.UserID, time.Now().UTC())
+	assignment, err := a.db.RevokeGlobalRole(r.Context(), targetID, role, revision, strings.TrimSpace(r.URL.Query().Get("reason")), actor.UserID, time.Now().UTC())
 	if err != nil {
 		a.writeStoreErrorResponse(w, err)
 		return

@@ -40,7 +40,7 @@ func (a *API) identityLifecycle(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err := a.store.ApplyIdentityEvent(r.Context(), accounts.IdentityEvent{EventID: in.EventID, Type: in.Type, AuthUserID: in.AuthUserID, Email: in.Email, EmailVerified: in.EmailVerified, SecurityVersion: in.SecurityVersion, OccurredAt: in.OccurredAt.UTC(), RecoveryDeadline: in.RecoveryDeadline, Reason: in.Reason, AccountState: in.AccountState, ActorUserID: in.ActorUserID})
+	err := a.db.ApplyIdentityEvent(r.Context(), accounts.IdentityEvent{EventID: in.EventID, Type: in.Type, AuthUserID: in.AuthUserID, Email: in.Email, EmailVerified: in.EmailVerified, SecurityVersion: in.SecurityVersion, OccurredAt: in.OccurredAt.UTC(), RecoveryDeadline: in.RecoveryDeadline, Reason: in.Reason, AccountState: in.AccountState, ActorUserID: in.ActorUserID})
 	if err != nil {
 		a.writeStoreErrorResponse(w, err)
 		return
