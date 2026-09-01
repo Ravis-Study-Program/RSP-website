@@ -461,8 +461,8 @@ jobs:
             (.runId | length > 0) and
             (.manifestChecksum | length == 64) and
             (.verifiedAt | length > 0) and
-            (.counts | length == 18) and
-            (.checksums | length == 18)
+            (.counts | length == 17) and
+            (.checksums | length == 17)
           ' \
             "$migration_dir/verification.json"
           jq -e '
@@ -470,7 +470,7 @@ jobs:
             (.sourceSchemaFingerprint | length == 64) and
             (.sourceSnapshotChecksum | length == 64) and
             (.efHistory | length > 0) and
-            (.tables | length == 18) and
+            (.tables | length == 17) and
             (.mappings | length > 0) and
             (.histograms | length > 0) and
             (.anomalies | length == 0) and
