@@ -1,0 +1,65 @@
+name: Feature Request
+description: Suggest an improvement or a new capability for the website or its services.
+type: feature
+labels: ['enhancement']
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Before submitting, search the existing issues for duplicates.
+
+        Do not include passwords, tokens, personal data, or production records.
+
+  - type: checkboxes
+    id: duplicate-check
+    attributes:
+      label: Duplicate check
+      options:
+        - label: I have searched the existing issues and found no duplicate.
+          required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem or opportunity
+      description: What problem would this feature solve, and who would benefit from it?
+      placeholder: Describe the user need or opportunity, rather than only the implementation.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposed-solution
+    attributes:
+      label: Proposed solution
+      description: Describe the behaviour or outcome you would like to see.
+      placeholder: Tell us how the feature could work from a user's perspective.
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: What other solutions or workarounds have you tried or considered?
+      placeholder: Describe any current workaround or alternative approach.
+    validations:
+      required: false
+
+  - type: input
+    id: affected-area
+    attributes:
+      label: Affected page, feature, or service
+      description: Name the route, feature, API, worker, or other area this request concerns.
+      placeholder: For example, Student dashboard or POST /api/v2/...
+    validations:
+      required: true
+
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: Additional context
+      description: Add screenshots, mock-ups, links, or any other useful context.
+      placeholder: Share anything else that will help us understand the request.
+    validations:
+      required: false
