@@ -2,9 +2,9 @@ package postgres
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"errors"
-	"sort"
 	"time"
 
 	"github.com/magedmg/RSP-website/backend/internal/platform/audit"
@@ -152,28 +152,46 @@ func scanProblem(row rowScanner) (practice.ProblemRecord, error) {
 	return v, nil
 }
 
-const problemQuery = `SELECT l.id,l.leetcode_number,p.title,COALESCE(p.url,''),l.difficulty::text,l.is_premium,COALESCE(to_jsonb(array_agg(c.normalized_name) FILTER (WHERE c.id IS NOT NULL)),'[]'::jsonb),l.revision FROM app.leetcode_problems l JOIN app.problems p ON p.id=l.problem_id LEFT JOIN app.leetcode_problem_category_mappings m ON m.leetcode_problem_id=l.id LEFT JOIN app.leetcode_problem_categories c ON c.id=m.category_id WHERE l.deleted_at IS NULL AND p.deleted_at IS NULL`
+const problemQuery = `SELECT l.id,l.leetcode_number,p.title,COALESCE(p.url,''),l.difficulty::text,l.is_premium,
+	COALESCE(to_jsonb(array_agg(c.normalized_name) FILTER (WHERE c.id IS NOT NULL)),'[]'::jsonb),l.revision
+	FROM app.leetcode_problems l
+	JOIN app.problems p ON p.id=l.problem_id
+	LEFT JOIN app.leetcode_problem_category_mappings m ON m.leetcode_problem_id=l.id
+	LEFT JOIN app.leetcode_problem_categories c ON c.id=m.category_id
+	WHERE l.deleted_at IS NULL AND p.deleted_at IS NULL`
 
 func (p *Postgres) ListProblems(ctx context.Context, boundary string, limit int, difficulty, category string, premium *bool, direction string) ([]practice.ProblemRecord, bool, int64, error) {
+	const filters = `(@difficulty = '' OR l.difficulty::text = @difficulty)
+		AND (@category = '' OR EXISTS (
+			SELECT 1 FROM app.leetcode_problem_category_mappings fm
+			JOIN app.leetcode_problem_categories fc ON fc.id = fm.category_id
+			WHERE fm.leetcode_problem_id = l.id AND fc.deleted_at IS NULL
+			AND lower(fc.normalized_name) = lower(@category)
+		))
+		AND (CAST(@premium AS boolean) IS NULL OR l.is_premium = @premium)`
+	args := []any{
+		sql.Named("difficulty", difficulty), sql.Named("category", category), sql.Named("premium", premium),
+	}
 	var total int64
 	err := p.DB.WithContext(ctx).Raw(`SELECT count(*) FROM app.leetcode_problems l
-		JOIN app.problems p ON p.id=l.problem_id
-		WHERE l.deleted_at IS NULL AND p.deleted_at IS NULL
-		AND (?='' OR l.difficulty::text=?)
-		AND (?='' OR EXISTS(SELECT 1 FROM app.leetcode_problem_category_mappings fm JOIN app.leetcode_problem_categories fc ON fc.id=fm.category_id WHERE fm.leetcode_problem_id=l.id AND fc.deleted_at IS NULL AND lower(fc.normalized_name)=lower(?)))
-		AND (?::boolean IS NULL OR l.is_premium=?)`, difficulty, difficulty, category, category, premium, premium).Row().Scan(&total)
+		JOIN app.problems p ON p.id = l.problem_id
+		WHERE l.deleted_at IS NULL AND p.deleted_at IS NULL AND `+filters, args...).Row().Scan(&total)
 	if err != nil {
 		return nil, false, 0, err
 	}
 
-	comparison, order := `l.id>NULLIF($1,'')::uuid`, `ASC`
+	comparison, order := `l.id > NULLIF(@boundary, '')::uuid`, `ASC`
 	if direction == "backward" {
-		comparison, order = `l.id<NULLIF($1,'')::uuid`, `DESC`
+		comparison, order = `l.id < NULLIF(@boundary, '')::uuid`, `DESC`
 	}
 	if boundary == "" {
-		comparison = `$1::text IS NOT NULL`
+		comparison = `TRUE`
 	}
-	rows, err := p.DB.WithContext(ctx).Raw(problemQuery+` AND `+comparison+` AND ($3='' OR l.difficulty::text=$3) AND ($4='' OR EXISTS(SELECT 1 FROM app.leetcode_problem_category_mappings fm JOIN app.leetcode_problem_categories fc ON fc.id=fm.category_id WHERE fm.leetcode_problem_id=l.id AND fc.deleted_at IS NULL AND lower(fc.normalized_name)=lower($4))) AND ($5::boolean IS NULL OR l.is_premium=$5) GROUP BY l.id,p.id ORDER BY l.id `+order+` LIMIT $2`, boundary, limit+1, difficulty, category, premium).Rows()
+	args = append(args, sql.Named("boundary", boundary), sql.Named("limit", limit+1))
+	rows, err := p.DB.WithContext(ctx).Raw(problemQuery+`
+		AND `+comparison+` AND `+filters+`
+		GROUP BY l.id,p.id
+		ORDER BY l.id `+order+` LIMIT @limit`, args...).Rows()
 	if err != nil {
 		return nil, false, 0, err
 	}
@@ -188,13 +206,7 @@ func (p *Postgres) ListProblems(ctx context.Context, boundary string, limit int,
 
 		out = append(out, v)
 	}
-	more := len(out) > limit
-	if more {
-		out = out[:limit]
-	}
-	if direction == "backward" {
-		sort.Slice(out, func(i, j int) bool { return out[i].ID < out[j].ID })
-	}
+	out, more := finishPostgresPage(out, limit, direction)
 	return out, more, total, rows.Err()
 }
 
@@ -215,23 +227,32 @@ func (p *Postgres) GetAttempt(ctx context.Context, id string) (practice.AttemptR
 }
 
 func (p *Postgres) ListAttempts(ctx context.Context, userID, boundary string, limit int, outcome, difficulty, direction string) ([]practice.AttemptRecord, bool, int64, error) {
+	const filters = `a.user_id = @userID AND a.deleted_at IS NULL
+		AND (@outcome = '' OR a.outcome::text = @outcome)
+		AND (@difficulty = '' OR EXISTS (
+			SELECT 1 FROM app.leetcode_problems l
+			WHERE l.problem_id = a.problem_id AND l.difficulty::text = @difficulty AND l.deleted_at IS NULL
+		))`
+	args := []any{sql.Named("userID", userID), sql.Named("outcome", outcome), sql.Named("difficulty", difficulty)}
 	var total int64
-	err := p.DB.WithContext(ctx).Raw(`SELECT count(*) FROM app.problem_attempts a
-		WHERE a.user_id=? AND a.deleted_at IS NULL
-		AND (?='' OR a.outcome::text=?)
-		AND (?='' OR EXISTS(SELECT 1 FROM app.leetcode_problems l WHERE l.problem_id=a.problem_id AND l.difficulty::text=? AND l.deleted_at IS NULL))`, userID, outcome, outcome, difficulty, difficulty).Row().Scan(&total)
+	err := p.DB.WithContext(ctx).Raw(`SELECT count(*) FROM app.problem_attempts a WHERE `+filters, args...).Row().Scan(&total)
 	if err != nil {
 		return nil, false, 0, err
 	}
 
-	comparison, order := `a.id>NULLIF($2,'')::uuid`, `ASC`
+	comparison, order := `a.id > NULLIF(@boundary, '')::uuid`, `ASC`
 	if direction == "backward" {
-		comparison, order = `a.id<NULLIF($2,'')::uuid`, `DESC`
+		comparison, order = `a.id < NULLIF(@boundary, '')::uuid`, `DESC`
 	}
 	if boundary == "" {
-		comparison = `$2::text IS NOT NULL`
+		comparison = `TRUE`
 	}
-	rows, err := p.DB.WithContext(ctx).Raw(`SELECT `+attemptColumns+` FROM app.problem_attempts a LEFT JOIN app.enrollments e ON e.id=a.enrollment_id WHERE a.user_id=$1 AND `+comparison+` AND a.deleted_at IS NULL AND ($4='' OR a.outcome::text=$4) AND ($5='' OR EXISTS(SELECT 1 FROM app.leetcode_problems l WHERE l.problem_id=a.problem_id AND l.difficulty::text=$5 AND l.deleted_at IS NULL)) ORDER BY a.id `+order+` LIMIT $3`, userID, boundary, limit+1, outcome, difficulty).Rows()
+	args = append(args, sql.Named("boundary", boundary), sql.Named("limit", limit+1))
+	rows, err := p.DB.WithContext(ctx).Raw(`SELECT `+attemptColumns+`
+		FROM app.problem_attempts a
+		LEFT JOIN app.enrollments e ON e.id = a.enrollment_id
+		WHERE `+filters+` AND `+comparison+`
+		ORDER BY a.id `+order+` LIMIT @limit`, args...).Rows()
 	if err != nil {
 		return nil, false, 0, err
 	}
@@ -246,13 +267,7 @@ func (p *Postgres) ListAttempts(ctx context.Context, userID, boundary string, li
 
 		out = append(out, v)
 	}
-	more := len(out) > limit
-	if more {
-		out = out[:limit]
-	}
-	if direction == "backward" {
-		sort.Slice(out, func(i, j int) bool { return out[i].ID < out[j].ID })
-	}
+	out, more := finishPostgresPage(out, limit, direction)
 	return out, more, total, rows.Err()
 }
 

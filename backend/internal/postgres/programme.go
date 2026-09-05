@@ -4,7 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"errors"
-	"sort"
 	"strings"
 	"time"
 
@@ -28,19 +27,24 @@ func (p *Postgres) GetSeason(ctx context.Context, id string) (programme.SeasonRe
 }
 
 func (p *Postgres) ListSeasons(ctx context.Context, boundary string, limit int, direction, status string) ([]programme.SeasonRecord, bool, int64, error) {
+	const filters = `deleted_at IS NULL AND (@status = '' OR status::text = @status)`
+	args := []any{sql.Named("status", status)}
 	var total int64
-	if err := p.DB.WithContext(ctx).Raw(`SELECT count(*) FROM app.seasons WHERE deleted_at IS NULL AND ($1='' OR status::text=$1)`, status).Row().Scan(&total); err != nil {
+	if err := p.DB.WithContext(ctx).Raw(`SELECT count(*) FROM app.seasons WHERE `+filters, args...).Row().Scan(&total); err != nil {
 		return nil, false, 0, err
 	}
 
-	comparison, order := `id>NULLIF($1,'')::uuid`, `ASC`
+	comparison, order := `id > NULLIF(@boundary, '')::uuid`, `ASC`
 	if direction == "backward" {
-		comparison, order = `id<NULLIF($1,'')::uuid`, `DESC`
+		comparison, order = `id < NULLIF(@boundary, '')::uuid`, `DESC`
 	}
 	if boundary == "" {
-		comparison = `$1::text IS NOT NULL`
+		comparison = `TRUE`
 	}
-	rows, err := p.DB.WithContext(ctx).Raw(`SELECT `+seasonColumns+` FROM app.seasons WHERE `+comparison+` AND deleted_at IS NULL AND ($3='' OR status::text=$3) ORDER BY id `+order+` LIMIT $2`, boundary, limit+1, status).Rows()
+	args = append(args, sql.Named("boundary", boundary), sql.Named("limit", limit+1))
+	rows, err := p.DB.WithContext(ctx).Raw(`SELECT `+seasonColumns+`
+		FROM app.seasons WHERE `+comparison+` AND `+filters+`
+		ORDER BY id `+order+` LIMIT @limit`, args...).Rows()
 	if err != nil {
 		return nil, false, 0, err
 	}
@@ -55,13 +59,7 @@ func (p *Postgres) ListSeasons(ctx context.Context, boundary string, limit int, 
 
 		out = append(out, v)
 	}
-	more := len(out) > limit
-	if more {
-		out = out[:limit]
-	}
-	if direction == "backward" {
-		sort.Slice(out, func(i, j int) bool { return out[i].ID < out[j].ID })
-	}
+	out, more := finishPostgresPage(out, limit, direction)
 	return out, more, total, rows.Err()
 }
 
@@ -228,8 +226,9 @@ func scanWeek(row rowScanner) (programme.WeekRecord, error) {
 }
 
 func (p *Postgres) ListWeeks(ctx context.Context, seasonID, boundary string, limit int, sortBy, direction string) ([]programme.WeekRecord, bool, int64, error) {
+	args := []any{sql.Named("seasonID", seasonID)}
 	var total int64
-	if err := p.DB.WithContext(ctx).Raw(`SELECT count(*) FROM app.season_weeks WHERE season_id=$1 AND deleted_at IS NULL`, seasonID).Row().Scan(&total); err != nil {
+	if err := p.DB.WithContext(ctx).Raw(`SELECT count(*) FROM app.season_weeks WHERE season_id = @seasonID AND deleted_at IS NULL`, args...).Row().Scan(&total); err != nil {
 		return nil, false, 0, err
 	}
 
@@ -250,13 +249,14 @@ func (p *Postgres) ListWeeks(ctx context.Context, seasonID, boundary string, lim
 		orderBy = "w.week_number " + order + ",w.id " + order
 	}
 	query := `WITH boundary AS (
-		SELECT ` + boundarySelect + ` FROM app.season_weeks WHERE id=NULLIF($2,'')::uuid AND season_id=$1 AND deleted_at IS NULL
+		SELECT ` + boundarySelect + ` FROM app.season_weeks WHERE id=NULLIF(@boundary, '')::uuid AND season_id = @seasonID AND deleted_at IS NULL
 	) SELECT w.id,w.season_id,w.week_number,w.start_at,w.end_at,COALESCE(w.resource_url,''),w.revision
 	FROM app.season_weeks w
-	WHERE w.season_id=$1 AND w.deleted_at IS NULL
-	  AND (NULLIF($2,'')::uuid IS NULL OR EXISTS (SELECT 1 FROM boundary b WHERE ` + key + ` ` + comparator + ` ` + boundaryKey + `))
-	ORDER BY ` + orderBy + ` LIMIT $3`
-	rows, err := p.DB.WithContext(ctx).Raw(query, seasonID, boundary, limit+1).Rows()
+	WHERE w.season_id = @seasonID AND w.deleted_at IS NULL
+	  AND (NULLIF(@boundary, '')::uuid IS NULL OR EXISTS (SELECT 1 FROM boundary b WHERE ` + key + ` ` + comparator + ` ` + boundaryKey + `))
+	ORDER BY ` + orderBy + ` LIMIT @limit`
+	args = append(args, sql.Named("boundary", boundary), sql.Named("limit", limit+1))
+	rows, err := p.DB.WithContext(ctx).Raw(query, args...).Rows()
 	if err != nil {
 		return nil, false, 0, err
 	}
@@ -347,11 +347,15 @@ func scanEnrollment(row rowScanner) (programme.EnrollmentRecord, error) {
 }
 
 func (p *Postgres) ListEnrollments(ctx context.Context, seasonID, boundary string, limit int, role, state, sortBy, direction string, includeInactive bool) ([]programme.EnrollmentRecord, bool, int64, error) {
-	const filters = `e.season_id=$1 AND e.deleted_at IS NULL
-		AND ($2='' OR e.role::text=$2) AND ($3='' OR e.state::text=$3)
-		AND ($4 OR e.state='active' OR (e.role='student' AND e.state='completed'))`
+	const filters = `e.season_id = @seasonID AND e.deleted_at IS NULL
+		AND (@role = '' OR e.role::text = @role) AND (@state = '' OR e.state::text = @state)
+		AND (@includeInactive OR e.state = 'active' OR (e.role = 'student' AND e.state = 'completed'))`
+	args := []any{
+		sql.Named("seasonID", seasonID), sql.Named("role", role), sql.Named("state", state),
+		sql.Named("includeInactive", includeInactive),
+	}
 	var total int64
-	if err := p.DB.WithContext(ctx).Raw(`SELECT count(*) FROM app.enrollments e WHERE `+filters, seasonID, role, state, includeInactive).Row().Scan(&total); err != nil {
+	if err := p.DB.WithContext(ctx).Raw(`SELECT count(*) FROM app.enrollments e WHERE `+filters, args...).Row().Scan(&total); err != nil {
 		return nil, false, 0, err
 	}
 
@@ -371,13 +375,14 @@ func (p *Postgres) ListEnrollments(ctx context.Context, seasonID, boundary strin
 	}
 	query := `WITH boundary AS (
 		SELECT ` + boundarySelect + ` FROM app.enrollments
-		WHERE id=NULLIF($5,'')::uuid AND season_id=$1 AND deleted_at IS NULL
+		WHERE id=NULLIF(@boundary, '')::uuid AND season_id = @seasonID AND deleted_at IS NULL
 	) SELECT ` + enrollmentColumns + `
 	FROM app.enrollments e JOIN app.seasons s ON s.id=e.season_id
 	WHERE ` + filters + `
-	  AND (NULLIF($5,'')::uuid IS NULL OR EXISTS (SELECT 1 FROM boundary b WHERE ` + key + ` ` + comparator + ` ` + boundaryKey + `))
-	ORDER BY ` + orderBy + ` LIMIT $6`
-	rows, err := p.DB.WithContext(ctx).Raw(query, seasonID, role, state, includeInactive, boundary, limit+1).Rows()
+	  AND (NULLIF(@boundary, '')::uuid IS NULL OR EXISTS (SELECT 1 FROM boundary b WHERE ` + key + ` ` + comparator + ` ` + boundaryKey + `))
+	ORDER BY ` + orderBy + ` LIMIT @limit`
+	args = append(args, sql.Named("boundary", boundary), sql.Named("limit", limit+1))
+	rows, err := p.DB.WithContext(ctx).Raw(query, args...).Rows()
 	if err != nil {
 		return nil, false, 0, err
 	}
@@ -543,10 +548,14 @@ func (p *Postgres) ListMentorships(ctx context.Context, seasonID, boundary strin
 	const base = ` FROM app.mentorships m
 		JOIN app.enrollments mentor ON mentor.id=m.mentor_enrollment_id
 		JOIN app.enrollments student ON student.id=m.student_enrollment_id`
-	const filters = `m.season_id=$1 AND m.ended_at IS NULL AND m.deleted_at IS NULL AND ($4='' OR mentor.user_id=$4) AND ($5='' OR student.user_id=$5)`
-	countFilters := strings.NewReplacer("$4", "$2", "$5", "$3").Replace(filters)
+	const filters = `m.season_id = @seasonID AND m.ended_at IS NULL AND m.deleted_at IS NULL
+		AND (@mentorUserID = '' OR mentor.user_id = NULLIF(@mentorUserID, '')::uuid)
+		AND (@studentUserID = '' OR student.user_id = NULLIF(@studentUserID, '')::uuid)`
+	args := []any{
+		sql.Named("seasonID", seasonID), sql.Named("mentorUserID", mentorUserID), sql.Named("studentUserID", studentUserID),
+	}
 	var total int64
-	if err := p.DB.WithContext(ctx).Raw(`SELECT count(*)`+base+` WHERE `+countFilters, seasonID, mentorUserID, studentUserID).Row().Scan(&total); err != nil {
+	if err := p.DB.WithContext(ctx).Raw(`SELECT count(*)`+base+` WHERE `+filters, args...).Row().Scan(&total); err != nil {
 		return nil, false, 0, err
 	}
 
@@ -565,12 +574,13 @@ func (p *Postgres) ListMentorships(ctx context.Context, seasonID, boundary strin
 		orderBy = "student.user_id " + order + ",m.id " + order
 	}
 	query := `WITH boundary AS (
-		SELECT ` + boundarySelect + base + ` WHERE m.id=$2 AND ` + filters + `
+		SELECT ` + boundarySelect + base + ` WHERE m.id = NULLIF(@boundary, '')::uuid AND ` + filters + `
 	) SELECT m.id,m.season_id,mentor.user_id,student.user_id,m.revision` + base + `
 	WHERE ` + filters + `
-	  AND (NULLIF($2,'')::uuid IS NULL OR EXISTS (SELECT 1 FROM boundary b WHERE ` + key + ` ` + comparator + ` ` + boundaryKey + `))
-	ORDER BY ` + orderBy + ` LIMIT $3`
-	rows, err := p.DB.WithContext(ctx).Raw(query, seasonID, boundary, limit+1, mentorUserID, studentUserID).Rows()
+	  AND (NULLIF(@boundary, '')::uuid IS NULL OR EXISTS (SELECT 1 FROM boundary b WHERE ` + key + ` ` + comparator + ` ` + boundaryKey + `))
+	ORDER BY ` + orderBy + ` LIMIT @limit`
+	args = append(args, sql.Named("boundary", boundary), sql.Named("limit", limit+1))
+	rows, err := p.DB.WithContext(ctx).Raw(query, args...).Rows()
 	if err != nil {
 		return nil, false, 0, err
 	}

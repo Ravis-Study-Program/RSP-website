@@ -5,7 +5,6 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
-	"sort"
 	"strings"
 	"time"
 
@@ -505,49 +504,75 @@ func (p *Postgres) SuggestUserSlug(ctx context.Context) (string, error) {
 }
 
 func (p *Postgres) ListUsers(ctx context.Context, boundary string, limit int, direction, search, seasonRole, globalRole string) ([]accounts.User, bool, int64, error) {
-	search = strings.TrimSpace(search)
-	const filters = `u.account_state='active' AND NOT u.is_test AND u.deleted_at IS NULL
-		AND ($3='' OR u.display_name ILIKE '%'||$3||'%' OR u.slug ILIKE '%'||$3||'%')
-		AND EXISTS(SELECT 1 FROM app.enrollments e WHERE e.user_id=u.id AND e.deleted_at IS NULL AND (e.state='active' OR (e.role='student' AND e.state='completed')))
-		AND ($4='' OR EXISTS(SELECT 1 FROM app.enrollments e WHERE e.user_id=u.id AND e.deleted_at IS NULL AND (e.state='active' OR (e.role='student' AND e.state='completed')) AND e.role::text=$4))
-		AND ($5='' OR EXISTS(SELECT 1 FROM app.global_role_assignments role_filter WHERE role_filter.user_id=u.id AND role_filter.state='active' AND role_filter.role::text=$5))`
-	countFilters := strings.NewReplacer("$3", "$1", "$4", "$2", "$5", "$3").Replace(filters)
+	const filters = `u.account_state = 'active' AND NOT u.is_test AND u.deleted_at IS NULL
+		AND (@search = '' OR u.display_name ILIKE '%' || @search || '%' OR u.slug ILIKE '%' || @search || '%')
+		AND EXISTS (
+			SELECT 1 FROM app.enrollments e
+			WHERE e.user_id = u.id AND e.deleted_at IS NULL
+			AND (e.state = 'active' OR (e.role = 'student' AND e.state = 'completed'))
+		)
+		AND (@seasonRole = '' OR EXISTS (
+			SELECT 1 FROM app.enrollments e
+			WHERE e.user_id = u.id AND e.deleted_at IS NULL
+			AND (e.state = 'active' OR (e.role = 'student' AND e.state = 'completed'))
+			AND e.role::text = @seasonRole
+		))
+		AND (@globalRole = '' OR EXISTS (
+			SELECT 1 FROM app.global_role_assignments role_filter
+			WHERE role_filter.user_id = u.id AND role_filter.state = 'active'
+			AND role_filter.role::text = @globalRole
+		))`
+	args := []any{
+		sql.Named("search", strings.TrimSpace(search)),
+		sql.Named("seasonRole", seasonRole),
+		sql.Named("globalRole", globalRole),
+	}
 	var total int64
-	if err := p.DB.WithContext(ctx).Raw(`SELECT count(*) FROM app.users u WHERE `+countFilters, search, seasonRole, globalRole).Row().Scan(&total); err != nil {
+	if err := p.DB.WithContext(ctx).Raw(`SELECT count(*) FROM app.users u WHERE `+filters, args...).Row().Scan(&total); err != nil {
 		return nil, false, 0, err
 	}
-	items, more, err := p.listUsers(ctx, boundary, limit, direction, filters, search, seasonRole, globalRole)
+	items, more, err := p.listUsers(ctx, boundary, limit, direction, filters, args...)
 	return items, more, total, err
 }
 
 func (p *Postgres) ListAdminUsers(ctx context.Context, boundary string, limit int, direction, search, accountState, globalRole string) ([]accounts.User, bool, int64, error) {
-	search = strings.TrimSpace(search)
-	const filters = `u.account_state<>'deleted' AND u.deleted_at IS NULL
-		AND ($3='' OR u.display_name ILIKE '%'||$3||'%' OR u.slug ILIKE '%'||$3||'%' OR COALESCE(u.email,'') ILIKE '%'||$3||'%')
-		AND ($4='' OR u.account_state::text=$4)
-		AND ($5='' OR EXISTS(SELECT 1 FROM app.global_role_assignments role_filter WHERE role_filter.user_id=u.id AND role_filter.state<>'revoked' AND role_filter.role::text=$5))`
-	countFilters := strings.NewReplacer("$3", "$1", "$4", "$2", "$5", "$3").Replace(filters)
+	const filters = `u.account_state <> 'deleted' AND u.deleted_at IS NULL
+		AND (@search = '' OR u.display_name ILIKE '%' || @search || '%'
+			OR u.slug ILIKE '%' || @search || '%' OR COALESCE(u.email, '') ILIKE '%' || @search || '%')
+		AND (@accountState = '' OR u.account_state::text = @accountState)
+		AND (@globalRole = '' OR EXISTS (
+			SELECT 1 FROM app.global_role_assignments role_filter
+			WHERE role_filter.user_id = u.id AND role_filter.state <> 'revoked'
+			AND role_filter.role::text = @globalRole
+		))`
+	args := []any{
+		sql.Named("search", strings.TrimSpace(search)),
+		sql.Named("accountState", accountState),
+		sql.Named("globalRole", globalRole),
+	}
 	var total int64
-	if err := p.DB.WithContext(ctx).Raw(`SELECT count(*) FROM app.users u WHERE `+countFilters, search, accountState, globalRole).Row().Scan(&total); err != nil {
+	if err := p.DB.WithContext(ctx).Raw(`SELECT count(*) FROM app.users u WHERE `+filters, args...).Row().Scan(&total); err != nil {
 		return nil, false, 0, err
 	}
-	items, more, err := p.listUsers(ctx, boundary, limit, direction, filters, search, accountState, globalRole)
+	items, more, err := p.listUsers(ctx, boundary, limit, direction, filters, args...)
 	return items, more, total, err
 }
 
-func (p *Postgres) listUsers(ctx context.Context, boundary string, limit int, direction, filters, search, roleFilter, globalRole string) ([]accounts.User, bool, error) {
-	comparison, order := `u.id>NULLIF($1,'')::uuid`, `ASC`
+func (p *Postgres) listUsers(ctx context.Context, boundary string, limit int, direction, filters string, args ...any) ([]accounts.User, bool, error) {
+	comparison, order := `u.id > NULLIF(@boundary, '')::uuid`, `ASC`
 	if direction == "backward" {
-		comparison, order = `u.id<NULLIF($1,'')::uuid`, `DESC`
+		comparison, order = `u.id < NULLIF(@boundary, '')::uuid`, `DESC`
 	}
 	if boundary == "" {
-		comparison = `$1::text IS NOT NULL`
+		comparison = `TRUE`
 	}
 	query := `SELECT ` + userColumns + ` FROM app.users u
 		LEFT JOIN app.global_role_assignments g ON g.user_id=u.id
 		WHERE ` + comparison + ` AND ` + filters + `
-		GROUP BY u.id ORDER BY u.id ` + order + ` LIMIT $2`
-	rows, err := p.DB.WithContext(ctx).Raw(query, boundary, limit+1, search, roleFilter, globalRole).Rows()
+		GROUP BY u.id
+		ORDER BY u.id ` + order + ` LIMIT @limit`
+	args = append(args, sql.Named("boundary", boundary), sql.Named("limit", limit+1))
+	rows, err := p.DB.WithContext(ctx).Raw(query, args...).Rows()
 	if err != nil {
 		return nil, false, err
 	}
@@ -563,37 +588,33 @@ func (p *Postgres) listUsers(ctx context.Context, boundary string, limit int, di
 	if err := rows.Err(); err != nil {
 		return nil, false, err
 	}
-	more := len(items) > limit
-	if more {
-		items = items[:limit]
-	}
-	if direction == "backward" {
-		sort.Slice(items, func(i, j int) bool { return items[i].ID < items[j].ID })
-	}
+	items, more := finishPostgresPage(items, limit, direction)
 	return items, more, nil
 }
 
 func (p *Postgres) ListEnrollmentCandidates(ctx context.Context, seasonID, query, boundary string, limit int, direction string) ([]accounts.EnrollmentCandidate, bool, int64, error) {
-	query = strings.TrimSpace(query)
-	const eligible = `u.account_state='active' AND NOT u.is_test AND u.deleted_at IS NULL
-		AND EXISTS(SELECT 1 FROM app.user_auth_links l WHERE l.user_id=u.id AND l.active)
-		AND NOT EXISTS(SELECT 1 FROM app.enrollments e WHERE e.user_id=u.id AND e.season_id=$1)`
+	const filters = `u.account_state = 'active' AND NOT u.is_test AND u.deleted_at IS NULL
+		AND EXISTS (SELECT 1 FROM app.user_auth_links l WHERE l.user_id = u.id AND l.active)
+		AND NOT EXISTS (SELECT 1 FROM app.enrollments e WHERE e.user_id = u.id AND e.season_id = @seasonID)
+		AND (@search = '' OR u.display_name ILIKE '%' || @search || '%' OR u.slug ILIKE '%' || @search || '%')`
+	args := []any{sql.Named("seasonID", seasonID), sql.Named("search", strings.TrimSpace(query))}
 	var total int64
-	if err := p.DB.WithContext(ctx).Raw(`SELECT count(*) FROM app.users u WHERE `+eligible+` AND ($2='' OR u.display_name ILIKE '%'||$2||'%' OR u.slug ILIKE '%'||$2||'%')`, seasonID, query).Row().Scan(&total); err != nil {
+	if err := p.DB.WithContext(ctx).Raw(`SELECT count(*) FROM app.users u WHERE `+filters, args...).Row().Scan(&total); err != nil {
 		return nil, false, 0, err
 	}
 
-	comparison, order := `u.id>$3`, `ASC`
+	comparison, order := `u.id > NULLIF(@boundary, '')::uuid`, `ASC`
 	if direction == "backward" {
-		comparison, order = `u.id<$3`, `DESC`
+		comparison, order = `u.id < NULLIF(@boundary, '')::uuid`, `DESC`
 	}
 	if boundary == "" {
-		comparison = `$3::text IS NOT NULL`
+		comparison = `TRUE`
 	}
+	args = append(args, sql.Named("boundary", boundary), sql.Named("limit", limit+1))
 	rows, err := p.DB.WithContext(ctx).Raw(`SELECT u.id,u.slug,u.display_name,u.avatar_url,u.revision
-		FROM app.users u WHERE `+eligible+`
-		AND ($2='' OR u.display_name ILIKE '%'||$2||'%' OR u.slug ILIKE '%'||$2||'%')
-		AND `+comparison+` ORDER BY u.id `+order+` LIMIT $4`, seasonID, query, boundary, limit+1).Rows()
+		FROM app.users u
+		WHERE `+filters+` AND `+comparison+`
+		ORDER BY u.id `+order+` LIMIT @limit`, args...).Rows()
 	if err != nil {
 		return nil, false, 0, err
 	}
@@ -609,13 +630,7 @@ func (p *Postgres) ListEnrollmentCandidates(ctx context.Context, seasonID, query
 	if err := rows.Err(); err != nil {
 		return nil, false, 0, err
 	}
-	more := len(items) > limit
-	if more {
-		items = items[:limit]
-	}
-	if direction == "backward" {
-		sort.Slice(items, func(i, j int) bool { return items[i].ID < items[j].ID })
-	}
+	items, more := finishPostgresPage(items, limit, direction)
 	return items, more, total, nil
 }
 
