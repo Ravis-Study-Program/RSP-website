@@ -12,7 +12,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
-	storepostgres "github.com/magedmg/RSP-website/backend/internal/postgres"
+	dal "github.com/magedmg/RSP-website/backend/internal/dal"
 	"gorm.io/gorm"
 )
 
@@ -24,7 +24,7 @@ func (source *PostgresSource) Snapshot(ctx context.Context, options SnapshotOpti
 	if !options.ReadOnly || options.Isolation != IsolationRepeatableRead {
 		return Snapshot{}, errors.New("legacy source requires READ ONLY, REPEATABLE READ")
 	}
-	repository, err := storepostgres.Open(ctx, source.ConnectionString)
+	repository, err := dal.Open(ctx, source.ConnectionString)
 	if err != nil {
 		return Snapshot{}, fmt.Errorf("connect legacy source: %w", err)
 	}
@@ -201,7 +201,7 @@ type PostgresTarget struct {
 }
 
 func (target *PostgresTarget) Begin(ctx context.Context) (TargetTx, error) {
-	repository, err := storepostgres.Open(ctx, target.ConnectionString)
+	repository, err := dal.Open(ctx, target.ConnectionString)
 	if err != nil {
 		return nil, fmt.Errorf("connect target: %w", err)
 	}
@@ -220,7 +220,7 @@ func (target *PostgresTarget) Begin(ctx context.Context) (TargetTx, error) {
 }
 
 type postgresTx struct {
-	repository *storepostgres.Postgres
+	repository *dal.Store
 	tx         *gorm.DB
 	now        func() time.Time
 	locked     bool

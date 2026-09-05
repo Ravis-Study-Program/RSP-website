@@ -44,7 +44,7 @@ func checkImports(t *testing.T, path, feature string) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if strings.Contains(importedPath, "/backend/internal/httpapi") || strings.Contains(importedPath, "/backend/internal/postgres") {
+		if strings.Contains(importedPath, "/backend/internal/api") || strings.Contains(importedPath, "/backend/internal/dal") {
 			position := fileSet.Position(imported.Pos())
 			t.Errorf("%s/%s imports an adapter at %s:%d", feature, filepath.Base(path), position.Filename, position.Line)
 		}

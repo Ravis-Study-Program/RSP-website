@@ -11,10 +11,10 @@ import (
 	"strings"
 	"time"
 
+	"github.com/magedmg/RSP-website/backend/internal/api"
 	"github.com/magedmg/RSP-website/backend/internal/authadmin"
 	"github.com/magedmg/RSP-website/backend/internal/authn"
-	"github.com/magedmg/RSP-website/backend/internal/httpapi"
-	"github.com/magedmg/RSP-website/backend/internal/postgres"
+	"github.com/magedmg/RSP-website/backend/internal/dal"
 )
 
 func main() {
@@ -32,7 +32,7 @@ func main() {
 		logger.Error("DATABASE_URL is required")
 		os.Exit(1)
 	}
-	db, err := postgres.Open(context.Background(), databaseURL)
+	db, err := dal.Open(context.Background(), databaseURL)
 	if err != nil {
 		logger.Error("database connection failed", "error", err)
 		os.Exit(1)
@@ -45,7 +45,7 @@ func main() {
 			os.Exit(1)
 		}
 	}
-	authenticator := httpapi.BearerAuthenticator{
+	authenticator := api.BearerAuthenticator{
 		Validator: &authn.Validator{
 			Issuer:   os.Getenv("AUTH_ISSUER"),
 			Audience: os.Getenv("AUTH_AUDIENCE"),
@@ -64,7 +64,7 @@ func main() {
 		return db.Ping(ctx)
 	}
 
-	api := httpapi.New(httpapi.Config{
+	api := api.New(api.Config{
 		DB:              db,
 		Authenticator:   authenticator,
 		PublicOrigin:    env("PUBLIC_ORIGIN", "http://localhost:8080"),

@@ -12,8 +12,8 @@ import (
 	"time"
 
 	"database/sql"
+	"github.com/magedmg/RSP-website/backend/internal/dal"
 	"github.com/magedmg/RSP-website/backend/internal/platform/id"
-	"github.com/magedmg/RSP-website/backend/internal/postgres"
 	"github.com/magedmg/RSP-website/backend/internal/worker"
 	"gorm.io/gorm"
 )
@@ -35,7 +35,7 @@ func run(ctx context.Context, args []string) error {
 		return errors.New("DATABASE_URL is required")
 	}
 
-	repository, err := postgres.Open(ctx, dsn)
+	repository, err := dal.Open(ctx, dsn)
 	if err != nil {
 		return err
 	}

@@ -12,8 +12,8 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/magedmg/RSP-website/backend/internal/dal"
 	"github.com/magedmg/RSP-website/backend/internal/leetcode"
-	"github.com/magedmg/RSP-website/backend/internal/postgres"
 	"github.com/magedmg/RSP-website/backend/internal/worker"
 )
 
@@ -34,7 +34,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	repository, err := postgres.Open(ctx, url)
+	repository, err := dal.Open(ctx, url)
 	if err != nil {
 		logger.Error("database connection failed", "error", err)
 		os.Exit(1)
@@ -48,7 +48,7 @@ func main() {
 	}
 	defer closeConnection()
 
-	state := &postgres.WorkerState{DB: db}
+	state := &dal.WorkerState{DB: db}
 	scheduler := worker.LeetCodeScheduler{Locker: state, State: state, Syncer: leetcode.Client{URL: syncURL, Sink: leetcode.PostgresSink{DB: db}}, Retries: 3, Timeout: 2 * time.Minute}
 	ticker := time.NewTicker(time.Minute)
 	defer ticker.Stop()
