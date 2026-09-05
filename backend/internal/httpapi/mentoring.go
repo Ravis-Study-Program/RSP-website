@@ -11,15 +11,6 @@ import (
 	"github.com/magedmg/RSP-website/backend/internal/programme"
 )
 
-func (a *API) canViewSeason(r *http.Request, seasonID string) bool {
-	actor := actorFrom(r.Context())
-	if actor.IsPrivileged() {
-		return true
-	}
-	enrollment, ok := actor.Enrollment(seasonID)
-	return ok && (enrollment.State == authz.Active || enrollment.State == authz.Completed && actor.EligibleMember())
-}
-
 func (a *API) seasonAdmin(r *http.Request) (programme.SeasonRecord, bool) {
 	seasonID := r.PathValue("id")
 	season, err := a.db.GetSeason(r.Context(), seasonID)
@@ -41,7 +32,7 @@ func canGrantCoordinator(actor authz.Actor, seasonID string) bool {
 
 func (a *API) listWeeks(w http.ResponseWriter, r *http.Request) {
 	seasonID := r.PathValue("id")
-	if !a.canViewSeason(r, seasonID) {
+	if !actorFrom(r.Context()).CanViewSeason(seasonID) {
 		writeErrorResponse(w, http.StatusForbidden, "season_access_required", "The current account cannot access this season.")
 		return
 	}
@@ -171,7 +162,7 @@ func (a *API) deleteWeek(w http.ResponseWriter, r *http.Request) {
 
 func (a *API) listMembers(w http.ResponseWriter, r *http.Request) {
 	seasonID := r.PathValue("id")
-	if !a.canViewSeason(r, seasonID) {
+	if !actorFrom(r.Context()).CanViewSeason(seasonID) {
 		writeErrorResponse(w, http.StatusForbidden, "season_access_required", "No season access yet.")
 		return
 	}
@@ -399,7 +390,7 @@ func (a *API) changeMember(w http.ResponseWriter, r *http.Request, promote bool)
 
 func (a *API) listMentorships(w http.ResponseWriter, r *http.Request) {
 	seasonID := r.PathValue("id")
-	if !a.canViewSeason(r, seasonID) {
+	if !actorFrom(r.Context()).CanViewSeason(seasonID) {
 		writeErrorResponse(w, http.StatusForbidden, "season_access_required", "The current account cannot access this season.")
 		return
 	}

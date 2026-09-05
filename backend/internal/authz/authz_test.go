@@ -42,7 +42,7 @@ func TestPermissionMatrix(t *testing.T) {
 			if got := tc.actor.CanManageSeason("s", true); got != tc.manage {
 				t.Fatalf("manage=%v", got)
 			}
-			if got := tc.actor.CanViewPrivate("target", "s", true); got != tc.private {
+			if got := tc.actor.CanViewPrivate("target", MemberRelationship{SeasonID: "s", TargetEnrolled: true, AssignedMentor: true}); got != tc.private {
 				t.Fatalf("private=%v", got)
 			}
 		})

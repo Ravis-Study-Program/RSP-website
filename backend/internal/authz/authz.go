@@ -128,21 +128,40 @@ func (a Actor) ProgrammeAccess() bool {
 	return false
 }
 
-// CanViewBasicProfile performs the operation.
-func (a Actor) CanViewBasicProfile(targetEligible bool) bool {
-	return a.EligibleMember() && targetEligible
+// CanViewSeason preserves access to completed seasons for active members and alumni.
+func (a Actor) CanViewSeason(seasonID string) bool {
+	if !a.authenticated() {
+		return false
+	}
+	if a.IsPrivileged() {
+		return true
+	}
+	e, ok := a.Enrollment(seasonID)
+	return ok && (e.State == Active || e.State == Completed && a.EligibleMember())
 }
 
-// CanViewPrivate performs the operation.
-func (a Actor) CanViewPrivate(targetID, seasonID string, assignedMentor bool) bool {
+// MemberRelationship contains facts loaded for a private-data access check.
+type MemberRelationship struct {
+	SeasonID       string
+	TargetEnrolled bool
+	AssignedMentor bool
+}
+
+// CanViewPrivate includes historical mentor/coordinator relationships after a
+// season closes. TargetEnrolled means an active or completed target enrollment.
+func (a Actor) CanViewPrivate(targetID string, relationship MemberRelationship) bool {
 	if !a.authenticated() {
 		return false
 	}
 	if a.UserID == targetID || a.IsPrivileged() {
 		return true
 	}
-	e, ok := a.Enrollment(seasonID)
-	return ok && e.State == Active && ((e.Role == Mentor && assignedMentor) || e.Role == Coordinator)
+	e, ok := a.Enrollment(relationship.SeasonID)
+	if !ok || (e.State != Active && e.State != Completed) {
+		return false
+	}
+	return (e.Role == Mentor && relationship.AssignedMentor) ||
+		(e.Role == Coordinator && relationship.TargetEnrolled)
 }
 
 // CanManageSeason performs the operation.

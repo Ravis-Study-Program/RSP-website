@@ -25,7 +25,7 @@ func (a *API) requirePracticeAccess(w http.ResponseWriter, r *http.Request) bool
 
 func (a *API) canViewMemberPrivate(r *http.Request, targetID string) (bool, error) {
 	actor := actorFrom(r.Context())
-	if actor.UserID == targetID || actor.IsPrivileged() {
+	if actor.CanViewPrivate(targetID, authz.MemberRelationship{}) {
 		return true, nil
 	}
 
@@ -35,6 +35,7 @@ func (a *API) canViewMemberPrivate(r *http.Request, targetID string) (bool, erro
 		if enrollment.State != authz.Active && enrollment.State != authz.Completed {
 			continue
 		}
+		relationship := authz.MemberRelationship{SeasonID: enrollment.SeasonID}
 		if enrollment.Role == authz.Coordinator {
 			if !targetLoaded {
 				var err error
@@ -47,7 +48,8 @@ func (a *API) canViewMemberPrivate(r *http.Request, targetID string) (bool, erro
 			}
 			for _, target := range targetEnrollments {
 				if target.SeasonID == enrollment.SeasonID && (target.State == "active" || target.State == "completed") {
-					return true, nil
+					relationship.TargetEnrolled = true
+					break
 				}
 			}
 		}
@@ -56,9 +58,10 @@ func (a *API) canViewMemberPrivate(r *http.Request, targetID string) (bool, erro
 			if err != nil {
 				return false, err
 			}
-			if assigned {
-				return true, nil
-			}
+			relationship.AssignedMentor = assigned
+		}
+		if actor.CanViewPrivate(targetID, relationship) {
+			return true, nil
 		}
 	}
 

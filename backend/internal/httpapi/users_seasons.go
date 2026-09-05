@@ -147,7 +147,7 @@ func validSlug(slug string) bool {
 
 func (a *API) users(w http.ResponseWriter, r *http.Request) {
 	actor := actorFrom(r.Context())
-	if !canAccessDirectory(actor) && !actor.IsPrivileged() {
+	if !actor.EligibleMember() && !actor.IsPrivileged() {
 		writeErrorResponse(w, http.StatusForbidden, "season_access_required", "No season access yet.")
 		return
 	}
@@ -206,7 +206,7 @@ func (a *API) users(w http.ResponseWriter, r *http.Request) {
 
 func (a *API) user(w http.ResponseWriter, r *http.Request) {
 	actor := actorFrom(r.Context())
-	if !canAccessDirectory(actor) && !actor.IsPrivileged() {
+	if !actor.EligibleMember() && !actor.IsPrivileged() {
 		writeErrorResponse(w, http.StatusForbidden, "season_access_required", "No season access yet.")
 		return
 	}
@@ -239,10 +239,6 @@ func (a *API) user(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSONResponse(w, http.StatusOK, user)
-}
-
-func canAccessDirectory(actor authz.Actor) bool {
-	return actor.EligibleMember()
 }
 
 func (a *API) seasons(w http.ResponseWriter, r *http.Request) {
@@ -301,7 +297,7 @@ func (a *API) seasons(w http.ResponseWriter, r *http.Request) {
 	items := []programme.SeasonRecord{}
 	seen := map[string]bool{}
 	for _, enrollment := range actor.Enrollments {
-		if seen[enrollment.SeasonID] || !canViewSeason(actor, enrollment.SeasonID) {
+		if seen[enrollment.SeasonID] || !actor.CanViewSeason(enrollment.SeasonID) {
 			continue
 		}
 		season, seasonErr := a.db.GetSeason(r.Context(), enrollment.SeasonID)
@@ -333,7 +329,7 @@ func (a *API) seasons(w http.ResponseWriter, r *http.Request) {
 
 func (a *API) season(w http.ResponseWriter, r *http.Request) {
 	actor := actorFrom(r.Context())
-	if !canViewSeason(actor, r.PathValue("id")) {
+	if !actor.CanViewSeason(r.PathValue("id")) {
 		writeErrorResponse(w, http.StatusNotFound, "not_found", "The requested season does not exist.")
 		return
 	}
@@ -345,21 +341,6 @@ func (a *API) season(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeJSONResponse(w, http.StatusOK, v)
-}
-
-func canViewSeason(actor authz.Actor, seasonID string) bool {
-	if actor.IsPrivileged() {
-		return true
-	}
-	for _, enrollment := range actor.Enrollments {
-		if enrollment.SeasonID != seasonID {
-			continue
-		}
-		if enrollment.State == authz.Active || enrollment.State == authz.Completed && actor.EligibleMember() {
-			return true
-		}
-	}
-	return false
 }
 
 type seasonInput struct {
