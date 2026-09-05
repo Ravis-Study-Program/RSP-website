@@ -135,7 +135,7 @@ func (c Client) Sync(ctx context.Context) (worker.Report, error) {
 			continue
 		}
 
-		report.Updated++
+		report.Applied++
 	}
 
 	return report, nil

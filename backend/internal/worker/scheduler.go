@@ -1,4 +1,4 @@
-// Package worker runs scheduled backend workers.
+// Package worker schedules LeetCode catalogue synchronization.
 package worker
 
 import (
@@ -17,8 +17,8 @@ type Locker interface {
 }
 
 type State interface {
-	LastSuccess(context.Context, string) (*time.Time, error)
-	LastAttempt(context.Context, string) (*time.Time, error)
+	LastSuccess(context.Context) (*time.Time, error)
+	LastAttempt(context.Context) (*time.Time, error)
 	Record(context.Context, Run) error
 }
 
@@ -26,10 +26,11 @@ type Syncer interface {
 	Sync(context.Context) (Report, error)
 }
 
-type Report struct{ Fetched, Inserted, Updated, Failed int }
+// Report counts catalogue items fetched, successfully upserted, or rejected.
+type Report struct{ Fetched, Applied, Failed int }
 
 type Run struct {
-	Job                   string
+	ID                    string // Existing queue row for a manual run; empty for scheduled runs.
 	TriggerKind           string
 	StartedAt, FinishedAt time.Time
 	Report                Report
@@ -60,7 +61,8 @@ func DecideDue(now time.Time, lastSuccess, lastAttempt *time.Time) ScheduleDecis
 	return ScheduleDecision{Run: true, TriggerKind: trigger}
 }
 
-type Scheduler struct {
+// LeetCodeScheduler runs weekly, catch-up, and explicitly queued syncs.
+type LeetCodeScheduler struct {
 	Locker  Locker
 	State   State
 	Syncer  Syncer
@@ -69,14 +71,14 @@ type Scheduler struct {
 	Retries int
 }
 
-func (s Scheduler) RunDue(ctx context.Context) (bool, error) {
+func (s LeetCodeScheduler) RunDue(ctx context.Context) (bool, error) {
 	now := s.now()
-	last, err := s.State.LastSuccess(ctx, "leetcode_sync")
+	last, err := s.State.LastSuccess(ctx)
 	if err != nil {
 		return false, err
 	}
 
-	lastAttempt, err := s.State.LastAttempt(ctx, "leetcode_sync")
+	lastAttempt, err := s.State.LastAttempt(ctx)
 	if err != nil {
 		return false, err
 	}
@@ -84,14 +86,18 @@ func (s Scheduler) RunDue(ctx context.Context) (bool, error) {
 	if !decision.Run {
 		return false, nil
 	}
-	return true, s.run(ctx, decision.TriggerKind)
+	return true, s.run(ctx, "", decision.TriggerKind)
 }
 
-func (s Scheduler) Run(ctx context.Context) error {
-	return s.run(ctx, "schedule")
+// RunManual completes an existing queued request, regardless of the weekly schedule.
+func (s LeetCodeScheduler) RunManual(ctx context.Context, runID string) error {
+	if runID == "" {
+		return errors.New("manual sync run ID is required")
+	}
+	return s.run(ctx, runID, "manual")
 }
 
-func (s Scheduler) run(ctx context.Context, triggerKind string) error {
+func (s LeetCodeScheduler) run(ctx context.Context, runID, triggerKind string) error {
 	ok, err := s.Locker.TryLock(ctx, LeetCodeAdvisoryLock)
 	if err != nil {
 		return err
@@ -125,7 +131,7 @@ func (s Scheduler) run(ctx context.Context, triggerKind string) error {
 			break
 		}
 	}
-	run := Run{Job: "leetcode_sync", TriggerKind: triggerKind, StartedAt: start, FinishedAt: s.now(), Report: report}
+	run := Run{ID: runID, TriggerKind: triggerKind, StartedAt: start, FinishedAt: s.now(), Report: report}
 	if runErr != nil {
 		run.Error = runErr.Error()
 	}
@@ -135,7 +141,7 @@ func (s Scheduler) run(ctx context.Context, triggerKind string) error {
 	return runErr
 }
 
-func (s Scheduler) now() time.Time {
+func (s LeetCodeScheduler) now() time.Time {
 	if s.Now != nil {
 		return s.Now().UTC()
 	}

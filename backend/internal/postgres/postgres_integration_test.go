@@ -111,6 +111,9 @@ func TestPostgres18MigrationsAndRepository(t *testing.T) {
 	if err := repository.DB.WithContext(ctx).Raw(`SELECT request_id FROM app.audit_events WHERE action='leetcode.sync_requested' ORDER BY occurred_at DESC LIMIT 1`).Row().Scan(&storedRequestID); err != nil || storedRequestID != "integration-request" {
 		t.Fatalf("queued sync request id=%q err=%v", storedRequestID, err)
 	}
+	t.Run("LeetCode worker manual and scheduled runs", func(t *testing.T) {
+		testLeetCodeWorkerRuns(t, ctx, repository, actor.UserID)
+	})
 
 	pinnedDB, closePinned, err := repository.PinnedConnection(ctx)
 	if err != nil {

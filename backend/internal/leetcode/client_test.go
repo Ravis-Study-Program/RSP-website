@@ -24,7 +24,7 @@ func TestSyncHandlesPartialCatalogFailure(t *testing.T) {
 	defer server.Close()
 	sink := &recordingSink{}
 	report, err := Client{URL: server.URL, Sink: sink}.Sync(context.Background())
-	if err != nil || report.Fetched != 2 || report.Updated != 1 || report.Failed != 1 {
+	if err != nil || report.Fetched != 2 || report.Applied != 1 || report.Failed != 1 {
 		t.Fatalf("report=%#v err=%v", report, err)
 	}
 	if len(sink.problems) != 1 || sink.problems[0].Slug != "two-sum" || sink.problems[0].Difficulty != "easy" {

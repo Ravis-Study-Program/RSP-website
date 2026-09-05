@@ -49,14 +49,20 @@ func main() {
 	defer closeConnection()
 
 	state := &postgres.WorkerState{DB: db}
-	scheduler := worker.Scheduler{Locker: state, State: state, Syncer: leetcode.Client{URL: syncURL, Sink: leetcode.PostgresSink{DB: db}}, Retries: 3, Timeout: 2 * time.Minute}
+	scheduler := worker.LeetCodeScheduler{Locker: state, State: state, Syncer: leetcode.Client{URL: syncURL, Sink: leetcode.PostgresSink{DB: db}}, Retries: 3, Timeout: 2 * time.Minute}
 	ticker := time.NewTicker(time.Minute)
 	defer ticker.Stop()
 
 	run := func() {
-		ran, err := state.RunPendingManual(ctx, scheduler)
-		if err == nil && !ran {
-			ran, err = scheduler.RunDue(ctx)
+		runID, err := state.PendingManualRunID(ctx)
+		ran := false
+		if err == nil {
+			if runID != "" {
+				ran = true
+				err = scheduler.RunManual(ctx, runID)
+			} else {
+				ran, err = scheduler.RunDue(ctx)
+			}
 		}
 		if err != nil {
 			slog.Error("scheduled sync failed", "error", err)
