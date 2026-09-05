@@ -27,10 +27,12 @@ RUN --mount=type=cache,target=/go/pkg/mod \
     && cp -R "/go/pkg/mod/github.com/pressly/goose/v3@${GOOSE_VERSION}" /goose \
     && chmod -R u+w /goose
 WORKDIR /goose
+# This image only runs PostgreSQL migrations; omit the other database drivers.
 RUN --mount=type=cache,target=/go/pkg/mod \
     --mount=type=cache,target=/root/.cache/go-build \
     go get golang.org/x/crypto@v0.55.0 \
     && CGO_ENABLED=0 go build \
+      -tags='no_clickhouse no_libsql no_mssql no_mysql no_sqlite3 no_vertica no_ydb' \
       -trimpath \
       -ldflags="-s -w -X main.version=${GOOSE_VERSION}" \
       -o /out/goose \
