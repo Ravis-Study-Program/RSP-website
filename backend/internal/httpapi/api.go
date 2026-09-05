@@ -90,7 +90,8 @@ func (a *API) Handler() http.Handler {
 	registerRoutes(routes, a)
 	routes.HandleFunc("POST /internal/auth/lifecycle-events", a.identityLifecycle)
 
-	return requestContext(a.logger, a.telemetry.observeHTTP, a.limitRequestBody(routes))
+	handler := a.limitRequestBody(routes)
+	return requestContext(a.logger, a.telemetry.observeHTTP, handler)
 }
 
 // requestContext is the outermost middleware, so it runs once for every request.
