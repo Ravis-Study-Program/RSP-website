@@ -3,15 +3,13 @@ WORKDIR /workspace
 RUN corepack enable && corepack prepare pnpm@10.15.0 --activate
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY apps/auth/package.json apps/auth/package.json
-COPY apps/web/package.json apps/web/package.json
 
 FROM base AS dependencies
-RUN pnpm install --frozen-lockfile
+RUN pnpm install --frozen-lockfile --filter @rsp/auth...
 
 FROM dependencies AS development
 ENV NODE_ENV=development
 COPY --chown=node:node apps/auth apps/auth
-RUN chown -R node:node /workspace/apps/auth
 USER node
 EXPOSE 3001
 CMD ["pnpm", "--filter", "@rsp/auth", "dev"]
@@ -25,8 +23,7 @@ RUN pnpm --filter @rsp/auth --prod --no-optional deploy /out/auth
 
 FROM alpine:3.24 AS runtime
 ENV NODE_ENV=production
-RUN apk upgrade --no-cache \
-    && apk add --no-cache ca-certificates libstdc++ \
+RUN apk add --no-cache ca-certificates libstdc++ \
     && addgroup -S -g 10001 rsp \
     && adduser -S -D -H -u 10001 -G rsp rsp
 COPY --from=base /usr/local/bin/node /usr/local/bin/node

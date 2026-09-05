@@ -18,11 +18,7 @@ RUN apk add --no-cache ca-certificates git tzdata \
 WORKDIR /workspace
 COPY go.mod go.sum ./
 RUN --mount=type=cache,target=/go/pkg/mod go mod download
-COPY backend ./backend
-COPY api ./api
-COPY db ./db
-COPY deploy/dev ./deploy/dev
-RUN chown -R rsp:rsp /workspace
+COPY --chown=rsp:rsp backend api db deploy/dev ./
 
 USER 10001:10001
 ENV GOCACHE=/home/rsp/.cache/go-build

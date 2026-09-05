@@ -12,7 +12,6 @@ FROM base AS development
 
 COPY --chown=node:node apps/web apps/web
 COPY --chown=node:node api/openapi.yaml api/openapi.yaml
-RUN chown -R node:node /workspace/apps/web
 USER node
 EXPOSE 5173
 CMD ["pnpm", "--filter", "@rsp/web", "dev"]
@@ -28,9 +27,9 @@ FROM golang:1.26.6-alpine3.24 AS caddy-build
 ARG CADDY_VERSION=2.11.4
 ARG XCADDY_VERSION=v0.4.5
 
-RUN apk add --no-cache git
-RUN go install github.com/caddyserver/xcaddy/cmd/xcaddy@${XCADDY_VERSION}
-RUN xcaddy build v${CADDY_VERSION} \
+RUN apk add --no-cache git \
+    && go install github.com/caddyserver/xcaddy/cmd/xcaddy@${XCADDY_VERSION} \
+    && xcaddy build v${CADDY_VERSION} \
       --output /out/caddy \
       --replace golang.org/x/crypto=golang.org/x/crypto@v0.55.0 \
       --replace golang.org/x/net=golang.org/x/net@v0.56.0 \
@@ -39,8 +38,7 @@ RUN xcaddy build v${CADDY_VERSION} \
 
 FROM alpine:3.24 AS runtime
 
-RUN apk upgrade --no-cache \
-    && apk add --no-cache ca-certificates mailcap \
+RUN apk add --no-cache ca-certificates mailcap \
     && addgroup -S -g 10001 rsp \
     && adduser -S -D -H -u 10001 -G rsp rsp \
     && mkdir -p /config/caddy /data/caddy /srv \

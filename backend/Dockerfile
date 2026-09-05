@@ -53,21 +53,19 @@ RUN --mount=type=cache,target=/go/pkg/mod \
       -o /out/rsp-migrate \
       ./backend/cmd/rsp-migrate
 
-FROM alpine:${ALPINE_VERSION} AS runtime
-RUN apk upgrade --no-cache \
-    && apk add --no-cache ca-certificates tzdata \
-    && addgroup -S -g 10001 rsp \
+FROM alpine:${ALPINE_VERSION} AS runtime-base
+RUN addgroup -S -g 10001 rsp \
     && adduser -S -D -H -u 10001 -G rsp rsp
+
+FROM runtime-base AS runtime
+RUN apk add --no-cache ca-certificates tzdata
 COPY --from=service-build /out/rsp-service /usr/local/bin/rsp-service
 USER 10001:10001
 EXPOSE 8080
 ENTRYPOINT ["/usr/local/bin/rsp-service"]
 
-FROM alpine:${ALPINE_VERSION} AS migrations
-RUN apk upgrade --no-cache \
-    && apk add --no-cache ca-certificates \
-    && addgroup -S -g 10001 rsp \
-    && adduser -S -D -H -u 10001 -G rsp rsp
+FROM runtime-base AS migrations
+RUN apk add --no-cache ca-certificates
 COPY --from=goose-build /out/goose /usr/local/bin/goose
 COPY --chown=10001:10001 db/migrations /migrations
 ENV GOOSE_DRIVER=postgres \
@@ -76,11 +74,8 @@ USER 10001:10001
 ENTRYPOINT ["goose"]
 CMD ["up"]
 
-FROM alpine:${ALPINE_VERSION} AS ops
-RUN apk upgrade --no-cache \
-    && apk add --no-cache ca-certificates tzdata \
-    && addgroup -S -g 10001 rsp \
-    && adduser -S -D -H -u 10001 -G rsp rsp \
+FROM runtime-base AS ops
+RUN apk add --no-cache ca-certificates tzdata \
     && mkdir /work \
     && chown 10001:10001 /work
 COPY --from=ops-build /out/rspctl /usr/local/bin/rspctl
