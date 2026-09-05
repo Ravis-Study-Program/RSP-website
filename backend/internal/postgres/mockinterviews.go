@@ -13,6 +13,17 @@ import (
 	"gorm.io/gorm/clause"
 )
 
+const mockInterviewColumns = `mi.id,mi.interviewer_user_id,mi.interviewee_user_id,mi.season_id,
+	mi.scheduled_at,mi.duration_minutes,COALESCE(mi.interviewer_notes_html,''),mi.revision,mi.deleted_at`
+
+func scanMockInterview(row rowScanner) (mockinterviews.Interview, error) {
+	var interview mockinterviews.Interview
+	err := row.Scan(&interview.ID, &interview.InterviewerID, &interview.IntervieweeID,
+		&interview.SeasonID, &interview.OccurredAt, &interview.DurationMinutes,
+		&interview.Notes, &interview.Revision, &interview.DeletedAt)
+	return interview, noRows(err)
+}
+
 func (p *Postgres) ListMockInterviews(ctx context.Context, actor authz.Actor, mode, boundary string, limit int, sortBy, direction string) ([]mockinterviews.Interview, bool, int64, error) {
 	userID := actor.UserID
 	where := `(mi.interviewer_user_id=$1 OR mi.interviewee_user_id=$1)`
@@ -59,7 +70,7 @@ func (p *Postgres) ListMockInterviews(ctx context.Context, actor authz.Actor, mo
 	}
 	query := `WITH boundary AS (
 		SELECT ` + boundarySelect + ` FROM app.mock_interviews WHERE id=NULLIF($2,'')::uuid AND deleted_at IS NULL
-	) SELECT mi.id FROM app.mock_interviews mi
+	) SELECT ` + mockInterviewColumns + ` FROM app.mock_interviews mi
 	WHERE mi.deleted_at IS NULL AND ` + where + `
 	  AND (NULLIF($2,'')::uuid IS NULL OR EXISTS (SELECT 1 FROM boundary b WHERE ` + key + ` ` + comparator + ` ` + boundaryKey + `))
 	ORDER BY ` + orderBy + ` LIMIT $3`
@@ -69,28 +80,24 @@ func (p *Postgres) ListMockInterviews(ctx context.Context, actor authz.Actor, mo
 	}
 
 	defer rows.Close()
-	ids := []string{}
+	items := []mockinterviews.Interview{}
 	for rows.Next() {
-		var interviewID string
-		if err := rows.Scan(&interviewID); err != nil {
+		interview, err := scanMockInterview(rows)
+		if err != nil {
 			return nil, false, 0, err
 		}
-
-		ids = append(ids, interviewID)
+		items = append(items, interview)
 	}
 	if err := rows.Err(); err != nil {
 		return nil, false, 0, err
 	}
+	if err := rows.Close(); err != nil {
+		return nil, false, 0, err
+	}
 
-	ids, more := finishPostgresPage(ids, limit, direction)
-	items := make([]mockinterviews.Interview, 0, len(ids))
-	for _, interviewID := range ids {
-		v, err := p.GetMockInterview(ctx, interviewID)
-		if err != nil {
-			return nil, false, 0, err
-		}
-
-		items = append(items, v)
+	items, more := finishPostgresPage(items, limit, direction)
+	if err := loadMockRounds(ctx, p.DB, items); err != nil {
+		return nil, false, 0, err
 	}
 	return items, more, total, nil
 }
@@ -134,17 +141,29 @@ func (p *Postgres) GetMockInterview(ctx context.Context, interviewID string) (mo
 }
 
 func loadMockInterview(ctx context.Context, db *gorm.DB, interviewID string) (mockinterviews.Interview, error) {
-	var v mockinterviews.Interview
-	err := db.WithContext(ctx).Raw(`SELECT id,interviewer_user_id,interviewee_user_id,season_id,
-		scheduled_at,duration_minutes,COALESCE(interviewer_notes_html,''),revision,deleted_at
-		FROM app.mock_interviews WHERE id=? AND deleted_at IS NULL`, interviewID).Row().Scan(
-		&v.ID, &v.InterviewerID, &v.IntervieweeID, &v.SeasonID, &v.OccurredAt,
-		&v.DurationMinutes, &v.Notes, &v.Revision, &v.DeletedAt,
-	)
+	interview, err := scanMockInterview(db.WithContext(ctx).Raw(`SELECT `+mockInterviewColumns+`
+		FROM app.mock_interviews mi WHERE mi.id=? AND mi.deleted_at IS NULL`, interviewID).Row())
 	if err != nil {
-		return mockinterviews.Interview{}, noRows(err)
+		return mockinterviews.Interview{}, err
 	}
-	rows, err := db.WithContext(ctx).Raw(`SELECT r.id,r.kind::text,r.review_status='reviewed',
+	items := []mockinterviews.Interview{interview}
+	if err := loadMockRounds(ctx, db, items); err != nil {
+		return mockinterviews.Interview{}, err
+	}
+	return items[0], nil
+}
+
+func loadMockRounds(ctx context.Context, db *gorm.DB, interviews []mockinterviews.Interview) error {
+	if len(interviews) == 0 {
+		return nil
+	}
+	ids := make([]string, len(interviews))
+	byID := make(map[string]*mockinterviews.Interview, len(interviews))
+	for i := range interviews {
+		ids[i] = interviews[i].ID
+		byID[interviews[i].ID] = &interviews[i]
+	}
+	rows, err := db.WithContext(ctx).Raw(`SELECT r.mock_interview_id,r.id,r.kind::text,r.review_status='reviewed',
 		COALESCE(r.interviewee_comment_html,''),b.behavioural_score,l.leetcode_problem_id,
 		l.clarify_question_score,l.algorithm_design_score,l.complexity_analysis_score,
 		l.coding_score,l.testing_score,COALESCE(c.content_html,''),COALESCE(c.url,''),c.score
@@ -152,32 +171,51 @@ func loadMockInterview(ctx context.Context, db *gorm.DB, interviewID string) (mo
 		LEFT JOIN app.behavioural_mock_interview_rounds b ON b.mock_interview_round_id=r.id
 		LEFT JOIN app.leetcode_mock_interview_rounds l ON l.mock_interview_round_id=r.id
 		LEFT JOIN app.custom_mock_interview_rounds c ON c.mock_interview_round_id=r.id
-		WHERE r.mock_interview_id=? AND r.deleted_at IS NULL ORDER BY r.position,r.id`, interviewID).Rows()
+		WHERE r.mock_interview_id IN ? AND r.deleted_at IS NULL
+		ORDER BY r.mock_interview_id,r.position,r.id`, ids).Rows()
 	if err != nil {
-		return v, err
+		return err
 	}
 	defer rows.Close()
 	for rows.Next() {
 		var round mockinterviews.Round
-		var kind string
+		var interviewID, kind string
 		var behavioural, clarify, algorithm, complexity, coding, testing, custom *int16
 		var problemID *string
-		if err := rows.Scan(&round.ID, &kind, &round.Reviewed, &round.IntervieweeComment,
+		if err := rows.Scan(&interviewID, &round.ID, &kind, &round.Reviewed, &round.IntervieweeComment,
 			&behavioural, &problemID, &clarify, &algorithm, &complexity, &coding, &testing,
 			&round.Content, &round.Link, &custom); err != nil {
-			return v, err
+			return err
 		}
 		round.Type = mockinterviews.RoundType(kind)
 		round.Scores = scoresFromDB(behavioural, clarify, algorithm, complexity, coding, testing, custom)
 		if problemID != nil {
 			round.ProblemID = *problemID
 		}
-		v.Rounds = append(v.Rounds, round)
+		interview := byID[interviewID]
+		interview.Rounds = append(interview.Rounds, round)
 	}
-	if err := rows.Err(); err != nil {
-		return v, err
+	return rows.Err()
+}
+
+// ListMockParticipantSummaries returns public display fields in one query.
+// Missing and deleted users are omitted so callers can apply an explicit fallback.
+func (p *Postgres) ListMockParticipantSummaries(ctx context.Context, userIDs []string) (map[string]mockinterviews.ParticipantSummary, error) {
+	byID := make(map[string]mockinterviews.ParticipantSummary, len(userIDs))
+	if len(userIDs) == 0 {
+		return byID, nil
 	}
-	return v, nil
+	var summaries []mockinterviews.ParticipantSummary
+	if err := p.DB.WithContext(ctx).Table(dbtable.Users).
+		Select("id,slug,display_name AS name,avatar_url").
+		Where("id IN ? AND deleted_at IS NULL AND account_state <> 'deleted'", userIDs).
+		Scan(&summaries).Error; err != nil {
+		return nil, err
+	}
+	for _, summary := range summaries {
+		byID[summary.ID] = summary
+	}
+	return byID, nil
 }
 
 func scoresFromDB(values ...*int16) mockinterviews.Scores {

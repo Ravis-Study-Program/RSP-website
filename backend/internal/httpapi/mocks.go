@@ -9,6 +9,7 @@ import (
 	"github.com/magedmg/RSP-website/backend/internal/authz"
 	"github.com/magedmg/RSP-website/backend/internal/mockinterviews"
 	"github.com/magedmg/RSP-website/backend/internal/platform/id"
+	"github.com/magedmg/RSP-website/backend/internal/postgres"
 )
 
 type mockRoundRequest struct {
@@ -35,15 +36,26 @@ func mockRoundsFromRequest(rounds []mockRoundRequest) []mockinterviews.Round {
 	return result
 }
 
-func (a *API) eligibleMockActor(r *http.Request) bool {
+func (a *API) loadMockEligibility(r *http.Request) (bool, error) {
 	actor := actorFrom(r.Context())
 	participant, err := a.db.GetMockParticipant(r.Context(), actor.UserID)
-	return err == nil && participant.ProgrammeAccessEligible()
+	if errors.Is(err, postgres.ErrNotFound) {
+		return false, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	return participant.ProgrammeAccessEligible(), nil
 }
 
 func (a *API) listMockParticipants(w http.ResponseWriter, r *http.Request) {
 	actor := actorFrom(r.Context())
-	if !a.eligibleMockActor(r) && !actor.IsPrivileged() {
+	eligible, err := a.loadMockEligibility(r)
+	if err != nil {
+		a.writeStoreErrorResponse(w, err)
+		return
+	}
+	if !eligible && !actor.IsPrivileged() {
 		writeErrorResponse(w, http.StatusForbidden, "mock_participant_required", "Only programme members may select eligible mock-interview participants.")
 		return
 	}
@@ -94,7 +106,12 @@ func (a *API) listMockParticipants(w http.ResponseWriter, r *http.Request) {
 
 func (a *API) listMocks(w http.ResponseWriter, r *http.Request) {
 	actor := actorFrom(r.Context())
-	if !a.eligibleMockActor(r) && !actor.IsPrivileged() && !historicalMockReviewer(actor) {
+	eligible, err := a.loadMockEligibility(r)
+	if err != nil {
+		a.writeStoreErrorResponse(w, err)
+		return
+	}
+	if !eligible && !actor.IsPrivileged() && !historicalMockReviewer(actor) {
 		writeErrorResponse(w, http.StatusForbidden, "mock_participant_required", "Only active members and alumni may access mock interviews.")
 		return
 	}
@@ -134,8 +151,17 @@ func (a *API) listMocks(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	userIDs := make([]string, 0, 2*len(items))
+	for _, interview := range items {
+		userIDs = append(userIDs, interview.InterviewerID, interview.IntervieweeID)
+	}
+	summaries, err := a.db.ListMockParticipantSummaries(r.Context(), userIDs)
+	if err != nil {
+		a.writeStoreErrorResponse(w, err)
+		return
+	}
 	for index := range items {
-		items[index] = a.withMockParticipantSummaries(r, items[index])
+		items[index] = withMockParticipantSummaries(items[index], summaries)
 	}
 	pageInfo := pageInfoForKeyset(
 		a, binding, direction, boundary, items, more,
@@ -160,7 +186,12 @@ func historicalMockReviewer(actor authz.Actor) bool {
 
 func (a *API) createMock(w http.ResponseWriter, r *http.Request) {
 	actor := actorFrom(r.Context())
-	if !a.eligibleMockActor(r) {
+	eligible, err := a.loadMockEligibility(r)
+	if err != nil {
+		a.writeStoreErrorResponse(w, err)
+		return
+	}
+	if !eligible {
 		writeErrorResponse(w, http.StatusForbidden, "mock_participant_required", "The interviewer must be an active member or alumnus.")
 		return
 	}
@@ -199,7 +230,7 @@ func (a *API) createMock(w http.ResponseWriter, r *http.Request) {
 	}
 	v, err := a.mockRules.Create(actor.UserID, input, now)
 	if err != nil {
-		mockFailure(a, w, r, err)
+		writeMockErrorResponse(w, err)
 		return
 	}
 	v.ID = id.New()
@@ -209,14 +240,24 @@ func (a *API) createMock(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	interview := a.withMockParticipantSummaries(r, v)
+	summaries, err := a.db.ListMockParticipantSummaries(r.Context(), []string{v.InterviewerID, v.IntervieweeID})
+	if err != nil {
+		a.writeStoreErrorResponse(w, err)
+		return
+	}
+	interview := withMockParticipantSummaries(v, summaries)
 	response := withPass(interview)
 	writeJSONResponse(w, http.StatusCreated, response)
 }
 
 func (a *API) updateMock(w http.ResponseWriter, r *http.Request) {
 	actor := actorFrom(r.Context())
-	if !a.eligibleMockActor(r) && !actor.IsPrivileged() {
+	eligible, err := a.loadMockEligibility(r)
+	if err != nil {
+		a.writeStoreErrorResponse(w, err)
+		return
+	}
+	if !eligible && !actor.IsPrivileged() {
 		writeErrorResponse(w, http.StatusForbidden, "mock_participant_required", "Only active members and alumni may update mock interviews.")
 		return
 	}
@@ -244,9 +285,6 @@ func (a *API) updateMock(w http.ResponseWriter, r *http.Request) {
 	if !a.validMockSeason(w, r, v.SeasonID, in.OccurredAt, v.InterviewerID, v.IntervieweeID) {
 		return
 	}
-	if !a.mockSeasonWritable(w, r, v.SeasonID) {
-		return
-	}
 	now := time.Now().UTC()
 	input := mockinterviews.UpdateInput{
 		ExpectedRevision: in.Revision,
@@ -257,7 +295,7 @@ func (a *API) updateMock(w http.ResponseWriter, r *http.Request) {
 	}
 	v, err = a.mockRules.Update(v, actor.UserID, input, now)
 	if err != nil {
-		mockFailure(a, w, r, err)
+		writeMockErrorResponse(w, err)
 		return
 	}
 	v, err = a.db.UpdateMockInterview(r.Context(), v, actor.UserID, now)
@@ -266,14 +304,24 @@ func (a *API) updateMock(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	interview := a.withMockParticipantSummaries(r, v)
+	summaries, err := a.db.ListMockParticipantSummaries(r.Context(), []string{v.InterviewerID, v.IntervieweeID})
+	if err != nil {
+		a.writeStoreErrorResponse(w, err)
+		return
+	}
+	interview := withMockParticipantSummaries(v, summaries)
 	response := withPass(interview)
 	writeJSONResponse(w, http.StatusOK, response)
 }
 
 func (a *API) deleteMock(w http.ResponseWriter, r *http.Request) {
 	actor := actorFrom(r.Context())
-	if !a.eligibleMockActor(r) && !actor.IsPrivileged() {
+	eligible, err := a.loadMockEligibility(r)
+	if err != nil {
+		a.writeStoreErrorResponse(w, err)
+		return
+	}
+	if !eligible && !actor.IsPrivileged() {
 		writeErrorResponse(w, http.StatusForbidden, "mock_participant_required", "Only active members and alumni may delete mock interviews.")
 		return
 	}
@@ -298,7 +346,7 @@ func (a *API) deleteMock(w http.ResponseWriter, r *http.Request) {
 	now := time.Now().UTC()
 	v, err = a.mockRules.Delete(v, actor.UserID, revision, now)
 	if err != nil {
-		mockFailure(a, w, r, err)
+		writeMockErrorResponse(w, err)
 		return
 	}
 	if _, err = a.db.DeleteMockInterview(r.Context(), v, actor.UserID, now); err != nil {
@@ -310,7 +358,12 @@ func (a *API) deleteMock(w http.ResponseWriter, r *http.Request) {
 
 func (a *API) reviewRound(w http.ResponseWriter, r *http.Request) {
 	actor := actorFrom(r.Context())
-	if !a.eligibleMockActor(r) && !actor.IsPrivileged() {
+	eligible, err := a.loadMockEligibility(r)
+	if err != nil {
+		a.writeStoreErrorResponse(w, err)
+		return
+	}
+	if !eligible && !actor.IsPrivileged() {
 		writeErrorResponse(w, http.StatusForbidden, "mock_participant_required", "Only active members and alumni may review mock interviews.")
 		return
 	}
@@ -339,7 +392,7 @@ func (a *API) reviewRound(w http.ResponseWriter, r *http.Request) {
 	now := time.Now().UTC()
 	v, err = a.mockRules.Review(v, actor.UserID, r.PathValue("roundId"), in.Comment, in.Reviewed, in.Revision, now)
 	if err != nil {
-		mockFailure(a, w, r, err)
+		writeMockErrorResponse(w, err)
 		return
 	}
 	v, err = a.db.ReviewMockInterviewRound(r.Context(), v, r.PathValue("roundId"), actor.UserID, now)
@@ -348,7 +401,12 @@ func (a *API) reviewRound(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	interview := a.withMockParticipantSummaries(r, v)
+	summaries, err := a.db.ListMockParticipantSummaries(r.Context(), []string{v.InterviewerID, v.IntervieweeID})
+	if err != nil {
+		a.writeStoreErrorResponse(w, err)
+		return
+	}
+	interview := withMockParticipantSummaries(v, summaries)
 	response := withPass(interview)
 	writeJSONResponse(w, http.StatusOK, response)
 }
@@ -390,7 +448,7 @@ func (a *API) correctMockIdentities(w http.ResponseWriter, r *http.Request) {
 	now := time.Now().UTC()
 	v, err = a.mockRules.CorrectIdentities(v, actor.UserID, in.InterviewerID, in.IntervieweeID, in.SeasonID, in.Reason, true, in.Revision, now)
 	if err != nil {
-		mockFailure(a, w, r, err)
+		writeMockErrorResponse(w, err)
 		return
 	}
 	v, err = a.db.CorrectMockInterviewIdentities(r.Context(), v, actor.UserID, in.Reason, now)
@@ -399,7 +457,12 @@ func (a *API) correctMockIdentities(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	interview := a.withMockParticipantSummaries(r, v)
+	summaries, err := a.db.ListMockParticipantSummaries(r.Context(), []string{v.InterviewerID, v.IntervieweeID})
+	if err != nil {
+		a.writeStoreErrorResponse(w, err)
+		return
+	}
+	interview := withMockParticipantSummaries(v, summaries)
 	response := withPass(interview)
 	writeJSONResponse(w, http.StatusOK, response)
 }
@@ -410,7 +473,11 @@ func (a *API) validMockSeason(w http.ResponseWriter, r *http.Request, seasonID *
 	}
 	season, err := a.db.GetSeason(r.Context(), *seasonID)
 	if err != nil {
-		writeErrorResponse(w, http.StatusBadRequest, "invalid_mock_season", "The selected season must exist.")
+		if errors.Is(err, postgres.ErrNotFound) {
+			writeErrorResponse(w, http.StatusBadRequest, "invalid_mock_season", "The selected season must exist.")
+		} else {
+			a.writeStoreErrorResponse(w, err)
+		}
 		return false
 	}
 	if season.Status != "open" {
@@ -459,7 +526,7 @@ func (a *API) mockSeasonWritable(w http.ResponseWriter, r *http.Request, seasonI
 	return true
 }
 
-func mockFailure(a *API, w http.ResponseWriter, r *http.Request, err error) {
+func writeMockErrorResponse(w http.ResponseWriter, err error) {
 	switch {
 	case errors.Is(err, mockinterviews.ErrForbidden):
 		writeErrorResponse(w, http.StatusForbidden, "forbidden", "The current account cannot perform this action.")
@@ -474,16 +541,15 @@ func withPass(v mockinterviews.Interview) map[string]any {
 	return map[string]any{"interview": v, "passed": mockinterviews.Passed(v)}
 }
 
-func (a *API) withMockParticipantSummaries(r *http.Request, interview mockinterviews.Interview) mockinterviews.Interview {
-	load := func(userID string) mockinterviews.ParticipantSummary {
-		summary := mockinterviews.ParticipantSummary{ID: userID, Name: "Deleted member"}
-		if user, err := a.db.GetUser(r.Context(), userID); err == nil {
-			summary.Slug, summary.Name, summary.AvatarURL = user.Slug, user.Name, user.AvatarURL
+func withMockParticipantSummaries(interview mockinterviews.Interview, summaries map[string]mockinterviews.ParticipantSummary) mockinterviews.Interview {
+	lookup := func(userID string) mockinterviews.ParticipantSummary {
+		if summary, ok := summaries[userID]; ok {
+			return summary
 		}
-		return summary
+		return mockinterviews.ParticipantSummary{ID: userID, Name: "Deleted member"}
 	}
-	interview.Interviewer = load(interview.InterviewerID)
-	interview.Interviewee = load(interview.IntervieweeID)
+	interview.Interviewer = lookup(interview.InterviewerID)
+	interview.Interviewee = lookup(interview.IntervieweeID)
 	return interview
 }
 

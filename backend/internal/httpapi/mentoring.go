@@ -11,15 +11,20 @@ import (
 	"github.com/magedmg/RSP-website/backend/internal/programme"
 )
 
-func (a *API) seasonAdmin(r *http.Request) (programme.SeasonRecord, bool) {
+func (a *API) requireSeasonAdmin(w http.ResponseWriter, r *http.Request) (programme.SeasonRecord, bool) {
 	seasonID := r.PathValue("id")
 	season, err := a.db.GetSeason(r.Context(), seasonID)
 	if err != nil {
+		a.writeStoreErrorResponse(w, err)
 		return programme.SeasonRecord{}, false
 	}
 
 	actor := actorFrom(r.Context())
-	return season, actor.CanManageSeason(seasonID, season.Status == "open") && actor.HasRecentMFA(time.Now())
+	if !actor.CanManageSeason(seasonID, season.Status == "open") || !actor.HasRecentMFA(time.Now()) {
+		writeErrorResponse(w, http.StatusForbidden, "season_admin_required", "An administrator of an open season with recent MFA is required.")
+		return programme.SeasonRecord{}, false
+	}
+	return season, true
 }
 
 func canGrantCoordinator(actor authz.Actor, seasonID string) bool {
@@ -79,9 +84,8 @@ func (a *API) listWeeks(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *API) createWeek(w http.ResponseWriter, r *http.Request) {
-	season, ok := a.seasonAdmin(r)
+	season, ok := a.requireSeasonAdmin(w, r)
 	if !ok {
-		writeErrorResponse(w, http.StatusForbidden, "season_admin_required", "An administrator of an open season with recent MFA is required.")
 		return
 	}
 	var in struct {
@@ -110,9 +114,8 @@ func (a *API) createWeek(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *API) updateWeek(w http.ResponseWriter, r *http.Request) {
-	season, ok := a.seasonAdmin(r)
+	season, ok := a.requireSeasonAdmin(w, r)
 	if !ok {
-		writeErrorResponse(w, http.StatusForbidden, "season_admin_required", "An administrator of an open season with recent MFA is required.")
 		return
 	}
 	var in struct {
@@ -141,8 +144,7 @@ func (a *API) updateWeek(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *API) deleteWeek(w http.ResponseWriter, r *http.Request) {
-	if _, ok := a.seasonAdmin(r); !ok {
-		writeErrorResponse(w, http.StatusForbidden, "season_admin_required", "An administrator of an open season with recent MFA is required.")
+	if _, ok := a.requireSeasonAdmin(w, r); !ok {
 		return
 	}
 	revision, err := parseRevision(r)
@@ -216,8 +218,7 @@ func (a *API) listMembers(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *API) listEnrollmentCandidates(w http.ResponseWriter, r *http.Request) {
-	if _, ok := a.seasonAdmin(r); !ok {
-		writeErrorResponse(w, http.StatusForbidden, "season_admin_required", "An administrator of an open season with recent MFA is required.")
+	if _, ok := a.requireSeasonAdmin(w, r); !ok {
 		return
 	}
 	query := strings.TrimSpace(r.URL.Query().Get("query"))
@@ -258,8 +259,7 @@ func (a *API) listEnrollmentCandidates(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *API) createMember(w http.ResponseWriter, r *http.Request) {
-	if _, ok := a.seasonAdmin(r); !ok {
-		writeErrorResponse(w, http.StatusForbidden, "season_admin_required", "An administrator of an open season with recent MFA is required.")
+	if _, ok := a.requireSeasonAdmin(w, r); !ok {
 		return
 	}
 	var in struct {
@@ -286,8 +286,7 @@ func (a *API) createMember(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *API) updateMember(w http.ResponseWriter, r *http.Request) {
-	if _, ok := a.seasonAdmin(r); !ok {
-		writeErrorResponse(w, http.StatusForbidden, "season_admin_required", "An administrator of an open season with recent MFA is required.")
+	if _, ok := a.requireSeasonAdmin(w, r); !ok {
 		return
 	}
 	var in struct {
@@ -433,8 +432,7 @@ func (a *API) listMentorships(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *API) createMentorship(w http.ResponseWriter, r *http.Request) {
-	if _, ok := a.seasonAdmin(r); !ok {
-		writeErrorResponse(w, http.StatusForbidden, "season_admin_required", "An administrator of an open season with recent MFA is required.")
+	if _, ok := a.requireSeasonAdmin(w, r); !ok {
 		return
 	}
 	var in struct {
@@ -458,8 +456,7 @@ func (a *API) createMentorship(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *API) updateMentorship(w http.ResponseWriter, r *http.Request) {
-	if _, ok := a.seasonAdmin(r); !ok {
-		writeErrorResponse(w, http.StatusForbidden, "season_admin_required", "An administrator of an open season with recent MFA is required.")
+	if _, ok := a.requireSeasonAdmin(w, r); !ok {
 		return
 	}
 	var in struct {
@@ -483,8 +480,7 @@ func (a *API) updateMentorship(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *API) deleteMentorship(w http.ResponseWriter, r *http.Request) {
-	if _, ok := a.seasonAdmin(r); !ok {
-		writeErrorResponse(w, http.StatusForbidden, "season_admin_required", "An administrator of an open season with recent MFA is required.")
+	if _, ok := a.requireSeasonAdmin(w, r); !ok {
 		return
 	}
 	revision, err := parseRevision(r)

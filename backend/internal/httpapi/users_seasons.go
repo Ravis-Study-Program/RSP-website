@@ -219,7 +219,11 @@ func (a *API) user(w http.ResponseWriter, r *http.Request) {
 
 	if actor.UserID != user.ID && !actor.IsPrivileged() {
 		participant, eligibilityErr := a.db.GetMockParticipant(r.Context(), user.ID)
-		if eligibilityErr != nil || !participant.DirectoryEligible() {
+		if eligibilityErr != nil {
+			a.writeStoreErrorResponse(w, eligibilityErr)
+			return
+		}
+		if !participant.DirectoryEligible() {
 			writeErrorResponse(w, http.StatusNotFound, "not_found", "The requested resource does not exist.")
 			return
 		}
@@ -467,9 +471,7 @@ func (a *API) updateSeason(w http.ResponseWriter, r *http.Request) {
 
 func (a *API) updateSeasonResources(w http.ResponseWriter, r *http.Request) {
 	seasonID := r.PathValue("id")
-	season, ok := a.seasonAdmin(r)
-	if !ok || season.ID != seasonID {
-		writeErrorResponse(w, http.StatusForbidden, "season_admin_required", "An administrator of this open season with recent MFA is required.")
+	if _, ok := a.requireSeasonAdmin(w, r); !ok {
 		return
 	}
 
