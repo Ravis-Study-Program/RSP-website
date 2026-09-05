@@ -2,7 +2,6 @@ package migration
 
 import (
 	"context"
-	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -12,8 +11,6 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
-	dal "github.com/magedmg/RSP-website/backend/internal/dal"
-	"gorm.io/gorm"
 )
 
 type PostgresSource struct {
@@ -24,26 +21,26 @@ func (source *PostgresSource) Snapshot(ctx context.Context, options SnapshotOpti
 	if !options.ReadOnly || options.Isolation != IsolationRepeatableRead {
 		return Snapshot{}, errors.New("legacy source requires READ ONLY, REPEATABLE READ")
 	}
-	repository, err := dal.Open(ctx, source.ConnectionString)
+	repository, err := connectMigration(ctx, source.ConnectionString)
 	if err != nil {
 		return Snapshot{}, fmt.Errorf("connect legacy source: %w", err)
 	}
 
-	defer repository.Close()
-	tx := repository.DB.WithContext(ctx).Begin(&sql.TxOptions{Isolation: sql.LevelRepeatableRead, ReadOnly: true})
-	if tx.Error != nil {
-		return Snapshot{}, fmt.Errorf("begin legacy snapshot: %w", tx.Error)
+	defer repository.Close(context.Background())
+	tx, err := repository.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.RepeatableRead, AccessMode: pgx.ReadOnly})
+	if err != nil {
+		return Snapshot{}, fmt.Errorf("begin legacy snapshot: %w", err)
 	}
 
 	committed := false
 	defer func() {
 		if !committed {
-			_ = tx.Rollback().Error
+			_ = tx.Rollback(context.Background())
 		}
 	}()
 
 	snapshot := Snapshot{Tables: make(map[string][]Row)}
-	if err := tx.Raw("SELECT transaction_timestamp()").Row().Scan(&snapshot.CapturedAt); err != nil {
+	if err := tx.QueryRow(ctx, "SELECT transaction_timestamp()").Scan(&snapshot.CapturedAt); err != nil {
 		return Snapshot{}, fmt.Errorf("read snapshot timestamp: %w", err)
 	}
 
@@ -73,7 +70,7 @@ func (source *PostgresSource) Snapshot(ctx context.Context, options SnapshotOpti
 
 		snapshot.Tables[table] = rows
 	}
-	if err := tx.Commit().Error; err != nil {
+	if err := tx.Commit(ctx); err != nil {
 		return Snapshot{}, fmt.Errorf("commit legacy snapshot: %w", err)
 	}
 
@@ -81,8 +78,8 @@ func (source *PostgresSource) Snapshot(ctx context.Context, options SnapshotOpti
 	return snapshot, nil
 }
 
-func readLegacySchema(ctx context.Context, tx *gorm.DB) ([]TableSchema, error) {
-	rows, err := tx.WithContext(ctx).Raw(`
+func readLegacySchema(ctx context.Context, tx pgx.Tx) ([]TableSchema, error) {
+	rows, err := tx.Query(ctx, `
 SELECT c.table_name, c.column_name, c.data_type, c.is_nullable = 'YES',
        COALESCE(pk.ordinal_position, 0)
 FROM information_schema.columns AS c
@@ -99,7 +96,7 @@ LEFT JOIN (
  AND pk.column_name = c.column_name
 WHERE c.table_schema = 'public'
   AND c.table_name = ANY($1::text[])
-ORDER BY c.table_name, c.ordinal_position`, LegacyTables).Rows()
+ORDER BY c.table_name, c.ordinal_position`, LegacyTables)
 	if err != nil {
 		return nil, fmt.Errorf("read legacy schema: %w", err)
 	}
@@ -134,15 +131,15 @@ ORDER BY c.table_name, c.ordinal_position`, LegacyTables).Rows()
 	return result, nil
 }
 
-func readEFHistory(ctx context.Context, tx *gorm.DB) ([]string, error) {
+func readEFHistory(ctx context.Context, tx pgx.Tx) ([]string, error) {
 	var exists bool
-	if err := tx.WithContext(ctx).Raw(`SELECT to_regclass('public."__EFMigrationsHistory"') IS NOT NULL`).Row().Scan(&exists); err != nil {
+	if err := tx.QueryRow(ctx, `SELECT to_regclass('public."__EFMigrationsHistory"') IS NOT NULL`).Scan(&exists); err != nil {
 		return nil, err
 	}
 	if !exists {
 		return []string{}, nil
 	}
-	rows, err := tx.WithContext(ctx).Raw(`SELECT "MigrationId" FROM public."__EFMigrationsHistory" ORDER BY "MigrationId"`).Rows()
+	rows, err := tx.Query(ctx, `SELECT "MigrationId" FROM public."__EFMigrationsHistory" ORDER BY "MigrationId"`)
 	if err != nil {
 		return nil, fmt.Errorf("read EF migration history: %w", err)
 	}
@@ -160,12 +157,12 @@ func readEFHistory(ctx context.Context, tx *gorm.DB) ([]string, error) {
 	return result, rows.Err()
 }
 
-func readLegacyTable(ctx context.Context, tx *gorm.DB, table string) ([]Row, error) {
+func readLegacyTable(ctx context.Context, tx pgx.Tx, table string) ([]Row, error) {
 	if _, allowed := legacyIDFields[table]; !allowed {
 		return nil, fmt.Errorf("legacy table %q is not allowed", table)
 	}
 	query := "SELECT to_jsonb(source_row) FROM public." + pgx.Identifier{table}.Sanitize() + " AS source_row"
-	rows, err := tx.WithContext(ctx).Raw(query).Rows()
+	rows, err := tx.Query(ctx, query)
 	if err != nil {
 		return nil, fmt.Errorf("read legacy table %s: %w", table, err)
 	}
@@ -201,15 +198,15 @@ type PostgresTarget struct {
 }
 
 func (target *PostgresTarget) Begin(ctx context.Context) (TargetTx, error) {
-	repository, err := dal.Open(ctx, target.ConnectionString)
+	repository, err := connectMigration(ctx, target.ConnectionString)
 	if err != nil {
 		return nil, fmt.Errorf("connect target: %w", err)
 	}
 
-	tx := repository.DB.WithContext(ctx).Begin(&sql.TxOptions{Isolation: sql.LevelSerializable})
-	if tx.Error != nil {
-		_ = repository.Close()
-		return nil, tx.Error
+	tx, err := repository.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.Serializable})
+	if err != nil {
+		_ = repository.Close(context.Background())
+		return nil, err
 	}
 
 	now := target.Now
@@ -220,8 +217,8 @@ func (target *PostgresTarget) Begin(ctx context.Context) (TargetTx, error) {
 }
 
 type postgresTx struct {
-	repository *dal.Store
-	tx         *gorm.DB
+	repository *pgx.Conn
+	tx         pgx.Tx
 	now        func() time.Time
 	locked     bool
 	completed  bool
@@ -231,7 +228,7 @@ func (tx *postgresTx) AcquireAdvisoryLock(ctx context.Context, key int64) error 
 	if key != AdvisoryLockKey {
 		return fmt.Errorf("unexpected advisory lock key %d", key)
 	}
-	if err := tx.tx.WithContext(ctx).Exec("SELECT pg_advisory_xact_lock($1)", key).Error; err != nil {
+	if _, err := tx.tx.Exec(ctx, "SELECT pg_advisory_xact_lock($1)", key); err != nil {
 		return err
 	}
 
@@ -241,7 +238,7 @@ func (tx *postgresTx) AcquireAdvisoryLock(ctx context.Context, key int64) error 
 
 func (tx *postgresTx) HasRun(ctx context.Context, runID string) (bool, error) {
 	var exists bool
-	err := tx.tx.WithContext(ctx).Raw("SELECT EXISTS (SELECT 1 FROM migration.runs WHERE id = $1)", runID).Row().Scan(&exists)
+	err := tx.tx.QueryRow(ctx, "SELECT EXISTS (SELECT 1 FROM migration.runs WHERE id = $1)", runID).Scan(&exists)
 	return exists, err
 }
 
@@ -251,13 +248,13 @@ func (tx *postgresTx) Apply(ctx context.Context, prepared PreparedImport) error 
 		return errors.New("migration advisory lock is not held")
 	}
 	manifest := prepared.Manifest
-	if err := tx.tx.WithContext(ctx).Exec(`
+	if _, err := tx.tx.Exec(ctx, `
 INSERT INTO migration.runs (
   id, manifest_checksum, source_schema_fingerprint, source_snapshot_at,
   state, started_at
 ) VALUES ($1, $2, $3, $4, 'applying', $5)`,
 		manifest.RunID, manifest.Checksum, manifest.SourceSchemaFingerprint,
-		manifest.SourceSnapshotAt, tx.now().UTC()).Error; err != nil {
+		manifest.SourceSnapshotAt, tx.now().UTC()); err != nil {
 		return fmt.Errorf("record migration run: %w", err)
 	}
 
@@ -269,13 +266,13 @@ INSERT INTO migration.runs (
 		}
 	}
 	for _, table := range manifest.Tables {
-		if err := tx.tx.WithContext(ctx).Exec(`
+		if _, err := tx.tx.Exec(ctx, `
 INSERT INTO migration.source_tables (
   run_id, source_table, source_count, imported_count,
   source_ids_checksum, transformed_checksum
 ) VALUES ($1, $2, $3, $4, $5, $6)`,
 			manifest.RunID, table.SourceTable, table.SourceCount,
-			table.TransformedCount, table.SourceIDsChecksum, table.TransformedChecksum).Error; err != nil {
+			table.TransformedCount, table.SourceIDsChecksum, table.TransformedChecksum); err != nil {
 			return err
 		}
 	}
@@ -295,14 +292,14 @@ INSERT INTO migration.source_tables (
 		if err != nil {
 			return fmt.Errorf("encode provenance %s/%s: %w", item.SourceTable, item.SourceID, err)
 		}
-		if err := tx.tx.WithContext(ctx).Exec(`
+		if _, err := tx.tx.Exec(ctx, `
 INSERT INTO migration.row_provenance (
   run_id, source_table, source_id, target_table, target_id,
   source_checksum, transformed_checksum, transformed_data, duplicate_group
 ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
 			manifest.RunID, item.SourceTable, item.SourceID, item.TargetTable,
 			item.TargetID, item.SourceChecksum, item.TransformedChecksum, transformedData,
-			nilIfEmpty(item.DuplicateGroup)).Error; err != nil {
+			nilIfEmpty(item.DuplicateGroup)); err != nil {
 			return err
 		}
 	}
@@ -315,13 +312,13 @@ INSERT INTO migration.row_provenance (
 		if err != nil {
 			return fmt.Errorf("encode anomaly %s/%s: %w", item.Code, item.SourceID, err)
 		}
-		if err := tx.tx.WithContext(ctx).Exec(`
+		if _, err := tx.tx.Exec(ctx, `
 INSERT INTO migration.anomalies (
   run_id, code, source_table, source_id, severity, detail, context,
   resolution_checksum
 ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
 			manifest.RunID, item.Code, item.SourceTable, item.SourceID,
-			item.Severity, item.Detail, encodedContext, nilIfEmpty(item.ResolvedByChecksum)).Error; err != nil {
+			item.Severity, item.Detail, encodedContext, nilIfEmpty(item.ResolvedByChecksum)); err != nil {
 			return err
 		}
 	}
@@ -334,13 +331,13 @@ INSERT INTO migration.anomalies (
 		if err != nil {
 			return fmt.Errorf("encode resolution %s/%s: %w", item.AnomalyCode, item.SourceID, err)
 		}
-		if err := tx.tx.WithContext(ctx).Exec(`
+		if _, err := tx.tx.Exec(ctx, `
 INSERT INTO migration.resolutions (
   run_id, anomaly_code, source_table, source_id, action, value,
   resolution_file_checksum
 ) VALUES ($1, $2, $3, $4, $5, $6, $7)`,
 			manifest.RunID, item.AnomalyCode, item.SourceTable, item.SourceID,
-			item.Action, encodedValue, manifest.ResolutionChecksum).Error; err != nil {
+			item.Action, encodedValue, manifest.ResolutionChecksum); err != nil {
 			return err
 		}
 	}
@@ -354,25 +351,25 @@ INSERT INTO migration.resolutions (
 		if err != nil {
 			return fmt.Errorf("encode auto-fix %s after value: %w", item.Code, err)
 		}
-		if err := tx.tx.WithContext(ctx).Exec(`
+		if _, err := tx.tx.Exec(ctx, `
 INSERT INTO migration.auto_fixes (
   run_id, source_table, source_id, code, before_value, after_value
 ) VALUES ($1, $2, $3, $4, $5, $6)`,
 			manifest.RunID, item.SourceTable, item.SourceID, item.Code,
-			beforeValue, afterValue).Error; err != nil {
+			beforeValue, afterValue); err != nil {
 			return err
 		}
 	}
-	if err := tx.tx.WithContext(ctx).Exec(`
+	if _, err := tx.tx.Exec(ctx, `
 UPDATE migration.runs
 SET state = 'applied', finished_at = $2
-WHERE id = $1 AND state = 'applying'`, manifest.RunID, tx.now().UTC()).Error; err != nil {
+WHERE id = $1 AND state = 'applying'`, manifest.RunID, tx.now().UTC()); err != nil {
 		return err
 	}
 	return nil
 }
 
-func insertPreparedRow(ctx context.Context, tx *gorm.DB, table string, values Row) error {
+func insertPreparedRow(ctx context.Context, tx pgx.Tx, table string, values Row) error {
 	if !containsString(targetOrder, table) {
 		return fmt.Errorf("target table %q is not allowed", table)
 	}
@@ -395,14 +392,14 @@ func insertPreparedRow(ctx context.Context, tx *gorm.DB, table string, values Ro
 	}
 	qualifiedTable := "app." + pgx.Identifier{table}.Sanitize()
 	query := "INSERT INTO " + qualifiedTable + " (" + strings.Join(quotedColumns, ",") + ") SELECT " + strings.Join(selectedColumns, ",") + " FROM jsonb_populate_record(NULL::" + qualifiedTable + ", $1::jsonb) AS source_row"
-	err = tx.WithContext(ctx).Exec(query, encoded).Error
+	_, err = tx.Exec(ctx, query, encoded)
 	return err
 }
 
 func (tx *postgresTx) Verification(ctx context.Context, manifest Manifest) (Verification, error) {
 	var storedChecksum, state string
-	if err := tx.tx.WithContext(ctx).Raw("SELECT manifest_checksum, state::text FROM migration.runs WHERE id = $1", manifest.RunID).Row().Scan(&storedChecksum, &state); err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
+	if err := tx.tx.QueryRow(ctx, "SELECT manifest_checksum, state::text FROM migration.runs WHERE id = $1", manifest.RunID).Scan(&storedChecksum, &state); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
 			return Verification{}, ErrRunNotFound
 		}
 		return Verification{}, err
@@ -438,11 +435,11 @@ func (tx *postgresTx) Verification(ctx context.Context, manifest Manifest) (Veri
 		}
 	}
 	var missingTargets int
-	provenanceRows, err := tx.tx.WithContext(ctx).Raw(`
+	provenanceRows, err := tx.tx.Query(ctx, `
 SELECT DISTINCT target_table, target_id
 FROM migration.row_provenance
 WHERE run_id = $1
-ORDER BY target_table, target_id`, manifest.RunID).Rows()
+ORDER BY target_table, target_id`, manifest.RunID)
 	if err != nil {
 		return Verification{}, err
 	}
@@ -475,10 +472,10 @@ ORDER BY target_table, target_id`, manifest.RunID).Rows()
 	}
 	verification.ForeignKeyErrors = missingTargets
 	if missingTargets == 0 {
-		if err := tx.tx.WithContext(ctx).Exec("SET CONSTRAINTS ALL IMMEDIATE").Error; err != nil {
+		if _, err := tx.tx.Exec(ctx, "SET CONSTRAINTS ALL IMMEDIATE"); err != nil {
 			return Verification{}, err
 		}
-		if err := tx.tx.WithContext(ctx).Exec("UPDATE migration.runs SET state = 'verified', finished_at = $2 WHERE id = $1 AND state IN ('applied', 'verified')", manifest.RunID, tx.now().UTC()).Error; err != nil {
+		if _, err := tx.tx.Exec(ctx, "UPDATE migration.runs SET state = 'verified', finished_at = $2 WHERE id = $1 AND state IN ('applied', 'verified')", manifest.RunID, tx.now().UTC()); err != nil {
 			return Verification{}, err
 		}
 	}
@@ -486,11 +483,11 @@ ORDER BY target_table, target_id`, manifest.RunID).Rows()
 }
 
 func (tx *postgresTx) readCurrentPreparedRows(ctx context.Context, runID string) (map[string][]PreparedRow, error) {
-	rows, err := tx.tx.WithContext(ctx).Raw(`
+	rows, err := tx.tx.Query(ctx, `
 SELECT source_table, source_id, target_table, target_id, transformed_data
 FROM migration.row_provenance
 WHERE run_id=$1
-ORDER BY source_table,target_table,target_id,(transformed_data='{}'::jsonb),source_id`, runID).Rows()
+ORDER BY source_table,target_table,target_id,(transformed_data='{}'::jsonb),source_id`, runID)
 	if err != nil {
 		return nil, err
 	}
@@ -540,7 +537,7 @@ ORDER BY source_table,target_table,target_id,(transformed_data='{}'::jsonb),sour
 	return result, nil
 }
 
-func readTargetRow(ctx context.Context, tx *gorm.DB, table, targetID string, expected Row) (Row, error) {
+func readTargetRow(ctx context.Context, tx pgx.Tx, table, targetID string, expected Row) (Row, error) {
 	if !containsString(targetOrder, table) {
 		return nil, fmt.Errorf("target table %q is not allowed", table)
 	}
@@ -571,7 +568,7 @@ func readTargetRow(ctx context.Context, tx *gorm.DB, table, targetID string, exp
 	args = append(args, encoded)
 	var matches bool
 	query := "SELECT (" + strings.Join(comparisons, " AND ") + ") FROM " + qualified + " t CROSS JOIN jsonb_populate_record(NULL::" + qualified + ", $" + strconv.Itoa(len(args)) + "::jsonb) expected WHERE " + where
-	if err := tx.WithContext(ctx).Raw(query, args...).Row().Scan(&matches); err != nil {
+	if err := tx.QueryRow(ctx, query, args...).Scan(&matches); err != nil {
 		return nil, noRowsMigration(err)
 	}
 	if !matches {
@@ -581,13 +578,13 @@ func readTargetRow(ctx context.Context, tx *gorm.DB, table, targetID string, exp
 }
 
 func noRowsMigration(err error) error {
-	if errors.Is(err, sql.ErrNoRows) {
+	if errors.Is(err, pgx.ErrNoRows) {
 		return fmt.Errorf("migration target row is missing: %w", err)
 	}
 	return err
 }
 
-func targetRowExists(ctx context.Context, tx *gorm.DB, table, id string) (bool, error) {
+func targetRowExists(ctx context.Context, tx pgx.Tx, table, id string) (bool, error) {
 	if !containsString(targetOrder, table) {
 		return false, fmt.Errorf("target table %q is not allowed", table)
 	}
@@ -598,10 +595,10 @@ func targetRowExists(ctx context.Context, tx *gorm.DB, table, id string) (bool, 
 		if len(parts) != 2 {
 			return false, fmt.Errorf("invalid category mapping id %q", id)
 		}
-		err := tx.WithContext(ctx).Raw("SELECT EXISTS (SELECT 1 FROM "+qualified+" WHERE leetcode_problem_id = $1 AND category_id = $2)", parts[0], parts[1]).Row().Scan(&exists)
+		err := tx.QueryRow(ctx, "SELECT EXISTS (SELECT 1 FROM "+qualified+" WHERE leetcode_problem_id = $1 AND category_id = $2)", parts[0], parts[1]).Scan(&exists)
 		return exists, err
 	}
-	err := tx.WithContext(ctx).Raw("SELECT EXISTS (SELECT 1 FROM "+qualified+" WHERE id = $1)", id).Row().Scan(&exists)
+	err := tx.QueryRow(ctx, "SELECT EXISTS (SELECT 1 FROM "+qualified+" WHERE id = $1)", id).Scan(&exists)
 	return exists, err
 }
 
@@ -611,8 +608,8 @@ func (tx *postgresTx) RollbackRun(ctx context.Context, runID string) error {
 		return errors.New("migration advisory lock is not held")
 	}
 	var state string
-	if err := tx.tx.WithContext(ctx).Raw(`SELECT state::text FROM migration.runs WHERE id=$1 FOR UPDATE`, runID).Row().Scan(&state); err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
+	if err := tx.tx.QueryRow(ctx, `SELECT state::text FROM migration.runs WHERE id=$1 FOR UPDATE`, runID).Scan(&state); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
 			return ErrRunNotFound
 		}
 		return err
@@ -625,17 +622,17 @@ func (tx *postgresTx) RollbackRun(ctx context.Context, runID string) error {
 	if _, err := tx.readCurrentPreparedRows(ctx, runID); err != nil {
 		return fmt.Errorf("refuse rollback of changed migration targets: %w", err)
 	}
-	if err := tx.tx.WithContext(ctx).Exec(`SELECT set_config('rsp.migration_rollback','on',true)`).Error; err != nil {
+	if _, err := tx.tx.Exec(ctx, `SELECT set_config('rsp.migration_rollback','on',true)`); err != nil {
 		return err
 	}
 
 	for index := len(targetOrder) - 1; index >= 0; index-- {
 		table := targetOrder[index]
-		rows, err := tx.tx.WithContext(ctx).Raw(`
+		rows, err := tx.tx.Query(ctx, `
 SELECT DISTINCT target_id
 FROM migration.row_provenance
 WHERE run_id = $1 AND target_table = $2
-ORDER BY target_id`, runID, table).Rows()
+ORDER BY target_id`, runID, table)
 		if err != nil {
 			return err
 		}
@@ -658,23 +655,22 @@ ORDER BY target_id`, runID, table).Rows()
 				if len(parts) != 2 {
 					return fmt.Errorf("invalid category mapping id %q", id)
 				}
-				if err := tx.tx.WithContext(ctx).Exec("DELETE FROM "+qualified+" WHERE leetcode_problem_id = $1 AND category_id = $2", parts[0], parts[1]).Error; err != nil {
+				if _, err := tx.tx.Exec(ctx, "DELETE FROM "+qualified+" WHERE leetcode_problem_id = $1 AND category_id = $2", parts[0], parts[1]); err != nil {
 					return err
 				}
-			} else if err := tx.tx.WithContext(ctx).Exec("DELETE FROM "+qualified+" WHERE id = $1", id).Error; err != nil {
+			} else if _, err := tx.tx.Exec(ctx, "DELETE FROM "+qualified+" WHERE id = $1", id); err != nil {
 				return err
 			}
 		}
 	}
-	command := tx.tx.WithContext(ctx).Exec(`
+	command, err := tx.tx.Exec(ctx, `
 UPDATE migration.runs
 SET state = 'rolled_back', rolled_back_at = $2
 WHERE id = $1 AND state IN ('applied', 'verified')`, runID, tx.now().UTC())
-	err := command.Error
 	if err != nil {
 		return err
 	}
-	if command.RowsAffected != 1 {
+	if command.RowsAffected() != 1 {
 		return ErrRunNotFound
 	}
 	return nil
@@ -685,8 +681,8 @@ func (tx *postgresTx) Commit(ctx context.Context) error {
 		return errors.New("transaction is already complete")
 	}
 	tx.completed = true
-	commitErr := tx.tx.Commit().Error
-	closeErr := tx.repository.Close()
+	commitErr := tx.tx.Commit(ctx)
+	closeErr := tx.repository.Close(context.Background())
 	if commitErr != nil {
 		return commitErr
 	}
@@ -698,9 +694,9 @@ func (tx *postgresTx) Abort(ctx context.Context) error {
 		return nil
 	}
 	tx.completed = true
-	rollbackErr := tx.tx.Rollback().Error
-	closeErr := tx.repository.Close()
-	if rollbackErr != nil && !errors.Is(rollbackErr, sql.ErrTxDone) {
+	rollbackErr := tx.tx.Rollback(context.Background())
+	closeErr := tx.repository.Close(context.Background())
+	if rollbackErr != nil && !errors.Is(rollbackErr, pgx.ErrTxClosed) {
 		return rollbackErr
 	}
 	return closeErr
@@ -720,4 +716,13 @@ func jsonValue(value any) ([]byte, error) {
 		return nil, nil
 	}
 	return json.Marshal(value)
+}
+
+func connectMigration(ctx context.Context, dsn string) (*pgx.Conn, error) {
+	config, err := pgx.ParseConfig(dsn)
+	if err != nil {
+		return nil, err
+	}
+	config.RuntimeParams["timezone"] = "UTC"
+	return pgx.ConnectConfig(ctx, config)
 }

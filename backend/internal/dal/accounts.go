@@ -2,19 +2,16 @@ package dal
 
 import (
 	"context"
-	"database/sql"
 	"encoding/json"
 	"errors"
 	"strings"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/magedmg/RSP-website/backend/internal/accounts"
 	"github.com/magedmg/RSP-website/backend/internal/authz"
 	"github.com/magedmg/RSP-website/backend/internal/platform/audit"
-	"github.com/magedmg/RSP-website/backend/internal/platform/dbtable"
 	"github.com/magedmg/RSP-website/backend/internal/platform/id"
-	"gorm.io/gorm"
-	"gorm.io/gorm/clause"
 )
 
 type identityReceipt struct {
@@ -31,29 +28,21 @@ func (p *Store) ApplyIdentityEvent(ctx context.Context, event accounts.IdentityE
 		return errors.New("identity event id is required")
 	}
 
-	tx, err := begin(ctx, p.DB)
+	tx, err := p.pool.Begin(ctx)
 	if err != nil {
 		return err
 	}
-	defer rollback(tx)
+	defer tx.Rollback(context.Background())
 
 	payloadHash := accounts.IdentityEventHash(event)
-	receipt := tx.Table(dbtable.IdentityEventReceipts).Clauses(clause.OnConflict{DoNothing: true}).Create(map[string]any{
-		"event_id":         event.EventID,
-		"auth_subject":     event.AuthUserID,
-		"event_type":       event.Type,
-		"security_version": event.SecurityVersion,
-		"payload_hash":     payloadHash,
-	})
-	if receipt.Error != nil {
-		return receipt.Error
+	receipt, err := tx.Exec(ctx, `INSERT INTO app.identity_event_receipts(event_id,auth_subject,event_type,security_version,payload_hash)
+ VALUES($1,$2,$3,$4,$5) ON CONFLICT DO NOTHING`, event.EventID, event.AuthUserID, event.Type, event.SecurityVersion, payloadHash)
+	if err != nil {
+		return err
 	}
-	if receipt.RowsAffected == 0 {
+	if receipt.RowsAffected() == 0 {
 		var existing identityReceipt
-		err := tx.Table(dbtable.IdentityEventReceipts).
-			Select("auth_subject, event_type, security_version, payload_hash").
-			Where("event_id = ?", event.EventID).
-			Take(&existing).Error
+		err := tx.QueryRow(ctx, `SELECT auth_subject,event_type,security_version,payload_hash FROM app.identity_event_receipts WHERE event_id=$1`, event.EventID).Scan(&existing.AuthSubject, &existing.EventType, &existing.SecurityVersion, &existing.PayloadHash)
 		if err != nil {
 			return err
 		}
@@ -61,23 +50,23 @@ func (p *Store) ApplyIdentityEvent(ctx context.Context, event accounts.IdentityE
 			existing.SecurityVersion != event.SecurityVersion || existing.PayloadHash != payloadHash {
 			return ErrConflict
 		}
-		return commit(tx)
+		return tx.Commit(ctx)
 	}
 
 	var link struct {
 		UserID          string
 		SecurityVersion int64
 	}
-	err = tx.Raw(`SELECT l.user_id,u.security_version
+	err = tx.QueryRow(ctx, `SELECT l.user_id,u.security_version
 		FROM app.user_auth_links l
 		JOIN app.users u ON u.id=l.user_id
-		WHERE l.auth_subject=?
-		FOR UPDATE OF l,u`, event.AuthUserID).Scan(&link).Error
-	if err != nil {
+		WHERE l.auth_subject=$1
+		FOR UPDATE OF l,u`, event.AuthUserID).Scan(&link.UserID, &link.SecurityVersion)
+	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
 		return err
 	}
 	if link.UserID == "" && event.Type == "auth_user_created" {
-		return p.createIdentityUser(tx, event)
+		return p.createIdentityUser(ctx, tx, event)
 	}
 	if link.UserID == "" {
 		return ErrNotFound
@@ -86,20 +75,19 @@ func (p *Store) ApplyIdentityEvent(ctx context.Context, event accounts.IdentityE
 		return errors.New("invalid security version")
 	}
 	if event.SecurityVersion < link.SecurityVersion {
-		return commit(tx)
+		return tx.Commit(ctx)
 	}
-	if err := tx.Table(dbtable.Users).Where("id = ?", link.UserID).
-		Update("security_version", gorm.Expr("GREATEST(security_version, ?)", event.SecurityVersion)).Error; err != nil {
+	if _, err := tx.Exec(ctx, `UPDATE app.users SET security_version=GREATEST(security_version, $1) WHERE id = $2`, event.SecurityVersion, link.UserID); err != nil {
 		return err
 	}
 
 	if err := applyIdentityChange(ctx, tx, link.UserID, event); err != nil {
 		return err
 	}
-	return commit(tx)
+	return tx.Commit(ctx)
 }
 
-func (p *Store) createIdentityUser(tx *gorm.DB, event accounts.IdentityEvent) error {
+func (p *Store) createIdentityUser(ctx context.Context, tx pgx.Tx, event accounts.IdentityEvent) error {
 	userID := id.New()
 	name := event.Email
 	if at := strings.IndexByte(name, '@'); at > 0 {
@@ -109,17 +97,8 @@ func (p *Store) createIdentityUser(tx *gorm.DB, event accounts.IdentityEvent) er
 		name = "New member"
 	}
 	slug := "member-" + strings.ReplaceAll(userID, "-", "")[:12]
-	if err := tx.Table(dbtable.Users).Create(map[string]any{
-		"id":                  userID,
-		"slug":                slug,
-		"display_name":        name,
-		"email":               event.Email,
-		"account_state":       "active",
-		"timezone":            "Australia/Adelaide",
-		"timezone_configured": false,
-		"revision":            1,
-		"security_version":    event.SecurityVersion,
-	}).Error; err != nil {
+	if _, err := tx.Exec(ctx, `INSERT INTO app.users(id,slug,display_name,email,account_state,timezone,timezone_configured,revision,security_version)
+ VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)`, userID, slug, name, event.Email, "active", "Australia/Adelaide", false, 1, event.SecurityVersion); err != nil {
 		return err
 	}
 	var revokedAt *time.Time
@@ -127,21 +106,14 @@ func (p *Store) createIdentityUser(tx *gorm.DB, event accounts.IdentityEvent) er
 		value := event.OccurredAt.UTC()
 		revokedAt = &value
 	}
-	if err := tx.Table(dbtable.UserAuthLinks).Create(map[string]any{
-		"auth_subject":        event.AuthUserID,
-		"user_id":             userID,
-		"provider":            "better_auth",
-		"provider_account_id": event.AuthUserID,
-		"active":              event.EmailVerified,
-		"revoked_at":          revokedAt,
-	}).Error; err != nil {
+	if _, err := tx.Exec(ctx, `INSERT INTO app.user_auth_links(auth_subject,user_id,provider,provider_account_id,active,revoked_at)
+ VALUES($1,$2,$3,$4,$5,$6)`, event.AuthUserID, userID, "better_auth", event.AuthUserID, event.EmailVerified, revokedAt); err != nil {
 		return err
 	}
-	return commit(tx)
+	return tx.Commit(ctx)
 }
 
-func applyIdentityChange(ctx context.Context, tx *gorm.DB, userID string, event accounts.IdentityEvent) error {
-	users := tx.Table(dbtable.Users).Where("id = ?", userID)
+func applyIdentityChange(ctx context.Context, tx pgx.Tx, userID string, event accounts.IdentityEvent) error {
 	switch event.Type {
 	case "auth_user_created":
 		return nil
@@ -152,7 +124,7 @@ func applyIdentityChange(ctx context.Context, tx *gorm.DB, userID string, event 
 		if email == "" {
 			return errors.New("email_changed requires email")
 		}
-		if err := users.Updates(map[string]any{"email": email, "revision": gorm.Expr("revision + 1")}).Error; err != nil {
+		if _, err := tx.Exec(ctx, `UPDATE app.users SET email=$1,revision=revision + 1 WHERE id = $2`, email, userID); err != nil {
 			return err
 		}
 		return appendAuditTx(ctx, tx, newAudit(userID, "account.email_changed", "user", userID, nil, event.OccurredAt))
@@ -165,11 +137,7 @@ func applyIdentityChange(ctx context.Context, tx *gorm.DB, userID string, event 
 			value := event.OccurredAt.UTC()
 			suspendedAt = &value
 		}
-		if err := users.Updates(map[string]any{
-			"account_state": event.AccountState,
-			"suspended_at":  suspendedAt,
-			"revision":      gorm.Expr("revision + 1"),
-		}).Error; err != nil {
+		if _, err := tx.Exec(ctx, `UPDATE app.users SET account_state=$1,suspended_at=$2,revision=revision + 1 WHERE id = $3`, event.AccountState, suspendedAt, userID); err != nil {
 			return err
 		}
 		auditActor := userID
@@ -181,47 +149,23 @@ func applyIdentityChange(ctx context.Context, tx *gorm.DB, userID string, event 
 			"reason":       event.Reason,
 		}, event.OccurredAt))
 	case "email_verified":
-		return tx.Table(dbtable.UserAuthLinks).Where("auth_subject = ?", event.AuthUserID).
-			Updates(map[string]any{"active": true, "revoked_at": nil}).Error
+		_, err := tx.Exec(ctx, `UPDATE app.user_auth_links SET active=$1,revoked_at=$2 WHERE auth_subject = $3`, true, nil, event.AuthUserID)
+		return err
 	case "deletion_requested":
-		if err := users.Updates(map[string]any{
-			"account_state":         "deletion_pending",
-			"deletion_requested_at": event.OccurredAt,
-			"deletion_due_at":       event.RecoveryDeadline,
-			"revision":              gorm.Expr("revision + 1"),
-		}).Error; err != nil {
+		if _, err := tx.Exec(ctx, `UPDATE app.users SET account_state=$1,deletion_requested_at=$2,deletion_due_at=$3,revision=revision + 1 WHERE id = $4`, "deletion_pending", event.OccurredAt, event.RecoveryDeadline, userID); err != nil {
 			return err
 		}
 		return appendAuditTx(ctx, tx, newAudit(userID, "account.deletion_requested", "user", userID, map[string]any{"recoveryDeadline": event.RecoveryDeadline}, event.OccurredAt))
 	case "deletion_cancelled":
-		if err := users.Updates(map[string]any{
-			"account_state":         "active",
-			"deletion_requested_at": nil,
-			"deletion_due_at":       nil,
-			"revision":              gorm.Expr("revision + 1"),
-		}).Error; err != nil {
+		if _, err := tx.Exec(ctx, `UPDATE app.users SET account_state=$1,deletion_requested_at=$2,deletion_due_at=$3,revision=revision + 1 WHERE id = $4`, "active", nil, nil, userID); err != nil {
 			return err
 		}
 		return appendAuditTx(ctx, tx, newAudit(userID, "account.deletion_cancelled", "user", userID, nil, event.OccurredAt))
 	case "auth_pseudonymized":
-		if err := users.Updates(map[string]any{
-			"slug":                gorm.Expr("'deleted-' || id"),
-			"display_name":        "Deleted member",
-			"email":               nil,
-			"discord_id":          nil,
-			"avatar_url":          nil,
-			"timezone":            "UTC",
-			"timezone_configured": false,
-			"account_state":       "deleted",
-			"pseudonymized_at":    event.OccurredAt,
-			"deleted_at":          event.OccurredAt,
-			"security_version":    gorm.Expr("GREATEST(security_version, ?)", event.SecurityVersion),
-			"revision":            gorm.Expr("revision + 1"),
-		}).Error; err != nil {
+		if _, err := tx.Exec(ctx, `UPDATE app.users SET slug='deleted-' || id,display_name=$1,email=$2,discord_id=$3,avatar_url=$4,timezone=$5,timezone_configured=$6,account_state=$7,pseudonymized_at=$8,deleted_at=$9,security_version=GREATEST(security_version, $10),revision=revision + 1 WHERE id = $11`, "Deleted member", nil, nil, nil, "UTC", false, "deleted", event.OccurredAt, event.OccurredAt, event.SecurityVersion, userID); err != nil {
 			return err
 		}
-		if err := tx.Table(dbtable.UserAuthLinks).Where("auth_subject = ?", event.AuthUserID).
-			Updates(map[string]any{"active": false, "revoked_at": event.OccurredAt}).Error; err != nil {
+		if _, err := tx.Exec(ctx, `UPDATE app.user_auth_links SET active=$1,revoked_at=$2 WHERE auth_subject = $3`, false, event.OccurredAt, event.AuthUserID); err != nil {
 			return err
 		}
 		return appendAuditTx(ctx, tx, newAudit(userID, "account.pseudonymized", "user", userID, nil, event.OccurredAt))
@@ -240,15 +184,19 @@ type activatedAssignment struct {
 	SeasonID string
 }
 
-func applyMFAConfigured(ctx context.Context, tx *gorm.DB, userID string, at time.Time) error {
-	if err := tx.Table(dbtable.Users).Where("id = ?", userID).Update("mfa_configured", true).Error; err != nil {
+func applyMFAConfigured(ctx context.Context, tx pgx.Tx, userID string, at time.Time) error {
+	if _, err := tx.Exec(ctx, `UPDATE app.users SET mfa_configured=$1 WHERE id = $2`, true, userID); err != nil {
 		return err
 	}
-	var global []activatedAssignment
-	if err := tx.Raw(`UPDATE app.global_role_assignments
-		SET state='active',activated_at=?,revision=revision+1
-		WHERE user_id=? AND state='pending_mfa'
-		RETURNING id,role::text AS role`, at.UTC(), userID).Scan(&global).Error; err != nil {
+	globalRows, err := tx.Query(ctx, `UPDATE app.global_role_assignments
+		SET state='active',activated_at=$1,revision=revision+1
+		WHERE user_id=$2 AND state='pending_mfa'
+		RETURNING id,role::text AS role`, at.UTC(), userID)
+	if err != nil {
+		return err
+	}
+	global, err := pgx.CollectRows(globalRows, pgx.RowToStructByNameLax[activatedAssignment])
+	if err != nil {
 		return err
 	}
 	for _, assignment := range global {
@@ -258,12 +206,16 @@ func applyMFAConfigured(ctx context.Context, tx *gorm.DB, userID string, at time
 		}
 	}
 
-	var seasonal []activatedAssignment
-	if err := tx.Raw(`UPDATE app.enrollments
-		SET assignment_state='active',activated_at=?,revision=revision+1
-		WHERE user_id=? AND role='coordinator' AND state='active'
+	seasonalRows, err := tx.Query(ctx, `UPDATE app.enrollments
+		SET assignment_state='active',activated_at=$1,revision=revision+1
+		WHERE user_id=$2 AND role='coordinator' AND state='active'
 		  AND assignment_state='pending_mfa' AND deleted_at IS NULL
-		RETURNING id,season_id`, at.UTC(), userID).Scan(&seasonal).Error; err != nil {
+		RETURNING id,season_id`, at.UTC(), userID)
+	if err != nil {
+		return err
+	}
+	seasonal, err := pgx.CollectRows(seasonalRows, pgx.RowToStructByNameLax[activatedAssignment])
+	if err != nil {
 		return err
 	}
 	for _, enrollment := range seasonal {
@@ -271,20 +223,23 @@ func applyMFAConfigured(ctx context.Context, tx *gorm.DB, userID string, at time
 			return err
 		}
 	}
-	return tx.Table(dbtable.Enrollments).
-		Where("user_id = ? AND role = 'coordinator' AND state = 'completed' AND completed_by_close_id IS NOT NULL AND close_assignment_state = 'pending_mfa' AND deleted_at IS NULL", userID).
-		Updates(map[string]any{"close_assignment_state": "active", "close_activated_at": at.UTC()}).Error
+	_, err = tx.Exec(ctx, `UPDATE app.enrollments SET close_assignment_state=$1,close_activated_at=$2 WHERE user_id = $3 AND role = 'coordinator' AND state = 'completed' AND completed_by_close_id IS NOT NULL AND close_assignment_state = 'pending_mfa' AND deleted_at IS NULL`, "active", at.UTC(), userID)
+	return err
 }
 
-func applyMFADisabled(ctx context.Context, tx *gorm.DB, userID string, at time.Time) error {
-	if err := tx.Table(dbtable.Users).Where("id = ?", userID).Update("mfa_configured", false).Error; err != nil {
+func applyMFADisabled(ctx context.Context, tx pgx.Tx, userID string, at time.Time) error {
+	if _, err := tx.Exec(ctx, `UPDATE app.users SET mfa_configured=$1 WHERE id = $2`, false, userID); err != nil {
 		return err
 	}
-	var global []activatedAssignment
-	if err := tx.Raw(`UPDATE app.global_role_assignments
+	globalRows, err := tx.Query(ctx, `UPDATE app.global_role_assignments
 		SET state='pending_mfa',activated_at=NULL,revoked_at=NULL,revision=revision+1
-		WHERE user_id=? AND state='active'
-		RETURNING id,role::text AS role`, userID).Scan(&global).Error; err != nil {
+		WHERE user_id=$1 AND state='active'
+		RETURNING id,role::text AS role`, userID)
+	if err != nil {
+		return err
+	}
+	global, err := pgx.CollectRows(globalRows, pgx.RowToStructByNameLax[activatedAssignment])
+	if err != nil {
 		return err
 	}
 	for _, assignment := range global {
@@ -293,12 +248,16 @@ func applyMFADisabled(ctx context.Context, tx *gorm.DB, userID string, at time.T
 		}
 	}
 
-	var seasonal []activatedAssignment
-	if err := tx.Raw(`UPDATE app.enrollments
+	seasonalRows, err := tx.Query(ctx, `UPDATE app.enrollments
 		SET assignment_state='pending_mfa',activated_at=NULL,revision=revision+1
-		WHERE user_id=? AND role='coordinator' AND state='active'
+		WHERE user_id=$1 AND role='coordinator' AND state='active'
 		  AND assignment_state='active' AND deleted_at IS NULL
-		RETURNING id,season_id`, userID).Scan(&seasonal).Error; err != nil {
+		RETURNING id,season_id`, userID)
+	if err != nil {
+		return err
+	}
+	seasonal, err := pgx.CollectRows(seasonalRows, pgx.RowToStructByNameLax[activatedAssignment])
+	if err != nil {
 		return err
 	}
 	for _, enrollment := range seasonal {
@@ -306,19 +265,17 @@ func applyMFADisabled(ctx context.Context, tx *gorm.DB, userID string, at time.T
 			return err
 		}
 	}
-	return tx.Table(dbtable.Enrollments).
-		Where("user_id = ? AND role = 'coordinator' AND state = 'completed' AND completed_by_close_id IS NOT NULL AND close_assignment_state = 'active' AND deleted_at IS NULL", userID).
-		Updates(map[string]any{"close_assignment_state": "pending_mfa", "close_activated_at": nil}).Error
+	_, err = tx.Exec(ctx, `UPDATE app.enrollments SET close_assignment_state=$1,close_activated_at=$2 WHERE user_id = $3 AND role = 'coordinator' AND state = 'completed' AND completed_by_close_id IS NOT NULL AND close_assignment_state = 'active' AND deleted_at IS NULL`, "pending_mfa", nil, userID)
+	return err
 }
 
 func (p *Store) ResolveAuthSubject(ctx context.Context, subject string) (authz.Actor, error) {
 	var actor authz.Actor
 	var accountState string
-	err := p.DB.WithContext(ctx).Raw(`SELECT u.id,u.account_state::text,u.security_version
+	err := p.pool.QueryRow(ctx, `SELECT u.id,u.account_state::text,u.security_version
 		FROM app.user_auth_links l
 		JOIN app.users u ON u.id=l.user_id
-		WHERE l.auth_subject=? AND l.active AND u.deleted_at IS NULL`, subject).
-		Row().Scan(&actor.UserID, &accountState, &actor.SecurityVersion)
+		WHERE l.auth_subject=$1 AND l.active AND u.deleted_at IS NULL`, subject).Scan(&actor.UserID, &accountState, &actor.SecurityVersion)
 	if err != nil {
 		return actor, noRows(err)
 	}
@@ -326,20 +283,19 @@ func (p *Store) ResolveAuthSubject(ctx context.Context, subject string) (authz.A
 	actor.EmailVerified = true
 	actor.AccountState = authz.AccountState(accountState)
 	actor.GlobalRoles = map[authz.GlobalRole]bool{}
-	var roles []string
-	if err := p.DB.WithContext(ctx).Table(dbtable.GlobalRoleAssignments).
-		Where("user_id = ? AND state = 'active'", actor.UserID).
-		Pluck("role", &roles).Error; err != nil {
+	roleRows, err := p.pool.Query(ctx, `SELECT role::text FROM app.global_role_assignments WHERE user_id=$1 AND state='active'`, actor.UserID)
+	if err != nil {
+		return actor, err
+	}
+	roles, err := pgx.CollectRows(roleRows, pgx.RowTo[string])
+	if err != nil {
 		return actor, err
 	}
 	for _, role := range roles {
 		actor.GlobalRoles[authz.GlobalRole(role)] = true
 	}
 
-	rows, err := p.DB.WithContext(ctx).Table(dbtable.Enrollments).
-		Select("season_id, role::text, state::text").
-		Where("user_id = ? AND deleted_at IS NULL AND (role <> 'coordinator' OR state = 'completed' OR assignment_state = 'active')", actor.UserID).
-		Rows()
+	rows, err := p.pool.Query(ctx, `SELECT season_id, role::text, state::text FROM app.enrollments WHERE user_id = $1 AND deleted_at IS NULL AND (role <> 'coordinator' OR state = 'completed' OR assignment_state = 'active')`, actor.UserID)
 	if err != nil {
 		return actor, err
 	}
@@ -359,21 +315,16 @@ func (p *Store) ResolveAuthSubject(ctx context.Context, subject string) (authz.A
 
 func (p *Store) ResolveAuthSubjectForUser(ctx context.Context, userID string) (string, error) {
 	var subject string
-	err := p.DB.WithContext(ctx).Table(dbtable.UserAuthLinks).
-		Select("auth_subject").
-		Where("user_id = ? AND active", userID).
-		Order("linked_at, auth_subject").
-		Limit(1).
-		Row().Scan(&subject)
+	err := p.pool.QueryRow(ctx, `SELECT auth_subject FROM app.user_auth_links WHERE user_id = $1 AND active ORDER BY linked_at, auth_subject LIMIT 1`, userID).Scan(&subject)
 	return subject, noRows(err)
 }
 
 func (p *Store) GrantGlobalRole(ctx context.Context, userID, role string, activate bool, reason, actorID string, at time.Time) (accounts.GlobalRoleAssignment, error) {
-	tx, err := begin(ctx, p.DB)
+	tx, err := p.pool.Begin(ctx)
 	if err != nil {
 		return accounts.GlobalRoleAssignment{}, err
 	}
-	defer rollback(tx)
+	defer tx.Rollback(context.Background())
 
 	state := "pending_mfa"
 	var activatedAt *time.Time
@@ -383,61 +334,54 @@ func (p *Store) GrantGlobalRole(ctx context.Context, userID, role string, activa
 		activatedAt = &activated
 	}
 	assignment := accounts.GlobalRoleAssignment{ID: id.New(), UserID: userID, Role: role, State: state, Revision: 1}
-	err = tx.Raw(`INSERT INTO app.global_role_assignments(id,user_id,role,state,granted_by_user_id,granted_at,activated_at,revision)
-		VALUES(?,?,?,?,?,?,?,1)
+	err = tx.QueryRow(ctx, `INSERT INTO app.global_role_assignments(id,user_id,role,state,granted_by_user_id,granted_at,activated_at,revision)
+		VALUES($1,$2,$3,$4,$5,$6,$7,1)
 		ON CONFLICT(user_id,role) DO UPDATE
 		SET state=EXCLUDED.state,granted_by_user_id=EXCLUDED.granted_by_user_id,
 			granted_at=EXCLUDED.granted_at,activated_at=EXCLUDED.activated_at,
 			revoked_at=NULL,revision=app.global_role_assignments.revision+1
 		WHERE app.global_role_assignments.state='revoked'
-		RETURNING id,state::text,revision`, assignment.ID, userID, role, state, actorID, at.UTC(), activatedAt).
-		Row().Scan(&assignment.ID, &assignment.State, &assignment.Revision)
+		RETURNING id,state::text,revision`, assignment.ID, userID, role, state, actorID, at.UTC(), activatedAt).Scan(&assignment.ID, &assignment.State, &assignment.Revision)
 	if err != nil {
 		return assignment, mapStoreError(err)
 	}
 	if err := appendAuditTx(ctx, tx, newAudit(actorID, "global_role.granted_"+state, "global_role_assignment", assignment.ID, map[string]any{"userId": userID, "role": role, "reason": reason}, at)); err != nil {
 		return assignment, err
 	}
-	return assignment, commit(tx)
+	return assignment, tx.Commit(ctx)
 }
 
 func (p *Store) ListGlobalRoles(ctx context.Context, userID string) ([]accounts.GlobalRoleAssignment, error) {
 	var userCount int64
-	if err := p.DB.WithContext(ctx).Table(dbtable.Users).Where("id = ? AND deleted_at IS NULL", userID).Count(&userCount).Error; err != nil {
+	if err := p.pool.QueryRow(ctx, `SELECT count(*) FROM app.users WHERE id = $1 AND deleted_at IS NULL`, userID).Scan(&userCount); err != nil {
 		return nil, err
 	}
 	if userCount == 0 {
 		return nil, ErrNotFound
 	}
 
-	var assignments []accounts.GlobalRoleAssignment
-	err := p.DB.WithContext(ctx).Table(dbtable.GlobalRoleAssignments).
-		Select("id, user_id, role::text AS role, state::text AS state, revision").
-		Where("user_id = ? AND state <> 'revoked'", userID).
-		Order("role").
-		Scan(&assignments).Error
-	return assignments, err
+	rows, err := p.pool.Query(ctx, `SELECT id,user_id,role::text,state::text,revision FROM app.global_role_assignments WHERE user_id=$1 AND state<>'revoked' ORDER BY role`, userID)
+	if err != nil {
+		return nil, err
+	}
+	return pgx.CollectRows(rows, pgx.RowToStructByName[accounts.GlobalRoleAssignment])
 }
 
 func (p *Store) RevokeGlobalRole(ctx context.Context, userID, role string, revision int64, reason, actorID string, at time.Time) (accounts.GlobalRoleAssignment, error) {
-	tx, err := begin(ctx, p.DB)
+	tx, err := p.pool.Begin(ctx)
 	if err != nil {
 		return accounts.GlobalRoleAssignment{}, err
 	}
-	defer rollback(tx)
+	defer tx.Rollback(context.Background())
 
 	assignment := accounts.GlobalRoleAssignment{UserID: userID, Role: role}
-	err = tx.Raw(`UPDATE app.global_role_assignments
-		SET state='revoked',revoked_at=?,activated_at=NULL,revision=revision+1
-		WHERE user_id=? AND role=? AND revision=? AND state<>'revoked'
-		RETURNING id,state::text,revision`, at.UTC(), userID, role, revision).
-		Row().Scan(&assignment.ID, &assignment.State, &assignment.Revision)
-	if errors.Is(err, sql.ErrNoRows) {
+	err = tx.QueryRow(ctx, `UPDATE app.global_role_assignments
+		SET state='revoked',revoked_at=$1,activated_at=NULL,revision=revision+1
+		WHERE user_id=$2 AND role=$3 AND revision=$4 AND state<>'revoked'
+		RETURNING id,state::text,revision`, at.UTC(), userID, role, revision).Scan(&assignment.ID, &assignment.State, &assignment.Revision)
+	if errors.Is(err, pgx.ErrNoRows) {
 		var current int64
-		lookupErr := tx.Table(dbtable.GlobalRoleAssignments).
-			Select("revision").
-			Where("user_id = ? AND role = ? AND state <> 'revoked'", userID, role).
-			Row().Scan(&current)
+		lookupErr := tx.QueryRow(ctx, `SELECT revision FROM app.global_role_assignments WHERE user_id = $1 AND role = $2 AND state <> 'revoked'`, userID, role).Scan(&current)
 		if lookupErr == nil {
 			return assignment, ErrConflict
 		}
@@ -449,7 +393,7 @@ func (p *Store) RevokeGlobalRole(ctx context.Context, userID, role string, revis
 	if err := appendAuditTx(ctx, tx, newAudit(actorID, "global_role.revoked", "global_role_assignment", assignment.ID, map[string]any{"userId": userID, "role": role, "reason": reason}, at)); err != nil {
 		return assignment, err
 	}
-	return assignment, commit(tx)
+	return assignment, tx.Commit(ctx)
 }
 
 const userColumns = `u.id,u.slug,u.display_name,u.avatar_url,u.timezone,u.timezone_configured,
@@ -484,16 +428,16 @@ func (p *Store) GetUser(ctx context.Context, userID string) (accounts.User, erro
 	query := `SELECT ` + userColumns + `
 		FROM app.users u
 		LEFT JOIN app.global_role_assignments g ON g.user_id=u.id
-		WHERE u.id=? AND u.deleted_at IS NULL
+		WHERE u.id=$1 AND u.deleted_at IS NULL
 		GROUP BY u.id`
-	return scanUser(p.DB.WithContext(ctx).Raw(query, userID).Row())
+	return scanUser(p.pool.QueryRow(ctx, query, userID))
 }
 
 func (p *Store) SuggestUserSlug(ctx context.Context) (string, error) {
 	for attempt := 0; attempt < 32; attempt++ {
 		candidate := "member-" + strings.ReplaceAll(id.New(), "-", "")[:12]
 		var count int64
-		if err := p.DB.WithContext(ctx).Table(dbtable.Users).Where("lower(slug) = lower(?)", candidate).Count(&count).Error; err != nil {
+		if err := p.pool.QueryRow(ctx, `SELECT count(*) FROM app.users WHERE lower(slug) = lower($1)`, candidate).Scan(&count); err != nil {
 			return "", err
 		}
 		if count == 0 {
@@ -522,16 +466,12 @@ func (p *Store) ListUsers(ctx context.Context, boundary string, limit int, direc
 			WHERE role_filter.user_id = u.id AND role_filter.state = 'active'
 			AND role_filter.role::text = @globalRole
 		))`
-	args := []any{
-		sql.Named("search", strings.TrimSpace(search)),
-		sql.Named("seasonRole", seasonRole),
-		sql.Named("globalRole", globalRole),
-	}
+	args := pgx.NamedArgs{"search": strings.TrimSpace(search), "seasonRole": seasonRole, "globalRole": globalRole}
 	var total int64
-	if err := p.DB.WithContext(ctx).Raw(`SELECT count(*) FROM app.users u WHERE `+filters, args...).Row().Scan(&total); err != nil {
+	if err := p.pool.QueryRow(ctx, `SELECT count(*) FROM app.users u WHERE `+filters, args).Scan(&total); err != nil {
 		return nil, false, 0, err
 	}
-	items, more, err := p.listUsers(ctx, boundary, limit, direction, filters, args...)
+	items, more, err := p.listUsers(ctx, boundary, limit, direction, filters, args)
 	return items, more, total, err
 }
 
@@ -545,20 +485,16 @@ func (p *Store) ListAdminUsers(ctx context.Context, boundary string, limit int, 
 			WHERE role_filter.user_id = u.id AND role_filter.state <> 'revoked'
 			AND role_filter.role::text = @globalRole
 		))`
-	args := []any{
-		sql.Named("search", strings.TrimSpace(search)),
-		sql.Named("accountState", accountState),
-		sql.Named("globalRole", globalRole),
-	}
+	args := pgx.NamedArgs{"search": strings.TrimSpace(search), "accountState": accountState, "globalRole": globalRole}
 	var total int64
-	if err := p.DB.WithContext(ctx).Raw(`SELECT count(*) FROM app.users u WHERE `+filters, args...).Row().Scan(&total); err != nil {
+	if err := p.pool.QueryRow(ctx, `SELECT count(*) FROM app.users u WHERE `+filters, args).Scan(&total); err != nil {
 		return nil, false, 0, err
 	}
-	items, more, err := p.listUsers(ctx, boundary, limit, direction, filters, args...)
+	items, more, err := p.listUsers(ctx, boundary, limit, direction, filters, args)
 	return items, more, total, err
 }
 
-func (p *Store) listUsers(ctx context.Context, boundary string, limit int, direction, filters string, args ...any) ([]accounts.User, bool, error) {
+func (p *Store) listUsers(ctx context.Context, boundary string, limit int, direction, filters string, args pgx.NamedArgs) ([]accounts.User, bool, error) {
 	comparison, order := `u.id > NULLIF(@boundary, '')::uuid`, `ASC`
 	if direction == "backward" {
 		comparison, order = `u.id < NULLIF(@boundary, '')::uuid`, `DESC`
@@ -571,8 +507,9 @@ func (p *Store) listUsers(ctx context.Context, boundary string, limit int, direc
 		WHERE ` + comparison + ` AND ` + filters + `
 		GROUP BY u.id
 		ORDER BY u.id ` + order + ` LIMIT @limit`
-	args = append(args, sql.Named("boundary", boundary), sql.Named("limit", limit+1))
-	rows, err := p.DB.WithContext(ctx).Raw(query, args...).Rows()
+	args["boundary"] = boundary
+	args["limit"] = limit + 1
+	rows, err := p.pool.Query(ctx, query, args)
 	if err != nil {
 		return nil, false, err
 	}
@@ -597,9 +534,9 @@ func (p *Store) ListEnrollmentCandidates(ctx context.Context, seasonID, query, b
 		AND EXISTS (SELECT 1 FROM app.user_auth_links l WHERE l.user_id = u.id AND l.active)
 		AND NOT EXISTS (SELECT 1 FROM app.enrollments e WHERE e.user_id = u.id AND e.season_id = @seasonID)
 		AND (@search = '' OR u.display_name ILIKE '%' || @search || '%' OR u.slug ILIKE '%' || @search || '%')`
-	args := []any{sql.Named("seasonID", seasonID), sql.Named("search", strings.TrimSpace(query))}
+	args := pgx.NamedArgs{"seasonID": seasonID, "search": strings.TrimSpace(query)}
 	var total int64
-	if err := p.DB.WithContext(ctx).Raw(`SELECT count(*) FROM app.users u WHERE `+filters, args...).Row().Scan(&total); err != nil {
+	if err := p.pool.QueryRow(ctx, `SELECT count(*) FROM app.users u WHERE `+filters, args).Scan(&total); err != nil {
 		return nil, false, 0, err
 	}
 
@@ -610,11 +547,12 @@ func (p *Store) ListEnrollmentCandidates(ctx context.Context, seasonID, query, b
 	if boundary == "" {
 		comparison = `TRUE`
 	}
-	args = append(args, sql.Named("boundary", boundary), sql.Named("limit", limit+1))
-	rows, err := p.DB.WithContext(ctx).Raw(`SELECT u.id,u.slug,u.display_name,u.avatar_url,u.revision
+	args["boundary"] = boundary
+	args["limit"] = limit + 1
+	rows, err := p.pool.Query(ctx, `SELECT u.id,u.slug,u.display_name,u.avatar_url,u.revision
 		FROM app.users u
 		WHERE `+filters+` AND `+comparison+`
-		ORDER BY u.id `+order+` LIMIT @limit`, args...).Rows()
+		ORDER BY u.id `+order+` LIMIT @limit`, args)
 	if err != nil {
 		return nil, false, 0, err
 	}
@@ -635,17 +573,16 @@ func (p *Store) ListEnrollmentCandidates(ctx context.Context, seasonID, query, b
 }
 
 func (p *Store) UpdateUser(ctx context.Context, userID string, revision int64, update func(*accounts.User) error, actorID string, at time.Time) (accounts.User, error) {
-	tx, err := begin(ctx, p.DB)
+	tx, err := p.pool.Begin(ctx)
 	if err != nil {
 		return accounts.User{}, err
 	}
-	defer rollback(tx)
+	defer tx.Rollback(context.Background())
 
 	var user accounts.User
-	err = tx.Raw(`SELECT id,slug,display_name,avatar_url,timezone,timezone_configured,
+	err = tx.QueryRow(ctx, `SELECT id,slug,display_name,avatar_url,timezone,timezone_configured,
 		COALESCE(email,''),account_state::text,is_test,revision
-		FROM app.users WHERE id=? AND deleted_at IS NULL FOR UPDATE`, userID).
-		Row().Scan(&user.ID, &user.Slug, &user.Name, &user.AvatarURL, &user.Timezone, &user.TimezoneConfigured, &user.Email, &user.AccountState, &user.IsTest, &user.Revision)
+		FROM app.users WHERE id=$1 AND deleted_at IS NULL FOR UPDATE`, userID).Scan(&user.ID, &user.Slug, &user.Name, &user.AvatarURL, &user.Timezone, &user.TimezoneConfigured, &user.Email, &user.AccountState, &user.IsTest, &user.Revision)
 	if err != nil {
 		return user, noRows(err)
 	}
@@ -655,27 +592,18 @@ func (p *Store) UpdateUser(ctx context.Context, userID string, revision int64, u
 	if err := update(&user); err != nil {
 		return user, err
 	}
-	result := tx.Table(dbtable.Users).
-		Where("id = ? AND revision = ?", userID, revision).
-		Updates(map[string]any{
-			"slug":                user.Slug,
-			"display_name":        user.Name,
-			"avatar_url":          user.AvatarURL,
-			"timezone":            user.Timezone,
-			"timezone_configured": user.TimezoneConfigured,
-			"revision":            gorm.Expr("revision + 1"),
-		})
-	if result.Error != nil {
-		return user, mapStoreError(result.Error)
+	result, err := tx.Exec(ctx, `UPDATE app.users SET slug=$1,display_name=$2,avatar_url=$3,timezone=$4,timezone_configured=$5,revision=revision + 1 WHERE id = $6 AND revision = $7`, user.Slug, user.Name, user.AvatarURL, user.Timezone, user.TimezoneConfigured, userID, revision)
+	if err != nil {
+		return user, mapStoreError(err)
 	}
-	if result.RowsAffected == 0 {
+	if result.RowsAffected() == 0 {
 		return user, ErrConflict
 	}
 	user.Revision++
 	if err := appendAuditTx(ctx, tx, newAudit(actorID, "user.updated", "user", userID, nil, at)); err != nil {
 		return user, err
 	}
-	if err := commit(tx); err != nil {
+	if err := tx.Commit(ctx); err != nil {
 		return user, err
 	}
 	return user, nil

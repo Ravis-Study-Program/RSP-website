@@ -11,9 +11,10 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/magedmg/RSP-website/backend/internal/authz"
 	"github.com/magedmg/RSP-website/backend/internal/dal"
-	"gorm.io/gorm"
 )
 
 const (
@@ -30,6 +31,7 @@ const (
 
 type postgresFixture struct {
 	db      *dal.Store
+	pool    *pgxpool.Pool
 	handler http.Handler
 }
 
@@ -43,15 +45,20 @@ func newPostgresFixture(t *testing.T) postgresFixture {
 	if strings.Contains(databaseURL, "?") {
 		separator = "&"
 	}
-	db, err := dal.Open(context.Background(), databaseURL+separator+"options=-c%20search_path%3Dapp")
+	config, err := pgxpool.ParseConfig(databaseURL + separator + "options=-c%20search_path%3Dapp")
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Cleanup(func() { _ = db.Close() })
-
-	truncateAppTables(t, db.DB)
-	t.Cleanup(func() { truncateAppTables(t, db.DB) })
-	seedPostgresFixture(t, db.DB)
+	config.ConnConfig.RuntimeParams["timezone"] = "UTC"
+	pool, err := pgxpool.NewWithConfig(context.Background(), config)
+	if err != nil {
+		t.Fatal(err)
+	}
+	db := dal.New(pool)
+	t.Cleanup(db.Close)
+	truncateAppTables(t, pool)
+	t.Cleanup(func() { truncateAppTables(t, pool) })
+	seedPostgresFixture(t, pool)
 
 	actors := map[string]authz.Actor{
 		"student": {
@@ -80,25 +87,29 @@ func newPostgresFixture(t *testing.T) postgresFixture {
 		SetAccountState: func(context.Context, string, string, string, string) error { return nil },
 		GetMFAState:     func(context.Context, string) (bool, error) { return false, nil },
 	})
-	return postgresFixture{db: db, handler: api.Handler()}
+	return postgresFixture{db: db, pool: pool, handler: api.Handler()}
 }
 
-func truncateAppTables(t *testing.T, db *gorm.DB) {
+func truncateAppTables(t *testing.T, db *pgxpool.Pool) {
 	t.Helper()
-	var tables []string
-	if err := db.Raw(`SELECT format('%I.%I', schemaname, tablename)
-		FROM pg_tables WHERE schemaname = 'app' ORDER BY tablename`).Scan(&tables).Error; err != nil {
+	rows, err := db.Query(context.Background(), `SELECT format('%I.%I', schemaname, tablename)
+		FROM pg_tables WHERE schemaname = 'app' ORDER BY tablename`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	tables, err := pgx.CollectRows(rows, pgx.RowTo[string])
+	if err != nil {
 		t.Fatal(err)
 	}
 	if len(tables) == 0 {
 		t.Fatal("app schema is not migrated")
 	}
-	if err := db.Exec("TRUNCATE TABLE " + strings.Join(tables, ", ") + " RESTART IDENTITY CASCADE").Error; err != nil {
+	if _, err := db.Exec(context.Background(), "TRUNCATE TABLE "+strings.Join(tables, ", ")+" RESTART IDENTITY CASCADE"); err != nil {
 		t.Fatal(err)
 	}
 }
 
-func seedPostgresFixture(t *testing.T, db *gorm.DB) {
+func seedPostgresFixture(t *testing.T, db *pgxpool.Pool) {
 	t.Helper()
 	statements := []string{
 		`INSERT INTO app.users(id,slug,display_name,email,account_state,timezone,revision) VALUES
@@ -117,7 +128,7 @@ func seedPostgresFixture(t *testing.T, db *gorm.DB) {
 			('` + foreignAttemptID + `','` + otherID + `','` + problemID + `','2026-09-01T00:00:00Z',20,'independently_solved',1)`,
 	}
 	for _, statement := range statements {
-		if err := db.Exec(statement).Error; err != nil {
+		if _, err := db.Exec(context.Background(), statement); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -148,7 +159,7 @@ func TestPostgresBackedProfileAndPracticeFlow(t *testing.T) {
 		t.Fatalf("attempt body=%s error=%v", response.Body.String(), err)
 	}
 	var count int64
-	if err := fixture.db.DB.Table("app.problem_attempts").Where("id = ? AND user_id = ?", attempt.ID, studentID).Count(&count).Error; err != nil || count != 1 {
+	if err := fixture.pool.QueryRow(context.Background(), `SELECT count(*) FROM app.problem_attempts WHERE id=$1 AND user_id=$2`, attempt.ID, studentID).Scan(&count); err != nil || count != 1 {
 		t.Fatalf("stored attempts=%d error=%v", count, err)
 	}
 	response = testRequest(t, fixture.handler, http.MethodDelete, "/api/v2/problem-attempts/"+foreignAttemptID+"?revision=1", "student", "")

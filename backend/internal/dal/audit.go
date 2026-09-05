@@ -6,29 +6,21 @@ import (
 	"time"
 
 	"github.com/magedmg/RSP-website/backend/internal/platform/audit"
-	"github.com/magedmg/RSP-website/backend/internal/platform/dbtable"
 	"github.com/magedmg/RSP-website/backend/internal/platform/id"
-	"gorm.io/gorm"
 )
 
 func (p *Store) AppendAudit(ctx context.Context, event audit.Event) error {
-	return appendAuditTx(ctx, p.DB, event)
+	return appendAuditTx(ctx, p.pool, event)
 }
 
-func appendAuditTx(ctx context.Context, db *gorm.DB, event audit.Event) error {
+func appendAuditTx(ctx context.Context, db queryer, event audit.Event) error {
 	raw, err := json.Marshal(event.Data)
 	if err != nil {
 		return err
 	}
-	return db.WithContext(ctx).Table(dbtable.AuditEvents).Create(map[string]any{
-		"id":            event.ID,
-		"actor_user_id": event.ActorID,
-		"action":        event.Action,
-		"subject_type":  event.SubjectType,
-		"subject_id":    event.SubjectID,
-		"data":          gorm.Expr("?::jsonb", string(raw)),
-		"occurred_at":   event.OccurredAt.UTC(),
-	}).Error
+	_, err = db.Exec(ctx, `INSERT INTO app.audit_events(id,actor_user_id,action,subject_type,subject_id,data,occurred_at)
+ VALUES($1,$2,$3,$4,$5,$6::jsonb,$7)`, event.ID, event.ActorID, event.Action, event.SubjectType, event.SubjectID, raw, event.OccurredAt.UTC())
+	return err
 }
 
 func newAudit(actorID, action, subjectType, subjectID string, data map[string]any, at time.Time) audit.Event {

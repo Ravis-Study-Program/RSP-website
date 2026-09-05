@@ -41,15 +41,13 @@ func main() {
 	}
 
 	defer repository.Close()
-	db, closeConnection, err := repository.PinnedConnection(ctx)
+	state, err := repository.OpenWorkerSession(ctx)
 	if err != nil {
-		logger.Error("database connection pinning failed", "error", err)
+		logger.Error("database connection acquisition failed", "error", err)
 		os.Exit(1)
 	}
-	defer closeConnection()
-
-	state := &dal.WorkerState{DB: db}
-	scheduler := worker.LeetCodeScheduler{Locker: state, State: state, Syncer: leetcode.Client{URL: syncURL, Sink: leetcode.PostgresSink{DB: db}}, Retries: 3, Timeout: 2 * time.Minute}
+	defer state.Close()
+	scheduler := worker.LeetCodeScheduler{Locker: state, State: state, Syncer: leetcode.Client{URL: syncURL, Sink: state}, Retries: 3, Timeout: 2 * time.Minute}
 	ticker := time.NewTicker(time.Minute)
 	defer ticker.Stop()
 

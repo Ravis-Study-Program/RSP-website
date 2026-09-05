@@ -12,6 +12,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/magedmg/RSP-website/backend/internal/authz"
 	"github.com/magedmg/RSP-website/backend/internal/dal"
 	"github.com/magedmg/RSP-website/backend/internal/mockinterviews"
@@ -32,15 +34,18 @@ type storedMockRoundMetadata struct {
 
 func mockRoundMetadata(t *testing.T, fixture postgresFixture, interviewID string) map[string]storedMockRoundMetadata {
 	t.Helper()
-	var rows []storedMockRoundMetadata
-	err := fixture.db.DB.Raw(`SELECT r.id, r.review_status::text, COALESCE(r.interviewee_comment_html,'') AS comment,
+	queryRows, err := fixture.pool.Query(context.Background(), `SELECT r.id, r.review_status::text, COALESCE(r.interviewee_comment_html,'') AS comment,
 		r.reviewed_at, r.created_at, COALESCE(b.id::text,'') AS behavioural_id,
 		COALESCE(l.id::text,'') AS leet_code_id, COALESCE(c.id::text,'') AS custom_id
 		FROM app.mock_interview_rounds r
 		LEFT JOIN app.behavioural_mock_interview_rounds b ON b.mock_interview_round_id=r.id
 		LEFT JOIN app.leetcode_mock_interview_rounds l ON l.mock_interview_round_id=r.id
 		LEFT JOIN app.custom_mock_interview_rounds c ON c.mock_interview_round_id=r.id
-		WHERE r.mock_interview_id=?`, interviewID).Scan(&rows).Error
+		WHERE r.mock_interview_id=$1`, interviewID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	rows, err := pgx.CollectRows(queryRows, pgx.RowToStructByName[storedMockRoundMetadata])
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -111,10 +116,8 @@ func mockDirectorHandler(fixture postgresFixture) http.Handler {
 func mockVersions(t *testing.T, fixture postgresFixture, interviewID string) []string {
 	t.Helper()
 	var snapshots []string
-	if err := fixture.db.DB.Raw(`SELECT snapshot::text FROM app.mock_interview_versions
-		WHERE mock_interview_id=? ORDER BY version`, interviewID).Scan(&snapshots).Error; err != nil {
-		t.Fatal(err)
-	}
+	snapshots = readColumn[string](t, fixture.pool, `SELECT snapshot::text FROM app.mock_interview_versions
+		WHERE mock_interview_id=$1 ORDER BY version`, interviewID)
 	return snapshots
 }
 
@@ -142,15 +145,11 @@ func TestMockWritesPreserveRoundMetadataAndHistory(t *testing.T) {
 	}
 
 	var roundUpdatedBefore []time.Time
-	if err := fixture.db.DB.Raw(`SELECT updated_at FROM app.mock_interview_rounds WHERE mock_interview_id=? ORDER BY id`, interview.ID).Scan(&roundUpdatedBefore).Error; err != nil {
-		t.Fatal(err)
-	}
+	roundUpdatedBefore = readColumn[time.Time](t, fixture.pool, `SELECT updated_at FROM app.mock_interview_rounds WHERE mock_interview_id=$1 ORDER BY id`, interview.ID)
 	interview.Notes = "Edited notes"
 	interview = mockRequest(t, fixture.handler, http.MethodPatch, path, "student", mockUpdateBody(interview), http.StatusOK)
 	var roundUpdatedAfter []time.Time
-	if err := fixture.db.DB.Raw(`SELECT updated_at FROM app.mock_interview_rounds WHERE mock_interview_id=? ORDER BY id`, interview.ID).Scan(&roundUpdatedAfter).Error; err != nil {
-		t.Fatal(err)
-	}
+	roundUpdatedAfter = readColumn[time.Time](t, fixture.pool, `SELECT updated_at FROM app.mock_interview_rounds WHERE mock_interview_id=$1 ORDER BY id`, interview.ID)
 	if !reflect.DeepEqual(roundUpdatedBefore, roundUpdatedAfter) {
 		t.Fatal("notes-only edit touched unrelated round rows")
 	}
@@ -189,14 +188,12 @@ func TestMockWritesPreserveRoundMetadataAndHistory(t *testing.T) {
 		t.Fatalf("deleted interview still visible: %v", err)
 	}
 	var actions []string
-	if err := fixture.db.DB.Raw(`SELECT action FROM app.audit_events WHERE subject_id=? ORDER BY occurred_at,id`, interview.ID).Scan(&actions).Error; err != nil {
-		t.Fatal(err)
-	}
+	actions = readColumn[string](t, fixture.pool, `SELECT action FROM app.audit_events WHERE subject_id=$1 ORDER BY occurred_at,id`, interview.ID)
 	wantActions := []string{"mock_interview.created", "mock_interview.reviewed", "mock_interview.reviewed", "mock_interview.updated", "mock_interview.updated", "mock_interview.identities_corrected", "mock_interview.deleted"}
 	if !reflect.DeepEqual(actions, wantActions) {
 		t.Fatalf("audit actions=%v", actions)
 	}
-	if err := fixture.db.DB.Exec(`UPDATE app.mock_interview_versions SET reason='rewritten' WHERE mock_interview_id=? AND version=1`, interview.ID).Error; err == nil {
+	if _, err := fixture.pool.Exec(context.Background(), `UPDATE app.mock_interview_versions SET reason='rewritten' WHERE mock_interview_id=$1 AND version=1`, interview.ID); err == nil {
 		t.Fatal("history is not immutable")
 	}
 }
@@ -262,16 +259,16 @@ func TestMockWriteGuardsLeaveDataAndHistoryUnchanged(t *testing.T) {
 
 	// The reviewer remains eligible, but the interviewer no longer belongs to
 	// the linked season. Reviews must still run the database scope validation.
-	if err := fixture.db.DB.Exec(`UPDATE app.enrollments SET deleted_at=now() WHERE id=?`, studentMemberID).Error; err != nil {
+	if _, err := fixture.pool.Exec(context.Background(), `UPDATE app.enrollments SET deleted_at=now() WHERE id=$1`, studentMemberID); err != nil {
 		t.Fatal(err)
 	}
 	mockRequest(t, fixture.handler, http.MethodPatch, path+"/rounds/"+mockRoundID+"/review", "other",
 		map[string]any{"revision": 1, "reviewed": true}, http.StatusConflict)
-	if err := fixture.db.DB.Exec(`UPDATE app.enrollments SET deleted_at=NULL WHERE id=?`, studentMemberID).Error; err != nil {
+	if _, err := fixture.pool.Exec(context.Background(), `UPDATE app.enrollments SET deleted_at=NULL WHERE id=$1`, studentMemberID); err != nil {
 		t.Fatal(err)
 	}
 
-	if err := fixture.db.DB.Exec(`UPDATE app.seasons SET status='closed', closed_at=now() WHERE id=?`, seasonID).Error; err != nil {
+	if _, err := fixture.pool.Exec(context.Background(), `UPDATE app.seasons SET status='closed', closed_at=now() WHERE id=$1`, seasonID); err != nil {
 		t.Fatal(err)
 	}
 	mockRequest(t, fixture.handler, http.MethodPatch, path, "student", mockUpdateBody(interview), http.StatusConflict)
@@ -323,4 +320,17 @@ func TestConcurrentMockEditsAppendOnlyOneVersion(t *testing.T) {
 	if versions := mockVersions(t, fixture, interview.ID); len(versions) != 2 {
 		t.Fatalf("concurrent writes produced %d versions", len(versions))
 	}
+}
+
+func readColumn[T any](t *testing.T, pool *pgxpool.Pool, query string, args ...any) []T {
+	t.Helper()
+	rows, err := pool.Query(context.Background(), query, args...)
+	if err != nil {
+		t.Fatal(err)
+	}
+	values, err := pgx.CollectRows(rows, pgx.RowTo[T])
+	if err != nil {
+		t.Fatal(err)
+	}
+	return values
 }

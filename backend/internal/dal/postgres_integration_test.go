@@ -81,14 +81,14 @@ func TestStore18MigrationsAndRepository(t *testing.T) {
 		t.Fatalf("verified auth link actor=%#v err=%v", actor, err)
 	}
 
-	err = repository.DB.WithContext(ctx).Exec(`INSERT INTO app.users(id,slug,display_name,email,account_state,timezone,revision) VALUES('00000000-0000-7000-8000-000000000033','00000000-0000-7000-8000-000000000033','Integration User','integration@rsp.local','active','Australia/Adelaide',1)`).Error
+	_, err = repository.pool.Exec(context.Background(), `INSERT INTO app.users(id,slug,display_name,email,account_state,timezone,revision) VALUES('00000000-0000-7000-8000-000000000033','00000000-0000-7000-8000-000000000033','Integration User','integration@rsp.local','active','Australia/Adelaide',1)`)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := repository.DB.WithContext(ctx).Exec(`INSERT INTO app.user_auth_links(auth_subject,user_id,provider,provider_account_id) VALUES('auth-integration','00000000-0000-7000-8000-000000000033','better_auth','auth-integration')`).Error; err != nil {
+	if _, err := repository.pool.Exec(context.Background(), `INSERT INTO app.user_auth_links(auth_subject,user_id,provider,provider_account_id) VALUES('auth-integration','00000000-0000-7000-8000-000000000033','better_auth','auth-integration')`); err != nil {
 		t.Fatal(err)
 	}
-	if err := repository.DB.WithContext(ctx).Exec(`INSERT INTO app.global_role_assignments(id,user_id,role,state) VALUES('00000000-0000-7000-8000-000000000032','00000000-0000-7000-8000-000000000033','director','pending_mfa')`).Error; err != nil {
+	if _, err := repository.pool.Exec(context.Background(), `INSERT INTO app.global_role_assignments(id,user_id,role,state) VALUES('00000000-0000-7000-8000-000000000032','00000000-0000-7000-8000-000000000033','director','pending_mfa')`); err != nil {
 		t.Fatal(err)
 	}
 	if err := repository.ApplyIdentityEvent(ctx, accounts.IdentityEvent{EventID: "00000000-0000-7000-8000-000000000014", Type: "mfa_configured", AuthUserID: "auth-integration", SecurityVersion: 2, OccurredAt: time.Now().UTC()}); err != nil {
@@ -101,39 +101,40 @@ func TestStore18MigrationsAndRepository(t *testing.T) {
 	}
 
 	var activatedAudits int
-	if err := repository.DB.WithContext(ctx).Raw(`SELECT count(*) FROM app.audit_events WHERE action='global_role.activated' AND subject_id='00000000-0000-7000-8000-000000000032'`).Row().Scan(&activatedAudits); err != nil || activatedAudits != 1 {
+	if err := repository.pool.QueryRow(context.Background(), `SELECT count(*) FROM app.audit_events WHERE action='global_role.activated' AND subject_id='00000000-0000-7000-8000-000000000032'`).Scan(&activatedAudits); err != nil || activatedAudits != 1 {
 		t.Fatalf("activation audit count=%d err=%v", activatedAudits, err)
 	}
 	if err := repository.QueueLeetCodeSync(ctx, actor.UserID, "integration-request"); err != nil {
 		t.Fatalf("queue LeetCode sync: %v", err)
 	}
 	var storedRequestID string
-	if err := repository.DB.WithContext(ctx).Raw(`SELECT request_id FROM app.audit_events WHERE action='leetcode.sync_requested' ORDER BY occurred_at DESC LIMIT 1`).Row().Scan(&storedRequestID); err != nil || storedRequestID != "integration-request" {
+	if err := repository.pool.QueryRow(context.Background(), `SELECT request_id FROM app.audit_events WHERE action='leetcode.sync_requested' ORDER BY occurred_at DESC LIMIT 1`).Scan(&storedRequestID); err != nil || storedRequestID != "integration-request" {
 		t.Fatalf("queued sync request id=%q err=%v", storedRequestID, err)
 	}
 	t.Run("LeetCode worker manual and scheduled runs", func(t *testing.T) {
 		testLeetCodeWorkerRuns(t, ctx, repository, actor.UserID)
 	})
 
-	pinnedDB, closePinned, err := repository.PinnedConnection(ctx)
+	state, err := repository.OpenWorkerSession(ctx)
 	if err != nil {
 		t.Fatal(err)
 	}
-	state := WorkerState{DB: pinnedDB}
 	locked, err := state.TryLock(ctx, 7277500199)
 	if err != nil || !locked {
-		_ = closePinned()
+		state.Close()
 		t.Fatalf("worker advisory lock=%v err=%v", locked, err)
 	}
 	if err := state.Unlock(ctx, 7277500199); err != nil {
-		_ = closePinned()
+		state.Close()
 		t.Fatal(err)
 	}
-	if err := closePinned(); err != nil {
+	state.Close()
+	sink, err := repository.OpenWorkerSession(ctx)
+	if err != nil {
 		t.Fatal(err)
 	}
+	defer sink.Close()
 
-	sink := leetcode.PostgresSink{DB: repository.DB}
 	problem := leetcode.Problem{Number: 999, Title: "Integration Problem", Slug: "integration-problem", Difficulty: "medium", Categories: []string{"Graphs", "Graphs"}}
 	if err := sink.Upsert(ctx, problem); err != nil {
 		t.Fatalf("create LeetCode catalogue item: %v", err)
@@ -144,13 +145,13 @@ func TestStore18MigrationsAndRepository(t *testing.T) {
 		t.Fatalf("update LeetCode catalogue item: %v", err)
 	}
 	var categoryCount int
-	if err := repository.DB.WithContext(ctx).Raw(`SELECT count(*) FROM app.leetcode_problem_category_mappings m JOIN app.leetcode_problems l ON l.id=m.leetcode_problem_id WHERE l.leetcode_number=999`).Row().Scan(&categoryCount); err != nil || categoryCount != 1 {
+	if err := repository.pool.QueryRow(context.Background(), `SELECT count(*) FROM app.leetcode_problem_category_mappings m JOIN app.leetcode_problems l ON l.id=m.leetcode_problem_id WHERE l.leetcode_number=999`).Scan(&categoryCount); err != nil || categoryCount != 1 {
 		t.Fatalf("LeetCode category count=%d err=%v", categoryCount, err)
 	}
-	if err := repository.DB.WithContext(ctx).Exec(`UPDATE app.problems p SET deleted_at=now() FROM app.leetcode_problems l WHERE l.problem_id=p.id AND l.leetcode_number=999`).Error; err != nil {
+	if _, err := repository.pool.Exec(context.Background(), `UPDATE app.problems p SET deleted_at=now() FROM app.leetcode_problems l WHERE l.problem_id=p.id AND l.leetcode_number=999`); err != nil {
 		t.Fatal(err)
 	}
-	if err := repository.DB.WithContext(ctx).Exec(`UPDATE app.leetcode_problems SET deleted_at=now() WHERE leetcode_number=999`).Error; err != nil {
+	if _, err := repository.pool.Exec(context.Background(), `UPDATE app.leetcode_problems SET deleted_at=now() WHERE leetcode_number=999`); err != nil {
 		t.Fatal(err)
 	}
 	if snapshot, err := repository.ObservabilitySnapshot(ctx); err != nil || snapshot.MigrationState != "none" {
@@ -201,28 +202,28 @@ func TestStore18MigrationsAndRepository(t *testing.T) {
 	if _, err := repository.UpdatePracticeSettings(ctx, "00000000-0000-7000-8000-000000000033", 1, 20, 35, 50, "00000000-0000-7000-8000-000000000033", time.Now().UTC()); err != ErrConflict {
 		t.Fatalf("stale practice settings returned %v", err)
 	}
-	if err := repository.DB.WithContext(ctx).Exec(`INSERT INTO app.users(id,slug,display_name,email,account_state,timezone,revision) VALUES('00000000-0000-7000-8000-000000000027','00000000-0000-7000-8000-000000000027','Integration Mentor','mentor@rsp.local','active','Australia/Adelaide',1)`).Error; err != nil {
+	if _, err := repository.pool.Exec(context.Background(), `INSERT INTO app.users(id,slug,display_name,email,account_state,timezone,revision) VALUES('00000000-0000-7000-8000-000000000027','00000000-0000-7000-8000-000000000027','Integration Mentor','mentor@rsp.local','active','Australia/Adelaide',1)`); err != nil {
 		t.Fatal(err)
 	}
-	if err := repository.DB.WithContext(ctx).Exec(`INSERT INTO app.users(id,slug,display_name,email,account_state,timezone,mfa_configured,revision) VALUES
+	if _, err := repository.pool.Exec(context.Background(), `INSERT INTO app.users(id,slug,display_name,email,account_state,timezone,mfa_configured,revision) VALUES
 		('00000000-0000-7000-8000-000000000017','00000000-0000-7000-8000-000000000017','Integration Coordinator','coordinator@rsp.local','active','Australia/Adelaide',true,1),
 		('00000000-0000-7000-8000-000000000023','00000000-0000-7000-8000-000000000023','Integration Promoted','promoted@rsp.local','active','Australia/Adelaide',true,1),
-		('00000000-0000-7000-8000-000000000026','00000000-0000-7000-8000-000000000026','Integration Kicked','kicked@rsp.local','active','Australia/Adelaide',false,1)`).Error; err != nil {
+		('00000000-0000-7000-8000-000000000026','00000000-0000-7000-8000-000000000026','Integration Kicked','kicked@rsp.local','active','Australia/Adelaide',false,1)`); err != nil {
 		t.Fatal(err)
 	}
-	if err := repository.DB.WithContext(ctx).Exec(`INSERT INTO app.global_role_assignments(id,user_id,role,state,activated_at) VALUES('00000000-0000-7000-8000-000000000018','00000000-0000-7000-8000-000000000026','director','active',now())`).Error; err != nil {
+	if _, err := repository.pool.Exec(context.Background(), `INSERT INTO app.global_role_assignments(id,user_id,role,state,activated_at) VALUES('00000000-0000-7000-8000-000000000018','00000000-0000-7000-8000-000000000026','director','active',now())`); err != nil {
 		t.Fatal(err)
 	}
 
 	var assignmentState string
 	var assignmentActivatedAt *time.Time
-	if err := repository.DB.WithContext(ctx).Raw(`SELECT state::text,activated_at FROM app.global_role_assignments WHERE id='00000000-0000-7000-8000-000000000018'`).Row().Scan(&assignmentState, &assignmentActivatedAt); err != nil || assignmentState != "pending_mfa" || assignmentActivatedAt != nil {
+	if err := repository.pool.QueryRow(context.Background(), `SELECT state::text,activated_at FROM app.global_role_assignments WHERE id='00000000-0000-7000-8000-000000000018'`).Scan(&assignmentState, &assignmentActivatedAt); err != nil || assignmentState != "pending_mfa" || assignmentActivatedAt != nil {
 		t.Fatalf("non-MFA global role state=%q activatedAt=%v err=%v", assignmentState, assignmentActivatedAt, err)
 	}
-	if err := repository.DB.WithContext(ctx).Exec(`INSERT INTO app.global_role_assignments(id,user_id,role,state) VALUES('00000000-0000-7000-8000-000000000004','00000000-0000-7000-8000-000000000017','system_admin','pending_mfa')`).Error; err != nil {
+	if _, err := repository.pool.Exec(context.Background(), `INSERT INTO app.global_role_assignments(id,user_id,role,state) VALUES('00000000-0000-7000-8000-000000000004','00000000-0000-7000-8000-000000000017','system_admin','pending_mfa')`); err != nil {
 		t.Fatal(err)
 	}
-	if err := repository.DB.WithContext(ctx).Raw(`SELECT state::text,activated_at FROM app.global_role_assignments WHERE id='00000000-0000-7000-8000-000000000004'`).Row().Scan(&assignmentState, &assignmentActivatedAt); err != nil || assignmentState != "active" || assignmentActivatedAt == nil {
+	if err := repository.pool.QueryRow(context.Background(), `SELECT state::text,activated_at FROM app.global_role_assignments WHERE id='00000000-0000-7000-8000-000000000004'`).Scan(&assignmentState, &assignmentActivatedAt); err != nil || assignmentState != "active" || assignmentActivatedAt == nil {
 		t.Fatalf("preconfigured-MFA global role state=%q activatedAt=%v err=%v", assignmentState, assignmentActivatedAt, err)
 	}
 	if _, err := repository.CreateEnrollment(ctx, programme.EnrollmentRecord{ID: "00000000-0000-7000-8000-000000000009", SeasonID: season.ID, UserID: "00000000-0000-7000-8000-000000000033", Role: "student", State: "active", Revision: 1}, "00000000-0000-7000-8000-000000000033", time.Now()); err != nil {
@@ -256,7 +257,7 @@ func TestStore18MigrationsAndRepository(t *testing.T) {
 	if err != nil || promotedEnrollment.AssignmentState != "active" {
 		t.Fatalf("preconfigured coordinator promotion=%#v err=%v", promotedEnrollment, err)
 	}
-	if err := repository.DB.WithContext(ctx).Exec(`INSERT INTO app.enrollments(id,user_id,season_id,role,student_level,state,assignment_state,activated_at,revision) VALUES('00000000-0000-7000-8000-000000000011','00000000-0000-7000-8000-000000000026',$1,'student','beginner','kicked','revoked',NULL,1)`, season.ID).Error; err != nil {
+	if _, err := repository.pool.Exec(context.Background(), `INSERT INTO app.enrollments(id,user_id,season_id,role,student_level,state,assignment_state,activated_at,revision) VALUES('00000000-0000-7000-8000-000000000011','00000000-0000-7000-8000-000000000026',$1,'student','beginner','kicked','revoked',NULL,1)`, season.ID); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := repository.CreateWeek(ctx, programme.WeekRecord{ID: "00000000-0000-7000-8000-000000000034", SeasonID: season.ID, Number: 1, StartAt: season.StartAt, EndAt: season.EndAt, ResourceURL: "https://rsp.local/week", Revision: 1}, "00000000-0000-7000-8000-000000000033", time.Now()); err != nil {
@@ -299,10 +300,10 @@ func TestStore18MigrationsAndRepository(t *testing.T) {
 	if _, err := repository.CreateMockInterview(ctx, invalidMock, "00000000-0000-7000-8000-000000000027", time.Now().UTC()); err == nil {
 		t.Fatal("kicked-only mock participant passed PostgreSQL scope validation")
 	}
-	if err := repository.DB.WithContext(ctx).Exec(`INSERT INTO app.problems(id,title,url) VALUES('00000000-0000-7000-8000-000000000019','Two Sum','https://leetcode.com/problems/two-sum/')`).Error; err != nil {
+	if _, err := repository.pool.Exec(context.Background(), `INSERT INTO app.problems(id,title,url) VALUES('00000000-0000-7000-8000-000000000019','Two Sum','https://leetcode.com/problems/two-sum/')`); err != nil {
 		t.Fatal(err)
 	}
-	if err := repository.DB.WithContext(ctx).Exec(`INSERT INTO app.leetcode_problems(id,problem_id,leetcode_number,difficulty,is_premium) VALUES('00000000-0000-7000-8000-000000000025','00000000-0000-7000-8000-000000000019',1,'easy',false)`).Error; err != nil {
+	if _, err := repository.pool.Exec(context.Background(), `INSERT INTO app.leetcode_problems(id,problem_id,leetcode_number,difficulty,is_premium) VALUES('00000000-0000-7000-8000-000000000025','00000000-0000-7000-8000-000000000019',1,'easy',false)`); err != nil {
 		t.Fatal(err)
 	}
 	if problems, _, _, err := repository.ListProblems(ctx, "", 25, "", "", nil, "forward"); err != nil || len(problems) != 1 {
@@ -338,7 +339,7 @@ func TestStore18MigrationsAndRepository(t *testing.T) {
 	}
 
 	var versionCount int
-	if err := repository.DB.WithContext(ctx).Raw(`SELECT count(*) FROM app.mock_interview_versions WHERE mock_interview_id='00000000-0000-7000-8000-000000000031'`).Row().Scan(&versionCount); err != nil || versionCount != 2 {
+	if err := repository.pool.QueryRow(context.Background(), `SELECT count(*) FROM app.mock_interview_versions WHERE mock_interview_id='00000000-0000-7000-8000-000000000031'`).Scan(&versionCount); err != nil || versionCount != 2 {
 		t.Fatalf("mock versions=%d err=%v", versionCount, err)
 	}
 
@@ -359,7 +360,7 @@ func TestStore18MigrationsAndRepository(t *testing.T) {
 	if err := repository.AppendAudit(ctx, auditEvent); err != nil {
 		t.Fatal(err)
 	}
-	if err := repository.DB.WithContext(ctx).Exec(`UPDATE app.audit_events SET action='tampered' WHERE id='00000000-0000-7000-8000-000000000029'`).Error; err == nil {
+	if _, err := repository.pool.Exec(context.Background(), `UPDATE app.audit_events SET action='tampered' WHERE id='00000000-0000-7000-8000-000000000029'`); err == nil {
 		t.Fatal("append-only audit update unexpectedly succeeded")
 	}
 	if err := goose.DownTo(db, migrations, 0); err != nil {

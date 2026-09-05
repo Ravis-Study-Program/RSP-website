@@ -1,37 +1,27 @@
-// Package dal implements the backend's PostgreSQL store.
 package dal
 
 import (
 	"context"
 	"time"
 
-	"github.com/magedmg/RSP-website/backend/internal/platform/dbtable"
 	"github.com/magedmg/RSP-website/backend/internal/platform/id"
-	"gorm.io/gorm"
 )
 
 // QueueLeetCodeSync records the worker request and audit event atomically.
-func (p *Store) QueueLeetCodeSync(ctx context.Context, actorID, requestID string) error {
-	tx, err := begin(ctx, p.DB)
+func (s *Store) QueueLeetCodeSync(ctx context.Context, actorID, requestID string) error {
+	tx, err := s.pool.Begin(ctx)
 	if err != nil {
 		return err
 	}
-	defer rollback(tx)
-
-	now := time.Now().UTC()
-	runID := id.New()
-	if err := tx.Table(dbtable.LeetcodeSyncRuns).Create(map[string]any{
-		"id": runID, "trigger_kind": "manual", "requested_by_user_id": actorID, "started_at": now,
-	}).Error; err != nil {
+	defer tx.Rollback(context.Background())
+	now, runID := time.Now().UTC(), id.New()
+	if _, err := tx.Exec(ctx, `INSERT INTO app.leetcode_sync_runs(id,trigger_kind,requested_by_user_id,started_at)
+  VALUES($1,'manual',$2,$3)`, runID, actorID, now); err != nil {
 		return err
 	}
-	if err := tx.Table(dbtable.AuditEvents).Create(map[string]any{
-		"id": id.New(), "actor_user_id": actorID,
-		"action": "leetcode.sync_requested", "subject_type": "worker",
-		"subject_id": runID, "request_id": requestID, "data": gorm.Expr("'{}'::jsonb"),
-		"occurred_at": now,
-	}).Error; err != nil {
+	if _, err := tx.Exec(ctx, `INSERT INTO app.audit_events(id,actor_user_id,action,subject_type,subject_id,request_id,data,occurred_at)
+  VALUES($1,$2,'leetcode.sync_requested','worker',$3,$4,'{}'::jsonb,$5)`, id.New(), actorID, runID, requestID, now); err != nil {
 		return err
 	}
-	return commit(tx)
+	return tx.Commit(ctx)
 }

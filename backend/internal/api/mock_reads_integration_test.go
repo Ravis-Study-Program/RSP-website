@@ -11,27 +11,33 @@ import (
 	"testing"
 	"time"
 
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/magedmg/RSP-website/backend/internal/authz"
 	"github.com/magedmg/RSP-website/backend/internal/dal"
 	"github.com/magedmg/RSP-website/backend/internal/mockinterviews"
 	"github.com/magedmg/RSP-website/backend/internal/platform/id"
-	"gorm.io/gorm"
-	"gorm.io/gorm/logger"
 )
 
-type mockReadQueryCounter struct {
-	logger.Interface
-	statements []string
-}
+type mockReadQueryCounter struct{ statements []string }
 
-func (counter *mockReadQueryCounter) Trace(_ context.Context, _ time.Time, statement func() (string, int64), _ error) {
-	sql, _ := statement()
-	counter.statements = append(counter.statements, sql)
+func (c *mockReadQueryCounter) TraceQueryStart(ctx context.Context, _ *pgx.Conn, data pgx.TraceQueryStartData) context.Context {
+	c.statements = append(c.statements, data.SQL)
+	return ctx
 }
-
-func countedMockRepository(fixture postgresFixture) (*dal.Store, *mockReadQueryCounter) {
-	counter := &mockReadQueryCounter{Interface: logger.Default.LogMode(logger.Silent)}
-	return &dal.Store{DB: fixture.db.DB.Session(&gorm.Session{Logger: counter}), SQL: fixture.db.SQL}, counter
+func (*mockReadQueryCounter) TraceQueryEnd(context.Context, *pgx.Conn, pgx.TraceQueryEndData) {}
+func countedMockRepository(t *testing.T, fixture postgresFixture) (*dal.Store, *mockReadQueryCounter) {
+	t.Helper()
+	counter := &mockReadQueryCounter{}
+	config := fixture.pool.Config().Copy()
+	config.ConnConfig.Tracer = counter
+	pool, err := pgxpool.NewWithConfig(context.Background(), config)
+	if err != nil {
+		t.Fatal(err)
+	}
+	store := dal.New(pool)
+	t.Cleanup(store.Close)
+	return store, counter
 }
 
 func TestMockListUsesBoundedReadsAndPreservesPageValues(t *testing.T) {
@@ -61,7 +67,7 @@ func TestMockListUsesBoundedReadsAndPreservesPageValues(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	repository, queries := countedMockRepository(fixture)
+	repository, queries := countedMockRepository(t, fixture)
 	actor := authz.Actor{UserID: studentID}
 	for _, limit := range []int{1, 4} {
 		queries.statements = nil
@@ -107,10 +113,10 @@ func TestMockListUsesBoundedReadsAndPreservesPageValues(t *testing.T) {
 
 func TestMockParticipantSummariesBatchOnlyPublicFields(t *testing.T) {
 	fixture := newPostgresFixture(t)
-	repository, queries := countedMockRepository(fixture)
+	repository, queries := countedMockRepository(t, fixture)
 	ctx := context.Background()
 	avatar := "https://rsp.test/avatar.png"
-	if err := fixture.db.DB.Exec(`UPDATE app.users SET avatar_url=? WHERE id=?`, avatar, studentID).Error; err != nil {
+	if _, err := fixture.pool.Exec(context.Background(), `UPDATE app.users SET avatar_url=$1 WHERE id=$2`, avatar, studentID); err != nil {
 		t.Fatal(err)
 	}
 	missing := "00000000-0000-7000-8000-000000000999"
@@ -127,10 +133,10 @@ func TestMockParticipantSummariesBatchOnlyPublicFields(t *testing.T) {
 		t.Fatalf("summary query selected private or unnecessary fields: %s", query)
 	}
 
-	if err := fixture.db.DB.Exec(`UPDATE app.users SET deleted_at=now() WHERE id=?`, otherID).Error; err != nil {
+	if _, err := fixture.pool.Exec(context.Background(), `UPDATE app.users SET deleted_at=now() WHERE id=$1`, otherID); err != nil {
 		t.Fatal(err)
 	}
-	if err := fixture.db.DB.Exec(`UPDATE app.users SET account_state='deleted', pseudonymized_at=now() WHERE id=?`, studentID).Error; err != nil {
+	if _, err := fixture.pool.Exec(context.Background(), `UPDATE app.users SET account_state='deleted', pseudonymized_at=now() WHERE id=$1`, studentID); err != nil {
 		t.Fatal(err)
 	}
 	summaries, err = repository.ListMockParticipantSummaries(ctx, []string{studentID, otherID, missing})

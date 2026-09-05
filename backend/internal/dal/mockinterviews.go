@@ -5,12 +5,11 @@ import (
 	"encoding/json"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/magedmg/RSP-website/backend/internal/authz"
 	"github.com/magedmg/RSP-website/backend/internal/mockinterviews"
 	"github.com/magedmg/RSP-website/backend/internal/platform/dbtable"
 	"github.com/magedmg/RSP-website/backend/internal/platform/id"
-	"gorm.io/gorm"
-	"gorm.io/gorm/clause"
 )
 
 const mockInterviewColumns = `mi.id,mi.interviewer_user_id,mi.interviewee_user_id,mi.season_id,
@@ -46,7 +45,7 @@ func (p *Store) ListMockInterviews(ctx context.Context, actor authz.Actor, mode,
 		)))))`
 	}
 	var total int64
-	if err := p.DB.WithContext(ctx).Raw(`SELECT count(*) FROM app.mock_interviews mi WHERE mi.deleted_at IS NULL AND `+where, userID).Row().Scan(&total); err != nil {
+	if err := p.pool.QueryRow(ctx, `SELECT count(*) FROM app.mock_interviews mi WHERE mi.deleted_at IS NULL AND `+where, userID).Scan(&total); err != nil {
 		return nil, false, 0, err
 	}
 
@@ -74,7 +73,7 @@ func (p *Store) ListMockInterviews(ctx context.Context, actor authz.Actor, mode,
 	WHERE mi.deleted_at IS NULL AND ` + where + `
 	  AND (NULLIF($2,'')::uuid IS NULL OR EXISTS (SELECT 1 FROM boundary b WHERE ` + key + ` ` + comparator + ` ` + boundaryKey + `))
 	ORDER BY ` + orderBy + ` LIMIT $3`
-	rows, err := p.DB.WithContext(ctx).Raw(query, userID, boundary, limit+1).Rows()
+	rows, err := p.pool.Query(ctx, query, userID, boundary, limit+1)
 	if err != nil {
 		return nil, false, 0, err
 	}
@@ -91,12 +90,10 @@ func (p *Store) ListMockInterviews(ctx context.Context, actor authz.Actor, mode,
 	if err := rows.Err(); err != nil {
 		return nil, false, 0, err
 	}
-	if err := rows.Close(); err != nil {
-		return nil, false, 0, err
-	}
+	rows.Close()
 
 	items, more := finishStorePage(items, limit, direction)
-	if err := loadMockRounds(ctx, p.DB, items); err != nil {
+	if err := loadMockRounds(ctx, p.pool, items); err != nil {
 		return nil, false, 0, err
 	}
 	return items, more, total, nil
@@ -108,16 +105,16 @@ func (p *Store) GetMockParticipant(ctx context.Context, userID string) (mockinte
 		IsTest, ActiveMember, Alumni, FormerMember bool
 		HasEnrollment, HasKicked                   bool
 	}
-	err := p.DB.WithContext(ctx).Raw(`SELECT u.id,u.account_state::text AS account_state,u.is_test,
+	err := p.pool.QueryRow(ctx, `SELECT u.id,u.account_state::text AS account_state,u.is_test,
 		EXISTS(SELECT 1 FROM app.enrollments e WHERE e.user_id=u.id AND e.state='active' AND e.deleted_at IS NULL) AS active_member,
 		EXISTS(SELECT 1 FROM app.enrollments e WHERE e.user_id=u.id AND e.role='student' AND e.state='completed' AND e.deleted_at IS NULL) AS alumni,
 		EXISTS(SELECT 1 FROM app.enrollments e WHERE e.user_id=u.id AND e.state='completed' AND e.deleted_at IS NULL) AS former_member,
 		EXISTS(SELECT 1 FROM app.enrollments e WHERE e.user_id=u.id AND e.deleted_at IS NULL) AS has_enrollment,
 		EXISTS(SELECT 1 FROM app.enrollments e WHERE e.user_id=u.id AND e.state='kicked' AND e.deleted_at IS NULL) AS has_kicked
-		FROM app.users u WHERE u.id=?`, userID).Scan(&row).Error
+		FROM app.users u WHERE u.id=$1`, userID).Scan(&row.ID, &row.AccountState, &row.IsTest, &row.ActiveMember, &row.Alumni, &row.FormerMember, &row.HasEnrollment, &row.HasKicked)
 	if err != nil || row.ID == "" {
 		if err == nil {
-			err = gorm.ErrRecordNotFound
+			err = pgx.ErrNoRows
 		}
 		return mockinterviews.Participant{}, noRows(err)
 	}
@@ -137,12 +134,12 @@ func (p *Store) GetMockParticipant(ctx context.Context, userID string) (mockinte
 }
 
 func (p *Store) GetMockInterview(ctx context.Context, interviewID string) (mockinterviews.Interview, error) {
-	return loadMockInterview(ctx, p.DB, interviewID)
+	return loadMockInterview(ctx, p.pool, interviewID)
 }
 
-func loadMockInterview(ctx context.Context, db *gorm.DB, interviewID string) (mockinterviews.Interview, error) {
-	interview, err := scanMockInterview(db.WithContext(ctx).Raw(`SELECT `+mockInterviewColumns+`
-		FROM app.mock_interviews mi WHERE mi.id=? AND mi.deleted_at IS NULL`, interviewID).Row())
+func loadMockInterview(ctx context.Context, db queryer, interviewID string) (mockinterviews.Interview, error) {
+	interview, err := scanMockInterview(db.QueryRow(ctx, `SELECT `+mockInterviewColumns+`
+		FROM app.mock_interviews mi WHERE mi.id=$1 AND mi.deleted_at IS NULL`, interviewID))
 	if err != nil {
 		return mockinterviews.Interview{}, err
 	}
@@ -153,7 +150,7 @@ func loadMockInterview(ctx context.Context, db *gorm.DB, interviewID string) (mo
 	return items[0], nil
 }
 
-func loadMockRounds(ctx context.Context, db *gorm.DB, interviews []mockinterviews.Interview) error {
+func loadMockRounds(ctx context.Context, db queryer, interviews []mockinterviews.Interview) error {
 	if len(interviews) == 0 {
 		return nil
 	}
@@ -163,7 +160,7 @@ func loadMockRounds(ctx context.Context, db *gorm.DB, interviews []mockinterview
 		ids[i] = interviews[i].ID
 		byID[interviews[i].ID] = &interviews[i]
 	}
-	rows, err := db.WithContext(ctx).Raw(`SELECT r.mock_interview_id,r.id,r.kind::text,r.review_status='reviewed',
+	rows, err := db.Query(ctx, `SELECT r.mock_interview_id,r.id,r.kind::text,r.review_status='reviewed',
 		COALESCE(r.interviewee_comment_html,''),b.behavioural_score,l.leetcode_problem_id,
 		l.clarify_question_score,l.algorithm_design_score,l.complexity_analysis_score,
 		l.coding_score,l.testing_score,COALESCE(c.content_html,''),COALESCE(c.url,''),c.score
@@ -171,8 +168,8 @@ func loadMockRounds(ctx context.Context, db *gorm.DB, interviews []mockinterview
 		LEFT JOIN app.behavioural_mock_interview_rounds b ON b.mock_interview_round_id=r.id
 		LEFT JOIN app.leetcode_mock_interview_rounds l ON l.mock_interview_round_id=r.id
 		LEFT JOIN app.custom_mock_interview_rounds c ON c.mock_interview_round_id=r.id
-		WHERE r.mock_interview_id IN ? AND r.deleted_at IS NULL
-		ORDER BY r.mock_interview_id,r.position,r.id`, ids).Rows()
+		WHERE r.mock_interview_id = ANY($1::uuid[]) AND r.deleted_at IS NULL
+		ORDER BY r.mock_interview_id,r.position,r.id`, ids)
 	if err != nil {
 		return err
 	}
@@ -205,15 +202,20 @@ func (p *Store) ListMockParticipantSummaries(ctx context.Context, userIDs []stri
 	if len(userIDs) == 0 {
 		return byID, nil
 	}
-	var summaries []mockinterviews.ParticipantSummary
-	if err := p.DB.WithContext(ctx).Table(dbtable.Users).
-		Select("id,slug,display_name AS name,avatar_url").
-		Where("id IN ? AND deleted_at IS NULL AND account_state <> 'deleted'", userIDs).
-		Scan(&summaries).Error; err != nil {
+	rows, err := p.pool.Query(ctx, `SELECT id,slug,display_name,avatar_url FROM app.users WHERE id=ANY($1::uuid[]) AND deleted_at IS NULL AND account_state<>'deleted'`, userIDs)
+	if err != nil {
 		return nil, err
 	}
-	for _, summary := range summaries {
+	defer rows.Close()
+	for rows.Next() {
+		var summary mockinterviews.ParticipantSummary
+		if err := rows.Scan(&summary.ID, &summary.Slug, &summary.Name, &summary.AvatarURL); err != nil {
+			return nil, err
+		}
 		byID[summary.ID] = summary
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
 	}
 	return byID, nil
 }
@@ -230,21 +232,17 @@ func scoresFromDB(values ...*int16) mockinterviews.Scores {
 }
 
 func (p *Store) CreateMockInterview(ctx context.Context, v mockinterviews.Interview, actorID string, at time.Time) (mockinterviews.Interview, error) {
-	tx, err := begin(ctx, p.DB)
+	tx, err := p.pool.Begin(ctx)
 	if err != nil {
 		return mockinterviews.Interview{}, err
 	}
 
-	defer rollback(tx)
-	if err := lockOpenMockSeason(tx, v.SeasonID); err != nil {
+	defer tx.Rollback(context.Background())
+	if err := lockOpenMockSeason(ctx, tx, v.SeasonID); err != nil {
 		return v, err
 	}
-	if err := tx.Table(dbtable.MockInterviews).Create(map[string]any{
-		"id": v.ID, "interviewer_user_id": v.InterviewerID,
-		"interviewee_user_id": v.IntervieweeID, "season_id": v.SeasonID,
-		"scheduled_at": v.OccurredAt.UTC(), "duration_minutes": v.DurationMinutes,
-		"interviewer_notes_html": v.Notes, "revision": v.Revision,
-	}).Error; err != nil {
+	if _, err := tx.Exec(ctx, `INSERT INTO app.mock_interviews(id,interviewer_user_id,interviewee_user_id,season_id,scheduled_at,duration_minutes,interviewer_notes_html,revision)
+ VALUES($1,$2,$3,$4,$5,$6,$7,$8)`, v.ID, v.InterviewerID, v.IntervieweeID, v.SeasonID, v.OccurredAt.UTC(), v.DurationMinutes, v.Notes, v.Revision); err != nil {
 		return v, mapStoreError(err)
 	}
 	if err := reconcileMockRounds(ctx, tx, v); err != nil {
@@ -256,7 +254,7 @@ func (p *Store) CreateMockInterview(ctx context.Context, v mockinterviews.Interv
 	if err := appendAuditTx(ctx, tx, newAudit(actorID, "mock_interview.created", "mock_interview", v.ID, nil, at)); err != nil {
 		return v, err
 	}
-	if err := commit(tx); err != nil {
+	if err := tx.Commit(ctx); err != nil {
 		return v, err
 	}
 	return v, nil
@@ -264,11 +262,8 @@ func (p *Store) CreateMockInterview(ctx context.Context, v mockinterviews.Interv
 
 // UpdateMockInterview saves interviewer-owned fields and reconciles rounds by ID.
 func (p *Store) UpdateMockInterview(ctx context.Context, v mockinterviews.Interview, actorID string, at time.Time) (mockinterviews.Interview, error) {
-	return p.writeMockInterview(ctx, v, actorID, "updated", "mock_interview.updated", at, func(tx *gorm.DB) error {
-		if err := tx.Table(dbtable.MockInterviews).Where("id = ?", v.ID).Updates(map[string]any{
-			"scheduled_at": v.OccurredAt.UTC(), "duration_minutes": v.DurationMinutes,
-			"interviewer_notes_html": v.Notes, "revision": v.Revision,
-		}).Error; err != nil {
+	return p.writeMockInterview(ctx, v, actorID, "updated", "mock_interview.updated", at, func(tx pgx.Tx) error {
+		if _, err := tx.Exec(ctx, `UPDATE app.mock_interviews SET scheduled_at=$1,duration_minutes=$2,interviewer_notes_html=$3,revision=$4 WHERE id = $5`, v.OccurredAt.UTC(), v.DurationMinutes, v.Notes, v.Revision, v.ID); err != nil {
 			return err
 		}
 		return reconcileMockRounds(ctx, tx, v)
@@ -277,15 +272,15 @@ func (p *Store) UpdateMockInterview(ctx context.Context, v mockinterviews.Interv
 
 // DeleteMockInterview leaves rounds and previous versions intact.
 func (p *Store) DeleteMockInterview(ctx context.Context, v mockinterviews.Interview, actorID string, at time.Time) (mockinterviews.Interview, error) {
-	return p.writeMockInterview(ctx, v, actorID, "soft deleted", "mock_interview.deleted", at, func(tx *gorm.DB) error {
-		return tx.Table(dbtable.MockInterviews).Where("id = ?", v.ID).
-			Updates(map[string]any{"deleted_at": v.DeletedAt, "revision": v.Revision}).Error
+	return p.writeMockInterview(ctx, v, actorID, "soft deleted", "mock_interview.deleted", at, func(tx pgx.Tx) error {
+		_, err := tx.Exec(ctx, `UPDATE app.mock_interviews SET deleted_at=$1,revision=$2 WHERE id = $3`, v.DeletedAt, v.Revision, v.ID)
+		return err
 	})
 }
 
 // ReviewMockInterviewRound changes only the selected round's interviewee-owned fields.
 func (p *Store) ReviewMockInterviewRound(ctx context.Context, v mockinterviews.Interview, roundID, actorID string, at time.Time) (mockinterviews.Interview, error) {
-	return p.writeMockInterview(ctx, v, actorID, "interviewee review", "mock_interview.reviewed", at, func(tx *gorm.DB) error {
+	return p.writeMockInterview(ctx, v, actorID, "interviewee review", "mock_interview.reviewed", at, func(tx pgx.Tx) error {
 		var reviewedRound *mockinterviews.Round
 		for i := range v.Rounds {
 			if v.Rounds[i].ID == roundID {
@@ -303,47 +298,41 @@ func (p *Store) ReviewMockInterviewRound(ctx context.Context, v mockinterviews.I
 			timestamp := at.UTC()
 			reviewedAt = &timestamp
 		}
-		result := tx.Table(dbtable.MockInterviewRounds).
-			Where("id = ? AND mock_interview_id = ? AND deleted_at IS NULL", roundID, v.ID).
-			Updates(map[string]any{"review_status": status, "reviewed_at": reviewedAt,
-				"interviewee_comment_html": reviewedRound.IntervieweeComment, "revision": v.Revision})
-		if result.Error != nil {
-			return result.Error
+		result, err := tx.Exec(ctx, `UPDATE app.mock_interview_rounds SET review_status=$1,reviewed_at=$2,interviewee_comment_html=$3,revision=$4 WHERE id = $5 AND mock_interview_id = $6 AND deleted_at IS NULL`, status, reviewedAt, reviewedRound.IntervieweeComment, v.Revision, roundID, v.ID)
+		if err != nil {
+			return err
 		}
-		if result.RowsAffected != 1 {
+		if result.RowsAffected() != 1 {
 			return ErrNotFound
 		}
 		// Keep the database's participant/date scope trigger active without
 		// accepting a season change through the review operation.
-		return tx.Table(dbtable.MockInterviews).Where("id = ?", v.ID).
-			Updates(map[string]any{"revision": v.Revision, "season_id": gorm.Expr("season_id")}).Error
+		_, err = tx.Exec(ctx, `UPDATE app.mock_interviews SET revision=$1,season_id=season_id WHERE id = $2`, v.Revision, v.ID)
+		return err
 	})
 }
 
 // CorrectMockInterviewIdentities preserves all interview content and round metadata.
 func (p *Store) CorrectMockInterviewIdentities(ctx context.Context, v mockinterviews.Interview, actorID, reason string, at time.Time) (mockinterviews.Interview, error) {
-	return p.writeMockInterview(ctx, v, actorID, "identity correction: "+reason, "mock_interview.identities_corrected", at, func(tx *gorm.DB) error {
-		return tx.Table(dbtable.MockInterviews).Where("id = ?", v.ID).Updates(map[string]any{
-			"interviewer_user_id": v.InterviewerID, "interviewee_user_id": v.IntervieweeID,
-			"season_id": v.SeasonID, "revision": v.Revision,
-		}).Error
+	return p.writeMockInterview(ctx, v, actorID, "identity correction: "+reason, "mock_interview.identities_corrected", at, func(tx pgx.Tx) error {
+		_, err := tx.Exec(ctx, `UPDATE app.mock_interviews SET interviewer_user_id=$1,interviewee_user_id=$2,season_id=$3,revision=$4 WHERE id = $5`, v.InterviewerID, v.IntervieweeID, v.SeasonID, v.Revision, v.ID)
+		return err
 	})
 }
 
 // All writes hold the interview revision lock through the mutation, history and audit.
 // Action and reason are metadata only; the supplied mutation selects the writable fields.
-func (p *Store) writeMockInterview(ctx context.Context, v mockinterviews.Interview, actorID, reason, action string, at time.Time, mutate func(*gorm.DB) error) (mockinterviews.Interview, error) {
-	tx, err := begin(ctx, p.DB)
+func (p *Store) writeMockInterview(ctx context.Context, v mockinterviews.Interview, actorID, reason, action string, at time.Time, mutate func(pgx.Tx) error) (mockinterviews.Interview, error) {
+	tx, err := p.pool.Begin(ctx)
 	if err != nil {
 		return mockinterviews.Interview{}, err
 	}
-	defer rollback(tx)
-	if err := lockOpenMockSeason(tx, v.SeasonID); err != nil {
+	defer tx.Rollback(context.Background())
+	if err := lockOpenMockSeason(ctx, tx, v.SeasonID); err != nil {
 		return v, err
 	}
 	var currentRevision int64
-	err = tx.Table(dbtable.MockInterviews).Select("revision").Where("id = ? AND deleted_at IS NULL", v.ID).
-		Clauses(clause.Locking{Strength: "UPDATE"}).Row().Scan(&currentRevision)
+	err = tx.QueryRow(ctx, `SELECT revision FROM app.mock_interviews WHERE id = $1 AND deleted_at IS NULL FOR UPDATE`, v.ID).Scan(&currentRevision)
 	if err != nil {
 		return v, noRows(err)
 	}
@@ -366,7 +355,7 @@ func (p *Store) writeMockInterview(ctx context.Context, v mockinterviews.Intervi
 	if err := appendAuditTx(ctx, tx, newAudit(actorID, action, "mock_interview", v.ID, map[string]any{"reason": reason}, at)); err != nil {
 		return v, err
 	}
-	if err := commit(tx); err != nil {
+	if err := tx.Commit(ctx); err != nil {
 		return v, err
 	}
 	return v, nil
@@ -374,13 +363,12 @@ func (p *Store) writeMockInterview(ctx context.Context, v mockinterviews.Intervi
 
 // The season lock serializes writes with CloseSeason. A correction checks its
 // destination season, so privileged corrections can still unlink historical records.
-func lockOpenMockSeason(tx *gorm.DB, seasonID *string) error {
+func lockOpenMockSeason(ctx context.Context, tx pgx.Tx, seasonID *string) error {
 	if seasonID == nil {
 		return nil
 	}
 	var status string
-	if err := tx.Table(dbtable.Seasons).Select("status").Where("id = ? AND deleted_at IS NULL", *seasonID).
-		Clauses(clause.Locking{Strength: "SHARE"}).Row().Scan(&status); err != nil {
+	if err := tx.QueryRow(ctx, `SELECT status FROM app.seasons WHERE id = $1 AND deleted_at IS NULL FOR SHARE`, *seasonID).Scan(&status); err != nil {
 		return noRows(err)
 	}
 	if status != "open" {
@@ -389,14 +377,18 @@ func lockOpenMockSeason(tx *gorm.DB, seasonID *string) error {
 	return nil
 }
 
-func reconcileMockRounds(ctx context.Context, tx *gorm.DB, v mockinterviews.Interview) error {
-	var existing []struct {
+func reconcileMockRounds(ctx context.Context, tx pgx.Tx, v mockinterviews.Interview) error {
+	type storedRound struct {
 		ID       string
 		Kind     mockinterviews.RoundType
 		Position int
 	}
-	if err := tx.WithContext(ctx).Table(dbtable.MockInterviewRounds).
-		Select("id,kind,position").Where("mock_interview_id = ?", v.ID).Scan(&existing).Error; err != nil {
+	rows, err := tx.Query(ctx, `SELECT id,kind::text,position FROM app.mock_interview_rounds WHERE mock_interview_id=$1`, v.ID)
+	if err != nil {
+		return err
+	}
+	existing, err := pgx.CollectRows(rows, pgx.RowToStructByName[storedRound])
+	if err != nil {
 		return err
 	}
 	byID := make(map[string]mockinterviews.RoundType, len(existing))
@@ -419,7 +411,7 @@ func reconcileMockRounds(ctx context.Context, tx *gorm.DB, v mockinterviews.Inte
 	}
 	for _, round := range existing {
 		if !kept[round.ID] {
-			if err := tx.Table(dbtable.MockInterviewRounds).Where("id = ?", round.ID).Delete(nil).Error; err != nil {
+			if _, err := tx.Exec(ctx, `DELETE FROM app.mock_interview_rounds WHERE id = $1`, round.ID); err != nil {
 				return err
 			}
 		}
@@ -427,41 +419,37 @@ func reconcileMockRounds(ctx context.Context, tx *gorm.DB, v mockinterviews.Inte
 	// Move existing positions outside both ranges before reordering: the unique
 	// (interview, position) constraint is checked immediately, including swaps.
 	if reordered {
-		if err := tx.Table(dbtable.MockInterviewRounds).Where("mock_interview_id = ?", v.ID).
-			Update("position", gorm.Expr("position + ?", maxPosition)).Error; err != nil {
+		if _, err := tx.Exec(ctx, `UPDATE app.mock_interview_rounds SET position=position + $1 WHERE mock_interview_id = $2`, maxPosition, v.ID); err != nil {
 			return err
 		}
 	}
 	for position, round := range v.Rounds {
 		oldKind, exists := byID[round.ID]
 		if !exists {
-			if err := tx.Table(dbtable.MockInterviewRounds).Create(map[string]any{
-				"id": round.ID, "mock_interview_id": v.ID, "position": position + 1,
-				"kind": string(round.Type), "revision": v.Revision,
-			}).Error; err != nil {
+			if _, err := tx.Exec(ctx, `INSERT INTO app.mock_interview_rounds(id,mock_interview_id,position,kind,revision)
+ VALUES($1,$2,$3,$4,$5)`, round.ID, v.ID, position+1, string(round.Type), v.Revision); err != nil {
 				return err
 			}
 		} else {
 			if oldKind != round.Type {
-				if err := deleteMockRoundSubtype(tx, round.ID, oldKind); err != nil {
+				if err := deleteMockRoundSubtype(ctx, tx, round.ID, oldKind); err != nil {
 					return err
 				}
 			}
 			if reordered || oldKind != round.Type {
-				if err := tx.Table(dbtable.MockInterviewRounds).Where("id = ?", round.ID).
-					Updates(map[string]any{"position": position + 1, "kind": string(round.Type), "revision": v.Revision}).Error; err != nil {
+				if _, err := tx.Exec(ctx, `UPDATE app.mock_interview_rounds SET position=$1,kind=$2,revision=$3 WHERE id = $4`, position+1, string(round.Type), v.Revision, round.ID); err != nil {
 					return err
 				}
 			}
 		}
-		if err := saveMockRoundSubtype(tx, round); err != nil {
+		if err := saveMockRoundSubtype(ctx, tx, round); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func deleteMockRoundSubtype(tx *gorm.DB, roundID string, kind mockinterviews.RoundType) error {
+func deleteMockRoundSubtype(ctx context.Context, tx pgx.Tx, roundID string, kind mockinterviews.RoundType) error {
 	var table string
 	switch kind {
 	case mockinterviews.Behavioural:
@@ -473,62 +461,49 @@ func deleteMockRoundSubtype(tx *gorm.DB, roundID string, kind mockinterviews.Rou
 	default:
 		return mockinterviews.ErrInvalid
 	}
-	return tx.Table(table).Where("mock_interview_round_id = ?", roundID).Delete(nil).Error
+	_, err := tx.Exec(ctx, "DELETE FROM "+table+" WHERE mock_interview_round_id=$1", roundID)
+	return err
 }
 
-func saveMockRoundSubtype(tx *gorm.DB, round mockinterviews.Round) error {
-	values := map[string]any{"id": id.New(), "mock_interview_round_id": round.ID}
-	var table string
-	var columns []string
+func saveMockRoundSubtype(ctx context.Context, tx pgx.Tx, round mockinterviews.Round) error {
 	switch round.Type {
 	case mockinterviews.Behavioural:
 		if round.Scores.Behavioural == nil {
 			return mockinterviews.ErrInvalid
 		}
-		table = dbtable.BehaviouralMockInterviewRounds
-		values["behavioural_score"] = *round.Scores.Behavioural
-		columns = []string{"behavioural_score"}
+		_, err := tx.Exec(ctx, `INSERT INTO app.behavioural_mock_interview_rounds(id,mock_interview_round_id,behavioural_score)
+   VALUES($1,$2,$3) ON CONFLICT(mock_interview_round_id) DO UPDATE SET behavioural_score=EXCLUDED.behavioural_score`, id.New(), round.ID, *round.Scores.Behavioural)
+		return err
 	case mockinterviews.LeetCode:
 		if round.Scores.ConfirmQuestions == nil || round.Scores.AlgorithmDesign == nil || round.Scores.ComplexityAnalysis == nil || round.Scores.Coding == nil || round.Scores.Testing == nil {
 			return mockinterviews.ErrInvalid
 		}
-		table = dbtable.LeetcodeMockInterviewRounds
-		values["leetcode_problem_id"] = round.ProblemID
-		values["clarify_question_score"] = *round.Scores.ConfirmQuestions
-		values["algorithm_design_score"] = *round.Scores.AlgorithmDesign
-		values["complexity_analysis_score"] = *round.Scores.ComplexityAnalysis
-		values["coding_score"] = *round.Scores.Coding
-		values["testing_score"] = *round.Scores.Testing
-		columns = []string{"leetcode_problem_id", "clarify_question_score", "algorithm_design_score", "complexity_analysis_score", "coding_score", "testing_score"}
+		_, err := tx.Exec(ctx, `INSERT INTO app.leetcode_mock_interview_rounds(id,mock_interview_round_id,leetcode_problem_id,clarify_question_score,algorithm_design_score,complexity_analysis_score,coding_score,testing_score)
+   VALUES($1,$2,$3,$4,$5,$6,$7,$8) ON CONFLICT(mock_interview_round_id) DO UPDATE SET
+   leetcode_problem_id=EXCLUDED.leetcode_problem_id,clarify_question_score=EXCLUDED.clarify_question_score,
+   algorithm_design_score=EXCLUDED.algorithm_design_score,complexity_analysis_score=EXCLUDED.complexity_analysis_score,
+   coding_score=EXCLUDED.coding_score,testing_score=EXCLUDED.testing_score`, id.New(), round.ID, round.ProblemID,
+			*round.Scores.ConfirmQuestions, *round.Scores.AlgorithmDesign, *round.Scores.ComplexityAnalysis, *round.Scores.Coding, *round.Scores.Testing)
+		return err
 	case mockinterviews.Custom:
 		if round.Scores.Custom == nil {
 			return mockinterviews.ErrInvalid
 		}
-		table = dbtable.CustomMockInterviewRounds
-		var link *string
-		if round.Link != "" {
-			link = &round.Link
-		}
-		values["content_html"], values["url"], values["score"] = round.Content, link, *round.Scores.Custom
-		columns = []string{"content_html", "url", "score"}
+		_, err := tx.Exec(ctx, `INSERT INTO app.custom_mock_interview_rounds(id,mock_interview_round_id,content_html,url,score)
+   VALUES($1,$2,$3,$4,$5) ON CONFLICT(mock_interview_round_id) DO UPDATE SET content_html=EXCLUDED.content_html,url=EXCLUDED.url,score=EXCLUDED.score`, id.New(), round.ID, round.Content, nullableString(round.Link), *round.Scores.Custom)
+		return err
 	default:
 		return mockinterviews.ErrInvalid
 	}
-	return tx.Table(table).Clauses(clause.OnConflict{
-		Columns:   []clause.Column{{Name: "mock_interview_round_id"}},
-		DoUpdates: clause.AssignmentColumns(columns),
-	}).Create(values).Error
 }
 
-func appendMockVersionTx(ctx context.Context, tx *gorm.DB, v mockinterviews.Interview, actorID, reason string, at time.Time) error {
+func appendMockVersionTx(ctx context.Context, tx pgx.Tx, v mockinterviews.Interview, actorID, reason string, at time.Time) error {
 	raw, err := json.Marshal(v)
 	if err != nil {
 		return err
 	}
 
-	return tx.WithContext(ctx).Table(dbtable.MockInterviewVersions).Create(map[string]any{
-		"id": id.New(), "mock_interview_id": v.ID, "version": v.Revision,
-		"actor_user_id": actorID, "reason": reason,
-		"snapshot": gorm.Expr("?::jsonb", string(raw)), "created_at": at.UTC(),
-	}).Error
+	_, err = tx.Exec(ctx, `INSERT INTO app.mock_interview_versions(id,mock_interview_id,version,actor_user_id,reason,snapshot,created_at)
+ VALUES($1,$2,$3,$4,$5,$6::jsonb,$7)`, id.New(), v.ID, v.Revision, actorID, reason, string(raw), at.UTC())
+	return err
 }

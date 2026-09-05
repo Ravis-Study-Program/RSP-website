@@ -21,9 +21,7 @@ func TestDatabaseFailuresAreNotReportedAsPermissionDenials(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := brokenDB.Close(); err != nil {
-		t.Fatal(err)
-	}
+	brokenDB.Close()
 	api := New(Config{
 		DB: brokenDB,
 		Authenticator: AuthenticatorFunc(func(*http.Request) (authz.Actor, error) {

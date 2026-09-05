@@ -35,16 +35,15 @@ type storedWorkerRun struct {
 
 func testLeetCodeWorkerRuns(t *testing.T, ctx context.Context, repository *Store, actorID string) {
 	t.Helper()
-	pinnedDB, closePinned, err := repository.PinnedConnection(ctx)
+	state, err := repository.OpenWorkerSession(ctx)
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Cleanup(func() { _ = closePinned() })
-	state := &WorkerState{DB: pinnedDB}
+	defer state.Close()
 	loadRun := func(runID string) storedWorkerRun {
 		t.Helper()
 		var run storedWorkerRun
-		if err := repository.DB.WithContext(ctx).Table("app.leetcode_sync_runs").Where("id = ?", runID).Take(&run).Error; err != nil {
+		if err := repository.pool.QueryRow(ctx, `SELECT id,trigger_kind,requested_by_user_id,started_at,finished_at,succeeded,fetched_count,changed_count,error_summary FROM app.leetcode_sync_runs WHERE id=$1`, runID).Scan(&run.ID, &run.TriggerKind, &run.RequestedByUserID, &run.StartedAt, &run.FinishedAt, &run.Succeeded, &run.FetchedCount, &run.ChangedCount, &run.ErrorSummary); err != nil {
 			t.Fatal(err)
 		}
 		return run
@@ -73,7 +72,7 @@ func testLeetCodeWorkerRuns(t *testing.T, ctx context.Context, repository *Store
 		t.Fatalf("manual failure consumed scheduled attempt: last=%v err=%v", lastAttempt, err)
 	}
 	var auditCount int
-	if err := repository.DB.WithContext(ctx).Raw(`SELECT count(*) FROM app.audit_events WHERE action='leetcode.sync_requested' AND subject_id=? AND request_id='integration-request'`, manualID).Scan(&auditCount).Error; err != nil || auditCount != 1 {
+	if err := repository.pool.QueryRow(ctx, `SELECT count(*) FROM app.audit_events WHERE action='leetcode.sync_requested' AND subject_id=$1 AND request_id='integration-request'`, manualID).Scan(&auditCount); err != nil || auditCount != 1 {
 		t.Fatalf("manual request audit count=%d err=%v", auditCount, err)
 	}
 
@@ -85,7 +84,7 @@ func testLeetCodeWorkerRuns(t *testing.T, ctx context.Context, repository *Store
 		t.Fatalf("scheduled sync: ran=%v err=%v", ran, err)
 	}
 	var scheduledID string
-	if err := repository.DB.WithContext(ctx).Raw(`SELECT id FROM app.leetcode_sync_runs WHERE trigger_kind='schedule'`).Scan(&scheduledID).Error; err != nil || scheduledID == "" || scheduledID == manualID {
+	if err := repository.pool.QueryRow(ctx, `SELECT id FROM app.leetcode_sync_runs WHERE trigger_kind='schedule'`).Scan(&scheduledID); err != nil || scheduledID == "" || scheduledID == manualID {
 		t.Fatalf("scheduled run reused manual ID: id=%q err=%v", scheduledID, err)
 	}
 	scheduled := loadRun(scheduledID)
@@ -104,7 +103,7 @@ func testLeetCodeWorkerRuns(t *testing.T, ctx context.Context, repository *Store
 		t.Fatalf("catch-up sync: ran=%v err=%v", ran, err)
 	}
 	var catchupCount int
-	if err := repository.DB.WithContext(ctx).Raw(`SELECT count(*) FROM app.leetcode_sync_runs WHERE trigger_kind='catch_up' AND succeeded`).Scan(&catchupCount).Error; err != nil || catchupCount != 1 {
+	if err := repository.pool.QueryRow(ctx, `SELECT count(*) FROM app.leetcode_sync_runs WHERE trigger_kind='catch_up' AND succeeded`).Scan(&catchupCount); err != nil || catchupCount != 1 {
 		t.Fatalf("catch-up runs=%d err=%v", catchupCount, err)
 	}
 

@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/jackc/pgx/v5/stdlib"
 	"github.com/magedmg/RSP-website/backend/internal/accounts"
 	"github.com/magedmg/RSP-website/backend/internal/practice"
 	"github.com/magedmg/RSP-website/backend/internal/programme"
@@ -154,7 +155,7 @@ func newListQueryFixture(t *testing.T) *Store {
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Cleanup(func() { _ = db.Close() })
+	t.Cleanup(db.Close)
 	if err := goose.SetDialect("postgres"); err != nil {
 		t.Fatal(err)
 	}
@@ -162,42 +163,43 @@ func newListQueryFixture(t *testing.T) *Store {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := goose.UpContext(ctx, db.SQL, migrations); err != nil {
+	migrationDB := stdlib.OpenDBFromPool(db.pool)
+	defer migrationDB.Close()
+	if err := goose.UpContext(ctx, migrationDB, migrations); err != nil {
 		t.Fatal(err)
 	}
-	tx := db.DB.Begin()
-	if tx.Error != nil {
-		t.Fatal(tx.Error)
-	}
-	db.DB = tx
-	t.Cleanup(func() { _ = tx.Rollback().Error })
-	if err := tx.Exec("SET LOCAL search_path = app").Error; err != nil {
+	// The container is exclusive to this test; committed fixture rows are isolated.
+	db.Close()
+	db, err = Open(ctx, databaseURL+"&options=-c%20search_path%3Dapp")
+	if err != nil {
 		t.Fatal(err)
 	}
+	t.Cleanup(db.Close)
+	tx := db.pool
 	exec := func(query string, args ...any) {
 		t.Helper()
-		if err := tx.Exec(query, args...).Error; err != nil {
+		if _, err := tx.Exec(context.Background(), query, args...); err != nil {
 			t.Fatal(err)
 		}
 	}
 	for index, name := range []string{"Alpha", "Bravo", "Charlie", "Delta", "Echo", "Foxtrot", "Golf", "Hotel", "India", "Juliet", "Kilo"} {
 		number := index + 1
 		exec(`INSERT INTO app.users(id,slug,display_name,email,mfa_configured,is_test)
-			VALUES(?,?,?,?,?,?)`, queryFixtureID(number), "list-query-"+strings.ToLower(name), name, "secret-"+strings.ToLower(name)+"@example.test", number == 2, number == 8)
+			VALUES($1,$2,$3,$4,$5,$6)`, queryFixtureID(number), "list-query-"+strings.ToLower(name), name, "secret-"+strings.ToLower(name)+"@example.test", number == 2, number == 8)
 		if number != 10 {
 			exec(`INSERT INTO app.user_auth_links(auth_subject,user_id,provider,provider_account_id)
-				VALUES(?,?,'fixture',?)`, "list-query-"+name, queryFixtureID(number), "list-query-"+name)
+				VALUES($1,$2,'fixture',$3)`, "list-query-"+name, queryFixtureID(number), "list-query-"+name)
 		}
 	}
-	exec(`UPDATE app.users SET account_state='suspended',suspended_at=now() WHERE id=?`, queryFixtureID(7))
+	exec(`UPDATE app.users SET account_state='suspended',suspended_at=now() WHERE id=$1`, queryFixtureID(7))
 	for _, number := range []int{2, 7} {
-		exec(`INSERT INTO app.global_role_assignments(user_id,role) VALUES(?,'director')`, queryFixtureID(number))
+		exec(`INSERT INTO app.global_role_assignments(user_id,role) VALUES($1,'director')`, queryFixtureID(number))
 	}
 	for _, number := range []int{101, 102, 103} {
 		exec(`INSERT INTO app.seasons(id,slug,name,start_at,end_at)
-			VALUES(?,?,?,'2026-01-01','2026-12-31')`, queryFixtureID(number), fmt.Sprintf("list-query-season-%d", number), "Query season")
+			VALUES($1,$2,$3,'2026-01-01','2026-12-31')`, queryFixtureID(number), fmt.Sprintf("list-query-season-%d", number), "Query season")
 	}
-	exec(`UPDATE app.seasons SET status='closed',closed_at=now() WHERE id=?`, queryFixtureID(103))
+	exec(`UPDATE app.seasons SET status='closed',closed_at=now() WHERE id=$1`, queryFixtureID(103))
 	for number := 1; number <= 8; number++ {
 		role, level, state := "student", "beginner", "active"
 		if number == 2 || number == 5 {
@@ -209,38 +211,38 @@ func newListQueryFixture(t *testing.T) *Store {
 			state = "kicked"
 		}
 		exec(`INSERT INTO app.enrollments(id,user_id,season_id,role,student_level,state,assignment_state,activated_at)
-			VALUES(?,?,?,?,?,?::app.enrollment_state,
-				CASE WHEN ?='active' THEN 'active'::app.assignment_state ELSE 'revoked'::app.assignment_state END,
-				CASE WHEN ?='active' THEN now() ELSE NULL END)`, queryFixtureID(200+number), queryFixtureID(number), queryFixtureID(101), role, level, state, state, state)
+			VALUES($1,$2,$3,$4,$5,$6::app.enrollment_state,
+				CASE WHEN $7='active' THEN 'active'::app.assignment_state ELSE 'revoked'::app.assignment_state END,
+				CASE WHEN $8='active' THEN now() ELSE NULL END)`, queryFixtureID(200+number), queryFixtureID(number), queryFixtureID(101), role, level, state, state, state)
 	}
 	for index, number := range []int{2, 1, 3} {
 		exec(`INSERT INTO app.season_weeks(id,season_id,week_number,start_at,end_at)
-			VALUES(?,?,?,'2026-02-01','2026-02-07')`, queryFixtureID(301+index), queryFixtureID(101), number)
+			VALUES($1,$2,$3,'2026-02-01','2026-02-07')`, queryFixtureID(301+index), queryFixtureID(101), number)
 	}
 	for index, student := range []int{3, 1} {
 		exec(`INSERT INTO app.mentorships(id,season_id,mentor_enrollment_id,student_enrollment_id)
-			VALUES(?,?,?,?)`, queryFixtureID(401+index), queryFixtureID(101), queryFixtureID(202), queryFixtureID(200+student))
+			VALUES($1,$2,$3,$4)`, queryFixtureID(401+index), queryFixtureID(101), queryFixtureID(202), queryFixtureID(200+student))
 	}
-	exec(`INSERT INTO app.leetcode_problem_categories(id,name,normalized_name) VALUES(?,'Array','array')`, queryFixtureID(801))
+	exec(`INSERT INTO app.leetcode_problem_categories(id,name,normalized_name) VALUES($1,'Array','array')`, queryFixtureID(801))
 	for index := 1; index <= 3; index++ {
 		difficulty := "easy"
 		if index == 3 {
 			difficulty = "hard"
 		}
-		exec(`INSERT INTO app.problems(id,title) VALUES(?,?)`, queryFixtureID(500+index), fmt.Sprintf("Query problem %d", index))
+		exec(`INSERT INTO app.problems(id,title) VALUES($1,$2)`, queryFixtureID(500+index), fmt.Sprintf("Query problem %d", index))
 		exec(`INSERT INTO app.leetcode_problems(id,problem_id,leetcode_number,difficulty,is_premium)
-			VALUES(?,?,?,?,?)`, queryFixtureID(600+index), queryFixtureID(500+index), 99000+index, difficulty, index == 2)
+			VALUES($1,$2,$3,$4,$5)`, queryFixtureID(600+index), queryFixtureID(500+index), 99000+index, difficulty, index == 2)
 		if index < 3 {
-			exec(`INSERT INTO app.leetcode_problem_category_mappings(leetcode_problem_id,category_id) VALUES(?,?)`, queryFixtureID(600+index), queryFixtureID(801))
+			exec(`INSERT INTO app.leetcode_problem_category_mappings(leetcode_problem_id,category_id) VALUES($1,$2)`, queryFixtureID(600+index), queryFixtureID(801))
 		}
 		outcome := "independently_solved"
 		if index == 2 {
 			outcome = "not_solved"
 		}
 		exec(`INSERT INTO app.problem_attempts(id,user_id,problem_id,attempted_at,time_taken_minutes,outcome)
-			VALUES(?,?,?,now(),20,?)`, queryFixtureID(700+index), queryFixtureID(1), queryFixtureID(500+index), outcome)
+			VALUES($1,$2,$3,now(),20,$4)`, queryFixtureID(700+index), queryFixtureID(1), queryFixtureID(500+index), outcome)
 	}
 	exec(`INSERT INTO app.problem_attempts(id,user_id,problem_id,attempted_at,time_taken_minutes,outcome)
-		VALUES(?,?,?,now(),20,'not_solved')`, queryFixtureID(704), queryFixtureID(2), queryFixtureID(501))
+		VALUES($1,$2,$3,now(),20,'not_solved')`, queryFixtureID(704), queryFixtureID(2), queryFixtureID(501))
 	return db
 }

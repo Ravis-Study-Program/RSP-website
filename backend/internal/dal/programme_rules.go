@@ -3,8 +3,8 @@ package dal
 import (
 	"context"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/magedmg/RSP-website/backend/internal/programme"
-	"gorm.io/gorm"
 )
 
 type programmeEnrollmentRow struct {
@@ -14,17 +14,16 @@ type programmeEnrollmentRow struct {
 	Revision        int64
 }
 
-func loadProgrammeSeason(ctx context.Context, tx *gorm.DB, seasonID string) (programme.Season, []programmeEnrollmentRow, error) {
+func loadProgrammeSeason(ctx context.Context, tx pgx.Tx, seasonID string) (programme.Season, []programmeEnrollmentRow, error) {
 	var season programme.Season
-	err := tx.WithContext(ctx).Raw(`SELECT id,status::text,revision
-		FROM app.seasons WHERE id=? AND deleted_at IS NULL FOR UPDATE`, seasonID).
-		Row().Scan(&season.ID, &season.Status, &season.Revision)
+	err := tx.QueryRow(ctx, `SELECT id,status::text,revision
+		FROM app.seasons WHERE id=$1 AND deleted_at IS NULL FOR UPDATE`, seasonID).Scan(&season.ID, &season.Status, &season.Revision)
 	if err != nil {
 		return programme.Season{}, nil, noRows(err)
 	}
 
-	rows, err := tx.Raw(`SELECT id,state::text,assignment_state::text,revision
-		FROM app.enrollments WHERE season_id=? AND deleted_at IS NULL ORDER BY id FOR UPDATE`, seasonID).Rows()
+	rows, err := tx.Query(ctx, `SELECT id,state::text,assignment_state::text,revision
+		FROM app.enrollments WHERE season_id=$1 AND deleted_at IS NULL ORDER BY id FOR UPDATE`, seasonID)
 	if err != nil {
 		return programme.Season{}, nil, err
 	}
@@ -47,7 +46,7 @@ func loadProgrammeSeason(ctx context.Context, tx *gorm.DB, seasonID string) (pro
 	return season, items, nil
 }
 
-func loadProgrammeReopenSeason(ctx context.Context, tx *gorm.DB, seasonID, closeEventID string) (programme.Season, []programmeEnrollmentRow, error) {
+func loadProgrammeReopenSeason(ctx context.Context, tx pgx.Tx, seasonID, closeEventID string) (programme.Season, []programmeEnrollmentRow, error) {
 	season, items, err := loadProgrammeSeason(ctx, tx, seasonID)
 	if err != nil {
 		return programme.Season{}, nil, err
@@ -58,9 +57,8 @@ func loadProgrammeReopenSeason(ctx context.Context, tx *gorm.DB, seasonID, close
 		}
 		var completedByCloseID *string
 		var closeAssignmentState string
-		err := tx.Raw(`SELECT completed_by_close_id,COALESCE(close_assignment_state::text,'')
-			FROM app.enrollments WHERE id=?`, items[index].ID).
-			Row().Scan(&completedByCloseID, &closeAssignmentState)
+		err := tx.QueryRow(ctx, `SELECT completed_by_close_id,COALESCE(close_assignment_state::text,'')
+			FROM app.enrollments WHERE id=$1`, items[index].ID).Scan(&completedByCloseID, &closeAssignmentState)
 		if err != nil {
 			return programme.Season{}, nil, err
 		}
