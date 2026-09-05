@@ -6,10 +6,12 @@
  * OpenAPI spec version: 2.0.0
  */
 
-export type AccountStateMutationState =
-  (typeof AccountStateMutationState)[keyof typeof AccountStateMutationState];
+export type UserPrivateAccountState =
+  (typeof UserPrivateAccountState)[keyof typeof UserPrivateAccountState];
 
-export const AccountStateMutationState = {
+export const UserPrivateAccountState = {
   active: 'active',
   suspended: 'suspended',
+  deletion_pending: 'deletion_pending',
+  deleted: 'deleted',
 } as const;

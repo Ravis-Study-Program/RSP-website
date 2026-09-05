@@ -8,7 +8,7 @@ export default defineConfig({
       schemas: './src/api/generated/models',
       client: 'fetch',
       clean: true,
-      prettier: true,
+      formatter: 'prettier',
     },
   },
 });
