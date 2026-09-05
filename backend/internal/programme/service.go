@@ -7,19 +7,14 @@ import (
 )
 
 var (
-	// ErrClosed is a public value used by the backend.
-	ErrClosed = errors.New("season is closed")
-	// ErrForbidden is a public value used by the backend.
+	ErrClosed    = errors.New("season is closed")
 	ErrForbidden = errors.New("forbidden")
 )
 
-// GlobalRole is a backend domain type.
 type GlobalRole string
 
 const (
-	// Director is a public value used by the backend.
-	Director GlobalRole = "director"
-	// SystemAdmin is a public value used by the backend.
+	Director    GlobalRole = "director"
 	SystemAdmin GlobalRole = "system_admin"
 )
 
@@ -32,7 +27,6 @@ type Enrollment struct {
 	Revision             int64
 }
 
-// Season represents a backend data structure.
 type Season struct {
 	ID, Status  string
 	Revision    int64
@@ -87,7 +81,6 @@ type EnrollmentRecord struct {
 	Revision        int64   `json:"revision"`
 }
 
-// CloseEvent represents a backend data structure.
 type CloseEvent struct {
 	ID, ActorID, Reason string
 	ClosedAt            time.Time

@@ -29,7 +29,6 @@ func Checksum(value any) (string, error) {
 	return hex.EncodeToString(sum[:]), nil
 }
 
-// SealManifest performs the operation.
 func SealManifest(manifest *Manifest) error {
 	manifest.Checksum = ""
 	checksum, err := Checksum(manifest)
@@ -41,7 +40,6 @@ func SealManifest(manifest *Manifest) error {
 	return nil
 }
 
-// ValidateManifest validates a value.
 func ValidateManifest(manifest Manifest) error {
 	if manifest.Version != ManifestVersion {
 		return fmt.Errorf("%w: unsupported version %d", ErrManifestChecksum, manifest.Version)
@@ -58,7 +56,6 @@ func ValidateManifest(manifest Manifest) error {
 	return nil
 }
 
-// SealResolutionFile performs the operation.
 func SealResolutionFile(file *ResolutionFile) error {
 	file.Checksum = ""
 	checksum, err := Checksum(file)
@@ -70,7 +67,6 @@ func SealResolutionFile(file *ResolutionFile) error {
 	return nil
 }
 
-// ValidateResolutionFile validates a value.
 func ValidateResolutionFile(file ResolutionFile) error {
 	if file.Version != ResolutionVersion {
 		return fmt.Errorf("%w: unsupported version %d", ErrResolutionChecksum, file.Version)

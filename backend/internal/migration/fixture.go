@@ -8,7 +8,6 @@ import (
 	"os"
 )
 
-// DecodeSnapshot decodes a value.
 func DecodeSnapshot(reader io.Reader) (Snapshot, error) {
 	decoder := json.NewDecoder(reader)
 	decoder.UseNumber()
@@ -33,7 +32,6 @@ func LoadSnapshot(path string) (Snapshot, error) {
 	return DecodeSnapshot(file)
 }
 
-// WriteJSON writes a response.
 func WriteJSON(path string, value any) error {
 	encoded, err := json.MarshalIndent(value, "", "  ")
 	if err != nil {
@@ -84,13 +82,11 @@ func LoadResolutionFile(path string) (*ResolutionFile, error) {
 	return &result, nil
 }
 
-// FixtureSource represents a backend data structure.
 type FixtureSource struct {
 	Value       Snapshot
 	LastOptions SnapshotOptions
 }
 
-// Snapshot performs the operation.
 func (f *FixtureSource) Snapshot(_ context.Context, options SnapshotOptions) (Snapshot, error) {
 	f.LastOptions = options
 	return cloneSnapshot(f.Value)
@@ -104,7 +100,6 @@ func cloneSnapshot(snapshot Snapshot) (Snapshot, error) {
 	return DecodeSnapshotBytes(encoded)
 }
 
-// DecodeSnapshotBytes decodes a value.
 func DecodeSnapshotBytes(encoded []byte) (Snapshot, error) {
 	var snapshot Snapshot
 	decoder := json.NewDecoder(bytesReader(encoded))

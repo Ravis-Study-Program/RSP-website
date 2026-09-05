@@ -16,12 +16,10 @@ import (
 	"gorm.io/gorm"
 )
 
-// PostgresSource represents a backend data structure.
 type PostgresSource struct {
 	ConnectionString string
 }
 
-// Snapshot performs the operation.
 func (source *PostgresSource) Snapshot(ctx context.Context, options SnapshotOptions) (Snapshot, error) {
 	if !options.ReadOnly || options.Isolation != IsolationRepeatableRead {
 		return Snapshot{}, errors.New("legacy source requires READ ONLY, REPEATABLE READ")
@@ -197,13 +195,11 @@ func readLegacyTable(ctx context.Context, tx *gorm.DB, table string) ([]Row, err
 	return result, nil
 }
 
-// PostgresTarget represents a backend data structure.
 type PostgresTarget struct {
 	ConnectionString string
 	Now              func() time.Time
 }
 
-// Begin performs the operation.
 func (target *PostgresTarget) Begin(ctx context.Context) (TargetTx, error) {
 	repository, err := storepostgres.Open(ctx, target.ConnectionString)
 	if err != nil {
@@ -231,7 +227,6 @@ type postgresTx struct {
 	completed  bool
 }
 
-// AcquireAdvisoryLock performs the operation.
 func (tx *postgresTx) AcquireAdvisoryLock(ctx context.Context, key int64) error {
 	if key != AdvisoryLockKey {
 		return fmt.Errorf("unexpected advisory lock key %d", key)
@@ -244,7 +239,6 @@ func (tx *postgresTx) AcquireAdvisoryLock(ctx context.Context, key int64) error 
 	return nil
 }
 
-// HasRun performs the operation.
 func (tx *postgresTx) HasRun(ctx context.Context, runID string) (bool, error) {
 	var exists bool
 	err := tx.tx.WithContext(ctx).Raw("SELECT EXISTS (SELECT 1 FROM migration.runs WHERE id = $1)", runID).Row().Scan(&exists)
@@ -405,7 +399,6 @@ func insertPreparedRow(ctx context.Context, tx *gorm.DB, table string, values Ro
 	return err
 }
 
-// Verification performs the operation.
 func (tx *postgresTx) Verification(ctx context.Context, manifest Manifest) (Verification, error) {
 	var storedChecksum, state string
 	if err := tx.tx.WithContext(ctx).Raw("SELECT manifest_checksum, state::text FROM migration.runs WHERE id = $1", manifest.RunID).Row().Scan(&storedChecksum, &state); err != nil {
@@ -687,7 +680,6 @@ WHERE id = $1 AND state IN ('applied', 'verified')`, runID, tx.now().UTC())
 	return nil
 }
 
-// Commit performs the operation.
 func (tx *postgresTx) Commit(ctx context.Context) error {
 	if tx.completed {
 		return errors.New("transaction is already complete")
@@ -701,7 +693,6 @@ func (tx *postgresTx) Commit(ctx context.Context) error {
 	return closeErr
 }
 
-// Abort performs the operation.
 func (tx *postgresTx) Abort(ctx context.Context) error {
 	if tx.completed {
 		return nil

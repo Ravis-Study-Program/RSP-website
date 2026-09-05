@@ -7,34 +7,27 @@ import (
 	"time"
 )
 
-// LeetCodeAdvisoryLock is a public value used by the backend.
 const LeetCodeAdvisoryLock int64 = 0x5253504c4353594e
 
-// ErrLocked is a public value used by the backend.
 var ErrLocked = errors.New("sync is already running")
 
-// Locker defines a backend interface.
 type Locker interface {
 	TryLock(context.Context, int64) (bool, error)
 	Unlock(context.Context, int64) error
 }
 
-// State defines a backend interface.
 type State interface {
 	LastSuccess(context.Context, string) (*time.Time, error)
 	LastAttempt(context.Context, string) (*time.Time, error)
 	Record(context.Context, Run) error
 }
 
-// Syncer defines a backend interface.
 type Syncer interface {
 	Sync(context.Context) (Report, error)
 }
 
-// Report represents a backend data structure.
 type Report struct{ Fetched, Inserted, Updated, Failed int }
 
-// Run represents a backend data structure.
 type Run struct {
 	Job                   string
 	TriggerKind           string
@@ -67,7 +60,6 @@ func DecideDue(now time.Time, lastSuccess, lastAttempt *time.Time) ScheduleDecis
 	return ScheduleDecision{Run: true, TriggerKind: trigger}
 }
 
-// Scheduler represents a backend data structure.
 type Scheduler struct {
 	Locker  Locker
 	State   State
@@ -77,7 +69,6 @@ type Scheduler struct {
 	Retries int
 }
 
-// RunDue runs the operation.
 func (s Scheduler) RunDue(ctx context.Context) (bool, error) {
 	now := s.now()
 	last, err := s.State.LastSuccess(ctx, "leetcode_sync")
@@ -96,7 +87,6 @@ func (s Scheduler) RunDue(ctx context.Context) (bool, error) {
 	return true, s.run(ctx, decision.TriggerKind)
 }
 
-// Run runs the operation.
 func (s Scheduler) Run(ctx context.Context) error {
 	return s.run(ctx, "schedule")
 }

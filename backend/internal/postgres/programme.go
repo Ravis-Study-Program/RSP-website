@@ -23,12 +23,10 @@ func scanSeason(row rowScanner) (programme.SeasonRecord, error) {
 
 const seasonColumns = `id,slug,name,status::text,start_at,end_at,location,image_url,resources_url,revision`
 
-// GetSeason retrieves a value.
 func (p *Postgres) GetSeason(ctx context.Context, id string) (programme.SeasonRecord, error) {
 	return scanSeason(p.DB.WithContext(ctx).Raw(`SELECT `+seasonColumns+` FROM app.seasons WHERE id=? AND deleted_at IS NULL`, id).Row())
 }
 
-// ListSeasons lists matching values.
 func (p *Postgres) ListSeasons(ctx context.Context, boundary string, limit int, direction, status string) ([]programme.SeasonRecord, bool, int64, error) {
 	var total int64
 	if err := p.DB.WithContext(ctx).Raw(`SELECT count(*) FROM app.seasons WHERE deleted_at IS NULL AND ($1='' OR status::text=$1)`, status).Row().Scan(&total); err != nil {
@@ -67,7 +65,6 @@ func (p *Postgres) ListSeasons(ctx context.Context, boundary string, limit int, 
 	return out, more, total, rows.Err()
 }
 
-// CreateSeason creates a value.
 func (p *Postgres) CreateSeason(ctx context.Context, v programme.SeasonRecord, actorID string, at time.Time) (programme.SeasonRecord, error) {
 	tx, err := begin(ctx, p.DB)
 	if err != nil {
@@ -88,7 +85,6 @@ func (p *Postgres) CreateSeason(ctx context.Context, v programme.SeasonRecord, a
 	return v, commit(tx)
 }
 
-// UpdateSeason updates a value.
 func (p *Postgres) UpdateSeason(ctx context.Context, id string, revision int64, fn func(*programme.SeasonRecord) error, actorID string, at time.Time) (programme.SeasonRecord, error) {
 	tx, err := begin(ctx, p.DB)
 	if err != nil {
@@ -231,7 +227,6 @@ func scanWeek(row rowScanner) (programme.WeekRecord, error) {
 	return v, nil
 }
 
-// ListWeeks lists matching values.
 func (p *Postgres) ListWeeks(ctx context.Context, seasonID, boundary string, limit int, sortBy, direction string) ([]programme.WeekRecord, bool, int64, error) {
 	var total int64
 	if err := p.DB.WithContext(ctx).Raw(`SELECT count(*) FROM app.season_weeks WHERE season_id=$1 AND deleted_at IS NULL`, seasonID).Row().Scan(&total); err != nil {
@@ -283,7 +278,6 @@ func (p *Postgres) ListWeeks(ctx context.Context, seasonID, boundary string, lim
 	return items, more, total, nil
 }
 
-// CreateWeek creates a value.
 func (p *Postgres) CreateWeek(ctx context.Context, v programme.WeekRecord, actorID string, at time.Time) (programme.WeekRecord, error) {
 	tx, err := begin(ctx, p.DB)
 	if err != nil {
@@ -301,7 +295,6 @@ func (p *Postgres) CreateWeek(ctx context.Context, v programme.WeekRecord, actor
 	return v, commit(tx)
 }
 
-// UpdateWeek updates a value.
 func (p *Postgres) UpdateWeek(ctx context.Context, seasonID, weekID string, revision int64, candidate programme.WeekRecord, actorID string, at time.Time) (programme.WeekRecord, error) {
 	tx, err := begin(ctx, p.DB)
 	if err != nil {
@@ -322,7 +315,6 @@ func (p *Postgres) UpdateWeek(ctx context.Context, seasonID, weekID string, revi
 	return v, commit(tx)
 }
 
-// DeleteWeek deletes a value.
 func (p *Postgres) DeleteWeek(ctx context.Context, seasonID, weekID string, revision int64, actorID string, at time.Time) error {
 	tx, err := begin(ctx, p.DB)
 	if err != nil {
@@ -354,7 +346,6 @@ func scanEnrollment(row rowScanner) (programme.EnrollmentRecord, error) {
 	return v, nil
 }
 
-// ListEnrollments lists matching values.
 func (p *Postgres) ListEnrollments(ctx context.Context, seasonID, boundary string, limit int, role, state, sortBy, direction string, includeInactive bool) ([]programme.EnrollmentRecord, bool, int64, error) {
 	const filters = `e.season_id=$1 AND e.deleted_at IS NULL
 		AND ($2='' OR e.role::text=$2) AND ($3='' OR e.state::text=$3)
@@ -408,7 +399,6 @@ func (p *Postgres) ListEnrollments(ctx context.Context, seasonID, boundary strin
 	return items, more, total, nil
 }
 
-// ListEnrollmentsForUser lists matching values.
 func (p *Postgres) ListEnrollmentsForUser(ctx context.Context, userID string) ([]programme.EnrollmentRecord, error) {
 	return p.listEnrollments(ctx, `e.user_id=$1`, userID)
 }
@@ -432,12 +422,10 @@ func (p *Postgres) listEnrollments(ctx context.Context, predicate, value string)
 	return items, rows.Err()
 }
 
-// GetEnrollment retrieves a value.
 func (p *Postgres) GetEnrollment(ctx context.Context, enrollmentID string) (programme.EnrollmentRecord, error) {
 	return scanEnrollment(p.DB.WithContext(ctx).Raw(`SELECT `+enrollmentColumns+` FROM app.enrollments e JOIN app.seasons s ON s.id=e.season_id WHERE e.id=$1 AND e.deleted_at IS NULL`, enrollmentID).Row())
 }
 
-// CreateEnrollment creates a value.
 func (p *Postgres) CreateEnrollment(ctx context.Context, v programme.EnrollmentRecord, actorID string, at time.Time) (programme.EnrollmentRecord, error) {
 	tx, err := begin(ctx, p.DB)
 	if err != nil {
@@ -465,7 +453,6 @@ func (p *Postgres) CreateEnrollment(ctx context.Context, v programme.EnrollmentR
 	return v, commit(tx)
 }
 
-// UpdateEnrollmentDetails updates a value.
 func (p *Postgres) UpdateEnrollmentDetails(ctx context.Context, seasonID, enrollmentID string, revision int64, role, studentLevel, actorID string, at time.Time) (programme.EnrollmentRecord, error) {
 	tx, err := begin(ctx, p.DB)
 	if err != nil {
@@ -494,7 +481,6 @@ func (p *Postgres) UpdateEnrollmentDetails(ctx context.Context, seasonID, enroll
 	return v, commit(tx)
 }
 
-// UpdateEnrollment updates a value.
 func (p *Postgres) UpdateEnrollment(ctx context.Context, enrollmentID string, revision int64, role, state, reason, actorID string, at time.Time) (programme.EnrollmentRecord, error) {
 	tx, err := begin(ctx, p.DB)
 	if err != nil {
@@ -553,7 +539,6 @@ func (p *Postgres) UpdateEnrollment(ctx context.Context, enrollmentID string, re
 	return v, nil
 }
 
-// ListMentorships lists matching values.
 func (p *Postgres) ListMentorships(ctx context.Context, seasonID, boundary string, limit int, sortBy, direction, mentorUserID, studentUserID string) ([]programme.MentorshipRecord, bool, int64, error) {
 	const base = ` FROM app.mentorships m
 		JOIN app.enrollments mentor ON mentor.id=m.mentor_enrollment_id
@@ -608,7 +593,6 @@ func (p *Postgres) ListMentorships(ctx context.Context, seasonID, boundary strin
 	return items, more, total, nil
 }
 
-// CreateMentorship creates a value.
 func (p *Postgres) CreateMentorship(ctx context.Context, v programme.MentorshipRecord, actorID string, at time.Time) (programme.MentorshipRecord, error) {
 	tx, err := begin(ctx, p.DB)
 	if err != nil {
@@ -626,7 +610,6 @@ func (p *Postgres) CreateMentorship(ctx context.Context, v programme.MentorshipR
 	return v, commit(tx)
 }
 
-// UpdateMentorship updates a value.
 func (p *Postgres) UpdateMentorship(ctx context.Context, seasonID, mentorshipID string, revision int64, mentorUserID, studentUserID, actorID string, at time.Time) (programme.MentorshipRecord, error) {
 	tx, err := begin(ctx, p.DB)
 	if err != nil {
@@ -648,7 +631,6 @@ func (p *Postgres) UpdateMentorship(ctx context.Context, seasonID, mentorshipID 
 	return v, commit(tx)
 }
 
-// DeleteMentorship deletes a value.
 func (p *Postgres) DeleteMentorship(ctx context.Context, seasonID, mentorshipID string, revision int64, actorID string, at time.Time) error {
 	tx, err := begin(ctx, p.DB)
 	if err != nil {
@@ -670,7 +652,6 @@ func (p *Postgres) DeleteMentorship(ctx context.Context, seasonID, mentorshipID 
 	return commit(tx)
 }
 
-// IsMentorAssigned performs the operation.
 func (p *Postgres) IsMentorAssigned(ctx context.Context, seasonID, mentorUserID, studentUserID string) (bool, error) {
 	var assigned bool
 	err := p.DB.WithContext(ctx).Raw(`SELECT EXISTS(SELECT 1 FROM app.mentorships m JOIN app.enrollments mentor ON mentor.id=m.mentor_enrollment_id JOIN app.enrollments student ON student.id=m.student_enrollment_id WHERE m.season_id=$1 AND mentor.user_id=$2 AND student.user_id=$3 AND m.ended_at IS NULL AND m.deleted_at IS NULL)`, seasonID, mentorUserID, studentUserID).Row().Scan(&assigned)

@@ -7,10 +7,8 @@ import (
 	"github.com/microcosm-cc/bluemonday"
 )
 
-// HTML represents a backend data structure.
 type HTML struct{ policy *bluemonday.Policy }
 
-// New creates a new value.
 func New() *HTML {
 	p := bluemonday.NewPolicy()
 	p.AllowElements("p", "br", "strong", "b", "em", "i", "u", "s", "strike", "mark", "span", "sub", "sup", "code", "pre", "blockquote", "ul", "ol", "li", "h1", "h2", "h3", "h4", "hr", "a")
@@ -28,5 +26,4 @@ func New() *HTML {
 	return &HTML{policy: p}
 }
 
-// String performs the operation.
 func (h *HTML) String(value string) string { return h.policy.Sanitize(value) }

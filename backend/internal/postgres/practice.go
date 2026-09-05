@@ -28,7 +28,6 @@ func (p *Postgres) GetPracticeSettings(ctx context.Context, userID string) (prac
 	return settings, noRows(err)
 }
 
-// UpdatePracticeSettings updates a value.
 func (p *Postgres) UpdatePracticeSettings(ctx context.Context, userID string, revision int64, easy, medium, hard int, actorID string, at time.Time) (practice.PracticeSettings, error) {
 	tx, err := begin(ctx, p.DB)
 	if err != nil {
@@ -77,7 +76,6 @@ func (p *Postgres) UpdatePracticeSettings(ctx context.Context, userID string, re
 	return settings, commit(tx)
 }
 
-// EnablePracticeGoals performs the operation.
 func (p *Postgres) EnablePracticeGoals(ctx context.Context, userID string, revision int64, actorID, seasonID string, at time.Time) (practice.PracticeSettings, error) {
 	tx, err := begin(ctx, p.DB)
 	if err != nil {
@@ -156,7 +154,6 @@ func scanProblem(row rowScanner) (practice.ProblemRecord, error) {
 
 const problemQuery = `SELECT l.id,l.leetcode_number,p.title,COALESCE(p.url,''),l.difficulty::text,l.is_premium,COALESCE(to_jsonb(array_agg(c.normalized_name) FILTER (WHERE c.id IS NOT NULL)),'[]'::jsonb),l.revision FROM app.leetcode_problems l JOIN app.problems p ON p.id=l.problem_id LEFT JOIN app.leetcode_problem_category_mappings m ON m.leetcode_problem_id=l.id LEFT JOIN app.leetcode_problem_categories c ON c.id=m.category_id WHERE l.deleted_at IS NULL AND p.deleted_at IS NULL`
 
-// ListProblems lists matching values.
 func (p *Postgres) ListProblems(ctx context.Context, boundary string, limit int, difficulty, category string, premium *bool, direction string) ([]practice.ProblemRecord, bool, int64, error) {
 	var total int64
 	err := p.DB.WithContext(ctx).Raw(`SELECT count(*) FROM app.leetcode_problems l
@@ -211,14 +208,12 @@ func scanAttempt(row rowScanner) (practice.AttemptRecord, error) {
 
 const attemptColumns = `a.id,a.user_id,COALESCE((SELECT id FROM app.leetcode_problems WHERE problem_id=a.problem_id),a.problem_id),a.outcome::text,a.confidence,a.time_taken_minutes,COALESCE(a.notes_html,''),a.attempted_at,e.season_id,a.season_week_id,a.revision,a.deleted_at`
 
-// GetAttempt retrieves a value.
 func (p *Postgres) GetAttempt(ctx context.Context, id string) (practice.AttemptRecord, error) {
 	return scanAttempt(p.DB.WithContext(ctx).Raw(`SELECT `+attemptColumns+`
 		FROM app.problem_attempts a LEFT JOIN app.enrollments e ON e.id=a.enrollment_id
 		WHERE a.id=?`, id).Row())
 }
 
-// ListAttempts lists matching values.
 func (p *Postgres) ListAttempts(ctx context.Context, userID, boundary string, limit int, outcome, difficulty, direction string) ([]practice.AttemptRecord, bool, int64, error) {
 	var total int64
 	err := p.DB.WithContext(ctx).Raw(`SELECT count(*) FROM app.problem_attempts a
@@ -261,7 +256,6 @@ func (p *Postgres) ListAttempts(ctx context.Context, userID, boundary string, li
 	return out, more, total, rows.Err()
 }
 
-// CreateAttempt creates a value.
 func (p *Postgres) CreateAttempt(ctx context.Context, v practice.AttemptRecord) (practice.AttemptRecord, error) {
 	tx, err := begin(ctx, p.DB)
 	if err != nil {
@@ -314,7 +308,6 @@ func (p *Postgres) CreateAttempt(ctx context.Context, v practice.AttemptRecord) 
 	return v, nil
 }
 
-// UpdateAttempt updates a value.
 func (p *Postgres) UpdateAttempt(ctx context.Context, id, userID string, revision int64, fn func(*practice.AttemptRecord) error) (practice.AttemptRecord, error) {
 	tx, err := begin(ctx, p.DB)
 	if err != nil {
@@ -380,7 +373,6 @@ func (p *Postgres) UpdateAttempt(ctx context.Context, id, userID string, revisio
 	return v, nil
 }
 
-// DeleteAttempt deletes a value.
 func (p *Postgres) DeleteAttempt(ctx context.Context, id, userID string, revision int64) error {
 	tx, err := begin(ctx, p.DB)
 	if err != nil {
@@ -430,5 +422,3 @@ func resolveBaseProblem(tx *gorm.DB, leetcodeProblemID string) (string, error) {
 	err := tx.Table(dbtable.LeetcodeProblems).Select("problem_id").Where("id = ? AND deleted_at IS NULL", leetcodeProblemID).Row().Scan(&problemID)
 	return problemID, err
 }
-
-// ListMockInterviews lists matching values.

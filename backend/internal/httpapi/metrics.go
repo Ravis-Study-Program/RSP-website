@@ -133,7 +133,6 @@ type statusWriter struct {
 	status int
 }
 
-// WriteHeader writes a response.
 func (writer *statusWriter) WriteHeader(status int) {
 	if writer.status != 0 {
 		return
@@ -142,7 +141,6 @@ func (writer *statusWriter) WriteHeader(status int) {
 	writer.ResponseWriter.WriteHeader(status)
 }
 
-// Write writes a response.
 func (writer *statusWriter) Write(body []byte) (int, error) {
 	if writer.status == 0 {
 		writer.WriteHeader(http.StatusOK)
@@ -150,7 +148,6 @@ func (writer *statusWriter) Write(body []byte) (int, error) {
 	return writer.ResponseWriter.Write(body)
 }
 
-// Unwrap performs the operation.
 func (writer *statusWriter) Unwrap() http.ResponseWriter { return writer.ResponseWriter }
 
 func statusClass(status int) string {

@@ -95,7 +95,6 @@ func (p *Postgres) ListMockInterviews(ctx context.Context, actor authz.Actor, mo
 	return items, more, total, nil
 }
 
-// GetMockParticipant retrieves a value.
 func (p *Postgres) GetMockParticipant(ctx context.Context, userID string) (mockinterviews.Participant, error) {
 	var row struct {
 		ID, AccountState                           string
@@ -130,7 +129,6 @@ func (p *Postgres) GetMockParticipant(ctx context.Context, userID string) (mocki
 	return ptn, nil
 }
 
-// GetMockInterview retrieves a value.
 func (p *Postgres) GetMockInterview(ctx context.Context, interviewID string) (mockinterviews.Interview, error) {
 	return loadMockInterview(ctx, p.DB, interviewID)
 }
@@ -193,7 +191,6 @@ func scoresFromDB(values ...*int16) mockinterviews.Scores {
 	return mockinterviews.Scores{Behavioural: toInt(values[0]), ConfirmQuestions: toInt(values[1]), AlgorithmDesign: toInt(values[2]), ComplexityAnalysis: toInt(values[3]), Coding: toInt(values[4]), Testing: toInt(values[5]), Custom: toInt(values[6])}
 }
 
-// CreateMockInterview creates a value.
 func (p *Postgres) CreateMockInterview(ctx context.Context, v mockinterviews.Interview, actorID string, at time.Time) (mockinterviews.Interview, error) {
 	tx, err := begin(ctx, p.DB)
 	if err != nil {
@@ -497,5 +494,3 @@ func appendMockVersionTx(ctx context.Context, tx *gorm.DB, v mockinterviews.Inte
 		"snapshot": gorm.Expr("?::jsonb", string(raw)), "created_at": at.UTC(),
 	}).Error
 }
-
-// AppendAudit performs the operation.

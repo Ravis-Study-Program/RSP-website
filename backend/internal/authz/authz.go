@@ -3,55 +3,36 @@ package authz
 
 import "time"
 
-// GlobalRole is a backend domain type.
 type GlobalRole string
 
-// SeasonRole is a backend domain type.
 type SeasonRole string
 
-// EnrollmentState is a backend domain type.
 type EnrollmentState string
 
-// AccountState is a backend domain type.
 type AccountState string
 
 const (
-	// Director is a public value used by the backend.
-	Director GlobalRole = "director"
-	// SystemAdmin is a public value used by the backend.
-	SystemAdmin GlobalRole = "system_admin"
-	// Student is a public value used by the backend.
-	Student SeasonRole = "student"
-	// Mentor is a public value used by the backend.
-	Mentor SeasonRole = "mentor"
-	// Coordinator is a public value used by the backend.
-	Coordinator SeasonRole = "coordinator"
-	// Active is a public value used by the backend.
-	Active EnrollmentState = "active"
-	// Completed is a public value used by the backend.
-	Completed EnrollmentState = "completed"
-	// Kicked is a public value used by the backend.
-	Kicked EnrollmentState = "kicked"
-	// Withdrawn is a public value used by the backend.
-	Withdrawn EnrollmentState = "withdrawn"
-	// AccountActive is a public value used by the backend.
-	AccountActive AccountState = "active"
-	// Suspended is a public value used by the backend.
-	Suspended AccountState = "suspended"
-	// DeletionPending is a public value used by the backend.
-	DeletionPending AccountState = "deletion_pending"
-	// Deleted is a public value used by the backend.
-	Deleted AccountState = "deleted"
+	Director        GlobalRole      = "director"
+	SystemAdmin     GlobalRole      = "system_admin"
+	Student         SeasonRole      = "student"
+	Mentor          SeasonRole      = "mentor"
+	Coordinator     SeasonRole      = "coordinator"
+	Active          EnrollmentState = "active"
+	Completed       EnrollmentState = "completed"
+	Kicked          EnrollmentState = "kicked"
+	Withdrawn       EnrollmentState = "withdrawn"
+	AccountActive   AccountState    = "active"
+	Suspended       AccountState    = "suspended"
+	DeletionPending AccountState    = "deletion_pending"
+	Deleted         AccountState    = "deleted"
 )
 
-// Enrollment represents a backend data structure.
 type Enrollment struct {
 	SeasonID string
 	Role     SeasonRole
 	State    EnrollmentState
 }
 
-// Actor represents a backend data structure.
 type Actor struct {
 	UserID          string
 	EmailVerified   bool
@@ -66,18 +47,14 @@ func (a Actor) authenticated() bool {
 	return a.UserID != "" && a.EmailVerified && a.AccountState == AccountActive
 }
 
-// IsGlobal performs the operation.
 func (a Actor) IsGlobal(role GlobalRole) bool { return a.GlobalRoles[role] }
 
-// IsPrivileged performs the operation.
 func (a Actor) IsPrivileged() bool { return a.IsGlobal(Director) || a.IsGlobal(SystemAdmin) }
 
-// HasRecentMFA performs the operation.
 func (a Actor) HasRecentMFA(now time.Time) bool {
 	return a.MFAAt != nil && now.Sub(a.MFAAt.UTC()) >= 0 && now.Sub(a.MFAAt.UTC()) <= 15*time.Minute
 }
 
-// Enrollment performs the operation.
 func (a Actor) Enrollment(seasonID string) (Enrollment, bool) {
 	for _, e := range a.Enrollments {
 		if e.SeasonID == seasonID {
@@ -87,7 +64,6 @@ func (a Actor) Enrollment(seasonID string) (Enrollment, bool) {
 	return Enrollment{}, false
 }
 
-// Alumni performs the operation.
 func (a Actor) Alumni() bool {
 	for _, e := range a.Enrollments {
 		if e.Role == Student && e.State == Completed {
@@ -97,7 +73,6 @@ func (a Actor) Alumni() bool {
 	return false
 }
 
-// EligibleMember performs the operation.
 func (a Actor) EligibleMember() bool {
 	if !a.authenticated() {
 		return false
@@ -164,7 +139,6 @@ func (a Actor) CanViewPrivate(targetID string, relationship MemberRelationship) 
 		(e.Role == Coordinator && relationship.TargetEnrolled)
 }
 
-// CanManageSeason performs the operation.
 func (a Actor) CanManageSeason(seasonID string, open bool) bool {
 	if !a.authenticated() || !open {
 		return false
@@ -176,15 +150,12 @@ func (a Actor) CanManageSeason(seasonID string, open bool) bool {
 	return ok && e.State == Active && e.Role == Coordinator
 }
 
-// CanCloseSeason performs the operation.
 func (a Actor) CanCloseSeason(seasonID string) bool { return a.CanManageSeason(seasonID, true) }
 
-// CanReopenSeason performs the operation.
 func (a Actor) CanReopenSeason(now time.Time) bool {
 	return a.authenticated() && a.IsPrivileged() && a.HasRecentMFA(now)
 }
 
-// CanPromoteOrRemove performs the operation.
 func (a Actor) CanPromoteOrRemove(seasonID string, assignedMentee, targetActive bool) bool {
 	if !targetActive || !a.authenticated() {
 		return false

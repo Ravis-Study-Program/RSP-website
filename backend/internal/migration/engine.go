@@ -7,13 +7,11 @@ import (
 	"time"
 )
 
-// Engine represents a backend data structure.
 type Engine struct {
 	planner *Planner
 	now     func() time.Time
 }
 
-// NewEngine creates a new value.
 func NewEngine(now func() time.Time) *Engine {
 	if now == nil {
 		now = time.Now
@@ -21,7 +19,6 @@ func NewEngine(now func() time.Time) *Engine {
 	return &Engine{planner: NewPlanner(now), now: now}
 }
 
-// DryRun performs the operation.
 func (e *Engine) DryRun(ctx context.Context, source Source, resolutions *ResolutionFile) (PreparedImport, error) {
 	return e.planSource(ctx, source, resolutions, time.Time{})
 }

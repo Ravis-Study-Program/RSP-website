@@ -6,19 +6,14 @@ import (
 	"time"
 )
 
-// Class is a backend domain type.
 type Class string
 
 const (
-	// Read is a public value used by the backend.
-	Read Class = "read"
-	// Write is a public value used by the backend.
-	Write Class = "write"
-	// Sensitive is a public value used by the backend.
+	Read      Class = "read"
+	Write     Class = "write"
 	Sensitive Class = "sensitive"
 )
 
-// Result represents a backend data structure.
 type Result struct {
 	Allowed          bool
 	Limit, Remaining int
@@ -30,7 +25,6 @@ type bucket struct {
 	used    int
 }
 
-// Limiter represents a backend data structure.
 type Limiter struct {
 	mu      sync.Mutex
 	window  time.Duration
@@ -39,12 +33,10 @@ type Limiter struct {
 	now     func() time.Time
 }
 
-// New creates a new value.
 func New() *Limiter {
 	return &Limiter{window: time.Minute, limits: map[Class]int{Read: 120, Write: 20, Sensitive: 5}, buckets: map[string]bucket{}, now: time.Now}
 }
 
-// Allow performs the operation.
 func (l *Limiter) Allow(account string, class Class) Result {
 	l.mu.Lock()
 	defer l.mu.Unlock()
