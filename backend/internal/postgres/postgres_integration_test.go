@@ -330,7 +330,7 @@ func TestPostgres18MigrationsAndRepository(t *testing.T) {
 
 	loadedInterview.Notes = "updated"
 	loadedInterview.Revision++
-	if _, err := repository.UpdateMockInterview(ctx, loadedInterview, "00000000-0000-7000-8000-000000000027", "updated", time.Now().UTC()); err != nil {
+	if _, err := repository.UpdateMockInterview(ctx, loadedInterview, "00000000-0000-7000-8000-000000000027", time.Now().UTC()); err != nil {
 		t.Fatal(err)
 	}
 

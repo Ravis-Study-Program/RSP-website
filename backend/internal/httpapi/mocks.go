@@ -260,7 +260,7 @@ func (a *API) updateMock(w http.ResponseWriter, r *http.Request) {
 		mockFailure(a, w, r, err)
 		return
 	}
-	v, err = a.db.UpdateMockInterview(r.Context(), v, actor.UserID, "updated", now)
+	v, err = a.db.UpdateMockInterview(r.Context(), v, actor.UserID, now)
 	if err != nil {
 		a.writeStoreErrorResponse(w, err)
 		return
@@ -301,7 +301,7 @@ func (a *API) deleteMock(w http.ResponseWriter, r *http.Request) {
 		mockFailure(a, w, r, err)
 		return
 	}
-	if _, err = a.db.UpdateMockInterview(r.Context(), v, actor.UserID, "soft deleted", now); err != nil {
+	if _, err = a.db.DeleteMockInterview(r.Context(), v, actor.UserID, now); err != nil {
 		a.writeStoreErrorResponse(w, err)
 		return
 	}
@@ -342,7 +342,7 @@ func (a *API) reviewRound(w http.ResponseWriter, r *http.Request) {
 		mockFailure(a, w, r, err)
 		return
 	}
-	v, err = a.db.UpdateMockInterview(r.Context(), v, actor.UserID, "interviewee review", now)
+	v, err = a.db.ReviewMockInterviewRound(r.Context(), v, r.PathValue("roundId"), actor.UserID, now)
 	if err != nil {
 		a.writeStoreErrorResponse(w, err)
 		return
@@ -393,7 +393,7 @@ func (a *API) correctMockIdentities(w http.ResponseWriter, r *http.Request) {
 		mockFailure(a, w, r, err)
 		return
 	}
-	v, err = a.db.UpdateMockInterview(r.Context(), v, actor.UserID, "identity correction: "+in.Reason, now)
+	v, err = a.db.CorrectMockInterviewIdentities(r.Context(), v, actor.UserID, in.Reason, now)
 	if err != nil {
 		a.writeStoreErrorResponse(w, err)
 		return
