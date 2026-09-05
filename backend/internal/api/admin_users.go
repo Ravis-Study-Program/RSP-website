@@ -8,6 +8,7 @@ import (
 
 	"github.com/magedmg/RSP-website/backend/internal/accounts"
 	"github.com/magedmg/RSP-website/backend/internal/authz"
+	"github.com/magedmg/RSP-website/backend/internal/dal"
 	"github.com/magedmg/RSP-website/backend/internal/platform/audit"
 	"github.com/magedmg/RSP-website/backend/internal/platform/id"
 )
@@ -65,7 +66,14 @@ func (a *API) listAdminUsers(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	items, more, total, err := a.db.ListAdminUsers(r.Context(), boundary, limit, direction, query, accountState, globalRole)
+	items, more, total, err := a.db.ListAdminUsers(r.Context(), dal.AdminUserQuery{
+		Boundary:     boundary,
+		Limit:        limit,
+		Direction:    direction,
+		Search:       query,
+		AccountState: accountState,
+		GlobalRole:   globalRole,
+	})
 	if err != nil {
 		a.writeStoreErrorResponse(w, err)
 		return

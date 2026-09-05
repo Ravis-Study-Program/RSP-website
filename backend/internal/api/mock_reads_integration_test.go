@@ -71,7 +71,7 @@ func TestMockListUsesBoundedReadsAndPreservesPageValues(t *testing.T) {
 	actor := authz.Actor{UserID: studentID}
 	for _, limit := range []int{1, 4} {
 		queries.statements = nil
-		items, more, total, err := repository.ListMockInterviews(ctx, actor, "given", "", limit, "occurredAt:desc", "forward")
+		items, more, total, err := repository.ListMockInterviews(ctx, actor, dal.MockInterviewQuery{Mode: "given", Limit: limit, SortBy: "occurredAt:desc", Direction: "forward"})
 		if err != nil || total != 4 || len(items) != limit || more != (limit < 4) {
 			t.Fatalf("limit=%d items=%d more=%v total=%d error=%v", limit, len(items), more, total, err)
 		}
@@ -92,20 +92,20 @@ func TestMockListUsesBoundedReadsAndPreservesPageValues(t *testing.T) {
 		}
 		return interviews[i].OccurredAt.After(interviews[j].OccurredAt)
 	})
-	first, more, total, err := repository.ListMockInterviews(ctx, actor, "given", "", 2, "occurredAt:desc", "forward")
+	first, more, total, err := repository.ListMockInterviews(ctx, actor, dal.MockInterviewQuery{Mode: "given", Limit: 2, SortBy: "occurredAt:desc", Direction: "forward"})
 	if err != nil || !more || total != 4 || len(first) != 2 || first[0].ID != interviews[0].ID || first[1].ID != interviews[1].ID {
 		t.Fatalf("first page=%#v more=%v total=%d error=%v", first, more, total, err)
 	}
-	second, more, _, err := repository.ListMockInterviews(ctx, actor, "given", first[1].ID, 2, "occurredAt:desc", "forward")
+	second, more, _, err := repository.ListMockInterviews(ctx, actor, dal.MockInterviewQuery{Mode: "given", Boundary: first[1].ID, Limit: 2, SortBy: "occurredAt:desc", Direction: "forward"})
 	if err != nil || more || len(second) != 2 || second[0].ID != interviews[2].ID || second[1].ID != interviews[3].ID {
 		t.Fatalf("second page=%#v more=%v error=%v", second, more, err)
 	}
-	previous, more, _, err := repository.ListMockInterviews(ctx, actor, "given", second[0].ID, 2, "occurredAt:desc", "backward")
+	previous, more, _, err := repository.ListMockInterviews(ctx, actor, dal.MockInterviewQuery{Mode: "given", Boundary: second[0].ID, Limit: 2, SortBy: "occurredAt:desc", Direction: "backward"})
 	if err != nil || more || !reflect.DeepEqual(first, previous) {
 		t.Fatalf("backward page=%#v more=%v error=%v", previous, more, err)
 	}
 	queries.statements = nil
-	items, more, total, err := repository.ListMockInterviews(ctx, actor, "received", "", 4, "id:asc", "forward")
+	items, more, total, err := repository.ListMockInterviews(ctx, actor, dal.MockInterviewQuery{Mode: "received", Limit: 4, SortBy: "id:asc", Direction: "forward"})
 	if err != nil || more || total != 0 || len(items) != 0 || len(queries.statements) != 2 {
 		t.Fatalf("empty received page=%#v more=%v total=%d queries=%d error=%v", items, more, total, len(queries.statements), err)
 	}

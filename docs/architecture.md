@@ -26,16 +26,16 @@ Caddy routes the single local origin and denies public metrics paths.
 
 ## Source boundaries
 
-| Boundary    | Location                                                                     | Responsibility                                                                                                |
-| ----------- | ---------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
-| Browser     | `apps/web`                                                                   | Routes, accessible interaction, local timezone rendering and API queries.                                     |
-| Identity    | `apps/auth`                                                                  | Better Auth sessions, password/Google providers, verification, MFA, JWT/JWKS, credential lifecycle and email. |
-| Contract    | `api/openapi.yaml`                                                           | Frontend API client/types and API documentation; Go handlers own server-side decoding and validation.         |
-| Transport   | `backend/internal/api`                                                   | HTTP decoding/validation, authentication boundary, status codes and serialization.                            |
-| Domain      | `backend/internal/{accounts,programme,practice,mockinterviews}`              | Authorization relationships and programme rules independent of HTTP.                                          |
-| Persistence | `backend/internal/dal`, `backend/internal/platform/dbtable`             | GORM persistence with explicit transactions and raw SQL for PostgreSQL-specific operations.                   |
+| Boundary    | Location                                                                | Responsibility                                                                                                |
+| ----------- | ----------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| Browser     | `apps/web`                                                              | Routes, accessible interaction, local timezone rendering and API queries.                                     |
+| Identity    | `apps/auth`                                                             | Better Auth sessions, password/Google providers, verification, MFA, JWT/JWKS, credential lifecycle and email. |
+| Contract    | `api/openapi.yaml`                                                      | Frontend API client/types and API documentation; Go handlers own server-side decoding and validation.         |
+| Transport   | `backend/internal/api`                                                  | HTTP decoding/validation, authentication boundary, status codes and serialization.                            |
+| Domain      | `backend/internal/{accounts,programme,practice,mockinterviews}`         | Authorization relationships and programme rules independent of HTTP.                                          |
+| Persistence | `backend/internal/dal`                                                  | Native pgx queries, row mapping, and atomic data/history/audit writes.                                        |
 | Jobs        | `backend/cmd/worker`, `backend/internal/worker`, `backend/internal/dal` | Scheduled LeetCode synchronization, catch-up, retry, advisory locking and PostgreSQL run state.               |
-| Operations  | `deploy`, `compose.yaml`                                                     | Local ingress and container topology.                                                                         |
+| Operations  | `deploy`, `compose.yaml`                                                | Local ingress and container topology.                                                                         |
 
 Feature services own business rules. Transport code must not recreate role or
 ownership checks, and SQL must not infer an actor from request data. Mutations
@@ -46,6 +46,20 @@ plain data types and business rules, and they do not import HTTP or database
 code. PostgreSQL is the only runtime database; local development and
 integration tests use disposable PostgreSQL data instead of a second storage
 implementation.
+
+The DAL is one concrete `dal.Store` with a private `pgxpool.Pool`. Its files
+follow application features (`users.go`, `seasons.go`, `enrollments.go`,
+`mock_interviews.go`, and so on). SQL and its row mapping live together.
+List methods take named query structs so filters and cursor parameters are
+visible at the call site. Handlers use domain rules and call the DAL directly;
+there is no additional repository or generic CRUD layer.
+
+The worker acquires a `dal.WorkerSession` for its advisory lock, run state, and
+catalogue writes. They use the same connection until the scheduler stops.
+`rspctl` delegates seed and bootstrap writes to the DAL. The legacy import
+adapter in `internal/migration` uses dedicated pgx connections for its
+read-only repeatable-read source snapshot and serializable target transaction.
+Goose remains responsible for SQL schema migrations.
 
 ## Identity and request flow
 

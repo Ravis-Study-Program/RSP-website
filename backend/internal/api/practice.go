@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/magedmg/RSP-website/backend/internal/authz"
+	"github.com/magedmg/RSP-website/backend/internal/dal"
 	"github.com/magedmg/RSP-website/backend/internal/platform/cursor"
 	"github.com/magedmg/RSP-website/backend/internal/platform/id"
 	"github.com/magedmg/RSP-website/backend/internal/platform/sanitize"
@@ -104,7 +105,14 @@ func (a *API) problems(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	items, more, total, err := a.db.ListProblems(r.Context(), after, limit, difficulty, category, premium, direction)
+	items, more, total, err := a.db.ListProblems(r.Context(), dal.ProblemQuery{
+		Boundary:   after,
+		Limit:      limit,
+		Difficulty: difficulty,
+		Category:   category,
+		Premium:    premium,
+		Direction:  direction,
+	})
 	if err != nil {
 		a.writeStoreErrorResponse(w, err)
 		return
@@ -166,7 +174,14 @@ func (a *API) attempts(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	items, more, total, err := a.db.ListAttempts(r.Context(), targetID, after, limit, outcome, difficulty, direction)
+	items, more, total, err := a.db.ListAttempts(r.Context(), dal.AttemptQuery{
+		UserID:     targetID,
+		Boundary:   after,
+		Limit:      limit,
+		Outcome:    outcome,
+		Difficulty: difficulty,
+		Direction:  direction,
+	})
 	if err != nil {
 		a.writeStoreErrorResponse(w, err)
 		return

@@ -23,7 +23,7 @@ import (
 	"github.com/testcontainers/testcontainers-go/wait"
 )
 
-func TestStore18MigrationsAndRepository(t *testing.T) {
+func TestPostgres18MigrationsAndDAL(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
 	defer cancel()
 	container, err := postgrescontainer.Run(ctx, "postgres:18.6-alpine3.24",
@@ -115,20 +115,33 @@ func TestStore18MigrationsAndRepository(t *testing.T) {
 		testLeetCodeWorkerRuns(t, ctx, repository, actor.UserID)
 	})
 
-	state, err := repository.OpenWorkerSession(ctx)
-	if err != nil {
-		t.Fatal(err)
-	}
-	locked, err := state.TryLock(ctx, 7277500199)
-	if err != nil || !locked {
-		state.Close()
-		t.Fatalf("worker advisory lock=%v err=%v", locked, err)
-	}
-	if err := state.Unlock(ctx, 7277500199); err != nil {
-		state.Close()
-		t.Fatal(err)
-	}
-	state.Close()
+	t.Run("worker sessions exclude concurrent syncs", func(t *testing.T) {
+		first, err := repository.OpenWorkerSession(ctx)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer first.Close()
+		second, err := repository.OpenWorkerSession(ctx)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer second.Close()
+		const lockKey = 7277500199
+		if locked, err := first.TryLock(ctx, lockKey); err != nil || !locked {
+			t.Fatalf("first lock=%v error=%v", locked, err)
+		}
+		defer first.Unlock(context.Background(), lockKey)
+		if locked, err := second.TryLock(ctx, lockKey); err != nil || locked {
+			t.Fatalf("concurrent lock=%v error=%v", locked, err)
+		}
+		if err := first.Unlock(ctx, lockKey); err != nil {
+			t.Fatal(err)
+		}
+		if locked, err := second.TryLock(ctx, lockKey); err != nil || !locked {
+			t.Fatalf("released lock=%v error=%v", locked, err)
+		}
+		defer second.Unlock(context.Background(), lockKey)
+	})
 	sink, err := repository.OpenWorkerSession(ctx)
 	if err != nil {
 		t.Fatal(err)
@@ -229,16 +242,16 @@ func TestStore18MigrationsAndRepository(t *testing.T) {
 	if _, err := repository.CreateEnrollment(ctx, programme.EnrollmentRecord{ID: "00000000-0000-7000-8000-000000000009", SeasonID: season.ID, UserID: "00000000-0000-7000-8000-000000000033", Role: "student", State: "active", Revision: 1}, "00000000-0000-7000-8000-000000000033", time.Now()); err != nil {
 		t.Fatal(err)
 	}
-	if users, _, _, err := repository.ListUsers(ctx, "", 25, "forward", "", "", ""); err != nil || len(users) == 0 {
+	if users, _, _, err := repository.ListUsers(ctx, UserQuery{Limit: 25, Direction: "forward"}); err != nil || len(users) == 0 {
 		t.Fatalf("empty-cursor user list=%#v err=%v", users, err)
 	}
-	if users, _, _, err := repository.ListAdminUsers(ctx, "", 25, "forward", "", "", ""); err != nil || len(users) == 0 {
+	if users, _, _, err := repository.ListAdminUsers(ctx, AdminUserQuery{Limit: 25, Direction: "forward"}); err != nil || len(users) == 0 {
 		t.Fatalf("empty-cursor admin user list=%#v err=%v", users, err)
 	}
-	if seasons, _, _, err := repository.ListSeasons(ctx, "", 25, "forward", ""); err != nil || len(seasons) == 0 {
+	if seasons, _, _, err := repository.ListSeasons(ctx, SeasonQuery{Limit: 25, Direction: "forward"}); err != nil || len(seasons) == 0 {
 		t.Fatalf("empty-cursor season list=%#v err=%v", seasons, err)
 	}
-	if _, _, _, err := repository.ListEnrollmentCandidates(ctx, season.ID, "", "", 25, "forward"); err != nil {
+	if _, _, _, err := repository.ListEnrollmentCandidates(ctx, EnrollmentCandidateQuery{SeasonID: season.ID, Limit: 25, Direction: "forward"}); err != nil {
 		t.Fatalf("empty-cursor enrollment candidate list: %v", err)
 	}
 	if _, err := repository.CreateEnrollment(ctx, programme.EnrollmentRecord{ID: "00000000-0000-7000-8000-000000000012", SeasonID: season.ID, UserID: "00000000-0000-7000-8000-000000000027", Role: "mentor", State: "active", Revision: 1}, "00000000-0000-7000-8000-000000000033", time.Now()); err != nil {
@@ -306,7 +319,7 @@ func TestStore18MigrationsAndRepository(t *testing.T) {
 	if _, err := repository.pool.Exec(context.Background(), `INSERT INTO app.leetcode_problems(id,problem_id,leetcode_number,difficulty,is_premium) VALUES('00000000-0000-7000-8000-000000000025','00000000-0000-7000-8000-000000000019',1,'easy',false)`); err != nil {
 		t.Fatal(err)
 	}
-	if problems, _, _, err := repository.ListProblems(ctx, "", 25, "", "", nil, "forward"); err != nil || len(problems) != 1 {
+	if problems, _, _, err := repository.ListProblems(ctx, ProblemQuery{Limit: 25, Direction: "forward"}); err != nil || len(problems) != 1 {
 		t.Fatalf("empty-cursor problem list=%#v err=%v", problems, err)
 	}
 
@@ -314,7 +327,7 @@ func TestStore18MigrationsAndRepository(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if attempts, _, _, err := repository.ListAttempts(ctx, "00000000-0000-7000-8000-000000000033", "", 25, "", "", "forward"); err != nil || len(attempts) != 1 {
+	if attempts, _, _, err := repository.ListAttempts(ctx, AttemptQuery{UserID: "00000000-0000-7000-8000-000000000033", Limit: 25, Direction: "forward"}); err != nil || len(attempts) != 1 {
 		t.Fatalf("empty-cursor attempt list=%#v err=%v", attempts, err)
 	}
 
@@ -328,7 +341,7 @@ func TestStore18MigrationsAndRepository(t *testing.T) {
 	if err != nil || len(loadedInterview.Rounds) != 1 {
 		t.Fatalf("mock=%#v err=%v", loadedInterview, err)
 	}
-	if interviews, _, _, err := repository.ListMockInterviews(ctx, authz.Actor{UserID: "00000000-0000-7000-8000-000000000027", Enrollments: []authz.Enrollment{{SeasonID: season.ID, Role: authz.Mentor, State: authz.Active}}}, "all", "", 25, "id:asc", "forward"); err != nil || len(interviews) != 1 {
+	if interviews, _, _, err := repository.ListMockInterviews(ctx, authz.Actor{UserID: "00000000-0000-7000-8000-000000000027", Enrollments: []authz.Enrollment{{SeasonID: season.ID, Role: authz.Mentor, State: authz.Active}}}, MockInterviewQuery{Mode: "all", Limit: 25, SortBy: "id:asc", Direction: "forward"}); err != nil || len(interviews) != 1 {
 		t.Fatalf("relationship-scoped mock list=%#v err=%v", interviews, err)
 	}
 

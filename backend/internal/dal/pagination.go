@@ -2,7 +2,7 @@ package dal
 
 import "slices"
 
-func finishStorePage[T any](items []T, limit int, direction string) ([]T, bool) {
+func finishPage[T any](items []T, limit int, direction string) ([]T, bool) {
 	more := len(items) > limit
 	if more {
 		items = items[:limit]

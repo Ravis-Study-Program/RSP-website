@@ -8,14 +8,13 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/magedmg/RSP-website/backend/internal/authz"
 	"github.com/magedmg/RSP-website/backend/internal/mockinterviews"
-	"github.com/magedmg/RSP-website/backend/internal/platform/dbtable"
 	"github.com/magedmg/RSP-website/backend/internal/platform/id"
 )
 
 const mockInterviewColumns = `mi.id,mi.interviewer_user_id,mi.interviewee_user_id,mi.season_id,
 	mi.scheduled_at,mi.duration_minutes,COALESCE(mi.interviewer_notes_html,''),mi.revision,mi.deleted_at`
 
-func scanMockInterview(row rowScanner) (mockinterviews.Interview, error) {
+func scanMockInterview(row pgx.Row) (mockinterviews.Interview, error) {
 	var interview mockinterviews.Interview
 	err := row.Scan(&interview.ID, &interview.InterviewerID, &interview.IntervieweeID,
 		&interview.SeasonID, &interview.OccurredAt, &interview.DurationMinutes,
@@ -23,16 +22,24 @@ func scanMockInterview(row rowScanner) (mockinterviews.Interview, error) {
 	return interview, noRows(err)
 }
 
-func (p *Store) ListMockInterviews(ctx context.Context, actor authz.Actor, mode, boundary string, limit int, sortBy, direction string) ([]mockinterviews.Interview, bool, int64, error) {
+type MockInterviewQuery struct {
+	Mode      string
+	Boundary  string
+	Limit     int
+	SortBy    string
+	Direction string
+}
+
+func (p *Store) ListMockInterviews(ctx context.Context, actor authz.Actor, q MockInterviewQuery) ([]mockinterviews.Interview, bool, int64, error) {
 	userID := actor.UserID
 	where := `(mi.interviewer_user_id=$1 OR mi.interviewee_user_id=$1)`
-	if mode == "given" {
+	if q.Mode == "given" {
 		where = `mi.interviewer_user_id=$1`
-	} else if mode == "received" {
+	} else if q.Mode == "received" {
 		where = `mi.interviewee_user_id=$1`
-	} else if mode == "all" && actor.IsPrivileged() {
+	} else if q.Mode == "all" && actor.IsPrivileged() {
 		where = `$1::text IS NOT NULL`
-	} else if mode == "all" {
+	} else if q.Mode == "all" {
 		where = `(mi.interviewer_user_id=$1 OR mi.interviewee_user_id=$1 OR EXISTS (
 			SELECT 1 FROM app.enrollments viewer
 			WHERE viewer.user_id=$1 AND viewer.season_id=mi.season_id AND viewer.state IN ('active','completed') AND viewer.deleted_at IS NULL
@@ -52,19 +59,19 @@ func (p *Store) ListMockInterviews(ctx context.Context, actor authz.Actor, mode,
 	comparator, order := ">", "ASC"
 	key, boundaryKey := "mi.id", "b.id"
 	boundarySelect := "id"
-	if direction == "backward" {
+	if q.Direction == "backward" {
 		comparator, order = "<", "DESC"
 	}
-	if sortBy == "occurredAt:desc" {
+	if q.SortBy == "occurredAt:desc" {
 		key, boundaryKey = "ROW(mi.scheduled_at,mi.id)", "ROW(b.scheduled_at,b.id)"
 		boundarySelect = "scheduled_at,id"
 		comparator, order = "<", "DESC"
-		if direction == "backward" {
+		if q.Direction == "backward" {
 			comparator, order = ">", "ASC"
 		}
 	}
 	orderBy := "mi.id " + order
-	if sortBy == "occurredAt:desc" {
+	if q.SortBy == "occurredAt:desc" {
 		orderBy = "mi.scheduled_at " + order + ",mi.id " + order
 	}
 	query := `WITH boundary AS (
@@ -73,7 +80,7 @@ func (p *Store) ListMockInterviews(ctx context.Context, actor authz.Actor, mode,
 	WHERE mi.deleted_at IS NULL AND ` + where + `
 	  AND (NULLIF($2,'')::uuid IS NULL OR EXISTS (SELECT 1 FROM boundary b WHERE ` + key + ` ` + comparator + ` ` + boundaryKey + `))
 	ORDER BY ` + orderBy + ` LIMIT $3`
-	rows, err := p.pool.Query(ctx, query, userID, boundary, limit+1)
+	rows, err := p.pool.Query(ctx, query, userID, q.Boundary, q.Limit+1)
 	if err != nil {
 		return nil, false, 0, err
 	}
@@ -92,7 +99,7 @@ func (p *Store) ListMockInterviews(ctx context.Context, actor authz.Actor, mode,
 	}
 	rows.Close()
 
-	items, more := finishStorePage(items, limit, direction)
+	items, more := finishPage(items, q.Limit, q.Direction)
 	if err := loadMockRounds(ctx, p.pool, items); err != nil {
 		return nil, false, 0, err
 	}
@@ -243,7 +250,7 @@ func (p *Store) CreateMockInterview(ctx context.Context, v mockinterviews.Interv
 	}
 	if _, err := tx.Exec(ctx, `INSERT INTO app.mock_interviews(id,interviewer_user_id,interviewee_user_id,season_id,scheduled_at,duration_minutes,interviewer_notes_html,revision)
  VALUES($1,$2,$3,$4,$5,$6,$7,$8)`, v.ID, v.InterviewerID, v.IntervieweeID, v.SeasonID, v.OccurredAt.UTC(), v.DurationMinutes, v.Notes, v.Revision); err != nil {
-		return v, mapStoreError(err)
+		return v, mapDatabaseError(err)
 	}
 	if err := reconcileMockRounds(ctx, tx, v); err != nil {
 		return v, err
@@ -340,7 +347,7 @@ func (p *Store) writeMockInterview(ctx context.Context, v mockinterviews.Intervi
 		return v, ErrConflict
 	}
 	if err := mutate(tx); err != nil {
-		return v, mapStoreError(err)
+		return v, mapDatabaseError(err)
 	}
 	if v.DeletedAt == nil {
 		// Snapshot the persisted result, including fields this operation did not own.
@@ -453,11 +460,11 @@ func deleteMockRoundSubtype(ctx context.Context, tx pgx.Tx, roundID string, kind
 	var table string
 	switch kind {
 	case mockinterviews.Behavioural:
-		table = dbtable.BehaviouralMockInterviewRounds
+		table = "app.behavioural_mock_interview_rounds"
 	case mockinterviews.LeetCode:
-		table = dbtable.LeetcodeMockInterviewRounds
+		table = "app.leetcode_mock_interview_rounds"
 	case mockinterviews.Custom:
-		table = dbtable.CustomMockInterviewRounds
+		table = "app.custom_mock_interview_rounds"
 	default:
 		return mockinterviews.ErrInvalid
 	}

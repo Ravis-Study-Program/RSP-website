@@ -30,7 +30,7 @@ func (s *Store) classifyRevision(ctx context.Context, db queryer, query string, 
 	return noRows(err)
 }
 
-func mapStoreError(err error) error {
+func mapDatabaseError(err error) error {
 	if isUnique(err) {
 		return ErrDuplicate
 	}

@@ -7,6 +7,7 @@ import (
 
 	"github.com/magedmg/RSP-website/backend/internal/accounts"
 	"github.com/magedmg/RSP-website/backend/internal/authz"
+	"github.com/magedmg/RSP-website/backend/internal/dal"
 	"github.com/magedmg/RSP-website/backend/internal/platform/id"
 	"github.com/magedmg/RSP-website/backend/internal/programme"
 )
@@ -65,7 +66,13 @@ func (a *API) listWeeks(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	items, more, total, err := a.db.ListWeeks(r.Context(), seasonID, boundary, limit, sortBy, direction)
+	items, more, total, err := a.db.ListWeeks(r.Context(), dal.WeekQuery{
+		SeasonID:  seasonID,
+		Boundary:  boundary,
+		Limit:     limit,
+		SortBy:    sortBy,
+		Direction: direction,
+	})
 	if err != nil {
 		a.writeStoreErrorResponse(w, err)
 		return
@@ -199,7 +206,16 @@ func (a *API) listMembers(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	items, more, total, err := a.db.ListEnrollments(r.Context(), seasonID, boundary, limit, role, state, sortBy, direction, canSeeInactive)
+	items, more, total, err := a.db.ListEnrollments(r.Context(), dal.EnrollmentQuery{
+		SeasonID:        seasonID,
+		Boundary:        boundary,
+		Limit:           limit,
+		Role:            role,
+		State:           state,
+		SortBy:          sortBy,
+		Direction:       direction,
+		IncludeInactive: canSeeInactive,
+	})
 	if err != nil {
 		a.writeStoreErrorResponse(w, err)
 		return
@@ -240,7 +256,13 @@ func (a *API) listEnrollmentCandidates(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	items, more, total, err := a.db.ListEnrollmentCandidates(r.Context(), r.PathValue("id"), query, boundary, limit, direction)
+	items, more, total, err := a.db.ListEnrollmentCandidates(r.Context(), dal.EnrollmentCandidateQuery{
+		SeasonID:  r.PathValue("id"),
+		Search:    query,
+		Boundary:  boundary,
+		Limit:     limit,
+		Direction: direction,
+	})
 	if err != nil {
 		a.writeStoreErrorResponse(w, err)
 		return
@@ -413,7 +435,15 @@ func (a *API) listMentorships(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	items, more, total, err := a.db.ListMentorships(r.Context(), seasonID, boundary, limit, sortBy, direction, mentorUserID, studentUserID)
+	items, more, total, err := a.db.ListMentorships(r.Context(), dal.MentorshipQuery{
+		SeasonID:      seasonID,
+		Boundary:      boundary,
+		Limit:         limit,
+		SortBy:        sortBy,
+		Direction:     direction,
+		MentorUserID:  mentorUserID,
+		StudentUserID: studentUserID,
+	})
 	if err != nil {
 		a.writeStoreErrorResponse(w, err)
 		return

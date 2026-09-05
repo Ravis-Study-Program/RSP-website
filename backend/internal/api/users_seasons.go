@@ -9,6 +9,7 @@ import (
 
 	"github.com/magedmg/RSP-website/backend/internal/accounts"
 	"github.com/magedmg/RSP-website/backend/internal/authz"
+	"github.com/magedmg/RSP-website/backend/internal/dal"
 	"github.com/magedmg/RSP-website/backend/internal/platform/cursor"
 	"github.com/magedmg/RSP-website/backend/internal/platform/id"
 	"github.com/magedmg/RSP-website/backend/internal/programme"
@@ -182,7 +183,14 @@ func (a *API) users(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	items, more, total, err := a.db.ListUsers(r.Context(), boundary, limit, direction, query, seasonRole, globalRole)
+	items, more, total, err := a.db.ListUsers(r.Context(), dal.UserQuery{
+		Boundary:   boundary,
+		Limit:      limit,
+		Direction:  direction,
+		Search:     query,
+		SeasonRole: seasonRole,
+		GlobalRole: globalRole,
+	})
 	if err != nil {
 		a.writeStoreErrorResponse(w, err)
 		return
@@ -280,7 +288,12 @@ func (a *API) seasons(w http.ResponseWriter, r *http.Request) {
 			writeErrorResponse(w, http.StatusBadRequest, "invalid_cursor", cursor.ErrInvalid.Error())
 			return
 		}
-		items, more, total, listErr := a.db.ListSeasons(r.Context(), boundary, limit, direction, status)
+		items, more, total, listErr := a.db.ListSeasons(r.Context(), dal.SeasonQuery{
+			Boundary:  boundary,
+			Limit:     limit,
+			Direction: direction,
+			Status:    status,
+		})
 		if listErr != nil {
 			a.writeStoreErrorResponse(w, listErr)
 			return

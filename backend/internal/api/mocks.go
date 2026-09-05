@@ -82,7 +82,12 @@ func (a *API) listMockParticipants(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	users, more, total, err := a.db.ListUsers(r.Context(), boundary, limit, direction, query, "", "")
+	users, more, total, err := a.db.ListUsers(r.Context(), dal.UserQuery{
+		Boundary:  boundary,
+		Limit:     limit,
+		Direction: direction,
+		Search:    query,
+	})
 	if err != nil {
 		a.writeStoreErrorResponse(w, err)
 		return
@@ -145,7 +150,13 @@ func (a *API) listMocks(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	items, more, total, err := a.db.ListMockInterviews(r.Context(), actor, mode, boundary, limit, sortBy, direction)
+	items, more, total, err := a.db.ListMockInterviews(r.Context(), actor, dal.MockInterviewQuery{
+		Mode:      mode,
+		Boundary:  boundary,
+		Limit:     limit,
+		SortBy:    sortBy,
+		Direction: direction,
+	})
 	if err != nil {
 		a.writeStoreErrorResponse(w, err)
 		return

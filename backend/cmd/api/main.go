@@ -64,7 +64,7 @@ func main() {
 		return db.Ping(ctx)
 	}
 
-	api := api.New(api.Config{
+	app := api.New(api.Config{
 		DB:              db,
 		Authenticator:   authenticator,
 		PublicOrigin:    env("PUBLIC_ORIGIN", "http://localhost:8080"),
@@ -75,7 +75,7 @@ func main() {
 		SetAccountState: authClient.SetAccountState,
 		GetMFAState:     authClient.MFAConfigured,
 	})
-	apiHandler := api.Handler()
+	apiHandler := app.Handler()
 
 	server := &http.Server{Addr: env("API_ADDR", ":4000"), Handler: apiHandler, ReadHeaderTimeout: 5 * time.Second}
 	logger.Info("api listening", "address", server.Addr)
