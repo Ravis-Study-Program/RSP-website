@@ -99,12 +99,11 @@ func (a *API) setUserAccountState(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var in struct {
-		State    string `json:"state"`
-		Reason   string `json:"reason"`
-		Revision int64  `json:"revision"`
+		State  string `json:"state"`
+		Reason string `json:"reason"`
 	}
-	if err := decodeJSON(w, r, &in); err != nil || in.Revision < 1 || (in.State != "active" && in.State != "suspended") || strings.TrimSpace(in.Reason) == "" || len(in.Reason) > 500 {
-		writeErrorResponse(w, http.StatusBadRequest, "validation_failed", "state active or suspended, revision, and a reason up to 500 characters are required")
+	if err := decodeJSON(w, r, &in); err != nil || (in.State != "active" && in.State != "suspended") || strings.TrimSpace(in.Reason) == "" || len(in.Reason) > 500 {
+		writeErrorResponse(w, http.StatusBadRequest, "validation_failed", "state active or suspended and a reason up to 500 characters are required")
 		return
 	}
 
@@ -116,10 +115,6 @@ func (a *API) setUserAccountState(w http.ResponseWriter, r *http.Request) {
 	current, err := a.db.GetUser(r.Context(), targetID)
 	if err != nil {
 		a.writeStoreErrorResponse(w, err)
-		return
-	}
-	if current.Revision != in.Revision {
-		writeErrorResponse(w, http.StatusConflict, "stale_revision", "The resource changed since it was loaded.")
 		return
 	}
 	targetID = current.ID
@@ -216,7 +211,7 @@ func (a *API) revokeUserGlobalRole(w http.ResponseWriter, r *http.Request) {
 	}
 	targetID, role := r.PathValue("id"), r.PathValue("role")
 	if (role != "director" && role != "system_admin") || strings.TrimSpace(r.URL.Query().Get("reason")) == "" || len(r.URL.Query().Get("reason")) > 500 {
-		writeErrorResponse(w, http.StatusBadRequest, "validation_failed", "valid role, revision, and reason up to 500 characters are required")
+		writeErrorResponse(w, http.StatusBadRequest, "validation_failed", "valid role and reason up to 500 characters are required")
 		return
 	}
 	target, err := a.db.GetUser(r.Context(), targetID)
@@ -230,13 +225,7 @@ func (a *API) revokeUserGlobalRole(w http.ResponseWriter, r *http.Request) {
 		writeErrorResponse(w, http.StatusConflict, "self_role_revocation_forbidden", "A System Admin cannot revoke their own System Admin role.")
 		return
 	}
-	revision, err := parseRevision(r)
-	if err != nil {
-		writeErrorResponse(w, http.StatusBadRequest, "validation_failed", "valid role, revision, and reason up to 500 characters are required")
-		return
-	}
-
-	assignment, err := a.db.RevokeGlobalRole(r.Context(), targetID, role, revision, strings.TrimSpace(r.URL.Query().Get("reason")), actor.UserID, time.Now().UTC())
+	assignment, err := a.db.RevokeGlobalRole(r.Context(), targetID, role, strings.TrimSpace(r.URL.Query().Get("reason")), actor.UserID, time.Now().UTC())
 	if err != nil {
 		a.writeStoreErrorResponse(w, err)
 		return

@@ -6,7 +6,10 @@
  * OpenAPI spec version: 2.0.0
  */
 
-/**
- * @minimum 1
- */
-export type Revision = number;
+export interface Reasoned {
+  /**
+   * @minLength 1
+   * @maxLength 2000
+   */
+  reason: string;
+}

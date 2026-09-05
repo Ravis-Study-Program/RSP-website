@@ -5,7 +5,6 @@
  * Same-origin API for the Ravi's Study Program application.
  * OpenAPI spec version: 2.0.0
  */
-import type { Revision } from './revision';
 
 export interface Week {
   id: string;
@@ -15,5 +14,4 @@ export interface Week {
   startAt: string;
   endAt: string;
   resourceUrl: string;
-  revision: Revision;
 }

@@ -13,11 +13,10 @@ import (
 )
 
 type StoredRun struct {
-	Manifest     Manifest   `json:"manifest"`
-	State        string     `json:"state"`
-	AppliedAt    time.Time  `json:"appliedAt"`
-	VerifiedAt   *time.Time `json:"verifiedAt,omitempty"`
-	RolledBackAt *time.Time `json:"rolledBackAt,omitempty"`
+	Manifest   Manifest   `json:"manifest"`
+	State      string     `json:"state"`
+	AppliedAt  time.Time  `json:"appliedAt"`
+	VerifiedAt *time.Time `json:"verifiedAt,omitempty"`
 }
 
 type StoredRecord struct {
@@ -127,7 +126,7 @@ func (tx *stateTx) Apply(_ context.Context, prepared PreparedImport) error {
 
 func (tx *stateTx) Verification(_ context.Context, manifest Manifest) (Verification, error) {
 	run, exists := tx.state.Runs[manifest.RunID]
-	if !exists || run.State == "rolled_back" {
+	if !exists {
 		return Verification{}, ErrRunNotFound
 	}
 	if run.Manifest.Checksum != manifest.Checksum {
@@ -145,7 +144,7 @@ func (tx *stateTx) Verification(_ context.Context, manifest Manifest) (Verificat
 	verification := Verification{RunID: manifest.RunID, ManifestChecksum: manifest.Checksum, Counts: map[string]int{}, Checksums: map[string]string{}}
 	for _, expected := range manifest.Tables {
 		rows := rowsBySource[expected.SourceTable]
-		sort.Slice(rows, func(left, right int) bool { return rows[left].ID < rows[right].ID })
+		sort.Slice(rows, func(left, right int) bool { return preparedRowSortKey(rows[left]) < preparedRowSortKey(rows[right]) })
 		checksum, err := Checksum(rows)
 		if err != nil {
 			return Verification{}, err
@@ -161,33 +160,6 @@ func (tx *stateTx) Verification(_ context.Context, manifest Manifest) (Verificat
 	run.State, run.VerifiedAt = "verified", &verifiedAt
 	tx.state.Runs[manifest.RunID] = run
 	return verification, nil
-}
-
-// RollbackRun rolls back the operation.
-func (tx *stateTx) RollbackRun(_ context.Context, runID string) error {
-	if !tx.locked {
-		return errors.New("migration advisory lock is not held")
-	}
-	run, exists := tx.state.Runs[runID]
-	if !exists {
-		return ErrRunNotFound
-	}
-	if run.State == "rolled_back" {
-		return errors.New("migration run is already rolled back")
-	}
-	// Reverse target dependency order to model RESTRICT-safe PostgreSQL deletes.
-	for index := len(targetOrder) - 1; index >= 0; index-- {
-		table := tx.state.Tables[targetOrder[index]]
-		for id, record := range table {
-			if record.RunID == runID {
-				delete(table, id)
-			}
-		}
-	}
-	rolledBackAt := tx.now().UTC()
-	run.State, run.RolledBackAt = "rolled_back", &rolledBackAt
-	tx.state.Runs[runID] = run
-	return nil
 }
 
 func (tx *stateTx) Commit(_ context.Context) error {

@@ -223,7 +223,6 @@ interface AdminRow {
   secondary: string;
   status: string;
   detail: string;
-  revision: number;
   actions?: ReactNode;
 }
 
@@ -256,11 +255,6 @@ const columns: ColumnDef<AdminRow, any>[] = [
     ),
   },
   { accessorKey: 'detail', header: 'Details' },
-  {
-    accessorKey: 'revision',
-    header: 'Revision',
-    cell: ({ getValue }) => `r${getValue()}`,
-  },
   {
     id: 'actions',
     header: 'Actions',
@@ -349,7 +343,6 @@ export function AdminResourcePage({
           interviews: account.mockInterviewCount,
           email: account.email,
           lastActiveAt: null,
-          revision: account.revision,
         } satisfies Person,
       })),
     [adminUsers.data],
@@ -362,7 +355,6 @@ export function AdminResourcePage({
           secondary: season.slug,
           status: season.status,
           detail: `${formatDate(season.startsAt)} – ${formatDate(season.endsAt)}`,
-          revision: season.revision,
           actions: (
             <div className={styles.inline}>
               <SeasonEditorDialog season={season} />
@@ -386,7 +378,6 @@ export function AdminResourcePage({
                   ? 'scheduled'
                   : 'active',
             detail: `${formatDate(week.startAt)} – ${formatDate(week.endAt)}`,
-            revision: week.revision,
             actions: selectedSeason ? (
               <div className={styles.inline}>
                 <WeekDialog seasonId={selectedSeason.id} week={week} />
@@ -401,7 +392,6 @@ export function AdminResourcePage({
               secondary: account.email,
               status: account.accountState,
               detail: person.roles.join(', ') || 'Registered nonmember',
-              revision: account.revision,
               actions: (
                 <div className={styles.inline}>
                   <Link
@@ -426,7 +416,6 @@ export function AdminResourcePage({
                   peopleById.get(enrollment.userId)?.slug ?? enrollment.userId,
                 status: enrollment.state,
                 detail: `${enrollment.role}${enrollment.role === 'student' ? ` · ${enrollment.studentLevel.replace('_', ' ')}` : ''}${enrollment.assignmentState === 'pending_mfa' ? ' · pending MFA' : ''}`,
-                revision: enrollment.revision,
                 actions: selectedSeason ? (
                   <div className={styles.inline}>
                     {enrollment.role !== 'coordinator' ? (
@@ -455,7 +444,6 @@ export function AdminResourcePage({
                 secondary: `Student · ${peopleById.get(mentorship.studentUserId)?.slug ?? mentorship.studentUserId}`,
                 status: 'active',
                 detail: `Mentored by ${peopleById.get(mentorship.mentorUserId)?.name ?? mentorship.mentorUserId}`,
-                revision: mentorship.revision,
                 actions: selectedSeason ? (
                   <div className={styles.inline}>
                     <MentorshipDialog
@@ -582,9 +570,6 @@ export function AdminResourcePage({
               >
                 {row.original.status}
               </span>
-              <span className={styles.badgeNeutral}>
-                r{row.original.revision}
-              </span>
             </div>
             <h2 className={`${styles.cardTitle} ${styles.cardTitleSpaced}`}>
               {row.original.primary}
@@ -646,17 +631,15 @@ function UserAdministrationDialog({
           seasonRoles: [],
           attemptCount: person.attempts ?? 0,
           mockInterviewCount: person.interviews ?? 0,
-          revision: person.revision ?? 1,
           email: person.email ?? `${person.slug}@example.test`,
           accountState: 'active',
         });
         setAssignments(
-          globalRoles.map((role, index) => ({
+          globalRoles.map((role) => ({
             id: `role_${person.id}_${role}`,
             userId: person.id,
             role,
             state: 'active',
-            revision: index + 1,
           })),
         );
       } else {
@@ -707,7 +690,7 @@ function UserAdministrationDialog({
     setMessage('');
     try {
       const updated: UserPrivate = demoMode
-        ? { ...user, accountState: state, revision: user.revision + 1 }
+        ? { ...user, accountState: state }
         : await apiRequest<UserPrivate>(
             `/admin/users/${encodeURIComponent(person.id)}/account-state`,
             {
@@ -715,7 +698,6 @@ function UserAdministrationDialog({
               body: JSON.stringify({
                 state,
                 reason: accountReason.trim(),
-                revision: user.revision,
               } satisfies AccountStateMutation),
             },
           );
@@ -758,7 +740,6 @@ function UserAdministrationDialog({
             userId: person.id,
             role: grantRole,
             state: 'pending_mfa' as const,
-            revision: 1,
           }
         : await apiRequest<GlobalRoleAssignment>(
             `/admin/users/${encodeURIComponent(person.id)}/global-roles`,
@@ -802,7 +783,7 @@ function UserAdministrationDialog({
     try {
       if (!demoMode) {
         await apiRequest<GlobalRoleAssignment>(
-          `/admin/users/${encodeURIComponent(person.id)}/global-roles/${encodeURIComponent(assignment.role)}?revision=${assignment.revision}&reason=${encodeURIComponent(roleReason.trim())}`,
+          `/admin/users/${encodeURIComponent(person.id)}/global-roles/${encodeURIComponent(assignment.role)}?reason=${encodeURIComponent(roleReason.trim())}`,
           { method: 'DELETE' },
         );
       }
@@ -887,7 +868,6 @@ function UserAdministrationDialog({
                 >
                   {user.accountState.replace('_', ' ')}
                 </span>{' '}
-                · revision {user.revision}
               </p>
               <div className={styles.field}>
                 <label htmlFor={`account-reason-${person.id}`}>
@@ -958,8 +938,7 @@ function UserAdministrationDialog({
                         <span
                           className={`${styles.helper} ${styles.helperBlock}`}
                         >
-                          {assignment.state.replace('_', ' ')} · revision{' '}
-                          {assignment.revision}
+                          {assignment.state.replace('_', ' ')}
                         </span>
                       </span>
                       <button
@@ -1167,7 +1146,6 @@ function WeekDialog({ seasonId, week }: { seasonId: string; week?: Week }) {
             seasonId,
             ...mutation,
             resourceUrl: mutation.resourceUrl ?? '',
-            revision: (week?.revision ?? 0) + 1,
           }
         : await apiRequest<Week>(
             week
@@ -1179,7 +1157,6 @@ function WeekDialog({ seasonId, week }: { seasonId: string; week?: Week }) {
                 week
                   ? ({
                       ...mutation,
-                      revision: week.revision,
                     } satisfies WeekUpdate)
                   : mutation,
               ),
@@ -1297,7 +1274,7 @@ function DeleteWeekButton({
   const remove = async () => {
     if (!demoMode)
       await apiRequest<void>(
-        `/seasons/${encodeURIComponent(seasonId)}/weeks/${encodeURIComponent(week.id)}?revision=${week.revision}`,
+        `/seasons/${encodeURIComponent(seasonId)}/weeks/${encodeURIComponent(week.id)}`,
         { method: 'DELETE' },
       );
     queryClient.setQueryData<WeekPage>(
@@ -1386,13 +1363,11 @@ export function EnrollmentDialog({
           state: enrollment?.state ?? 'active',
           assignmentState: enrollment?.assignmentState ?? 'active',
           removalReason: null,
-          revision: (enrollment?.revision ?? 0) + 1,
         };
       else if (enrollment) {
         const mutation: EnrollmentUpdate = {
           role: role === 'coordinator' ? 'mentor' : role,
           ...(role === 'student' ? { studentLevel } : {}),
-          revision: enrollment.revision,
         };
         saved = await apiRequest<Enrollment>(
           `/seasons/${encodeURIComponent(seasonId)}/members/${encodeURIComponent(enrollment.id)}`,
@@ -1447,8 +1422,6 @@ export function EnrollmentDialog({
             attempts: 0,
             interviews: 0,
             lastActiveAt: null,
-            revision:
-              'revision' in selectedAccount ? selectedAccount.revision : 1,
           };
           queryClient.setQueryData<ViewPage<Person>>(['people'], (current) =>
             upsertPageItem(current, newMember),
@@ -1627,7 +1600,6 @@ function RemoveEnrollmentDialog({
             ...enrollment,
             state: 'kicked' as const,
             removalReason: reason,
-            revision: enrollment.revision + 1,
           }
         : await apiRequest<Enrollment>(
             `/seasons/${encodeURIComponent(seasonId)}/members/${encodeURIComponent(enrollment.id)}/remove`,
@@ -1635,7 +1607,6 @@ function RemoveEnrollmentDialog({
               method: 'POST',
               body: JSON.stringify({
                 reason: reason.trim(),
-                revision: enrollment.revision,
               }),
             },
           );
@@ -1759,7 +1730,6 @@ function MentorshipDialog({
             seasonId,
             mentorUserId,
             studentUserId,
-            revision: (mentorship?.revision ?? 0) + 1,
           }
         : await apiRequest<Mentorship>(
             mentorship
@@ -1772,7 +1742,6 @@ function MentorshipDialog({
                   ? ({
                       mentorUserId,
                       studentUserId,
-                      revision: mentorship.revision,
                     } satisfies MentorshipUpdate)
                   : ({
                       mentorUserId,
@@ -1894,7 +1863,7 @@ function DeleteMentorshipButton({
   const remove = async () => {
     if (!demoMode)
       await apiRequest<void>(
-        `/seasons/${encodeURIComponent(seasonId)}/mentorships/${encodeURIComponent(mentorship.id)}?revision=${mentorship.revision}`,
+        `/seasons/${encodeURIComponent(seasonId)}/mentorships/${encodeURIComponent(mentorship.id)}`,
         { method: 'DELETE' },
       );
     queryClient.setQueryData<MentorshipPage>(

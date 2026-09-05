@@ -7,10 +7,8 @@
  */
 import type { EnrollmentUpdateRole } from './enrollmentUpdateRole';
 import type { EnrollmentUpdateStudentLevel } from './enrollmentUpdateStudentLevel';
-import type { Revision } from './revision';
 
 export interface EnrollmentUpdate {
   role: EnrollmentUpdateRole;
   studentLevel?: EnrollmentUpdateStudentLevel;
-  revision: Revision;
 }

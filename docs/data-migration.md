@@ -1,8 +1,14 @@
 # Legacy data migration runbook
 
-`rsp-migrate` imports the legacy PostgreSQL domain into clean `app` tables and
-records evidence in `migration`. It does not move Auth0 credentials; identity
-cutover is a separate prerequisite in `auth-cutover.md`.
+`rsp-migrate` is a standalone tool under `scripts/legacy-migration`. It imports
+the legacy PostgreSQL domain into clean `app` tables and records evidence in a
+bookkeeping schema created by the import setup script. It does not move Auth0
+credentials; identity cutover is a separate prerequisite in
+`auth-cutover.md`.
+
+User rows are imported as one account row plus matching profile, preference,
+contact, and security rows. The split preserves the source data while keeping
+account lifecycle queries independent from profile and contact data.
 
 Never run an apply first. A checksum-approved dry run and restore rehearsal are
 mandatory.
@@ -18,7 +24,15 @@ mandatory.
   source/manifest. Changed source data invalidates approval.
 - Original IDs, timestamps, null/deletion/test state and available history are
   retained. Every represented source row has provenance.
-- Rollback selects one import `run-id`; it is not a general database reset.
+- The manifest and bookkeeping schema keep the import reproducible and
+  auditable. They are not part of the running application schema.
+
+Legacy-only fields are not copied into `app` tables. The import maps admin flags
+to pending global-role assignments, derives alumni from completed student
+enrollments, and derives mock-interview pass status from current round scores.
+The old graduate and pass values are checked as reconciliation evidence; a
+pass mismatch blocks the import. Season backfill metadata is migration evidence
+only. Deleted legacy kick events do not enter the current append-only history.
 
 ## Before rehearsal
 
@@ -27,7 +41,13 @@ mandatory.
 3. Record source/target server versions, backup checksum and operator names.
 4. Set `LEGACY_DATABASE_URL` read-only and `DATABASE_URL` for the isolated
    target. Do not place either value in Git or shell history on a shared host.
-5. Confirm the target contains no real auth credentials and outbound email is
+5. Apply the import bookkeeping schema to the target:
+
+   ```sh
+   psql "$DATABASE_URL" --file scripts/legacy-migration/schema.sql
+   ```
+
+6. Confirm the target contains no real auth credentials and outbound email is
    disabled/captured.
 
 ## Packaged controlled shell and DSNs
@@ -37,6 +57,16 @@ and `rspctl` binaries plus runtime certificates and timezone data:
 
 ```sh
 docker build --file backend/Dockerfile --target ops --tag rsp-ops:cutover .
+```
+
+Create the import bookkeeping tables before the first dry run:
+
+```sh
+docker run --rm --read-only \
+  --network "${COMPOSE_PROJECT_NAME:-rsp-website}_data" \
+  --env-file /secure/rsp-migrate.env \
+  rsp-ops:cutover sh -c \
+  'psql "$DATABASE_URL" --file /usr/local/share/rsp/legacy-migration/schema.sql'
 ```
 
 Keep credentials in a mode-0600 secret-store materialized env file, not in the
@@ -49,8 +79,8 @@ different authorities:
 # CONNECT/USAGE/SELECT only. Production validates its TLS hostname and CA.
 LEGACY_DATABASE_URL=postgresql://legacy_migration_reader:<source-password>@<legacy-host>:5432/<legacy-database>?sslmode=verify-full
 
-# rsp_migration owns app/migration schema objects and is the only role allowed
-# to reverse an import. Do not add an app-only search_path to this DSN.
+# rsp_migration is the dedicated import/schema-migration role. Do not add an
+# app-only search_path to this DSN.
 DATABASE_URL=postgresql://rsp_migration:<migration-password>@postgres:5432/<target-database>?sslmode=require
 ```
 
@@ -84,7 +114,7 @@ operations image for a controlled rehearsal or cutover.
 Against PostgreSQL:
 
 ```sh
-go run ./backend/cmd/rsp-migrate legacy dry-run \
+go run ./scripts/legacy-migration/cmd legacy dry-run \
   --source-dsn "$LEGACY_DATABASE_URL" \
   --manifest rehearsal-manifest.json
 ```
@@ -92,8 +122,8 @@ go run ./backend/cmd/rsp-migrate legacy dry-run \
 Against the checked-in non-PII fixture:
 
 ```sh
-go run ./backend/cmd/rsp-migrate legacy dry-run \
-  --source-fixture backend/internal/migration/testdata/valid_snapshot.json \
+go run ./scripts/legacy-migration/cmd legacy dry-run \
+  --source-fixture scripts/legacy-migration/migration/testdata/valid_snapshot.json \
   --manifest fixture-manifest.json
 ```
 
@@ -117,7 +147,7 @@ ended-season closure and derived alumni reconciliation.
 After resolving a blocking anomaly, rerun dry-run with the approved file:
 
 ```sh
-go run ./backend/cmd/rsp-migrate legacy dry-run \
+go run ./scripts/legacy-migration/cmd legacy dry-run \
   --source-dsn "$LEGACY_DATABASE_URL" \
   --resolution approved-resolutions.json \
   --manifest approved-manifest.json
@@ -126,13 +156,13 @@ go run ./backend/cmd/rsp-migrate legacy dry-run \
 ## Apply and verify
 
 ```sh
-go run ./backend/cmd/rsp-migrate legacy apply \
+go run ./scripts/legacy-migration/cmd legacy apply \
   --source-dsn "$LEGACY_DATABASE_URL" \
   --target-dsn "$DATABASE_URL" \
   --resolution approved-resolutions.json \
   --manifest approved-manifest.json
 
-go run ./backend/cmd/rsp-migrate legacy verify \
+go run ./scripts/legacy-migration/cmd legacy verify \
   --target-dsn "$DATABASE_URL" \
   --manifest approved-manifest.json
 ```
@@ -144,17 +174,9 @@ every fix. Import already-ended seasons as closed at snapshot time and complete
 only enrollments active at that close. The old graduate flag is reconciliation
 evidence; alumni is derived from completed student enrollment.
 
-Run application smoke tests against the isolated target, then prove rollback:
-
-```sh
-go run ./backend/cmd/rsp-migrate legacy rollback \
-  --target-dsn "$DATABASE_URL" \
-  --run-id RUN_ID_FROM_MANIFEST
-```
-
-Verify that only the selected run's imported application rows were removed and
-append-only migration evidence records the rollback. Restore the isolated
-target again and repeat apply/verify to prove reproducibility.
+Run application smoke tests against the isolated target. If the import fails,
+discard the isolated target and restore it from the rehearsal backup. Do not
+repair application rows manually.
 
 The packaged equivalents use the same env file and reviewed artifact mount:
 
@@ -173,12 +195,6 @@ docker run --rm --read-only --tmpfs /tmp \
   --mount type=bind,src="$RSP_MIGRATION_ARTIFACTS",dst=/artifacts \
   rsp-ops:cutover rsp-migrate legacy verify \
   --manifest /artifacts/approved-manifest.json
-
-docker run --rm --read-only --tmpfs /tmp \
-  --user "$(id -u):$(id -g)" --network "$RSP_DATA_NETWORK" \
-  --env-file /secure/rsp-migrate.env \
-  rsp-ops:cutover rsp-migrate legacy rollback \
-  --run-id RUN_ID_FROM_MANIFEST
 ```
 
 ## Cutover window

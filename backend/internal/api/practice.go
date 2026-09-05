@@ -1,7 +1,6 @@
 package api
 
 import (
-	"fmt"
 	"net/http"
 	"strconv"
 	"time"
@@ -224,7 +223,6 @@ type attemptInput struct {
 	Minutes                   int
 	AttemptedAt               time.Time
 	SeasonID, WeekID          *string
-	Revision                  int64
 }
 
 func validateAttempt(in attemptInput) bool {
@@ -250,7 +248,7 @@ func (a *API) createAttempt(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	v := practice.AttemptRecord{ID: id.New(), UserID: actor.UserID, ProblemID: in.ProblemID, Outcome: in.Outcome, Confidence: in.Confidence, Minutes: in.Minutes, Notes: sanitize.New().String(in.Notes), AttemptedAt: in.AttemptedAt.UTC(), SeasonID: in.SeasonID, WeekID: in.WeekID, Revision: 1}
+	v := practice.AttemptRecord{ID: id.New(), UserID: actor.UserID, ProblemID: in.ProblemID, Outcome: in.Outcome, Confidence: in.Confidence, Minutes: in.Minutes, Notes: sanitize.New().String(in.Notes), AttemptedAt: in.AttemptedAt.UTC(), SeasonID: in.SeasonID, WeekID: in.WeekID}
 	created, err := a.db.CreateAttempt(r.Context(), v)
 	if err != nil {
 		a.writeStoreErrorResponse(w, err)
@@ -267,12 +265,12 @@ func (a *API) updateAttempt(w http.ResponseWriter, r *http.Request) {
 
 	actor := actorFrom(r.Context())
 	var in attemptInput
-	if err := decodeJSON(w, r, &in); err != nil || !validateAttempt(in) || in.Revision < 1 {
-		writeErrorResponse(w, http.StatusBadRequest, "validation_failed", "valid fields and revision are required")
+	if err := decodeJSON(w, r, &in); err != nil || !validateAttempt(in) {
+		writeErrorResponse(w, http.StatusBadRequest, "validation_failed", "valid fields are required")
 		return
 	}
 
-	updated, err := a.db.UpdateAttempt(r.Context(), r.PathValue("id"), actor.UserID, in.Revision, func(v *practice.AttemptRecord) error {
+	updated, err := a.db.UpdateAttempt(r.Context(), r.PathValue("id"), actor.UserID, func(v *practice.AttemptRecord) error {
 		v.ProblemID = in.ProblemID
 		v.Outcome = in.Outcome
 		v.Confidence = in.Confidence
@@ -296,24 +294,10 @@ func (a *API) deleteAttempt(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	actor := actorFrom(r.Context())
-	revision, err := parseRevision(r)
-	if err != nil {
-		writeErrorResponse(w, http.StatusBadRequest, "validation_failed", "revision query parameter is required")
-		return
-	}
-	if err := a.db.DeleteAttempt(r.Context(), r.PathValue("id"), actor.UserID, revision); err != nil {
+	if err := a.db.DeleteAttempt(r.Context(), r.PathValue("id"), actor.UserID); err != nil {
 		a.writeStoreErrorResponse(w, err)
 		return
 	}
 
 	w.WriteHeader(http.StatusNoContent)
-}
-
-func parseRevision(r *http.Request) (int64, error) {
-	var v int64
-	_, err := fmt.Sscan(r.URL.Query().Get("revision"), &v)
-	if v < 1 {
-		return 0, fmt.Errorf("invalid revision")
-	}
-	return v, err
 }

@@ -29,7 +29,6 @@ export const demoUser: CurrentUser = {
   alumni: true,
   attemptCount: 42,
   mockInterviewCount: 15,
-  revision: 4,
 };
 
 export const seasons: Season[] = [
@@ -47,7 +46,6 @@ export const seasons: Season[] = [
     weekCount: 12,
     summary:
       'The current programme for students building interview confidence through practice and mentoring.',
-    revision: 8,
   },
   {
     id: 'season_2026_s1',
@@ -63,7 +61,6 @@ export const seasons: Season[] = [
     weekCount: 12,
     summary:
       'Completed programme history, available read-only to participants and alumni.',
-    revision: 13,
   },
 ];
 
@@ -79,7 +76,6 @@ export const attempts: Attempt[] = [
     minutes: 31,
     attemptedAt: '2026-08-11T09:15:00Z',
     notes: '<p>Used a queue and checked the empty tree first.</p>',
-    revision: 2,
   },
   {
     id: 'attempt_6',
@@ -92,7 +88,6 @@ export const attempts: Attempt[] = [
     minutes: 18,
     attemptedAt: '2026-08-08T05:40:00Z',
     notes: '<p>Forgot to consider Unicode constraints.</p>',
-    revision: 1,
   },
   {
     id: 'attempt_5',
@@ -105,7 +100,6 @@ export const attempts: Attempt[] = [
     minutes: 47,
     attemptedAt: '2026-08-04T08:05:00Z',
     notes: '<p>Revisit sorting invariant.</p>',
-    revision: 1,
   },
   {
     id: 'attempt_4',
@@ -118,7 +112,6 @@ export const attempts: Attempt[] = [
     minutes: 9,
     attemptedAt: '2026-07-31T04:20:00Z',
     notes: '<p>Explained the complement invariant aloud.</p>',
-    revision: 1,
   },
   {
     id: 'attempt_migrated',
@@ -131,7 +124,6 @@ export const attempts: Attempt[] = [
     minutes: null,
     attemptedAt: '2025-10-18T03:00:00Z',
     notes: '',
-    revision: 1,
   },
 ];
 
@@ -258,7 +250,6 @@ export const mockInterviews: MockInterview[] = [
     ],
     reviewStatus: 'reviewed',
     reviewComments: 'The feedback was specific and useful.',
-    revision: 3,
   },
   {
     id: 'mock_202',
@@ -282,7 +273,6 @@ export const mockInterviews: MockInterview[] = [
       },
     ],
     reviewStatus: 'pending',
-    revision: 1,
   },
   {
     id: 'mock_201',
@@ -307,7 +297,6 @@ export const mockInterviews: MockInterview[] = [
     ],
     reviewStatus: 'reviewed',
     reviewComments: 'Great session.',
-    revision: 2,
   },
 ];
 

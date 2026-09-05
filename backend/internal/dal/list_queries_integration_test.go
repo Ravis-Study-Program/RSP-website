@@ -28,9 +28,9 @@ func TestStoreListQueries(t *testing.T) {
 
 	t.Run("directory filters and cursor directions", func(t *testing.T) {
 		id := func(user accounts.User) string { return user.ID }
-		expectListPage(t, []int{1, 2}, true, 4, id)(db.ListUsers(ctx, UserQuery{Limit: 2, Direction: "forward"}))
-		expectListPage(t, []int{3, 4}, false, 4, id)(db.ListUsers(ctx, UserQuery{Boundary: queryFixtureID(2), Limit: 2, Direction: "forward"}))
-		expectListPage(t, []int{2, 3}, true, 4, id)(db.ListUsers(ctx, UserQuery{Boundary: queryFixtureID(4), Limit: 2, Direction: "backward"}))
+		expectListPage(t, []int{1, 2}, true, 5, id)(db.ListUsers(ctx, UserQuery{Limit: 2, Direction: "forward"}))
+		expectListPage(t, []int{3, 4}, true, 5, id)(db.ListUsers(ctx, UserQuery{Boundary: queryFixtureID(2), Limit: 2, Direction: "forward"}))
+		expectListPage(t, []int{2, 3}, true, 5, id)(db.ListUsers(ctx, UserQuery{Boundary: queryFixtureID(4), Limit: 2, Direction: "backward"}))
 		expectListPage(t, []int{4}, false, 1, id)(db.ListUsers(ctx, UserQuery{Limit: 2, Direction: "forward", Search: "  dELTa  ", SeasonRole: "student"}))
 		expectListPage(t, []int{2}, false, 1, id)(db.ListUsers(ctx, UserQuery{Limit: 2, Direction: "forward", SeasonRole: "mentor", GlobalRole: "director"}))
 		expectListPage(t, nil, false, 0, id)(db.ListUsers(ctx, UserQuery{Limit: 2, Direction: "forward", SeasonRole: "student", GlobalRole: "director"}))
@@ -191,14 +191,17 @@ func newListQueryFixture(t *testing.T) *Store {
 	}
 	for index, name := range []string{"Alpha", "Bravo", "Charlie", "Delta", "Echo", "Foxtrot", "Golf", "Hotel", "India", "Juliet", "Kilo"} {
 		number := index + 1
-		exec(`INSERT INTO app.users(id,slug,display_name,email,mfa_configured,is_test)
-			VALUES($1,$2,$3,$4,$5,$6)`, queryFixtureID(number), "list-query-"+strings.ToLower(name), name, "secret-"+strings.ToLower(name)+"@example.test", number == 2, number == 8)
+		exec(`INSERT INTO app.users(id) VALUES($1)`, queryFixtureID(number))
+		exec(`INSERT INTO app.user_profiles(user_id,slug,display_name) VALUES($1,$2,$3)`, queryFixtureID(number), "list-query-"+strings.ToLower(name), name)
+		exec(`INSERT INTO app.user_preferences(user_id) VALUES($1)`, queryFixtureID(number))
+		exec(`INSERT INTO app.user_contacts(user_id,email) VALUES($1,$2)`, queryFixtureID(number), "secret-"+strings.ToLower(name)+"@example.test")
+		exec(`INSERT INTO app.user_security(user_id,mfa_configured) VALUES($1,$2)`, queryFixtureID(number), number == 2)
 		if number != 10 {
 			exec(`INSERT INTO app.user_auth_links(auth_subject,user_id,provider,provider_account_id)
 				VALUES($1,$2,'fixture',$3)`, "list-query-"+name, queryFixtureID(number), "list-query-"+name)
 		}
 	}
-	exec(`UPDATE app.users SET account_state='suspended',suspended_at=now() WHERE id=$1`, queryFixtureID(7))
+	exec(`UPDATE app.users SET account_state='suspended' WHERE id=$1`, queryFixtureID(7))
 	for _, number := range []int{2, 7} {
 		exec(`INSERT INTO app.global_role_assignments(user_id,role) VALUES($1,'director')`, queryFixtureID(number))
 	}

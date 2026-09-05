@@ -13,13 +13,13 @@ import (
 
 func scanAttempt(row pgx.Row) (practice.AttemptRecord, error) {
 	var v practice.AttemptRecord
-	if err := row.Scan(&v.ID, &v.UserID, &v.ProblemID, &v.Outcome, &v.Confidence, &v.Minutes, &v.Notes, &v.AttemptedAt, &v.SeasonID, &v.WeekID, &v.Revision, &v.DeletedAt); err != nil {
+	if err := row.Scan(&v.ID, &v.UserID, &v.ProblemID, &v.Outcome, &v.Confidence, &v.Minutes, &v.Notes, &v.AttemptedAt, &v.SeasonID, &v.WeekID, &v.DeletedAt); err != nil {
 		return v, noRows(err)
 	}
 	return v, nil
 }
 
-const attemptColumns = `a.id,a.user_id,COALESCE((SELECT id FROM app.leetcode_problems WHERE problem_id=a.problem_id),a.problem_id),a.outcome::text,a.confidence,a.time_taken_minutes,COALESCE(a.notes_html,''),a.attempted_at,e.season_id,a.season_week_id,a.revision,a.deleted_at`
+const attemptColumns = `a.id,a.user_id,COALESCE((SELECT id FROM app.leetcode_problems WHERE problem_id=a.problem_id),a.problem_id),a.outcome::text,a.confidence,a.time_taken_minutes,COALESCE(a.notes_html,''),a.attempted_at,e.season_id,a.season_week_id,a.deleted_at`
 
 func (p *Store) GetAttempt(ctx context.Context, id string) (practice.AttemptRecord, error) {
 	return scanAttempt(p.pool.QueryRow(ctx, `SELECT `+attemptColumns+`
@@ -113,8 +113,8 @@ func (p *Store) CreateAttempt(ctx context.Context, v practice.AttemptRecord) (pr
 	if err != nil {
 		return practice.AttemptRecord{}, noRows(err)
 	}
-	_, err = tx.Exec(ctx, `INSERT INTO app.problem_attempts(id,user_id,problem_id,enrollment_id,season_week_id,attempted_at,time_taken_minutes,outcome,confidence,notes_html,revision)
- VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`, v.ID, v.UserID, baseProblemID, enrollmentID, v.WeekID, v.AttemptedAt.UTC(), v.Minutes, v.Outcome, v.Confidence, v.Notes, v.Revision)
+	_, err = tx.Exec(ctx, `INSERT INTO app.problem_attempts(id,user_id,problem_id,enrollment_id,season_week_id,attempted_at,time_taken_minutes,outcome,confidence,notes_html)
+	 VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`, v.ID, v.UserID, baseProblemID, enrollmentID, v.WeekID, v.AttemptedAt.UTC(), v.Minutes, v.Outcome, v.Confidence, v.Notes)
 	if err != nil {
 		return v, mapDatabaseError(err)
 	}
@@ -129,7 +129,7 @@ func (p *Store) CreateAttempt(ctx context.Context, v practice.AttemptRecord) (pr
 	return v, nil
 }
 
-func (p *Store) UpdateAttempt(ctx context.Context, id, userID string, revision int64, fn func(*practice.AttemptRecord) error) (practice.AttemptRecord, error) {
+func (p *Store) UpdateAttempt(ctx context.Context, id, userID string, fn func(*practice.AttemptRecord) error) (practice.AttemptRecord, error) {
 	tx, err := p.pool.Begin(ctx)
 	if err != nil {
 		return practice.AttemptRecord{}, err
@@ -141,9 +141,6 @@ func (p *Store) UpdateAttempt(ctx context.Context, id, userID string, revision i
 		WHERE a.id=$1 AND a.user_id=$2 AND a.deleted_at IS NULL FOR UPDATE OF a`, id, userID))
 	if err != nil {
 		return practice.AttemptRecord{}, err
-	}
-	if v.Revision != revision {
-		return v, ErrConflict
 	}
 	if err := fn(&v); err != nil {
 		return v, err
@@ -171,14 +168,10 @@ func (p *Store) UpdateAttempt(ctx context.Context, id, userID string, revision i
 		return v, noRows(err)
 	}
 
-	result, err := tx.Exec(ctx, `UPDATE app.problem_attempts SET problem_id=$1,enrollment_id=$2,attempted_at=$3,time_taken_minutes=$4,outcome=$5,confidence=$6,notes_html=$7,season_week_id=$8,revision=revision + 1 WHERE id = $9 AND user_id = $10 AND revision = $11`, baseProblemID, enrollmentID, v.AttemptedAt.UTC(), v.Minutes, v.Outcome, v.Confidence, v.Notes, v.WeekID, id, userID, revision)
+	_, err = tx.Exec(ctx, `UPDATE app.problem_attempts SET problem_id=$1,enrollment_id=$2,attempted_at=$3,time_taken_minutes=$4,outcome=$5,confidence=$6,notes_html=$7,season_week_id=$8 WHERE id = $9 AND user_id = $10`, baseProblemID, enrollmentID, v.AttemptedAt.UTC(), v.Minutes, v.Outcome, v.Confidence, v.Notes, v.WeekID, id, userID)
 	if err != nil {
 		return v, mapDatabaseError(err)
 	}
-	if result.RowsAffected() == 0 {
-		return v, ErrConflict
-	}
-	v.Revision++
 	if err := appendAuditTx(ctx, tx, newAudit(userID, "attempt.updated", "problem_attempt", id, nil, time.Now())); err != nil {
 		return v, err
 	}
@@ -188,7 +181,7 @@ func (p *Store) UpdateAttempt(ctx context.Context, id, userID string, revision i
 	return v, nil
 }
 
-func (p *Store) DeleteAttempt(ctx context.Context, id, userID string, revision int64) error {
+func (p *Store) DeleteAttempt(ctx context.Context, id, userID string) error {
 	tx, err := p.pool.Begin(ctx)
 	if err != nil {
 		return err
@@ -196,7 +189,7 @@ func (p *Store) DeleteAttempt(ctx context.Context, id, userID string, revision i
 
 	defer tx.Rollback(context.Background())
 	now := time.Now().UTC()
-	result, err := tx.Exec(ctx, `UPDATE app.problem_attempts SET deleted_at=$1,revision=revision + 1 WHERE id = $2 AND user_id = $3 AND revision = $4 AND deleted_at IS NULL`, now, id, userID, revision)
+	result, err := tx.Exec(ctx, `UPDATE app.problem_attempts SET deleted_at=$1 WHERE id = $2 AND user_id = $3 AND deleted_at IS NULL`, now, id, userID)
 	if err != nil {
 		return err
 	}

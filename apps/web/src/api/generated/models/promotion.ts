@@ -6,10 +6,8 @@
  * OpenAPI spec version: 2.0.0
  */
 import type { PromotionRole } from './promotionRole';
-import type { Revision } from './revision';
 
 export interface Promotion {
   role: PromotionRole;
   reason?: string;
-  revision: Revision;
 }

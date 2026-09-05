@@ -175,7 +175,7 @@ export function PracticePage() {
     try {
       if (!demoMode && !attempt.id.startsWith('attempt_local_'))
         await apiRequest<void>(
-          `/problem-attempts/${encodeURIComponent(attempt.id)}?revision=${attempt.revision}`,
+          `/problem-attempts/${encodeURIComponent(attempt.id)}`,
           { method: 'DELETE' },
         );
       setLocalAttempts((items) =>
@@ -413,7 +413,6 @@ function AttemptDialog({
       minutes: values.minutes,
       notes: values.notes,
       attemptedAt,
-      revision: (attempt?.revision ?? 0) + 1,
     };
     if (!demoMode) {
       try {
@@ -421,7 +420,6 @@ function AttemptDialog({
           ...values,
           confidence,
           attemptedAt,
-          ...(attempt ? { revision: attempt.revision } : {}),
         };
         const apiSaved = await apiRequest<ApiAttempt>(
           attempt

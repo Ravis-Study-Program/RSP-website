@@ -12,7 +12,7 @@ import (
 
 func scanWeek(row pgx.Row) (programme.WeekRecord, error) {
 	var v programme.WeekRecord
-	if err := row.Scan(&v.ID, &v.SeasonID, &v.Number, &v.StartAt, &v.EndAt, &v.ResourceURL, &v.Revision); err != nil {
+	if err := row.Scan(&v.ID, &v.SeasonID, &v.Number, &v.StartAt, &v.EndAt, &v.ResourceURL); err != nil {
 		return v, noRows(err)
 	}
 	return v, nil
@@ -51,7 +51,7 @@ func (p *Store) ListWeeks(ctx context.Context, q WeekQuery) ([]programme.WeekRec
 	}
 	query := `WITH boundary AS (
 		SELECT ` + boundarySelect + ` FROM app.season_weeks WHERE id=NULLIF(@boundary, '')::uuid AND season_id = @seasonID AND deleted_at IS NULL
-	) SELECT w.id,w.season_id,w.week_number,w.start_at,w.end_at,COALESCE(w.resource_url,''),w.revision
+	) SELECT w.id,w.season_id,w.week_number,w.start_at,w.end_at,COALESCE(w.resource_url,'')
 	FROM app.season_weeks w
 	WHERE w.season_id = @seasonID AND w.deleted_at IS NULL
 	  AND (NULLIF(@boundary, '')::uuid IS NULL OR EXISTS (SELECT 1 FROM boundary b WHERE ` + key + ` ` + comparator + ` ` + boundaryKey + `))
@@ -87,7 +87,7 @@ func (p *Store) CreateWeek(ctx context.Context, v programme.WeekRecord, actorID 
 	}
 
 	defer tx.Rollback(context.Background())
-	err = tx.QueryRow(ctx, `INSERT INTO app.season_weeks(id,season_id,week_number,start_at,end_at,resource_url,revision) VALUES($1,$2,$3,$4,$5,$6,$7) RETURNING revision`, v.ID, v.SeasonID, v.Number, v.StartAt, v.EndAt, v.ResourceURL, v.Revision).Scan(&v.Revision)
+	_, err = tx.Exec(ctx, `INSERT INTO app.season_weeks(id,season_id,week_number,start_at,end_at,resource_url) VALUES($1,$2,$3,$4,$5,$6)`, v.ID, v.SeasonID, v.Number, v.StartAt, v.EndAt, v.ResourceURL)
 	if err != nil {
 		return v, mapDatabaseError(err)
 	}
@@ -97,17 +97,17 @@ func (p *Store) CreateWeek(ctx context.Context, v programme.WeekRecord, actorID 
 	return v, tx.Commit(ctx)
 }
 
-func (p *Store) UpdateWeek(ctx context.Context, seasonID, weekID string, revision int64, candidate programme.WeekRecord, actorID string, at time.Time) (programme.WeekRecord, error) {
+func (p *Store) UpdateWeek(ctx context.Context, seasonID, weekID string, candidate programme.WeekRecord, actorID string, at time.Time) (programme.WeekRecord, error) {
 	tx, err := p.pool.Begin(ctx)
 	if err != nil {
 		return programme.WeekRecord{}, err
 	}
 
 	defer tx.Rollback(context.Background())
-	v, err := scanWeek(tx.QueryRow(ctx, `UPDATE app.season_weeks SET week_number=$4,start_at=$5,end_at=$6,resource_url=$7,revision=revision+1 WHERE id=$1 AND season_id=$2 AND revision=$3 AND deleted_at IS NULL RETURNING id,season_id,week_number,start_at,end_at,resource_url,revision`, weekID, seasonID, revision, candidate.Number, candidate.StartAt, candidate.EndAt, candidate.ResourceURL))
+	v, err := scanWeek(tx.QueryRow(ctx, `UPDATE app.season_weeks SET week_number=$3,start_at=$4,end_at=$5,resource_url=$6 WHERE id=$1 AND season_id=$2 AND deleted_at IS NULL RETURNING id,season_id,week_number,start_at,end_at,resource_url`, weekID, seasonID, candidate.Number, candidate.StartAt, candidate.EndAt, candidate.ResourceURL))
 	if err != nil {
 		if errors.Is(err, ErrNotFound) {
-			return v, p.classifyRevision(ctx, tx, `SELECT revision FROM app.season_weeks WHERE id=$1 AND season_id=$2 AND deleted_at IS NULL`, weekID, seasonID)
+			return v, noRows(err)
 		}
 		return v, mapDatabaseError(err)
 	}
@@ -117,19 +117,19 @@ func (p *Store) UpdateWeek(ctx context.Context, seasonID, weekID string, revisio
 	return v, tx.Commit(ctx)
 }
 
-func (p *Store) DeleteWeek(ctx context.Context, seasonID, weekID string, revision int64, actorID string, at time.Time) error {
+func (p *Store) DeleteWeek(ctx context.Context, seasonID, weekID string, actorID string, at time.Time) error {
 	tx, err := p.pool.Begin(ctx)
 	if err != nil {
 		return err
 	}
 
 	defer tx.Rollback(context.Background())
-	result, err := tx.Exec(ctx, `UPDATE app.season_weeks SET deleted_at=$4,revision=revision+1 WHERE id=$1 AND season_id=$2 AND revision=$3 AND deleted_at IS NULL`, weekID, seasonID, revision, at.UTC())
+	result, err := tx.Exec(ctx, `UPDATE app.season_weeks SET deleted_at=$3 WHERE id=$1 AND season_id=$2 AND deleted_at IS NULL`, weekID, seasonID, at.UTC())
 	if err != nil {
 		return mapDatabaseError(err)
 	}
 	if result.RowsAffected() == 0 {
-		return p.classifyRevision(ctx, tx, `SELECT revision FROM app.season_weeks WHERE id=$1 AND season_id=$2 AND deleted_at IS NULL`, weekID, seasonID)
+		return noRows(err)
 	}
 	if err := appendAuditTx(ctx, tx, newAudit(actorID, "week.deleted", "week", weekID, nil, at)); err != nil {
 		return err

@@ -68,7 +68,6 @@ export function adaptCurrentUser(user: Me): CurrentUser {
     alumni: user.alumni,
     attemptCount: user.attemptCount,
     mockInterviewCount: user.mockInterviewCount,
-    revision: user.revision,
   };
 }
 
@@ -90,7 +89,6 @@ export function adaptSeason(season: ApiSeason): Season {
       : season.status === 'open'
         ? 'Current programme.'
         : 'Completed programme history.',
-    revision: season.revision,
   };
 }
 
@@ -141,7 +139,6 @@ export function adaptPerson(
     status: context.status ?? derivedStatus,
     attempts: context.attempts ?? user.attemptCount,
     interviews: context.interviews ?? user.mockInterviewCount,
-    revision: user.revision,
     ...(context.email ? { email: context.email } : {}),
     lastActiveAt: context.lastActiveAt ?? null,
   };
@@ -228,7 +225,6 @@ export function adaptAttempt(
     minutes: attempt.minutes,
     attemptedAt: attempt.attemptedAt,
     notes: attempt.notes,
-    revision: attempt.revision,
   };
 }
 
@@ -310,7 +306,6 @@ export function adaptMockInterview(
       ? 'reviewed'
       : 'pending',
     ...(comments.length > 0 ? { reviewComments: comments.join('\n\n') } : {}),
-    revision: interview.revision,
   };
 }
 

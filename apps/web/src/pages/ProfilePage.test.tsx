@@ -50,7 +50,6 @@ const currentUser: CurrentUser = {
   alumni: false,
   attemptCount: 0,
   mockInterviewCount: 0,
-  revision: 1,
 };
 
 describe('profile slug suggestion', () => {

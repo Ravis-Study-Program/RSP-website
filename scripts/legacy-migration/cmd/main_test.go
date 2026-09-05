@@ -11,7 +11,7 @@ import (
 )
 
 func TestFixtureCommandLifecycle(t *testing.T) {
-	fixture, err := filepath.Abs(filepath.Join("..", "..", "internal", "migration", "testdata", "valid_snapshot.json"))
+	fixture, err := filepath.Abs(filepath.Join("..", "migration", "testdata", "valid_snapshot.json"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -41,17 +41,10 @@ func TestFixtureCommandLifecycle(t *testing.T) {
 	if code != 0 || !strings.Contains(stdout.String(), `"foreignKeyErrors": 0`) {
 		t.Fatalf("verify code=%d stdout=%s stderr=%s", code, stdout.String(), stderr.String())
 	}
-	runID := extractRunID(t, manifest)
-	stdout.Reset()
-	stderr.Reset()
-	code = run(ctx, []string{"legacy", "rollback", "--run-id", runID, "--target-state", state}, &stdout, &stderr)
-	if code != 0 {
-		t.Fatalf("rollback code=%d stdout=%s stderr=%s", code, stdout.String(), stderr.String())
-	}
 }
 
 func TestAuth0FixturePlanCommand(t *testing.T) {
-	testdata, err := filepath.Abs(filepath.Join("..", "..", "internal", "migration", "testdata"))
+	testdata, err := filepath.Abs(filepath.Join("..", "migration", "testdata"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -127,20 +120,4 @@ func TestUsageAndMissingInputs(t *testing.T) {
 	if code := run(context.Background(), []string{"legacy", "apply"}, &stdout, &stderr); code != 1 {
 		t.Fatalf("missing input code = %d", code)
 	}
-}
-
-func extractRunID(t *testing.T, path string) string {
-	t.Helper()
-	encoded, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	var document struct {
-		RunID string `json:"runId"`
-	}
-	if err := json.Unmarshal(encoded, &document); err != nil {
-		t.Fatal(err)
-	}
-	return document.RunID
 }

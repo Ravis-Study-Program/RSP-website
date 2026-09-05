@@ -7,12 +7,10 @@
  */
 import type { AssignmentState } from './assignmentState';
 import type { GlobalRole } from './globalRole';
-import type { Revision } from './revision';
 
 export interface GlobalRoleAssignment {
   id: string;
   userId: string;
   role: GlobalRole;
   state: AssignmentState;
-  revision: Revision;
 }

@@ -10,7 +10,6 @@ import (
 
 var (
 	ErrForbidden = errors.New("forbidden")
-	ErrConflict  = errors.New("stale revision")
 	ErrInvalid   = errors.New("invalid mock interview")
 )
 
@@ -30,7 +29,6 @@ type Participant struct {
 	Inactive     bool   `json:"-"`
 	Suspended    bool   `json:"suspended,omitempty"`
 	Deleted      bool   `json:"deleted,omitempty"`
-	Test         bool   `json:"test,omitempty"`
 	KickedOnly   bool   `json:"kickedOnly,omitempty"`
 }
 
@@ -42,15 +40,15 @@ type ParticipantSummary struct {
 }
 
 func (p Participant) Eligible() bool {
-	return (p.ActiveMember || p.Alumni) && !p.Inactive && !p.Suspended && !p.Deleted && !p.Test && !p.KickedOnly
+	return (p.ActiveMember || p.Alumni) && !p.Inactive && !p.Suspended && !p.Deleted && !p.KickedOnly
 }
 
 func (p Participant) ProgrammeAccessEligible() bool {
-	return (p.ActiveMember || p.Alumni || p.FormerMember) && !p.Inactive && !p.Suspended && !p.Deleted && !p.Test && !p.KickedOnly
+	return (p.ActiveMember || p.Alumni || p.FormerMember) && !p.Inactive && !p.Suspended && !p.Deleted && !p.KickedOnly
 }
 
 func (p Participant) DirectoryEligible() bool {
-	return (p.ActiveMember || p.Alumni) && !p.Inactive && !p.Suspended && !p.Deleted && !p.Test && !p.KickedOnly
+	return (p.ActiveMember || p.Alumni) && !p.Inactive && !p.Suspended && !p.Deleted && !p.KickedOnly
 }
 
 type Scores struct {
@@ -85,7 +83,6 @@ type Interview struct {
 	DurationMinutes int                `json:"durationMinutes"`
 	Notes           string             `json:"notes"`
 	Rounds          []Round            `json:"rounds"`
-	Revision        int64              `json:"revision"`
 	DeletedAt       *time.Time         `json:"-"`
 }
 
@@ -112,7 +109,7 @@ func (s *Service) Create(actorID string, in CreateInput, now time.Time) (Intervi
 		rounds[i].Reviewed = false
 		rounds[i].IntervieweeComment = ""
 	}
-	m := Interview{ID: "mock-" + actorID + "-" + now.UTC().Format("20060102150405.000000000"), InterviewerID: actorID, IntervieweeID: in.Interviewee.UserID, SeasonID: in.SeasonID, OccurredAt: in.OccurredAt.UTC(), DurationMinutes: in.DurationMinutes, Notes: s.clean(in.Notes), Rounds: rounds, Revision: 1}
+	m := Interview{ID: "mock-" + actorID + "-" + now.UTC().Format("20060102150405.000000000"), InterviewerID: actorID, IntervieweeID: in.Interviewee.UserID, SeasonID: in.SeasonID, OccurredAt: in.OccurredAt.UTC(), DurationMinutes: in.DurationMinutes, Notes: s.clean(in.Notes), Rounds: rounds}
 	if err := validate(m); err != nil {
 		return Interview{}, err
 	}
@@ -121,20 +118,16 @@ func (s *Service) Create(actorID string, in CreateInput, now time.Time) (Intervi
 }
 
 type UpdateInput struct {
-	ExpectedRevision int64
-	OccurredAt       time.Time
-	DurationMinutes  int
-	Notes            string
-	Rounds           []Round
+	OccurredAt      time.Time
+	DurationMinutes int
+	Notes           string
+	Rounds          []Round
 }
 
 // Update updates a value without changing the input.
 func (s Service) Update(m Interview, actorID string, in UpdateInput, now time.Time) (Interview, error) {
 	if actorID != m.InterviewerID {
 		return Interview{}, ErrForbidden
-	}
-	if m.Revision != in.ExpectedRevision {
-		return Interview{}, ErrConflict
 	}
 	candidate := m
 	candidate.OccurredAt = in.OccurredAt.UTC()
@@ -154,7 +147,6 @@ func (s Service) Update(m Interview, actorID string, in UpdateInput, now time.Ti
 			candidate.Rounds[i].IntervieweeComment = ""
 		}
 	}
-	candidate.Revision++
 	if err := validate(candidate); err != nil {
 		return Interview{}, err
 	}
@@ -163,12 +155,9 @@ func (s Service) Update(m Interview, actorID string, in UpdateInput, now time.Ti
 }
 
 // Review updates a review without changing the input.
-func (s Service) Review(m Interview, actorID, roundID, comment string, reviewed bool, expectedRevision int64, now time.Time) (Interview, error) {
+func (s Service) Review(m Interview, actorID, roundID, comment string, reviewed bool, now time.Time) (Interview, error) {
 	if actorID != m.IntervieweeID {
 		return Interview{}, ErrForbidden
-	}
-	if m.Revision != expectedRevision {
-		return Interview{}, ErrConflict
 	}
 	candidate := cloneInterview(m)
 	found := false
@@ -183,38 +172,29 @@ func (s Service) Review(m Interview, actorID, roundID, comment string, reviewed 
 	if !found {
 		return Interview{}, ErrInvalid
 	}
-	candidate.Revision++
 	return candidate, nil
 }
 
 // CorrectIdentities corrects participant identity without changing the input.
-func (s Service) CorrectIdentities(m Interview, actorID, newInterviewer, newInterviewee string, newSeason *string, reason string, privileged bool, expectedRevision int64, now time.Time) (Interview, error) {
+func (s Service) CorrectIdentities(m Interview, actorID, newInterviewer, newInterviewee string, newSeason *string, reason string, privileged bool, now time.Time) (Interview, error) {
 	if !privileged || reason == "" {
 		return Interview{}, ErrForbidden
-	}
-	if m.Revision != expectedRevision {
-		return Interview{}, ErrConflict
 	}
 	updated := m
 	updated.InterviewerID = newInterviewer
 	updated.IntervieweeID = newInterviewee
 	updated.SeasonID = newSeason
-	updated.Revision++
 	return updated, nil
 }
 
 // Delete soft-deletes an interview without changing the input.
-func (s Service) Delete(m Interview, actorID string, expectedRevision int64, now time.Time) (Interview, error) {
+func (s Service) Delete(m Interview, actorID string, now time.Time) (Interview, error) {
 	if actorID != m.InterviewerID {
 		return Interview{}, ErrForbidden
-	}
-	if m.Revision != expectedRevision {
-		return Interview{}, ErrConflict
 	}
 	at := now.UTC()
 	updated := m
 	updated.DeletedAt = &at
-	updated.Revision++
 	return updated, nil
 }
 

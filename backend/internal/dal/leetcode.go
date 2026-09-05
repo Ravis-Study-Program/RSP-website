@@ -28,17 +28,17 @@ func (s *WorkerSession) Upsert(ctx context.Context, problem leetcode.Problem) er
 	link := problemURL(problem.Slug)
 	if leetcodeID == "" {
 		problemID, leetcodeID = id.New(), id.New()
-		if _, err := tx.Exec(ctx, `INSERT INTO app.problems(id,title,url,revision) VALUES($1,$2,$3,1)`, problemID, problem.Title, link); err != nil {
+		if _, err := tx.Exec(ctx, `INSERT INTO app.problems(id,title,url) VALUES($1,$2,$3)`, problemID, problem.Title, link); err != nil {
 			return err
 		}
-		if _, err := tx.Exec(ctx, `INSERT INTO app.leetcode_problems(id,problem_id,leetcode_number,difficulty,is_premium,revision) VALUES($1,$2,$3,$4,$5,1)`, leetcodeID, problemID, problem.Number, problem.Difficulty, problem.Premium); err != nil {
+		if _, err := tx.Exec(ctx, `INSERT INTO app.leetcode_problems(id,problem_id,leetcode_number,difficulty,is_premium) VALUES($1,$2,$3,$4,$5)`, leetcodeID, problemID, problem.Number, problem.Difficulty, problem.Premium); err != nil {
 			return err
 		}
 	} else {
-		if _, err := tx.Exec(ctx, `UPDATE app.problems SET title=$2,url=$3,deleted_at=NULL,revision=revision+1 WHERE id=$1`, problemID, problem.Title, link); err != nil {
+		if _, err := tx.Exec(ctx, `UPDATE app.problems SET title=$2,url=$3,deleted_at=NULL WHERE id=$1`, problemID, problem.Title, link); err != nil {
 			return err
 		}
-		if _, err := tx.Exec(ctx, `UPDATE app.leetcode_problems SET difficulty=$2,is_premium=$3,deleted_at=NULL,revision=revision+1 WHERE id=$1`, leetcodeID, problem.Difficulty, problem.Premium); err != nil {
+		if _, err := tx.Exec(ctx, `UPDATE app.leetcode_problems SET difficulty=$2,is_premium=$3,deleted_at=NULL WHERE id=$1`, leetcodeID, problem.Difficulty, problem.Premium); err != nil {
 			return err
 		}
 	}
@@ -54,7 +54,7 @@ func (s *WorkerSession) Upsert(ctx context.Context, problem leetcode.Problem) er
 		}
 		seen[normalized] = true
 		categoryID := id.New()
-		if _, err := tx.Exec(ctx, `INSERT INTO app.leetcode_problem_categories(id,name,normalized_name,revision) VALUES($1,$2,$3,1) ON CONFLICT DO NOTHING`, categoryID, displayName, normalized); err != nil {
+		if _, err := tx.Exec(ctx, `INSERT INTO app.leetcode_problem_categories(id,name,normalized_name) VALUES($1,$2,$3) ON CONFLICT DO NOTHING`, categoryID, displayName, normalized); err != nil {
 			return err
 		}
 		if err := tx.QueryRow(ctx, `SELECT id FROM app.leetcode_problem_categories WHERE lower(normalized_name)=lower($1) AND deleted_at IS NULL`, normalized).Scan(&categoryID); err != nil {

@@ -4,11 +4,11 @@ import { PracticePreferencesPanel } from '@/pages/SettingsPage';
 
 const disabledGoals = {
   goalsEnabled: false,
-  easyMinutes: 20,
-  mediumMinutes: 35,
-  hardMinutes: 50,
-  revision: 1,
+  easyMinutes: 10,
+  mediumMinutes: 20,
+  hardMinutes: 45,
 };
+const enabledGoals = { ...disabledGoals, goalsEnabled: true };
 
 describe('PracticePreferencesPanel', () => {
   it('does not let the member self-enable personal goals', () => {
@@ -34,7 +34,6 @@ describe('PracticePreferencesPanel', () => {
 
   it('enables goal values after relationship-based enablement and reports invalid ranges', () => {
     const onChange = vi.fn();
-    const enabledGoals = { ...disabledGoals, goalsEnabled: true, revision: 2 };
     const { rerender } = render(
       <PracticePreferencesPanel value={enabledGoals} onChange={onChange} />,
     );
@@ -50,7 +49,7 @@ describe('PracticePreferencesPanel', () => {
         onChange={onChange}
       />,
     );
-    expect(screen.getByText('Enter 5 to 180 minutes.')).toBeVisible();
+    expect(screen.getByText('Enter 1 to 180 minutes.')).toBeVisible();
     expect(screen.getByLabelText('Easy minutes')).toHaveAttribute(
       'aria-invalid',
       'true',

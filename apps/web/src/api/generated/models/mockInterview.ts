@@ -7,7 +7,6 @@
  */
 import type { MockParticipantSummary } from './mockParticipantSummary';
 import type { MockRound } from './mockRound';
-import type { Revision } from './revision';
 
 export interface MockInterview {
   id: string;
@@ -23,5 +22,4 @@ export interface MockInterview {
   notes: string;
   /** @minItems 1 */
   rounds: MockRound[];
-  revision: Revision;
 }

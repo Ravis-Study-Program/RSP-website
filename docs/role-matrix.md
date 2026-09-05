@@ -81,7 +81,6 @@ Permission tests cover anonymous, unverified, nonmember, Student, Mentor,
 Coordinator, Graduate, Director, System Admin, kicked, suspended and deleted
 states across the relationship and lifecycle policy suites. Protected routes
 have authenticated primary-success tests and anonymous rejection tests.
-Mutable resource families also cover stale revisions, while
-focused regressions cover cross-member, cross-mentorship, cross-season and
+Focused regressions cover cross-member, cross-mentorship, cross-season and
 caller-supplied actor spoofing where those attacks apply. New operations must
 extend both the operation matrix and the relevant relationship regressions.

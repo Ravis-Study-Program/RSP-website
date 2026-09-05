@@ -250,7 +250,7 @@ paths:
     parameters: [{ $ref: '#/components/parameters/ID' }]
     get:
       operationId: getUserPracticeSettings
-      description: Returns private practice settings, including the independent settings revision, to the member, their assigned mentor, their season Coordinator, a Director, or a System Admin.
+      description: Returns private practice settings to the member, their assigned mentor, their season Coordinator, a Director, or a System Admin.
       responses:
         default: { $ref: '#/components/responses/Error' }
         '200':
@@ -379,7 +379,7 @@ paths:
           content:
             {
               application/json:
-                { schema: { $ref: '#/components/schemas/ReasonedRevision' } },
+                { schema: { $ref: '#/components/schemas/Reasoned' } },
             },
         }
       responses:
@@ -469,7 +469,7 @@ paths:
           content:
             {
               application/json:
-                { schema: { $ref: '#/components/schemas/ReasonedRevision' } },
+                { schema: { $ref: '#/components/schemas/Reasoned' } },
             },
         }
       responses:
@@ -575,7 +575,6 @@ paths:
         '429': { $ref: '#/components/responses/RateLimited' }
     delete:
       operationId: deleteSeasonWeek
-      parameters: [{ $ref: '#/components/parameters/Revision' }]
       responses:
         default: { $ref: '#/components/responses/Error' }
         '204': { description: Deleted }
@@ -725,7 +724,7 @@ paths:
           content:
             {
               application/json:
-                { schema: { $ref: '#/components/schemas/ReasonedRevision' } },
+                { schema: { $ref: '#/components/schemas/Reasoned' } },
             },
         }
       responses:
@@ -837,7 +836,6 @@ paths:
         '429': { $ref: '#/components/responses/RateLimited' }
     delete:
       operationId: deleteMentorship
-      parameters: [{ $ref: '#/components/parameters/Revision' }]
       responses:
         default: { $ref: '#/components/responses/Error' }
         '204': { description: Ended }
@@ -976,7 +974,6 @@ paths:
         '429': { $ref: '#/components/responses/RateLimited' }
     delete:
       operationId: deleteProblemAttempt
-      parameters: [{ $ref: '#/components/parameters/Revision' }]
       responses:
         default: { $ref: '#/components/responses/Error' }
         '204': { description: Deleted }
@@ -1116,7 +1113,6 @@ paths:
         '429': { $ref: '#/components/responses/RateLimited' }
     delete:
       operationId: deleteMockInterview
-      parameters: [{ $ref: '#/components/parameters/Revision' }]
       responses:
         default: { $ref: '#/components/responses/Error' }
         '204': { description: Soft deleted }
@@ -1324,7 +1320,7 @@ paths:
         default: { $ref: '#/components/responses/Error' }
         '200':
           {
-            description: Active and pending global role assignments including their independent revisions,
+            description: Active and pending global role assignments,
             content:
               {
                 application/json:
@@ -1350,7 +1346,6 @@ paths:
     delete:
       operationId: revokeAdminUserGlobalRole
       parameters:
-        - { $ref: '#/components/parameters/Revision' }
         - {
             name: reason,
             in: query,
@@ -1396,13 +1391,6 @@ components:
         schema: { type: string, enum: [forward, backward], default: forward },
       }
     Sort: { name: sort, in: query, schema: { type: string } }
-    Revision:
-      {
-        name: revision,
-        in: query,
-        required: true,
-        schema: { type: integer, format: int64, minimum: 1 },
-      }
   responses:
     Health:
       description: Health status
@@ -1430,7 +1418,6 @@ components:
             { schema: { $ref: '#/components/schemas/ErrorResponse' } },
         }
   schemas:
-    Revision: { type: integer, format: int64, minimum: 1 }
     Health:
       {
         type: object,
@@ -1481,7 +1468,6 @@ components:
           seasonRoles,
           attemptCount,
           mockInterviewCount,
-          revision,
         ]
       properties:
         id: { type: string }
@@ -1499,7 +1485,6 @@ components:
           }
         attemptCount: { type: integer, format: int64, minimum: 0 }
         mockInterviewCount: { type: integer, format: int64, minimum: 0 }
-        revision: { $ref: '#/components/schemas/Revision' }
     UserSeasonRole:
       type: object
       required: [seasonId, seasonSlug, role, state]
@@ -1567,7 +1552,7 @@ components:
     UpdateMe:
       type: object
       additionalProperties: false
-      required: [name, timezone, revision]
+      required: [name, timezone]
       properties:
         {
           name: { type: string, minLength: 1, maxLength: 100 },
@@ -1575,7 +1560,6 @@ components:
             { type: string, pattern: '^[a-z0-9](?:[a-z0-9-]{1,48}[a-z0-9])?$' },
           avatarUrl: { type: string, format: uri, nullable: true },
           timezone: { type: string },
-          revision: { $ref: '#/components/schemas/Revision' },
         }
     SlugSuggestion:
       type: object
@@ -1589,41 +1573,33 @@ components:
     PracticeSettings:
       type: object
       additionalProperties: false
-      required:
-        [goalsEnabled, easyMinutes, mediumMinutes, hardMinutes, revision]
+      required: [goalsEnabled, easyMinutes, mediumMinutes, hardMinutes]
       properties:
         goalsEnabled: { type: boolean }
-        easyMinutes: { type: integer, minimum: 5, maximum: 180 }
-        mediumMinutes: { type: integer, minimum: 5, maximum: 180 }
-        hardMinutes: { type: integer, minimum: 5, maximum: 180 }
-        revision: { $ref: '#/components/schemas/Revision' }
+        easyMinutes: { type: integer, minimum: 1, maximum: 180 }
+        mediumMinutes: { type: integer, minimum: 1, maximum: 180 }
+        hardMinutes: { type: integer, minimum: 1, maximum: 180 }
     PracticeSettingsMutation:
       type: object
       additionalProperties: false
-      required: [easyMinutes, mediumMinutes, hardMinutes, revision]
+      required: [easyMinutes, mediumMinutes, hardMinutes]
       properties:
-        easyMinutes: { type: integer, minimum: 5, maximum: 180 }
-        mediumMinutes: { type: integer, minimum: 5, maximum: 180 }
-        hardMinutes: { type: integer, minimum: 5, maximum: 180 }
-        revision: { $ref: '#/components/schemas/Revision' }
+        easyMinutes: { type: integer, minimum: 1, maximum: 180 }
+        mediumMinutes: { type: integer, minimum: 1, maximum: 180 }
+        hardMinutes: { type: integer, minimum: 1, maximum: 180 }
     PracticeGoalsEnablement:
       type: object
       additionalProperties: false
-      required: [seasonId, revision]
-      properties:
-        {
-          seasonId: { type: string, minLength: 1 },
-          revision: { $ref: '#/components/schemas/Revision' },
-        }
+      required: [seasonId]
+      properties: { seasonId: { type: string, minLength: 1 } }
     AccountStateMutation:
       type: object
       additionalProperties: false
-      required: [state, reason, revision]
+      required: [state, reason]
       properties:
         {
           state: { type: string, enum: [active, suspended] },
           reason: { type: string, minLength: 1, maxLength: 500 },
-          revision: { $ref: '#/components/schemas/Revision' },
         }
     GlobalRoleGrant:
       type: object
@@ -1637,14 +1613,13 @@ components:
     GlobalRoleAssignment:
       type: object
       additionalProperties: false
-      required: [id, userId, role, state, revision]
+      required: [id, userId, role, state]
       properties:
         {
           id: { type: string },
           userId: { type: string },
           role: { $ref: '#/components/schemas/GlobalRole' },
           state: { $ref: '#/components/schemas/AssignmentState' },
-          revision: { $ref: '#/components/schemas/Revision' },
         }
     GlobalRoleAssignmentList:
       type: object
@@ -1680,13 +1655,12 @@ components:
     EnrollmentCandidate:
       type: object
       additionalProperties: false
-      required: [id, slug, name, revision]
+      required: [id, slug, name]
       properties:
         id: { type: string }
         slug: { type: string }
         name: { type: string }
         avatarUrl: { type: string, nullable: true }
-        revision: { $ref: '#/components/schemas/Revision' }
     EnrollmentCandidatePage:
       {
         allOf:
@@ -1720,7 +1694,6 @@ components:
           location,
           imageUrl,
           resourcesUrl,
-          revision,
         ]
       properties:
         id: { type: string }
@@ -1732,7 +1705,6 @@ components:
         location: { type: string }
         imageUrl: { type: string }
         resourcesUrl: { type: string }
-        revision: { $ref: '#/components/schemas/Revision' }
     SeasonMutation:
       type: object
       additionalProperties: false
@@ -1751,21 +1723,15 @@ components:
         location: { type: string }
         imageUrl: { type: string, format: uri }
         resourcesUrl: { type: string, format: uri }
-        revision: { $ref: '#/components/schemas/Revision' }
     SeasonUpdate:
       allOf:
         - $ref: '#/components/schemas/SeasonMutation'
         - type: object
-          required: [revision]
     SeasonResourceUpdate:
       type: object
       additionalProperties: false
-      required: [resourcesUrl, revision]
-      properties:
-        {
-          resourcesUrl: { type: string, format: uri },
-          revision: { $ref: '#/components/schemas/Revision' },
-        }
+      required: [resourcesUrl]
+      properties: { resourcesUrl: { type: string, format: uri } }
     SeasonPage:
       {
         allOf:
@@ -1787,7 +1753,7 @@ components:
       }
     Week:
       type: object
-      required: [id, seasonId, number, startAt, endAt, resourceUrl, revision]
+      required: [id, seasonId, number, startAt, endAt, resourceUrl]
       properties:
         {
           id: { type: string },
@@ -1796,7 +1762,6 @@ components:
           startAt: { type: string, format: date-time },
           endAt: { type: string, format: date-time },
           resourceUrl: { type: string },
-          revision: { $ref: '#/components/schemas/Revision' },
         }
     WeekMutation:
       type: object
@@ -1812,14 +1777,13 @@ components:
     WeekUpdate:
       type: object
       additionalProperties: false
-      required: [number, startAt, endAt, revision]
+      required: [number, startAt, endAt]
       properties:
         {
           number: { type: integer, minimum: 1 },
           startAt: { type: string, format: date-time },
           endAt: { type: string, format: date-time },
           resourceUrl: { type: string, format: uri },
-          revision: { $ref: '#/components/schemas/Revision' },
         }
     WeekPage:
       {
@@ -1843,16 +1807,7 @@ components:
     Enrollment:
       type: object
       required:
-        [
-          id,
-          seasonId,
-          userId,
-          role,
-          studentLevel,
-          state,
-          assignmentState,
-          revision,
-        ]
+        [id, seasonId, userId, role, studentLevel, state, assignmentState]
       properties:
         {
           id: { type: string },
@@ -1867,7 +1822,6 @@ components:
           state: { $ref: '#/components/schemas/EnrollmentState' },
           assignmentState: { $ref: '#/components/schemas/AssignmentState' },
           removalReason: { type: string, nullable: true },
-          revision: { $ref: '#/components/schemas/Revision' },
         }
     EnrollmentCreate:
       type: object
@@ -1881,7 +1835,7 @@ components:
     EnrollmentUpdate:
       type: object
       additionalProperties: false
-      required: [role, revision]
+      required: [role]
       properties:
         {
           role: { type: string, enum: [student, mentor] },
@@ -1890,7 +1844,6 @@ components:
               type: string,
               enum: [novice, beginner, intermediate, advanced, not_applicable],
             },
-          revision: { $ref: '#/components/schemas/Revision' },
         }
     EnrollmentPage:
       {
@@ -1914,23 +1867,21 @@ components:
     Promotion:
       type: object
       additionalProperties: false
-      required: [role, revision]
+      required: [role]
       properties:
         {
           role: { type: string, enum: [mentor, coordinator] },
           reason: { type: string },
-          revision: { $ref: '#/components/schemas/Revision' },
         }
     Mentorship:
       type: object
-      required: [id, seasonId, mentorUserId, studentUserId, revision]
+      required: [id, seasonId, mentorUserId, studentUserId]
       properties:
         {
           id: { type: string },
           seasonId: { type: string },
           mentorUserId: { type: string },
           studentUserId: { type: string },
-          revision: { $ref: '#/components/schemas/Revision' },
         }
     MentorshipCreate:
       type: object
@@ -1941,13 +1892,9 @@ components:
     MentorshipUpdate:
       type: object
       additionalProperties: false
-      required: [mentorUserId, studentUserId, revision]
+      required: [mentorUserId, studentUserId]
       properties:
-        {
-          mentorUserId: { type: string },
-          studentUserId: { type: string },
-          revision: { $ref: '#/components/schemas/Revision' },
-        }
+        { mentorUserId: { type: string }, studentUserId: { type: string } }
     MentorshipPage:
       {
         allOf:
@@ -1969,8 +1916,7 @@ components:
       }
     LeetcodeProblem:
       type: object
-      required:
-        [id, number, title, link, difficulty, categories, premium, revision]
+      required: [id, number, title, link, difficulty, categories, premium]
       properties:
         {
           id: { type: string },
@@ -1980,7 +1926,6 @@ components:
           difficulty: { $ref: '#/components/schemas/Difficulty' },
           categories: { type: array, items: { type: string } },
           premium: { type: boolean },
-          revision: { $ref: '#/components/schemas/Revision' },
         }
     ProblemPage:
       {
@@ -2003,7 +1948,7 @@ components:
       }
     Attempt:
       type: object
-      required: [id, problemId, outcome, minutes, notes, attemptedAt, revision]
+      required: [id, problemId, outcome, minutes, notes, attemptedAt]
       properties:
         {
           id: { type: string },
@@ -2015,7 +1960,6 @@ components:
           attemptedAt: { type: string, format: date-time },
           seasonId: { type: string, nullable: true },
           weekId: { type: string, nullable: true },
-          revision: { $ref: '#/components/schemas/Revision' },
         }
     AttemptMutation:
       type: object
@@ -2031,13 +1975,11 @@ components:
           attemptedAt: { type: string, format: date-time },
           seasonId: { type: string, nullable: true },
           weekId: { type: string, nullable: true },
-          revision: { $ref: '#/components/schemas/Revision' },
         }
     AttemptUpdate:
       allOf:
         - $ref: '#/components/schemas/AttemptMutation'
         - type: object
-          required: [revision]
     AttemptPage:
       {
         allOf:
@@ -2145,7 +2087,6 @@ components:
           durationMinutes,
           notes,
           rounds,
-          revision,
         ]
       properties:
         {
@@ -2164,7 +2105,6 @@ components:
               minItems: 1,
               items: { $ref: '#/components/schemas/MockRound' },
             },
-          revision: { $ref: '#/components/schemas/Revision' },
         }
     MockInterviewCreate:
       type: object
@@ -2187,7 +2127,7 @@ components:
     MockInterviewMutation:
       type: object
       additionalProperties: false
-      required: [occurredAt, durationMinutes, rounds, revision]
+      required: [occurredAt, durationMinutes, rounds]
       properties:
         {
           occurredAt: { type: string, format: date-time },
@@ -2199,7 +2139,6 @@ components:
               minItems: 1,
               items: { $ref: '#/components/schemas/MockRoundMutation' },
             },
-          revision: { $ref: '#/components/schemas/Revision' },
         }
     MockInterviewResult:
       type: object
@@ -2212,14 +2151,13 @@ components:
     MockIdentityCorrection:
       type: object
       additionalProperties: false
-      required: [interviewerId, intervieweeId, reason, revision]
+      required: [interviewerId, intervieweeId, reason]
       properties:
         {
           interviewerId: { type: string },
           intervieweeId: { type: string },
           seasonId: { type: string, nullable: true },
           reason: { type: string, minLength: 1, maxLength: 2000 },
-          revision: { $ref: '#/components/schemas/Revision' },
         }
     MockInterviewPage:
       {
@@ -2243,22 +2181,17 @@ components:
     RoundReview:
       type: object
       additionalProperties: false
-      required: [reviewed, comment, revision]
+      required: [reviewed, comment]
       properties:
         {
           reviewed: { type: boolean },
           comment: { type: string, maxLength: 10000 },
-          revision: { $ref: '#/components/schemas/Revision' },
         }
-    ReasonedRevision:
+    Reasoned:
       type: object
       additionalProperties: false
-      required: [reason, revision]
-      properties:
-        {
-          reason: { type: string, minLength: 1, maxLength: 2000 },
-          revision: { $ref: '#/components/schemas/Revision' },
-        }
+      required: [reason]
+      properties: { reason: { type: string, minLength: 1, maxLength: 2000 } }
     PageEnvelope:
       type: object
       required: [pageInfo, totalCount]

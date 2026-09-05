@@ -273,7 +273,6 @@ func (a *API) updateMock(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var in struct {
-		Revision        int64              `json:"revision"`
 		OccurredAt      time.Time          `json:"occurredAt"`
 		DurationMinutes int                `json:"durationMinutes"`
 		Notes           string             `json:"notes"`
@@ -298,11 +297,10 @@ func (a *API) updateMock(w http.ResponseWriter, r *http.Request) {
 	}
 	now := time.Now().UTC()
 	input := mockinterviews.UpdateInput{
-		ExpectedRevision: in.Revision,
-		OccurredAt:       in.OccurredAt,
-		DurationMinutes:  in.DurationMinutes,
-		Notes:            in.Notes,
-		Rounds:           mockRoundsFromRequest(in.Rounds),
+		OccurredAt:      in.OccurredAt,
+		DurationMinutes: in.DurationMinutes,
+		Notes:           in.Notes,
+		Rounds:          mockRoundsFromRequest(in.Rounds),
 	}
 	v, err = a.mockRules.Update(v, actor.UserID, input, now)
 	if err != nil {
@@ -336,11 +334,6 @@ func (a *API) deleteMock(w http.ResponseWriter, r *http.Request) {
 		writeErrorResponse(w, http.StatusForbidden, "mock_participant_required", "Only active members and alumni may delete mock interviews.")
 		return
 	}
-	revision, err := parseRevision(r)
-	if err != nil {
-		writeErrorResponse(w, http.StatusBadRequest, "validation_failed", "revision query parameter is required")
-		return
-	}
 
 	v, err := a.db.GetMockInterview(r.Context(), r.PathValue("id"))
 	if err != nil {
@@ -355,7 +348,7 @@ func (a *API) deleteMock(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	now := time.Now().UTC()
-	v, err = a.mockRules.Delete(v, actor.UserID, revision, now)
+	v, err = a.mockRules.Delete(v, actor.UserID, now)
 	if err != nil {
 		writeMockErrorResponse(w, err)
 		return
@@ -381,7 +374,6 @@ func (a *API) reviewRound(w http.ResponseWriter, r *http.Request) {
 	var in struct {
 		Reviewed bool   `json:"reviewed"`
 		Comment  string `json:"comment"`
-		Revision int64  `json:"revision"`
 	}
 	if err := decodeJSON(w, r, &in); err != nil {
 		writeErrorResponse(w, http.StatusBadRequest, "validation_failed", err.Error())
@@ -401,7 +393,7 @@ func (a *API) reviewRound(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	now := time.Now().UTC()
-	v, err = a.mockRules.Review(v, actor.UserID, r.PathValue("roundId"), in.Comment, in.Reviewed, in.Revision, now)
+	v, err = a.mockRules.Review(v, actor.UserID, r.PathValue("roundId"), in.Comment, in.Reviewed, now)
 	if err != nil {
 		writeMockErrorResponse(w, err)
 		return
@@ -433,10 +425,9 @@ func (a *API) correctMockIdentities(w http.ResponseWriter, r *http.Request) {
 		IntervieweeID string  `json:"intervieweeId"`
 		SeasonID      *string `json:"seasonId"`
 		Reason        string  `json:"reason"`
-		Revision      int64   `json:"revision"`
 	}
-	if err := decodeJSON(w, r, &in); err != nil || in.InterviewerID == "" || in.IntervieweeID == "" || in.InterviewerID == in.IntervieweeID || in.Revision < 1 || in.Reason == "" {
-		writeErrorResponse(w, http.StatusBadRequest, "validation_failed", "different interviewerId and intervieweeId, reason, and revision are required")
+	if err := decodeJSON(w, r, &in); err != nil || in.InterviewerID == "" || in.IntervieweeID == "" || in.InterviewerID == in.IntervieweeID || in.Reason == "" {
+		writeErrorResponse(w, http.StatusBadRequest, "validation_failed", "different interviewerId and intervieweeId, reason, are required")
 		return
 	}
 
@@ -457,7 +448,7 @@ func (a *API) correctMockIdentities(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	now := time.Now().UTC()
-	v, err = a.mockRules.CorrectIdentities(v, actor.UserID, in.InterviewerID, in.IntervieweeID, in.SeasonID, in.Reason, true, in.Revision, now)
+	v, err = a.mockRules.CorrectIdentities(v, actor.UserID, in.InterviewerID, in.IntervieweeID, in.SeasonID, in.Reason, true, now)
 	if err != nil {
 		writeMockErrorResponse(w, err)
 		return
@@ -541,8 +532,6 @@ func writeMockErrorResponse(w http.ResponseWriter, err error) {
 	switch {
 	case errors.Is(err, mockinterviews.ErrForbidden):
 		writeErrorResponse(w, http.StatusForbidden, "forbidden", "The current account cannot perform this action.")
-	case errors.Is(err, mockinterviews.ErrConflict):
-		writeErrorResponse(w, http.StatusConflict, "stale_revision", "The mock interview changed since it was loaded.")
 	default:
 		writeErrorResponse(w, http.StatusBadRequest, "invalid_mock_interview", err.Error())
 	}

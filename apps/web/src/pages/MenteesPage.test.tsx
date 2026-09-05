@@ -35,7 +35,6 @@ const mentor: CurrentUser = {
   alumni: false,
   attemptCount: 0,
   mockInterviewCount: 0,
-  revision: 1,
 };
 
 function student(
@@ -59,7 +58,6 @@ function student(
     interviews: 0,
     lastActiveAt: null,
     enrollmentId: `enrollment-${id}`,
-    enrollmentRevision: 1,
     enrollmentState: 'active',
     ...overrides,
   };

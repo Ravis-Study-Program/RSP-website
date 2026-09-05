@@ -49,7 +49,7 @@ func (p *Store) ListMentorships(ctx context.Context, q MentorshipQuery) ([]progr
 	}
 	query := `WITH boundary AS (
 		SELECT ` + boundarySelect + base + ` WHERE m.id = NULLIF(@boundary, '')::uuid AND ` + filters + `
-	) SELECT m.id,m.season_id,mentor.user_id,student.user_id,m.revision` + base + `
+	) SELECT m.id,m.season_id,mentor.user_id,student.user_id` + base + `
 	WHERE ` + filters + `
 	  AND (NULLIF(@boundary, '')::uuid IS NULL OR EXISTS (SELECT 1 FROM boundary b WHERE ` + key + ` ` + comparator + ` ` + boundaryKey + `))
 	ORDER BY ` + orderBy + ` LIMIT @limit`
@@ -64,7 +64,7 @@ func (p *Store) ListMentorships(ctx context.Context, q MentorshipQuery) ([]progr
 	items := make([]programme.MentorshipRecord, 0, q.Limit+1)
 	for rows.Next() {
 		var v programme.MentorshipRecord
-		if err := rows.Scan(&v.ID, &v.SeasonID, &v.MentorUserID, &v.StudentUserID, &v.Revision); err != nil {
+		if err := rows.Scan(&v.ID, &v.SeasonID, &v.MentorUserID, &v.StudentUserID); err != nil {
 			return nil, false, 0, err
 		}
 
@@ -85,7 +85,7 @@ func (p *Store) CreateMentorship(ctx context.Context, v programme.MentorshipReco
 	}
 
 	defer tx.Rollback(context.Background())
-	err = tx.QueryRow(ctx, `INSERT INTO app.mentorships(id,season_id,mentor_enrollment_id,student_enrollment_id,revision) VALUES($1,$2,(SELECT id FROM app.enrollments WHERE season_id=$2 AND user_id=$3 AND role IN ('mentor','coordinator') AND state='active' AND deleted_at IS NULL),(SELECT id FROM app.enrollments WHERE season_id=$2 AND user_id=$4 AND role='student' AND state='active' AND deleted_at IS NULL),$5) RETURNING revision`, v.ID, v.SeasonID, v.MentorUserID, v.StudentUserID, v.Revision).Scan(&v.Revision)
+	_, err = tx.Exec(ctx, `INSERT INTO app.mentorships(id,season_id,mentor_enrollment_id,student_enrollment_id) VALUES($1,$2,(SELECT id FROM app.enrollments WHERE season_id=$2 AND user_id=$3 AND role IN ('mentor','coordinator') AND state='active' AND deleted_at IS NULL),(SELECT id FROM app.enrollments WHERE season_id=$2 AND user_id=$4 AND role='student' AND state='active' AND deleted_at IS NULL))`, v.ID, v.SeasonID, v.MentorUserID, v.StudentUserID)
 	if err != nil {
 		return v, mapDatabaseError(err)
 	}
@@ -95,7 +95,7 @@ func (p *Store) CreateMentorship(ctx context.Context, v programme.MentorshipReco
 	return v, tx.Commit(ctx)
 }
 
-func (p *Store) UpdateMentorship(ctx context.Context, seasonID, mentorshipID string, revision int64, mentorUserID, studentUserID, actorID string, at time.Time) (programme.MentorshipRecord, error) {
+func (p *Store) UpdateMentorship(ctx context.Context, seasonID, mentorshipID string, mentorUserID, studentUserID, actorID string, at time.Time) (programme.MentorshipRecord, error) {
 	tx, err := p.pool.Begin(ctx)
 	if err != nil {
 		return programme.MentorshipRecord{}, err
@@ -103,10 +103,10 @@ func (p *Store) UpdateMentorship(ctx context.Context, seasonID, mentorshipID str
 
 	defer tx.Rollback(context.Background())
 	var v programme.MentorshipRecord
-	err = tx.QueryRow(ctx, `UPDATE app.mentorships SET mentor_enrollment_id=(SELECT id FROM app.enrollments WHERE season_id=$2 AND user_id=$4 AND role IN ('mentor','coordinator') AND state='active' AND deleted_at IS NULL),student_enrollment_id=(SELECT id FROM app.enrollments WHERE season_id=$2 AND user_id=$5 AND role='student' AND state='active' AND deleted_at IS NULL),revision=revision+1 WHERE id=$1 AND season_id=$2 AND revision=$3 AND ended_at IS NULL AND deleted_at IS NULL RETURNING id,season_id,$4::text,$5::text,revision`, mentorshipID, seasonID, revision, mentorUserID, studentUserID).Scan(&v.ID, &v.SeasonID, &v.MentorUserID, &v.StudentUserID, &v.Revision)
+	err = tx.QueryRow(ctx, `UPDATE app.mentorships SET mentor_enrollment_id=(SELECT id FROM app.enrollments WHERE season_id=$2 AND user_id=$3 AND role IN ('mentor','coordinator') AND state='active' AND deleted_at IS NULL),student_enrollment_id=(SELECT id FROM app.enrollments WHERE season_id=$2 AND user_id=$4 AND role='student' AND state='active' AND deleted_at IS NULL) WHERE id=$1 AND season_id=$2 AND ended_at IS NULL AND deleted_at IS NULL RETURNING id,season_id,$3::text,$4::text`, mentorshipID, seasonID, mentorUserID, studentUserID).Scan(&v.ID, &v.SeasonID, &v.MentorUserID, &v.StudentUserID)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return v, p.classifyRevision(ctx, tx, `SELECT revision FROM app.mentorships WHERE id=$1 AND season_id=$2 AND ended_at IS NULL AND deleted_at IS NULL`, mentorshipID, seasonID)
+			return v, ErrNotFound
 		}
 		return v, mapDatabaseError(err)
 	}
@@ -116,19 +116,19 @@ func (p *Store) UpdateMentorship(ctx context.Context, seasonID, mentorshipID str
 	return v, tx.Commit(ctx)
 }
 
-func (p *Store) DeleteMentorship(ctx context.Context, seasonID, mentorshipID string, revision int64, actorID string, at time.Time) error {
+func (p *Store) DeleteMentorship(ctx context.Context, seasonID, mentorshipID string, actorID string, at time.Time) error {
 	tx, err := p.pool.Begin(ctx)
 	if err != nil {
 		return err
 	}
 
 	defer tx.Rollback(context.Background())
-	result, err := tx.Exec(ctx, `UPDATE app.mentorships SET ended_at=$4,revision=revision+1 WHERE id=$1 AND season_id=$2 AND revision=$3 AND ended_at IS NULL AND deleted_at IS NULL`, mentorshipID, seasonID, revision, at.UTC())
+	result, err := tx.Exec(ctx, `UPDATE app.mentorships SET ended_at=$3 WHERE id=$1 AND season_id=$2 AND ended_at IS NULL AND deleted_at IS NULL`, mentorshipID, seasonID, at.UTC())
 	if err != nil {
 		return mapDatabaseError(err)
 	}
 	if result.RowsAffected() == 0 {
-		return p.classifyRevision(ctx, tx, `SELECT revision FROM app.mentorships WHERE id=$1 AND season_id=$2 AND ended_at IS NULL AND deleted_at IS NULL`, mentorshipID, seasonID)
+		return ErrNotFound
 	}
 	if err := appendAuditTx(ctx, tx, newAudit(actorID, "mentorship.deleted", "mentorship", mentorshipID, nil, at)); err != nil {
 		return err

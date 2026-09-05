@@ -76,8 +76,8 @@ describe('API errors', () => {
     const error = await errorFromResponse(
       new Response(
         JSON.stringify({
-          code: 'stale_revision',
-          message: 'The resource changed since it was loaded.',
+          code: 'conflict',
+          message: 'The requested operation cannot be completed.',
           requestId: 'request-123',
         }),
         { status: 409, headers: { 'Content-Type': 'application/json' } },
@@ -86,10 +86,10 @@ describe('API errors', () => {
 
     expect(error).toMatchObject({
       status: 409,
-      message: 'The resource changed since it was loaded.',
+      message: 'The requested operation cannot be completed.',
       response: {
-        code: 'stale_revision',
-        message: 'The resource changed since it was loaded.',
+        code: 'conflict',
+        message: 'The requested operation cannot be completed.',
         requestId: 'request-123',
       },
     });

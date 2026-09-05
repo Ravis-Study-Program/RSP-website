@@ -2,7 +2,6 @@ package dal
 
 import (
 	"context"
-	"errors"
 	"strings"
 	"time"
 
@@ -13,11 +12,11 @@ import (
 	"github.com/magedmg/RSP-website/backend/internal/programme"
 )
 
-const enrollmentColumns = `e.id,e.season_id,s.slug,e.user_id,e.role::text,e.student_level::text,e.state::text,e.assignment_state::text,CASE WHEN e.state IN ('kicked','withdrawn') THEN (SELECT reason FROM app.enrollment_removal_events WHERE enrollment_id=e.id ORDER BY occurred_at DESC,id DESC LIMIT 1) END,e.revision`
+const enrollmentColumns = `e.id,e.season_id,s.slug,e.user_id,e.role::text,e.student_level::text,e.state::text,e.assignment_state::text,CASE WHEN e.state IN ('kicked','withdrawn') THEN (SELECT reason FROM app.enrollment_removal_events WHERE enrollment_id=e.id ORDER BY occurred_at DESC,id DESC LIMIT 1) END`
 
 func scanEnrollment(row pgx.Row) (programme.EnrollmentRecord, error) {
 	var v programme.EnrollmentRecord
-	if err := row.Scan(&v.ID, &v.SeasonID, &v.SeasonSlug, &v.UserID, &v.Role, &v.StudentLevel, &v.State, &v.AssignmentState, &v.RemovalReason, &v.Revision); err != nil {
+	if err := row.Scan(&v.ID, &v.SeasonID, &v.SeasonSlug, &v.UserID, &v.Role, &v.StudentLevel, &v.State, &v.AssignmentState, &v.RemovalReason); err != nil {
 		return v, noRows(err)
 	}
 	return v, nil
@@ -132,7 +131,7 @@ func (p *Store) CreateEnrollment(ctx context.Context, v programme.EnrollmentReco
 	if v.Role == "coordinator" {
 		assignmentState = "pending_mfa"
 	}
-	err = tx.QueryRow(ctx, `INSERT INTO app.enrollments(id,user_id,season_id,role,student_level,state,assignment_state,revision) VALUES($1,$2,$3,$4,$5,$6,$7,$8) RETURNING revision,assignment_state::text`, v.ID, v.UserID, v.SeasonID, v.Role, studentLevel, v.State, assignmentState, v.Revision).Scan(&v.Revision, &v.AssignmentState)
+	err = tx.QueryRow(ctx, `INSERT INTO app.enrollments(id,user_id,season_id,role,student_level,state,assignment_state) VALUES($1,$2,$3,$4,$5,$6,$7) RETURNING assignment_state::text`, v.ID, v.UserID, v.SeasonID, v.Role, studentLevel, v.State, assignmentState).Scan(&v.AssignmentState)
 	if err != nil {
 		return v, mapDatabaseError(err)
 	}
@@ -144,24 +143,21 @@ func (p *Store) CreateEnrollment(ctx context.Context, v programme.EnrollmentReco
 	return v, tx.Commit(ctx)
 }
 
-func (p *Store) UpdateEnrollmentDetails(ctx context.Context, seasonID, enrollmentID string, revision int64, role, studentLevel, actorID string, at time.Time) (programme.EnrollmentRecord, error) {
+func (p *Store) UpdateEnrollmentDetails(ctx context.Context, seasonID, enrollmentID string, role, studentLevel, actorID string, at time.Time) (programme.EnrollmentRecord, error) {
 	tx, err := p.pool.Begin(ctx)
 	if err != nil {
 		return programme.EnrollmentRecord{}, err
 	}
 
 	defer tx.Rollback(context.Background())
-	v, err := scanEnrollment(tx.QueryRow(ctx, `UPDATE app.enrollments e SET role=$4::app.season_role,student_level=$5,assignment_state=CASE WHEN $4::app.season_role='coordinator' THEN 'pending_mfa'::app.assignment_state ELSE 'active'::app.assignment_state END,activated_at=CASE WHEN $4::app.season_role='coordinator' THEN NULL ELSE $6::timestamptz END,revision=e.revision+1 FROM app.seasons s WHERE e.id=$1 AND e.season_id=$2 AND e.revision=$3 AND e.state='active' AND e.deleted_at IS NULL AND s.id=e.season_id RETURNING `+enrollmentColumns, enrollmentID, seasonID, revision, role, studentLevel, at.UTC()))
+	v, err := scanEnrollment(tx.QueryRow(ctx, `UPDATE app.enrollments e SET role=$3::app.season_role,student_level=$4,assignment_state=CASE WHEN $3::app.season_role='coordinator' THEN 'pending_mfa'::app.assignment_state ELSE 'active'::app.assignment_state END,activated_at=CASE WHEN $3::app.season_role='coordinator' THEN NULL ELSE $5::timestamptz END FROM app.seasons s WHERE e.id=$1 AND e.season_id=$2 AND e.state='active' AND e.deleted_at IS NULL AND s.id=e.season_id RETURNING `+enrollmentColumns, enrollmentID, seasonID, role, studentLevel, at.UTC()))
 	if err != nil {
-		if errors.Is(err, ErrNotFound) {
-			return v, p.classifyRevision(ctx, tx, `SELECT revision FROM app.enrollments WHERE id=$1 AND season_id=$2 AND state='active' AND deleted_at IS NULL`, enrollmentID, seasonID)
-		}
-		return v, mapDatabaseError(err)
+		return v, err
 	}
 	if role != "student" {
-		_, err = tx.Exec(ctx, `UPDATE app.mentorships SET ended_at=$2,revision=revision+1 WHERE student_enrollment_id=$1 AND ended_at IS NULL AND deleted_at IS NULL`, enrollmentID, at.UTC())
+		_, err = tx.Exec(ctx, `UPDATE app.mentorships SET ended_at=$2 WHERE student_enrollment_id=$1 AND ended_at IS NULL AND deleted_at IS NULL`, enrollmentID, at.UTC())
 	} else {
-		_, err = tx.Exec(ctx, `UPDATE app.mentorships SET ended_at=$2,revision=revision+1 WHERE mentor_enrollment_id=$1 AND ended_at IS NULL AND deleted_at IS NULL`, enrollmentID, at.UTC())
+		_, err = tx.Exec(ctx, `UPDATE app.mentorships SET ended_at=$2 WHERE mentor_enrollment_id=$1 AND ended_at IS NULL AND deleted_at IS NULL`, enrollmentID, at.UTC())
 	}
 	if err != nil {
 		return v, err
@@ -172,7 +168,7 @@ func (p *Store) UpdateEnrollmentDetails(ctx context.Context, seasonID, enrollmen
 	return v, tx.Commit(ctx)
 }
 
-func (p *Store) UpdateEnrollment(ctx context.Context, enrollmentID string, revision int64, role, state, reason, actorID string, at time.Time) (programme.EnrollmentRecord, error) {
+func (p *Store) UpdateEnrollment(ctx context.Context, enrollmentID string, role, state, reason, actorID string, at time.Time) (programme.EnrollmentRecord, error) {
 	tx, err := p.pool.Begin(ctx)
 	if err != nil {
 		return programme.EnrollmentRecord{}, err
@@ -183,7 +179,7 @@ func (p *Store) UpdateEnrollment(ctx context.Context, enrollmentID string, revis
 	if err != nil {
 		return v, err
 	}
-	if v.Revision != revision || v.State != "active" {
+	if v.State != "active" {
 		return v, ErrConflict
 	}
 	if role != "" {
@@ -191,13 +187,13 @@ func (p *Store) UpdateEnrollment(ctx context.Context, enrollmentID string, revis
 		if role == "student" {
 			studentLevel = "novice"
 		}
-		if err := tx.QueryRow(ctx, `UPDATE app.enrollments SET role=$2::app.season_role,student_level=$3,assignment_state=CASE WHEN $2::app.season_role='coordinator' THEN 'pending_mfa'::app.assignment_state ELSE 'active'::app.assignment_state END,activated_at=CASE WHEN $2::app.season_role='coordinator' THEN NULL ELSE $5::timestamptz END,revision=revision+1 WHERE id=$1 AND revision=$4 AND state='active' RETURNING revision,assignment_state::text`, enrollmentID, role, studentLevel, revision, at.UTC()).Scan(&v.Revision, &v.AssignmentState); err != nil {
+		if err := tx.QueryRow(ctx, `UPDATE app.enrollments SET role=$2::app.season_role,student_level=$3,assignment_state=CASE WHEN $2::app.season_role='coordinator' THEN 'pending_mfa'::app.assignment_state ELSE 'active'::app.assignment_state END,activated_at=CASE WHEN $2::app.season_role='coordinator' THEN NULL ELSE $4::timestamptz END WHERE id=$1 AND state='active' RETURNING assignment_state::text`, enrollmentID, role, studentLevel, at.UTC()).Scan(&v.AssignmentState); err != nil {
 			return v, noRows(err)
 		}
 
 		v.Role = role
 		v.StudentLevel = studentLevel
-		if _, err := tx.Exec(ctx, `UPDATE app.mentorships SET ended_at=$2,revision=revision+1 WHERE student_enrollment_id=$1 AND ended_at IS NULL AND deleted_at IS NULL`, v.ID, at.UTC()); err != nil {
+		if _, err := tx.Exec(ctx, `UPDATE app.mentorships SET ended_at=$2 WHERE student_enrollment_id=$1 AND ended_at IS NULL AND deleted_at IS NULL`, v.ID, at.UTC()); err != nil {
 			return v, err
 		}
 		if err := appendAuditTx(ctx, tx, audit.Event{ID: id.New(), ActorID: &actorID, Action: "enrollment.promoted", SubjectType: "enrollment", SubjectID: v.ID, Data: map[string]any{"role": role}, OccurredAt: at.UTC()}); err != nil {
@@ -206,12 +202,12 @@ func (p *Store) UpdateEnrollment(ctx context.Context, enrollmentID string, revis
 	}
 	if state != "" {
 		changedAt := at.UTC()
-		if err := tx.QueryRow(ctx, `UPDATE app.enrollments SET state=$2,state_changed_at=$3,assignment_state='revoked',activated_at=NULL,revision=revision+1 WHERE id=$1 AND revision=$4 AND state='active' RETURNING revision`, enrollmentID, state, changedAt, revision).Scan(&v.Revision); err != nil {
+		if err := tx.QueryRow(ctx, `UPDATE app.enrollments SET state=$2,state_changed_at=$3,assignment_state='revoked',activated_at=NULL WHERE id=$1 AND state='active' RETURNING id`, enrollmentID, state, changedAt).Scan(&v.ID); err != nil {
 			return v, noRows(err)
 		}
 
 		v.State = state
-		if _, err := tx.Exec(ctx, `UPDATE app.mentorships SET ended_at=$2,revision=revision+1 WHERE (student_enrollment_id=$1 OR mentor_enrollment_id=$1) AND ended_at IS NULL AND deleted_at IS NULL`, v.ID, changedAt); err != nil {
+		if _, err := tx.Exec(ctx, `UPDATE app.mentorships SET ended_at=$2 WHERE (student_enrollment_id=$1 OR mentor_enrollment_id=$1) AND ended_at IS NULL AND deleted_at IS NULL`, v.ID, changedAt); err != nil {
 			return v, err
 		}
 

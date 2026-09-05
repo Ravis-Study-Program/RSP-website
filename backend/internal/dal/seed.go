@@ -30,8 +30,20 @@ type seedUser struct {
 func resolveSeedUser(ctx context.Context, tx pgx.Tx, user seedUser) (string, error) {
 	if user.Email == "" {
 		var userID string
-		err := tx.QueryRow(ctx, `INSERT INTO app.users(slug,display_name,email,account_state,timezone,timezone_configured,is_test,revision) VALUES($1,$2,$3,'active','Australia/Adelaide',true,true,1) RETURNING id`, user.Slug, user.DisplayName, user.FallbackEmail).Scan(&userID)
+		err := tx.QueryRow(ctx, `INSERT INTO app.users(account_state) VALUES('active') RETURNING id`).Scan(&userID)
 		if err != nil {
+			return "", err
+		}
+		if _, err := tx.Exec(ctx, `INSERT INTO app.user_profiles(user_id,slug,display_name) VALUES($1,$2,$3)`, userID, user.Slug, user.DisplayName); err != nil {
+			return "", err
+		}
+		if _, err := tx.Exec(ctx, `INSERT INTO app.user_preferences(user_id,timezone,timezone_configured) VALUES($1,'Australia/Adelaide',true)`, userID); err != nil {
+			return "", err
+		}
+		if _, err := tx.Exec(ctx, `INSERT INTO app.user_contacts(user_id,email) VALUES($1,$2)`, userID, user.FallbackEmail); err != nil {
+			return "", err
+		}
+		if _, err := tx.Exec(ctx, `INSERT INTO app.user_security(user_id) VALUES($1)`, userID); err != nil {
 			return "", err
 		}
 		return userID, nil
@@ -41,7 +53,8 @@ func resolveSeedUser(ctx context.Context, tx pgx.Tx, user seedUser) (string, err
 	err := tx.QueryRow(ctx, `
 SELECT u.id
 FROM app.users u
-WHERE lower(u.email)=lower($1)
+JOIN app.user_contacts c ON c.user_id=u.id
+WHERE lower(c.email)=lower($1)
   AND u.account_state='active'
   AND u.deleted_at IS NULL
   AND EXISTS (
@@ -56,11 +69,12 @@ FOR UPDATE`, user.Email).Scan(&userID)
 		return "", err
 	}
 
-	_, err = tx.Exec(ctx, `UPDATE app.users SET slug=$2,display_name=$3,timezone='Australia/Adelaide',timezone_configured=true,is_test=false,revision=revision+1 WHERE id=$1`, userID, user.Slug, user.DisplayName)
-	if err != nil {
+	if _, err = tx.Exec(ctx, `UPDATE app.user_profiles SET slug=$2,display_name=$3 WHERE user_id=$1`, userID, user.Slug, user.DisplayName); err != nil {
 		return "", err
 	}
-
+	if _, err = tx.Exec(ctx, `UPDATE app.user_preferences SET timezone='Australia/Adelaide',timezone_configured=true WHERE user_id=$1`, userID); err != nil {
+		return "", err
+	}
 	return userID, nil
 }
 
@@ -120,7 +134,7 @@ func (s *Store) Seed(ctx context.Context, options SeedOptions) error {
 
 	now := time.Now().UTC()
 	var seasonID string
-	if err := tx.QueryRow(ctx, `INSERT INTO app.seasons(slug,name,status,start_at,end_at,location,image_url,resources_url,revision) VALUES('dev-season','Development Season','open',$1,$2,'Adelaide','https://example.invalid/rsp-season','https://example.invalid/rsp-resources',1) RETURNING id`, now.AddDate(0, 0, -7), now.AddDate(0, 0, 49)).Scan(&seasonID); err != nil {
+	if err := tx.QueryRow(ctx, `INSERT INTO app.seasons(slug,name,status,start_at,end_at,location,image_url,resources_url) VALUES('dev-season','Development Season','open',$1,$2,'Adelaide','https://example.invalid/rsp-season','https://example.invalid/rsp-resources') RETURNING id`, now.AddDate(0, 0, -7), now.AddDate(0, 0, 49)).Scan(&seasonID); err != nil {
 		return fmt.Errorf("seed season: %w", err)
 	}
 
@@ -133,7 +147,7 @@ func (s *Store) Seed(ctx context.Context, options SeedOptions) error {
 		{mentorID, "mentor", "not_applicable", &mentorEnrollmentID},
 		{coordinatorID, "coordinator", "not_applicable", &coordinatorEnrollmentID},
 	} {
-		if err := tx.QueryRow(ctx, `INSERT INTO app.enrollments(user_id,season_id,role,student_level,state,revision) VALUES($1,$2,$3,$4,'active',1) RETURNING id`, item.userID, seasonID, item.role, item.level).Scan(item.out); err != nil {
+		if err := tx.QueryRow(ctx, `INSERT INTO app.enrollments(user_id,season_id,role,student_level,state) VALUES($1,$2,$3,$4,'active') RETURNING id`, item.userID, seasonID, item.role, item.level).Scan(item.out); err != nil {
 			return fmt.Errorf("seed enrollment: %w", err)
 		}
 	}
@@ -142,17 +156,18 @@ func (s *Store) Seed(ctx context.Context, options SeedOptions) error {
 	// the fixture without waiting for another identity event.
 	if _, err := tx.Exec(ctx, `
 UPDATE app.enrollments e
-SET assignment_state='active',activated_at=$2,revision=e.revision+1
+SET assignment_state='active',activated_at=$2,id=e.id
 FROM app.users u
+JOIN app.user_security us ON us.user_id=u.id
 WHERE e.id=$1
   AND e.user_id=u.id
   AND e.role='coordinator'
   AND e.state='active'
   AND e.assignment_state='pending_mfa'
-  AND u.mfa_configured`, coordinatorEnrollmentID, now); err != nil {
+  AND us.mfa_configured`, coordinatorEnrollmentID, now); err != nil {
 		return fmt.Errorf("seed coordinator role: %w", err)
 	}
-	if _, err := tx.Exec(ctx, `INSERT INTO app.mentorships(season_id,mentor_enrollment_id,student_enrollment_id,revision) VALUES($1,$2,$3,1)`, seasonID, mentorEnrollmentID, studentEnrollmentID); err != nil {
+	if _, err := tx.Exec(ctx, `INSERT INTO app.mentorships(season_id,mentor_enrollment_id,student_enrollment_id) VALUES($1,$2,$3)`, seasonID, mentorEnrollmentID, studentEnrollmentID); err != nil {
 		return fmt.Errorf("seed mentorship: %w", err)
 	}
 	if err := seedLeetcodeProblem(ctx, tx); err != nil {
@@ -161,8 +176,8 @@ WHERE e.id=$1
 
 	var privilegedAssignmentID string
 	if err := tx.QueryRow(ctx, `
-INSERT INTO app.global_role_assignments(user_id,role,state,granted_by_user_id,granted_at,activated_at,revision)
-SELECT $1,$2::app.global_role,'pending_mfa'::app.assignment_state,NULL,$3::timestamptz,NULL::timestamptz,1
+INSERT INTO app.global_role_assignments(user_id,role,state,granted_by_user_id,granted_at,activated_at)
+SELECT $1,$2::app.global_role,'pending_mfa'::app.assignment_state,NULL,$3::timestamptz,NULL::timestamptz
 FROM app.users
 WHERE id=$1
 RETURNING id`, privilegedID, privilegedRole, now).Scan(&privilegedAssignmentID); err != nil {
@@ -186,18 +201,18 @@ WHERE l.leetcode_number=$1
 FOR UPDATE OF p, l`, leetcodeNumber).Scan(&problemID, &leetcodeID)
 	switch {
 	case errors.Is(err, pgx.ErrNoRows):
-		if err := tx.QueryRow(ctx, `INSERT INTO app.problems(title,url,revision) VALUES('Two Sum','https://leetcode.com/problems/two-sum/',1) RETURNING id`).Scan(&problemID); err != nil {
+		if err := tx.QueryRow(ctx, `INSERT INTO app.problems(title,url) VALUES('Two Sum','https://leetcode.com/problems/two-sum/') RETURNING id`).Scan(&problemID); err != nil {
 			return err
 		}
-		_, err = tx.Exec(ctx, `INSERT INTO app.leetcode_problems(problem_id,leetcode_number,difficulty,is_premium,revision) VALUES($1,$2,'easy',false,1)`, problemID, leetcodeNumber)
+		_, err = tx.Exec(ctx, `INSERT INTO app.leetcode_problems(problem_id,leetcode_number,difficulty,is_premium) VALUES($1,$2,'easy',false)`, problemID, leetcodeNumber)
 		return err
 	case err != nil:
 		return err
 	default:
-		if _, err := tx.Exec(ctx, `UPDATE app.problems SET title='Two Sum',url='https://leetcode.com/problems/two-sum/',deleted_at=NULL,revision=revision+1 WHERE id=$1`, problemID); err != nil {
+		if _, err := tx.Exec(ctx, `UPDATE app.problems SET title='Two Sum',url='https://leetcode.com/problems/two-sum/',deleted_at=NULL WHERE id=$1`, problemID); err != nil {
 			return err
 		}
-		_, err = tx.Exec(ctx, `UPDATE app.leetcode_problems SET difficulty='easy',is_premium=false,deleted_at=NULL,revision=revision+1 WHERE id=$1`, leetcodeID)
+		_, err = tx.Exec(ctx, `UPDATE app.leetcode_problems SET difficulty='easy',is_premium=false,deleted_at=NULL WHERE id=$1`, leetcodeID)
 		return err
 	}
 }

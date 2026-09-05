@@ -9,4 +9,4 @@ import type { SeasonMutation } from './seasonMutation';
 
 export type SeasonUpdate = SeasonMutation & {
   [key: string]: unknown;
-} & Required<Pick<SeasonMutation & { [key: string]: unknown }, 'revision'>>;
+};

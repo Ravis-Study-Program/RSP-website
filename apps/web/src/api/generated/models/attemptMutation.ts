@@ -6,7 +6,6 @@
  * OpenAPI spec version: 2.0.0
  */
 import type { AttemptMutationOutcome } from './attemptMutationOutcome';
-import type { Revision } from './revision';
 
 export interface AttemptMutation {
   problemId: string;
@@ -26,5 +25,4 @@ export interface AttemptMutation {
   seasonId?: string | null;
   /** @nullable */
   weekId?: string | null;
-  revision?: Revision;
 }

@@ -2,7 +2,6 @@ package migration
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"time"
 )
@@ -123,44 +122,6 @@ func (e *Engine) Verify(ctx context.Context, target Target, manifest Manifest) (
 
 	committed = true
 	return verification, nil
-}
-
-// Rollback rolls back the operation.
-func (e *Engine) Rollback(ctx context.Context, target Target, runID string) error {
-	if runID == "" {
-		return errors.New("run id is required")
-	}
-	tx, err := target.Begin(ctx)
-	if err != nil {
-		return fmt.Errorf("begin target transaction: %w", err)
-	}
-
-	committed := false
-	defer func() {
-		if !committed {
-			_ = tx.Abort(context.WithoutCancel(ctx))
-		}
-	}()
-	if err := tx.AcquireAdvisoryLock(ctx, AdvisoryLockKey); err != nil {
-		return fmt.Errorf("acquire migration advisory lock: %w", err)
-	}
-
-	exists, err := tx.HasRun(ctx, runID)
-	if err != nil {
-		return err
-	}
-	if !exists {
-		return ErrRunNotFound
-	}
-	if err := tx.RollbackRun(ctx, runID); err != nil {
-		return fmt.Errorf("rollback legacy import: %w", err)
-	}
-	if err := tx.Commit(ctx); err != nil {
-		return fmt.Errorf("commit rollback: %w", err)
-	}
-
-	committed = true
-	return nil
 }
 
 func sameSourcePlan(expected, actual Manifest) bool {

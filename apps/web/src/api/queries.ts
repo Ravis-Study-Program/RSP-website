@@ -98,10 +98,9 @@ async function fetchAllPages<T>(path: string): Promise<ApiPage<T>> {
 
 export const demoPracticeSettings: PracticeSettings = {
   goalsEnabled: true,
-  easyMinutes: 20,
-  mediumMinutes: 35,
-  hardMinutes: 50,
-  revision: 1,
+  easyMinutes: 10,
+  mediumMinutes: 20,
+  hardMinutes: 45,
 };
 
 function selectedDemoUser(): CurrentUser {
@@ -199,7 +198,6 @@ const demoProblems: LeetcodeProblem[] = [
     ).toLowerCase() as LeetcodeProblem['difficulty'],
     categories: attempt.category ? [attempt.category] : [],
     premium: false,
-    revision: 1,
   })),
 ];
 
@@ -278,7 +276,6 @@ function demoWeekPage(seasonId: string): WeekPage {
       new Date(week.startsAt).getTime() + 6 * 86_400_000,
     ).toISOString(),
     resourceUrl: `https://example.test/resources/week-${week.week}`,
-    revision: 1,
   }));
   return page(items);
 }
@@ -305,7 +302,6 @@ function demoEnrollmentPage(seasonId: string): EnrollmentPage {
       state: person.status === 'completed' ? 'completed' : 'active',
       assignmentState: 'active',
       removalReason: null,
-      revision: 1,
     }));
   return page(items);
 }
@@ -324,7 +320,6 @@ function demoMentorshipPage(seasonId: string): MentorshipPage {
             seasonId,
             mentorUserId: mentor.id,
             studentUserId: student.id,
-            revision: 1,
           },
         ]
       : [];
@@ -390,7 +385,6 @@ export function useEnrollmentCandidates(seasonId?: string, enabled = true) {
               slug: 'priya-singh',
               name: 'Priya Singh',
               avatarUrl: null,
-              revision: 1,
             },
           ]),
         );
@@ -464,7 +458,6 @@ export function useAdminUsers(enabled = true) {
             seasonRoles: [],
             attemptCount: person.attempts ?? 0,
             mockInterviewCount: person.interviews ?? 0,
-            revision: person.revision ?? 1,
             email: person.email ?? `${person.slug}@example.test`,
             accountState: 'active',
           })),
@@ -576,7 +569,6 @@ export function useSeasonPeople(seasonId?: string, seasonName?: string) {
                     ? ('active' as const)
                     : null,
             enrollmentId: enrollment.id,
-            enrollmentRevision: enrollment.revision,
             enrollmentState: enrollment.state,
             ...(mentorForStudent.has(enrollment.userId)
               ? { mentorshipMentorId: mentorForStudent.get(enrollment.userId) }

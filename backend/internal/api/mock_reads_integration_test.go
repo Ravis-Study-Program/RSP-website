@@ -63,7 +63,6 @@ func TestMockListUsesBoundedReadsAndPreservesPageValues(t *testing.T) {
 	// Include interviewee-owned values in the equality checks against detail reads.
 	base.Rounds[0].Reviewed = true
 	base.Rounds[0].IntervieweeComment = "Thanks for the interview"
-	base.Revision++
 	if _, err := fixture.db.ReviewMockInterviewRound(ctx, base, base.Rounds[0].ID, otherID, time.Now()); err != nil {
 		t.Fatal(err)
 	}
@@ -117,7 +116,7 @@ func TestMockParticipantSummariesBatchOnlyPublicFields(t *testing.T) {
 	repository, queries := countedMockRepository(t, fixture)
 	ctx := context.Background()
 	avatar := "https://rsp.test/avatar.png"
-	if _, err := fixture.pool.Exec(context.Background(), `UPDATE app.users SET avatar_url=$1 WHERE id=$2`, avatar, studentID); err != nil {
+	if _, err := fixture.pool.Exec(context.Background(), `UPDATE app.user_profiles SET avatar_url=$1 WHERE user_id=$2`, avatar, studentID); err != nil {
 		t.Fatal(err)
 	}
 	missing := "00000000-0000-7000-8000-000000000999"
@@ -137,7 +136,7 @@ func TestMockParticipantSummariesBatchOnlyPublicFields(t *testing.T) {
 	if _, err := fixture.pool.Exec(context.Background(), `UPDATE app.users SET deleted_at=now() WHERE id=$1`, otherID); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := fixture.pool.Exec(context.Background(), `UPDATE app.users SET account_state='deleted', pseudonymized_at=now() WHERE id=$1`, studentID); err != nil {
+	if _, err := fixture.pool.Exec(context.Background(), `UPDATE app.users SET account_state='deleted', deleted_at=now() WHERE id=$1`, studentID); err != nil {
 		t.Fatal(err)
 	}
 	summaries, err = repository.ListMockParticipantSummaries(ctx, []string{studentID, otherID, missing})

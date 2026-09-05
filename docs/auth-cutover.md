@@ -51,7 +51,7 @@ RSP_AUTH0_REHEARSAL_DIR=/tmp/rsp-auth0-rehearsal
 mkdir -p "$RSP_AUTH0_REHEARSAL_DIR"
 docker run --rm --read-only --tmpfs /tmp \
   --user "$(id -u):$(id -g)" \
-  --mount type=bind,src="$PWD/backend/internal/migration/testdata",dst=/fixtures,readonly \
+  --mount type=bind,src="$PWD/scripts/legacy-migration/migration/testdata",dst=/fixtures,readonly \
   --mount type=bind,src="$RSP_AUTH0_REHEARSAL_DIR",dst=/artifacts \
   rsp-ops:cutover rsp-migrate auth0 plan \
   --auth0-users /fixtures/auth0_users.json \
@@ -64,7 +64,7 @@ The input is the documented normalized JSON shape, not an assertion that every
 Auth0 tenant export uses that shape. The plan rejects missing or duplicate
 provider/account keys and stale resolutions. Verified matching email is only
 an advisory candidate and never creates a mapping. Plan statuses use the same
-vocabulary as `migration.auth0_identity_imports`:
+vocabulary as the legacy import bookkeeping records:
 
 - `matched`: an explicit app-user resolution with no password reset needed;
 - `requires_resolution`: no explicit mapping, including ambiguous email;
@@ -74,8 +74,7 @@ vocabulary as `migration.auth0_identity_imports`:
   preflight.
 
 Review the plan's status counts, sorted provider/account set, unresolved Auth0
-IDs and checksum. The preflight does not write `auth`, `app.user_auth_links` or
-`migration.auth0_identity_imports`.
+IDs and checksum. The preflight does not write `auth` or `app.user_auth_links`.
 
 ## Password and provider handling
 

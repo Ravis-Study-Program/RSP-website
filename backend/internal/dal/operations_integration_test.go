@@ -16,7 +16,7 @@ func TestStoreOperations(t *testing.T) {
 	ctx := context.Background()
 
 	snapshot, err := db.ObservabilitySnapshot(ctx)
-	if err != nil || snapshot.MigrationState != "none" || snapshot.WorkerRuns["success"] != 0 {
+	if err != nil || snapshot.WorkerRuns["success"] != 0 {
 		t.Fatalf("empty database snapshot=%#v error=%v", snapshot, err)
 	}
 
@@ -50,7 +50,7 @@ func TestStoreOperations(t *testing.T) {
 		t.Fatal("seed accepted a missing linked mentor")
 	}
 	var partialUsers int
-	if err := db.pool.QueryRow(ctx, `SELECT count(*) FROM app.users WHERE slug='dev-student'`).Scan(&partialUsers); err != nil || partialUsers != 0 {
+	if err := db.pool.QueryRow(ctx, `SELECT count(*) FROM app.users u JOIN app.user_profiles p ON p.user_id=u.id WHERE p.slug='dev-student'`).Scan(&partialUsers); err != nil || partialUsers != 0 {
 		t.Fatalf("failed seed left %d users: %v", partialUsers, err)
 	}
 	if err := db.Seed(ctx, SeedOptions{}); err != nil {

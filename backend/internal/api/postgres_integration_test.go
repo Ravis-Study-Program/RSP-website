@@ -113,20 +113,32 @@ func truncateAppTables(t *testing.T, db *pgxpool.Pool) {
 func seedPostgresFixture(t *testing.T, db *pgxpool.Pool) {
 	t.Helper()
 	statements := []string{
-		`INSERT INTO app.users(id,slug,display_name,email,account_state,timezone,revision) VALUES
-			('` + studentID + `','student','Student','private@example.com','active','Australia/Adelaide',1),
-			('` + otherID + `','other','Other','other@example.com','active','Australia/Adelaide',1)`,
-		`INSERT INTO app.seasons(id,slug,name,status,start_at,end_at,location,revision) VALUES
-			('` + seasonID + `','season','Season','open','2026-01-01T00:00:00Z','2026-12-31T23:59:59Z','Adelaide',1)`,
-		`INSERT INTO app.enrollments(id,user_id,season_id,role,student_level,state,revision) VALUES
-			('` + studentMemberID + `','` + studentID + `','` + seasonID + `','student','beginner','active',1),
-			('` + otherMemberID + `','` + otherID + `','` + seasonID + `','mentor','not_applicable','active',1)`,
-		`INSERT INTO app.problems(id,title,url,revision) VALUES
-			('` + problemID + `','Two Sum','https://leetcode.com/problems/two-sum/',1)`,
-		`INSERT INTO app.leetcode_problems(id,problem_id,leetcode_number,difficulty,is_premium,revision) VALUES
-			('` + leetcodeProblemID + `','` + problemID + `',1,'easy',false,1)`,
-		`INSERT INTO app.problem_attempts(id,user_id,problem_id,attempted_at,time_taken_minutes,outcome,revision) VALUES
-			('` + foreignAttemptID + `','` + otherID + `','` + problemID + `','2026-09-01T00:00:00Z',20,'independently_solved',1)`,
+		`INSERT INTO app.users(id,account_state) VALUES
+			('` + studentID + `','active'),
+			('` + otherID + `','active')`,
+		`INSERT INTO app.user_profiles(user_id,slug,display_name) VALUES
+			('` + studentID + `','student','Student'),
+			('` + otherID + `','other','Other')`,
+		`INSERT INTO app.user_preferences(user_id,timezone) VALUES
+			('` + studentID + `','Australia/Adelaide'),
+			('` + otherID + `','Australia/Adelaide')`,
+		`INSERT INTO app.user_contacts(user_id,email) VALUES
+			('` + studentID + `','private@example.com'),
+			('` + otherID + `','other@example.com')`,
+		`INSERT INTO app.user_security(user_id) VALUES
+			('` + studentID + `'),
+			('` + otherID + `')`,
+		`INSERT INTO app.seasons(id,slug,name,status,start_at,end_at,location) VALUES
+			('` + seasonID + `','season','Season','open','2026-01-01T00:00:00Z','2026-12-31T23:59:59Z','Adelaide')`,
+		`INSERT INTO app.enrollments(id,user_id,season_id,role,student_level,state) VALUES
+			('` + studentMemberID + `','` + studentID + `','` + seasonID + `','student','beginner','active'),
+			('` + otherMemberID + `','` + otherID + `','` + seasonID + `','mentor','not_applicable','active')`,
+		`INSERT INTO app.problems(id,title,url) VALUES
+			('` + problemID + `','Two Sum','https://leetcode.com/problems/two-sum/')`,
+		`INSERT INTO app.leetcode_problems(id,problem_id,leetcode_number,difficulty,is_premium) VALUES
+			('` + leetcodeProblemID + `','` + problemID + `',1,'easy',false)`,
+		`INSERT INTO app.problem_attempts(id,user_id,problem_id,attempted_at,time_taken_minutes,outcome) VALUES
+			('` + foreignAttemptID + `','` + otherID + `','` + problemID + `','2026-09-01T00:00:00Z',20,'independently_solved')`,
 	}
 	for _, statement := range statements {
 		if _, err := db.Exec(context.Background(), statement); err != nil {
@@ -163,13 +175,13 @@ func TestPostgresBackedProfileAndPracticeFlow(t *testing.T) {
 	if err := fixture.pool.QueryRow(context.Background(), `SELECT count(*) FROM app.problem_attempts WHERE id=$1 AND user_id=$2`, attempt.ID, studentID).Scan(&count); err != nil || count != 1 {
 		t.Fatalf("stored attempts=%d error=%v", count, err)
 	}
-	response = testRequest(t, fixture.handler, http.MethodDelete, "/api/v2/problem-attempts/"+foreignAttemptID+"?revision=1", "student", "")
+	response = testRequest(t, fixture.handler, http.MethodDelete, "/api/v2/problem-attempts/"+foreignAttemptID+"", "student", "")
 	if response.Code != http.StatusNotFound {
 		t.Fatalf("foreign delete status=%d body=%s", response.Code, response.Body.String())
 	}
-	response = testRequest(t, fixture.handler, http.MethodDelete, "/api/v2/problem-attempts/"+attempt.ID+"?revision=2", "student", "")
-	if response.Code != http.StatusConflict || errorCode(t, response) != "stale_revision" {
-		t.Fatalf("stale delete status=%d body=%s", response.Code, response.Body.String())
+	response = testRequest(t, fixture.handler, http.MethodDelete, "/api/v2/problem-attempts/"+attempt.ID+"", "student", "")
+	if response.Code != http.StatusNoContent {
+		t.Fatalf("delete status=%d body=%s", response.Code, response.Body.String())
 	}
 
 	response = testRequest(t, fixture.handler, http.MethodGet, "/api/v2/metrics", "", "")

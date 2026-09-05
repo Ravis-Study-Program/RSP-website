@@ -105,7 +105,7 @@ func TestHealthAuthenticationAndOriginChecksDoNotExposeInternalErrors(t *testing
 		t.Fatalf("authentication status=%d body=%s", response.Code, response.Body.String())
 	}
 
-	request := httptest.NewRequest(http.MethodDelete, "/api/v2/problem-attempts/anything?revision=1", nil)
+	request := httptest.NewRequest(http.MethodDelete, "/api/v2/problem-attempts/anything", nil)
 	request.Header.Set("X-Test-Actor", "student")
 	request.Header.Set("Origin", "https://evil.test")
 	response = httptest.NewRecorder()

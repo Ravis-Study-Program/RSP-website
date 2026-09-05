@@ -15,7 +15,7 @@ import { adaptSeason } from '@/api/adapters';
 import { ApiError, apiRequest } from '@/api/client';
 import type {
   Season as ApiSeason,
-  ReasonedRevision,
+  Reasoned,
   SeasonMutation,
   SeasonResourceUpdate,
 } from '@/api/generated/models';
@@ -131,7 +131,6 @@ export function SeasonEditorDialog({
       location: values.location.trim(),
       imageUrl: values.imageUrl.trim(),
       resourcesUrl: values.resourcesUrl.trim(),
-      ...(season ? { revision: season.revision } : {}),
     };
     try {
       const saved = demoMode
@@ -142,7 +141,6 @@ export function SeasonEditorDialog({
               weekCount: 0,
               status: 'open' as const,
               summary: '',
-              revision: 0,
             }),
             slug: mutation.slug,
             name: mutation.name,
@@ -152,7 +150,6 @@ export function SeasonEditorDialog({
             imageUrl: mutation.imageUrl,
             resourcesUrl: mutation.resourcesUrl,
             summary: `Current programme at ${mutation.location}.`,
-            revision: (season?.revision ?? 0) + 1,
           }
         : adaptSeason(
             await apiRequest<ApiSeason>(
@@ -369,7 +366,7 @@ export function SeasonResourcesDialog({ season }: { season: Season }) {
     setError('');
     try {
       const saved = demoMode
-        ? { ...season, resourcesUrl: trimmedUrl, revision: season.revision + 1 }
+        ? { ...season, resourcesUrl: trimmedUrl }
         : adaptSeason(
             await apiRequest<ApiSeason>(
               `/seasons/${encodeURIComponent(season.id)}/resources`,
@@ -377,7 +374,6 @@ export function SeasonResourcesDialog({ season }: { season: Season }) {
                 method: 'PATCH',
                 body: JSON.stringify({
                   resourcesUrl: trimmedUrl,
-                  revision: season.revision,
                 } satisfies SeasonResourceUpdate),
               },
             ),
@@ -522,9 +518,8 @@ export function SeasonLifecycleDialog({
   const submit = async () => {
     setPending(true);
     setError('');
-    const body: ReasonedRevision = {
+    const body: Reasoned = {
       reason: reason.trim(),
-      revision: season.revision,
     };
     try {
       const saved = demoMode
@@ -532,7 +527,6 @@ export function SeasonLifecycleDialog({
             ...season,
             status:
               action === 'close' ? ('closed' as const) : ('open' as const),
-            revision: season.revision + 1,
           }
         : adaptSeason(
             await apiRequest<ApiSeason>(

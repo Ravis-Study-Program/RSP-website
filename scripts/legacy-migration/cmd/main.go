@@ -11,7 +11,7 @@ import (
 	"os"
 	"time"
 
-	legacy "github.com/magedmg/RSP-website/backend/internal/migration"
+	legacy "github.com/magedmg/RSP-website/scripts/legacy-migration/migration"
 )
 
 func main() {
@@ -34,8 +34,6 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 			err = apply(ctx, engine, args[2:], stdout, stderr)
 		case "verify":
 			err = verify(ctx, engine, args[2:], stdout, stderr)
-		case "rollback":
-			err = rollback(ctx, engine, args[2:], stdout, stderr)
 		default:
 			printUsage(stderr)
 			return 2
@@ -295,35 +293,10 @@ func verify(ctx context.Context, engine *legacy.Engine, args []string, stdout, s
 	return encoder.Encode(verification)
 }
 
-func rollback(ctx context.Context, engine *legacy.Engine, args []string, stdout, stderr io.Writer) error {
-	set := flag.NewFlagSet("legacy rollback", flag.ContinueOnError)
-	set.SetOutput(stderr)
-	var targetOptions targetFlags
-	targetOptions.register(set)
-	runID := set.String("run-id", "", "migration run ID (required)")
-	if err := set.Parse(args); err != nil {
-		return err
-	}
-	if *runID == "" {
-		return errors.New("--run-id is required")
-	}
-	target, err := targetOptions.target()
-	if err != nil {
-		return err
-	}
-	if err := engine.Rollback(ctx, target, *runID); err != nil {
-		return err
-	}
-
-	fmt.Fprintf(stdout, "rolledBack runId=%s\n", *runID)
-	return nil
-}
-
 func printUsage(writer io.Writer) {
 	fmt.Fprintln(writer, "usage:")
 	fmt.Fprintln(writer, "  rsp-migrate auth0 plan --auth0-users FILE --app-candidates FILE [--resolutions FILE] --plan FILE")
 	fmt.Fprintln(writer, "  rsp-migrate legacy dry-run --source-fixture FILE|--source-dsn DSN --manifest FILE [--resolution FILE]")
 	fmt.Fprintln(writer, "  rsp-migrate legacy apply --source-fixture FILE|--source-dsn DSN --manifest FILE --target-state FILE|--target-dsn DSN [--resolution FILE]")
 	fmt.Fprintln(writer, "  rsp-migrate legacy verify --manifest FILE --target-state FILE|--target-dsn DSN")
-	fmt.Fprintln(writer, "  rsp-migrate legacy rollback --run-id ID --target-state FILE|--target-dsn DSN")
 }

@@ -9,9 +9,6 @@ import (
 	"strconv"
 	"strings"
 	"time"
-
-	platformid "github.com/magedmg/RSP-website/backend/internal/platform/id"
-	platformsanitize "github.com/magedmg/RSP-website/backend/internal/platform/sanitize"
 )
 
 var LegacyTables = []string{
@@ -56,6 +53,10 @@ var legacyIDFields = map[string][]string{
 
 var targetOrder = []string{
 	"users",
+	"user_profiles",
+	"user_preferences",
+	"user_contacts",
+	"user_security",
 	"global_role_assignments",
 	"seasons",
 	"season_close_events",
@@ -77,11 +78,22 @@ var targetOrder = []string{
 	"mock_interview_versions",
 }
 
+var targetKeyColumn = map[string]string{
+	"user_profiles":    "user_id",
+	"user_preferences": "user_id",
+	"user_contacts":    "user_id",
+	"user_security":    "user_id",
+}
+
 // uuidReferenceTables maps transformed foreign-key fields to their target
 // table. Polymorphic audit and provenance fields stay text by design.
 
 var uuidReferenceTables = map[string]map[string]string{
 	"user_auth_links":                    {},
+	"user_profiles":                      {"user_id": "users"},
+	"user_preferences":                   {"user_id": "users"},
+	"user_contacts":                      {"user_id": "users"},
+	"user_security":                      {"user_id": "users"},
 	"global_role_assignments":            {"user_id": "users", "granted_by_user_id": "users"},
 	"account_deletion_requests":          {"user_id": "users"},
 	"season_close_events":                {"season_id": "seasons", "closed_by_user_id": "users", "reopened_by_user_id": "users"},
@@ -105,11 +117,16 @@ var uuidReferenceTables = map[string]map[string]string{
 
 func targetUUID(table, legacyID string, at time.Time) string {
 	seed := sha256.Sum256([]byte(table + "\x00" + legacyID))
-	return platformid.NewAt(at, bytes.NewReader(seed[:]))
+	return newMigrationIDAt(at, bytes.NewReader(seed[:]))
 }
 
 type Planner struct {
 	now func() time.Time
+}
+
+func preparedRowSortKey(row PreparedRow) string {
+	encoded, _ := json.Marshal(row.Values)
+	return row.ID + "\x00" + string(encoded)
 }
 
 func NewPlanner(now func() time.Time) *Planner {
@@ -191,7 +208,7 @@ func (p *Planner) Plan(snapshot Snapshot, resolutionFile *ResolutionFile) (Prepa
 
 	manifest := Manifest{
 		Version:                 ManifestVersion,
-		RunID:                   targetUUID("migration.runs", "legacy-"+createdAt.Format("20060102T150405.000000000Z")+"-"+runSeed[:12], createdAt),
+		RunID:                   targetUUID("legacy-import", "legacy-"+createdAt.Format("20060102T150405.000000000Z")+"-"+runSeed[:12], createdAt),
 		CreatedAt:               createdAt,
 		SourceSnapshotAt:        original.CapturedAt.UTC(),
 		SourceSchemaFingerprint: schemaFingerprint,
@@ -307,14 +324,7 @@ func analyzeSnapshot(snapshot Snapshot) []Anomaly {
 	behaviouralRounds := indexRows(snapshot, "BehaviouralMockInterviewRound")
 	leetcodeRounds := indexRows(snapshot, "LeetcodeMockInterviewRound")
 	customRounds := indexRows(snapshot, "CustomMockInterviewRound")
-	kicksByMemberSeason := map[string]Row{}
-	for _, row := range snapshot.Tables["KickStudentEvent"] {
-		key := stringValue(row["StudentId"]) + "\x00" + stringValue(row["SeasonId"])
-		current := kicksByMemberSeason[key]
-		if current == nil || stringValue(row["KickedAtUtc"]) > stringValue(current["KickedAtUtc"]) {
-			kicksByMemberSeason[key] = row
-		}
-	}
+	kicksByMemberSeason := activeKickEvents(snapshot)
 
 	checkUnique := func(field, code string) {
 		seen := map[string]string{}
@@ -329,6 +339,27 @@ func analyzeSnapshot(snapshot Snapshot) []Anomaly {
 			} else {
 				seen[value] = id
 			}
+		}
+	}
+	endedSeasons := map[string]string{}
+	for _, row := range snapshot.Tables["Season"] {
+		if timeBefore(row["EndDateInclusiveUtc"], snapshot.CapturedAt) {
+			id := sourceID("Season", row)
+			endedSeasons[id] = id
+		}
+	}
+	for _, row := range snapshot.Tables["User"] {
+		legacyGraduate, present := optionalBool(row["IsGraduate"])
+		if !present {
+			continue
+		}
+		derivedAlumni := derivesAlumni(snapshot, stringValue(row["UserId"]), endedSeasons, kicksByMemberSeason)
+		if legacyGraduate != derivedAlumni {
+			result = append(result, anomaly(
+				"LEGACY_GRADUATE_MISMATCH", "User", sourceID("User", row), "warning",
+				"legacy graduate flag differs from alumni derived from completed student enrollment",
+				Row{"field": "IsGraduate", "legacyValue": legacyGraduate, "derivedAlumni": derivedAlumni},
+			))
 		}
 	}
 	checkUnique("Email", "CONFLICTING_USER_EMAIL")
@@ -490,6 +521,17 @@ func analyzeSnapshot(snapshot Snapshot) []Anomaly {
 		seasonID, weekID := stringValue(row["SeasonId"]), stringValue(row["SeasonWeekId"])
 		if seasonID != "" && weekID != "" && weeks[weekID] != nil && stringValue(weeks[weekID]["SeasonId"]) != seasonID {
 			result = append(result, anomaly("CROSS_SEASON_MOCK_WEEK", "MockInterview", id, "blocking", "mock interview week belongs to another season", Row{"field": "SeasonWeekId"}))
+		}
+		legacyPass, present := optionalBool(row["IsPass"])
+		if present {
+			derivedPass := derivesMockPass(snapshot, id)
+			if legacyPass != derivedPass {
+				result = append(result, anomaly(
+					"MOCK_PASS_MISMATCH", "MockInterview", id, "blocking",
+					"legacy pass result differs from the current score-derived result",
+					Row{"field": "IsPass", "legacyValue": legacyPass, "derivedPass": derivedPass},
+				))
+			}
 		}
 	}
 	for _, row := range snapshot.Tables["MockInterviewRound"] {
@@ -653,6 +695,9 @@ func transformSnapshot(snapshot Snapshot, now time.Time, autoFixes *[]AutoFix) (
 			}
 			targetID = targetUUID("leetcode_problems", parts[0], now) + "|" + targetUUID("leetcode_problem_categories", parts[1], now)
 		}
+		if referencedTable, ok := uuidReferenceTables[target][targetKeyColumn[target]]; ok {
+			targetID = targetUUID(referencedTable, id, now)
+		}
 		if _, ok := values["id"]; ok {
 			values["id"] = targetID
 		}
@@ -667,14 +712,7 @@ func transformSnapshot(snapshot Snapshot, now time.Time, autoFixes *[]AutoFix) (
 	leetcodes := indexRows(snapshot, "LeetcodeProblem")
 	customProblems := indexRows(snapshot, "CustomProblem")
 	enrollments := indexRows(snapshot, "Enrollment")
-	kicksByMemberSeason := map[string]Row{}
-	for _, row := range snapshot.Tables["KickStudentEvent"] {
-		key := stringValue(row["StudentId"]) + "\x00" + stringValue(row["SeasonId"])
-		current := kicksByMemberSeason[key]
-		if current == nil || stringValue(row["KickedAtUtc"]) > stringValue(current["KickedAtUtc"]) {
-			kicksByMemberSeason[key] = row
-		}
-	}
+	kicksByMemberSeason := activeKickEvents(snapshot)
 	endedSeasons := map[string]string{}
 	for _, source := range snapshot.Tables["Season"] {
 		id := sourceID("Season", source)
@@ -687,12 +725,12 @@ func transformSnapshot(snapshot Snapshot, now time.Time, autoFixes *[]AutoFix) (
 			closeID := "legacy-close:" + id
 			endedSeasons[id] = closeID
 			*autoFixes = append(*autoFixes, AutoFix{Code: "CLOSE_ENDED_SEASON", SourceTable: "Season", SourceID: id, Detail: "ended legacy season imported as closed", Before: "open", After: "closed"})
-			closeValues := Row{"id": closeID, "season_id": id, "closed_by_user_id": nil, "close_reason": "Legacy season ended before migration snapshot", "closed_at": closedAt, "reopened_by_user_id": nil, "reopen_reason": nil, "reopened_at": nil, "migration_run_id": nil}
+			closeValues := Row{"id": closeID, "season_id": id, "closed_by_user_id": nil, "close_reason": "Legacy season ended before migration snapshot", "closed_at": closedAt, "reopened_by_user_id": nil, "reopen_reason": nil, "reopened_at": nil}
 			if err := add("season_close_events", "Season", source, closeID, closeValues, ""); err != nil {
 				return nil, nil, err
 			}
 		}
-		values := Row{"id": id, "slug": source["Slug"], "name": source["Name"], "status": status, "start_at": source["StartDateInclusiveUtc"], "end_at": source["EndDateInclusiveUtc"], "location": source["Location"], "image_url": source["ImageUrl"], "resources_url": source["ResourcesUrl"], "legacy_data_backfilled": source["IsDataBackFilled"], "closed_at": closedAt, "deleted_at": source["DeletedAtUtc"], "created_at": source["CreatedAtUtc"], "updated_at": source["UpdatedAtUtc"]}
+		values := Row{"id": id, "slug": source["Slug"], "name": source["Name"], "status": status, "start_at": source["StartDateInclusiveUtc"], "end_at": source["EndDateInclusiveUtc"], "location": source["Location"], "image_url": source["ImageUrl"], "resources_url": source["ResourcesUrl"], "closed_at": closedAt, "deleted_at": source["DeletedAtUtc"], "created_at": source["CreatedAtUtc"], "updated_at": source["UpdatedAtUtc"]}
 		if err := add("seasons", "Season", source, id, values, ""); err != nil {
 			return nil, nil, err
 		}
@@ -701,19 +739,36 @@ func transformSnapshot(snapshot Snapshot, now time.Time, autoFixes *[]AutoFix) (
 		id := sourceID("User", source)
 		accountState := "active"
 		slug, displayName, email := source["Slug"], source["Name"], source["Email"]
-		discordID, avatarURL, pseudonymizedAt := source["DiscordId"], source["ProfileImage"], any(nil)
+		discordID, avatarURL := source["DiscordId"], source["ProfileImage"]
 		if source["DeletedAtUtc"] != nil && stringValue(source["DeletedAtUtc"]) != "" {
 			accountState, slug, displayName, email = "deleted", "deleted-"+id, "Deleted member", nil
-			discordID, avatarURL, pseudonymizedAt = nil, nil, source["DeletedAtUtc"]
+			discordID, avatarURL = nil, nil
 			*autoFixes = append(*autoFixes, AutoFix{Code: "PSEUDONYMIZE_DELETED_USER", SourceTable: "User", SourceID: id, Detail: "legacy-deleted user PII removed while retaining opaque identity", Before: "legacy profile PII", After: "pseudonymized"})
 		}
 		timezone := "Australia/Adelaide"
 		if accountState == "deleted" {
 			timezone = "UTC"
 		}
-		values := Row{"id": id, "slug": slug, "display_name": displayName, "email": email, "discord_id": discordID, "avatar_url": avatarURL, "account_state": accountState, "timezone": timezone, "timezone_configured": false, "is_test": source["IsTestUser"], "legacy_is_admin": source["IsAdmin"], "legacy_is_graduate": source["IsGraduate"], "pseudonymized_at": pseudonymizedAt, "deleted_at": source["DeletedAtUtc"], "created_at": source["CreatedAtUtc"], "updated_at": source["UpdatedAtUtc"]}
+		values := Row{"id": id, "account_state": accountState, "deleted_at": source["DeletedAtUtc"], "created_at": source["CreatedAtUtc"], "updated_at": source["UpdatedAtUtc"]}
 		if err := add("users", "User", source, id, values, ""); err != nil {
 			return nil, nil, err
+		}
+		if err := add("user_profiles", "User", source, id, Row{"user_id": id, "slug": slug, "display_name": displayName, "avatar_url": avatarURL, "updated_at": source["UpdatedAtUtc"]}, ""); err != nil {
+			return nil, nil, err
+		}
+		if err := add("user_preferences", "User", source, id, Row{"user_id": id, "timezone": timezone, "timezone_configured": false, "updated_at": source["UpdatedAtUtc"]}, ""); err != nil {
+			return nil, nil, err
+		}
+		if err := add("user_contacts", "User", source, id, Row{"user_id": id, "email": email, "discord_id": discordID, "updated_at": source["UpdatedAtUtc"]}, ""); err != nil {
+			return nil, nil, err
+		}
+		if err := add("user_security", "User", source, id, Row{"user_id": id, "security_version": 1, "mfa_configured": false, "updated_at": source["UpdatedAtUtc"]}, ""); err != nil {
+			return nil, nil, err
+		}
+		legacyGraduate, present := optionalBool(source["IsGraduate"])
+		derivedAlumni := derivesAlumni(snapshot, stringValue(source["UserId"]), endedSeasons, kicksByMemberSeason)
+		if present && legacyGraduate != derivedAlumni {
+			*autoFixes = append(*autoFixes, AutoFix{Code: "DROP_LEGACY_GRADUATE_FLAG", SourceTable: "User", SourceID: id, Detail: "legacy graduate flag retained as reconciliation evidence; alumni is derived from completed student enrollment", Before: legacyGraduate, After: derivedAlumni})
 		}
 		if boolValue(source["IsAdmin"]) && (source["DeletedAtUtc"] == nil || stringValue(source["DeletedAtUtc"]) == "") {
 			assignmentID := "legacy-director:" + id
@@ -764,8 +819,12 @@ func transformSnapshot(snapshot Snapshot, now time.Time, autoFixes *[]AutoFix) (
 	}
 	for _, source := range snapshot.Tables["KickStudentEvent"] {
 		id := sourceID("KickStudentEvent", source)
+		if isLegacyDeleted(source["DeletedAtUtc"]) {
+			*autoFixes = append(*autoFixes, AutoFix{Code: "DROP_LEGACY_DELETED_KICK_EVENT", SourceTable: "KickStudentEvent", SourceID: id, Detail: "deleted legacy kick event is not imported into the current append-only history", Before: source["DeletedAtUtc"], After: "not imported"})
+			continue
+		}
 		enrollment := findEnrollment(snapshot, stringValue(source["StudentId"]), stringValue(source["SeasonId"]))
-		values := Row{"id": id, "enrollment_id": sourceID("Enrollment", enrollment), "season_id": source["SeasonId"], "subject_user_id": source["StudentId"], "actor_user_id": source["MentorId"], "resulting_state": "kicked", "reason": source["KickReason"], "occurred_at": source["KickedAtUtc"], "deleted_at_legacy": source["DeletedAtUtc"]}
+		values := Row{"id": id, "enrollment_id": sourceID("Enrollment", enrollment), "season_id": source["SeasonId"], "subject_user_id": source["StudentId"], "actor_user_id": source["MentorId"], "resulting_state": "kicked", "reason": source["KickReason"], "occurred_at": source["KickedAtUtc"]}
 		if err := add("enrollment_removal_events", "KickStudentEvent", source, id, values, ""); err != nil {
 			return nil, nil, err
 		}
@@ -851,9 +910,14 @@ func transformSnapshot(snapshot Snapshot, now time.Time, autoFixes *[]AutoFix) (
 		if changed {
 			*autoFixes = append(*autoFixes, AutoFix{Code: "SANITIZE_LEGACY_HTML", SourceTable: "MockInterview", SourceID: id, Detail: "unsafe interviewer notes HTML removed", Before: source["Notes"], After: notes})
 		}
-		values := Row{"id": id, "interviewer_user_id": source["InterviewerUserId"], "interviewee_user_id": source["IntervieweeUserId"], "season_id": source["SeasonId"], "season_week_id": source["SeasonWeekId"], "scheduled_at": source["StartDate"], "duration_minutes": source["TimeTakenInMinutes"], "legacy_is_pass": source["IsPass"], "interviewer_notes_html": nilIfEmpty(notes), "notes_sanitization_changed": changed, "deleted_at": source["DeletedAtUtc"], "created_at": source["CreatedAtUtc"], "updated_at": source["UpdatedAtUtc"]}
+		values := Row{"id": id, "interviewer_user_id": source["InterviewerUserId"], "interviewee_user_id": source["IntervieweeUserId"], "season_id": source["SeasonId"], "season_week_id": source["SeasonWeekId"], "scheduled_at": source["StartDate"], "duration_minutes": source["TimeTakenInMinutes"], "interviewer_notes_html": nilIfEmpty(notes), "notes_sanitization_changed": changed, "deleted_at": source["DeletedAtUtc"], "created_at": source["CreatedAtUtc"], "updated_at": source["UpdatedAtUtc"]}
 		if err := add("mock_interviews", "MockInterview", source, id, values, ""); err != nil {
 			return nil, nil, err
+		}
+		legacyPass, present := optionalBool(source["IsPass"])
+		derivedPass := derivesMockPass(snapshot, id)
+		if present && legacyPass != derivedPass {
+			*autoFixes = append(*autoFixes, AutoFix{Code: "DROP_LEGACY_MOCK_PASS", SourceTable: "MockInterview", SourceID: id, Detail: "current mock interview pass status is derived from round scores", Before: legacyPass, After: derivedPass})
 		}
 
 		versionValues := Row{"id": "legacy-version:" + id, "mock_interview_id": id, "version": 1, "actor_user_id": nil, "reason": "Initial legacy import", "snapshot": values, "created_at": now.Format(time.RFC3339Nano)}
@@ -986,7 +1050,9 @@ func buildTableManifests(snapshot Snapshot, tables []PreparedTable, provenance [
 		}
 
 		transformed := preparedBySource[sourceTable]
-		sort.Slice(transformed, func(left, right int) bool { return transformed[left].ID < transformed[right].ID })
+		sort.Slice(transformed, func(left, right int) bool {
+			return preparedRowSortKey(transformed[left]) < preparedRowSortKey(transformed[right])
+		})
 		transformedChecksum, err := Checksum(transformed)
 		if err != nil {
 			return nil, err
@@ -1013,7 +1079,7 @@ func buildHistograms(snapshot Snapshot) []Histogram {
 			result = append(result, Histogram{Table: table, Field: "DeletedAtUtc", Values: values})
 		}
 	}
-	for _, item := range []struct{ table, field string }{{"User", "IsTestUser"}, {"User", "IsGraduate"}, {"Enrollment", "Role"}, {"Enrollment", "StudentRolePromotion"}, {"LeetcodeProblem", "LeetcodeProblemDifficulty"}} {
+	for _, item := range []struct{ table, field string }{{"User", "IsAdmin"}, {"User", "IsGraduate"}, {"Season", "IsDataBackFilled"}, {"MockInterview", "IsPass"}, {"KickStudentEvent", "DeletedAtUtc"}, {"Enrollment", "Role"}, {"Enrollment", "StudentRolePromotion"}, {"LeetcodeProblem", "LeetcodeProblemDifficulty"}} {
 		values := map[string]int{}
 		for _, row := range snapshot.Tables[item.table] {
 			values[stringValue(row[item.field])]++
@@ -1163,6 +1229,88 @@ func boolValue(value any) bool {
 	return parsed
 }
 
+func optionalBool(value any) (bool, bool) {
+	if value == nil || stringValue(value) == "" {
+		return false, false
+	}
+	parsed, err := strconv.ParseBool(stringValue(value))
+	return parsed, err == nil
+}
+
+func isLegacyDeleted(value any) bool {
+	return value != nil && stringValue(value) != ""
+}
+
+func activeKickEvents(snapshot Snapshot) map[string]Row {
+	result := map[string]Row{}
+	for _, row := range snapshot.Tables["KickStudentEvent"] {
+		if isLegacyDeleted(row["DeletedAtUtc"]) {
+			continue
+		}
+		key := stringValue(row["StudentId"]) + "\x00" + stringValue(row["SeasonId"])
+		current := result[key]
+		if current == nil || stringValue(row["KickedAtUtc"]) > stringValue(current["KickedAtUtc"]) {
+			result[key] = row
+		}
+	}
+	return result
+}
+
+func derivesAlumni(snapshot Snapshot, userID string, endedSeasons map[string]string, kicks map[string]Row) bool {
+	for _, enrollment := range snapshot.Tables["Enrollment"] {
+		if stringValue(enrollment["UserId"]) != userID || numberValue(enrollment["Role"]) != 0 {
+			continue
+		}
+		seasonID := stringValue(enrollment["SeasonId"])
+		if kicks[stringValue(enrollment["UserId"])+"\x00"+seasonID] != nil {
+			continue
+		}
+		if isLegacyDeleted(enrollment["DeletedAtUtc"]) {
+			continue
+		}
+		if endedSeasons[seasonID] != "" {
+			return true
+		}
+	}
+	return false
+}
+
+func derivesMockPass(snapshot Snapshot, mockID string) bool {
+	hasScore := false
+	for _, round := range snapshot.Tables["MockInterviewRound"] {
+		if stringValue(round["MockInterviewId"]) != mockID || isLegacyDeleted(round["DeletedAtUtc"]) {
+			continue
+		}
+		refs := []struct {
+			field  string
+			table  string
+			scores []string
+		}{
+			{"BehaviouralMockInterviewRoundId", "BehaviouralMockInterviewRound", []string{"BehavioralScore"}},
+			{"LeetcodeMockInterviewRoundId", "LeetcodeMockInterviewRound", []string{"ConfirmQuestionScore", "AlgorithmDesignScore", "ComplexityAnalysisScore", "CodingScore", "TestingScore"}},
+			{"CustomMockInterviewRoundId", "CustomMockInterviewRound", []string{"Score"}},
+		}
+		for _, ref := range refs {
+			id := stringValue(round[ref.field])
+			if id == "" {
+				continue
+			}
+			for _, subtype := range snapshot.Tables[ref.table] {
+				if sourceID(ref.table, subtype) != id || isLegacyDeleted(subtype["DeletedAtUtc"]) {
+					continue
+				}
+				for _, field := range ref.scores {
+					hasScore = true
+					if numberValue(subtype[field]) < 5 {
+						return false
+					}
+				}
+			}
+		}
+	}
+	return hasScore
+}
+
 func mapEnum(index int, values []string) string {
 	if index < 0 || index >= len(values) {
 		return ""
@@ -1209,13 +1357,4 @@ func roundPositions(rows []Row) map[string]int {
 		}
 	}
 	return result
-}
-
-// sanitizeLegacyHTML is deliberately conservative. It strips active-content
-// elements, inline event handlers, javascript URLs, and embeds while retaining
-// the legacy formatting markup for the application sanitizer's allowlist.
-
-func sanitizeLegacyHTML(input string) (string, bool) {
-	result := platformsanitize.New().String(input)
-	return result, result != input
 }

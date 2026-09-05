@@ -5,23 +5,21 @@
  * Same-origin API for the Ravi's Study Program application.
  * OpenAPI spec version: 2.0.0
  */
-import type { Revision } from './revision';
 
 export interface PracticeSettingsMutation {
   /**
-   * @minimum 5
+   * @minimum 1
    * @maximum 180
    */
   easyMinutes: number;
   /**
-   * @minimum 5
+   * @minimum 1
    * @maximum 180
    */
   mediumMinutes: number;
   /**
-   * @minimum 5
+   * @minimum 1
    * @maximum 180
    */
   hardMinutes: number;
-  revision: Revision;
 }

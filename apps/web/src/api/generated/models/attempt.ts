@@ -6,7 +6,6 @@
  * OpenAPI spec version: 2.0.0
  */
 import type { AttemptOutcome } from './attemptOutcome';
-import type { Revision } from './revision';
 
 export interface Attempt {
   id: string;
@@ -26,5 +25,4 @@ export interface Attempt {
   seasonId?: string | null;
   /** @nullable */
   weekId?: string | null;
-  revision: Revision;
 }

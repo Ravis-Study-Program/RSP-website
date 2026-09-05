@@ -12,9 +12,9 @@ import (
 	"github.com/magedmg/RSP-website/backend/internal/platform/id"
 )
 
-const userColumns = `u.id,u.slug,u.display_name,u.avatar_url,u.timezone,u.timezone_configured,
-	COALESCE(u.email,''),u.account_state::text,
-	COALESCE(to_jsonb(array_agg(g.role::text) FILTER (WHERE g.state='active')),'[]'::jsonb),u.is_test,u.revision,
+const userColumns = `u.id,p.slug,p.display_name,p.avatar_url,pr.timezone,pr.timezone_configured,
+	COALESCE(c.email,''),u.account_state::text,
+	COALESCE(to_jsonb(array_agg(g.role::text) FILTER (WHERE g.state='active')),'[]'::jsonb),
 	COALESCE((SELECT jsonb_agg(jsonb_build_object('seasonId',e.season_id,'seasonSlug',s.slug,'role',e.role::text,'state',e.state::text) ORDER BY s.slug,e.id)
 		FROM app.enrollments e JOIN app.seasons s ON s.id=e.season_id
 		WHERE e.user_id=u.id AND e.deleted_at IS NULL AND (e.state='active' OR (e.role='student' AND e.state='completed'))),'[]'::jsonb),
@@ -24,7 +24,7 @@ const userColumns = `u.id,u.slug,u.display_name,u.avatar_url,u.timezone,u.timezo
 func scanUser(row pgx.Row) (accounts.User, error) {
 	var user accounts.User
 	var globalRoles, seasonRoles []byte
-	if err := row.Scan(&user.ID, &user.Slug, &user.Name, &user.AvatarURL, &user.Timezone, &user.TimezoneConfigured, &user.Email, &user.AccountState, &globalRoles, &user.IsTest, &user.Revision, &seasonRoles, &user.AttemptCount, &user.MockInterviewCount); err != nil {
+	if err := row.Scan(&user.ID, &user.Slug, &user.Name, &user.AvatarURL, &user.Timezone, &user.TimezoneConfigured, &user.Email, &user.AccountState, &globalRoles, &seasonRoles, &user.AttemptCount, &user.MockInterviewCount); err != nil {
 		return user, noRows(err)
 	}
 	if err := json.Unmarshal(globalRoles, &user.GlobalRoles); err != nil {
@@ -39,9 +39,12 @@ func scanUser(row pgx.Row) (accounts.User, error) {
 func (p *Store) GetUser(ctx context.Context, userID string) (accounts.User, error) {
 	query := `SELECT ` + userColumns + `
 		FROM app.users u
+		JOIN app.user_profiles p ON p.user_id=u.id
+		JOIN app.user_preferences pr ON pr.user_id=u.id
+		JOIN app.user_contacts c ON c.user_id=u.id
 		LEFT JOIN app.global_role_assignments g ON g.user_id=u.id
 		WHERE u.id=$1 AND u.deleted_at IS NULL
-		GROUP BY u.id`
+		GROUP BY u.id,p.slug,p.display_name,p.avatar_url,pr.timezone,pr.timezone_configured,c.email,u.account_state`
 	return scanUser(p.pool.QueryRow(ctx, query, userID))
 }
 
@@ -49,7 +52,7 @@ func (p *Store) SuggestUserSlug(ctx context.Context) (string, error) {
 	for attempt := 0; attempt < 32; attempt++ {
 		candidate := "member-" + strings.ReplaceAll(id.New(), "-", "")[:12]
 		var count int64
-		if err := p.pool.QueryRow(ctx, `SELECT count(*) FROM app.users WHERE lower(slug) = lower($1)`, candidate).Scan(&count); err != nil {
+		if err := p.pool.QueryRow(ctx, `SELECT count(*) FROM app.user_profiles WHERE lower(slug) = lower($1)`, candidate).Scan(&count); err != nil {
 			return "", err
 		}
 		if count == 0 {
@@ -69,8 +72,8 @@ type UserQuery struct {
 }
 
 func (p *Store) ListUsers(ctx context.Context, q UserQuery) ([]accounts.User, bool, int64, error) {
-	const filters = `u.account_state = 'active' AND NOT u.is_test AND u.deleted_at IS NULL
-		AND (@search = '' OR u.display_name ILIKE '%' || @search || '%' OR u.slug ILIKE '%' || @search || '%')
+	const filters = `u.account_state = 'active' AND u.deleted_at IS NULL
+		AND (@search = '' OR p.display_name ILIKE '%' || @search || '%' OR p.slug ILIKE '%' || @search || '%')
 		AND EXISTS (
 			SELECT 1 FROM app.enrollments e
 			WHERE e.user_id = u.id AND e.deleted_at IS NULL
@@ -89,7 +92,7 @@ func (p *Store) ListUsers(ctx context.Context, q UserQuery) ([]accounts.User, bo
 		))`
 	args := pgx.NamedArgs{"search": strings.TrimSpace(q.Search), "seasonRole": q.SeasonRole, "globalRole": q.GlobalRole}
 	var total int64
-	if err := p.pool.QueryRow(ctx, `SELECT count(*) FROM app.users u WHERE `+filters, args).Scan(&total); err != nil {
+	if err := p.pool.QueryRow(ctx, `SELECT count(*) FROM app.users u JOIN app.user_profiles p ON p.user_id=u.id WHERE `+filters, args).Scan(&total); err != nil {
 		return nil, false, 0, err
 	}
 	items, more, err := p.listUsers(ctx, q.Boundary, q.Limit, q.Direction, filters, args)
@@ -107,8 +110,8 @@ type AdminUserQuery struct {
 
 func (p *Store) ListAdminUsers(ctx context.Context, q AdminUserQuery) ([]accounts.User, bool, int64, error) {
 	const filters = `u.account_state <> 'deleted' AND u.deleted_at IS NULL
-		AND (@search = '' OR u.display_name ILIKE '%' || @search || '%'
-			OR u.slug ILIKE '%' || @search || '%' OR COALESCE(u.email, '') ILIKE '%' || @search || '%')
+		AND (@search = '' OR p.display_name ILIKE '%' || @search || '%'
+			OR p.slug ILIKE '%' || @search || '%' OR COALESCE(c.email, '') ILIKE '%' || @search || '%')
 		AND (@accountState = '' OR u.account_state::text = @accountState)
 		AND (@globalRole = '' OR EXISTS (
 			SELECT 1 FROM app.global_role_assignments role_filter
@@ -117,7 +120,7 @@ func (p *Store) ListAdminUsers(ctx context.Context, q AdminUserQuery) ([]account
 		))`
 	args := pgx.NamedArgs{"search": strings.TrimSpace(q.Search), "accountState": q.AccountState, "globalRole": q.GlobalRole}
 	var total int64
-	if err := p.pool.QueryRow(ctx, `SELECT count(*) FROM app.users u WHERE `+filters, args).Scan(&total); err != nil {
+	if err := p.pool.QueryRow(ctx, `SELECT count(*) FROM app.users u JOIN app.user_profiles p ON p.user_id=u.id JOIN app.user_contacts c ON c.user_id=u.id WHERE `+filters, args).Scan(&total); err != nil {
 		return nil, false, 0, err
 	}
 	items, more, err := p.listUsers(ctx, q.Boundary, q.Limit, q.Direction, filters, args)
@@ -133,9 +136,12 @@ func (p *Store) listUsers(ctx context.Context, boundary string, limit int, direc
 		comparison = `TRUE`
 	}
 	query := `SELECT ` + userColumns + ` FROM app.users u
+		JOIN app.user_profiles p ON p.user_id=u.id
+		JOIN app.user_preferences pr ON pr.user_id=u.id
+		JOIN app.user_contacts c ON c.user_id=u.id
 		LEFT JOIN app.global_role_assignments g ON g.user_id=u.id
 		WHERE ` + comparison + ` AND ` + filters + `
-		GROUP BY u.id
+		GROUP BY u.id,p.slug,p.display_name,p.avatar_url,pr.timezone,pr.timezone_configured,c.email,u.account_state
 		ORDER BY u.id ` + order + ` LIMIT @limit`
 	args["boundary"] = boundary
 	args["limit"] = limit + 1
@@ -168,13 +174,13 @@ type EnrollmentCandidateQuery struct {
 }
 
 func (p *Store) ListEnrollmentCandidates(ctx context.Context, q EnrollmentCandidateQuery) ([]accounts.EnrollmentCandidate, bool, int64, error) {
-	const filters = `u.account_state = 'active' AND NOT u.is_test AND u.deleted_at IS NULL
+	const filters = `u.account_state = 'active' AND u.deleted_at IS NULL
 		AND EXISTS (SELECT 1 FROM app.user_auth_links l WHERE l.user_id = u.id AND l.active)
 		AND NOT EXISTS (SELECT 1 FROM app.enrollments e WHERE e.user_id = u.id AND e.season_id = @seasonID)
-		AND (@search = '' OR u.display_name ILIKE '%' || @search || '%' OR u.slug ILIKE '%' || @search || '%')`
+		AND (@search = '' OR p.display_name ILIKE '%' || @search || '%' OR p.slug ILIKE '%' || @search || '%')`
 	args := pgx.NamedArgs{"seasonID": q.SeasonID, "search": strings.TrimSpace(q.Search)}
 	var total int64
-	if err := p.pool.QueryRow(ctx, `SELECT count(*) FROM app.users u WHERE `+filters, args).Scan(&total); err != nil {
+	if err := p.pool.QueryRow(ctx, `SELECT count(*) FROM app.users u JOIN app.user_profiles p ON p.user_id=u.id WHERE `+filters, args).Scan(&total); err != nil {
 		return nil, false, 0, err
 	}
 
@@ -187,8 +193,9 @@ func (p *Store) ListEnrollmentCandidates(ctx context.Context, q EnrollmentCandid
 	}
 	args["boundary"] = q.Boundary
 	args["limit"] = q.Limit + 1
-	rows, err := p.pool.Query(ctx, `SELECT u.id,u.slug,u.display_name,u.avatar_url,u.revision
+	rows, err := p.pool.Query(ctx, `SELECT u.id,p.slug,p.display_name,p.avatar_url
 		FROM app.users u
+		JOIN app.user_profiles p ON p.user_id=u.id
 		WHERE `+filters+` AND `+comparison+`
 		ORDER BY u.id `+order+` LIMIT @limit`, args)
 	if err != nil {
@@ -198,7 +205,7 @@ func (p *Store) ListEnrollmentCandidates(ctx context.Context, q EnrollmentCandid
 	items := []accounts.EnrollmentCandidate{}
 	for rows.Next() {
 		var candidate accounts.EnrollmentCandidate
-		if err := rows.Scan(&candidate.ID, &candidate.Slug, &candidate.Name, &candidate.AvatarURL, &candidate.Revision); err != nil {
+		if err := rows.Scan(&candidate.ID, &candidate.Slug, &candidate.Name, &candidate.AvatarURL); err != nil {
 			return nil, false, 0, err
 		}
 		items = append(items, candidate)
@@ -210,7 +217,7 @@ func (p *Store) ListEnrollmentCandidates(ctx context.Context, q EnrollmentCandid
 	return items, more, total, nil
 }
 
-func (p *Store) UpdateUser(ctx context.Context, userID string, revision int64, update func(*accounts.User) error, actorID string, at time.Time) (accounts.User, error) {
+func (p *Store) UpdateUser(ctx context.Context, userID string, update func(*accounts.User) error, actorID string, at time.Time) (accounts.User, error) {
 	tx, err := p.pool.Begin(ctx)
 	if err != nil {
 		return accounts.User{}, err
@@ -218,26 +225,25 @@ func (p *Store) UpdateUser(ctx context.Context, userID string, revision int64, u
 	defer tx.Rollback(context.Background())
 
 	var user accounts.User
-	err = tx.QueryRow(ctx, `SELECT id,slug,display_name,avatar_url,timezone,timezone_configured,
-		COALESCE(email,''),account_state::text,is_test,revision
-		FROM app.users WHERE id=$1 AND deleted_at IS NULL FOR UPDATE`, userID).Scan(&user.ID, &user.Slug, &user.Name, &user.AvatarURL, &user.Timezone, &user.TimezoneConfigured, &user.Email, &user.AccountState, &user.IsTest, &user.Revision)
+	err = tx.QueryRow(ctx, `SELECT u.id,p.slug,p.display_name,p.avatar_url,pr.timezone,pr.timezone_configured,
+		COALESCE(c.email,''),u.account_state::text
+		FROM app.users u
+		JOIN app.user_profiles p ON p.user_id=u.id
+		JOIN app.user_preferences pr ON pr.user_id=u.id
+		JOIN app.user_contacts c ON c.user_id=u.id
+		WHERE u.id=$1 AND u.deleted_at IS NULL FOR UPDATE OF u`, userID).Scan(&user.ID, &user.Slug, &user.Name, &user.AvatarURL, &user.Timezone, &user.TimezoneConfigured, &user.Email, &user.AccountState)
 	if err != nil {
 		return user, noRows(err)
-	}
-	if user.Revision != revision {
-		return user, ErrConflict
 	}
 	if err := update(&user); err != nil {
 		return user, err
 	}
-	result, err := tx.Exec(ctx, `UPDATE app.users SET slug=$1,display_name=$2,avatar_url=$3,timezone=$4,timezone_configured=$5,revision=revision + 1 WHERE id = $6 AND revision = $7`, user.Slug, user.Name, user.AvatarURL, user.Timezone, user.TimezoneConfigured, userID, revision)
-	if err != nil {
-		return user, mapDatabaseError(err)
+	if _, err := tx.Exec(ctx, `UPDATE app.user_profiles SET slug=$1,display_name=$2,avatar_url=$3 WHERE user_id=$4`, user.Slug, user.Name, user.AvatarURL, userID); err != nil {
+		return user, err
 	}
-	if result.RowsAffected() == 0 {
-		return user, ErrConflict
+	if _, err := tx.Exec(ctx, `UPDATE app.user_preferences SET timezone=$1,timezone_configured=$2 WHERE user_id=$3`, user.Timezone, user.TimezoneConfigured, userID); err != nil {
+		return user, err
 	}
-	user.Revision++
 	if err := appendAuditTx(ctx, tx, newAudit(actorID, "user.updated", "user", userID, nil, at)); err != nil {
 		return user, err
 	}

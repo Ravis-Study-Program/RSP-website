@@ -405,7 +405,7 @@ export function MockInterviewsPage() {
   const removeInterview = async (mock: MockInterview) => {
     if (!demoMode)
       await apiRequest<void>(
-        `/mock-interviews/${encodeURIComponent(mock.id)}?revision=${mock.revision}`,
+        `/mock-interviews/${encodeURIComponent(mock.id)}`,
         { method: 'DELETE' },
       );
     setRemovedIds((ids) => [...ids, mock.id]);
@@ -733,7 +733,6 @@ function EditMockDialog({
             ...(round.link ? { link: round.link } : {}),
             scores: round.scores,
           })),
-          revision: mock.revision,
         };
         const result = await apiRequest<MockInterviewResult>(
           `/mock-interviews/${encodeURIComponent(mock.id)}`,
@@ -752,7 +751,6 @@ function EditMockDialog({
           durationMinutes,
           notes,
           rounds,
-          revision: mock.revision + 1,
         };
       }
       onChanged(changed);
@@ -926,7 +924,6 @@ function RoundReviewDialog({
         const body: RoundReview = {
           reviewed,
           comment,
-          revision: mock.revision,
         };
         await apiRequest<MockInterviewResult>(
           `/mock-interviews/${encodeURIComponent(mock.id)}/rounds/${encodeURIComponent(roundId)}/review`,
@@ -1094,7 +1091,6 @@ function IdentityCorrectionDialog({
           intervieweeId,
           seasonId: seasonId || null,
           reason: reason.trim(),
-          revision: mock.revision,
         };
         const result = await apiRequest<MockInterviewResult>(
           `/mock-interviews/${encodeURIComponent(mock.id)}/identity-correction`,
@@ -1122,7 +1118,6 @@ function IdentityCorrectionDialog({
             mock.interviewee,
           season:
             seasons.find((season) => season.id === seasonId)?.name ?? null,
-          revision: mock.revision + 1,
         });
       }
       setOpen(false);
@@ -1311,7 +1306,6 @@ function NewMockDialog({
       notes: '',
       rounds,
       reviewStatus: 'pending',
-      revision: 1,
     };
     try {
       if (!demoMode) {

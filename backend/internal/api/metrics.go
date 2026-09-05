@@ -17,7 +17,6 @@ var (
 	httpStatusClasses      = [...]string{"1xx", "2xx", "3xx", "4xx", "5xx"}
 	httpDurationBoundaries = [...]float64{0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10}
 	workerResults          = [...]string{"success", "partial_failure", "failure"}
-	migrationStates        = [...]string{"none", "planned", "applying", "applied", "verified", "rolled_back", "failed"}
 )
 
 type apiMetrics struct {
@@ -60,15 +59,14 @@ func (m *apiMetrics) render(ctx context.Context, writer io.Writer, dataSource an
 	m.mu.Unlock()
 
 	snapshot := observability.Snapshot{
-		WorkerRuns:     map[string]uint64{},
-		MigrationState: "none",
+		WorkerRuns: map[string]uint64{},
 	}
 	snapshotOK := true
 	if source, ok := dataSource.(observability.Source); ok {
 		var err error
 		snapshot, err = source.ObservabilitySnapshot(ctx)
 		if err != nil {
-			snapshot = observability.Snapshot{WorkerRuns: map[string]uint64{}, MigrationState: "none"}
+			snapshot = observability.Snapshot{WorkerRuns: map[string]uint64{}}
 			snapshotOK = false
 		}
 	}
@@ -97,19 +95,6 @@ func (m *apiMetrics) render(ctx context.Context, writer io.Writer, dataSource an
 	for _, result := range workerResults {
 		fmt.Fprintf(writer, "rsp_worker_runs_total{result=%q} %d\n", result, snapshot.WorkerRuns[result])
 	}
-	fmt.Fprintln(writer, "# HELP rsp_migration_status Latest legacy migration state as a one-hot bounded label.")
-	fmt.Fprintln(writer, "# TYPE rsp_migration_status gauge")
-	state := snapshot.MigrationState
-	if !containsMetricLabel(migrationStates[:], state) {
-		state = "none"
-	}
-	for _, candidate := range migrationStates {
-		value := 0
-		if candidate == state {
-			value = 1
-		}
-		fmt.Fprintf(writer, "rsp_migration_status{state=%q} %d\n", candidate, value)
-	}
 	fmt.Fprintln(writer, "# HELP rsp_observability_snapshot_success Whether durable operational state was read successfully.")
 	fmt.Fprintln(writer, "# TYPE rsp_observability_snapshot_success gauge")
 	if snapshotOK {
@@ -117,15 +102,6 @@ func (m *apiMetrics) render(ctx context.Context, writer io.Writer, dataSource an
 	} else {
 		fmt.Fprintln(writer, "rsp_observability_snapshot_success 0")
 	}
-}
-
-func containsMetricLabel(values []string, wanted string) bool {
-	for _, value := range values {
-		if value == wanted {
-			return true
-		}
-	}
-	return false
 }
 
 type statusWriter struct {

@@ -8,11 +8,7 @@ import { useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
 
 import { apiRequest } from '@/api/client';
-import type {
-  Enrollment,
-  Promotion,
-  ReasonedRevision,
-} from '@/api/generated/models';
+import type { Enrollment, Promotion } from '@/api/generated/models';
 import {
   enablePracticeGoals,
   fetchUserPracticeSettings,
@@ -176,7 +172,6 @@ function EnableGoalsButton({
         if (!settings.goalsEnabled)
           await enablePracticeGoals(person.id, {
             seasonId,
-            revision: settings.revision,
           });
       }
       setEnabled(true);
@@ -237,7 +232,7 @@ function PromotionDialog({
       onChanged();
       return;
     }
-    if (!seasonId || !person.enrollmentId || !person.enrollmentRevision) return;
+    if (!seasonId || !person.enrollmentId) return;
     setPending(true);
     setError('');
     try {
@@ -245,7 +240,6 @@ function PromotionDialog({
         const body: Promotion = {
           role,
           reason: reason || undefined,
-          revision: person.enrollmentRevision,
         };
         await apiRequest<Enrollment>(
           `/seasons/${encodeURIComponent(seasonId)}/members/${encodeURIComponent(person.enrollmentId)}/promote`,
@@ -339,14 +333,13 @@ function RemovalDialog({
       onRemoved();
       return;
     }
-    if (!seasonId || !person.enrollmentId || !person.enrollmentRevision) return;
+    if (!seasonId || !person.enrollmentId) return;
     setPending(true);
     setError('');
     try {
       if (!demoMode) {
-        const body: ReasonedRevision = {
+        const body = {
           reason: reason.trim(),
-          revision: person.enrollmentRevision,
         };
         await apiRequest<Enrollment>(
           `/seasons/${encodeURIComponent(seasonId)}/members/${encodeURIComponent(person.enrollmentId)}/remove`,

@@ -6,7 +6,6 @@
  * OpenAPI spec version: 2.0.0
  */
 import type { AccountStateMutationState } from './accountStateMutationState';
-import type { Revision } from './revision';
 
 export interface AccountStateMutation {
   state: AccountStateMutationState;
@@ -15,5 +14,4 @@ export interface AccountStateMutation {
    * @maxLength 500
    */
   reason: string;
-  revision: Revision;
 }

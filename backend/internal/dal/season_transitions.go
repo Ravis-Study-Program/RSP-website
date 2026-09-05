@@ -12,18 +12,17 @@ type programmeEnrollmentRow struct {
 	ID              string
 	State           string
 	AssignmentState string
-	Revision        int64
 }
 
 func loadProgrammeSeason(ctx context.Context, tx pgx.Tx, seasonID string) (programme.Season, []programmeEnrollmentRow, error) {
 	var season programme.Season
-	err := tx.QueryRow(ctx, `SELECT id,status::text,revision
-		FROM app.seasons WHERE id=$1 AND deleted_at IS NULL FOR UPDATE`, seasonID).Scan(&season.ID, &season.Status, &season.Revision)
+	err := tx.QueryRow(ctx, `SELECT id,status::text
+		FROM app.seasons WHERE id=$1 AND deleted_at IS NULL FOR UPDATE`, seasonID).Scan(&season.ID, &season.Status)
 	if err != nil {
 		return programme.Season{}, nil, noRows(err)
 	}
 
-	rows, err := tx.Query(ctx, `SELECT id,state::text,assignment_state::text,revision
+	rows, err := tx.Query(ctx, `SELECT id,state::text,assignment_state::text
 		FROM app.enrollments WHERE season_id=$1 AND deleted_at IS NULL ORDER BY id FOR UPDATE`, seasonID)
 	if err != nil {
 		return programme.Season{}, nil, err
@@ -33,11 +32,11 @@ func loadProgrammeSeason(ctx context.Context, tx pgx.Tx, seasonID string) (progr
 	items := []programmeEnrollmentRow{}
 	for rows.Next() {
 		var item programmeEnrollmentRow
-		if err := rows.Scan(&item.ID, &item.State, &item.AssignmentState, &item.Revision); err != nil {
+		if err := rows.Scan(&item.ID, &item.State, &item.AssignmentState); err != nil {
 			return programme.Season{}, nil, err
 		}
 		season.Enrollments = append(season.Enrollments, programme.Enrollment{
-			ID: item.ID, State: item.State, AssignmentState: item.AssignmentState, Revision: item.Revision,
+			ID: item.ID, State: item.State, AssignmentState: item.AssignmentState,
 		})
 		items = append(items, item)
 	}

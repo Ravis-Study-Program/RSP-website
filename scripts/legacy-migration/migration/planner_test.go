@@ -55,6 +55,115 @@ func TestPlannerBuildsStableCompleteManifest(t *testing.T) {
 	}
 }
 
+func TestPlannerSplitsUserDataByConcern(t *testing.T) {
+	prepared, err := NewPlanner(fixedNow).Plan(validSnapshot(t), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	userCount := len(findPreparedTable(prepared, "users").Rows)
+	for _, table := range []string{"user_profiles", "user_preferences", "user_contacts", "user_security"} {
+		rows := findPreparedTable(prepared, table).Rows
+		if len(rows) != userCount {
+			t.Fatalf("%s rows=%d", table, len(rows))
+		}
+	}
+	for _, row := range findPreparedTable(prepared, "users").Rows {
+		for _, field := range []string{"slug", "display_name", "email", "discord_id", "avatar_url", "timezone", "security_version", "mfa_configured"} {
+			if _, found := row.Values[field]; found {
+				t.Fatalf("user account row contains %q", field)
+			}
+		}
+	}
+	for _, table := range []string{"user_profiles", "user_preferences", "user_contacts", "user_security"} {
+		for _, row := range findPreparedTable(prepared, table).Rows {
+			if _, found := row.Values["created_at"]; found {
+				t.Fatalf("%s row contains redundant created_at", table)
+			}
+		}
+	}
+}
+
+func TestPlannerDropsLegacyFieldsAndMapsCurrentConcepts(t *testing.T) {
+	snapshot := validSnapshot(t)
+	snapshot.Tables["User"][0]["IsAdmin"] = true
+
+	prepared, err := NewPlanner(fixedNow).Plan(snapshot, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for _, table := range prepared.Tables {
+		for _, row := range table.Rows {
+			for _, field := range []string{"legacy_is_admin", "legacy_is_graduate", "legacy_data_backfilled", "deleted_at_legacy", "legacy_is_pass"} {
+				if _, found := row.Values[field]; found {
+					t.Fatalf("legacy field %q was written to %s", field, table.Name)
+				}
+			}
+		}
+	}
+
+	var assignment *PreparedRow
+	for index := range prepared.Tables {
+		for rowIndex := range prepared.Tables[index].Rows {
+			row := &prepared.Tables[index].Rows[rowIndex]
+			if row.SourceTable == "User" && prepared.Tables[index].Name == "global_role_assignments" {
+				assignment = row
+			}
+		}
+	}
+	if assignment == nil || assignment.Values["role"] != "director" {
+		t.Fatalf("admin mapping = %+v", assignment)
+	}
+}
+
+func TestPlannerTreatsDeletedKickAsNonCurrentHistory(t *testing.T) {
+	snapshot := validSnapshot(t)
+	snapshot.Tables["KickStudentEvent"] = []Row{{
+		"KickStudentEventId": "kick-deleted",
+		"MentorId":           "user-mentor",
+		"StudentId":          "user-student",
+		"SeasonId":           "season-1",
+		"KickReason":         "old mistake",
+		"KickedAtUtc":        "2026-07-10T00:00:00Z",
+		"DeletedAtUtc":       "2026-07-11T00:00:00Z",
+	}}
+
+	prepared, err := NewPlanner(fixedNow).Plan(snapshot, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, table := range prepared.Tables {
+		for _, row := range table.Rows {
+			if row.SourceTable == "KickStudentEvent" {
+				t.Fatalf("deleted kick was imported: %+v", row)
+			}
+		}
+	}
+	if !hasAutoFix(prepared.Manifest.AutoFixes, "DROP_LEGACY_DELETED_KICK_EVENT") {
+		t.Fatal("missing deleted-kick auto-fix")
+	}
+}
+
+func TestPlannerReportsLegacyResultMismatches(t *testing.T) {
+	snapshot := validSnapshot(t)
+	snapshot.Tables["MockInterview"][0]["IsPass"] = false
+	prepared, err := NewPlanner(fixedNow).Plan(snapshot, nil)
+	if !errors.Is(err, ErrBlockingAnomalies) || !hasAnomalyCode(prepared.Manifest.Anomalies, "MOCK_PASS_MISMATCH") {
+		t.Fatalf("error=%v anomalies=%+v", err, prepared.Manifest.Anomalies)
+	}
+
+	snapshot = validSnapshot(t)
+	snapshot.Tables["Season"][0]["EndDateInclusiveUtc"] = "2026-08-01T00:00:00Z"
+	prepared, err = NewPlanner(fixedNow).Plan(snapshot, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !hasAnomalyCode(prepared.Manifest.Anomalies, "LEGACY_GRADUATE_MISMATCH") || !hasAutoFix(prepared.Manifest.AutoFixes, "DROP_LEGACY_GRADUATE_FLAG") {
+		t.Fatalf("graduate reconciliation missing: anomalies=%+v fixes=%+v", prepared.Manifest.Anomalies, prepared.Manifest.AutoFixes)
+	}
+}
+
 func TestManifestTamperingIsRejected(t *testing.T) {
 	prepared, err := NewPlanner(fixedNow).Plan(validSnapshot(t), nil)
 	if err != nil {

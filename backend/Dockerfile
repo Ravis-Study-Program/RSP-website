@@ -40,6 +40,7 @@ RUN --mount=type=cache,target=/go/pkg/mod \
 
 FROM dependencies AS ops-build
 COPY backend ./backend
+COPY scripts ./scripts
 RUN --mount=type=cache,target=/go/pkg/mod \
     --mount=type=cache,target=/root/.cache/go-build \
     CGO_ENABLED=0 GOOS=linux go build \
@@ -51,7 +52,7 @@ RUN --mount=type=cache,target=/go/pkg/mod \
       -trimpath \
       -ldflags="-s -w" \
       -o /out/rsp-migrate \
-      ./backend/cmd/rsp-migrate
+      ./scripts/legacy-migration/cmd
 
 FROM alpine:${ALPINE_VERSION} AS runtime-base
 RUN addgroup -S -g 10001 rsp \
@@ -75,11 +76,12 @@ ENTRYPOINT ["goose"]
 CMD ["up"]
 
 FROM runtime-base AS ops
-RUN apk add --no-cache ca-certificates tzdata \
+RUN apk add --no-cache ca-certificates postgresql-client tzdata \
     && mkdir /work \
     && chown 10001:10001 /work
 COPY --from=ops-build /out/rspctl /usr/local/bin/rspctl
 COPY --from=ops-build /out/rsp-migrate /usr/local/bin/rsp-migrate
+COPY --chown=10001:10001 scripts/legacy-migration/schema.sql /usr/local/share/rsp/legacy-migration/schema.sql
 WORKDIR /work
 USER 10001:10001
 CMD ["rspctl"]

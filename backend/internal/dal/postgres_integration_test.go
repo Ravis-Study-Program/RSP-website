@@ -82,9 +82,19 @@ func TestPostgres18MigrationsAndDAL(t *testing.T) {
 		t.Fatalf("verified auth link actor=%#v err=%v", actor, err)
 	}
 
-	_, err = repository.pool.Exec(context.Background(), `INSERT INTO app.users(id,slug,display_name,email,account_state,timezone,revision) VALUES('00000000-0000-7000-8000-000000000033','00000000-0000-7000-8000-000000000033','Integration User','integration@rsp.local','active','Australia/Adelaide',1)`)
+	_, err = repository.pool.Exec(context.Background(), `INSERT INTO app.users(id,account_state) VALUES('00000000-0000-7000-8000-000000000033','active')`)
 	if err != nil {
 		t.Fatal(err)
+	}
+	for _, query := range []string{
+		`INSERT INTO app.user_profiles(user_id,slug,display_name) VALUES('00000000-0000-7000-8000-000000000033','00000000-0000-7000-8000-000000000033','Integration User')`,
+		`INSERT INTO app.user_preferences(user_id) VALUES('00000000-0000-7000-8000-000000000033')`,
+		`INSERT INTO app.user_contacts(user_id,email) VALUES('00000000-0000-7000-8000-000000000033','integration@rsp.local')`,
+		`INSERT INTO app.user_security(user_id) VALUES('00000000-0000-7000-8000-000000000033')`,
+	} {
+		if _, err := repository.pool.Exec(context.Background(), query); err != nil {
+			t.Fatal(err)
+		}
 	}
 	if _, err := repository.pool.Exec(context.Background(), `INSERT INTO app.user_auth_links(auth_subject,user_id,provider,provider_account_id) VALUES('auth-integration','00000000-0000-7000-8000-000000000033','better_auth','auth-integration')`); err != nil {
 		t.Fatal(err)
@@ -168,7 +178,7 @@ func TestPostgres18MigrationsAndDAL(t *testing.T) {
 	if _, err := repository.pool.Exec(context.Background(), `UPDATE app.leetcode_problems SET deleted_at=now() WHERE leetcode_number=999`); err != nil {
 		t.Fatal(err)
 	}
-	if snapshot, err := repository.ObservabilitySnapshot(ctx); err != nil || snapshot.MigrationState != "none" {
+	if snapshot, err := repository.ObservabilitySnapshot(ctx); err != nil {
 		t.Fatalf("observability snapshot=%#v err=%v", snapshot, err)
 	}
 
@@ -188,41 +198,54 @@ func TestPostgres18MigrationsAndDAL(t *testing.T) {
 		t.Fatalf("stale lifecycle event applied: actor=%#v err=%v", actor, err)
 	}
 
-	season, err := repository.CreateSeason(ctx, programme.SeasonRecord{ID: "00000000-0000-7000-8000-000000000028", Slug: "00000000-0000-7000-8000-000000000028", Name: "Integration Season", Status: "open", StartAt: time.Now().UTC(), EndAt: time.Now().UTC().Add(24 * time.Hour), Revision: 1}, "00000000-0000-7000-8000-000000000033", time.Now())
-	if err != nil || season.Revision != 1 {
+	season, err := repository.CreateSeason(ctx, programme.SeasonRecord{ID: "00000000-0000-7000-8000-000000000028", Slug: "00000000-0000-7000-8000-000000000028", Name: "Integration Season", Status: "open", StartAt: time.Now().UTC(), EndAt: time.Now().UTC().Add(24 * time.Hour)}, "00000000-0000-7000-8000-000000000033", time.Now())
+	if err != nil {
 		t.Fatalf("create season: %#v %v", season, err)
-	}
-	if _, err := repository.UpdateSeason(ctx, season.ID, 99, func(*programme.SeasonRecord) error { return nil }, "00000000-0000-7000-8000-000000000033", time.Now()); err != ErrConflict {
-		t.Fatalf("stale revision returned %v", err)
 	}
 
 	settings, err := repository.GetPracticeSettings(ctx, "00000000-0000-7000-8000-000000000033")
-	if err != nil || settings.GoalsEnabled || settings.EasyMinutes != 20 || settings.Revision != 1 {
+	if err != nil || settings.GoalsEnabled || settings.EasyMinutes != 10 || settings.MediumMinutes != 20 || settings.HardMinutes != 45 {
 		t.Fatalf("default practice settings=%#v err=%v", settings, err)
 	}
-	if _, err := repository.EnablePracticeGoals(ctx, "00000000-0000-7000-8000-000000000033", 99, "00000000-0000-7000-8000-000000000033", season.ID, time.Now().UTC()); err != ErrConflict {
-		t.Fatalf("missing-row stale goal enable returned %v", err)
-	}
 
-	settings, err = repository.EnablePracticeGoals(ctx, "00000000-0000-7000-8000-000000000033", settings.Revision, "00000000-0000-7000-8000-000000000033", season.ID, time.Now().UTC())
+	settings, err = repository.EnablePracticeGoals(ctx, "00000000-0000-7000-8000-000000000033", "00000000-0000-7000-8000-000000000033", season.ID, time.Now().UTC())
 	if err != nil || !settings.GoalsEnabled {
 		t.Fatalf("enable practice goals=%#v err=%v", settings, err)
 	}
 
-	settings, err = repository.UpdatePracticeSettings(ctx, "00000000-0000-7000-8000-000000000033", settings.Revision, 25, 40, 60, "00000000-0000-7000-8000-000000000033", time.Now().UTC())
+	settings, err = repository.UpdatePracticeSettings(ctx, "00000000-0000-7000-8000-000000000033", 25, 40, 60, "00000000-0000-7000-8000-000000000033", time.Now().UTC())
 	if err != nil || settings.HardMinutes != 60 {
 		t.Fatalf("update practice settings=%#v err=%v", settings, err)
 	}
-	if _, err := repository.UpdatePracticeSettings(ctx, "00000000-0000-7000-8000-000000000033", 1, 20, 35, 50, "00000000-0000-7000-8000-000000000033", time.Now().UTC()); err != ErrConflict {
-		t.Fatalf("stale practice settings returned %v", err)
-	}
-	if _, err := repository.pool.Exec(context.Background(), `INSERT INTO app.users(id,slug,display_name,email,account_state,timezone,revision) VALUES('00000000-0000-7000-8000-000000000027','00000000-0000-7000-8000-000000000027','Integration Mentor','mentor@rsp.local','active','Australia/Adelaide',1)`); err != nil {
+	if _, err := repository.pool.Exec(context.Background(), `INSERT INTO app.users(id,account_state) VALUES
+		('00000000-0000-7000-8000-000000000027','active'),
+		('00000000-0000-7000-8000-000000000017','active'),
+		('00000000-0000-7000-8000-000000000023','active'),
+		('00000000-0000-7000-8000-000000000026','active')`); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := repository.pool.Exec(context.Background(), `INSERT INTO app.users(id,slug,display_name,email,account_state,timezone,mfa_configured,revision) VALUES
-		('00000000-0000-7000-8000-000000000017','00000000-0000-7000-8000-000000000017','Integration Coordinator','coordinator@rsp.local','active','Australia/Adelaide',true,1),
-		('00000000-0000-7000-8000-000000000023','00000000-0000-7000-8000-000000000023','Integration Promoted','promoted@rsp.local','active','Australia/Adelaide',true,1),
-		('00000000-0000-7000-8000-000000000026','00000000-0000-7000-8000-000000000026','Integration Kicked','kicked@rsp.local','active','Australia/Adelaide',false,1)`); err != nil {
+	if _, err := repository.pool.Exec(context.Background(), `INSERT INTO app.user_profiles(user_id,slug,display_name) VALUES
+		('00000000-0000-7000-8000-000000000027','00000000-0000-7000-8000-000000000027','Integration Mentor'),
+		('00000000-0000-7000-8000-000000000017','00000000-0000-7000-8000-000000000017','Integration Coordinator'),
+		('00000000-0000-7000-8000-000000000023','00000000-0000-7000-8000-000000000023','Integration Promoted'),
+		('00000000-0000-7000-8000-000000000026','00000000-0000-7000-8000-000000000026','Integration Kicked')`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := repository.pool.Exec(context.Background(), `INSERT INTO app.user_preferences(user_id) VALUES
+		('00000000-0000-7000-8000-000000000027'),('00000000-0000-7000-8000-000000000017'),
+		('00000000-0000-7000-8000-000000000023'),('00000000-0000-7000-8000-000000000026')`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := repository.pool.Exec(context.Background(), `INSERT INTO app.user_contacts(user_id,email) VALUES
+		('00000000-0000-7000-8000-000000000027','mentor@rsp.local'),
+		('00000000-0000-7000-8000-000000000017','coordinator@rsp.local'),
+		('00000000-0000-7000-8000-000000000023','promoted@rsp.local'),
+		('00000000-0000-7000-8000-000000000026','kicked@rsp.local')`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := repository.pool.Exec(context.Background(), `INSERT INTO app.user_security(user_id,mfa_configured) VALUES
+		('00000000-0000-7000-8000-000000000027',false),('00000000-0000-7000-8000-000000000017',true),
+		('00000000-0000-7000-8000-000000000023',true),('00000000-0000-7000-8000-000000000026',false)`); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := repository.pool.Exec(context.Background(), `INSERT INTO app.global_role_assignments(id,user_id,role,state,activated_at) VALUES('00000000-0000-7000-8000-000000000018','00000000-0000-7000-8000-000000000026','director','active',now())`); err != nil {
@@ -240,7 +263,7 @@ func TestPostgres18MigrationsAndDAL(t *testing.T) {
 	if err := repository.pool.QueryRow(context.Background(), `SELECT state::text,activated_at FROM app.global_role_assignments WHERE id='00000000-0000-7000-8000-000000000004'`).Scan(&assignmentState, &assignmentActivatedAt); err != nil || assignmentState != "active" || assignmentActivatedAt == nil {
 		t.Fatalf("preconfigured-MFA global role state=%q activatedAt=%v err=%v", assignmentState, assignmentActivatedAt, err)
 	}
-	if _, err := repository.CreateEnrollment(ctx, programme.EnrollmentRecord{ID: "00000000-0000-7000-8000-000000000009", SeasonID: season.ID, UserID: "00000000-0000-7000-8000-000000000033", Role: "student", State: "active", Revision: 1}, "00000000-0000-7000-8000-000000000033", time.Now()); err != nil {
+	if _, err := repository.CreateEnrollment(ctx, programme.EnrollmentRecord{ID: "00000000-0000-7000-8000-000000000009", SeasonID: season.ID, UserID: "00000000-0000-7000-8000-000000000033", Role: "student", State: "active"}, "00000000-0000-7000-8000-000000000033", time.Now()); err != nil {
 		t.Fatal(err)
 	}
 	if users, _, _, err := repository.ListUsers(ctx, UserQuery{Limit: 25, Direction: "forward"}); err != nil || len(users) == 0 {
@@ -255,36 +278,36 @@ func TestPostgres18MigrationsAndDAL(t *testing.T) {
 	if _, _, _, err := repository.ListEnrollmentCandidates(ctx, EnrollmentCandidateQuery{SeasonID: season.ID, Limit: 25, Direction: "forward"}); err != nil {
 		t.Fatalf("empty-cursor enrollment candidate list: %v", err)
 	}
-	if _, err := repository.CreateEnrollment(ctx, programme.EnrollmentRecord{ID: "00000000-0000-7000-8000-000000000012", SeasonID: season.ID, UserID: "00000000-0000-7000-8000-000000000027", Role: "mentor", State: "active", Revision: 1}, "00000000-0000-7000-8000-000000000033", time.Now()); err != nil {
+	if _, err := repository.CreateEnrollment(ctx, programme.EnrollmentRecord{ID: "00000000-0000-7000-8000-000000000012", SeasonID: season.ID, UserID: "00000000-0000-7000-8000-000000000027", Role: "mentor", State: "active"}, "00000000-0000-7000-8000-000000000033", time.Now()); err != nil {
 		t.Fatal(err)
 	}
 
-	coordinatorEnrollment, err := repository.CreateEnrollment(ctx, programme.EnrollmentRecord{ID: "00000000-0000-7000-8000-000000000002", SeasonID: season.ID, UserID: "00000000-0000-7000-8000-000000000017", Role: "coordinator", State: "active", Revision: 1}, "00000000-0000-7000-8000-000000000033", time.Now())
+	coordinatorEnrollment, err := repository.CreateEnrollment(ctx, programme.EnrollmentRecord{ID: "00000000-0000-7000-8000-000000000002", SeasonID: season.ID, UserID: "00000000-0000-7000-8000-000000000017", Role: "coordinator", State: "active"}, "00000000-0000-7000-8000-000000000033", time.Now())
 	if err != nil || coordinatorEnrollment.AssignmentState != "active" {
 		t.Fatalf("preconfigured coordinator create=%#v err=%v", coordinatorEnrollment, err)
 	}
-	if _, err := repository.CreateEnrollment(ctx, programme.EnrollmentRecord{ID: "00000000-0000-7000-8000-000000000005", SeasonID: season.ID, UserID: "00000000-0000-7000-8000-000000000023", Role: "student", State: "active", Revision: 1}, "00000000-0000-7000-8000-000000000033", time.Now()); err != nil {
+	if _, err := repository.CreateEnrollment(ctx, programme.EnrollmentRecord{ID: "00000000-0000-7000-8000-000000000005", SeasonID: season.ID, UserID: "00000000-0000-7000-8000-000000000023", Role: "student", State: "active"}, "00000000-0000-7000-8000-000000000033", time.Now()); err != nil {
 		t.Fatal(err)
 	}
 
-	promotedEnrollment, err := repository.UpdateEnrollment(ctx, "00000000-0000-7000-8000-000000000005", 1, "coordinator", "", "", "00000000-0000-7000-8000-000000000033", time.Now())
+	promotedEnrollment, err := repository.UpdateEnrollment(ctx, "00000000-0000-7000-8000-000000000005", "coordinator", "", "", "00000000-0000-7000-8000-000000000033", time.Now())
 	if err != nil || promotedEnrollment.AssignmentState != "active" {
 		t.Fatalf("preconfigured coordinator promotion=%#v err=%v", promotedEnrollment, err)
 	}
-	if _, err := repository.pool.Exec(context.Background(), `INSERT INTO app.enrollments(id,user_id,season_id,role,student_level,state,assignment_state,activated_at,revision) VALUES('00000000-0000-7000-8000-000000000011','00000000-0000-7000-8000-000000000026',$1,'student','beginner','kicked','revoked',NULL,1)`, season.ID); err != nil {
+	if _, err := repository.pool.Exec(context.Background(), `INSERT INTO app.enrollments(id,user_id,season_id,role,student_level,state,assignment_state,activated_at) VALUES('00000000-0000-7000-8000-000000000011','00000000-0000-7000-8000-000000000026',$1,'student','beginner','kicked','revoked',NULL)`, season.ID); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := repository.CreateWeek(ctx, programme.WeekRecord{ID: "00000000-0000-7000-8000-000000000034", SeasonID: season.ID, Number: 1, StartAt: season.StartAt, EndAt: season.EndAt, ResourceURL: "https://rsp.local/week", Revision: 1}, "00000000-0000-7000-8000-000000000033", time.Now()); err != nil {
+	if _, err := repository.CreateWeek(ctx, programme.WeekRecord{ID: "00000000-0000-7000-8000-000000000034", SeasonID: season.ID, Number: 1, StartAt: season.StartAt, EndAt: season.EndAt, ResourceURL: "https://rsp.local/week"}, "00000000-0000-7000-8000-000000000033", time.Now()); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := repository.CreateMentorship(ctx, programme.MentorshipRecord{ID: "00000000-0000-7000-8000-000000000020", SeasonID: season.ID, MentorUserID: "00000000-0000-7000-8000-000000000027", StudentUserID: "00000000-0000-7000-8000-000000000033", Revision: 1}, "00000000-0000-7000-8000-000000000033", time.Now()); err != nil {
+	if _, err := repository.CreateMentorship(ctx, programme.MentorshipRecord{ID: "00000000-0000-7000-8000-000000000020", SeasonID: season.ID, MentorUserID: "00000000-0000-7000-8000-000000000027", StudentUserID: "00000000-0000-7000-8000-000000000033"}, "00000000-0000-7000-8000-000000000033", time.Now()); err != nil {
 		t.Fatal(err)
 	}
 	if assigned, err := repository.IsMentorAssigned(ctx, season.ID, "00000000-0000-7000-8000-000000000027", "00000000-0000-7000-8000-000000000033"); err != nil || !assigned {
 		t.Fatalf("mentorship assigned=%v err=%v", assigned, err)
 	}
 
-	closed, err := repository.CloseSeason(ctx, season.ID, 1, "00000000-0000-7000-8000-000000000033", "complete", time.Now().UTC())
+	closed, err := repository.CloseSeason(ctx, season.ID, "00000000-0000-7000-8000-000000000033", "complete", time.Now().UTC())
 	if err != nil || closed.Status != "closed" {
 		t.Fatalf("close=%#v err=%v", closed, err)
 	}
@@ -294,7 +317,7 @@ func TestPostgres18MigrationsAndDAL(t *testing.T) {
 		t.Fatalf("completed enrollment=%#v err=%v", studentEnrollment, err)
 	}
 
-	reopened, err := repository.ReopenSeason(ctx, season.ID, 2, "00000000-0000-7000-8000-000000000033", "correction", time.Now().UTC())
+	reopened, err := repository.ReopenSeason(ctx, season.ID, "00000000-0000-7000-8000-000000000033", "correction", time.Now().UTC())
 	if err != nil || reopened.Status != "open" {
 		t.Fatalf("reopen=%#v err=%v", reopened, err)
 	}
@@ -310,7 +333,7 @@ func TestPostgres18MigrationsAndDAL(t *testing.T) {
 	}
 
 	invalidScore := 7
-	invalidMock := mockinterviews.Interview{ID: "00000000-0000-7000-8000-000000000003", InterviewerID: "00000000-0000-7000-8000-000000000027", IntervieweeID: "00000000-0000-7000-8000-000000000026", SeasonID: &season.ID, OccurredAt: season.StartAt.Add(time.Hour), DurationMinutes: 60, Rounds: []mockinterviews.Round{{ID: "00000000-0000-7000-8000-000000000016", Type: mockinterviews.Behavioural, Scores: mockinterviews.Scores{Behavioural: &invalidScore}}}, Revision: 1}
+	invalidMock := mockinterviews.Interview{ID: "00000000-0000-7000-8000-000000000003", InterviewerID: "00000000-0000-7000-8000-000000000027", IntervieweeID: "00000000-0000-7000-8000-000000000026", SeasonID: &season.ID, OccurredAt: season.StartAt.Add(time.Hour), DurationMinutes: 60, Rounds: []mockinterviews.Round{{ID: "00000000-0000-7000-8000-000000000016", Type: mockinterviews.Behavioural, Scores: mockinterviews.Scores{Behavioural: &invalidScore}}}}
 	if _, err := repository.CreateMockInterview(ctx, invalidMock, "00000000-0000-7000-8000-000000000027", time.Now().UTC()); err == nil {
 		t.Fatal("kicked-only mock participant passed PostgreSQL scope validation")
 	}
@@ -324,7 +347,7 @@ func TestPostgres18MigrationsAndDAL(t *testing.T) {
 		t.Fatalf("empty-cursor problem list=%#v err=%v", problems, err)
 	}
 
-	_, err = repository.CreateAttempt(ctx, practice.AttemptRecord{ID: "00000000-0000-7000-8000-000000000024", UserID: "00000000-0000-7000-8000-000000000033", ProblemID: "00000000-0000-7000-8000-000000000025", Outcome: "independently_solved", Confidence: intPointer(5), Minutes: 12, AttemptedAt: time.Now().UTC(), Revision: 1})
+	_, err = repository.CreateAttempt(ctx, practice.AttemptRecord{ID: "00000000-0000-7000-8000-000000000024", UserID: "00000000-0000-7000-8000-000000000033", ProblemID: "00000000-0000-7000-8000-000000000025", Outcome: "independently_solved", Confidence: intPointer(5), Minutes: 12, AttemptedAt: time.Now().UTC()})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -333,7 +356,7 @@ func TestPostgres18MigrationsAndDAL(t *testing.T) {
 	}
 
 	score := 7
-	interview := mockinterviews.Interview{ID: "00000000-0000-7000-8000-000000000031", InterviewerID: "00000000-0000-7000-8000-000000000027", IntervieweeID: "00000000-0000-7000-8000-000000000033", SeasonID: &season.ID, OccurredAt: time.Now().UTC(), DurationMinutes: 60, Notes: "notes", Rounds: []mockinterviews.Round{{ID: "00000000-0000-7000-8000-000000000030", Type: mockinterviews.Behavioural, Scores: mockinterviews.Scores{Behavioural: &score}}}, Revision: 1}
+	interview := mockinterviews.Interview{ID: "00000000-0000-7000-8000-000000000031", InterviewerID: "00000000-0000-7000-8000-000000000027", IntervieweeID: "00000000-0000-7000-8000-000000000033", SeasonID: &season.ID, OccurredAt: time.Now().UTC(), DurationMinutes: 60, Notes: "notes", Rounds: []mockinterviews.Round{{ID: "00000000-0000-7000-8000-000000000030", Type: mockinterviews.Behavioural, Scores: mockinterviews.Scores{Behavioural: &score}}}}
 	if _, err := repository.CreateMockInterview(ctx, interview, "00000000-0000-7000-8000-000000000027", time.Now().UTC()); err != nil {
 		t.Fatal(err)
 	}
@@ -347,7 +370,6 @@ func TestPostgres18MigrationsAndDAL(t *testing.T) {
 	}
 
 	loadedInterview.Notes = "updated"
-	loadedInterview.Revision++
 	if _, err := repository.UpdateMockInterview(ctx, loadedInterview, "00000000-0000-7000-8000-000000000027", time.Now().UTC()); err != nil {
 		t.Fatal(err)
 	}
@@ -357,16 +379,11 @@ func TestPostgres18MigrationsAndDAL(t *testing.T) {
 		t.Fatalf("mock versions=%d err=%v", versionCount, err)
 	}
 
-	currentSeason, err := repository.GetSeason(ctx, season.ID)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	updatedSeason, err := repository.UpdateSeason(ctx, season.ID, currentSeason.Revision, func(value *programme.SeasonRecord) error {
+	updatedSeason, err := repository.UpdateSeason(ctx, season.ID, func(value *programme.SeasonRecord) error {
 		value.Location = "Updated Adelaide"
 		return nil
 	}, "00000000-0000-7000-8000-000000000033", time.Now().UTC())
-	if err != nil || updatedSeason.Location != "Updated Adelaide" || updatedSeason.Revision != currentSeason.Revision+1 {
+	if err != nil || updatedSeason.Location != "Updated Adelaide" {
 		t.Fatalf("enum-backed season update=%#v err=%v", updatedSeason, err)
 	}
 

@@ -91,7 +91,7 @@ export function SettingsPage() {
       practiceDraft.mediumMinutes,
       practiceDraft.hardMinutes,
     ].every(
-      (minutes) => Number.isInteger(minutes) && minutes >= 5 && minutes <= 180,
+      (minutes) => Number.isInteger(minutes) && minutes >= 1 && minutes <= 180,
     ),
   );
   const timezoneValid = useMemo(() => {
@@ -149,7 +149,6 @@ export function SettingsPage() {
               slug: user.data.slug,
               avatarUrl: user.data.avatarUrl,
               timezone,
-              revision: user.data.revision,
             }),
           });
           queryClient.setQueryData(
@@ -162,7 +161,6 @@ export function SettingsPage() {
             easyMinutes: practiceDraft.easyMinutes,
             mediumMinutes: practiceDraft.mediumMinutes,
             hardMinutes: practiceDraft.hardMinutes,
-            revision: practiceDraft.revision,
           };
           updatedSettings = await patchPracticeSettings(mutation);
         }
@@ -171,12 +169,10 @@ export function SettingsPage() {
           queryClient.setQueryData(currentUserOptions.queryKey, {
             ...user.data,
             timezone,
-            revision: user.data.revision + 1,
           });
         if (practiceDirty)
           updatedSettings = {
             ...practiceDraft,
-            revision: practiceDraft.revision + 1,
           };
       }
       if (practiceDirty) {
@@ -485,7 +481,7 @@ export function PracticePreferencesPanel({
         ).map(([difficulty, field]) => {
           const invalid =
             !Number.isInteger(value[field]) ||
-            value[field] < 5 ||
+            value[field] < 1 ||
             value[field] > 180;
           return (
             <div
@@ -499,7 +495,7 @@ export function PracticePreferencesPanel({
                 id={`goal-${difficulty}`}
                 className={styles.input}
                 type="number"
-                min="5"
+                min="1"
                 max="180"
                 value={Number.isNaN(value[field]) ? '' : value[field]}
                 disabled={!value.goalsEnabled}
@@ -516,7 +512,7 @@ export function PracticePreferencesPanel({
                   id={`goal-${difficulty}-error`}
                   className={styles.fieldError}
                 >
-                  Enter 5 to 180 minutes.
+                  Enter 1 to 180 minutes.
                 </p>
               ) : null}
             </div>

@@ -24,7 +24,6 @@ const problem: LeetcodeProblem = {
   difficulty: 'medium',
   categories: ['Hash maps', 'Sorting'],
   premium: false,
-  revision: 2,
 };
 
 describe('OpenAPI DTO adapters', () => {
@@ -39,7 +38,6 @@ describe('OpenAPI DTO adapters', () => {
       globalRoles: ['director'],
       attemptCount: 12,
       mockInterviewCount: 3,
-      revision: 4,
       email: 'amelia@example.test',
       accountState: 'active',
       emailVerified: true,
@@ -85,7 +83,6 @@ describe('OpenAPI DTO adapters', () => {
           location: 'Adelaide University',
           imageUrl: 'https://example.test/season.png',
           resourcesUrl: 'https://example.test/resources',
-          revision: 3,
         },
       ],
     };
@@ -104,7 +101,6 @@ describe('OpenAPI DTO adapters', () => {
           seasonRoles: [],
           attemptCount: 0,
           mockInterviewCount: 0,
-          revision: 1,
         },
       ],
     };
@@ -139,7 +135,6 @@ describe('OpenAPI DTO adapters', () => {
           minutes: 32,
           notes: '<p>Used a heap.</p>',
           attemptedAt: '2026-08-13T00:00:00Z',
-          revision: 2,
         },
       ],
     };
@@ -173,7 +168,6 @@ describe('OpenAPI DTO adapters', () => {
           },
           durationMinutes: 60,
           notes: '',
-          revision: 2,
           rounds: [
             {
               id: 'round-1',

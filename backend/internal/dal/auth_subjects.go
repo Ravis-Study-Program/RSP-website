@@ -11,9 +11,10 @@ import (
 func (p *Store) ResolveAuthSubject(ctx context.Context, subject string) (authz.Actor, error) {
 	var actor authz.Actor
 	var accountState string
-	err := p.pool.QueryRow(ctx, `SELECT u.id,u.account_state::text,u.security_version
+	err := p.pool.QueryRow(ctx, `SELECT u.id,u.account_state::text,s.security_version
 		FROM app.user_auth_links l
 		JOIN app.users u ON u.id=l.user_id
+		JOIN app.user_security s ON s.user_id=u.id
 		WHERE l.auth_subject=$1 AND l.active AND u.deleted_at IS NULL`, subject).Scan(&actor.UserID, &accountState, &actor.SecurityVersion)
 	if err != nil {
 		return actor, noRows(err)

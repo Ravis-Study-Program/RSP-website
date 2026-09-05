@@ -30,9 +30,11 @@ Record PostgreSQL version, UTC timestamp, database/schema scope, deployment
 revision, backup size, checksum and operator. Never store dumps in Git, CI
 artifacts, general chat or an unencrypted personal cloud folder.
 
-The full database backup includes `app`, `auth` and `migration`, preserving the
-identity/domain linkage. If policy requires separate custody, take schema-only
-or schema-filtered copies in addition—not instead—and document dependencies.
+The full database backup includes `app` and `auth`, preserving the
+identity/domain linkage. A legacy import bookkeeping schema is only present on
+targets where the one-time import setup has been run; it is not part of the
+application baseline. If policy requires separate custody, take schema-only or
+schema-filtered copies in addition—not instead—and document dependencies.
 
 ## Verification restore
 
@@ -55,7 +57,7 @@ docker compose exec -T postgres pg_restore \
 
 Connect using a read-only verification role and check:
 
-- Schemas/tables/migration versions exist.
+- Application and authentication schema versions exist.
 - App/auth user-link counts reconcile without exposing PII in the report.
 - Foreign keys and append-only triggers are valid.
 - Deleted/test/null/state histograms match the source database.

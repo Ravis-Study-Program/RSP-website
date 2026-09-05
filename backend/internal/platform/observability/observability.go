@@ -8,7 +8,6 @@ type Snapshot struct {
 	DBPoolAcquiredConnections int32
 	DBPoolIdleConnections     int32
 	WorkerRuns                map[string]uint64
-	MigrationState            string
 }
 
 // Source provides operational data to metrics and health adapters.

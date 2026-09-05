@@ -9,7 +9,7 @@ import (
 	"time"
 )
 
-func TestStateTargetApplyVerifyAndRollback(t *testing.T) {
+func TestStateTargetApplyAndVerify(t *testing.T) {
 	ctx := context.Background()
 	engine := NewEngine(fixedNow)
 	source := &FixtureSource{Value: validSnapshot(t)}
@@ -34,20 +34,6 @@ func TestStateTargetApplyVerifyAndRollback(t *testing.T) {
 	}
 	if verification.ForeignKeyErrors != 0 || verification.ManifestChecksum != prepared.Manifest.Checksum {
 		t.Fatalf("verification = %+v", verification)
-	}
-	if err := engine.Rollback(ctx, target, prepared.Manifest.RunID); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := engine.Verify(ctx, target, prepared.Manifest); !errors.Is(err, ErrRunNotFound) {
-		t.Fatalf("verify after rollback error = %v", err)
-	}
-
-	state, err := loadTargetState(target.Path)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(state.Provenance[prepared.Manifest.RunID]) == 0 {
-		t.Fatal("rollback erased migration provenance")
 	}
 }
 
@@ -186,10 +172,6 @@ func (tx *recordingTx) Apply(context.Context, PreparedImport) error {
 
 func (tx *recordingTx) Verification(context.Context, Manifest) (Verification, error) {
 	return Verification{}, errors.New("unexpected verification")
-}
-
-func (tx *recordingTx) RollbackRun(context.Context, string) error {
-	return errors.New("unexpected rollback")
 }
 
 func (tx *recordingTx) Commit(context.Context) error {

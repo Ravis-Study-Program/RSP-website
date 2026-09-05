@@ -6,7 +6,6 @@
  * OpenAPI spec version: 2.0.0
  */
 import type { GlobalRole } from './globalRole';
-import type { Revision } from './revision';
 import type { UserSeasonRole } from './userSeasonRole';
 
 export interface User {
@@ -23,5 +22,4 @@ export interface User {
   attemptCount: number;
   /** @minimum 0 */
   mockInterviewCount: number;
-  revision: Revision;
 }

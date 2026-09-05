@@ -140,7 +140,7 @@ func (a *API) writeStoreErrorResponse(w http.ResponseWriter, err error) {
 	case errors.Is(err, dal.ErrNotFound):
 		writeErrorResponse(w, http.StatusNotFound, "not_found", "The requested resource does not exist.")
 	case errors.Is(err, dal.ErrConflict):
-		writeErrorResponse(w, http.StatusConflict, "stale_revision", "The resource changed since it was loaded.")
+		writeErrorResponse(w, http.StatusConflict, "conflict", "The requested operation cannot be completed.")
 	case errors.Is(err, dal.ErrDuplicate):
 		writeErrorResponse(w, http.StatusConflict, "duplicate", "A resource with that unique value already exists.")
 	default:

@@ -191,14 +191,13 @@ type Verification struct {
 	VerifiedAt       time.Time         `json:"verifiedAt"`
 }
 
-// TargetTx represents one target transaction. Apply and rollback acquire the
-// dedicated advisory lock before reading or writing import-owned state.
+// TargetTx represents one target transaction. Apply acquires the dedicated
+// advisory lock before reading or writing import-owned state.
 type TargetTx interface {
 	AcquireAdvisoryLock(context.Context, int64) error
 	HasRun(context.Context, string) (bool, error)
 	Apply(context.Context, PreparedImport) error
 	Verification(context.Context, Manifest) (Verification, error)
-	RollbackRun(context.Context, string) error
 	Commit(context.Context) error
 	Abort(context.Context) error
 }

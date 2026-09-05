@@ -50,13 +50,12 @@ func (a *API) userPracticeSettings(w http.ResponseWriter, r *http.Request) {
 func (a *API) updatePracticeSettings(w http.ResponseWriter, r *http.Request) {
 	actor := actorFrom(r.Context())
 	var in struct {
-		EasyMinutes   int   `json:"easyMinutes"`
-		MediumMinutes int   `json:"mediumMinutes"`
-		HardMinutes   int   `json:"hardMinutes"`
-		Revision      int64 `json:"revision"`
+		EasyMinutes   int `json:"easyMinutes"`
+		MediumMinutes int `json:"mediumMinutes"`
+		HardMinutes   int `json:"hardMinutes"`
 	}
-	if err := decodeJSON(w, r, &in); err != nil || in.Revision < 1 || !validGoal(in.EasyMinutes) || !validGoal(in.MediumMinutes) || !validGoal(in.HardMinutes) {
-		writeErrorResponse(w, http.StatusBadRequest, "validation_failed", "goals between 5 and 180 minutes and revision are required")
+	if err := decodeJSON(w, r, &in); err != nil || !validGoal(in.EasyMinutes) || !validGoal(in.MediumMinutes) || !validGoal(in.HardMinutes) {
+		writeErrorResponse(w, http.StatusBadRequest, "validation_failed", "goals between 1 and 180 minutes are required")
 		return
 	}
 
@@ -71,7 +70,7 @@ func (a *API) updatePracticeSettings(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	updated, err := a.db.UpdatePracticeSettings(r.Context(), actor.UserID, in.Revision, in.EasyMinutes, in.MediumMinutes, in.HardMinutes, actor.UserID, time.Now().UTC())
+	updated, err := a.db.UpdatePracticeSettings(r.Context(), actor.UserID, in.EasyMinutes, in.MediumMinutes, in.HardMinutes, actor.UserID, time.Now().UTC())
 	if err != nil {
 		a.writeStoreErrorResponse(w, err)
 		return
@@ -80,16 +79,15 @@ func (a *API) updatePracticeSettings(w http.ResponseWriter, r *http.Request) {
 	writeJSONResponse(w, http.StatusOK, updated)
 }
 
-func validGoal(minutes int) bool { return minutes >= 5 && minutes <= 180 }
+func validGoal(minutes int) bool { return minutes >= 1 && minutes <= 180 }
 
 func (a *API) enablePracticeGoals(w http.ResponseWriter, r *http.Request) {
 	actor := actorFrom(r.Context())
 	var in struct {
 		SeasonID string `json:"seasonId"`
-		Revision int64  `json:"revision"`
 	}
-	if err := decodeJSON(w, r, &in); err != nil || in.SeasonID == "" || in.Revision < 1 {
-		writeErrorResponse(w, http.StatusBadRequest, "validation_failed", "seasonId and revision are required")
+	if err := decodeJSON(w, r, &in); err != nil || in.SeasonID == "" {
+		writeErrorResponse(w, http.StatusBadRequest, "validation_failed", "seasonId is required")
 		return
 	}
 
@@ -140,7 +138,7 @@ func (a *API) enablePracticeGoals(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	settings, err := a.db.EnablePracticeGoals(r.Context(), targetID, in.Revision, actor.UserID, in.SeasonID, time.Now().UTC())
+	settings, err := a.db.EnablePracticeGoals(r.Context(), targetID, actor.UserID, in.SeasonID, time.Now().UTC())
 	if err != nil {
 		a.writeStoreErrorResponse(w, err)
 		return

@@ -27,7 +27,6 @@ export interface CurrentUser {
   alumni: boolean;
   attemptCount: number;
   mockInterviewCount: number;
-  revision: number;
 }
 
 export interface Season {
@@ -43,7 +42,6 @@ export interface Season {
   memberCount: number | null;
   weekCount: number | null;
   summary: string;
-  revision: number;
 }
 
 export interface Attempt {
@@ -57,7 +55,6 @@ export interface Attempt {
   minutes: number | null;
   attemptedAt: string;
   notes: string;
-  revision: number;
 }
 
 export interface Person {
@@ -73,9 +70,7 @@ export interface Person {
   interviews: number | null;
   email?: string;
   lastActiveAt: string | null;
-  revision?: number;
   enrollmentId?: string;
-  enrollmentRevision?: number;
   enrollmentState?: 'active' | 'completed' | 'kicked' | 'withdrawn';
   mentorshipMentorId?: string;
 }
@@ -105,7 +100,6 @@ export interface MockInterview {
   rounds: MockRound[];
   reviewStatus: 'pending' | 'reviewed';
   reviewComments?: string;
-  revision: number;
 }
 
 export interface PageInfo {

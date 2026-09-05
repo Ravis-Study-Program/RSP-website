@@ -372,7 +372,6 @@ function EditProfileDialog({
               slug: values.slug,
               avatarUrl: user.avatarUrl,
               timezone: values.timezone,
-              revision: user.revision,
             }),
           }),
         );
@@ -383,7 +382,6 @@ function EditProfileDialog({
           name: values.name,
           slug: values.slug,
           timezone: values.timezone,
-          revision: user.revision + 1,
         });
       }
       onSaved(values);

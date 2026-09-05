@@ -37,7 +37,6 @@ function member(role: SeasonRole): Person {
     interviews: 0,
     lastActiveAt: null,
     enrollmentId: `enrollment-${role}`,
-    enrollmentRevision: 1,
     enrollmentState: 'active',
   };
 }

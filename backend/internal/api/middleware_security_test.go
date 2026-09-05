@@ -39,7 +39,7 @@ func TestWriteStoreErrorResponse(t *testing.T) {
 		wantLog    bool
 	}{
 		{"not found", dal.ErrNotFound, http.StatusNotFound, "not_found", false},
-		{"wrapped conflict", errors.Join(errors.New("update failed"), dal.ErrConflict), http.StatusConflict, "stale_revision", false},
+		{"wrapped conflict", errors.Join(errors.New("update failed"), dal.ErrConflict), http.StatusConflict, "conflict", false},
 		{"duplicate", dal.ErrDuplicate, http.StatusConflict, "duplicate", false},
 		{"unexpected", unexpected, http.StatusInternalServerError, "internal_error", true},
 	}

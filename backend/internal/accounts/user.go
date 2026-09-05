@@ -14,8 +14,6 @@ type User struct {
 	SeasonRoles        []UserSeasonRole `json:"seasonRoles"`
 	AttemptCount       int64            `json:"attemptCount"`
 	MockInterviewCount int64            `json:"mockInterviewCount"`
-	IsTest             bool             `json:"-"`
-	Revision           int64            `json:"revision"`
 }
 
 // UserSeasonRole describes a user's role in a season.
@@ -32,5 +30,4 @@ type EnrollmentCandidate struct {
 	Slug      string  `json:"slug"`
 	Name      string  `json:"name"`
 	AvatarURL *string `json:"avatarUrl,omitempty"`
-	Revision  int64   `json:"revision"`
 }

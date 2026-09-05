@@ -35,7 +35,7 @@ Caddy routes the single local origin and denies public metrics paths.
 | Domain      | `backend/internal/{accounts,programme,practice,mockinterviews}`         | Authorization relationships and programme rules independent of HTTP.                                          |
 | Persistence | `backend/internal/dal`                                                  | Native pgx queries, row mapping, and atomic data/history/audit writes.                                        |
 | Jobs        | `backend/cmd/worker`, `backend/internal/worker`, `backend/internal/dal` | Scheduled LeetCode synchronization, catch-up, retry, advisory locking and PostgreSQL run state.               |
-| Operations  | `deploy`, `compose.yaml`                                                | Local ingress and container topology.                                                                         |
+| Operations  | `deploy`, `compose.yaml`, `scripts/legacy-migration`                    | Local ingress, container topology, and one-time legacy import tooling.                                        |
 
 Feature services own business rules. Transport code must not recreate role or
 ownership checks, and SQL must not infer an actor from request data. Mutations
@@ -56,10 +56,11 @@ there is no additional repository or generic CRUD layer.
 
 The worker acquires a `dal.WorkerSession` for its advisory lock, run state, and
 catalogue writes. They use the same connection until the scheduler stops.
-`rspctl` delegates seed and bootstrap writes to the DAL. The legacy import
-adapter in `internal/migration` uses dedicated pgx connections for its
-read-only repeatable-read source snapshot and serializable target transaction.
-Goose remains responsible for SQL schema migrations.
+`rspctl` delegates seed and bootstrap writes to the DAL. The one-time legacy
+import tool lives under `scripts/legacy-migration`, outside the application
+packages and runtime images. It uses dedicated connections for its read-only
+repeatable-read source snapshot and target transaction. Goose only owns the
+current application schema.
 
 ## Identity and request flow
 
@@ -82,26 +83,29 @@ for internal operations.
 
 One PostgreSQL database contains isolated schemas:
 
-| Schema      | Owner in code       | Contents                                                                                       |
-| ----------- | ------------------- | ---------------------------------------------------------------------------------------------- |
-| `app`       | Go API and worker   | Programme users, roles, seasons, mentoring, practice, interviews and append-only audit events. |
-| `auth`      | Better Auth service | Credentials, provider accounts, sessions, verification, MFA and JWKS keys.                     |
-| `migration` | `rsp-migrate`       | Import runs, manifests, source-row provenance, anomalies, resolutions and auto-fixes.          |
+| Schema | Owner in code       | Contents                                                                                       |
+| ------ | ------------------- | ---------------------------------------------------------------------------------------------- |
+| `app`  | Go API and worker   | Programme users, roles, seasons, mentoring, practice, interviews and append-only audit events. |
+| `auth` | Better Auth service | Credentials, provider accounts, sessions, verification, MFA and JWKS keys.                     |
 
-Goose versions `app` and `migration`. The pinned Better Auth SQL is generated
+`app.users` stores only the account ID, lifecycle state, deletion marker, and
+timestamps. Profile data lives in `user_profiles`, preferences
+in `user_preferences`, contact data in `user_contacts`, and MFA/version state
+in `user_security`. Each table has one required row per user, so queries must
+choose a data boundary instead of receiving every user field by default.
+
+Goose versions the current `app` schema. The pinned Better Auth SQL is generated
 from the exact Better Auth dependency and applied independently. Domain/history
 foreign keys use `RESTRICT`; cascades are reserved for auth-owned disposable
 children and pure joins. Database triggers reject mutation of append-only audit
-and import history even if application code is bypassed.
+history even if application code is bypassed. The legacy import bookkeeping
+schema is created separately by the one-time import scripts when needed.
 
 All IDs crossing the API are opaque strings. New records use UUIDv7 strings;
 legacy IDs remain unchanged. Storage, comparisons, schedules and API timestamps
 are UTC.
 
-## Concurrency and collections
-
-Every mutable DTO includes `revision`. Updates and deletes compare the supplied
-revision and return `409` on stale state instead of silently overwriting.
+## Collections
 
 Growing collections use server-side filtering/sorting and cursor pagination.
 Cursors are versioned, HMAC-protected and bound to filter, direction and sort;

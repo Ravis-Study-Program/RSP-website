@@ -35,14 +35,19 @@ func (s *Store) BootstrapAdmin(ctx context.Context, subject, email string) error
 	}
 
 	var userID string
-	err = tx.QueryRow(ctx, `SELECT u.id FROM app.users u JOIN app.user_auth_links l ON l.user_id=u.id WHERE l.auth_subject=$1 AND lower(u.email)=lower($2) AND l.active AND u.account_state='active' FOR UPDATE`, subject, email).Scan(&userID)
+	err = tx.QueryRow(ctx, `SELECT u.id
+		FROM app.users u
+		JOIN app.user_contacts c ON c.user_id=u.id
+		JOIN app.user_auth_links l ON l.user_id=u.id
+		WHERE l.auth_subject=$1 AND lower(c.email)=lower($2) AND l.active AND u.account_state='active'
+		FOR UPDATE OF u`, subject, email).Scan(&userID)
 	if err != nil {
 		return fmt.Errorf("verified linked user not found: %w", err)
 	}
 
 	assignmentID := id.New()
 	var assignmentState string
-	err = tx.QueryRow(ctx, `INSERT INTO app.global_role_assignments(id,user_id,role,state,granted_by_user_id,granted_at,revision) VALUES($1,$2,'system_admin','pending_mfa',NULL,now(),1) RETURNING state::text`, assignmentID, userID).Scan(&assignmentState)
+	err = tx.QueryRow(ctx, `INSERT INTO app.global_role_assignments(id,user_id,role,state,granted_by_user_id,granted_at) VALUES($1,$2,'system_admin','pending_mfa',NULL,now()) RETURNING state::text`, assignmentID, userID).Scan(&assignmentState)
 	if err != nil {
 		return err
 	}

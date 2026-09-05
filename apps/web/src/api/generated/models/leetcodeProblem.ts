@@ -6,7 +6,6 @@
  * OpenAPI spec version: 2.0.0
  */
 import type { Difficulty } from './difficulty';
-import type { Revision } from './revision';
 
 export interface LeetcodeProblem {
   id: string;
@@ -16,5 +15,4 @@ export interface LeetcodeProblem {
   difficulty: Difficulty;
   categories: string[];
   premium: boolean;
-  revision: Revision;
 }

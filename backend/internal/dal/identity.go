@@ -56,9 +56,10 @@ func (p *Store) ApplyIdentityEvent(ctx context.Context, event accounts.IdentityE
 		UserID          string
 		SecurityVersion int64
 	}
-	err = tx.QueryRow(ctx, `SELECT l.user_id,u.security_version
+	err = tx.QueryRow(ctx, `SELECT l.user_id,s.security_version
 		FROM app.user_auth_links l
 		JOIN app.users u ON u.id=l.user_id
+		JOIN app.user_security s ON s.user_id=u.id
 		WHERE l.auth_subject=$1
 		FOR UPDATE OF l,u`, event.AuthUserID).Scan(&link.UserID, &link.SecurityVersion)
 	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
@@ -76,7 +77,7 @@ func (p *Store) ApplyIdentityEvent(ctx context.Context, event accounts.IdentityE
 	if event.SecurityVersion < link.SecurityVersion {
 		return tx.Commit(ctx)
 	}
-	if _, err := tx.Exec(ctx, `UPDATE app.users SET security_version=GREATEST(security_version, $1) WHERE id = $2`, event.SecurityVersion, link.UserID); err != nil {
+	if _, err := tx.Exec(ctx, `UPDATE app.user_security SET security_version=GREATEST(security_version, $1) WHERE user_id = $2`, event.SecurityVersion, link.UserID); err != nil {
 		return err
 	}
 
@@ -96,8 +97,20 @@ func (p *Store) createIdentityUser(ctx context.Context, tx pgx.Tx, event account
 		name = "New member"
 	}
 	slug := "member-" + strings.ReplaceAll(userID, "-", "")[:12]
-	if _, err := tx.Exec(ctx, `INSERT INTO app.users(id,slug,display_name,email,account_state,timezone,timezone_configured,revision,security_version)
- VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)`, userID, slug, name, event.Email, "active", "Australia/Adelaide", false, 1, event.SecurityVersion); err != nil {
+	if _, err := tx.Exec(ctx, `INSERT INTO app.users(id,account_state)
+ VALUES($1,$2)`, userID, "active"); err != nil {
+		return err
+	}
+	if _, err := tx.Exec(ctx, `INSERT INTO app.user_profiles(user_id,slug,display_name) VALUES($1,$2,$3)`, userID, slug, name); err != nil {
+		return err
+	}
+	if _, err := tx.Exec(ctx, `INSERT INTO app.user_preferences(user_id,timezone,timezone_configured) VALUES($1,$2,$3)`, userID, "Australia/Adelaide", false); err != nil {
+		return err
+	}
+	if _, err := tx.Exec(ctx, `INSERT INTO app.user_contacts(user_id,email) VALUES($1,$2)`, userID, event.Email); err != nil {
+		return err
+	}
+	if _, err := tx.Exec(ctx, `INSERT INTO app.user_security(user_id,security_version) VALUES($1,$2)`, userID, event.SecurityVersion); err != nil {
 		return err
 	}
 	var revokedAt *time.Time
@@ -123,7 +136,7 @@ func applyIdentityChange(ctx context.Context, tx pgx.Tx, userID string, event ac
 		if email == "" {
 			return errors.New("email_changed requires email")
 		}
-		if _, err := tx.Exec(ctx, `UPDATE app.users SET email=$1,revision=revision + 1 WHERE id = $2`, email, userID); err != nil {
+		if _, err := tx.Exec(ctx, `UPDATE app.user_contacts SET email=$1 WHERE user_id = $2`, email, userID); err != nil {
 			return err
 		}
 		return appendAuditTx(ctx, tx, newAudit(userID, "account.email_changed", "user", userID, nil, event.OccurredAt))
@@ -131,12 +144,7 @@ func applyIdentityChange(ctx context.Context, tx pgx.Tx, userID string, event ac
 		if event.AccountState != "active" && event.AccountState != "suspended" {
 			return errors.New("account_state_changed requires active or suspended")
 		}
-		var suspendedAt *time.Time
-		if event.AccountState == "suspended" {
-			value := event.OccurredAt.UTC()
-			suspendedAt = &value
-		}
-		if _, err := tx.Exec(ctx, `UPDATE app.users SET account_state=$1,suspended_at=$2,revision=revision + 1 WHERE id = $3`, event.AccountState, suspendedAt, userID); err != nil {
+		if _, err := tx.Exec(ctx, `UPDATE app.users SET account_state=$1 WHERE id = $2`, event.AccountState, userID); err != nil {
 			return err
 		}
 		auditActor := userID
@@ -151,17 +159,29 @@ func applyIdentityChange(ctx context.Context, tx pgx.Tx, userID string, event ac
 		_, err := tx.Exec(ctx, `UPDATE app.user_auth_links SET active=$1,revoked_at=$2 WHERE auth_subject = $3`, true, nil, event.AuthUserID)
 		return err
 	case "deletion_requested":
-		if _, err := tx.Exec(ctx, `UPDATE app.users SET account_state=$1,deletion_requested_at=$2,deletion_due_at=$3,revision=revision + 1 WHERE id = $4`, "deletion_pending", event.OccurredAt, event.RecoveryDeadline, userID); err != nil {
+		if _, err := tx.Exec(ctx, `UPDATE app.users SET account_state=$1 WHERE id = $2`, "deletion_pending", userID); err != nil {
 			return err
 		}
 		return appendAuditTx(ctx, tx, newAudit(userID, "account.deletion_requested", "user", userID, map[string]any{"recoveryDeadline": event.RecoveryDeadline}, event.OccurredAt))
 	case "deletion_cancelled":
-		if _, err := tx.Exec(ctx, `UPDATE app.users SET account_state=$1,deletion_requested_at=$2,deletion_due_at=$3,revision=revision + 1 WHERE id = $4`, "active", nil, nil, userID); err != nil {
+		if _, err := tx.Exec(ctx, `UPDATE app.users SET account_state=$1 WHERE id = $2`, "active", userID); err != nil {
 			return err
 		}
 		return appendAuditTx(ctx, tx, newAudit(userID, "account.deletion_cancelled", "user", userID, nil, event.OccurredAt))
 	case "auth_pseudonymized":
-		if _, err := tx.Exec(ctx, `UPDATE app.users SET slug='deleted-' || id,display_name=$1,email=$2,discord_id=$3,avatar_url=$4,timezone=$5,timezone_configured=$6,account_state=$7,pseudonymized_at=$8,deleted_at=$9,security_version=GREATEST(security_version, $10),revision=revision + 1 WHERE id = $11`, "Deleted member", nil, nil, nil, "UTC", false, "deleted", event.OccurredAt, event.OccurredAt, event.SecurityVersion, userID); err != nil {
+		if _, err := tx.Exec(ctx, `UPDATE app.user_profiles SET slug='deleted-' || user_id,display_name=$1,avatar_url=NULL WHERE user_id=$2`, "Deleted member", userID); err != nil {
+			return err
+		}
+		if _, err := tx.Exec(ctx, `UPDATE app.user_contacts SET email=NULL,discord_id=NULL WHERE user_id=$1`, userID); err != nil {
+			return err
+		}
+		if _, err := tx.Exec(ctx, `UPDATE app.user_preferences SET timezone='UTC',timezone_configured=false WHERE user_id=$1`, userID); err != nil {
+			return err
+		}
+		if _, err := tx.Exec(ctx, `UPDATE app.user_security SET security_version=GREATEST(security_version, $1) WHERE user_id=$2`, event.SecurityVersion, userID); err != nil {
+			return err
+		}
+		if _, err := tx.Exec(ctx, `UPDATE app.users SET account_state=$1,deleted_at=$2 WHERE id = $3`, "deleted", event.OccurredAt, userID); err != nil {
 			return err
 		}
 		if _, err := tx.Exec(ctx, `UPDATE app.user_auth_links SET active=$1,revoked_at=$2 WHERE auth_subject = $3`, false, event.OccurredAt, event.AuthUserID); err != nil {
@@ -184,11 +204,11 @@ type activatedAssignment struct {
 }
 
 func applyMFAConfigured(ctx context.Context, tx pgx.Tx, userID string, at time.Time) error {
-	if _, err := tx.Exec(ctx, `UPDATE app.users SET mfa_configured=$1 WHERE id = $2`, true, userID); err != nil {
+	if _, err := tx.Exec(ctx, `UPDATE app.user_security SET mfa_configured=$1 WHERE user_id = $2`, true, userID); err != nil {
 		return err
 	}
 	globalRows, err := tx.Query(ctx, `UPDATE app.global_role_assignments
-		SET state='active',activated_at=$1,revision=revision+1
+		SET state='active',activated_at=$1
 		WHERE user_id=$2 AND state='pending_mfa'
 		RETURNING id,role::text AS role`, at.UTC(), userID)
 	if err != nil {
@@ -206,7 +226,7 @@ func applyMFAConfigured(ctx context.Context, tx pgx.Tx, userID string, at time.T
 	}
 
 	seasonalRows, err := tx.Query(ctx, `UPDATE app.enrollments
-		SET assignment_state='active',activated_at=$1,revision=revision+1
+		SET assignment_state='active',activated_at=$1
 		WHERE user_id=$2 AND role='coordinator' AND state='active'
 		  AND assignment_state='pending_mfa' AND deleted_at IS NULL
 		RETURNING id,season_id`, at.UTC(), userID)
@@ -227,11 +247,11 @@ func applyMFAConfigured(ctx context.Context, tx pgx.Tx, userID string, at time.T
 }
 
 func applyMFADisabled(ctx context.Context, tx pgx.Tx, userID string, at time.Time) error {
-	if _, err := tx.Exec(ctx, `UPDATE app.users SET mfa_configured=$1 WHERE id = $2`, false, userID); err != nil {
+	if _, err := tx.Exec(ctx, `UPDATE app.user_security SET mfa_configured=$1 WHERE user_id = $2`, false, userID); err != nil {
 		return err
 	}
 	globalRows, err := tx.Query(ctx, `UPDATE app.global_role_assignments
-		SET state='pending_mfa',activated_at=NULL,revoked_at=NULL,revision=revision+1
+		SET state='pending_mfa',activated_at=NULL,revoked_at=NULL
 		WHERE user_id=$1 AND state='active'
 		RETURNING id,role::text AS role`, userID)
 	if err != nil {
@@ -248,7 +268,7 @@ func applyMFADisabled(ctx context.Context, tx pgx.Tx, userID string, at time.Tim
 	}
 
 	seasonalRows, err := tx.Query(ctx, `UPDATE app.enrollments
-		SET assignment_state='pending_mfa',activated_at=NULL,revision=revision+1
+		SET assignment_state='pending_mfa',activated_at=NULL
 		WHERE user_id=$1 AND role='coordinator' AND state='active'
 		  AND assignment_state='active' AND deleted_at IS NULL
 		RETURNING id,season_id`, userID)

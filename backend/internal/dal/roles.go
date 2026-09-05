@@ -25,15 +25,15 @@ func (p *Store) GrantGlobalRole(ctx context.Context, userID, role string, activa
 		activated := at.UTC()
 		activatedAt = &activated
 	}
-	assignment := accounts.GlobalRoleAssignment{ID: id.New(), UserID: userID, Role: role, State: state, Revision: 1}
-	err = tx.QueryRow(ctx, `INSERT INTO app.global_role_assignments(id,user_id,role,state,granted_by_user_id,granted_at,activated_at,revision)
-		VALUES($1,$2,$3,$4,$5,$6,$7,1)
+	assignment := accounts.GlobalRoleAssignment{ID: id.New(), UserID: userID, Role: role, State: state}
+	err = tx.QueryRow(ctx, `INSERT INTO app.global_role_assignments(id,user_id,role,state,granted_by_user_id,granted_at,activated_at)
+		VALUES($1,$2,$3,$4,$5,$6,$7)
 		ON CONFLICT(user_id,role) DO UPDATE
 		SET state=EXCLUDED.state,granted_by_user_id=EXCLUDED.granted_by_user_id,
 			granted_at=EXCLUDED.granted_at,activated_at=EXCLUDED.activated_at,
-			revoked_at=NULL,revision=app.global_role_assignments.revision+1
+			revoked_at=NULL
 		WHERE app.global_role_assignments.state='revoked'
-		RETURNING id,state::text,revision`, assignment.ID, userID, role, state, actorID, at.UTC(), activatedAt).Scan(&assignment.ID, &assignment.State, &assignment.Revision)
+		RETURNING id,state::text`, assignment.ID, userID, role, state, actorID, at.UTC(), activatedAt).Scan(&assignment.ID, &assignment.State)
 	if err != nil {
 		return assignment, mapDatabaseError(err)
 	}
@@ -52,14 +52,14 @@ func (p *Store) ListGlobalRoles(ctx context.Context, userID string) ([]accounts.
 		return nil, ErrNotFound
 	}
 
-	rows, err := p.pool.Query(ctx, `SELECT id,user_id,role::text,state::text,revision FROM app.global_role_assignments WHERE user_id=$1 AND state<>'revoked' ORDER BY role`, userID)
+	rows, err := p.pool.Query(ctx, `SELECT id,user_id,role::text,state::text FROM app.global_role_assignments WHERE user_id=$1 AND state<>'revoked' ORDER BY role`, userID)
 	if err != nil {
 		return nil, err
 	}
 	return pgx.CollectRows(rows, pgx.RowToStructByName[accounts.GlobalRoleAssignment])
 }
 
-func (p *Store) RevokeGlobalRole(ctx context.Context, userID, role string, revision int64, reason, actorID string, at time.Time) (accounts.GlobalRoleAssignment, error) {
+func (p *Store) RevokeGlobalRole(ctx context.Context, userID, role string, reason, actorID string, at time.Time) (accounts.GlobalRoleAssignment, error) {
 	tx, err := p.pool.Begin(ctx)
 	if err != nil {
 		return accounts.GlobalRoleAssignment{}, err
@@ -68,16 +68,11 @@ func (p *Store) RevokeGlobalRole(ctx context.Context, userID, role string, revis
 
 	assignment := accounts.GlobalRoleAssignment{UserID: userID, Role: role}
 	err = tx.QueryRow(ctx, `UPDATE app.global_role_assignments
-		SET state='revoked',revoked_at=$1,activated_at=NULL,revision=revision+1
-		WHERE user_id=$2 AND role=$3 AND revision=$4 AND state<>'revoked'
-		RETURNING id,state::text,revision`, at.UTC(), userID, role, revision).Scan(&assignment.ID, &assignment.State, &assignment.Revision)
+		SET state='revoked',revoked_at=$1,activated_at=NULL
+		WHERE user_id=$2 AND role=$3 AND state<>'revoked'
+		RETURNING id,state::text`, at.UTC(), userID, role).Scan(&assignment.ID, &assignment.State)
 	if errors.Is(err, pgx.ErrNoRows) {
-		var current int64
-		lookupErr := tx.QueryRow(ctx, `SELECT revision FROM app.global_role_assignments WHERE user_id = $1 AND role = $2 AND state <> 'revoked'`, userID, role).Scan(&current)
-		if lookupErr == nil {
-			return assignment, ErrConflict
-		}
-		return assignment, noRows(lookupErr)
+		return assignment, ErrNotFound
 	}
 	if err != nil {
 		return assignment, err

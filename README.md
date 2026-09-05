@@ -12,7 +12,8 @@ database exports, or legacy C# runtime.
 ```text
 apps/web/       React, Vite, Base UI, TanStack Query and Table
 apps/auth/      Better Auth TypeScript service
-backend/        Go API, worker, administration CLI and migration CLI
+backend/        Go API, worker, and administration CLI
+scripts/        One-time operational scripts, including legacy import tooling
 api/            OpenAPI 3 contract used to generate the TypeScript API client
 db/             Goose database migrations
 deploy/         Caddy, observability, and local-runtime configuration
@@ -65,8 +66,8 @@ Caddy is the browser application origin.
 - The browser calls `/api/auth/*` and `/api/v2/*` through Caddy. It never sends
   an actor ID; identity comes from a short-lived access JWT.
 - Public requests to metrics paths receive `404`.
-- The API owns PostgreSQL schema `app`, Better Auth owns `auth`, and legacy
-  import provenance lives in `migration`.
+- The API owns PostgreSQL schema `app`, and Better Auth owns `auth`. Legacy
+  import bookkeeping is created separately by the one-time import scripts.
 - Application and audit history use UTC. The UI renders the member's saved IANA
   timezone.
 - `.env.example` contains local placeholders only. Production validation rejects

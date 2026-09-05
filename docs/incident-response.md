@@ -61,10 +61,9 @@ sharing logs. A request ID is safe; a bearer token is not.
 
 - Freeze writes and preserve the failed target. Do not hand-edit append-only
   audit/import rows.
-- Compare Goose version, migration run, source manifest checksum, counts and
-  constraints.
-- Use `rsp-migrate legacy rollback --run-id ...` only for that import run; use a
-  verified backup for broader damage.
+- Compare the Goose version, source manifest checksum, counts and constraints.
+- Discard the failed isolated import target and restore a verified backup before
+  retrying.
 - Restore to isolation first and have a second operator verify the target before
   destructive repair or traffic switch.
 

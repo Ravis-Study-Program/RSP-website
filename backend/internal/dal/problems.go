@@ -12,7 +12,7 @@ import (
 func scanProblem(row pgx.Row) (practice.ProblemRecord, error) {
 	var v practice.ProblemRecord
 	var categories []byte
-	if err := row.Scan(&v.ID, &v.Number, &v.Title, &v.Link, &v.Difficulty, &v.Premium, &categories, &v.Revision); err != nil {
+	if err := row.Scan(&v.ID, &v.Number, &v.Title, &v.Link, &v.Difficulty, &v.Premium, &categories); err != nil {
 		return v, noRows(err)
 	}
 	if err := json.Unmarshal(categories, &v.Categories); err != nil {
@@ -22,7 +22,7 @@ func scanProblem(row pgx.Row) (practice.ProblemRecord, error) {
 }
 
 const problemQuery = `SELECT l.id,l.leetcode_number,p.title,COALESCE(p.url,''),l.difficulty::text,l.is_premium,
-	COALESCE(to_jsonb(array_agg(c.normalized_name) FILTER (WHERE c.id IS NOT NULL)),'[]'::jsonb),l.revision
+	COALESCE(to_jsonb(array_agg(c.normalized_name) FILTER (WHERE c.id IS NOT NULL)),'[]'::jsonb)
 	FROM app.leetcode_problems l
 	JOIN app.problems p ON p.id=l.problem_id
 	LEFT JOIN app.leetcode_problem_category_mappings m ON m.leetcode_problem_id=l.id

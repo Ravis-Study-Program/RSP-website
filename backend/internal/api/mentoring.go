@@ -109,7 +109,7 @@ func (a *API) createWeek(w http.ResponseWriter, r *http.Request) {
 		writeErrorResponse(w, http.StatusBadRequest, "validation_failed", "week dates must fall within the season dates")
 		return
 	}
-	v := programme.WeekRecord{ID: id.New(), SeasonID: r.PathValue("id"), Number: in.Number, StartAt: in.StartAt.UTC(), EndAt: in.EndAt.UTC(), ResourceURL: in.ResourceURL, Revision: 1}
+	v := programme.WeekRecord{ID: id.New(), SeasonID: r.PathValue("id"), Number: in.Number, StartAt: in.StartAt.UTC(), EndAt: in.EndAt.UTC(), ResourceURL: in.ResourceURL}
 	actor := actorFrom(r.Context())
 	created, err := a.db.CreateWeek(r.Context(), v, actor.UserID, time.Now().UTC())
 	if err != nil {
@@ -130,10 +130,9 @@ func (a *API) updateWeek(w http.ResponseWriter, r *http.Request) {
 		StartAt     time.Time `json:"startAt"`
 		EndAt       time.Time `json:"endAt"`
 		ResourceURL string    `json:"resourceUrl"`
-		Revision    int64     `json:"revision"`
 	}
-	if err := decodeJSON(w, r, &in); err != nil || in.Revision < 1 || in.Number < 1 || !in.EndAt.After(in.StartAt) || (in.ResourceURL != "" && !validWebURL(in.ResourceURL, true)) {
-		writeErrorResponse(w, http.StatusBadRequest, "validation_failed", "number, valid dates, HTTPS resource URL, and revision are required")
+	if err := decodeJSON(w, r, &in); err != nil || in.Number < 1 || !in.EndAt.After(in.StartAt) || (in.ResourceURL != "" && !validWebURL(in.ResourceURL, true)) {
+		writeErrorResponse(w, http.StatusBadRequest, "validation_failed", "number, valid dates, and an HTTPS resource URL are required")
 		return
 	}
 	if in.StartAt.Before(season.StartAt) || in.EndAt.After(season.EndAt) {
@@ -141,7 +140,7 @@ func (a *API) updateWeek(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	actor := actorFrom(r.Context())
-	v, err := a.db.UpdateWeek(r.Context(), r.PathValue("id"), r.PathValue("weekId"), in.Revision, programme.WeekRecord{Number: in.Number, StartAt: in.StartAt.UTC(), EndAt: in.EndAt.UTC(), ResourceURL: in.ResourceURL}, actor.UserID, time.Now().UTC())
+	v, err := a.db.UpdateWeek(r.Context(), r.PathValue("id"), r.PathValue("weekId"), programme.WeekRecord{Number: in.Number, StartAt: in.StartAt.UTC(), EndAt: in.EndAt.UTC(), ResourceURL: in.ResourceURL}, actor.UserID, time.Now().UTC())
 	if err != nil {
 		a.writeStoreErrorResponse(w, err)
 		return
@@ -154,14 +153,8 @@ func (a *API) deleteWeek(w http.ResponseWriter, r *http.Request) {
 	if _, ok := a.requireSeasonAdmin(w, r); !ok {
 		return
 	}
-	revision, err := parseRevision(r)
-	if err != nil {
-		writeErrorResponse(w, http.StatusBadRequest, "validation_failed", "revision query parameter is required")
-		return
-	}
-
 	actor := actorFrom(r.Context())
-	if err := a.db.DeleteWeek(r.Context(), r.PathValue("id"), r.PathValue("weekId"), revision, actor.UserID, time.Now().UTC()); err != nil {
+	if err := a.db.DeleteWeek(r.Context(), r.PathValue("id"), r.PathValue("weekId"), actor.UserID, time.Now().UTC()); err != nil {
 		a.writeStoreErrorResponse(w, err)
 		return
 	}
@@ -296,7 +289,7 @@ func (a *API) createMember(w http.ResponseWriter, r *http.Request) {
 		writeErrorResponse(w, http.StatusForbidden, "privileged_role_grant_required", "Only the season Coordinator, a Director, or a System Admin may grant Coordinator access.")
 		return
 	}
-	v := programme.EnrollmentRecord{ID: id.New(), SeasonID: r.PathValue("id"), UserID: in.UserID, Role: in.Role, State: "active", Revision: 1}
+	v := programme.EnrollmentRecord{ID: id.New(), SeasonID: r.PathValue("id"), UserID: in.UserID, Role: in.Role, State: "active"}
 	actor := actorFrom(r.Context())
 	created, err := a.db.CreateEnrollment(r.Context(), v, actor.UserID, time.Now().UTC())
 	if err != nil {
@@ -314,10 +307,9 @@ func (a *API) updateMember(w http.ResponseWriter, r *http.Request) {
 	var in struct {
 		Role         string `json:"role"`
 		StudentLevel string `json:"studentLevel"`
-		Revision     int64  `json:"revision"`
 	}
-	if err := decodeJSON(w, r, &in); err != nil || in.Revision < 1 || (in.Role != "student" && in.Role != "mentor") {
-		writeErrorResponse(w, http.StatusBadRequest, "validation_failed", "role and revision are required")
+	if err := decodeJSON(w, r, &in); err != nil || (in.Role != "student" && in.Role != "mentor") {
+		writeErrorResponse(w, http.StatusBadRequest, "validation_failed", "role is required")
 		return
 	}
 	if in.Role == "student" {
@@ -329,7 +321,7 @@ func (a *API) updateMember(w http.ResponseWriter, r *http.Request) {
 		in.StudentLevel = "not_applicable"
 	}
 	actor := actorFrom(r.Context())
-	v, err := a.db.UpdateEnrollmentDetails(r.Context(), r.PathValue("id"), r.PathValue("memberId"), in.Revision, in.Role, in.StudentLevel, actor.UserID, time.Now().UTC())
+	v, err := a.db.UpdateEnrollmentDetails(r.Context(), r.PathValue("id"), r.PathValue("memberId"), in.Role, in.StudentLevel, actor.UserID, time.Now().UTC())
 	if err != nil {
 		a.writeStoreErrorResponse(w, err)
 		return
@@ -378,12 +370,11 @@ func (a *API) changeMember(w http.ResponseWriter, r *http.Request, promote bool)
 		return
 	}
 	var in struct {
-		Role     string `json:"role"`
-		Reason   string `json:"reason"`
-		Revision int64  `json:"revision"`
+		Role   string `json:"role"`
+		Reason string `json:"reason"`
 	}
-	if err := decodeJSON(w, r, &in); err != nil || in.Revision < 1 || (!promote && strings.TrimSpace(in.Reason) == "") {
-		writeErrorResponse(w, http.StatusBadRequest, "validation_failed", "revision and removal reason are required")
+	if err := decodeJSON(w, r, &in); err != nil || (!promote && strings.TrimSpace(in.Reason) == "") {
+		writeErrorResponse(w, http.StatusBadRequest, "validation_failed", "removal reason is required")
 		return
 	}
 	if promote && in.Role != "mentor" && in.Role != "coordinator" {
@@ -400,7 +391,7 @@ func (a *API) changeMember(w http.ResponseWriter, r *http.Request, promote bool)
 	} else {
 		state = "kicked"
 	}
-	updated, err := a.db.UpdateEnrollment(r.Context(), memberID, in.Revision, role, state, in.Reason, actor.UserID, time.Now())
+	updated, err := a.db.UpdateEnrollment(r.Context(), memberID, role, state, in.Reason, actor.UserID, time.Now())
 	if err != nil {
 		a.writeStoreErrorResponse(w, err)
 		return
@@ -474,7 +465,7 @@ func (a *API) createMentorship(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	v := programme.MentorshipRecord{ID: id.New(), SeasonID: r.PathValue("id"), MentorUserID: in.MentorUserID, StudentUserID: in.StudentUserID, Revision: 1}
+	v := programme.MentorshipRecord{ID: id.New(), SeasonID: r.PathValue("id"), MentorUserID: in.MentorUserID, StudentUserID: in.StudentUserID}
 	actor := actorFrom(r.Context())
 	created, err := a.db.CreateMentorship(r.Context(), v, actor.UserID, time.Now().UTC())
 	if err != nil {
@@ -492,15 +483,14 @@ func (a *API) updateMentorship(w http.ResponseWriter, r *http.Request) {
 	var in struct {
 		MentorUserID  string `json:"mentorUserId"`
 		StudentUserID string `json:"studentUserId"`
-		Revision      int64  `json:"revision"`
 	}
-	if err := decodeJSON(w, r, &in); err != nil || in.Revision < 1 || in.MentorUserID == "" || in.StudentUserID == "" || in.MentorUserID == in.StudentUserID {
-		writeErrorResponse(w, http.StatusBadRequest, "validation_failed", "different mentorUserId and studentUserId plus revision are required")
+	if err := decodeJSON(w, r, &in); err != nil || in.MentorUserID == "" || in.StudentUserID == "" || in.MentorUserID == in.StudentUserID {
+		writeErrorResponse(w, http.StatusBadRequest, "validation_failed", "different mentorUserId and studentUserId are required")
 		return
 	}
 
 	actor := actorFrom(r.Context())
-	v, err := a.db.UpdateMentorship(r.Context(), r.PathValue("id"), r.PathValue("mentorshipId"), in.Revision, in.MentorUserID, in.StudentUserID, actor.UserID, time.Now().UTC())
+	v, err := a.db.UpdateMentorship(r.Context(), r.PathValue("id"), r.PathValue("mentorshipId"), in.MentorUserID, in.StudentUserID, actor.UserID, time.Now().UTC())
 	if err != nil {
 		a.writeStoreErrorResponse(w, err)
 		return
@@ -513,14 +503,8 @@ func (a *API) deleteMentorship(w http.ResponseWriter, r *http.Request) {
 	if _, ok := a.requireSeasonAdmin(w, r); !ok {
 		return
 	}
-	revision, err := parseRevision(r)
-	if err != nil {
-		writeErrorResponse(w, http.StatusBadRequest, "validation_failed", "revision query parameter is required")
-		return
-	}
-
 	actor := actorFrom(r.Context())
-	if err := a.db.DeleteMentorship(r.Context(), r.PathValue("id"), r.PathValue("mentorshipId"), revision, actor.UserID, time.Now().UTC()); err != nil {
+	if err := a.db.DeleteMentorship(r.Context(), r.PathValue("id"), r.PathValue("mentorshipId"), actor.UserID, time.Now().UTC()); err != nil {
 		a.writeStoreErrorResponse(w, err)
 		return
 	}

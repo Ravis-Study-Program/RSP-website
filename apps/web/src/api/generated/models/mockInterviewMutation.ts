@@ -6,7 +6,6 @@
  * OpenAPI spec version: 2.0.0
  */
 import type { MockRoundMutation } from './mockRoundMutation';
-import type { Revision } from './revision';
 
 export interface MockInterviewMutation {
   occurredAt: string;
@@ -16,5 +15,4 @@ export interface MockInterviewMutation {
   notes?: string;
   /** @minItems 1 */
   rounds: MockRoundMutation[];
-  revision: Revision;
 }

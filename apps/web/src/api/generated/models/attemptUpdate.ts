@@ -9,4 +9,4 @@ import type { AttemptMutation } from './attemptMutation';
 
 export type AttemptUpdate = AttemptMutation & {
   [key: string]: unknown;
-} & Required<Pick<AttemptMutation & { [key: string]: unknown }, 'revision'>>;
+};

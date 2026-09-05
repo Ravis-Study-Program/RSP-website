@@ -48,7 +48,7 @@ func (s *Store) ObservabilitySnapshot(ctx context.Context) (observability.Snapsh
 	stats := s.pool.Stat()
 	snapshot := observability.Snapshot{
 		DBPoolAcquiredConnections: stats.AcquiredConns(), DBPoolIdleConnections: stats.IdleConns(),
-		WorkerRuns: map[string]uint64{"success": 0, "partial_failure": 0, "failure": 0}, MigrationState: "none",
+		WorkerRuns: map[string]uint64{"success": 0, "partial_failure": 0, "failure": 0},
 	}
 	rows, err := s.pool.Query(ctx, `SELECT CASE WHEN succeeded THEN 'success'
   WHEN error_summary IS NOT NULL THEN 'failure' ELSE 'partial_failure' END AS result, count(*)
@@ -66,10 +66,6 @@ func (s *Store) ObservabilitySnapshot(ctx context.Context) (observability.Snapsh
 		snapshot.WorkerRuns[result] = count
 	}
 	if err := rows.Err(); err != nil {
-		return observability.Snapshot{}, err
-	}
-	err = s.pool.QueryRow(ctx, `SELECT state::text FROM migration.runs ORDER BY started_at DESC,id DESC LIMIT 1`).Scan(&snapshot.MigrationState)
-	if err != nil && err != pgx.ErrNoRows {
 		return observability.Snapshot{}, err
 	}
 	return snapshot, nil

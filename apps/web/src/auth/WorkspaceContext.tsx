@@ -40,7 +40,7 @@ export function WorkspaceProvider({ children }: PropsWithChildren) {
   useEffect(() => {
     const user = userQuery.data;
     if (!user || user.timezoneConfigured || demoMode) return;
-    const attemptKey = `${user.id}:${user.revision}`;
+    const attemptKey = user.id;
     if (timezoneInitialisation.current === attemptKey) return;
     timezoneInitialisation.current = attemptKey;
     const detectedTimezone =
@@ -52,7 +52,6 @@ export function WorkspaceProvider({ children }: PropsWithChildren) {
         slug: user.slug,
         avatarUrl: user.avatarUrl,
         timezone: detectedTimezone,
-        revision: user.revision,
       }),
     })
       .then((updated) => {

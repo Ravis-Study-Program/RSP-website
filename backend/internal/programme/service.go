@@ -24,12 +24,10 @@ type Enrollment struct {
 	AssignmentState      string
 	CloseAssignmentState string
 	CompletedByCloseID   *string
-	Revision             int64
 }
 
 type Season struct {
 	ID, Status  string
-	Revision    int64
 	Enrollments []Enrollment
 }
 
@@ -44,7 +42,6 @@ type SeasonRecord struct {
 	Location     string    `json:"location"`
 	ImageURL     string    `json:"imageUrl"`
 	ResourcesURL string    `json:"resourcesUrl"`
-	Revision     int64     `json:"revision"`
 }
 
 // MentorshipRecord assigns a mentor to a student within a season.
@@ -53,7 +50,6 @@ type MentorshipRecord struct {
 	SeasonID      string `json:"seasonId"`
 	MentorUserID  string `json:"mentorUserId"`
 	StudentUserID string `json:"studentUserId"`
-	Revision      int64  `json:"revision"`
 }
 
 // WeekRecord is a scheduled week within a season.
@@ -64,7 +60,6 @@ type WeekRecord struct {
 	StartAt     time.Time `json:"startAt"`
 	EndAt       time.Time `json:"endAt"`
 	ResourceURL string    `json:"resourceUrl"`
-	Revision    int64     `json:"revision"`
 }
 
 // EnrollmentRecord is the persisted and HTTP-facing season membership.
@@ -78,7 +73,6 @@ type EnrollmentRecord struct {
 	State           string  `json:"state"`
 	AssignmentState string  `json:"assignmentState"`
 	RemovalReason   *string `json:"removalReason,omitempty"`
-	Revision        int64   `json:"revision"`
 }
 
 type CloseEvent struct {
@@ -111,11 +105,9 @@ func Close(s Season, actorID, reason, eventID string, now time.Time) (Transition
 			}
 			closeID := e.ID
 			closed.Enrollments[i].CompletedByCloseID = &closeID
-			closed.Enrollments[i].Revision++
 		}
 	}
 	closed.Status = "closed"
-	closed.Revision++
 	return Transition{Season: closed, CloseEvent: &e}, nil
 }
 
@@ -133,11 +125,9 @@ func Reopen(s Season, e CloseEvent, role GlobalRole) (Season, error) {
 			}
 			reopened.Enrollments[i].CloseAssignmentState = ""
 			reopened.Enrollments[i].CompletedByCloseID = nil
-			reopened.Enrollments[i].Revision++
 		}
 	}
 	reopened.Status = "open"
-	reopened.Revision++
 	return reopened, nil
 }
 

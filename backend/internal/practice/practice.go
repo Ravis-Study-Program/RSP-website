@@ -13,11 +13,10 @@ const (
 
 // PracticeSettings stores a user's personal time goals.
 type PracticeSettings struct {
-	GoalsEnabled  bool  `json:"goalsEnabled"`
-	EasyMinutes   int   `json:"easyMinutes"`
-	MediumMinutes int   `json:"mediumMinutes"`
-	HardMinutes   int   `json:"hardMinutes"`
-	Revision      int64 `json:"revision"`
+	GoalsEnabled  bool `json:"goalsEnabled"`
+	EasyMinutes   int  `json:"easyMinutes"`
+	MediumMinutes int  `json:"mediumMinutes"`
+	HardMinutes   int  `json:"hardMinutes"`
 }
 
 // ProblemRecord is the persisted and HTTP-facing problem representation.
@@ -30,7 +29,6 @@ type ProblemRecord struct {
 	Difficulty string   `json:"difficulty"`
 	Categories []string `json:"categories"`
 	Premium    bool     `json:"premium"`
-	Revision   int64    `json:"revision"`
 }
 
 // AttemptRecord is the persisted and HTTP-facing attempt representation.
@@ -45,6 +43,5 @@ type AttemptRecord struct {
 	AttemptedAt time.Time  `json:"attemptedAt"`
 	SeasonID    *string    `json:"seasonId,omitempty"`
 	WeekID      *string    `json:"weekId,omitempty"`
-	Revision    int64      `json:"revision"`
 	DeletedAt   *time.Time `json:"-"`
 }

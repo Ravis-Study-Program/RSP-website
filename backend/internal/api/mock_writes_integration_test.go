@@ -6,7 +6,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"net/http"
 	"reflect"
 	"testing"
@@ -99,7 +98,7 @@ func mockUpdateBody(interview mockinterviews.Interview) map[string]any {
 		rounds[i] = mockRoundRequest{ID: round.ID, Type: round.Type, ProblemID: round.ProblemID,
 			Content: round.Content, Link: round.Link, Scores: round.Scores}
 	}
-	return map[string]any{"revision": interview.Revision, "occurredAt": interview.OccurredAt,
+	return map[string]any{"occurredAt": interview.OccurredAt,
 		"durationMinutes": interview.DurationMinutes, "notes": interview.Notes, "rounds": rounds}
 }
 
@@ -133,13 +132,13 @@ func TestMockWritesPreserveRoundMetadataAndHistory(t *testing.T) {
 	}
 
 	interview = mockRequest(t, fixture.handler, http.MethodPatch, path+"/rounds/"+mockRoundID+"/review", "other",
-		map[string]any{"revision": interview.Revision, "reviewed": true, "comment": "First review"}, http.StatusOK)
+		map[string]any{"reviewed": true, "comment": "First review"}, http.StatusOK)
 	firstReview := mockRoundMetadata(t, fixture, interview.ID)[mockRoundID]
 	if firstReview.ReviewedAt == nil || firstReview.ReviewStatus != "reviewed" {
 		t.Fatalf("review timestamp was not recorded: %#v", firstReview)
 	}
 	interview = mockRequest(t, fixture.handler, http.MethodPatch, path+"/rounds/"+mockLeetCodeRoundID+"/review", "other",
-		map[string]any{"revision": interview.Revision, "reviewed": true, "comment": "Second review"}, http.StatusOK)
+		map[string]any{"reviewed": true, "comment": "Second review"}, http.StatusOK)
 	metadata = mockRoundMetadata(t, fixture, interview.ID)
 	if !reflect.DeepEqual(firstReview, metadata[mockRoundID]) {
 		t.Fatal("reviewing another round rewrote the first round's metadata")
@@ -165,7 +164,7 @@ func TestMockWritesPreserveRoundMetadataAndHistory(t *testing.T) {
 
 	// A reason that resembles an old command must remain ordinary audit text.
 	interview = mockRequest(t, mockDirectorHandler(fixture), http.MethodPost, path+"/identity-correction", "student",
-		map[string]any{"revision": interview.Revision, "interviewerId": otherID, "intervieweeId": studentID,
+		map[string]any{"interviewerId": otherID, "intervieweeId": studentID,
 			"seasonId": seasonID, "reason": "soft deleted"}, http.StatusOK)
 	if interview.InterviewerID != otherID || interview.IntervieweeID != studentID {
 		t.Fatalf("identities not corrected: %#v", interview)
@@ -177,7 +176,7 @@ func TestMockWritesPreserveRoundMetadataAndHistory(t *testing.T) {
 	if len(beforeDelete) != 6 || beforeDelete[0] != originalVersions[0] {
 		t.Fatalf("prior history changed or version missing: %#v", beforeDelete)
 	}
-	mockRequest(t, fixture.handler, http.MethodDelete, fmt.Sprintf("%s?revision=%d", path, interview.Revision), "other", nil, http.StatusNoContent)
+	mockRequest(t, fixture.handler, http.MethodDelete, path, "other", nil, http.StatusNoContent)
 	if got := mockRoundMetadata(t, fixture, interview.ID); !reflect.DeepEqual(metadata, got) {
 		t.Fatal("soft deletion rewrote or removed rounds")
 	}
@@ -234,18 +233,9 @@ func TestMockWriteGuardsLeaveDataAndHistoryUnchanged(t *testing.T) {
 	versions := mockVersions(t, fixture, interview.ID)
 	mockRequest(t, fixture.handler, http.MethodPatch, path, "other", mockUpdateBody(interview), http.StatusNotFound)
 	mockRequest(t, fixture.handler, http.MethodPatch, path+"/rounds/"+mockRoundID+"/review", "student",
-		map[string]any{"revision": 1, "reviewed": true}, http.StatusNotFound)
+		map[string]any{"reviewed": true}, http.StatusNotFound)
 	mockRequest(t, fixture.handler, http.MethodPost, path+"/identity-correction", "other",
-		map[string]any{"revision": 1, "interviewerId": otherID, "intervieweeId": studentID, "reason": "swap"}, http.StatusForbidden)
-
-	stale := interview
-	stale.Revision = 2
-	mockRequest(t, fixture.handler, http.MethodPatch, path, "student", mockUpdateBody(stale), http.StatusConflict)
-	mockRequest(t, fixture.handler, http.MethodDelete, path+"?revision=2", "student", nil, http.StatusConflict)
-	mockRequest(t, fixture.handler, http.MethodPatch, path+"/rounds/"+mockRoundID+"/review", "other",
-		map[string]any{"revision": 2, "reviewed": true}, http.StatusConflict)
-	mockRequest(t, mockDirectorHandler(fixture), http.MethodPost, path+"/identity-correction", "student",
-		map[string]any{"revision": 2, "interviewerId": otherID, "intervieweeId": studentID, "seasonId": seasonID, "reason": "swap"}, http.StatusConflict)
+		map[string]any{"interviewerId": otherID, "intervieweeId": studentID, "reason": "swap"}, http.StatusForbidden)
 
 	// An invalid subtype rolls back the preceding interview/round changes.
 	invalid := interview
@@ -254,7 +244,7 @@ func TestMockWriteGuardsLeaveDataAndHistoryUnchanged(t *testing.T) {
 	invalid.Notes = "must roll back"
 	mockRequest(t, fixture.handler, http.MethodPatch, path, "student", mockUpdateBody(invalid), http.StatusConflict)
 	loaded, err := fixture.db.GetMockInterview(context.Background(), interview.ID)
-	if err != nil || loaded.Notes != interview.Notes || loaded.Revision != interview.Revision {
+	if err != nil || loaded.Notes != interview.Notes {
 		t.Fatalf("failed write was not rolled back: interview=%#v error=%v", loaded, err)
 	}
 
@@ -264,7 +254,7 @@ func TestMockWriteGuardsLeaveDataAndHistoryUnchanged(t *testing.T) {
 		t.Fatal(err)
 	}
 	mockRequest(t, fixture.handler, http.MethodPatch, path+"/rounds/"+mockRoundID+"/review", "other",
-		map[string]any{"revision": 1, "reviewed": true}, http.StatusConflict)
+		map[string]any{"reviewed": true}, http.StatusConflict)
 	if _, err := fixture.pool.Exec(context.Background(), `UPDATE app.enrollments SET deleted_at=NULL WHERE id=$1`, studentMemberID); err != nil {
 		t.Fatal(err)
 	}
@@ -273,12 +263,11 @@ func TestMockWriteGuardsLeaveDataAndHistoryUnchanged(t *testing.T) {
 		t.Fatal(err)
 	}
 	mockRequest(t, fixture.handler, http.MethodPatch, path, "student", mockUpdateBody(interview), http.StatusConflict)
-	mockRequest(t, fixture.handler, http.MethodDelete, path+"?revision=1", "student", nil, http.StatusConflict)
+	mockRequest(t, fixture.handler, http.MethodDelete, path, "student", nil, http.StatusConflict)
 	mockRequest(t, fixture.handler, http.MethodPatch, path+"/rounds/"+mockRoundID+"/review", "other",
-		map[string]any{"revision": 1, "reviewed": true}, http.StatusConflict)
+		map[string]any{"reviewed": true}, http.StatusConflict)
 
 	// Direct storage writes also recheck season state after HTTP preflight.
-	interview.Revision++
 	if _, err := fixture.db.UpdateMockInterview(context.Background(), interview, studentID, time.Now()); !errors.Is(err, dal.ErrConflict) {
 		t.Fatalf("closed-season storage write=%v", err)
 	}
@@ -290,15 +279,14 @@ func TestMockWriteGuardsLeaveDataAndHistoryUnchanged(t *testing.T) {
 	}
 
 	// Privileged corrections can still unlink records from a closed season.
-	interview.Revision--
 	mockRequest(t, mockDirectorHandler(fixture), http.MethodPost, path+"/identity-correction", "student",
-		map[string]any{"revision": interview.Revision, "interviewerId": studentID, "intervieweeId": otherID, "reason": "unlink historical record"}, http.StatusOK)
+		map[string]any{"interviewerId": studentID, "intervieweeId": otherID, "reason": "unlink historical record"}, http.StatusOK)
 	if got := mockRoundMetadata(t, fixture, interview.ID); !reflect.DeepEqual(before, got) {
 		t.Fatal("unlinking a historical record rewrote rounds")
 	}
 }
 
-func TestConcurrentMockEditsAppendOnlyOneVersion(t *testing.T) {
+func TestConcurrentMockEditsAppendHistory(t *testing.T) {
 	fixture := newPostgresFixture(t)
 	interview := createMockForWrites(t, fixture)
 	start := make(chan struct{})
@@ -307,7 +295,6 @@ func TestConcurrentMockEditsAppendOnlyOneVersion(t *testing.T) {
 		go func(notes string) {
 			candidate := interview
 			candidate.Notes = notes
-			candidate.Revision++
 			<-start
 			_, err := fixture.db.UpdateMockInterview(context.Background(), candidate, studentID, time.Now())
 			results <- err
@@ -315,10 +302,10 @@ func TestConcurrentMockEditsAppendOnlyOneVersion(t *testing.T) {
 	}
 	close(start)
 	first, second := <-results, <-results
-	if !(first == nil && errors.Is(second, dal.ErrConflict)) && !(second == nil && errors.Is(first, dal.ErrConflict)) {
-		t.Fatalf("concurrent writes should save one revision: %v, %v", first, second)
+	if first != nil || second != nil {
+		t.Fatalf("concurrent writes failed: %v, %v", first, second)
 	}
-	if versions := mockVersions(t, fixture, interview.ID); len(versions) != 2 {
+	if versions := mockVersions(t, fixture, interview.ID); len(versions) != 3 {
 		t.Fatalf("concurrent writes produced %d versions", len(versions))
 	}
 }

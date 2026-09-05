@@ -1,7 +1,6 @@
 package dal
 
 import (
-	"context"
 	"errors"
 
 	"github.com/jackc/pgx/v5"
@@ -19,15 +18,6 @@ func noRows(err error) error {
 		return ErrNotFound
 	}
 	return err
-}
-
-func (s *Store) classifyRevision(ctx context.Context, db queryer, query string, args ...any) error {
-	var revision int64
-	err := db.QueryRow(ctx, query, args...).Scan(&revision)
-	if err == nil {
-		return ErrConflict
-	}
-	return noRows(err)
 }
 
 func mapDatabaseError(err error) error {

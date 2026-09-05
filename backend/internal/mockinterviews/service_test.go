@@ -19,15 +19,15 @@ func TestOwnershipVersionsReviewAndPass(t *testing.T) {
 	if err != nil || m.InterviewerID != "mentor" || !Passed(m) {
 		t.Fatal("create failed")
 	}
-	if _, err := s.Update(m, "student", UpdateInput{ExpectedRevision: 1}, time.Now()); !errors.Is(err, ErrForbidden) {
+	if _, err := s.Update(m, "student", UpdateInput{}, time.Now()); !errors.Is(err, ErrForbidden) {
 		t.Fatalf("ownership: %v", err)
 	}
-	m, err = s.Review(m, "student", "r1", "thanks", true, 1, time.Now())
+	m, err = s.Review(m, "student", "r1", "thanks", true, time.Now())
 	if err != nil {
 		t.Fatalf("review: %v", err)
 	}
-	if _, err := s.Delete(m, "mentor", 1, time.Now()); !errors.Is(err, ErrConflict) {
-		t.Fatalf("stale edit: %v", err)
+	if _, err := s.Delete(m, "mentor", time.Now()); err != nil {
+		t.Fatalf("delete: %v", err)
 	}
 }
 
@@ -43,7 +43,7 @@ func TestInterviewerCannotWriteIntervieweeReview(t *testing.T) {
 	if m.Rounds[0].Reviewed || m.Rounds[0].IntervieweeComment != "" {
 		t.Fatalf("create trusted interviewer review: %#v", m.Rounds[0])
 	}
-	m, err = s.Review(m, "student", "r1", "real review", true, 1, time.Now())
+	m, err = s.Review(m, "student", "r1", "real review", true, time.Now())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -51,7 +51,7 @@ func TestInterviewerCannotWriteIntervieweeReview(t *testing.T) {
 	updateRounds := append([]Round(nil), m.Rounds...)
 	updateRounds[0].Reviewed = false
 	updateRounds[0].IntervieweeComment = "forged update"
-	m, err = s.Update(m, "mentor", UpdateInput{ExpectedRevision: 2, OccurredAt: m.OccurredAt, DurationMinutes: 70, Rounds: updateRounds}, time.Now())
+	m, err = s.Update(m, "mentor", UpdateInput{OccurredAt: m.OccurredAt, DurationMinutes: 70, Rounds: updateRounds}, time.Now())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -61,7 +61,7 @@ func TestInterviewerCannotWriteIntervieweeReview(t *testing.T) {
 }
 
 func TestParticipantEligibility(t *testing.T) {
-	for _, p := range []Participant{{UserID: "none"}, {UserID: "former", FormerMember: true}, {UserID: "s", ActiveMember: true, Suspended: true}, {UserID: "d", Alumni: true, Deleted: true}, {UserID: "t", ActiveMember: true, Test: true}, {UserID: "k", ActiveMember: true, KickedOnly: true}} {
+	for _, p := range []Participant{{UserID: "none"}, {UserID: "former", FormerMember: true}, {UserID: "s", ActiveMember: true, Suspended: true}, {UserID: "d", Alumni: true, Deleted: true}, {UserID: "k", ActiveMember: true, KickedOnly: true}} {
 		in := validCreate()
 		in.Interviewee = p
 		if _, err := new(Service).Create("mentor", in, time.Now()); !errors.Is(err, ErrForbidden) {

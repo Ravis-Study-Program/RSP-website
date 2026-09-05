@@ -404,9 +404,6 @@ func (tx *postgresTx) Verification(ctx context.Context, manifest Manifest) (Veri
 		}
 		return Verification{}, err
 	}
-	if state == "rolled_back" {
-		return Verification{}, ErrRunNotFound
-	}
 	if storedChecksum != manifest.Checksum {
 		return Verification{}, ErrManifestChecksum
 	}
@@ -418,12 +415,7 @@ func (tx *postgresTx) Verification(ctx context.Context, manifest Manifest) (Veri
 
 	for _, expected := range manifest.Tables {
 		prepared := rowsBySource[expected.SourceTable]
-		sort.Slice(prepared, func(i, j int) bool {
-			if prepared[i].ID == prepared[j].ID {
-				return prepared[i].SourceID < prepared[j].SourceID
-			}
-			return prepared[i].ID < prepared[j].ID
-		})
+		sort.Slice(prepared, func(i, j int) bool { return preparedRowSortKey(prepared[i]) < preparedRowSortKey(prepared[j]) })
 		checksum, checksumErr := Checksum(prepared)
 		if checksumErr != nil {
 			return Verification{}, checksumErr
@@ -552,7 +544,11 @@ func readTargetRow(ctx context.Context, tx pgx.Tx, table, targetID string, expec
 		comparisons = append(comparisons, "t."+quoted+" IS NOT DISTINCT FROM expected."+quoted)
 	}
 	qualified := "app." + pgx.Identifier{table}.Sanitize()
-	where, args := "t.id=$1", []any{targetID}
+	keyColumn := "id"
+	if column, ok := targetKeyColumn[table]; ok {
+		keyColumn = column
+	}
+	where, args := "t."+pgx.Identifier{keyColumn}.Sanitize()+"=$1", []any{targetID}
 	if table == "leetcode_problem_category_mappings" {
 		parts := strings.SplitN(targetID, "|", 2)
 		if len(parts) != 2 {
@@ -598,82 +594,12 @@ func targetRowExists(ctx context.Context, tx pgx.Tx, table, id string) (bool, er
 		err := tx.QueryRow(ctx, "SELECT EXISTS (SELECT 1 FROM "+qualified+" WHERE leetcode_problem_id = $1 AND category_id = $2)", parts[0], parts[1]).Scan(&exists)
 		return exists, err
 	}
-	err := tx.QueryRow(ctx, "SELECT EXISTS (SELECT 1 FROM "+qualified+" WHERE id = $1)", id).Scan(&exists)
+	keyColumn := "id"
+	if column, ok := targetKeyColumn[table]; ok {
+		keyColumn = column
+	}
+	err := tx.QueryRow(ctx, "SELECT EXISTS (SELECT 1 FROM "+qualified+" WHERE "+pgx.Identifier{keyColumn}.Sanitize()+" = $1)", id).Scan(&exists)
 	return exists, err
-}
-
-// RollbackRun rolls back the operation.
-func (tx *postgresTx) RollbackRun(ctx context.Context, runID string) error {
-	if !tx.locked {
-		return errors.New("migration advisory lock is not held")
-	}
-	var state string
-	if err := tx.tx.QueryRow(ctx, `SELECT state::text FROM migration.runs WHERE id=$1 FOR UPDATE`, runID).Scan(&state); err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return ErrRunNotFound
-		}
-		return err
-	}
-	if state != "applied" && state != "verified" {
-		return ErrRunNotFound
-	}
-	// Refuse to destroy any row that has changed since import. This also proves
-	// every provenance target still exists before the first DELETE executes.
-	if _, err := tx.readCurrentPreparedRows(ctx, runID); err != nil {
-		return fmt.Errorf("refuse rollback of changed migration targets: %w", err)
-	}
-	if _, err := tx.tx.Exec(ctx, `SELECT set_config('rsp.migration_rollback','on',true)`); err != nil {
-		return err
-	}
-
-	for index := len(targetOrder) - 1; index >= 0; index-- {
-		table := targetOrder[index]
-		rows, err := tx.tx.Query(ctx, `
-SELECT DISTINCT target_id
-FROM migration.row_provenance
-WHERE run_id = $1 AND target_table = $2
-ORDER BY target_id`, runID, table)
-		if err != nil {
-			return err
-		}
-
-		ids := make([]string, 0)
-		for rows.Next() {
-			var id string
-			if err := rows.Scan(&id); err != nil {
-				rows.Close()
-				return err
-			}
-
-			ids = append(ids, id)
-		}
-		rows.Close()
-		qualified := "app." + pgx.Identifier{table}.Sanitize()
-		for _, id := range ids {
-			if table == "leetcode_problem_category_mappings" {
-				parts := strings.SplitN(id, "|", 2)
-				if len(parts) != 2 {
-					return fmt.Errorf("invalid category mapping id %q", id)
-				}
-				if _, err := tx.tx.Exec(ctx, "DELETE FROM "+qualified+" WHERE leetcode_problem_id = $1 AND category_id = $2", parts[0], parts[1]); err != nil {
-					return err
-				}
-			} else if _, err := tx.tx.Exec(ctx, "DELETE FROM "+qualified+" WHERE id = $1", id); err != nil {
-				return err
-			}
-		}
-	}
-	command, err := tx.tx.Exec(ctx, `
-UPDATE migration.runs
-SET state = 'rolled_back', rolled_back_at = $2
-WHERE id = $1 AND state IN ('applied', 'verified')`, runID, tx.now().UTC())
-	if err != nil {
-		return err
-	}
-	if command.RowsAffected() != 1 {
-		return ErrRunNotFound
-	}
-	return nil
 }
 
 func (tx *postgresTx) Commit(ctx context.Context) error {

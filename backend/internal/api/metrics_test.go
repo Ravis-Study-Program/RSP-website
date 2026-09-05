@@ -33,7 +33,6 @@ func TestMetricsMatchDashboardSeriesWithBoundedLabels(t *testing.T) {
 				"partial_failure": 1,
 				"failure":         2,
 			},
-			MigrationState: "verified",
 		},
 	}
 	var output strings.Builder
@@ -49,8 +48,6 @@ func TestMetricsMatchDashboardSeriesWithBoundedLabels(t *testing.T) {
 		`rsp_worker_runs_total{result="success"} 8`,
 		`rsp_worker_runs_total{result="partial_failure"} 1`,
 		`rsp_worker_runs_total{result="failure"} 2`,
-		`rsp_migration_status{state="verified"} 1`,
-		`rsp_migration_status{state="applied"} 0`,
 		`rsp_observability_snapshot_success 1`,
 	} {
 		if !strings.Contains(body, expected) {
@@ -65,8 +62,7 @@ func TestMetricsSnapshotFailureIsSafeAndDoesNotLeakError(t *testing.T) {
 	var output strings.Builder
 	metrics.render(context.Background(), &output, source)
 	body := output.String()
-	if !strings.Contains(body, `rsp_migration_status{state="none"} 1`) ||
-		!strings.Contains(body, "rsp_observability_snapshot_success 0") {
+	if !strings.Contains(body, "rsp_observability_snapshot_success 0") {
 		t.Fatalf("missing safe failure state:\n%s", body)
 	}
 	if strings.Contains(body, "private@example.com") {

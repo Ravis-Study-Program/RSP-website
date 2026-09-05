@@ -5,7 +5,6 @@
  * Same-origin API for the Ravi's Study Program application.
  * OpenAPI spec version: 2.0.0
  */
-import type { Revision } from './revision';
 
 export interface EnrollmentCandidate {
   id: string;
@@ -13,5 +12,4 @@ export interface EnrollmentCandidate {
   name: string;
   /** @nullable */
   avatarUrl?: string | null;
-  revision: Revision;
 }

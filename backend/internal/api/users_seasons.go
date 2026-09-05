@@ -82,14 +82,13 @@ func (a *API) updateMe(w http.ResponseWriter, r *http.Request) {
 		Slug      *string `json:"slug"`
 		AvatarURL *string `json:"avatarUrl"`
 		Timezone  string  `json:"timezone"`
-		Revision  int64   `json:"revision"`
 	}
 	if err := decodeJSON(w, r, &in); err != nil {
 		writeErrorResponse(w, http.StatusBadRequest, "validation_failed", err.Error())
 		return
 	}
-	if strings.TrimSpace(in.Name) == "" || in.Revision < 1 {
-		writeErrorResponse(w, http.StatusBadRequest, "validation_failed", "name and revision are required")
+	if strings.TrimSpace(in.Name) == "" {
+		writeErrorResponse(w, http.StatusBadRequest, "validation_failed", "name is required")
 		return
 	}
 	if _, err := time.LoadLocation(in.Timezone); err != nil {
@@ -110,7 +109,7 @@ func (a *API) updateMe(w http.ResponseWriter, r *http.Request) {
 		in.Slug = &slug
 	}
 
-	updated, err := a.db.UpdateUser(r.Context(), actor.UserID, in.Revision, func(u *accounts.User) error {
+	updated, err := a.db.UpdateUser(r.Context(), actor.UserID, func(u *accounts.User) error {
 		u.Name = strings.TrimSpace(in.Name)
 		if in.Slug != nil {
 			u.Slug = *in.Slug
@@ -368,7 +367,6 @@ type seasonInput struct {
 	ResourcesURL string    `json:"resourcesUrl"`
 	StartAt      time.Time `json:"startAt"`
 	EndAt        time.Time `json:"endAt"`
-	Revision     int64     `json:"revision"`
 }
 
 func validSeason(in seasonInput) bool {
@@ -429,7 +427,7 @@ func (a *API) createSeason(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	v := programme.SeasonRecord{ID: id.New(), Slug: in.Slug, Name: in.Name, Status: "open", StartAt: in.StartAt.UTC(), EndAt: in.EndAt.UTC(), Location: in.Location, ImageURL: in.ImageURL, ResourcesURL: in.ResourcesURL, Revision: 1}
+	v := programme.SeasonRecord{ID: id.New(), Slug: in.Slug, Name: in.Name, Status: "open", StartAt: in.StartAt.UTC(), EndAt: in.EndAt.UTC(), Location: in.Location, ImageURL: in.ImageURL, ResourcesURL: in.ResourcesURL}
 	created, err := a.db.CreateSeason(r.Context(), v, actor.UserID, time.Now().UTC())
 	if err != nil {
 		a.writeStoreErrorResponse(w, err)
@@ -459,12 +457,12 @@ func (a *API) updateSeason(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var in seasonInput
-	if err := decodeJSON(w, r, &in); err != nil || !validSeason(in) || in.Revision < 1 {
-		writeErrorResponse(w, http.StatusBadRequest, "validation_failed", "valid fields and revision are required")
+	if err := decodeJSON(w, r, &in); err != nil || !validSeason(in) {
+		writeErrorResponse(w, http.StatusBadRequest, "validation_failed", "valid fields are required")
 		return
 	}
 
-	updated, err := a.db.UpdateSeason(r.Context(), seasonID, in.Revision, func(v *programme.SeasonRecord) error {
+	updated, err := a.db.UpdateSeason(r.Context(), seasonID, func(v *programme.SeasonRecord) error {
 		v.Name = in.Name
 		v.Slug = in.Slug
 		v.Location = in.Location
@@ -490,15 +488,14 @@ func (a *API) updateSeasonResources(w http.ResponseWriter, r *http.Request) {
 
 	var in struct {
 		ResourcesURL string `json:"resourcesUrl"`
-		Revision     int64  `json:"revision"`
 	}
-	if err := decodeJSON(w, r, &in); err != nil || in.Revision < 1 || in.ResourcesURL != "" && !validWebURL(in.ResourcesURL, true) {
-		writeErrorResponse(w, http.StatusBadRequest, "validation_failed", "an HTTPS resourcesUrl and revision are required")
+	if err := decodeJSON(w, r, &in); err != nil || in.ResourcesURL != "" && !validWebURL(in.ResourcesURL, true) {
+		writeErrorResponse(w, http.StatusBadRequest, "validation_failed", "an HTTPS resourcesUrl is required")
 		return
 	}
 
 	actor := actorFrom(r.Context())
-	updated, err := a.db.UpdateSeason(r.Context(), seasonID, in.Revision, func(v *programme.SeasonRecord) error {
+	updated, err := a.db.UpdateSeason(r.Context(), seasonID, func(v *programme.SeasonRecord) error {
 		v.ResourcesURL = in.ResourcesURL
 		return nil
 	}, actor.UserID, time.Now().UTC())
@@ -525,20 +522,19 @@ func (a *API) closeSeason(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if season.Status != "open" {
-		writeErrorResponse(w, http.StatusConflict, "stale_revision", "The resource changed since it was loaded.")
+		writeErrorResponse(w, http.StatusConflict, "season_closed", "The season is already closed.")
 		return
 	}
 
 	var in struct {
-		Reason   string `json:"reason"`
-		Revision int64  `json:"revision"`
+		Reason string `json:"reason"`
 	}
 	if err := decodeJSON(w, r, &in); err != nil || strings.TrimSpace(in.Reason) == "" {
-		writeErrorResponse(w, http.StatusBadRequest, "validation_failed", "reason and revision are required")
+		writeErrorResponse(w, http.StatusBadRequest, "validation_failed", "reason is required")
 		return
 	}
 
-	updated, err := a.db.CloseSeason(r.Context(), seasonID, in.Revision, actor.UserID, strings.TrimSpace(in.Reason), time.Now().UTC())
+	updated, err := a.db.CloseSeason(r.Context(), seasonID, actor.UserID, strings.TrimSpace(in.Reason), time.Now().UTC())
 	if err != nil {
 		a.writeStoreErrorResponse(w, err)
 		return
@@ -556,15 +552,14 @@ func (a *API) reopenSeason(w http.ResponseWriter, r *http.Request) {
 
 	seasonID := r.PathValue("id")
 	var in struct {
-		Reason   string `json:"reason"`
-		Revision int64  `json:"revision"`
+		Reason string `json:"reason"`
 	}
 	if err := decodeJSON(w, r, &in); err != nil || strings.TrimSpace(in.Reason) == "" {
-		writeErrorResponse(w, http.StatusBadRequest, "validation_failed", "reason and revision are required")
+		writeErrorResponse(w, http.StatusBadRequest, "validation_failed", "reason is required")
 		return
 	}
 
-	updated, err := a.db.ReopenSeason(r.Context(), seasonID, in.Revision, actor.UserID, strings.TrimSpace(in.Reason), time.Now().UTC())
+	updated, err := a.db.ReopenSeason(r.Context(), seasonID, actor.UserID, strings.TrimSpace(in.Reason), time.Now().UTC())
 	if err != nil {
 		a.writeStoreErrorResponse(w, err)
 		return
