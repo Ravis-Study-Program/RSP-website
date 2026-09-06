@@ -8,6 +8,7 @@
 
 export * from './accountStateMutation';
 export * from './accountStateMutationState';
+export * from './activitySummary';
 export * from './assignmentState';
 export * from './attempt';
 export * from './attemptMutation';
@@ -29,6 +30,7 @@ export * from './enrollmentUpdate';
 export * from './enrollmentUpdateRole';
 export * from './enrollmentUpdateStudentLevel';
 export * from './errorResponse';
+export * from './getUserActivitySummaryParams';
 export * from './globalRole';
 export * from './globalRoleAssignment';
 export * from './globalRoleAssignmentList';
@@ -86,6 +88,7 @@ export * from './revokeAdminUserGlobalRoleParams';
 export * from './roundReview';
 export * from './scores';
 export * from './season';
+export * from './seasonMemberSummary';
 export * from './seasonMutation';
 export * from './seasonPage';
 export * from './seasonResourceUpdate';

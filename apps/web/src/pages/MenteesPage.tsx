@@ -71,7 +71,7 @@ export function MenteesPage() {
       { accessorKey: 'interviews', header: 'Mock interviews' },
       {
         accessorKey: 'lastActiveAt',
-        header: 'Last active',
+        header: 'Last recorded activity',
         cell: ({ getValue }) => (getValue() ? formatDateTime(getValue()) : '—'),
       },
       {

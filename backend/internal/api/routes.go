@@ -26,6 +26,7 @@ func registerAccountRoutes(mux *http.ServeMux, a *API) {
 	mux.HandleFunc("PATCH /api/v2/me", a.protected(ratelimit.Write, a.updateCurrentUser))
 	mux.HandleFunc("GET /api/v2/me/slug-suggestion", a.protected(ratelimit.Read, a.suggestCurrentUserSlug))
 	mux.HandleFunc("GET /api/v2/users", a.protected(ratelimit.Read, a.listUsers))
+	mux.HandleFunc("GET /api/v2/users/{id}/activity-summary", a.protected(ratelimit.Read, a.getUserActivitySummary))
 	mux.HandleFunc("GET /api/v2/users/{id}", a.protected(ratelimit.Read, a.getUser))
 	mux.HandleFunc("GET /api/v2/admin/users", a.protected(ratelimit.Read, a.listAdminUsers))
 	mux.HandleFunc("POST /api/v2/admin/users/{id}/account-state", a.protected(ratelimit.Sensitive, a.setUserAccountState))
@@ -37,6 +38,7 @@ func registerAccountRoutes(mux *http.ServeMux, a *API) {
 func registerProgrammeRoutes(mux *http.ServeMux, a *API) {
 	mux.HandleFunc("GET /api/v2/seasons", a.protected(ratelimit.Read, a.listSeasons))
 	mux.HandleFunc("POST /api/v2/seasons", a.protected(ratelimit.Write, a.createSeason))
+	mux.HandleFunc("GET /api/v2/seasons/{id}/activity-summary", a.protected(ratelimit.Read, a.getSeasonActivitySummary))
 	mux.HandleFunc("GET /api/v2/seasons/{id}", a.protected(ratelimit.Read, a.getSeason))
 	mux.HandleFunc("PATCH /api/v2/seasons/{id}", a.protected(ratelimit.Write, a.updateSeason))
 	mux.HandleFunc("PATCH /api/v2/seasons/{id}/resources", a.protected(ratelimit.Write, a.updateSeasonResources))

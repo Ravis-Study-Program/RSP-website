@@ -15,6 +15,7 @@ import {
 import { ApiError, apiRequest } from '@/api/client';
 import { demoModeForEnvironment } from '@/api/demoMode';
 import type {
+  ActivitySummary,
   AttemptPage as ApiAttemptPage,
   Enrollment,
   EnrollmentCandidate,
@@ -44,7 +45,7 @@ import {
   seasonWeeks,
   seasons,
 } from '@/data/demo';
-import type { CurrentUser, Page } from '@/types';
+import type { CurrentUser, Page, Person } from '@/types';
 
 export const demoMode = demoModeForEnvironment(
   import.meta.env.VITE_USE_DEMO_DATA,
@@ -542,7 +543,7 @@ export function useUserAttempts(userId?: string, enabled = true) {
 }
 
 export function useSeasonPeople(seasonId?: string, seasonName?: string) {
-  return useQuery({
+  return useQuery<Page<Person>>({
     queryKey: ['season-people', seasonId],
     enabled: demoMode || Boolean(seasonId),
     queryFn: async () => {
@@ -575,8 +576,7 @@ export function useSeasonPeople(seasonId?: string, seasonName?: string) {
         );
       }
       if (!seasonId) return page([]);
-      const [userPage, enrollmentPage, mentorshipPage] = await Promise.all([
-        getUsers(),
+      const [enrollmentPage, mentorshipPage] = await Promise.all([
         fetchAllPages<Enrollment>(
           `/seasons/${encodeURIComponent(seasonId)}/members?limit=100`,
         ),
@@ -584,9 +584,6 @@ export function useSeasonPeople(seasonId?: string, seasonName?: string) {
           `/seasons/${encodeURIComponent(seasonId)}/mentorships?limit=100`,
         ),
       ]);
-      const users = new Map(
-        adaptUserPage(userPage).items.map((user) => [user.id, user]),
-      );
       const mentorForStudent = new Map(
         mentorshipPage.items.map((mentorship) => [
           mentorship.studentUserId,
@@ -595,8 +592,25 @@ export function useSeasonPeople(seasonId?: string, seasonName?: string) {
       );
       const assignedStudents = new Set(mentorForStudent.keys());
       const items = enrollmentPage.items.flatMap((enrollment) => {
-        const user = users.get(enrollment.userId);
-        if (!user) return [];
+        const member = enrollment.member;
+        if (!member) return [];
+        const user = {
+          id: member.id,
+          name: member.name,
+          slug: member.slug,
+          initials: member.name
+            .split(' ')
+            .map((part) => part[0])
+            .slice(0, 2)
+            .join(''),
+          avatarUrl: member.avatarUrl,
+          roles: [enrollment.role],
+          attempts: member.activity.attemptCount,
+          interviews: member.activity.mockInterviewCount,
+          mocksReceived: member.activity.mocksReceived,
+          mocksConducted: member.activity.mocksConducted,
+          lastActiveAt: member.activity.lastActivityAt,
+        };
         return [
           {
             ...user,
@@ -611,7 +625,7 @@ export function useSeasonPeople(seasonId?: string, seasonName?: string) {
                   ? ('unassigned' as const)
                   : enrollment.state === 'active'
                     ? ('active' as const)
-                    : null,
+                    : enrollment.state,
             enrollmentId: enrollment.id,
             enrollmentState: enrollment.state,
             studentLevel: enrollment.studentLevel,
@@ -672,6 +686,47 @@ export function useMockInterviews(
           right.occurredAt.localeCompare(left.occurredAt),
         ),
       };
+    },
+  });
+}
+
+export function useActivitySummary(userId?: string, seasonId?: string) {
+  return useQuery({
+    queryKey: ['activity-summary', { userId, seasonId }],
+    enabled: Boolean(userId || seasonId),
+    queryFn: async (): Promise<ActivitySummary> => {
+      if (demoMode) {
+        const matchingAttempts = attempts.filter(
+          (a) => !seasonId || a.seasonId === seasonId,
+        );
+        const matchingMocks = mockInterviews.filter(
+          (m) =>
+            (!seasonId || m.seasonId === seasonId) &&
+            (!userId ||
+              m.interviewee.id === userId ||
+              m.interviewer.id === userId),
+        );
+        const dates = [
+          ...matchingAttempts.map((a) => a.attemptedAt),
+          ...matchingMocks.map((m) => m.occurredAt),
+        ].sort();
+        return {
+          attemptCount: matchingAttempts.length,
+          mockInterviewCount: matchingMocks.length,
+          mocksReceived: matchingMocks.filter(
+            (m) => !userId || m.interviewee.id === userId,
+          ).length,
+          mocksConducted: matchingMocks.filter(
+            (m) => !userId || m.interviewer.id === userId,
+          ).length,
+          lastActivityAt: dates.at(-1) ?? null,
+        };
+      }
+      return apiRequest<ActivitySummary>(
+        userId
+          ? `/users/${encodeURIComponent(userId)}/activity-summary${seasonId ? `?seasonId=${encodeURIComponent(seasonId)}` : ''}`
+          : `/seasons/${encodeURIComponent(seasonId!)}/activity-summary`,
+      );
     },
   });
 }

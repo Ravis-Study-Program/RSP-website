@@ -66,9 +66,11 @@ export interface Person {
   avatarUrl: string | null;
   roles: Role[];
   season: string | null;
-  status: 'active' | 'completed' | 'unassigned' | null;
+  status: 'active' | 'completed' | 'unassigned' | 'kicked' | 'withdrawn' | null;
   attempts: number | null;
   interviews: number | null;
+  mocksReceived?: number;
+  mocksConducted?: number;
   email?: string;
   lastActiveAt: string | null;
   enrollmentId?: string;

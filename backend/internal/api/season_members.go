@@ -19,8 +19,7 @@ func (a *API) listSeasonMembers(w http.ResponseWriter, r *http.Request) {
 		writeErrorResponse(w, http.StatusForbidden, "No season access yet.")
 		return
 	}
-	seasonEnrollment, _ := actor.Enrollment(seasonID)
-	canSeeInactive := actor.IsDirectorOrSystemAdmin() || (seasonEnrollment.Role == authz.Coordinator && seasonEnrollment.State == authz.Active)
+	canSeeInactive := actor.CanReviewSeason(seasonID)
 	role, state := r.URL.Query().Get("role"), r.URL.Query().Get("state")
 	if role != "" && role != "student" && role != "mentor" && role != "coordinator" {
 		writeErrorResponse(w, http.StatusBadRequest, "role must be student, mentor, or coordinator")
@@ -64,6 +63,23 @@ func (a *API) listSeasonMembers(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	userIDs := make([]string, 0, len(items))
+	for _, enrollment := range items {
+		userIDs = append(userIDs, enrollment.UserID)
+	}
+	members, err := a.db.SeasonMemberSummaries(r.Context(), seasonID, userIDs)
+	if err != nil {
+		a.writeStoreErrorResponse(w, err)
+		return
+	}
+	for i := range items {
+		if member, ok := members[items[i].UserID]; ok {
+			items[i].Member = &member
+		}
+		if !actor.IsSeasonAdmin(seasonID) {
+			items[i].RemovalReason = nil
+		}
+	}
 	pageInfo, err := pageInfoForKeyset(
 		a.cursorSecret, binding, direction, boundary, items, more,
 		func(member programme.EnrollmentRecord) string { return member.ID },

@@ -56,15 +56,16 @@ type WeekRecord struct {
 
 // EnrollmentRecord is the persisted and HTTP-facing season membership.
 type EnrollmentRecord struct {
-	ID              string  `json:"id"`
-	SeasonID        string  `json:"seasonId"`
-	SeasonSlug      string  `json:"seasonSlug,omitempty"`
-	UserID          string  `json:"userId"`
-	Role            string  `json:"role"`
-	StudentLevel    string  `json:"studentLevel,omitempty"`
-	State           string  `json:"state"`
-	AssignmentState string  `json:"assignmentState"`
-	RemovalReason   *string `json:"removalReason,omitempty"`
+	Member          *SeasonMemberSummary `json:"member,omitempty"`
+	ID              string               `json:"id"`
+	SeasonID        string               `json:"seasonId"`
+	SeasonSlug      string               `json:"seasonSlug,omitempty"`
+	UserID          string               `json:"userId"`
+	Role            string               `json:"role"`
+	StudentLevel    string               `json:"studentLevel,omitempty"`
+	State           string               `json:"state"`
+	AssignmentState string               `json:"assignmentState"`
+	RemovalReason   *string              `json:"removalReason,omitempty"`
 }
 
 type CloseEvent struct {

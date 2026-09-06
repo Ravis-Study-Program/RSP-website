@@ -8,6 +8,7 @@
 import type { AssignmentState } from './assignmentState';
 import type { EnrollmentState } from './enrollmentState';
 import type { EnrollmentStudentLevel } from './enrollmentStudentLevel';
+import type { SeasonMemberSummary } from './seasonMemberSummary';
 import type { SeasonRole } from './seasonRole';
 
 export interface Enrollment {
@@ -18,6 +19,7 @@ export interface Enrollment {
   studentLevel: EnrollmentStudentLevel;
   state: EnrollmentState;
   assignmentState: AssignmentState;
+  member?: SeasonMemberSummary;
   /** @nullable */
   removalReason?: string | null;
 }

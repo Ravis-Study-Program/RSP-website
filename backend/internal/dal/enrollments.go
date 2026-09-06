@@ -34,7 +34,7 @@ type EnrollmentQuery struct {
 }
 
 func (p *Store) ListEnrollments(ctx context.Context, q EnrollmentQuery) ([]programme.EnrollmentRecord, bool, int64, error) {
-	const filters = `e.season_id = @seasonID AND e.deleted_at IS NULL
+	const filters = `e.season_id = @seasonID AND (e.deleted_at IS NULL OR (@includeInactive AND e.state IN ('kicked','withdrawn')))
 		AND (@role = '' OR e.role::text = @role) AND (@state = '' OR e.state::text = @state)
 		AND (@includeInactive OR e.state = 'active' OR (e.role = 'student' AND e.state = 'completed'))`
 	args := pgx.NamedArgs{

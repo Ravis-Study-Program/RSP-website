@@ -148,6 +148,35 @@ paths:
         '403': { $ref: '#/components/responses/Error' }
         '401': { $ref: '#/components/responses/Error' }
         '429': { $ref: '#/components/responses/RateLimited' }
+  /users/{id}/activity-summary:
+    parameters: [{ $ref: '#/components/parameters/ID' }]
+    get:
+      operationId: getUserActivitySummary
+      parameters:
+        - { name: seasonId, in: query, schema: { type: string, format: uuid } }
+        - {
+            name: year,
+            in: query,
+            schema: { type: integer, minimum: 1900, maximum: 9999 },
+          }
+      responses:
+        default: { $ref: '#/components/responses/Error' }
+        '200':
+          description: Activity totals for the selected member and period
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ActivitySummary' }
+  /seasons/{id}/activity-summary:
+    parameters: [{ $ref: '#/components/parameters/ID' }]
+    get:
+      operationId: getSeasonActivitySummary
+      responses:
+        default: { $ref: '#/components/responses/Error' }
+        '200':
+          description: Activity totals within this season
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ActivitySummary' }
   /users/{id}:
     parameters:
       [
@@ -1790,6 +1819,31 @@ components:
             },
           ],
       }
+    ActivitySummary:
+      type: object
+      required:
+        [
+          attemptCount,
+          mockInterviewCount,
+          mocksReceived,
+          mocksConducted,
+          lastActivityAt,
+        ]
+      properties:
+        attemptCount: { type: integer, minimum: 0 }
+        mockInterviewCount: { type: integer, minimum: 0 }
+        mocksReceived: { type: integer, minimum: 0 }
+        mocksConducted: { type: integer, minimum: 0 }
+        lastActivityAt: { type: string, format: date-time, nullable: true }
+    SeasonMemberSummary:
+      type: object
+      required: [id, slug, name, avatarUrl, activity]
+      properties:
+        id: { type: string }
+        slug: { type: string }
+        name: { type: string }
+        avatarUrl: { type: string, nullable: true }
+        activity: { $ref: '#/components/schemas/ActivitySummary' }
     Enrollment:
       type: object
       required:
@@ -1807,6 +1861,7 @@ components:
             },
           state: { $ref: '#/components/schemas/EnrollmentState' },
           assignmentState: { $ref: '#/components/schemas/AssignmentState' },
+          member: { $ref: '#/components/schemas/SeasonMemberSummary' },
           removalReason: { type: string, nullable: true },
         }
     EnrollmentCreate:

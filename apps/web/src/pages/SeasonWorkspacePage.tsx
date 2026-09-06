@@ -2,6 +2,7 @@ import { IconCalendarEvent, IconLock, IconUsers } from '@tabler/icons-react';
 import { Link, Navigate, useParams } from 'react-router-dom';
 
 import {
+  useActivitySummary,
   useCurrentUser,
   useSeasonEnrollments,
   useSeasonWeeks,
@@ -33,6 +34,7 @@ export function SeasonWorkspacePage() {
   const user = useCurrentUser();
   const weeks = useSeasonWeeks(season?.id);
   const enrollments = useSeasonEnrollments(season?.id);
+  const activity = useActivitySummary(undefined, season?.id);
   usePageTitle(season?.name ?? 'Season');
 
   if (query.isLoading || user.isLoading)
@@ -155,6 +157,33 @@ export function SeasonWorkspacePage() {
           }
         />
       </div>
+      <div className={styles.metricGrid}>
+        <MetricCard
+          label="Practice attempts"
+          value={activity.data?.attemptCount ?? '—'}
+          detail="Recorded in this season"
+        />
+        <MetricCard
+          label="Mock interviews"
+          value={activity.data?.mockInterviewCount ?? '—'}
+          detail="Each interview counted once"
+        />
+        <MetricCard
+          label="Last recorded activity"
+          value={
+            activity.data?.lastActivityAt
+              ? formatDate(activity.data.lastActivityAt)
+              : '—'
+          }
+          detail="Within this season"
+        />
+      </div>
+      {activity.isError ? (
+        <ErrorState
+          title="Activity totals unavailable"
+          onRetry={() => void activity.refetch()}
+        />
+      ) : null}
       <div className={styles.grid2}>
         <section className={styles.section} aria-labelledby="schedule-title">
           <div className={styles.sectionHeader}>

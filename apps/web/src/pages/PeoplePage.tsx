@@ -123,7 +123,7 @@ export function PeoplePage() {
       { accessorKey: 'interviews', header: 'Interviews' },
       {
         accessorKey: 'lastActiveAt',
-        header: 'Last active',
+        header: 'Last recorded activity',
         cell: ({ getValue }) => (getValue() ? formatDateTime(getValue()) : '—'),
       },
     ],
