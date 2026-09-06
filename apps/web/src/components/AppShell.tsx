@@ -61,6 +61,7 @@ function itemsFor(role: string | undefined, seasonSlug?: string): NavItem[] {
       { label: 'Dashboard', to: '/dashboard', icon: IconDashboard },
       { label: 'Season', to: seasonBase, icon: IconCalendarEvent, end: true },
       { label: 'People', to: `${seasonBase}/people`, icon: IconUsers },
+      { label: 'All students', to: `${seasonBase}/mentees`, icon: IconUsers },
       {
         label: 'Mentor teams',
         to: `${seasonBase}/mentor-teams`,

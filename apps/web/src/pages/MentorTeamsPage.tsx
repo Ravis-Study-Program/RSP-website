@@ -47,7 +47,7 @@ export function MentorTeamsPage() {
       <div className={styles.cardGrid}>
         {mentors.map((mentor) => (
           <article className={styles.card} key={mentor.id}>
-            <PersonIdentity person={mentor} privateView />
+            <PersonIdentity person={mentor} seasonId={season?.id} privateView />
             <div
               className={`${styles.sectionHeader} ${styles.sectionHeaderSpaced}`}
             >
@@ -65,9 +65,9 @@ export function MentorTeamsPage() {
                 .filter((student) => student.mentorshipMentorId === mentor.id)
                 .map((student) => (
                   <li className={styles.personRow} key={student.id}>
-                    <PersonIdentity person={student} />
+                    <PersonIdentity person={student} seasonId={season?.id} />
                     <Link
-                      to={`/people/${student.slug}`}
+                      to={`/people/${student.slug}?seasonId=${encodeURIComponent(season!.id)}`}
                       aria-label={`Open ${student.name}`}
                     >
                       <IconArrowRight size={18} aria-hidden="true" />
@@ -88,7 +88,11 @@ export function MentorTeamsPage() {
               .filter((student) => student.status === 'unassigned')
               .map((student) => (
                 <li className={styles.personRow} key={student.id}>
-                  <PersonIdentity person={student} privateView />
+                  <PersonIdentity
+                    person={student}
+                    seasonId={season?.id}
+                    privateView
+                  />
                   <MentorshipDialog
                     seasonId={season?.id}
                     mentors={mentors}

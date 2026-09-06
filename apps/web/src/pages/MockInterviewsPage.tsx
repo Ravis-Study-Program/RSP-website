@@ -291,7 +291,9 @@ function RoundEditor({
   );
 }
 
-const columns: ColumnDef<MockInterview, any>[] = [
+const columnsForSeason = (
+  seasonId?: string,
+): ColumnDef<MockInterview, any>[] => [
   {
     id: 'expand',
     header: 'Details',
@@ -317,13 +319,17 @@ const columns: ColumnDef<MockInterview, any>[] = [
     accessorKey: 'interviewee.name',
     id: 'interviewee',
     header: 'Interviewee',
-    cell: ({ row }) => <PersonIdentity person={row.original.interviewee} />,
+    cell: ({ row }) => (
+      <PersonIdentity person={row.original.interviewee} seasonId={seasonId} />
+    ),
   },
   {
     accessorKey: 'interviewer.name',
     id: 'interviewer',
     header: 'Interviewer',
-    cell: ({ row }) => <PersonIdentity person={row.original.interviewer} />,
+    cell: ({ row }) => (
+      <PersonIdentity person={row.original.interviewer} seasonId={seasonId} />
+    ),
   },
   {
     accessorKey: 'occurredAt',
@@ -390,6 +396,7 @@ export function MockInterviewsPage() {
   const peopleQuery = useMockParticipants();
   const seasonsQuery = useSeasons();
   const season = seasonsQuery.data?.items.find((item) => item.slug === slug);
+  const columns = useMemo(() => columnsForSeason(season?.id), [season?.id]);
   const [filters, setFilters] = useActivityFilters();
   const query = useMockInterviews(
     !slug || Boolean(season),
@@ -568,7 +575,10 @@ export function MockInterviewsPage() {
                   </span>
                 </div>
                 <h3 className={`${styles.cardTitle} ${styles.cardTitleSpaced}`}>
-                  {row.original.interviewee.name}
+                  <PersonIdentity
+                    person={row.original.interviewee}
+                    seasonId={season?.id}
+                  />
                 </h3>
                 <p className={styles.helper}>
                   with {row.original.interviewer.name} ·{' '}

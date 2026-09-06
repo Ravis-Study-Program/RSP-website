@@ -275,7 +275,10 @@ export function DashboardPage() {
                 <ul className={styles.cleanList}>
                   {mentees.slice(0, 3).map((person) => (
                     <li className={styles.personRow} key={person.id}>
-                      <PersonIdentity person={person} />
+                      <PersonIdentity
+                        person={person}
+                        seasonId={currentSeason?.id}
+                      />
                       <span className={styles.badgeNeutral}>
                         {person.attempts ?? '—'} attempts
                       </span>

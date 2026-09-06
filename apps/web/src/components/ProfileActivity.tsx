@@ -163,6 +163,10 @@ export function ProfileActivity({
                 {a.difficulty} · {a.minutes ?? '—'} min ·{' '}
                 {formatDateTime(a.attemptedAt)}
               </p>
+              <p>
+                {a.outcome.replaceAll('_', ' ')} · Confidence:{' '}
+                {a.confidence ? `${a.confidence}/5` : 'Not recorded'}
+              </p>
               <RichTextContent html={a.notes} />
             </div>
           )}
@@ -189,9 +193,9 @@ export function ProfileActivity({
           getRowId={(m) => m.id}
           renderCard={({ original: m }) => (
             <div>
-              <p>
-                {m.interviewer.name} interviewing {m.interviewee.name}
-              </p>
+              <PersonIdentity person={m.interviewee} seasonId={seasonId} />
+              <p>Interviewer</p>
+              <PersonIdentity person={m.interviewer} seasonId={seasonId} />
               <p>
                 {formatDateTime(m.occurredAt)} · {m.durationMinutes} min
               </p>

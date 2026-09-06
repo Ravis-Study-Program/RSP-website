@@ -267,7 +267,7 @@ export function ProfilePage() {
         </div>
       ) : null}
       <div
-        className={`${styles.grid2} ${!showProgrammeDetails ? styles.profileBasicGrid : ''}`}
+        className={`${styles.grid2} ${!showProgrammeDetails || !isSelf ? styles.profileBasicGrid : ''}`}
       >
         {showProgrammeDetails ? (
           <section className={styles.section}>
@@ -286,6 +286,7 @@ export function ProfilePage() {
                 <ol className={styles.timeline}>
                   {(participation.data?.items ?? []).map((entry) => (
                     <li key={entry.id} className={styles.timelineItem}>
+                      <span className={styles.timelineDot} aria-hidden="true" />
                       <div className={styles.timelineContent}>
                         <Link
                           to={`${isSelf ? '/profile' : `/people/${person.slug}`}?seasonId=${encodeURIComponent(entry.seasonId)}`}
