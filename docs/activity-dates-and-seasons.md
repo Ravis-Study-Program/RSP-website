@@ -4,6 +4,10 @@ Practice and mock records belong to people. An attempt stores `attemptedAt`; a
 mock stores `occurredAt`. The API calculates their season when reading them.
 Clients cannot assign a season or week when creating or editing activity.
 
+A season is a short Australian summer programme, usually about three months.
+Its configured dates define its duration. For example, Summer 2025/26 can mean
+December 2025 to February 2026; the name does not mean two full calendar years.
+
 ## Recording and time zones
 
 - Mock creation accepts only the current calendar day in `Australia/Adelaide`,
@@ -14,8 +18,7 @@ Clients cannot assign a season or week when creating or editing activity.
   original occurrence timestamp. Historical imported mocks remain editable.
 - Practice attempts keep their existing date-editing behaviour.
 - Stored timestamps are absolute instants. Personal display-timezone preferences
-  still control history display; recording eligibility and calendar-year filters
-  always use Adelaide time.
+  still control history display; recording eligibility always uses Adelaide time.
 
 ## Calculating a season
 
@@ -32,29 +35,37 @@ changes its administrative status without rewriting participation dates.
 Every record has at most one season. If eligible dates overlap, the season with
 the latest start wins, followed by the latest participation start and season ID
 as deterministic tie-breakers. Without an eligible student season the record is
-personal activity only; it still appears in the appropriate calendar year.
+personal activity only; it still appears in All time.
 
 For example, a student removed on 20 January keeps qualifying records before
-20 January in that summer season. Their later records stay in their personal
-2025 history. Enrolling in the next summer season makes qualifying new records
-appear there, with personal 2026 history continuing regardless of enrolment.
+20 January in that summer season. Their later records stay in All time. Enrolling
+in the next summer season makes qualifying new records appear there. All time
+includes both season activity and activity recorded between seasons or after
+leaving the programme.
 
 Changing season or week dates recalculates existing records on the next read.
 Existing weeks must still fit within their season; adjust them before shrinking
 its dates. Closed seasons follow the existing reopen-and-edit administration
 workflow. Historical audit/version snapshots remain as originally recorded.
 
-Both list APIs accept `seasonId` and `year` together or separately. Year is an
-Adelaide calendar year, and pagination cursors are bound to these filters.
-Personal pages offer calendar-year filters; season practice/mock pages send the
-selected season ID to the API.
+Profiles, practice and mock history offer Season / All time, without calendar-year
+selectors. In a selected season, practice and mock lists (including profile tabs)
+can be narrowed to one or more programme weeks. Switching seasons or selecting
+All time clears the week selection. Other filters, such as difficulty and result,
+remain available. Charts follow the selected activity.
+
+Both list APIs accept a `seasonId` and repeated `weekId` filters. Week filters
+require a season, and pagination cursors are bound to the selection. The existing
+API-only `year` parameter remains available for compatibility; the website does
+not send it.
 
 ## Membership and privacy
 
 All current and former members can maintain their own practice and mocks while
 their account remains active. Being kicked or withdrawing does not grant alumni,
 directory, season-resource or administrative access. Former members can retrieve
-their own season names/dates; restricted resource links are omitted. Legacy
+their own season names/dates and week numbers/dates for personal filters;
+restricted resource links are omitted. Legacy
 kicked/withdrawn enrolments retain this personal access even when they also
 carry the old soft-delete marker.
 

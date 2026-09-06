@@ -2,7 +2,8 @@
 
 ## Profiles and activity
 
-Opening a profile from a season keeps that season selected. The profile offers
+Seasons represent short Australian summer programmes, usually around three months,
+with explicitly configured start and end dates. Opening a profile from a season keeps that season selected. The profile offers
 other seasons the person participated in and an All time view, with practice
 counts, mock counts, lists and charts calculated for the selected period.
 Participation history shows roles, levels, enrollment states and recorded dates.
@@ -12,11 +13,15 @@ People lists the season's members. My students lists a mentor's assigned student
 and can include previous assignments; coordinators see All students. Closed
 seasons include previous assignments by default.
 
+Practice and mock history also offer Season / All time. Both support programme
+week filters within a selected season, including on profiles. All time has no week
+filter, and changing the period clears selected weeks.
+
 Question pickers search by question number or title. Practice can be filtered by
-difficulty, topic and season week; mocks also support result and interviewer
-filters. Multiple choices within a filter mean any of those choices, while
+difficulty and topic; mocks also support result and interviewer filters.
+Multiple choices within a filter mean any of those choices, while
 different filters apply together. Charts use all matching records across table
-pages. Historical charts follow the selected season or year, or the complete
+pages. Historical charts follow the selected season, or the complete
 activity range for All time. Suggestions exclude every question the member has
 already attempted, even in another season. A suggestion does not record an attempt.
 
