@@ -241,8 +241,139 @@ test('director MFA session creates, edits, closes, and reopens a throwaway seaso
     page.getByRole('button', { name: 'Close season' }),
   ).toBeVisible();
 
+  await page.goto('/admin/seasons');
+  const emptySeason = page.getByRole('row').filter({ hasText: seasonName });
+  await emptySeason
+    .getByRole('button', { name: 'Delete empty season' })
+    .click();
+  const deletion = page.getByRole('alertdialog');
+  await deletion.getByRole('textbox').fill(seasonName);
+  await deletion.getByRole('button', { name: 'Delete empty season' }).click();
+  await expect(emptySeason).toHaveCount(0);
+
   await page.goto('/admin/users');
   await expect(
     page.getByRole('heading', { name: 'You do not have access' }),
   ).toBeVisible();
+});
+
+async function emailLink(email: string, subject: string, pattern: RegExp) {
+  const mailpit = requiredEnvironment('RSP_E2E_MAILPIT_URL');
+  let link: string | undefined;
+  await expect
+    .poll(
+      async () => {
+        const response = await fetch(`${mailpit}/api/v1/messages`);
+        const list = (await response.json()) as {
+          messages: {
+            ID: string;
+            Subject: string;
+            To: { Address: string }[];
+          }[];
+        };
+        const message = list.messages.find(
+          (m) =>
+            m.Subject.includes(subject) &&
+            m.To.some((r) => r.Address.toLowerCase() === email),
+        );
+        if (!message) return false;
+        const body = (await (
+          await fetch(`${mailpit}/api/v1/message/${message.ID}`)
+        ).json()) as { Text: string };
+        link = body.Text.match(pattern)?.[0];
+        return Boolean(link);
+      },
+      { timeout: 20_000 },
+    )
+    .toBe(true);
+  return link!;
+}
+
+test('an invited new member verifies their email and joins the season', async ({
+  page,
+  browser,
+}) => {
+  test.setTimeout(180_000);
+  const email = `invitation-${Date.now()}@example.test`;
+  const password = 'RspInvitationE2eOnly-2026';
+  // Provisioning and the earlier browser flows share one IP. Let the auth
+  // bucket expire before testing an additional sign-in and new-account flow.
+  await page.waitForTimeout(60_000);
+  await signIn(page, 'DIRECTOR');
+  await page.goto('/admin/enrollments');
+  await page.getByLabel('Season', { exact: true }).selectOption('dev-season');
+  await page.getByRole('button', { name: 'Invite a member' }).click();
+  const invite = page.getByRole('dialog', { name: 'Invite a member' });
+  await invite.getByLabel('Name', { exact: true }).fill('Invited E2E Member');
+  await invite.getByLabel('Email', { exact: true }).fill(email);
+  await invite.getByRole('button', { name: 'Send invitation' }).click();
+  await expect(
+    page.getByText(
+      'Invitation email queued. The recipient has 7 days to accept.',
+    ),
+  ).toBeVisible();
+  const link = await emailLink(
+    email,
+    'Your invitation to',
+    /https?:\/\/[^\s]+\/invitations\/accept#token=[^\s]+/,
+  );
+  const recipientContext = await browser.newContext({
+    baseURL: requiredEnvironment('RSP_E2E_BASE_URL'),
+  });
+  try {
+    const recipient = await recipientContext.newPage();
+    await recipient.goto(link);
+    await recipient
+      .getByRole('link', { name: 'Sign in or create an account' })
+      .click();
+    await recipient.getByRole('tab', { name: 'Create account' }).click();
+    await recipient
+      .getByLabel('Name', { exact: true })
+      .fill('Invited E2E Member');
+    await recipient.getByLabel('Email', { exact: true }).fill(email);
+    await recipient.getByLabel('Password', { exact: true }).fill(password);
+    await recipient.waitForTimeout(13_000);
+    await recipient
+      .getByRole('button', { name: 'Create account', exact: true })
+      .click();
+    await expect(recipient).toHaveURL(/\/verify-email/);
+    const verification = await emailLink(
+      email,
+      'Verify your RSP email',
+      /https?:\/\/[^\s]+\/api\/auth\/verify-email\?[^\s]+/,
+    );
+    await recipient.goto(verification);
+    await expect(recipient).toHaveURL(/\/sign-in/);
+    await recipient.getByLabel('Email', { exact: true }).fill(email);
+    await recipient.getByLabel('Password', { exact: true }).fill(password);
+    await recipient.waitForTimeout(13_000);
+    await recipient.getByRole('button', { name: 'Sign in with email' }).click();
+    await expect(recipient).toHaveURL(/\/invitations\/accept$/);
+    await recipient
+      .getByRole('button', { name: 'Accept invitation', exact: true })
+      .click();
+    await expect(
+      recipient.getByRole('heading', {
+        name: 'You have joined Development Season.',
+      }),
+    ).toBeVisible();
+    await recipient
+      .getByRole('link', { name: 'Continue', exact: true })
+      .click();
+    await expect(
+      recipient.getByRole('heading', {
+        name: 'Development Season',
+        exact: true,
+      }),
+    ).toBeVisible();
+    await page.reload();
+    await expect(
+      page.getByText(email).filter({ visible: true }).first(),
+    ).toBeVisible();
+    await expect(
+      page.getByRole('region', { name: 'Invitations', exact: true }),
+    ).toContainText('accepted');
+  } finally {
+    await recipientContext.close();
+  }
 });
