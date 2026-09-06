@@ -11,6 +11,7 @@ import type { LimitParameter } from './limitParameter';
 import type { SortParameter } from './sortParameter';
 
 export type ListSeasonMentorshipsParams = {
+  includeEnded?: boolean;
   /**
    * @minimum 1
    * @maximum 100

@@ -591,14 +591,16 @@ export function useSeasonPeople(seasonId?: string, seasonName?: string) {
           `/seasons/${encodeURIComponent(seasonId)}/members?limit=100`,
         ),
         fetchAllPages<Mentorship>(
-          `/seasons/${encodeURIComponent(seasonId)}/mentorships?limit=100`,
+          `/seasons/${encodeURIComponent(seasonId)}/mentorships?limit=100&includeEnded=true`,
         ),
       ]);
       const mentorForStudent = new Map(
-        mentorshipPage.items.map((mentorship) => [
-          mentorship.studentUserId,
-          mentorship.mentorUserId,
-        ]),
+        mentorshipPage.items
+          .filter((mentorship) => !mentorship.endedAt)
+          .map((mentorship) => [
+            mentorship.studentUserId,
+            mentorship.mentorUserId,
+          ]),
       );
       const assignedStudents = new Set(mentorForStudent.keys());
       const items = enrollmentPage.items.flatMap((enrollment) => {
@@ -636,6 +638,9 @@ export function useSeasonPeople(seasonId?: string, seasonName?: string) {
                   : enrollment.state === 'active'
                     ? ('active' as const)
                     : enrollment.state,
+            previousMentorIds: mentorshipPage.items
+              .filter((m) => m.studentUserId === enrollment.userId)
+              .map((m) => m.mentorUserId),
             enrollmentId: enrollment.id,
             enrollmentState: enrollment.state,
             studentLevel: enrollment.studentLevel,

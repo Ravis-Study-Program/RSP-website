@@ -29,8 +29,13 @@ func (a *API) listMentorships(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	includeEnded := r.URL.Query().Get("includeEnded")
+	if includeEnded != "" && includeEnded != "true" && includeEnded != "false" {
+		writeErrorResponse(w, http.StatusBadRequest, "includeEnded must be true or false")
+		return
+	}
 	mentorUserID, studentUserID := strings.TrimSpace(r.URL.Query().Get("mentorUserId")), strings.TrimSpace(r.URL.Query().Get("studentUserId"))
-	binding := "mentorships|season=" + seasonID + "|sort=" + sortBy + "|mentor=" + mentorUserID + "|student=" + studentUserID
+	binding := "mentorships|season=" + seasonID + "|sort=" + sortBy + "|mentor=" + mentorUserID + "|student=" + studentUserID + "|includeEnded=" + includeEnded
 	limit, boundary, err := parsePagination(r.URL.Query().Get("limit"), r.URL.Query().Get("cursor"), binding, a.cursorSecret)
 	if err != nil {
 		writeErrorResponse(w, http.StatusBadRequest, "The cursor does not match the selected season and sort.")
@@ -39,6 +44,7 @@ func (a *API) listMentorships(w http.ResponseWriter, r *http.Request) {
 
 	items, more, total, err := a.db.ListMentorships(r.Context(), dal.MentorshipQuery{
 		SeasonID:      seasonID,
+		IncludeEnded:  includeEnded == "true",
 		Boundary:      boundary,
 		Limit:         limit,
 		SortBy:        sortBy,

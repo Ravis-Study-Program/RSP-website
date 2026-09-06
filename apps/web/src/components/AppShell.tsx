@@ -47,7 +47,7 @@ function itemsFor(role: string | undefined, seasonSlug?: string): NavItem[] {
   if (role === 'mentor') {
     return [
       { label: 'Dashboard', to: '/dashboard', icon: IconDashboard },
-      { label: 'My mentees', to: `${seasonBase}/mentees`, icon: IconUsers },
+      { label: 'My students', to: `${seasonBase}/mentees`, icon: IconUsers },
       {
         label: 'Mock interviews',
         to: `${seasonBase}/mock-interviews`,

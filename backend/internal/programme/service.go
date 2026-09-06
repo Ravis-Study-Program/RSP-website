@@ -38,10 +38,12 @@ type SeasonRecord struct {
 
 // MentorshipRecord assigns a mentor to a student within a season.
 type MentorshipRecord struct {
-	ID            string `json:"id"`
-	SeasonID      string `json:"seasonId"`
-	MentorUserID  string `json:"mentorUserId"`
-	StudentUserID string `json:"studentUserId"`
+	CreatedAt     *time.Time `json:"createdAt,omitempty"`
+	EndedAt       *time.Time `json:"endedAt,omitempty"`
+	ID            string     `json:"id"`
+	SeasonID      string     `json:"seasonId"`
+	MentorUserID  string     `json:"mentorUserId"`
+	StudentUserID string     `json:"studentUserId"`
 }
 
 // WeekRecord is a scheduled week within a season.

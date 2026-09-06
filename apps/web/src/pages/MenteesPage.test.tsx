@@ -1,4 +1,4 @@
-import { render, screen, within } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 
 import { useCurrentUser, useSeasonPeople, useSeasons } from '@/api/queries';
@@ -92,6 +92,7 @@ describe('mentor mentee filtering', () => {
           student('completed', 'Completed Student', {
             status: 'completed',
             enrollmentState: 'completed',
+            previousMentorIds: [mentor.id],
           }),
         ],
       },
@@ -108,12 +109,14 @@ describe('mentor mentee filtering', () => {
       </MemoryRouter>,
     );
 
-    const table = screen.getByRole('region', { name: 'Assigned mentees' });
+    const table = screen.getByRole('region', { name: 'Assigned students' });
     expect(
       within(table).getAllByText('Assigned Student').length,
     ).toBeGreaterThan(0);
     expect(screen.queryByText('Another Team')).not.toBeInTheDocument();
     expect(screen.queryByText('Unassigned Student')).not.toBeInTheDocument();
     expect(screen.queryByText('Completed Student')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByLabelText('Include previous students'));
+    expect(screen.getAllByText('Completed Student').length).toBeGreaterThan(0);
   });
 });

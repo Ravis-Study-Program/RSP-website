@@ -777,6 +777,11 @@ paths:
       operationId: listSeasonMentorships
       parameters:
         [
+          {
+            name: includeEnded,
+            in: query,
+            schema: { type: boolean, default: false },
+          },
           { $ref: '#/components/parameters/Limit' },
           { $ref: '#/components/parameters/Cursor' },
           { $ref: '#/components/parameters/Direction' },
@@ -1988,6 +1993,8 @@ components:
       required: [id, seasonId, mentorUserId, studentUserId]
       properties:
         {
+          createdAt: { type: string, format: date-time },
+          endedAt: { type: string, format: date-time, nullable: true },
           id: { type: string },
           seasonId: { type: string },
           mentorUserId: { type: string },

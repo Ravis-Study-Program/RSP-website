@@ -79,6 +79,7 @@ export interface Person {
     'novice' | 'beginner' | 'intermediate' | 'advanced' | 'not_applicable';
   enrollmentState?: 'active' | 'completed' | 'kicked' | 'withdrawn';
   mentorshipMentorId?: string;
+  previousMentorIds?: string[];
 }
 
 export interface MockRound {

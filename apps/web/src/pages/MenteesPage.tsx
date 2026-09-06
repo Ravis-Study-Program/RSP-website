@@ -21,12 +21,14 @@ import type { Person } from '@/types';
 import { formatDateTime } from '@/utils';
 
 export function MenteesPage() {
-  usePageTitle('Mentees');
+  usePageTitle('My students');
   const { slug } = useParams();
   const seasons = useSeasons();
   const currentUser = useCurrentUser();
   const season = seasons.data?.items.find((item) => item.slug === slug);
   const query = useSeasonPeople(season?.id, season?.name);
+  const [includePrevious, setIncludePrevious] = useState(false);
+  const showPrevious = includePrevious || season?.status === 'closed';
   const [removed, setRemoved] = useState<string[]>([]);
   const canManageEveryStudent = Boolean(
     currentUser.data?.globalRoles.length ||
@@ -34,7 +36,7 @@ export function MenteesPage() {
       (membership) =>
         membership.seasonId === season?.id &&
         membership.role === 'coordinator' &&
-        membership.state === 'active',
+        (membership.state === 'active' || membership.state === 'completed'),
     ),
   );
   const canChangeLevel = canSetStudentLevel(currentUser.data, season);
@@ -48,18 +50,33 @@ export function MenteesPage() {
           (person.enrollmentState
             ? person.enrollmentState === 'active'
             : person.status === 'active');
-        const inScope =
-          canManageEveryStudent ||
-          person.mentorshipMentorId === currentUser.data?.id;
-        return activeStudent && inScope && !removed.includes(person.id);
+        const assigned = person.mentorshipMentorId === currentUser.data?.id;
+        const previouslyAssigned =
+          person.previousMentorIds?.includes(currentUser.data?.id ?? '') ??
+          false;
+        if (showPrevious)
+          return canManageEveryStudent
+            ? person.seasonRole === 'student'
+            : assigned || previouslyAssigned;
+        return (
+          activeStudent &&
+          (canManageEveryStudent || assigned) &&
+          !removed.includes(person.id)
+        );
       }),
-    [canManageEveryStudent, currentUser.data?.id, query.data, removed],
+    [
+      canManageEveryStudent,
+      currentUser.data?.id,
+      query.data,
+      removed,
+      showPrevious,
+    ],
   );
   const columns = useMemo<ColumnDef<Person, any>[]>(
     () => [
       {
         accessorKey: 'name',
-        header: 'Mentee',
+        header: 'Student',
         cell: ({ row }) => (
           <PersonIdentity
             seasonId={season?.id}
@@ -87,34 +104,61 @@ export function MenteesPage() {
         enableHiding: false,
         cell: ({ row }) => (
           <div className={styles.inline}>
-            {canChangeLevel && season ? (
+            {canChangeLevel &&
+            season &&
+            row.original.enrollmentState === 'active' ? (
               <StudentLevelDialog
                 seasonId={season.id}
                 person={row.original}
                 onChanged={() => void query.refetch()}
               />
             ) : null}
-            <RemovalDialog
-              seasonId={season?.id}
-              person={row.original}
-              onRemoved={() => setRemoved((ids) => [...ids, row.original.id])}
-            />
+            {canChangeLevel &&
+            row.original.enrollmentState === 'active' &&
+            (canManageEveryStudent ||
+              row.original.mentorshipMentorId === currentUser.data?.id) ? (
+              <RemovalDialog
+                seasonId={season?.id}
+                person={row.original}
+                onRemoved={() => setRemoved((ids) => [...ids, row.original.id])}
+              />
+            ) : null}
           </div>
         ),
       },
     ],
-    [canChangeLevel, query, season, setRemoved],
+    [
+      canChangeLevel,
+      canManageEveryStudent,
+      currentUser.data?.id,
+      query,
+      season,
+      setRemoved,
+    ],
   );
 
   return (
     <div className={styles.page}>
       <PageHeader
         eyebrow="Mentoring"
-        title="My mentees"
-        description="Review active students assigned to you. To set a level for any student in this season, open People."
+        title={canManageEveryStudent ? 'All students' : 'My students'}
+        description={
+          canManageEveryStudent
+            ? 'Review students in this season.'
+            : 'Review students assigned to you. Open People to browse every member in this season.'
+        }
       />
+      <label className={styles.inline}>
+        <input
+          type="checkbox"
+          checked={showPrevious}
+          disabled={season?.status === 'closed'}
+          onChange={(event) => setIncludePrevious(event.target.checked)}
+        />{' '}
+        Include previous students
+      </label>
       <DataTable
-        ariaLabel="Assigned mentees"
+        ariaLabel={canManageEveryStudent ? 'All students' : 'Assigned students'}
         data={mentees}
         columns={columns}
         loading={query.isLoading || seasons.isLoading || currentUser.isLoading}
@@ -126,7 +170,7 @@ export function MenteesPage() {
             currentUser.refetch(),
           ])
         }
-        emptyTitle="No assigned mentees"
+        emptyTitle="No students in this view"
         emptyMessage="A Coordinator can assign students to your mentor team."
         getRowId={(person) => person.id}
         renderCard={(row) => (
@@ -141,18 +185,27 @@ export function MenteesPage() {
               {row.original.interviews ?? '—'} interviews
             </p>
             <div className={styles.buttonRow}>
-              {canChangeLevel && season ? (
+              {canChangeLevel &&
+              season &&
+              row.original.enrollmentState === 'active' ? (
                 <StudentLevelDialog
                   seasonId={season.id}
                   person={row.original}
                   onChanged={() => void query.refetch()}
                 />
               ) : null}
-              <RemovalDialog
-                seasonId={season?.id}
-                person={row.original}
-                onRemoved={() => setRemoved((ids) => [...ids, row.original.id])}
-              />
+              {canChangeLevel &&
+              row.original.enrollmentState === 'active' &&
+              (canManageEveryStudent ||
+                row.original.mentorshipMentorId === currentUser.data?.id) ? (
+                <RemovalDialog
+                  seasonId={season?.id}
+                  person={row.original}
+                  onRemoved={() =>
+                    setRemoved((ids) => [...ids, row.original.id])
+                  }
+                />
+              ) : null}
             </div>
           </div>
         )}

@@ -7,6 +7,9 @@
  */
 
 export interface Mentorship {
+  createdAt?: string;
+  /** @nullable */
+  endedAt?: string | null;
   id: string;
   seasonId: string;
   mentorUserId: string;
