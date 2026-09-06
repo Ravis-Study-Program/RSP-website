@@ -62,6 +62,7 @@ export function ActivityChart({
             />
             <Legend />
             <Area
+              isAnimationActive={false}
               type="monotone"
               dataKey="attempts"
               name="Attempts"
@@ -70,6 +71,7 @@ export function ActivityChart({
               fill="none"
             />
             <Area
+              isAnimationActive={false}
               type="monotone"
               dataKey="interviews"
               name="Mock interviews"

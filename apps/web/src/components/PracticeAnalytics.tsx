@@ -59,6 +59,7 @@ export function PracticeAnalytics({
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart accessibilityLayer={false}>
                     <Pie
+                      isAnimationActive={false}
                       data={breakdown}
                       dataKey="value"
                       nameKey="name"
@@ -127,7 +128,11 @@ export function PracticeAnalytics({
                         ) : null
                       }
                     />
-                    <Scatter data={points} fill="var(--accent)" />
+                    <Scatter
+                      isAnimationActive={false}
+                      data={points}
+                      fill="var(--accent)"
+                    />
                     {goals
                       ? Object.entries(practiceGoalMinutes).map(
                           ([difficulty, minutes]) => (
