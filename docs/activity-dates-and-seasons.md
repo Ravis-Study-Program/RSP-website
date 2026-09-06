@@ -58,9 +58,12 @@ their own season names/dates; restricted resource links are omitted. Legacy
 kicked/withdrawn enrolments retain this personal access even when they also
 carry the old soft-delete marker.
 
-Mentor/coordinator access to activity uses the calculated season. Private mentor
-access additionally uses the mentorship interval at the activity timestamp.
-Personal activity beyond those boundaries is not exposed through an old role.
+Active members and student alumni can read each other's practice notes,
+confidence and mock feedback across seasons. Completed mentors and coordinators
+retain read-only access to activity calculated into their former seasons,
+including students who left early. Outside that scope, former members retain
+their own activity. Contact details and administrative reasons still require a
+separate private-data permission; reading feedback does not grant editing rights.
 
 ## Migration
 

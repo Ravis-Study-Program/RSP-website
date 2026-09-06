@@ -7,21 +7,26 @@ use protected product features.
 
 ## Programme operations
 
-| Operation                              | Student |     Mentor      |   Coordinator   |     Director     |   System Admin   |
-| -------------------------------------- | :-----: | :-------------: | :-------------: | :--------------: | :--------------: |
-| View own open-season workspace         |   Yes   |       Yes       |       Yes       |       Yes        |       Yes        |
-| View approved active/alumni directory  |   Yes   |       Yes       |       Yes       |       Yes        |       Yes        |
-| Manage own global practice and mocks   |   Yes   |       Yes       |       Yes       |       Yes        |       Yes        |
-| View shared practice and mock feedback |   Yes   |       Yes       |       Yes       |       Yes        |       Yes        |
-| Change student role/remove student     |   No    |  Assigned only  |   Own season    |    Any season    |    Any season    |
-| Set an active student level            |   No    | Own open season | Own open season | Any open season  | Any open season  |
-| Manage enrollments and mentorships     |   No    |       No        | Own open season | Any open season  | Any open season  |
-| Manage weeks/resources                 |   No    |       No        | Own open season | Any open season  | Any open season  |
-| Close season                           |   No    |       No        |   Own season    |    Any season    |    Any season    |
-| Reopen season                          |   No    |       No        |       No        | Yes, with reason | Yes, with reason |
-| Create/edit season definitions         |   No    |       No        |       No        |       Yes        |       Yes        |
-| Grant global roles                     |   No    |       No        |       No        |        No        |       Yes        |
-| Technical/auth administration          |   No    |       No        |       No        |        No        |       Yes        |
+| Operation                               |   Student   |     Mentor      |   Coordinator   |     Director     |   System Admin   |
+| --------------------------------------- | :---------: | :-------------: | :-------------: | :--------------: | :--------------: |
+| View own open-season workspace          |     Yes     |       Yes       |       Yes       |       Yes        |       Yes        |
+| View approved active/alumni directory   |     Yes     |       Yes       |       Yes       |       Yes        |       Yes        |
+| Manage own global practice and mocks    |     Yes     |       Yes       |       Yes       |       Yes        |       Yes        |
+| View shared practice and mock feedback  |     Yes     |       Yes       |       Yes       |       Yes        |       Yes        |
+| Change student role/remove student      |     No      |  Assigned only  |   Own season    |    Any season    |    Any season    |
+| Set an active student level             |     No      | Own open season | Own open season | Any open season  | Any open season  |
+| Manage enrollments and mentorships      |     No      |       No        | Own open season | Any open season  | Any open season  |
+| Manage weeks/resources                  |     No      |       No        | Own open season | Any open season  | Any open season  |
+| Close season                            |     No      |       No        |   Own season    |    Any season    |    Any season    |
+| Reopen season                           |     No      |       No        |       No        | Yes, with reason | Yes, with reason |
+| Create/edit season definitions          |     No      |       No        |       No        |       Yes        |       Yes        |
+| Delete an empty season                  |     No      |       No        |       No        |       Yes        |       Yes        |
+| Invite members or correct enrollments   |     No      |       No        | Own open season | Any open season  | Any open season  |
+| Remove a mentor or coordinator          |     No      |       No        | Own open season | Any open season  | Any open season  |
+| Edit profile/contact details            | Own profile |   Own profile   |   Own profile   |   Own profile    |   Any account    |
+| Request a verified account email change |     No      |       No        |       No        |        No        |       Yes        |
+| Grant global roles                      |     No      |       No        |       No        |        No        |       Yes        |
+| Technical/auth administration           |     No      |       No        |       No        |        No        |       Yes        |
 
 Coordinator is a season-scoped administrator, not an alias for System Admin.
 There is exactly one season role—student, mentor or coordinator—per enrollment.
@@ -33,7 +38,8 @@ to another mentor or not yet assigned. This does not change the student's role,
 mentor assignment, or the mentor's access to private fields and removal actions.
 
 Practice time goals apply automatically to every member: Easy 20 minutes,
-Medium 35 minutes and Hard 50 minutes. They cannot be customised or disabled.
+Medium 35 minutes and Hard 50 minutes. The thresholds cannot be customised.
+The chart's reference lines can be hidden without changing the goals.
 Existing personal-goal rows are retained as historical data and are ignored.
 
 ## Field visibility
@@ -45,7 +51,7 @@ participation.
 Private fields are visible only to the member, their assigned mentor, their
 season Coordinator, Directors and System Admins:
 
-- Email and account data.
+- Email, Discord and account data.
 - Administrative removal reasons.
 
 Practice notes, confidence, mock scores and review text are shared among active
@@ -64,7 +70,7 @@ flag.
 | Anonymous                         | Sign-in only                             | No                         | None                                                  |
 | Registered, unverified            | Verification/account only                | No                         | Account only                                          |
 | Verified nonmember                | Onboarding/profile/settings              | No                         | Account only                                          |
-| Active enrollment                 | Yes                                      | Own authorized season      | Yes                                                   |
+| Active enrollment                 | Yes                                      | Shared seasons and people  | Yes                                                   |
 | Completed student                 | Yes as alumni                            | Alumni/global access       | Yes                                                   |
 | Completed mentor/coordinator only | Personal activity and past season review | Their former seasons       | Yes                                                   |
 | Kicked/withdrawn                  | Personal practice and mocks              | No                         | Earlier season activity and personal history retained |
@@ -97,6 +103,9 @@ enrollment still can.
 
 See [Activity dates and seasons](activity-dates-and-seasons.md) for date boundaries,
 calendar-year filtering and migration behaviour.
+
+See [Season browsing and administration](season-browsing-and-administration.md)
+for invitations, enrollment corrections and deletion rules.
 
 ## Mandatory negative tests
 
