@@ -73,6 +73,7 @@ func main() {
 		Ready:             ready,
 		QueueLeetCodeSync: db.QueueLeetCodeSync,
 		SetAccountState:   authClient.SetAccountState,
+		SendInvitation:    authClient.SendInvitation,
 		GetMFAConfigured:  authClient.GetMFAConfigured,
 	})
 	apiHandler := app.Handler()

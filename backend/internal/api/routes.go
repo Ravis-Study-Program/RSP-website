@@ -37,6 +37,12 @@ func registerAccountRoutes(mux *http.ServeMux, a *API) {
 }
 
 func registerProgrammeRoutes(mux *http.ServeMux, a *API) {
+	mux.HandleFunc("GET /api/v2/seasons/{id}/invitations", a.protected(ratelimit.Read, a.listInvitations))
+	mux.HandleFunc("POST /api/v2/seasons/{id}/invitations", a.protected(ratelimit.Sensitive, a.createInvitation))
+	mux.HandleFunc("POST /api/v2/seasons/{id}/invitations/{invitationId}/resend", a.protected(ratelimit.Sensitive, a.resendInvitation))
+	mux.HandleFunc("POST /api/v2/seasons/{id}/invitations/{invitationId}/cancel", a.protected(ratelimit.Sensitive, a.cancelInvitation))
+	mux.HandleFunc("POST /api/v2/invitations/preview", a.protected(ratelimit.Read, a.previewInvitation))
+	mux.HandleFunc("POST /api/v2/invitations/accept", a.protected(ratelimit.Write, a.acceptInvitation))
 	mux.HandleFunc("GET /api/v2/seasons", a.protected(ratelimit.Read, a.listSeasons))
 	mux.HandleFunc("POST /api/v2/seasons", a.protected(ratelimit.Write, a.createSeason))
 	mux.HandleFunc("GET /api/v2/seasons/{id}/activity-summary", a.protected(ratelimit.Read, a.getSeasonActivitySummary))

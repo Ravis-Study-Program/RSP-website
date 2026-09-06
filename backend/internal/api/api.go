@@ -27,6 +27,7 @@ const maxRequestBodyBytes int64 = 1 << 20
 
 // Config contains the dependencies needed by the HTTP API.
 type Config struct {
+	SendInvitation    func(context.Context, authadmin.InvitationEmailInput) error
 	DB                *dal.Store
 	Authenticator     Authenticator
 	PublicOrigin      string
@@ -40,6 +41,7 @@ type Config struct {
 
 // API connects HTTP handlers to authentication, application services, and storage.
 type API struct {
+	sendInvitation       func(context.Context, authadmin.InvitationEmailInput) error
 	db                   *dal.Store
 	auth                 Authenticator
 	publicOrigin         string
@@ -66,6 +68,7 @@ func New(c Config) *API {
 	}
 	cleaner := sanitize.New()
 	return &API{
+		sendInvitation:       c.SendInvitation,
 		db:                   c.DB,
 		auth:                 c.Authenticator,
 		publicOrigin:         c.PublicOrigin,

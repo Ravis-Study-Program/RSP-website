@@ -68,3 +68,20 @@ export function deletionRecoveryEmail(
     expiry: `Recovery is available until ${recoveryDeadline.toISOString()}.`,
   });
 }
+
+export function invitationEmail(
+  to: string,
+  name: string,
+  season: string,
+  role: string,
+  url: string,
+): EmailMessage {
+  return linkEmail({
+    to,
+    subject: `Your invitation to ${season}`,
+    introduction: `${name}, you have been invited to join ${season} as a ${role}. Sign in or create an account using this email address, verify it, then accept your invitation.`,
+    action: 'Accept invitation',
+    url,
+    expiry: 'This invitation expires in 7 days and can only be used once.',
+  });
+}

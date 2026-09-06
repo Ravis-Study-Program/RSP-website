@@ -10,6 +10,7 @@ import { z } from 'zod';
 
 import { accountLifecycle, auth, pool } from './auth.js';
 import { config } from './config.js';
+import { invitationEmail } from './email/templates.js';
 import {
   ACCOUNT_DELETION_RECOVERY_PATH,
   ACCOUNT_DELETION_REQUEST_PATH,
@@ -814,6 +815,74 @@ async function handleRequest(
 
     const rawBody = await readBody(request);
     const jsonBody = parseJsonBody(rawBody);
+    if (url.pathname === '/internal/auth/invitations') {
+      if (
+        !hasValidServiceToken(
+          request.headers.authorization ?? null,
+          config.identityService.token,
+        )
+      ) {
+        sendProblem(
+          response,
+          401,
+          'invalid_service_token',
+          'Internal authentication failed',
+          id,
+        );
+        return;
+      }
+      if (request.method !== 'POST') {
+        sendProblem(
+          response,
+          405,
+          'method_not_allowed',
+          'POST is required',
+          id,
+          { allow: 'POST' },
+        );
+        return;
+      }
+      const parsed = z
+        .object({
+          id: z.uuid(),
+          to: z.email(),
+          name: z.string().min(1).max(100),
+          season: z.string().min(1).max(200),
+          role: z.enum(['student', 'mentor', 'coordinator']),
+          url: z.url(),
+        })
+        .safeParse(jsonBody);
+      if (!parsed.success) {
+        sendProblem(response, 400, 'invalid_request', 'Invalid invitation', id);
+        return;
+      }
+      const invitationUrl = new URL(parsed.data.url);
+      if (
+        invitationUrl.origin !== new URL(config.baseUrl).origin ||
+        invitationUrl.pathname !== '/invitations/accept'
+      ) {
+        sendProblem(
+          response,
+          400,
+          'invalid_request',
+          'Invalid invitation URL',
+          id,
+        );
+        return;
+      }
+      await accountLifecycle.queueEmail(
+        parsed.data.id,
+        invitationEmail(
+          parsed.data.to,
+          parsed.data.name,
+          parsed.data.season,
+          parsed.data.role,
+          parsed.data.url,
+        ),
+      );
+      sendJson(response, 202, { queued: true }, id);
+      return;
+    }
     const internalRoute = internalUserRoute(url.pathname);
     if (internalRoute) {
       await handleInternal(internalRoute, request, jsonBody, response, id);

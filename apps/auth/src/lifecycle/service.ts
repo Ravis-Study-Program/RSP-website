@@ -123,6 +123,14 @@ export class AccountLifecycleService {
       randomBytes(32).toString('base64url'),
   ) {}
 
+  async queueEmail(id: string, message: EmailMessage): Promise<void> {
+    // A stable delivery ID makes retries after a lost response idempotent.
+    await this.pool.query(
+      `INSERT INTO lifecycle_outbox (id,target,payload,available_at,created_at) VALUES ($1,'email',$2::jsonb,$3,$3) ON CONFLICT (id) DO NOTHING`,
+      [id, JSON.stringify(message), this.now()],
+    );
+  }
+
   private async deliver(entry: OutboxEntry): Promise<boolean> {
     try {
       if (entry.target === 'identity') {

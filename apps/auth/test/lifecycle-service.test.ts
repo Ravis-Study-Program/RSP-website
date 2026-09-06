@@ -345,3 +345,28 @@ describe('account lifecycle service', () => {
     expect(inserted?.values).toContain(attemptedEvent?.eventId);
   });
 });
+
+it('retains queued invitation email for the existing outbox delivery worker', async () => {
+  const dependencies = fakeDependencies();
+  const query = vi.fn(async () => queryResult([]));
+  const service = new AccountLifecycleService(
+    { query } as unknown as Pool,
+    dependencies.emailProvider,
+    dependencies.identityGateway,
+  );
+  const message = {
+    to: 'invitee@example.test',
+    subject: 'Invitation',
+    text: 'Accept your invitation.',
+  };
+  await service.queueEmail('6d745182-a287-4f2c-a70f-1e354a8d7be1', message);
+  expect(query).toHaveBeenCalledWith(
+    expect.stringContaining('ON CONFLICT (id) DO NOTHING'),
+    [
+      '6d745182-a287-4f2c-a70f-1e354a8d7be1',
+      JSON.stringify(message),
+      expect.any(Date),
+    ],
+  );
+  expect(dependencies.emailProvider.send).not.toHaveBeenCalled();
+});

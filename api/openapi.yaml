@@ -260,6 +260,143 @@ paths:
         '403': { $ref: '#/components/responses/Error' }
         '404': { $ref: '#/components/responses/Error' }
         '429': { $ref: '#/components/responses/RateLimited' }
+  /invitations/preview:
+    post:
+      operationId: previewInvitation
+      requestBody:
+        {
+          required: true,
+          content:
+            {
+              application/json:
+                { schema: { $ref: '#/components/schemas/InvitationToken' } },
+            },
+        }
+      responses:
+        default: { $ref: '#/components/responses/Error' }
+        '200':
+          {
+            description: Invitation result,
+            content:
+              {
+                application/json:
+                  { schema: { $ref: '#/components/schemas/Invitation' } },
+              },
+          }
+
+  /invitations/accept:
+    post:
+      operationId: acceptInvitation
+      requestBody:
+        {
+          required: true,
+          content:
+            {
+              application/json:
+                { schema: { $ref: '#/components/schemas/InvitationToken' } },
+            },
+        }
+      responses:
+        default: { $ref: '#/components/responses/Error' }
+        '200':
+          {
+            description: Invitation result,
+            content:
+              {
+                application/json:
+                  { schema: { $ref: '#/components/schemas/Enrollment' } },
+              },
+          }
+
+  /seasons/{id}/invitations:
+    parameters: [{ $ref: '#/components/parameters/ID' }]
+    get:
+      operationId: listInvitations
+      parameters:
+        [
+          { $ref: '#/components/parameters/Limit' },
+          { $ref: '#/components/parameters/Cursor' },
+        ]
+      responses:
+        default: { $ref: '#/components/responses/Error' }
+        '200':
+          {
+            description: Invitation history,
+            content:
+              {
+                application/json:
+                  { schema: { $ref: '#/components/schemas/InvitationPage' } },
+              },
+          }
+    post:
+      operationId: createInvitation
+      requestBody:
+        {
+          required: true,
+          content:
+            {
+              application/json:
+                { schema: { $ref: '#/components/schemas/InvitationCreate' } },
+            },
+        }
+      responses:
+        default: { $ref: '#/components/responses/Error' }
+        '201':
+          {
+            description: Invitation,
+            content:
+              {
+                application/json:
+                  { schema: { $ref: '#/components/schemas/Invitation' } },
+              },
+          }
+
+  /seasons/{id}/invitations/{invitationId}/resend:
+    parameters:
+      - { $ref: '#/components/parameters/ID' }
+      - {
+          name: invitationId,
+          in: path,
+          required: true,
+          schema: { type: string, format: uuid },
+        }
+    post:
+      operationId: resendInvitation
+      responses:
+        default: { $ref: '#/components/responses/Error' }
+        '200':
+          {
+            description: Invitation,
+            content:
+              {
+                application/json:
+                  { schema: { $ref: '#/components/schemas/Invitation' } },
+              },
+          }
+
+  /seasons/{id}/invitations/{invitationId}/cancel:
+    parameters:
+      - { $ref: '#/components/parameters/ID' }
+      - {
+          name: invitationId,
+          in: path,
+          required: true,
+          schema: { type: string, format: uuid },
+        }
+    post:
+      operationId: cancelInvitation
+      responses:
+        default: { $ref: '#/components/responses/Error' }
+        '200':
+          {
+            description: Invitation,
+            content:
+              {
+                application/json:
+                  { schema: { $ref: '#/components/schemas/Invitation' } },
+              },
+          }
+
   /seasons:
     get:
       operationId: listSeasons
@@ -1548,6 +1685,53 @@ components:
             { schema: { $ref: '#/components/schemas/ErrorResponse' } },
         }
   schemas:
+    InvitationToken:
+      type: object
+      required: [token]
+      properties:
+        token: { type: string, minLength: 43, maxLength: 43 }
+    InvitationCreate:
+      type: object
+      required: [name, email, role]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 100 }
+        email: { type: string, format: email }
+        role: { type: string, enum: [student, mentor, coordinator] }
+    Invitation:
+      type: object
+      required:
+        [
+          id,
+          seasonId,
+          seasonName,
+          seasonSlug,
+          name,
+          email,
+          role,
+          status,
+          expiresAt,
+          sentAt,
+        ]
+      properties:
+        id: { type: string, format: uuid }
+        seasonId: { type: string, format: uuid }
+        seasonName: { type: string }
+        seasonSlug: { type: string }
+        name: { type: string }
+        email: { type: string, format: email }
+        role: { type: string, enum: [student, mentor, coordinator] }
+        status: { type: string, enum: [pending, accepted, cancelled, expired] }
+        expiresAt: { type: string, format: date-time }
+        sentAt: { type: string, format: date-time, nullable: true }
+    InvitationPage:
+      type: object
+      required: [items, pageInfo, totalCount]
+      properties:
+        items:
+          { type: array, items: { $ref: '#/components/schemas/Invitation' } }
+        pageInfo: { $ref: '#/components/schemas/PageInfo' }
+        totalCount: { type: integer }
+
     Health:
       {
         type: object,

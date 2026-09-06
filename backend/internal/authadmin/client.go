@@ -98,3 +98,33 @@ func (c Client) httpClient() *http.Client {
 	}
 	return http.DefaultClient
 }
+
+type InvitationEmailInput struct {
+	ID     string `json:"id"`
+	To     string `json:"to"`
+	Name   string `json:"name"`
+	Season string `json:"season"`
+	Role   string `json:"role"`
+	URL    string `json:"url"`
+}
+
+func (c Client) SendInvitation(ctx context.Context, input InvitationEmailInput) error {
+	body, err := json.Marshal(input)
+	if err != nil {
+		return err
+	}
+	request, err := c.request(ctx, http.MethodPost, "/internal/auth/invitations", bytes.NewReader(body))
+	if err != nil {
+		return err
+	}
+	request.Header.Set("Content-Type", "application/json")
+	response, err := c.httpClient().Do(request)
+	if err != nil {
+		return err
+	}
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusAccepted {
+		return fmt.Errorf("auth invitation delivery returned %d", response.StatusCode)
+	}
+	return nil
+}
