@@ -63,12 +63,13 @@ func (p *Store) SuggestUserSlug(ctx context.Context) (string, error) {
 }
 
 type UserQuery struct {
-	Boundary   string
-	Limit      int
-	Direction  string
-	Search     string
-	SeasonRole string
-	GlobalRole string
+	IncludeFormerParticipants bool
+	Boundary                  string
+	Limit                     int
+	Direction                 string
+	Search                    string
+	SeasonRole                string
+	GlobalRole                string
 }
 
 func (p *Store) ListUsers(ctx context.Context, q UserQuery) ([]accounts.User, bool, int64, error) {
@@ -76,8 +77,8 @@ func (p *Store) ListUsers(ctx context.Context, q UserQuery) ([]accounts.User, bo
 		AND (@search = '' OR p.display_name ILIKE '%' || @search || '%' OR p.slug ILIKE '%' || @search || '%')
 		AND EXISTS (
 			SELECT 1 FROM app.enrollments e
-			WHERE e.user_id = u.id AND e.deleted_at IS NULL
-			AND (e.state = 'active' OR (e.role = 'student' AND e.state = 'completed'))
+			WHERE e.user_id = u.id AND (e.deleted_at IS NULL OR (@formerParticipants AND e.state IN ('kicked','withdrawn')))
+			AND (@formerParticipants OR e.state = 'active' OR (e.role = 'student' AND e.state = 'completed'))
 		)
 		AND (@seasonRole = '' OR EXISTS (
 			SELECT 1 FROM app.enrollments e
@@ -91,9 +92,10 @@ func (p *Store) ListUsers(ctx context.Context, q UserQuery) ([]accounts.User, bo
 			AND role_filter.role::text = @globalRole
 		))`
 	args := pgx.NamedArgs{
-		"search":     strings.TrimSpace(q.Search),
-		"seasonRole": q.SeasonRole,
-		"globalRole": q.GlobalRole,
+		"search":             strings.TrimSpace(q.Search),
+		"formerParticipants": q.IncludeFormerParticipants,
+		"seasonRole":         q.SeasonRole,
+		"globalRole":         q.GlobalRole,
 	}
 	var total int64
 	if err := p.pool.QueryRow(ctx, `SELECT count(*) FROM app.users u JOIN app.user_profiles p ON p.user_id=u.id WHERE `+filters, args).Scan(&total); err != nil {

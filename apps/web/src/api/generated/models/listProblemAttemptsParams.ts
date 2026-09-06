@@ -27,4 +27,14 @@ export type ListProblemAttemptsParams = {
   userId?: string;
   outcome?: AttemptOutcome;
   difficulty?: Difficulty;
+  /**
+   * Filter by the season derived from activity time and student participation.
+   */
+  seasonId?: string;
+  /**
+   * Calendar year in Australia/Adelaide.
+   * @minimum 1900
+   * @maximum 9999
+   */
+  year?: number;
 };

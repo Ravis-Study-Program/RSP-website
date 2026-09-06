@@ -8,6 +8,9 @@
 import type { MockParticipantSummary } from './mockParticipantSummary';
 import type { MockRound } from './mockRound';
 
+/**
+ * The season is calculated from occurredAt and the interviewee student participation history using current season dates.
+ */
 export interface MockInterview {
   id: string;
   interviewerId: string;

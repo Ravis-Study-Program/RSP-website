@@ -1552,7 +1552,7 @@ export function EnrollmentDialog({
               <option value="novice">Novice</option>
               <option value="beginner">Beginner</option>
               <option value="intermediate">Intermediate</option>
-              <option value="advanced">Advanced</option>
+              <option value="advanced">Advance</option>
               <option value="not_applicable">Not applicable</option>
             </select>
           </div>

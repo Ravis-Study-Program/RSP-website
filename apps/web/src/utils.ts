@@ -167,8 +167,10 @@ export function titleCase(value: string) {
     .replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
 
+export const practiceGoalMinutes = { Easy: 20, Medium: 35, Hard: 50 } as const;
+
 export function difficultyGoal(difficulty: Difficulty) {
-  return difficulty === 'Easy' ? 20 : difficulty === 'Medium' ? 35 : 50;
+  return practiceGoalMinutes[difficulty];
 }
 
 export function outcomeLabel(outcome: AttemptOutcome) {

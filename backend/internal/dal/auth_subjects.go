@@ -35,7 +35,7 @@ func (p *Store) ResolveAuthSubject(ctx context.Context, subject string) (authz.A
 		actor.GlobalRoles[authz.GlobalRole(role)] = true
 	}
 
-	rows, err := p.pool.Query(ctx, `SELECT season_id, role::text, state::text FROM app.enrollments WHERE user_id = $1 AND deleted_at IS NULL AND (role <> 'coordinator' OR state = 'completed' OR assignment_state = 'active')`, actor.UserID)
+	rows, err := p.pool.Query(ctx, `SELECT season_id, role::text, state::text FROM app.enrollments WHERE user_id = $1 AND (deleted_at IS NULL OR state IN ('kicked','withdrawn')) AND (role <> 'coordinator' OR state IN ('completed','kicked','withdrawn') OR assignment_state = 'active')`, actor.UserID)
 	if err != nil {
 		return actor, err
 	}

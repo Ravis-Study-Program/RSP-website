@@ -11,7 +11,7 @@ import (
 
 func (a *API) listLeetCodeProblems(w http.ResponseWriter, r *http.Request) {
 	actor := actorFrom(r.Context())
-	if !actor.CanAccessProgramme() && !actor.IsDirectorOrSystemAdmin() {
+	if !actor.CanRecordActivity() && !actor.IsDirectorOrSystemAdmin() {
 		writeErrorResponse(w, http.StatusForbidden, "No season access yet.")
 		return
 	}

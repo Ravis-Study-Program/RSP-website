@@ -105,6 +105,11 @@ func (a Actor) CanAccessProgramme() bool {
 	return false
 }
 
+// CanRecordActivity preserves personal recording after a member leaves a season.
+func (a Actor) CanRecordActivity() bool {
+	return a.authenticated() && (len(a.Enrollments) > 0 || a.IsDirectorOrSystemAdmin())
+}
+
 // CanViewSeason preserves access to completed seasons for active members and alumni.
 func (a Actor) CanViewSeason(seasonID string) bool {
 	if !a.authenticated() {
@@ -153,6 +158,17 @@ func (a Actor) IsSeasonAdmin(seasonID string) bool {
 }
 
 func (a Actor) CanCloseSeason(seasonID string) bool { return a.IsSeasonAdmin(seasonID) }
+
+func (a Actor) CanSetStudentLevel(seasonID string) bool {
+	if !a.authenticated() {
+		return false
+	}
+	if a.IsSeasonAdmin(seasonID) {
+		return true
+	}
+	e, ok := a.Enrollment(seasonID)
+	return ok && e.State == Active && e.Role == Mentor
+}
 
 func (a Actor) CanReopenSeason(now time.Time) bool {
 	return a.authenticated() && a.IsDirectorOrSystemAdmin() && a.HasRecentMFA(now)

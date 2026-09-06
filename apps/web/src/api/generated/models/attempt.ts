@@ -7,6 +7,9 @@
  */
 import type { AttemptOutcome } from './attemptOutcome';
 
+/**
+ * Season and week are calculated from attemptedAt and the student participation history using current season dates.
+ */
 export interface Attempt {
   id: string;
   problemId: string;

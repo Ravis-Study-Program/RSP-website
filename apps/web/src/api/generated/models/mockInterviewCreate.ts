@@ -8,10 +8,11 @@
 import type { MockRoundMutation } from './mockRoundMutation';
 import type { Participant } from './participant';
 
+/**
+ * Record a mock that happened today in Australia/Adelaide. Future timestamps are rejected. Current and former programme members can participate.
+ */
 export interface MockInterviewCreate {
   interviewee: Participant;
-  /** @nullable */
-  seasonId?: string | null;
   occurredAt: string;
   /** @minimum 1 */
   durationMinutes: number;

@@ -1,3 +1,5 @@
+import { adelaideYear } from '@/activityDates';
+import { practiceGoalMinutes } from '@/utils';
 import { queryOptions, useQuery } from '@tanstack/react-query';
 
 import {
@@ -98,9 +100,9 @@ async function fetchAllPages<T>(path: string): Promise<ApiPage<T>> {
 
 export const demoPracticeSettings: PracticeSettings = {
   goalsEnabled: true,
-  easyMinutes: 10,
-  mediumMinutes: 20,
-  hardMinutes: 45,
+  easyMinutes: practiceGoalMinutes.Easy,
+  mediumMinutes: practiceGoalMinutes.Medium,
+  hardMinutes: practiceGoalMinutes.Hard,
 };
 
 function selectedDemoUser(): CurrentUser {
@@ -130,7 +132,7 @@ function selectedDemoUser(): CurrentUser {
   }
   if (role === 'graduate')
     return { ...demoUser, globalRoles: [], seasonRoles: [], alumni: true };
-  if (role === 'former_member')
+  if (role === 'former_member' || role === 'kicked')
     return {
       ...demoUser,
       globalRoles: [],
@@ -138,8 +140,8 @@ function selectedDemoUser(): CurrentUser {
         {
           seasonId: seasons[1].id,
           seasonSlug: seasons[1].slug,
-          role: 'mentor',
-          state: 'completed',
+          role: role === 'kicked' ? 'student' : 'mentor',
+          state: role === 'kicked' ? 'kicked' : 'completed',
         },
       ],
       alumni: false,
@@ -394,15 +396,31 @@ export function useEnrollmentCandidates(seasonId?: string, enabled = true) {
   });
 }
 
-export function useAttempts(enabled = true) {
+export function useAttempts(enabled = true, seasonId?: string, year?: number) {
   return useQuery({
-    queryKey: ['problem-attempts'],
+    queryKey: ['problem-attempts', { seasonId, year }],
     enabled,
     queryFn: async () => {
-      if (demoMode) return wait(page(attempts));
+      if (demoMode)
+        return wait(
+          page(
+            attempts.filter((item) => {
+              const season = seasons.find((item) => item.id === seasonId);
+              return (
+                (!year || adelaideYear(item.attemptedAt) === year) &&
+                (!seasonId ||
+                  Boolean(
+                    season &&
+                    item.attemptedAt >= season.startsAt &&
+                    item.attemptedAt <= season.endsAt,
+                  ))
+              );
+            }),
+          ),
+        );
       const [attemptPage, problemPage] = await Promise.all([
         fetchAllPages<ApiAttemptPage['items'][number]>(
-          '/problem-attempts?limit=100',
+          `/problem-attempts?limit=100${seasonId ? `&seasonId=${encodeURIComponent(seasonId)}` : ''}${year ? `&year=${year}` : ''}`,
         ),
         getProblems(),
       ]);
@@ -528,7 +546,34 @@ export function useSeasonPeople(seasonId?: string, seasonName?: string) {
     queryKey: ['season-people', seasonId],
     enabled: demoMode || Boolean(seasonId),
     queryFn: async () => {
-      if (demoMode) return wait(page(people));
+      if (demoMode) {
+        if (!seasonId) return page([]);
+        const enrollments = demoEnrollmentPage(seasonId).items;
+        const mentorships = demoMentorshipPage(seasonId).items;
+        return wait(
+          page(
+            enrollments.flatMap((enrollment) => {
+              const person = people.find(
+                (item) => item.id === enrollment.userId,
+              );
+              if (!person) return [];
+              return [
+                {
+                  ...person,
+                  season: seasonName ?? person.season,
+                  enrollmentId: enrollment.id,
+                  enrollmentState: enrollment.state,
+                  studentLevel: enrollment.studentLevel,
+                  seasonRole: enrollment.role,
+                  mentorshipMentorId: mentorships.find(
+                    (item) => item.studentUserId === person.id,
+                  )?.mentorUserId,
+                },
+              ];
+            }),
+          ),
+        );
+      }
       if (!seasonId) return page([]);
       const [userPage, enrollmentPage, mentorshipPage] = await Promise.all([
         getUsers(),
@@ -569,6 +614,8 @@ export function useSeasonPeople(seasonId?: string, seasonName?: string) {
                     : null,
             enrollmentId: enrollment.id,
             enrollmentState: enrollment.state,
+            studentLevel: enrollment.studentLevel,
+            seasonRole: enrollment.role,
             ...(mentorForStudent.has(enrollment.userId)
               ? { mentorshipMentorId: mentorForStudent.get(enrollment.userId) }
               : {}),
@@ -580,15 +627,35 @@ export function useSeasonPeople(seasonId?: string, seasonName?: string) {
   });
 }
 
-export function useMockInterviews(enabled = true) {
+export function useMockInterviews(
+  enabled = true,
+  seasonId?: string,
+  year?: number,
+) {
   return useQuery({
-    queryKey: ['mock-interviews'],
+    queryKey: ['mock-interviews', { seasonId, year }],
     enabled,
     queryFn: async () => {
-      if (demoMode) return wait(page(mockInterviews));
+      if (demoMode)
+        return wait(
+          page(
+            mockInterviews.filter((item) => {
+              const season = seasons.find((item) => item.id === seasonId);
+              return (
+                (!year || adelaideYear(item.occurredAt) === year) &&
+                (!seasonId ||
+                  Boolean(
+                    season &&
+                    item.occurredAt >= season.startsAt &&
+                    item.occurredAt <= season.endsAt,
+                  ))
+              );
+            }),
+          ),
+        );
       const [interviewPage, seasonPage, problemPage] = await Promise.all([
         fetchAllPages<ApiMockInterviewPage['items'][number]>(
-          '/mock-interviews?limit=100&mode=all',
+          `/mock-interviews?limit=100&mode=all${seasonId ? `&seasonId=${encodeURIComponent(seasonId)}` : ''}${year ? `&year=${year}` : ''}`,
         ),
         fetchAllPages<ApiSeasonPage['items'][number]>('/seasons?limit=100'),
         getProblems(),

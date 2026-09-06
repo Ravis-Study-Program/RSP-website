@@ -98,8 +98,9 @@ export function WorkspaceProvider({ children }: PropsWithChildren) {
         role: 'graduate',
       });
     else if (
-      userQuery.data.seasonRoles.some(
-        (membership) => membership.state === 'completed',
+      userQuery.data.seasonRoles.length > 0 &&
+      !userQuery.data.seasonRoles.some(
+        (membership) => membership.state === 'active',
       )
     )
       options.push({

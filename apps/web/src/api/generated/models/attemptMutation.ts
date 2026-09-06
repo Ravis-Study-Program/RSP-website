@@ -21,8 +21,4 @@ export interface AttemptMutation {
   /** @maxLength 10000 */
   notes?: string;
   attemptedAt: string;
-  /** @nullable */
-  seasonId?: string | null;
-  /** @nullable */
-  weekId?: string | null;
 }

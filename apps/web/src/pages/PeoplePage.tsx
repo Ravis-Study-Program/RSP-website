@@ -5,6 +5,7 @@ import { useLocation, useParams } from 'react-router-dom';
 
 import {
   useEnrollmentCandidates,
+  useCurrentUser,
   usePeople,
   useSeasons,
   useSeasonPeople,
@@ -17,6 +18,8 @@ import {
   usePageTitle,
 } from '@/components/Common';
 import { DataTable } from '@/components/DataTable';
+import { StudentLevelDialog } from '@/components/StudentLevelDialog';
+import { canSetStudentLevel, studentLevelLabel } from '@/studentLevels';
 import { EnrollmentDialog } from '@/pages/AdminPage';
 import styles from '@/styles/App.module.css';
 import type { Person } from '@/types';
@@ -30,6 +33,8 @@ export function PeoplePage() {
   const publicQuery = usePeople();
   const seasons = useSeasons();
   const season = seasons.data?.items.find((item) => item.slug === slug);
+  const currentUser = useCurrentUser();
+  const canChangeLevel = canSetStudentLevel(currentUser.data, season);
   const seasonQuery = useSeasonPeople(season?.id, season?.name);
   const query = slug ? seasonQuery : publicQuery;
   const { activeWorkspace } = useWorkspace();
@@ -73,6 +78,30 @@ export function PeoplePage() {
         ),
       },
       { accessorKey: 'season', header: 'Season' },
+      ...(season
+        ? [
+            {
+              id: 'studentLevel',
+              header: 'Level',
+              accessorFn: (person: Person) =>
+                studentLevelLabel(person.studentLevel),
+              cell: ({ row }: { row: { original: Person } }) => (
+                <div className={styles.inline}>
+                  <span>{studentLevelLabel(row.original.studentLevel)}</span>
+                  {canChangeLevel &&
+                  row.original.enrollmentState === 'active' &&
+                  row.original.seasonRole === 'student' ? (
+                    <StudentLevelDialog
+                      seasonId={season.id}
+                      person={row.original}
+                      onChanged={() => void query.refetch()}
+                    />
+                  ) : null}
+                </div>
+              ),
+            },
+          ]
+        : []),
       {
         accessorKey: 'status',
         header: 'Status',
@@ -98,7 +127,7 @@ export function PeoplePage() {
         cell: ({ getValue }) => (getValue() ? formatDateTime(getValue()) : '—'),
       },
     ],
-    [privateView],
+    [privateView, season, canChangeLevel, query],
   );
 
   return (
@@ -158,6 +187,19 @@ export function PeoplePage() {
               </span>
             </div>
             <p>{row.original.season}</p>
+            {season && row.original.seasonRole === 'student' ? (
+              <p>Level: {studentLevelLabel(row.original.studentLevel)}</p>
+            ) : null}
+            {canChangeLevel &&
+            season &&
+            row.original.enrollmentState === 'active' &&
+            row.original.seasonRole === 'student' ? (
+              <StudentLevelDialog
+                seasonId={season.id}
+                person={row.original}
+                onChanged={() => void query.refetch()}
+              />
+            ) : null}
             <p className={styles.helper}>
               {row.original.attempts} attempts · {row.original.interviews}{' '}
               interviews

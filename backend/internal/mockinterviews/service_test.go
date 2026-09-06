@@ -73,7 +73,7 @@ func TestInterviewerCannotWriteIntervieweeReview(t *testing.T) {
 }
 
 func TestParticipantEligibility(t *testing.T) {
-	for _, p := range []accounts.MemberStatus{{UserID: "none"}, {UserID: "former", FormerMember: true}, {
+	for _, p := range []accounts.MemberStatus{{UserID: "none"}, {
 		UserID:       "s",
 		ActiveMember: true,
 		Suspended:    true,
@@ -81,10 +81,6 @@ func TestParticipantEligibility(t *testing.T) {
 		UserID:  "d",
 		Alumni:  true,
 		Deleted: true,
-	}, {
-		UserID:       "k",
-		ActiveMember: true,
-		KickedOnly:   true,
 	}} {
 		in := validCreate()
 		in.Interviewee = p
@@ -93,7 +89,7 @@ func TestParticipantEligibility(t *testing.T) {
 		}
 	}
 	former := accounts.MemberStatus{UserID: "former", FormerMember: true}
-	if former.CanBeMockInterviewParticipant() || !former.CanAccessProgramme() {
+	if !former.CanBeMockInterviewParticipant() || !former.CanAccessProgramme() {
 		t.Fatalf("former member target/caller eligibility was not separated: %#v", former)
 	}
 }

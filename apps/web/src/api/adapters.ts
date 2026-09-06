@@ -224,6 +224,7 @@ export function adaptAttempt(
     confidence: attempt.confidence ?? null,
     minutes: attempt.minutes,
     attemptedAt: attempt.attemptedAt,
+    seasonId: attempt.seasonId,
     notes: attempt.notes,
   };
 }
@@ -293,6 +294,7 @@ export function adaptMockInterview(
     interviewer:
       context.users.get(interview.interviewerId) ??
       adaptMockParticipant(interview.interviewer),
+    seasonId: interview.seasonId,
     season: interview.seasonId
       ? (context.seasons.get(interview.seasonId)?.name ?? null)
       : null,

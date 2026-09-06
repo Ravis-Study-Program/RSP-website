@@ -81,8 +81,8 @@ func mockRequest(t *testing.T, handler http.Handler, method, path, actor string,
 func createMockForWrites(t *testing.T, fixture postgresFixture) mockinterviews.Interview {
 	t.Helper()
 	return mockRequest(t, fixture.handler, http.MethodPost, "/api/v2/mock-interviews", "student", map[string]any{
-		"interviewee": map[string]string{"userId": otherID}, "seasonId": seasonID,
-		"occurredAt": "2026-09-01T00:00:00Z", "durationMinutes": 60, "notes": "original",
+		"interviewee": map[string]string{"userId": otherID},
+		"occurredAt":  time.Now().UTC().Truncate(time.Second), "durationMinutes": 60, "notes": "original",
 		"rounds": []map[string]any{
 			{
 				"id":     mockRoundID,
@@ -186,7 +186,7 @@ func TestMockWritesPreserveRoundMetadataAndHistory(t *testing.T) {
 	// A reason that resembles an old command must remain ordinary audit text.
 	interview = mockRequest(t, mockDirectorHandler(fixture), http.MethodPost, path+"/identity-correction", "student",
 		map[string]any{"interviewerId": otherID, "intervieweeId": studentID,
-			"seasonId": seasonID, "reason": "soft deleted"}, http.StatusOK)
+			"reason": "soft deleted"}, http.StatusOK)
 	if interview.InterviewerID != otherID || interview.IntervieweeID != studentID {
 		t.Fatalf("identities not corrected: %#v", interview)
 	}
@@ -276,29 +276,9 @@ func TestMockWriteGuardsLeaveDataAndHistoryUnchanged(t *testing.T) {
 		t.Fatalf("failed write was not rolled back: interview=%#v error=%v", loaded, err)
 	}
 
-	// The reviewer remains eligible, but the interviewer no longer belongs to
-	// the linked season. Reviews must still run the database scope validation.
-	if _, err := fixture.pool.Exec(context.Background(), `UPDATE app.enrollments SET deleted_at=now() WHERE id=$1`, studentMemberID); err != nil {
-		t.Fatal(err)
-	}
-	mockRequest(t, fixture.handler, http.MethodPatch, path+"/rounds/"+mockRoundID+"/review", "other",
-		map[string]any{"reviewed": true}, http.StatusConflict)
-	if _, err := fixture.pool.Exec(context.Background(), `UPDATE app.enrollments SET deleted_at=NULL WHERE id=$1`, studentMemberID); err != nil {
-		t.Fatal(err)
-	}
-
-	if _, err := fixture.pool.Exec(context.Background(), `UPDATE app.seasons SET status='closed', closed_at=now() WHERE id=$1`, seasonID); err != nil {
-		t.Fatal(err)
-	}
-	mockRequest(t, fixture.handler, http.MethodPatch, path, "student", mockUpdateBody(interview), http.StatusConflict)
-	mockRequest(t, fixture.handler, http.MethodDelete, path, "student", nil, http.StatusConflict)
-	mockRequest(t, fixture.handler, http.MethodPatch, path+"/rounds/"+mockRoundID+"/review", "other",
-		map[string]any{"reviewed": true}, http.StatusConflict)
-
-	// Direct storage writes also recheck season state after HTTP preflight.
-	if _, err := fixture.db.UpdateMockInterview(context.Background(), interview, studentID, time.Now()); !errors.Is(err, dal.ErrConflict) {
-		t.Fatalf("closed-season storage write=%v", err)
-	}
+	invalidTime := interview
+	invalidTime.OccurredAt = interview.OccurredAt.Add(-time.Hour)
+	mockRequest(t, fixture.handler, http.MethodPatch, path, "student", mockUpdateBody(invalidTime), http.StatusBadRequest)
 	if got := mockRoundMetadata(t, fixture, interview.ID); !reflect.DeepEqual(before, got) {
 		t.Fatal("rejected write changed round metadata")
 	}
@@ -306,12 +286,14 @@ func TestMockWriteGuardsLeaveDataAndHistoryUnchanged(t *testing.T) {
 		t.Fatal("rejected write changed history")
 	}
 
-	// Privileged corrections can still unlink records from a closed season.
-	mockRequest(t, mockDirectorHandler(fixture), http.MethodPost, path+"/identity-correction", "student",
-		map[string]any{"interviewerId": studentID, "intervieweeId": otherID, "reason": "unlink historical record"}, http.StatusOK)
-	if got := mockRoundMetadata(t, fixture, interview.ID); !reflect.DeepEqual(before, got) {
-		t.Fatal("unlinking a historical record rewrote rounds")
+	// Season closure does not prevent participants from maintaining personal records.
+	if _, err := fixture.pool.Exec(context.Background(), `UPDATE app.seasons SET status='closed', closed_at=now() WHERE id=$1`, seasonID); err != nil {
+		t.Fatal(err)
 	}
+	mockRequest(t, fixture.handler, http.MethodPatch, path, "student", mockUpdateBody(interview), http.StatusOK)
+	mockRequest(t, fixture.handler, http.MethodPatch, path+"/rounds/"+mockRoundID+"/review", "other",
+		map[string]any{"reviewed": true}, http.StatusOK)
+	mockRequest(t, fixture.handler, http.MethodDelete, path, "student", nil, http.StatusNoContent)
 }
 
 func TestConcurrentMockEditsAppendHistory(t *testing.T) {

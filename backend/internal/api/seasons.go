@@ -15,7 +15,7 @@ import (
 
 func (a *API) listSeasons(w http.ResponseWriter, r *http.Request) {
 	actor := actorFrom(r.Context())
-	if !actor.CanAccessProgramme() && !actor.IsDirectorOrSystemAdmin() {
+	if !actor.CanRecordActivity() && !actor.IsDirectorOrSystemAdmin() {
 		writeErrorResponse(w, http.StatusForbidden, "No season access yet.")
 		return
 	}
@@ -79,7 +79,7 @@ func (a *API) listSeasons(w http.ResponseWriter, r *http.Request) {
 	items := []programme.SeasonRecord{}
 	seen := map[string]bool{}
 	for _, enrollment := range actor.Enrollments {
-		if seen[enrollment.SeasonID] || !actor.CanViewSeason(enrollment.SeasonID) {
+		if seen[enrollment.SeasonID] {
 			continue
 		}
 		season, seasonErr := a.db.GetSeason(r.Context(), enrollment.SeasonID)
@@ -89,6 +89,9 @@ func (a *API) listSeasons(w http.ResponseWriter, r *http.Request) {
 		}
 		if status != "" && season.Status != status {
 			continue
+		}
+		if !actor.CanViewSeason(season.ID) {
+			season.ResourcesURL = ""
 		}
 		seen[season.ID] = true
 		items = append(items, season)

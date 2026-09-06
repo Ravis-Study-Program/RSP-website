@@ -18,8 +18,8 @@ func (p *Store) GetMemberStatus(ctx context.Context, userID string) (accounts.Me
 		EXISTS(SELECT 1 FROM app.enrollments e WHERE e.user_id=u.id AND e.state='active' AND e.deleted_at IS NULL) AS active_member,
 		EXISTS(SELECT 1 FROM app.enrollments e WHERE e.user_id=u.id AND e.role='student' AND e.state='completed' AND e.deleted_at IS NULL) AS alumni,
 		EXISTS(SELECT 1 FROM app.enrollments e WHERE e.user_id=u.id AND e.state='completed' AND e.deleted_at IS NULL) AS former_member,
-		EXISTS(SELECT 1 FROM app.enrollments e WHERE e.user_id=u.id AND e.deleted_at IS NULL) AS has_enrollment,
-		EXISTS(SELECT 1 FROM app.enrollments e WHERE e.user_id=u.id AND e.state='kicked' AND e.deleted_at IS NULL) AS has_kicked
+		EXISTS(SELECT 1 FROM app.enrollments e WHERE e.user_id=u.id AND (e.deleted_at IS NULL OR e.state IN ('kicked','withdrawn'))) AS has_enrollment,
+		EXISTS(SELECT 1 FROM app.enrollments e WHERE e.user_id=u.id AND e.state='kicked') AS has_kicked
 		FROM app.users u WHERE u.id=$1`, userID).Scan(&row.ID, &row.AccountState, &row.ActiveMember, &row.Alumni, &row.FormerMember, &row.HasEnrollment, &row.HasKicked)
 	if err != nil || row.ID == "" {
 		if err == nil {
@@ -29,13 +29,14 @@ func (p *Store) GetMemberStatus(ctx context.Context, userID string) (accounts.Me
 	}
 
 	ptn := accounts.MemberStatus{
-		UserID:       row.ID,
-		ActiveMember: row.ActiveMember,
-		Alumni:       row.Alumni,
-		FormerMember: row.FormerMember,
-		Inactive:     row.AccountState != "active",
-		Suspended:    row.AccountState == "suspended",
-		Deleted:      row.AccountState == "deleted",
+		UserID:        row.ID,
+		HasEnrollment: row.HasEnrollment,
+		ActiveMember:  row.ActiveMember,
+		Alumni:        row.Alumni,
+		FormerMember:  row.FormerMember,
+		Inactive:      row.AccountState != "active",
+		Suspended:     row.AccountState == "suspended",
+		Deleted:       row.AccountState == "deleted",
 	}
 	ptn.KickedOnly = row.HasEnrollment && row.HasKicked && !ptn.ActiveMember && !ptn.FormerMember
 	return ptn, nil

@@ -11,12 +11,17 @@ const (
 	NotSolved   Outcome = "not_solved"
 )
 
-// PracticeSettings stores a user's personal time goals.
+// PracticeSettings describes the fixed programme time goals.
 type PracticeSettings struct {
 	GoalsEnabled  bool `json:"goalsEnabled"`
 	EasyMinutes   int  `json:"easyMinutes"`
 	MediumMinutes int  `json:"mediumMinutes"`
 	HardMinutes   int  `json:"hardMinutes"`
+}
+
+// FixedSettings applies to every member, including members with legacy personal goals.
+func FixedSettings() PracticeSettings {
+	return PracticeSettings{GoalsEnabled: true, EasyMinutes: 20, MediumMinutes: 35, HardMinutes: 50}
 }
 
 // ProblemRecord is the persisted and HTTP-facing problem representation.

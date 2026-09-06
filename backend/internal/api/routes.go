@@ -50,6 +50,7 @@ func registerProgrammeRoutes(mux *http.ServeMux, a *API) {
 	mux.HandleFunc("GET /api/v2/seasons/{id}/enrollment-candidates", a.protected(ratelimit.Read, a.listEnrollmentCandidates))
 	mux.HandleFunc("POST /api/v2/seasons/{id}/members", a.protected(ratelimit.Write, a.createSeasonMember))
 	mux.HandleFunc("PATCH /api/v2/seasons/{id}/members/{memberId}", a.protected(ratelimit.Write, a.updateSeasonMember))
+	mux.HandleFunc("PATCH /api/v2/seasons/{id}/members/{memberId}/student-level", a.protected(ratelimit.Write, a.updateStudentLevel))
 	mux.HandleFunc("POST /api/v2/seasons/{id}/members/{memberId}/promote", a.protected(ratelimit.Write, a.promoteSeasonMember))
 	mux.HandleFunc("POST /api/v2/seasons/{id}/members/{memberId}/remove", a.protected(ratelimit.Write, a.removeSeasonMember))
 	mux.HandleFunc("GET /api/v2/seasons/{id}/mentorships", a.protected(ratelimit.Read, a.listMentorships))
@@ -60,9 +61,7 @@ func registerProgrammeRoutes(mux *http.ServeMux, a *API) {
 
 func registerPracticeRoutes(mux *http.ServeMux, a *API) {
 	mux.HandleFunc("GET /api/v2/me/practice-settings", a.protected(ratelimit.Read, a.getCurrentUserPracticeSettings))
-	mux.HandleFunc("PATCH /api/v2/me/practice-settings", a.protected(ratelimit.Write, a.updateCurrentUserPracticeSettings))
 	mux.HandleFunc("GET /api/v2/users/{id}/practice-settings", a.protected(ratelimit.Read, a.getUserPracticeSettings))
-	mux.HandleFunc("POST /api/v2/users/{id}/practice-goals/enable", a.protected(ratelimit.Write, a.enablePracticeGoals))
 	mux.HandleFunc("GET /api/v2/leetcode-problems", a.protected(ratelimit.Read, a.listLeetCodeProblems))
 	mux.HandleFunc("GET /api/v2/problem-attempts", a.protected(ratelimit.Read, a.listProblemAttempts))
 	mux.HandleFunc("POST /api/v2/problem-attempts", a.protected(ratelimit.Write, a.createProblemAttempt))

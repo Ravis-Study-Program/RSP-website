@@ -45,6 +45,7 @@ export interface Season {
 }
 
 export interface Attempt {
+  seasonId?: string | null;
   id: string;
   problemId: string;
   problem: string;
@@ -71,6 +72,9 @@ export interface Person {
   email?: string;
   lastActiveAt: string | null;
   enrollmentId?: string;
+  seasonRole?: SeasonRole;
+  studentLevel?:
+    'novice' | 'beginner' | 'intermediate' | 'advanced' | 'not_applicable';
   enrollmentState?: 'active' | 'completed' | 'kicked' | 'withdrawn';
   mentorshipMentorId?: string;
 }
@@ -90,6 +94,7 @@ export interface MockRound {
 }
 
 export interface MockInterview {
+  seasonId?: string | null;
   id: string;
   interviewee: Person;
   interviewer: Person;

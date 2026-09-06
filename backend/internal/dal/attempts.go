@@ -2,7 +2,6 @@ package dal
 
 import (
 	"context"
-	"errors"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -20,15 +19,17 @@ func scanAttempt(row pgx.Row) (practice.AttemptRecord, error) {
 	return v, nil
 }
 
-const attemptColumns = `a.id,a.user_id,COALESCE((SELECT id FROM app.leetcode_problems WHERE problem_id=a.problem_id),a.problem_id),a.outcome::text,a.confidence,a.time_taken_minutes,COALESCE(a.notes_html,''),a.attempted_at,e.season_id,a.season_week_id,a.deleted_at`
+const attemptColumns = `a.id,a.user_id,COALESCE((SELECT id FROM app.leetcode_problems WHERE problem_id=a.problem_id),a.problem_id),a.outcome::text,a.confidence,a.time_taken_minutes,COALESCE(a.notes_html,''),a.attempted_at,a.activity_season_id,a.activity_week_id,a.deleted_at`
 
 func (p *Store) GetAttempt(ctx context.Context, id string) (practice.AttemptRecord, error) {
 	return scanAttempt(p.pool.QueryRow(ctx, `SELECT `+attemptColumns+`
-		FROM app.problem_attempts a LEFT JOIN app.enrollments e ON e.id=a.enrollment_id
+		FROM app.scoped_problem_attempts a
 		WHERE a.id=$1`, id))
 }
 
 type AttemptQuery struct {
+	SeasonID   string
+	Year       int
 	UserID     string
 	Boundary   string
 	Limit      int
@@ -39,6 +40,8 @@ type AttemptQuery struct {
 
 func (p *Store) ListAttempts(ctx context.Context, q AttemptQuery) ([]practice.AttemptRecord, bool, int64, error) {
 	const filters = `a.user_id = @userID AND a.deleted_at IS NULL
+ AND (@seasonID = '' OR a.activity_season_id=NULLIF(@seasonID,'')::uuid)
+ AND (@year = 0 OR EXTRACT(YEAR FROM a.attempted_at AT TIME ZONE 'Australia/Adelaide')=@year)
 		AND (@outcome = '' OR a.outcome::text = @outcome)
 		AND (@difficulty = '' OR EXISTS (
 			SELECT 1 FROM app.leetcode_problems l
@@ -46,11 +49,13 @@ func (p *Store) ListAttempts(ctx context.Context, q AttemptQuery) ([]practice.At
 		))`
 	args := pgx.NamedArgs{
 		"userID":     q.UserID,
+		"seasonID":   q.SeasonID,
+		"year":       q.Year,
 		"outcome":    q.Outcome,
 		"difficulty": q.Difficulty,
 	}
 	var total int64
-	err := p.pool.QueryRow(ctx, `SELECT count(*) FROM app.problem_attempts a WHERE `+filters, args).Scan(&total)
+	err := p.pool.QueryRow(ctx, `SELECT count(*) FROM app.scoped_problem_attempts a WHERE `+filters, args).Scan(&total)
 	if err != nil {
 		return nil, false, 0, err
 	}
@@ -65,8 +70,7 @@ func (p *Store) ListAttempts(ctx context.Context, q AttemptQuery) ([]practice.At
 	args["boundary"] = q.Boundary
 	args["limit"] = q.Limit + 1
 	rows, err := p.pool.Query(ctx, `SELECT `+attemptColumns+`
-		FROM app.problem_attempts a
-		LEFT JOIN app.enrollments e ON e.id = a.enrollment_id
+		FROM app.scoped_problem_attempts a
 		WHERE `+filters+` AND `+comparison+`
 		ORDER BY a.id `+order+` LIMIT @limit`, args)
 	if err != nil {
@@ -94,32 +98,12 @@ func (p *Store) CreateAttempt(ctx context.Context, v practice.AttemptRecord) (pr
 	}
 	defer tx.Rollback(context.Background())
 
-	var enrollmentID *string
-	if v.SeasonID != nil {
-		scopedEnrollmentID, err := resolveAttemptEnrollment(ctx, tx, v.UserID, *v.SeasonID)
-		if err != nil {
-			return practice.AttemptRecord{}, noRows(err)
-		}
-		enrollmentID = &scopedEnrollmentID
-	}
-	if v.WeekID != nil && v.SeasonID == nil {
-		return practice.AttemptRecord{}, ErrNotFound
-	}
-	if v.WeekID != nil {
-		valid, err := attemptWeekExists(ctx, tx, *v.WeekID, *v.SeasonID)
-		if err != nil {
-			return practice.AttemptRecord{}, err
-		}
-		if !valid {
-			return practice.AttemptRecord{}, ErrNotFound
-		}
-	}
 	baseProblemID, err := resolveBaseProblem(ctx, tx, v.ProblemID)
 	if err != nil {
 		return practice.AttemptRecord{}, noRows(err)
 	}
 	_, err = tx.Exec(ctx, `INSERT INTO app.problem_attempts(id,user_id,problem_id,enrollment_id,season_week_id,attempted_at,time_taken_minutes,outcome,confidence,notes_html)
-	 VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`, v.ID, v.UserID, baseProblemID, enrollmentID, v.WeekID, v.AttemptedAt.UTC(), v.Minutes, v.Outcome, v.Confidence, v.Notes)
+	 VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`, v.ID, v.UserID, baseProblemID, nil, nil, v.AttemptedAt.UTC(), v.Minutes, v.Outcome, v.Confidence, v.Notes)
 	if err != nil {
 		return v, mapDatabaseError(err)
 	}
@@ -139,7 +123,7 @@ func (p *Store) CreateAttempt(ctx context.Context, v practice.AttemptRecord) (pr
 	if err := tx.Commit(ctx); err != nil {
 		return v, err
 	}
-	return v, nil
+	return p.GetAttempt(ctx, v.ID)
 }
 
 type UpdateAttemptInput struct {
@@ -151,8 +135,6 @@ type UpdateAttemptInput struct {
 	Minutes     int
 	Notes       string
 	AttemptedAt time.Time
-	SeasonID    *string
-	WeekID      *string
 	ChangedAt   time.Time
 }
 
@@ -163,9 +145,11 @@ func (p *Store) UpdateAttempt(ctx context.Context, input UpdateAttemptInput) (pr
 	}
 
 	defer tx.Rollback(context.Background())
-	v, err := scanAttempt(tx.QueryRow(ctx, `SELECT `+attemptColumns+` FROM app.problem_attempts a
-		LEFT JOIN app.enrollments e ON e.id=a.enrollment_id
-		WHERE a.id=$1 AND a.user_id=$2 AND a.deleted_at IS NULL FOR UPDATE OF a`, input.AttemptID, input.UserID))
+	if err := tx.QueryRow(ctx, `SELECT id FROM app.problem_attempts WHERE id=$1 AND user_id=$2 AND deleted_at IS NULL FOR UPDATE`, input.AttemptID, input.UserID).Scan(new(string)); err != nil {
+		return practice.AttemptRecord{}, noRows(err)
+	}
+	v, err := scanAttempt(tx.QueryRow(ctx, `SELECT `+attemptColumns+` FROM app.scoped_problem_attempts a
+		WHERE a.id=$1 AND a.user_id=$2 AND a.deleted_at IS NULL`, input.AttemptID, input.UserID))
 	if err != nil {
 		return practice.AttemptRecord{}, err
 	}
@@ -175,38 +159,12 @@ func (p *Store) UpdateAttempt(ctx context.Context, input UpdateAttemptInput) (pr
 	v.Minutes = input.Minutes
 	v.Notes = input.Notes
 	v.AttemptedAt = input.AttemptedAt
-	v.SeasonID = input.SeasonID
-	v.WeekID = input.WeekID
-	if v.WeekID != nil && v.SeasonID == nil {
-		return v, ErrConflict
-	}
-	var enrollmentID *string
-	if v.SeasonID != nil {
-		resolved, err := resolveAttemptEnrollment(ctx, tx, input.UserID, *v.SeasonID)
-		if err != nil {
-			if errors.Is(err, ErrNotFound) {
-				return v, ErrConflict
-			}
-			return v, err
-		}
-
-		enrollmentID = &resolved
-		if v.WeekID != nil {
-			valid, err := attemptWeekExists(ctx, tx, *v.WeekID, *v.SeasonID)
-			if err != nil {
-				return v, err
-			}
-			if !valid {
-				return v, ErrConflict
-			}
-		}
-	}
 	baseProblemID, err := resolveBaseProblem(ctx, tx, v.ProblemID)
 	if err != nil {
 		return v, noRows(err)
 	}
 
-	_, err = tx.Exec(ctx, `UPDATE app.problem_attempts SET problem_id=$1,enrollment_id=$2,attempted_at=$3,time_taken_minutes=$4,outcome=$5,confidence=$6,notes_html=$7,season_week_id=$8 WHERE id = $9 AND user_id = $10`, baseProblemID, enrollmentID, v.AttemptedAt.UTC(), v.Minutes, v.Outcome, v.Confidence, v.Notes, v.WeekID, input.AttemptID, input.UserID)
+	_, err = tx.Exec(ctx, `UPDATE app.problem_attempts SET problem_id=$1,enrollment_id=$2,attempted_at=$3,time_taken_minutes=$4,outcome=$5,confidence=$6,notes_html=$7,season_week_id=$8 WHERE id = $9 AND user_id = $10`, baseProblemID, nil, v.AttemptedAt.UTC(), v.Minutes, v.Outcome, v.Confidence, v.Notes, nil, input.AttemptID, input.UserID)
 	if err != nil {
 		return v, mapDatabaseError(err)
 	}
@@ -216,7 +174,7 @@ func (p *Store) UpdateAttempt(ctx context.Context, input UpdateAttemptInput) (pr
 	if err := tx.Commit(ctx); err != nil {
 		return v, err
 	}
-	return v, nil
+	return p.GetAttempt(ctx, v.ID)
 }
 
 func (p *Store) DeleteAttempt(ctx context.Context, id, userID string) error {
@@ -245,20 +203,6 @@ func (p *Store) DeleteAttempt(ctx context.Context, id, userID string) error {
 		return err
 	}
 	return tx.Commit(ctx)
-}
-
-func resolveAttemptEnrollment(ctx context.Context, tx pgx.Tx, userID, seasonID string) (string, error) {
-	var enrollmentID string
-	err := tx.QueryRow(ctx, `SELECT e.id FROM app.enrollments e JOIN app.seasons s ON s.id=e.season_id
-		WHERE e.user_id=$1 AND e.season_id=$2 AND e.state='active' AND e.deleted_at IS NULL
-		AND s.status='open' AND s.deleted_at IS NULL`, userID, seasonID).Scan(&enrollmentID)
-	return enrollmentID, err
-}
-
-func attemptWeekExists(ctx context.Context, tx pgx.Tx, weekID, seasonID string) (bool, error) {
-	var count int64
-	err := tx.QueryRow(ctx, `SELECT count(*) FROM app.season_weeks WHERE id = $1 AND season_id = $2 AND deleted_at IS NULL`, weekID, seasonID).Scan(&count)
-	return count > 0, err
 }
 
 func resolveBaseProblem(ctx context.Context, tx pgx.Tx, leetcodeProblemID string) (string, error) {

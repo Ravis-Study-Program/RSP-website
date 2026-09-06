@@ -10,6 +10,7 @@ import (
 	"os"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -139,9 +140,9 @@ func seedPostgresFixture(t *testing.T, db *pgxpool.Pool) {
 			('` + otherID + `')`,
 		`INSERT INTO app.seasons(id,slug,name,status,start_at,end_at,location) VALUES
 			('` + seasonID + `','season','Season','open','2026-01-01T00:00:00Z','2026-12-31T23:59:59Z','Adelaide')`,
-		`INSERT INTO app.enrollments(id,user_id,season_id,role,student_level,state) VALUES
-			('` + studentMemberID + `','` + studentID + `','` + seasonID + `','student','beginner','active'),
-			('` + otherMemberID + `','` + otherID + `','` + seasonID + `','mentor','not_applicable','active')`,
+		`INSERT INTO app.enrollments(id,user_id,season_id,role,student_level,state,created_at) VALUES
+			('` + studentMemberID + `','` + studentID + `','` + seasonID + `','student','beginner','active','2026-01-01T00:00:00Z'),
+			('` + otherMemberID + `','` + otherID + `','` + seasonID + `','mentor','not_applicable','active','2026-01-01T00:00:00Z')`,
 		`INSERT INTO app.problems(id,title,url) VALUES
 			('` + problemID + `','Two Sum','https://leetcode.com/problems/two-sum/')`,
 		`INSERT INTO app.leetcode_problems(id,problem_id,leetcode_number,difficulty,is_premium) VALUES
@@ -201,7 +202,7 @@ func TestPostgresBackedProfileAndPracticeFlow(t *testing.T) {
 
 func TestPostgresBackedMockInterviewSurvivesHandlerRecreation(t *testing.T) {
 	fixture := newPostgresFixture(t)
-	body := `{"interviewee":{"userId":"` + otherID + `"},"seasonId":"` + seasonID + `","occurredAt":"2026-09-01T00:00:00Z","durationMinutes":60,"rounds":[{"id":"` + mockRoundID + `","type":"behavioural","scores":{"behavioural":7}}]}`
+	body := `{"interviewee":{"userId":"` + otherID + `"},"occurredAt":"` + time.Now().UTC().Truncate(time.Second).Format(time.RFC3339) + `","durationMinutes":60,"rounds":[{"id":"` + mockRoundID + `","type":"behavioural","scores":{"behavioural":7}}]}`
 
 	response := testRequest(t, fixture.handler, http.MethodPost, "/api/v2/mock-interviews", "student", body)
 	if response.Code != http.StatusCreated {

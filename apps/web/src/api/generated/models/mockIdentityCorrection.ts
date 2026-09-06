@@ -9,8 +9,6 @@
 export interface MockIdentityCorrection {
   interviewerId: string;
   intervieweeId: string;
-  /** @nullable */
-  seasonId?: string | null;
   /**
    * @minLength 1
    * @maxLength 2000

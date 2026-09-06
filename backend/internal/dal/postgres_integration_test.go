@@ -256,31 +256,18 @@ func TestPostgres18MigrationsAndDAL(t *testing.T) {
 	}
 
 	settings, err := repository.GetPracticeSettings(ctx, "00000000-0000-7000-8000-000000000033")
-	if err != nil || settings.GoalsEnabled || settings.EasyMinutes != 10 || settings.MediumMinutes != 20 || settings.HardMinutes != 45 {
+	if err != nil || !settings.GoalsEnabled || settings.EasyMinutes != 20 || settings.MediumMinutes != 35 || settings.HardMinutes != 50 {
 		t.Fatalf("default practice settings=%#v err=%v", settings, err)
 	}
 
-	settings, err = repository.EnablePracticeGoals(ctx, EnablePracticeGoalsInput{
-		UserID:    "00000000-0000-7000-8000-000000000033",
-		ActorID:   "00000000-0000-7000-8000-000000000033",
-		SeasonID:  season.ID,
-		ChangedAt: time.Now().UTC(),
-	})
-	if err != nil || !settings.GoalsEnabled {
-		t.Fatalf("enable practice goals=%#v err=%v", settings, err)
+	if _, err := repository.pool.Exec(ctx, `INSERT INTO app.practice_goals(user_id,enabled,easy_minutes,medium_minutes,hard_minutes) VALUES($1,false,25,40,60)`, "00000000-0000-7000-8000-000000000033"); err != nil {
+		t.Fatal(err)
+	}
+	settings, err = repository.GetPracticeSettings(ctx, "00000000-0000-7000-8000-000000000033")
+	if err != nil || !settings.GoalsEnabled || settings.EasyMinutes != 20 || settings.MediumMinutes != 35 || settings.HardMinutes != 50 {
+		t.Fatalf("legacy preferences must not override fixed goals: %#v err=%v", settings, err)
 	}
 
-	settings, err = repository.UpdatePracticeSettings(ctx, UpdatePracticeSettingsInput{
-		UserID:        "00000000-0000-7000-8000-000000000033",
-		EasyMinutes:   25,
-		MediumMinutes: 40,
-		HardMinutes:   60,
-		ActorID:       "00000000-0000-7000-8000-000000000033",
-		ChangedAt:     time.Now().UTC(),
-	})
-	if err != nil || settings.HardMinutes != 60 {
-		t.Fatalf("update practice settings=%#v err=%v", settings, err)
-	}
 	if _, err := repository.pool.Exec(context.Background(), `INSERT INTO app.users(id,account_state) VALUES
 		('00000000-0000-7000-8000-000000000027','active'),
 		('00000000-0000-7000-8000-000000000017','active'),
@@ -461,8 +448,8 @@ func TestPostgres18MigrationsAndDAL(t *testing.T) {
 		DurationMinutes: 60,
 		Rounds:          []mockinterviews.Round{{ID: "00000000-0000-7000-8000-000000000016", Type: mockinterviews.Behavioural, Scores: mockinterviews.Scores{Behavioural: &invalidScore}}},
 	}
-	if _, err := repository.CreateMockInterview(ctx, invalidMock, "00000000-0000-7000-8000-000000000027", time.Now().UTC()); err == nil {
-		t.Fatal("kicked-only mock participant passed PostgreSQL scope validation")
+	if record, err := repository.CreateMockInterview(ctx, invalidMock, "00000000-0000-7000-8000-000000000027", time.Now().UTC()); err != nil || record.SeasonID != nil {
+		t.Fatalf("former participant personal mock=%#v err=%v", record, err)
 	}
 	if _, err := repository.pool.Exec(context.Background(), `INSERT INTO app.problems(id,title,url) VALUES('00000000-0000-7000-8000-000000000019','Two Sum','https://leetcode.com/problems/two-sum/')`); err != nil {
 		t.Fatal(err)
@@ -519,7 +506,7 @@ func TestPostgres18MigrationsAndDAL(t *testing.T) {
 		Limit:      25,
 		SortBy:     "id:asc",
 		Direction:  "forward",
-	}); err != nil || len(interviews) != 1 {
+	}); err != nil || len(interviews) != 2 {
 		t.Fatalf("relationship-scoped mock list=%#v err=%v", interviews, err)
 	}
 
@@ -562,6 +549,22 @@ func TestPostgres18MigrationsAndDAL(t *testing.T) {
 	}
 	if _, err := repository.pool.Exec(context.Background(), `UPDATE app.audit_events SET action='tampered' WHERE id='00000000-0000-7000-8000-000000000029'`); err == nil {
 		t.Fatal("append-only audit update unexpectedly succeeded")
+	}
+	// Upgrade existing data: a legacy link supplies a join-date lower bound
+	// when its activity predates the enrollment's import/creation timestamp.
+	if err := goose.DownTo(db, migrations, 3); err != nil {
+		t.Fatal(err)
+	}
+	legacyDate := season.StartAt.Add(2 * time.Hour)
+	if _, err := db.ExecContext(ctx, `UPDATE app.problem_attempts SET enrollment_id='00000000-0000-7000-8000-000000000009',attempted_at=$1 WHERE id='00000000-0000-7000-8000-000000000024'`, legacyDate); err != nil {
+		t.Fatal(err)
+	}
+	if err := goose.Up(db, migrations); err != nil {
+		t.Fatal(err)
+	}
+	legacy, err := repository.GetAttempt(ctx, "00000000-0000-7000-8000-000000000024")
+	if err != nil || legacy.SeasonID == nil || *legacy.SeasonID != season.ID {
+		t.Fatalf("legacy activity scope=%#v err=%v", legacy, err)
 	}
 	if err := goose.DownTo(db, migrations, 0); err != nil {
 		t.Fatal(err)

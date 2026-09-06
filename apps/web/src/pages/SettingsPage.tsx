@@ -1,4 +1,3 @@
-import { Switch } from '@base-ui/react/switch';
 import { IconAlertTriangle, IconCheck } from '@tabler/icons-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useEffect, useMemo, useState } from 'react';
@@ -18,19 +17,8 @@ import {
 } from '@/api/authClient';
 import { apiRequest } from '@/api/client';
 import { adaptCurrentUser } from '@/api/adapters';
-import type {
-  Me,
-  PracticeSettings,
-  PracticeSettingsMutation,
-} from '@/api/generated/models';
-import { patchPracticeSettings } from '@/api/practiceSettingsClient';
-import {
-  currentUserOptions,
-  demoMode,
-  practiceSettingsOptions,
-  useCurrentUser,
-  usePracticeSettings,
-} from '@/api/queries';
+import type { Me } from '@/api/generated/models';
+import { currentUserOptions, demoMode, useCurrentUser } from '@/api/queries';
 import { PageHeader, usePageTitle } from '@/components/Common';
 import {
   DirtyFormGuard,
@@ -44,12 +32,11 @@ import {
   PageSkeleton,
 } from '@/components/StatusViews';
 import styles from '@/styles/App.module.css';
-import { supportedTimezones } from '@/utils';
+import { difficultyGoal, supportedTimezones } from '@/utils';
 
 export function SettingsPage() {
   usePageTitle('Settings');
   const user = useCurrentUser();
-  const practiceSettings = usePracticeSettings();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const browserTimezone = useMemo(
@@ -57,9 +44,6 @@ export function SettingsPage() {
     [],
   );
   const [timezone, setTimezone] = useState(browserTimezone);
-  const [practiceDraft, setPracticeDraft] = useState<PracticeSettings | null>(
-    null,
-  );
   const [saved, setSaved] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState('');
@@ -70,30 +54,7 @@ export function SettingsPage() {
         user.data.timezoneConfigured ? user.data.timezone : browserTimezone,
       );
   }, [browserTimezone, user.data]);
-  useEffect(() => {
-    if (practiceSettings.data)
-      setPracticeDraft((current) => current ?? practiceSettings.data);
-  }, [practiceSettings.data]);
-
-  const practiceDirty = Boolean(
-    practiceDraft &&
-    practiceSettings.data &&
-    (practiceDraft.easyMinutes !== practiceSettings.data.easyMinutes ||
-      practiceDraft.mediumMinutes !== practiceSettings.data.mediumMinutes ||
-      practiceDraft.hardMinutes !== practiceSettings.data.hardMinutes),
-  );
-  const profileDirty = Boolean(user.data && timezone !== user.data.timezone);
-  const dirty = profileDirty || practiceDirty;
-  const goalsValid = Boolean(
-    practiceDraft &&
-    [
-      practiceDraft.easyMinutes,
-      practiceDraft.mediumMinutes,
-      practiceDraft.hardMinutes,
-    ].every(
-      (minutes) => Number.isInteger(minutes) && minutes >= 1 && minutes <= 180,
-    ),
-  );
+  const dirty = Boolean(user.data && timezone !== user.data.timezone);
   const timezoneValid = useMemo(() => {
     try {
       new Intl.DateTimeFormat('en', { timeZone: timezone }).format();
@@ -112,88 +73,48 @@ export function SettingsPage() {
     if (dirty) event.preventDefault();
   });
 
-  if (user.isLoading || practiceSettings.isLoading)
-    return <PageSkeleton label="Loading settings" />;
-  if (
-    user.isError ||
-    practiceSettings.isError ||
-    !user.data ||
-    !practiceDraft
-  ) {
+  if (user.isLoading) return <PageSkeleton label="Loading settings" />;
+  if (user.isError || !user.data) {
     return (
       <div className={styles.page}>
         <ErrorState
           title="Settings unavailable"
           message="Your settings could not be loaded. No changes have been made."
-          onRetry={() =>
-            void Promise.all([user.refetch(), practiceSettings.refetch()])
-          }
+          onRetry={() => void user.refetch()}
         />
       </div>
     );
   }
 
   const saveSettings = async () => {
-    if (!dirty || !goalsValid || !timezoneValid) return;
+    if (!dirty || !timezoneValid) return;
     setSaving(true);
     setSaved(false);
     setSaveError('');
     try {
-      let updatedSettings = practiceDraft;
-      if (!demoMode) {
-        if (profileDirty) {
-          const updatedUser = await apiRequest<Me>('/me', {
-            method: 'PATCH',
-            body: JSON.stringify({
-              name: user.data.name,
-              slug: user.data.slug,
-              avatarUrl: user.data.avatarUrl,
-              timezone,
+      const updatedUser = demoMode
+        ? { ...user.data, timezone, timezoneConfigured: true }
+        : adaptCurrentUser(
+            await apiRequest<Me>('/me', {
+              method: 'PATCH',
+              body: JSON.stringify({
+                name: user.data.name,
+                slug: user.data.slug,
+                avatarUrl: user.data.avatarUrl,
+                timezone,
+              }),
             }),
-          });
-          queryClient.setQueryData(
-            currentUserOptions.queryKey,
-            adaptCurrentUser(updatedUser),
           );
-        }
-        if (practiceDirty) {
-          const mutation: PracticeSettingsMutation = {
-            easyMinutes: practiceDraft.easyMinutes,
-            mediumMinutes: practiceDraft.mediumMinutes,
-            hardMinutes: practiceDraft.hardMinutes,
-          };
-          updatedSettings = await patchPracticeSettings(mutation);
-        }
-      } else {
-        if (profileDirty)
-          queryClient.setQueryData(currentUserOptions.queryKey, {
-            ...user.data,
-            timezone,
-          });
-        if (practiceDirty)
-          updatedSettings = {
-            ...practiceDraft,
-          };
-      }
-      if (practiceDirty) {
-        queryClient.setQueryData(
-          practiceSettingsOptions.queryKey,
-          updatedSettings,
-        );
-        setPracticeDraft(updatedSettings);
-      }
-      if (!demoMode && (profileDirty || practiceDirty))
+      queryClient.setQueryData(currentUserOptions.queryKey, updatedUser);
+      if (!demoMode)
         await queryClient.invalidateQueries({
           queryKey: currentUserOptions.queryKey,
           exact: true,
         });
       setSaved(true);
     } catch (error) {
-      const profileNowSaved =
-        queryClient.getQueryData(currentUserOptions.queryKey)?.timezone ===
-        timezone;
       setSaveError(
-        `${profileNowSaved && practiceDirty ? 'Timezone saved, but practice preferences were not saved. ' : ''}${error instanceof Error ? error.message : 'Unable to save settings.'}`,
+        error instanceof Error ? error.message : 'Unable to save settings.',
       );
       if (!demoMode)
         await queryClient.invalidateQueries({
@@ -237,12 +158,12 @@ export function SettingsPage() {
       <PageHeader
         eyebrow="Account"
         title="Settings"
-        description="Control your display timezone, practice preferences and account security."
+        description="Set your display timezone, view practice goals and manage account security."
         actions={
           <button
             className={styles.button}
             type="button"
-            disabled={saving || !dirty || !goalsValid || !timezoneValid}
+            disabled={saving || !dirty || !timezoneValid}
             onClick={() => void saveSettings()}
           >
             {saving ? 'Saving…' : 'Save settings'}
@@ -309,13 +230,7 @@ export function SettingsPage() {
               Practice goals
             </h2>
           </div>
-          <PracticePreferencesPanel
-            value={practiceDraft}
-            onChange={(next) => {
-              setPracticeDraft(next);
-              setSaved(false);
-            }}
-          />
+          <PracticePreferencesPanel />
         </section>
       </div>
       <section className={styles.section} aria-labelledby="security-title">
@@ -448,125 +363,20 @@ export function SettingsPage() {
   );
 }
 
-export function PracticePreferencesPanel({
-  value,
-  onChange,
-}: {
-  value: PracticeSettings;
-  onChange: (settings: PracticeSettings) => void;
-}) {
-  const updateMinutes = (
-    field: 'easyMinutes' | 'mediumMinutes' | 'hardMinutes',
-    minutes: number,
-  ) => onChange({ ...value, [field]: minutes });
+export function PracticePreferencesPanel() {
   return (
     <div className={styles.panel}>
-      <SettingSwitch
-        label="Use personal time goals"
-        description={
-          value.goalsEnabled
-            ? 'Enabled by your mentor or programme administrator.'
-            : 'An assigned mentor or programme administrator must enable personal goals.'
-        }
-        checked={value.goalsEnabled}
-        disabled
-      />
-      <div className={`${styles.fieldGrid} ${styles.fieldGridSpaced}`}>
-        {(
-          [
-            ['Easy', 'easyMinutes'],
-            ['Medium', 'mediumMinutes'],
-            ['Hard', 'hardMinutes'],
-          ] as const
-        ).map(([difficulty, field]) => {
-          const invalid =
-            !Number.isInteger(value[field]) ||
-            value[field] < 1 ||
-            value[field] > 180;
-          return (
-            <div
-              className={`${styles.field} ${
-                !value.goalsEnabled ? styles.fieldDisabled : ''
-              }`}
-              key={difficulty}
-            >
-              <label htmlFor={`goal-${difficulty}`}>{difficulty} minutes</label>
-              <input
-                id={`goal-${difficulty}`}
-                className={styles.input}
-                type="number"
-                min="1"
-                max="180"
-                value={Number.isNaN(value[field]) ? '' : value[field]}
-                disabled={!value.goalsEnabled}
-                aria-invalid={invalid}
-                aria-describedby={
-                  invalid ? `goal-${difficulty}-error` : undefined
-                }
-                onChange={(event) =>
-                  updateMinutes(field, event.currentTarget.valueAsNumber)
-                }
-              />
-              {invalid ? (
-                <p
-                  id={`goal-${difficulty}-error`}
-                  className={styles.fieldError}
-                >
-                  Enter 1 to 180 minutes.
-                </p>
-              ) : null}
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-
-function SettingSwitch({
-  label,
-  description,
-  checked,
-  onCheckedChange,
-  disabled = false,
-}: {
-  label: string;
-  description: string;
-  checked: boolean;
-  onCheckedChange?: (checked: boolean) => void;
-  disabled?: boolean;
-}) {
-  const descriptionId = `setting-${label
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')}-description`;
-  return (
-    <div
-      className={`${styles.switchRow} ${
-        disabled && !checked ? styles.switchRowDisabled : ''
-      }`}
-    >
-      <span>
-        <strong>{label}</strong>
-        <span
-          id={descriptionId}
-          className={`${styles.helper} ${styles.helperBlock}`}
-        >
-          {description}
-        </span>
-      </span>
-      <Switch.Root
-        className={styles.switchRoot}
-        checked={checked}
-        onCheckedChange={onCheckedChange}
-        disabled={disabled}
-        aria-label={label}
-        aria-describedby={descriptionId}
-      >
-        <span className={styles.switchState} aria-hidden="true">
-          {checked ? 'On' : 'Off'}
-        </span>
-        <Switch.Thumb className={styles.switchThumb} />
-      </Switch.Root>
+      <p className={styles.helper}>
+        Time goals are fixed for everyone and apply automatically.
+      </p>
+      <dl className={styles.fieldGrid}>
+        {(['Easy', 'Medium', 'Hard'] as const).map((difficulty) => (
+          <div key={difficulty}>
+            <dt>{difficulty}</dt>
+            <dd>{difficultyGoal(difficulty)} minutes</dd>
+          </div>
+        ))}
+      </dl>
     </div>
   );
 }

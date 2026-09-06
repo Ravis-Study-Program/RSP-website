@@ -30,10 +30,6 @@ type currentUserResponse struct {
 func (a *API) loadCurrentUserSeasonRoles(ctx context.Context, enrollments []authz.Enrollment) ([]currentUserSeasonRole, error) {
 	roles := make([]currentUserSeasonRole, 0, len(enrollments))
 	for _, enrollment := range enrollments {
-		if enrollment.State != authz.Active && enrollment.State != authz.Completed {
-			continue
-		}
-
 		season, err := a.db.GetSeason(ctx, enrollment.SeasonID)
 		if err != nil {
 			return nil, err

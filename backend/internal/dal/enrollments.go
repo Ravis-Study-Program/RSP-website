@@ -99,7 +99,7 @@ func (p *Store) ListEnrollmentsForUser(ctx context.Context, userID string) ([]pr
 }
 
 func (p *Store) listEnrollments(ctx context.Context, predicate, value string) ([]programme.EnrollmentRecord, error) {
-	rows, err := p.pool.Query(ctx, `SELECT `+enrollmentColumns+` FROM app.enrollments e JOIN app.seasons s ON s.id=e.season_id WHERE `+predicate+` AND e.deleted_at IS NULL ORDER BY e.id`, value)
+	rows, err := p.pool.Query(ctx, `SELECT `+enrollmentColumns+` FROM app.enrollments e JOIN app.seasons s ON s.id=e.season_id WHERE `+predicate+` AND (e.deleted_at IS NULL OR e.state IN ('kicked','withdrawn')) ORDER BY e.id`, value)
 	if err != nil {
 		return nil, err
 	}
@@ -164,7 +164,7 @@ func (p *Store) UpdateEnrollmentRoleAndLevel(ctx context.Context, input UpdateEn
 	}
 
 	defer tx.Rollback(context.Background())
-	v, err := scanEnrollment(tx.QueryRow(ctx, `UPDATE app.enrollments e SET role=$3::app.season_role,student_level=$4,assignment_state=CASE WHEN $3::app.season_role='coordinator' THEN 'pending_mfa'::app.assignment_state ELSE 'active'::app.assignment_state END,activated_at=CASE WHEN $3::app.season_role='coordinator' THEN NULL ELSE $5::timestamptz END FROM app.seasons s WHERE e.id=$1 AND e.season_id=$2 AND e.state='active' AND e.deleted_at IS NULL AND s.id=e.season_id RETURNING `+enrollmentColumns, input.EnrollmentID, input.SeasonID, input.Role, input.StudentLevel, input.ChangedAt.UTC()))
+	v, err := scanEnrollment(tx.QueryRow(ctx, `UPDATE app.enrollments e SET role=$3::app.season_role,student_level=$4,state_changed_at=CASE WHEN role<>$3::app.season_role THEN $5::timestamptz ELSE state_changed_at END,assignment_state=CASE WHEN $3::app.season_role='coordinator' THEN 'pending_mfa'::app.assignment_state ELSE 'active'::app.assignment_state END,activated_at=CASE WHEN $3::app.season_role='coordinator' THEN NULL ELSE $5::timestamptz END FROM app.seasons s WHERE e.id=$1 AND e.season_id=$2 AND e.state='active' AND e.deleted_at IS NULL AND s.id=e.season_id RETURNING `+enrollmentColumns, input.EnrollmentID, input.SeasonID, input.Role, input.StudentLevel, input.ChangedAt.UTC()))
 	if err != nil {
 		return v, err
 	}
@@ -207,7 +207,7 @@ func (p *Store) PromoteEnrollment(ctx context.Context, input PromoteEnrollmentIn
 	if input.Role == "student" {
 		studentLevel = "novice"
 	}
-	if err := tx.QueryRow(ctx, `UPDATE app.enrollments SET role=$2::app.season_role,student_level=$3,assignment_state=CASE WHEN $2::app.season_role='coordinator' THEN 'pending_mfa'::app.assignment_state ELSE 'active'::app.assignment_state END,activated_at=CASE WHEN $2::app.season_role='coordinator' THEN NULL ELSE $4::timestamptz END WHERE id=$1 AND state='active' RETURNING assignment_state::text`, input.EnrollmentID, input.Role, studentLevel, input.ChangedAt.UTC()).Scan(&v.AssignmentState); err != nil {
+	if err := tx.QueryRow(ctx, `UPDATE app.enrollments SET role=$2::app.season_role,student_level=$3,state_changed_at=$4,assignment_state=CASE WHEN $2::app.season_role='coordinator' THEN 'pending_mfa'::app.assignment_state ELSE 'active'::app.assignment_state END,activated_at=CASE WHEN $2::app.season_role='coordinator' THEN NULL ELSE $4::timestamptz END WHERE id=$1 AND state='active' RETURNING assignment_state::text`, input.EnrollmentID, input.Role, studentLevel, input.ChangedAt.UTC()).Scan(&v.AssignmentState); err != nil {
 		return v, noRows(err)
 	}
 

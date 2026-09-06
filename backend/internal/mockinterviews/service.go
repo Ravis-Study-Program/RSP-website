@@ -72,7 +72,6 @@ type Service struct {
 
 type CreateInput struct {
 	Interviewee     accounts.MemberStatus
-	SeasonID        *string
 	OccurredAt      time.Time
 	DurationMinutes int
 	Notes           string
@@ -92,7 +91,6 @@ func (s *Service) Create(actorID string, in CreateInput, now time.Time) (Intervi
 		ID:              "mock-" + actorID + "-" + now.UTC().Format("20060102150405.000000000"),
 		InterviewerID:   actorID,
 		IntervieweeID:   in.Interviewee.UserID,
-		SeasonID:        in.SeasonID,
 		OccurredAt:      in.OccurredAt.UTC(),
 		DurationMinutes: in.DurationMinutes,
 		Notes:           s.clean(in.Notes),
@@ -118,7 +116,10 @@ func (s Service) Update(m Interview, actorID string, in UpdateInput) (Interview,
 		return Interview{}, ErrForbidden
 	}
 	candidate := m
-	candidate.OccurredAt = in.OccurredAt.UTC()
+	if !in.OccurredAt.Equal(m.OccurredAt) {
+		return Interview{}, ErrInvalid
+	}
+	candidate.OccurredAt = m.OccurredAt
 	candidate.DurationMinutes = in.DurationMinutes
 	candidate.Notes = s.clean(in.Notes)
 	candidate.Rounds = s.cleanRounds(in.Rounds)
@@ -173,7 +174,6 @@ func (s Service) ReviewRound(m Interview, input ReviewRoundInput) (Interview, er
 type CorrectIdentitiesInput struct {
 	InterviewerID string
 	IntervieweeID string
-	SeasonID      *string
 	Reason        string
 }
 
@@ -185,7 +185,7 @@ func (s Service) CorrectIdentities(m Interview, input CorrectIdentitiesInput) (I
 	updated := m
 	updated.InterviewerID = input.InterviewerID
 	updated.IntervieweeID = input.IntervieweeID
-	updated.SeasonID = input.SeasonID
+	updated.SeasonID = nil // Recalculated from the corrected interviewee on persistence.
 	return updated, nil
 }
 

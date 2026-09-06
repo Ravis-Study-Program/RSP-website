@@ -126,7 +126,7 @@ func (p *Store) UpdateSeasonDefinition(ctx context.Context, input UpdateSeasonDe
 	v.EndAt = input.EndAt
 
 	var invalidDates bool
-	if err := tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM app.season_weeks WHERE season_id=$1 AND deleted_at IS NULL AND (start_at<$2 OR end_at>$3)) OR EXISTS(SELECT 1 FROM app.mock_interviews WHERE season_id=$1 AND deleted_at IS NULL AND (scheduled_at<$2 OR scheduled_at>$3))`, input.SeasonID, v.StartAt, v.EndAt).Scan(&invalidDates); err != nil {
+	if err := tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM app.season_weeks WHERE season_id=$1 AND deleted_at IS NULL AND (start_at<$2 OR end_at>$3))`, input.SeasonID, v.StartAt, v.EndAt).Scan(&invalidDates); err != nil {
 		return v, err
 	}
 	if invalidDates {
@@ -169,7 +169,7 @@ func (p *Store) UpdateSeasonResources(ctx context.Context, input UpdateSeasonRes
 	v.ResourcesURL = input.ResourcesURL
 
 	var invalidDates bool
-	if err := tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM app.season_weeks WHERE season_id=$1 AND deleted_at IS NULL AND (start_at<$2 OR end_at>$3)) OR EXISTS(SELECT 1 FROM app.mock_interviews WHERE season_id=$1 AND deleted_at IS NULL AND (scheduled_at<$2 OR scheduled_at>$3))`, input.SeasonID, v.StartAt, v.EndAt).Scan(&invalidDates); err != nil {
+	if err := tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM app.season_weeks WHERE season_id=$1 AND deleted_at IS NULL AND (start_at<$2 OR end_at>$3))`, input.SeasonID, v.StartAt, v.EndAt).Scan(&invalidDates); err != nil {
 		return v, err
 	}
 	if invalidDates {

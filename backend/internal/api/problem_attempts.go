@@ -12,12 +12,11 @@ import (
 	"github.com/magedmg/RSP-website/backend/internal/platform/id"
 	"github.com/magedmg/RSP-website/backend/internal/platform/sanitize"
 	"github.com/magedmg/RSP-website/backend/internal/practice"
-	"github.com/magedmg/RSP-website/backend/internal/programme"
 )
 
 func (a *API) listProblemAttempts(w http.ResponseWriter, r *http.Request) {
 	actor := actorFrom(r.Context())
-	if !actor.CanAccessProgramme() && !actor.IsDirectorOrSystemAdmin() {
+	if !actor.CanRecordActivity() && !actor.IsDirectorOrSystemAdmin() {
 		writeErrorResponse(w, http.StatusForbidden, "No season access yet.")
 		return
 	}
@@ -41,6 +40,11 @@ func (a *API) listProblemAttempts(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	seasonID, year, filterErr := activityFilters(r, actor)
+	if filterErr != nil {
+		writeErrorResponse(w, http.StatusBadRequest, filterErr.Error())
+		return
+	}
 	outcome, difficulty := r.URL.Query().Get("outcome"), r.URL.Query().Get("difficulty")
 	if _, err := parseSort(r.URL.Query().Get("sort"), "id:asc", "id:asc"); err != nil {
 		writeErrorResponse(w, http.StatusBadRequest, "sort must be id:asc")
@@ -56,7 +60,7 @@ func (a *API) listProblemAttempts(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	binding := "attempts|id:asc|user=" + targetID + "|outcome=" + outcome + "|difficulty=" + difficulty
+	binding := "attempts|id:asc|user=" + targetID + "|outcome=" + outcome + "|difficulty=" + difficulty + fmt.Sprintf("|season=%s|year=%d", seasonID, year)
 	limit, after, err := parsePagination(r.URL.Query().Get("limit"), r.URL.Query().Get("cursor"), binding, a.cursorSecret)
 	if err != nil {
 		writeErrorResponse(w, http.StatusBadRequest, cursor.ErrInvalid.Error())
@@ -64,6 +68,7 @@ func (a *API) listProblemAttempts(w http.ResponseWriter, r *http.Request) {
 	}
 
 	items, more, total, err := a.db.ListAttempts(r.Context(), dal.AttemptQuery{
+		SeasonID: seasonID, Year: year,
 		UserID:     targetID,
 		Boundary:   after,
 		Limit:      limit,
@@ -83,51 +88,17 @@ func (a *API) listProblemAttempts(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	if targetID != actor.UserID && !actor.IsDirectorOrSystemAdmin() {
-		canPrivate := actor.CanViewMemberPrivateData(targetID, authz.MemberRelationship{})
-		var targetEnrollments []programme.EnrollmentRecord
-		targetLoaded := false
-		for _, enrollment := range actor.Enrollments {
-			if canPrivate {
-				break
-			}
-			if enrollment.State != authz.Active && enrollment.State != authz.Completed {
-				continue
-			}
-			relationship := authz.MemberRelationship{SeasonID: enrollment.SeasonID}
-			if enrollment.Role == authz.Coordinator {
-				if !targetLoaded {
-					var err error
-					targetEnrollments, err = a.db.ListEnrollmentsForUser(r.Context(), targetID)
-					if err != nil {
-						a.writeStoreErrorResponse(w, err)
-						return
-					}
-
-					targetLoaded = true
-				}
-				for _, target := range targetEnrollments {
-					if target.SeasonID == enrollment.SeasonID && (target.State == "active" || target.State == "completed") {
-						relationship.TargetEnrolled = true
-						break
-					}
-				}
-			}
-			if enrollment.Role == authz.Mentor {
-				assigned, err := a.db.IsMentorAssigned(r.Context(), enrollment.SeasonID, actor.UserID, targetID)
+		for i := range items {
+			canPrivate := false
+			if items[i].SeasonID != nil {
+				assigned, err := a.db.IsMentorAssignedAt(r.Context(), *items[i].SeasonID, actor.UserID, targetID, items[i].AttemptedAt)
 				if err != nil {
 					a.writeStoreErrorResponse(w, err)
 					return
 				}
-				relationship.AssignedMentor = assigned
+				canPrivate = actor.CanViewMemberPrivateData(targetID, authz.MemberRelationship{SeasonID: *items[i].SeasonID, TargetEnrolled: true, AssignedMentor: assigned})
 			}
-			if actor.CanViewMemberPrivateData(targetID, relationship) {
-				canPrivate = true
-				break
-			}
-		}
-
-		if !canPrivate {
-			for i := range items {
+			if !canPrivate {
 				items[i].Notes = ""
 				items[i].Confidence = nil
 				items[i].SeasonID = nil
@@ -158,7 +129,6 @@ type attemptInput struct {
 	Confidence                *int
 	Minutes                   int
 	AttemptedAt               time.Time
-	SeasonID, WeekID          *string
 }
 
 func validateAttempt(request attemptInput) error {
@@ -170,9 +140,6 @@ func validateAttempt(request attemptInput) error {
 	}
 	if request.AttemptedAt.IsZero() {
 		return fmt.Errorf("attemptedAt is required")
-	}
-	if request.WeekID != nil && request.SeasonID == nil {
-		return fmt.Errorf("seasonId is required when weekId is provided")
 	}
 	switch request.Outcome {
 	case string(practice.Independent), string(practice.WithHints), string(practice.NotSolved):
@@ -187,7 +154,7 @@ func validateAttempt(request attemptInput) error {
 
 func (a *API) createProblemAttempt(w http.ResponseWriter, r *http.Request) {
 	actor := actorFrom(r.Context())
-	if !actor.CanAccessProgramme() && !actor.IsDirectorOrSystemAdmin() {
+	if !actor.CanRecordActivity() && !actor.IsDirectorOrSystemAdmin() {
 		writeErrorResponse(w, http.StatusForbidden, "No season access yet.")
 		return
 	}
@@ -210,8 +177,6 @@ func (a *API) createProblemAttempt(w http.ResponseWriter, r *http.Request) {
 		Minutes:     request.Minutes,
 		Notes:       sanitize.New().String(request.Notes),
 		AttemptedAt: request.AttemptedAt.UTC(),
-		SeasonID:    request.SeasonID,
-		WeekID:      request.WeekID,
 	}
 	created, err := a.db.CreateAttempt(r.Context(), attempt)
 	if err != nil {
@@ -224,7 +189,7 @@ func (a *API) createProblemAttempt(w http.ResponseWriter, r *http.Request) {
 
 func (a *API) updateProblemAttempt(w http.ResponseWriter, r *http.Request) {
 	actor := actorFrom(r.Context())
-	if !actor.CanAccessProgramme() && !actor.IsDirectorOrSystemAdmin() {
+	if !actor.CanRecordActivity() && !actor.IsDirectorOrSystemAdmin() {
 		writeErrorResponse(w, http.StatusForbidden, "No season access yet.")
 		return
 	}
@@ -247,8 +212,6 @@ func (a *API) updateProblemAttempt(w http.ResponseWriter, r *http.Request) {
 		Minutes:     request.Minutes,
 		Notes:       sanitize.New().String(request.Notes),
 		AttemptedAt: request.AttemptedAt.UTC(),
-		SeasonID:    request.SeasonID,
-		WeekID:      request.WeekID,
 		ChangedAt:   time.Now().UTC(),
 	})
 	if err != nil {
@@ -261,7 +224,7 @@ func (a *API) updateProblemAttempt(w http.ResponseWriter, r *http.Request) {
 
 func (a *API) deleteProblemAttempt(w http.ResponseWriter, r *http.Request) {
 	actor := actorFrom(r.Context())
-	if !actor.CanAccessProgramme() && !actor.IsDirectorOrSystemAdmin() {
+	if !actor.CanRecordActivity() && !actor.IsDirectorOrSystemAdmin() {
 		writeErrorResponse(w, http.StatusForbidden, "No season access yet.")
 		return
 	}

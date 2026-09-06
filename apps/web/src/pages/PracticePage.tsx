@@ -1,10 +1,12 @@
+import { adelaideYear } from '@/activityDates';
+import { ActivityYearFilter } from '@/components/ActivityYearFilter';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { IconEdit, IconPlus } from '@tabler/icons-react';
 import type { ColumnDef } from '@tanstack/react-table';
 import type { Resolver } from 'react-hook-form';
 import { useMemo, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
-import { useBeforeUnload } from 'react-router-dom';
+import { useBeforeUnload, useParams } from 'react-router-dom';
 import { z } from 'zod';
 
 import { adaptAttempt, displayDifficulty, indexProblems } from '@/api/adapters';
@@ -14,7 +16,12 @@ import type {
   AttemptMutation,
   LeetcodeProblem,
 } from '@/api/generated/models';
-import { demoMode, useAttempts, useLeetcodeProblems } from '@/api/queries';
+import {
+  demoMode,
+  useAttempts,
+  useLeetcodeProblems,
+  useSeasons,
+} from '@/api/queries';
 import { ActivityChart } from '@/components/ActivityChart';
 import { AppDatePicker } from '@/components/AppDatePicker';
 import { PageHeader, usePageTitle } from '@/components/Common';
@@ -146,7 +153,11 @@ const baseColumns: ColumnDef<Attempt, any>[] = [
 
 export function PracticePage() {
   usePageTitle('Practice');
-  const attemptsQuery = useAttempts();
+  const { slug } = useParams();
+  const seasons = useSeasons();
+  const season = seasons.data?.items.find((item) => item.slug === slug);
+  const [year, setYear] = useState<number>();
+  const attemptsQuery = useAttempts(!slug || Boolean(season), season?.id, year);
   const problemsQuery = useLeetcodeProblems();
   const [localAttempts, setLocalAttempts] = useState<Attempt[]>([]);
   const [updatedAttempts, setUpdatedAttempts] = useState<
@@ -156,10 +167,39 @@ export function PracticePage() {
   const [operationMessage, setOperationMessage] = useState('');
   const data = useMemo(
     () =>
-      [...localAttempts, ...(attemptsQuery.data?.items ?? [])]
+      [
+        ...new Map(
+          [
+            ...(attemptsQuery.data?.items ?? []),
+            ...localAttempts,
+            ...Object.values(updatedAttempts),
+          ].map((attempt) => [attempt.id, attempt]),
+        ).values(),
+      ]
+        .sort(
+          (left, right) =>
+            new Date(right.attemptedAt).getTime() -
+            new Date(left.attemptedAt).getTime(),
+        )
         .filter((attempt) => !removedIds.includes(attempt.id))
-        .map((attempt) => updatedAttempts[attempt.id] ?? attempt),
-    [localAttempts, attemptsQuery.data, removedIds, updatedAttempts],
+        .map((attempt) => updatedAttempts[attempt.id] ?? attempt)
+        .filter(
+          (attempt) =>
+            (!year || adelaideYear(attempt.attemptedAt) === year) &&
+            (!season ||
+              (demoMode
+                ? attempt.attemptedAt >= season.startsAt &&
+                  attempt.attemptedAt <= season.endsAt
+                : attempt.seasonId === season.id)),
+        ),
+    [
+      localAttempts,
+      attemptsQuery.data,
+      removedIds,
+      updatedAttempts,
+      year,
+      season,
+    ],
   );
   const saveAttempt = (attempt: Attempt) => {
     if (attempt.id.startsWith('attempt_local_'))
@@ -273,6 +313,7 @@ export function PracticePage() {
           </h2>
           <span className={styles.muted}>{data.length} recorded</span>
         </div>
+        <ActivityYearFilter year={year} onChange={setYear} />
         <DataTable
           ariaLabel="Problem attempts"
           data={data}

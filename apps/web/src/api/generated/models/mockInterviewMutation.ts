@@ -7,6 +7,9 @@
  */
 import type { MockRoundMutation } from './mockRoundMutation';
 
+/**
+ * Edit feedback and rounds while preserving the original occurredAt timestamp. Participants can edit after leaving or after season closure.
+ */
 export interface MockInterviewMutation {
   occurredAt: string;
   /** @minimum 1 */

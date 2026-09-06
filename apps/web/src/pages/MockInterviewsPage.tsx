@@ -1,3 +1,5 @@
+import { programmeTimezone, adelaideYear } from '@/activityDates';
+import { ActivityYearFilter } from '@/components/ActivityYearFilter';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Tabs } from '@base-ui/react/tabs';
 import {
@@ -11,8 +13,8 @@ import {
 import type { ColumnDef, Row } from '@tanstack/react-table';
 import type { Resolver } from 'react-hook-form';
 import { useMemo, useState } from 'react';
-import { Controller, useForm } from 'react-hook-form';
-import { useBeforeUnload } from 'react-router-dom';
+import { useForm } from 'react-hook-form';
+import { useBeforeUnload, useParams } from 'react-router-dom';
 import { z } from 'zod';
 
 import { adaptCurrentPerson, adaptMockInterview } from '@/api/adapters';
@@ -33,7 +35,6 @@ import {
   useMockParticipants,
   useSeasons,
 } from '@/api/queries';
-import { AppDatePicker } from '@/components/AppDatePicker';
 import { PageHeader, PersonIdentity, usePageTitle } from '@/components/Common';
 import { DataTable } from '@/components/DataTable';
 import { FormDialog, NamedConfirmation } from '@/components/Dialogs';
@@ -51,7 +52,7 @@ import {
 
 const mockSchema = z.object({
   intervieweeId: z.string().min(1, 'Choose an interviewee.'),
-  occurredAt: z.string().min(1, 'Choose a date.'),
+  occurredAt: z.string().min(1, 'Choose a time.'),
   durationMinutes: z.number().int().min(15).max(240),
 });
 type MockFormValues = z.infer<typeof mockSchema>;
@@ -63,6 +64,19 @@ const leetcodeScoreKeys = [
   'coding',
   'testing',
 ] as const;
+
+function demoMockSeason(person: Person, occurredAt: string, seasons: Season[]) {
+  if (!(person.seasonRole === 'student' || person.roles.includes('student')))
+    return null;
+  return (
+    seasons.find(
+      (season) =>
+        season.name === person.season &&
+        new Date(occurredAt) >= new Date(season.startsAt) &&
+        new Date(occurredAt) <= new Date(season.endsAt),
+    )?.name ?? null
+  );
+}
 
 function scoreLabel(value: string) {
   return value
@@ -80,7 +94,7 @@ function scoresForType(type: MockRound['apiType']) {
 function newRound(type: MockRound['apiType'] = 'custom'): MockRound {
   const scores = scoresForType(type);
   return {
-    id: `round_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+    id: crypto.randomUUID(),
     type: type === 'behavioural' ? 'behavioural' : 'technical',
     apiType: type,
     title:
@@ -375,20 +389,44 @@ type ViewMode = 'received' | 'given' | 'all';
 
 export function MockInterviewsPage() {
   usePageTitle('Mock interviews');
-  const query = useMockInterviews();
+  const { slug } = useParams();
+  const [year, setYear] = useState<number>();
   const user = useCurrentUser();
   const peopleQuery = useMockParticipants();
   const seasonsQuery = useSeasons();
+  const season = seasonsQuery.data?.items.find((item) => item.slug === slug);
+  const query = useMockInterviews(!slug || Boolean(season), season?.id, year);
   const [mode, setMode] = useState<ViewMode>('received');
   const [created, setCreated] = useState<MockInterview[]>([]);
   const [updated, setUpdated] = useState<Record<string, MockInterview>>({});
   const [removedIds, setRemovedIds] = useState<string[]>([]);
   const all = useMemo(
     () =>
-      [...created, ...(query.data?.items ?? [])]
+      [
+        ...new Map(
+          [
+            ...(query.data?.items ?? []),
+            ...created,
+            ...Object.values(updated),
+          ].map((mock) => [mock.id, mock]),
+        ).values(),
+      ]
+        .sort(
+          (left, right) =>
+            new Date(right.occurredAt).getTime() -
+            new Date(left.occurredAt).getTime(),
+        )
         .filter((mock) => !removedIds.includes(mock.id))
-        .map((mock) => updated[mock.id] ?? mock),
-    [created, query.data, removedIds, updated],
+        .map((mock) => updated[mock.id] ?? mock)
+        .filter(
+          (mock) =>
+            (!year || adelaideYear(mock.occurredAt) === year) &&
+            (!season ||
+              (demoMode
+                ? mock.season === season.name
+                : mock.seasonId === season.id)),
+        ),
+    [created, query.data, removedIds, updated, year, season],
   );
   const filtered = useMemo(() => {
     if (mode === 'received')
@@ -422,15 +460,11 @@ export function MockInterviewsPage() {
             people={availablePeople}
             interviewer={interviewer}
             seasons={seasonsQuery.data?.items ?? []}
-            seasonId={
-              user.data?.seasonRoles.find(
-                (membership) => membership.state === 'active',
-              )?.seasonId
-            }
             onCreated={(mock) => setCreated((items) => [mock, ...items])}
           />
         }
       />
+      <ActivityYearFilter year={year} onChange={setYear} />
       <Tabs.Root
         value={mode}
         onValueChange={(value) => setMode(value as ViewMode)}
@@ -677,9 +711,6 @@ function EditMockDialog({
 }) {
   const problems = useLeetcodeProblems();
   const [open, setOpen] = useState(false);
-  const [occurredAt, setOccurredAt] = useState(
-    calendarDateKey(mock.occurredAt),
-  );
   const [durationMinutes, setDurationMinutes] = useState(mock.durationMinutes);
   const [notes, setNotes] = useState(mock.notes);
   const [rounds, setRounds] = useState(() =>
@@ -688,7 +719,6 @@ function EditMockDialog({
   const [pending, setPending] = useState(false);
   const [error, setError] = useState('');
   const resetDraft = () => {
-    setOccurredAt(calendarDateKey(mock.occurredAt));
     setDurationMinutes(mock.durationMinutes);
     setNotes(mock.notes);
     setRounds(
@@ -697,7 +727,6 @@ function EditMockDialog({
     setError('');
   };
   const dirty =
-    occurredAt !== calendarDateKey(mock.occurredAt) ||
     durationMinutes !== mock.durationMinutes ||
     notes !== mock.notes ||
     JSON.stringify(rounds) !== JSON.stringify(mock.rounds);
@@ -720,9 +749,8 @@ function EditMockDialog({
     try {
       let changed: MockInterview;
       if (!demoMode) {
-        const originalTime = formatDateTimeInput(mock.occurredAt).slice(11);
         const body: MockInterviewMutation = {
-          occurredAt: zonedDateTimeToUtc(`${occurredAt}T${originalTime}`),
+          occurredAt: mock.occurredAt,
           durationMinutes,
           notes,
           rounds: rounds.map((round) => ({
@@ -745,9 +773,7 @@ function EditMockDialog({
       } else {
         changed = {
           ...mock,
-          occurredAt: zonedDateTimeToUtc(
-            `${occurredAt}T${formatDateTimeInput(mock.occurredAt).slice(11)}`,
-          ),
+          occurredAt: mock.occurredAt,
           durationMinutes,
           notes,
           rounds,
@@ -786,11 +812,7 @@ function EditMockDialog({
           </p>
         ) : null}
         <div className={styles.fieldGrid}>
-          <AppDatePicker
-            label="Date"
-            value={occurredAt}
-            onChange={setOccurredAt}
-          />
+          <p>Recorded: {formatDateTime(mock.occurredAt)}</p>
           <div className={styles.field}>
             <label htmlFor={`edit-duration-${mock.id}`}>
               Duration (minutes)
@@ -874,7 +896,6 @@ function EditMockDialog({
             disabled={
               pending ||
               !dirty ||
-              !occurredAt ||
               durationMinutes < 1 ||
               rounds.some(
                 (round) => round.apiType === 'leetcode' && !round.problemId,
@@ -1041,19 +1062,15 @@ function IdentityCorrectionDialog({
       ]),
     ).values(),
   ];
-  const initialSeasonId =
-    seasons.find((season) => season.name === mock.season)?.id ?? '';
   const [open, setOpen] = useState(false);
   const [interviewerId, setInterviewerId] = useState(mock.interviewer.id);
   const [intervieweeId, setIntervieweeId] = useState(mock.interviewee.id);
-  const [seasonId, setSeasonId] = useState(initialSeasonId);
   const [reason, setReason] = useState('');
   const [pending, setPending] = useState(false);
   const [error, setError] = useState('');
   const dirty =
     interviewerId !== mock.interviewer.id ||
     intervieweeId !== mock.interviewee.id ||
-    seasonId !== initialSeasonId ||
     reason.length > 0;
   useBeforeUnload((event) => {
     if (dirty) event.preventDefault();
@@ -1061,7 +1078,6 @@ function IdentityCorrectionDialog({
   const resetDraft = () => {
     setInterviewerId(mock.interviewer.id);
     setIntervieweeId(mock.interviewee.id);
-    setSeasonId(initialSeasonId);
     setReason('');
     setError('');
   };
@@ -1089,7 +1105,6 @@ function IdentityCorrectionDialog({
         const body: MockIdentityCorrection = {
           interviewerId,
           intervieweeId,
-          seasonId: seasonId || null,
           reason: reason.trim(),
         };
         const result = await apiRequest<MockInterviewResult>(
@@ -1116,8 +1131,12 @@ function IdentityCorrectionDialog({
           interviewee:
             candidates.find((person) => person.id === intervieweeId) ??
             mock.interviewee,
-          season:
-            seasons.find((season) => season.id === seasonId)?.name ?? null,
+          season: demoMockSeason(
+            candidates.find((person) => person.id === intervieweeId) ??
+              mock.interviewee,
+            mock.occurredAt,
+            seasons,
+          ),
         });
       }
       setOpen(false);
@@ -1186,22 +1205,6 @@ function IdentityCorrectionDialog({
               ))}
             </select>
           </div>
-          <div className={styles.field}>
-            <label htmlFor={`correct-season-${mock.id}`}>Season</label>
-            <select
-              id={`correct-season-${mock.id}`}
-              className={styles.select}
-              value={seasonId}
-              onChange={(event) => setSeasonId(event.target.value)}
-            >
-              <option value="">No season</option>
-              {seasons.map((season) => (
-                <option value={season.id} key={season.id}>
-                  {season.name}
-                </option>
-              ))}
-            </select>
-          </div>
         </div>
         <div className={styles.field}>
           <label htmlFor={`correction-reason-${mock.id}`}>Audited reason</label>
@@ -1239,23 +1242,23 @@ function NewMockDialog({
   people,
   interviewer,
   seasons,
-  seasonId,
   onCreated,
 }: {
   people: Person[];
   interviewer?: Person;
   seasons: Season[];
-  seasonId?: string;
   onCreated: (mock: MockInterview) => void;
 }) {
   const problems = useLeetcodeProblems();
   const [open, setOpen] = useState(false);
+  const [recordingDay, setRecordingDay] = useState(() =>
+    calendarDateKey(new Date(), programmeTimezone),
+  );
   const [rounds, setRounds] = useState<MockRound[]>(() => [newRound('custom')]);
   const [roundError, setRoundError] = useState('');
   const [roundsDirty, setRoundsDirty] = useState(false);
   const {
     register,
-    control,
     handleSubmit,
     reset,
     formState: { errors, isDirty, isSubmitting },
@@ -1263,7 +1266,7 @@ function NewMockDialog({
     resolver: zodResolver(mockSchema as never) as Resolver<MockFormValues>,
     defaultValues: {
       intervieweeId: '',
-      occurredAt: calendarDateKey(new Date()),
+      occurredAt: formatDateTimeInput(new Date(), programmeTimezone).slice(11),
       durationMinutes: 60,
     },
   });
@@ -1300,18 +1303,29 @@ function NewMockDialog({
       id: `mock_local_${Date.now()}`,
       interviewee,
       interviewer,
-      season: seasons.find((season) => season.id === seasonId)?.name ?? null,
-      occurredAt: zonedDateTimeToUtc(`${values.occurredAt}T12:00`),
+      season: null,
+      occurredAt: zonedDateTimeToUtc(
+        `${recordingDay}T${values.occurredAt}`,
+        programmeTimezone,
+      ),
       durationMinutes: values.durationMinutes,
       notes: '',
       rounds,
       reviewStatus: 'pending',
     };
+    if (
+      recordingDay !== calendarDateKey(new Date(), programmeTimezone) ||
+      new Date(mock.occurredAt).getTime() > Date.now()
+    ) {
+      setRoundError(
+        'Choose a time today in Adelaide. Future times are not allowed. Reopen the form if the day has changed.',
+      );
+      return;
+    }
     try {
       if (!demoMode) {
         const request: MockInterviewCreate = {
           interviewee: { userId: values.intervieweeId },
-          ...(seasonId ? { seasonId } : {}),
           occurredAt: mock.occurredAt,
           durationMinutes: values.durationMinutes,
           rounds: rounds.map((round) => ({
@@ -1342,6 +1356,7 @@ function NewMockDialog({
           }),
         );
       } else {
+        mock.season = demoMockSeason(interviewee, mock.occurredAt, seasons);
         onCreated(mock);
       }
     } catch (requestError) {
@@ -1364,8 +1379,15 @@ function NewMockDialog({
       !window.confirm('Discard your unsaved interview?')
     )
       return;
-    if (!next) {
-      reset();
+    {
+      setRecordingDay(calendarDateKey(new Date(), programmeTimezone));
+      reset({
+        intervieweeId: '',
+        occurredAt: formatDateTimeInput(new Date(), programmeTimezone).slice(
+          11,
+        ),
+        durationMinutes: 60,
+      });
       setRounds([newRound('custom')]);
       setRoundsDirty(false);
       setRoundError('');
@@ -1424,18 +1446,22 @@ function NewMockDialog({
           ) : null}
         </div>
         <div className={styles.fieldGrid}>
-          <Controller
-            control={control}
-            name="occurredAt"
-            render={({ field }) => (
-              <AppDatePicker
-                label="Interview date"
-                value={field.value}
-                onChange={field.onChange}
-                error={errors.occurredAt?.message}
-              />
-            )}
-          />
+          <div className={styles.field}>
+            <label htmlFor="mock-recording-time">Time (Adelaide)</label>
+            <input
+              id="mock-recording-time"
+              className={styles.input}
+              type="time"
+              {...register('occurredAt')}
+            />
+            <p className={styles.helper}>
+              Today in Adelaide: {recordingDay}. Record mocks on the day they
+              happen.
+            </p>
+            {errors.occurredAt ? (
+              <p className={styles.fieldError}>{errors.occurredAt.message}</p>
+            ) : null}
+          </div>
           <div className={styles.field}>
             <label htmlFor="mock-duration">Duration (minutes)</label>
             <input

@@ -1,18 +1,10 @@
-import {
-  IconArrowUp,
-  IconTargetArrow,
-  IconUserMinus,
-} from '@tabler/icons-react';
+import { IconUserMinus } from '@tabler/icons-react';
 import type { ColumnDef } from '@tanstack/react-table';
 import { useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
 
 import { apiRequest } from '@/api/client';
-import type { Enrollment, Promotion } from '@/api/generated/models';
-import {
-  enablePracticeGoals,
-  fetchUserPracticeSettings,
-} from '@/api/practiceSettingsClient';
+import type { Enrollment } from '@/api/generated/models';
 import {
   demoMode,
   useCurrentUser,
@@ -21,6 +13,8 @@ import {
 } from '@/api/queries';
 import { PageHeader, PersonIdentity, usePageTitle } from '@/components/Common';
 import { DataTable } from '@/components/DataTable';
+import { StudentLevelDialog } from '@/components/StudentLevelDialog';
+import { canSetStudentLevel, studentLevelLabel } from '@/studentLevels';
 import { FormDialog } from '@/components/Dialogs';
 import styles from '@/styles/App.module.css';
 import type { Person } from '@/types';
@@ -38,19 +32,19 @@ export function MenteesPage() {
     currentUser.data?.globalRoles.length ||
     currentUser.data?.seasonRoles.some(
       (membership) =>
-        membership.seasonId === season?.id && membership.role === 'coordinator',
+        membership.seasonId === season?.id &&
+        membership.role === 'coordinator' &&
+        membership.state === 'active',
     ),
   );
-  const canGrantCoordinator = Boolean(
-    currentUser.data?.globalRoles.some(
-      (role) => role === 'director' || role === 'system_admin',
-    ),
-  );
+  const canChangeLevel = canSetStudentLevel(currentUser.data, season);
   const mentees = useMemo(
     () =>
       (query.data?.items ?? []).filter((person) => {
         const activeStudent =
-          person.roles.includes('student') &&
+          (person.seasonRole
+            ? person.seasonRole === 'student'
+            : person.roles.includes('student')) &&
           (person.enrollmentState
             ? person.enrollmentState === 'active'
             : person.status === 'active');
@@ -68,6 +62,11 @@ export function MenteesPage() {
         header: 'Mentee',
         cell: ({ row }) => <PersonIdentity person={row.original} privateView />,
       },
+      {
+        accessorKey: 'studentLevel',
+        header: 'Level',
+        cell: ({ row }) => studentLevelLabel(row.original.studentLevel),
+      },
       { accessorKey: 'attempts', header: 'Attempts' },
       { accessorKey: 'interviews', header: 'Mock interviews' },
       {
@@ -82,13 +81,13 @@ export function MenteesPage() {
         enableHiding: false,
         cell: ({ row }) => (
           <div className={styles.inline}>
-            <EnableGoalsButton seasonId={season?.id} person={row.original} />
-            <PromotionDialog
-              seasonId={season?.id}
-              person={row.original}
-              canGrantCoordinator={canGrantCoordinator}
-              onChanged={() => void query.refetch()}
-            />
+            {canChangeLevel && season ? (
+              <StudentLevelDialog
+                seasonId={season.id}
+                person={row.original}
+                onChanged={() => void query.refetch()}
+              />
+            ) : null}
             <RemovalDialog
               seasonId={season?.id}
               person={row.original}
@@ -98,7 +97,7 @@ export function MenteesPage() {
         ),
       },
     ],
-    [canGrantCoordinator, query, season?.id],
+    [canChangeLevel, query, season, setRemoved],
   );
 
   return (
@@ -106,7 +105,7 @@ export function MenteesPage() {
       <PageHeader
         eyebrow="Mentoring"
         title="My mentees"
-        description="Review raw activity and take season-scoped actions for active students assigned to you."
+        description="Review active students assigned to you. To set a level for any student in this season, open People."
       />
       <DataTable
         ariaLabel="Assigned mentees"
@@ -132,13 +131,13 @@ export function MenteesPage() {
               {row.original.interviews ?? '—'} interviews
             </p>
             <div className={styles.buttonRow}>
-              <EnableGoalsButton seasonId={season?.id} person={row.original} />
-              <PromotionDialog
-                seasonId={season?.id}
-                person={row.original}
-                canGrantCoordinator={canGrantCoordinator}
-                onChanged={() => void query.refetch()}
-              />
+              {canChangeLevel && season ? (
+                <StudentLevelDialog
+                  seasonId={season.id}
+                  person={row.original}
+                  onChanged={() => void query.refetch()}
+                />
+              ) : null}
               <RemovalDialog
                 seasonId={season?.id}
                 person={row.original}
@@ -149,169 +148,6 @@ export function MenteesPage() {
         )}
       />
     </div>
-  );
-}
-
-function EnableGoalsButton({
-  seasonId,
-  person,
-}: {
-  seasonId?: string;
-  person: Person;
-}) {
-  const [pending, setPending] = useState(false);
-  const [enabled, setEnabled] = useState(false);
-  const [error, setError] = useState('');
-  const enable = async () => {
-    if (!seasonId && !demoMode) return;
-    setPending(true);
-    setError('');
-    try {
-      if (!demoMode && seasonId) {
-        const settings = await fetchUserPracticeSettings(person.id);
-        if (!settings.goalsEnabled)
-          await enablePracticeGoals(person.id, {
-            seasonId,
-          });
-      }
-      setEnabled(true);
-    } catch (requestError) {
-      setError(
-        requestError instanceof Error
-          ? requestError.message
-          : 'Unable to enable personal goals.',
-      );
-    } finally {
-      setPending(false);
-    }
-  };
-  if (enabled)
-    return <span className={styles.badgeSuccess}>Goals enabled</span>;
-  return (
-    <span>
-      <button
-        className={styles.buttonSecondary}
-        type="button"
-        disabled={pending || (!demoMode && !seasonId)}
-        aria-describedby={error ? `goals-enable-error-${person.id}` : undefined}
-        onClick={() => void enable()}
-      >
-        <IconTargetArrow size={17} aria-hidden="true" />{' '}
-        {pending ? 'Enabling…' : 'Enable goals'}
-      </button>
-      {error ? (
-        <span
-          id={`goals-enable-error-${person.id}`}
-          className={styles.fieldError}
-          role="alert"
-        >
-          {error}
-        </span>
-      ) : null}
-    </span>
-  );
-}
-
-function PromotionDialog({
-  seasonId,
-  person,
-  canGrantCoordinator,
-  onChanged,
-}: {
-  seasonId?: string;
-  person: Person;
-  canGrantCoordinator: boolean;
-  onChanged: () => void;
-}) {
-  const [role, setRole] = useState<'mentor' | 'coordinator'>('mentor');
-  const [reason, setReason] = useState('');
-  const [pending, setPending] = useState(false);
-  const [error, setError] = useState('');
-  const promote = async () => {
-    if (demoMode) {
-      onChanged();
-      return;
-    }
-    if (!seasonId || !person.enrollmentId) return;
-    setPending(true);
-    setError('');
-    try {
-      if (!demoMode) {
-        const body: Promotion = {
-          role,
-          reason: reason || undefined,
-        };
-        await apiRequest<Enrollment>(
-          `/seasons/${encodeURIComponent(seasonId)}/members/${encodeURIComponent(person.enrollmentId)}/promote`,
-          { method: 'POST', body: JSON.stringify(body) },
-        );
-      }
-      onChanged();
-    } catch (requestError) {
-      setError(
-        requestError instanceof Error
-          ? requestError.message
-          : 'Unable to promote this member.',
-      );
-    } finally {
-      setPending(false);
-    }
-  };
-  return (
-    <FormDialog
-      title={`Promote ${person.name}?`}
-      description="Change this active student's season role. The action is audited."
-      trigger={
-        <>
-          <IconArrowUp size={17} aria-hidden="true" /> Promote
-        </>
-      }
-    >
-      {error ? (
-        <p className={styles.fieldError} role="alert">
-          {error}
-        </p>
-      ) : null}
-      <div className={styles.field}>
-        <label htmlFor={`promotion-role-${person.id}`}>New role</label>
-        <select
-          id={`promotion-role-${person.id}`}
-          className={styles.select}
-          value={canGrantCoordinator ? role : 'mentor'}
-          onChange={(event) =>
-            setRole(event.target.value as 'mentor' | 'coordinator')
-          }
-        >
-          <option value="mentor">Mentor</option>
-          {canGrantCoordinator ? (
-            <option value="coordinator">Coordinator</option>
-          ) : null}
-        </select>
-      </div>
-      <div className={styles.field}>
-        <label htmlFor={`promotion-reason-${person.id}`}>
-          Reason (optional)
-        </label>
-        <textarea
-          id={`promotion-reason-${person.id}`}
-          className={styles.textarea}
-          value={reason}
-          onChange={(event) => setReason(event.target.value)}
-        />
-      </div>
-      <div className={styles.dialogActions}>
-        <button
-          className={styles.button}
-          type="button"
-          disabled={
-            pending || (!demoMode && (!seasonId || !person.enrollmentId))
-          }
-          onClick={() => void promote()}
-        >
-          {pending ? 'Promoting…' : 'Promote student'}
-        </button>
-      </div>
-    </FormDialog>
   );
 }
 
