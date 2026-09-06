@@ -255,12 +255,16 @@ func (p *Store) RemoveEnrollment(ctx context.Context, input RemoveEnrollmentInpu
 		return v, ErrConflict
 	}
 	state := "kicked"
+	if v.Role != "student" {
+		state = "withdrawn"
+	}
 	changedAt := input.ChangedAt.UTC()
 	if err := tx.QueryRow(ctx, `UPDATE app.enrollments SET state=$2,state_changed_at=$3,assignment_state='revoked',activated_at=NULL WHERE id=$1 AND state='active' RETURNING id`, input.EnrollmentID, state, changedAt).Scan(&v.ID); err != nil {
 		return v, noRows(err)
 	}
 
 	v.State = state
+	v.AssignmentState = "revoked"
 	if _, err := tx.Exec(ctx, `UPDATE app.mentorships SET ended_at=$2 WHERE (student_enrollment_id=$1 OR mentor_enrollment_id=$1) AND ended_at IS NULL AND deleted_at IS NULL`, v.ID, changedAt); err != nil {
 		return v, err
 	}

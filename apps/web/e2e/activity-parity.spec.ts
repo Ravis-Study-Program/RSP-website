@@ -141,3 +141,28 @@ test('administrators can correct the person attached to an enrollment', async ({
   await dialog.getByRole('button', { name: 'Save correction' }).click();
   await expect(dialog).not.toBeVisible();
 });
+
+test('removing a mentor keeps their season record visible', async ({
+  page,
+}) => {
+  await page.addInitScript(() =>
+    localStorage.setItem('rsp-demo-role', 'director'),
+  );
+  await page.goto('/admin/enrollments');
+  const row = page
+    .locator('tr:visible, article:visible')
+    .filter({ hasText: 'Noah Williams' });
+  await row.getByRole('button', { name: 'Remove', exact: true }).click();
+  const dialog = page.getByRole('dialog', { name: 'Remove Noah Williams?' });
+  await dialog
+    .getByLabel('Reason', { exact: true })
+    .fill('Finished volunteering');
+  await dialog
+    .getByLabel('Type Noah Williams to confirm')
+    .fill('Noah Williams');
+  await dialog.getByRole('button', { name: 'Remove member' }).click();
+  await expect(row).toContainText('withdrawn');
+  await expect(
+    row.getByRole('button', { name: 'Remove', exact: true }),
+  ).toHaveCount(0);
+});

@@ -918,6 +918,7 @@ paths:
       ]
     post:
       operationId: removeSeasonMember
+      description: Removes an active student, mentor or coordinator while preserving earlier history. Staff removal requires a season administrator and recent MFA.
       requestBody:
         {
           required: true,

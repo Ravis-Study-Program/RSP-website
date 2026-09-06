@@ -1623,7 +1623,11 @@ function RemoveEnrollmentDialog({
       const removed = demoMode
         ? {
             ...enrollment,
-            state: 'kicked' as const,
+            state:
+              enrollment.role === 'student'
+                ? ('kicked' as const)
+                : ('withdrawn' as const),
+            assignmentState: 'revoked' as const,
             removalReason: reason,
           }
         : await apiRequest<Enrollment>(
@@ -1639,6 +1643,7 @@ function RemoveEnrollmentDialog({
         seasonEnrollmentsQueryKey(seasonId),
         (current) => upsertPageItem(current, removed),
       );
+      if (!demoMode) await queryClient.invalidateQueries();
       setOpen(false);
     } catch (requestError) {
       setError(
@@ -1650,10 +1655,11 @@ function RemoveEnrollmentDialog({
       setPending(false);
     }
   };
+  if (enrollment.state !== 'active') return null;
   return (
     <FormDialog
       title={`Remove ${name}?`}
-      description="Season access ends immediately and an immutable audit event records the reason."
+      description="Season access ends immediately. Earlier membership and activity remain in the season history, and the reason is recorded for administrators."
       open={open}
       onOpenChange={setOpen}
       trigger={
@@ -1667,6 +1673,7 @@ function RemoveEnrollmentDialog({
           <label htmlFor={`admin-remove-reason-${enrollment.id}`}>Reason</label>
           <textarea
             id={`admin-remove-reason-${enrollment.id}`}
+            maxLength={500}
             className={styles.textarea}
             value={reason}
             onChange={(event) => setReason(event.target.value)}

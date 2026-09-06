@@ -379,17 +379,18 @@ func (a *API) removeSeasonMember(w http.ResponseWriter, r *http.Request) {
 		writeErrorResponse(w, http.StatusNotFound, "The enrollment does not exist.")
 		return
 	}
-	if member.Role != "student" {
-		writeErrorResponse(w, http.StatusForbidden, "Only an active student enrollment can be promoted or removed through this operation.")
-		return
-	}
-	assigned, err := a.db.IsMentorAssigned(r.Context(), seasonID, actor.UserID, member.UserID)
-	if err != nil {
-		a.writeStoreErrorResponse(w, err)
-		return
-	}
-	if !actor.CanPromoteOrRemoveStudent(seasonID, assigned, member.State == "active") {
-		writeErrorResponse(w, http.StatusForbidden, "This member cannot be changed by the current account.")
+	if member.Role == "student" {
+		assigned, err := a.db.IsMentorAssigned(r.Context(), seasonID, actor.UserID, member.UserID)
+		if err != nil {
+			a.writeStoreErrorResponse(w, err)
+			return
+		}
+		if !actor.CanPromoteOrRemoveStudent(seasonID, assigned, member.State == "active") {
+			writeErrorResponse(w, 403, "This member cannot be removed by the current account.")
+			return
+		}
+	} else if !actor.IsSeasonAdmin(seasonID) || member.State != "active" {
+		writeErrorResponse(w, 403, "Only a season administrator can remove an active mentor or coordinator.")
 		return
 	}
 	seasonRole, _ := actor.Enrollment(seasonID)
@@ -403,7 +404,7 @@ func (a *API) removeSeasonMember(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if strings.TrimSpace(request.Reason) == "" {
+	if strings.TrimSpace(request.Reason) == "" || len(request.Reason) > 500 {
 		writeErrorResponse(w, http.StatusBadRequest, "removal reason is required")
 		return
 	}
