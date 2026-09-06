@@ -172,6 +172,7 @@ export function ProfilePage() {
             value={seasonId ?? ''}
             onChange={(event) => {
               const next = new URLSearchParams(searchParams);
+              next.delete('weekId');
               if (event.target.value) next.set('seasonId', event.target.value);
               else next.delete('seasonId');
               setSearchParams(next);

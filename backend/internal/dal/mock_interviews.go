@@ -3,7 +3,6 @@ package dal
 import (
 	"context"
 	"encoding/json"
-	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -34,31 +33,41 @@ const (
 )
 
 type MockInterviewQuery struct {
-	TargetID   string
-	TargetMode string
-	SeasonID   string
-	Year       int
-	ViewerID   string
-	Visibility MockInterviewVisibility
-	Boundary   string
-	Limit      int
-	SortBy     string
-	Direction  string
+	InterviewerIDs []string
+	Passed         *bool
+	TargetID       string
+	TargetMode     string
+	SeasonID       string
+	Year           int
+	ViewerID       string
+	Visibility     MockInterviewVisibility
+	Boundary       string
+	Limit          int
+	SortBy         string
+	Direction      string
 }
 
+const mockPassedSQL = `SELECT COALESCE(bool_and(scores.value>=5),false)
+ FROM app.mock_interview_rounds round
+ LEFT JOIN app.behavioural_mock_interview_rounds b ON b.mock_interview_round_id=round.id
+ LEFT JOIN app.leetcode_mock_interview_rounds l ON l.mock_interview_round_id=round.id
+ LEFT JOIN app.custom_mock_interview_rounds c ON c.mock_interview_round_id=round.id
+ CROSS JOIN LATERAL unnest(ARRAY[b.behavioural_score,l.clarify_question_score,l.algorithm_design_score,l.complexity_analysis_score,l.coding_score,l.testing_score,c.score]) AS scores(value)
+ WHERE round.mock_interview_id=mi.id AND round.deleted_at IS NULL AND scores.value IS NOT NULL`
+
 func (p *Store) ListMockInterviews(ctx context.Context, q MockInterviewQuery) ([]mockinterviews.Interview, bool, int64, error) {
-	userID := q.ViewerID
-	where := `(mi.interviewer_user_id=$1 OR mi.interviewee_user_id=$1)`
+	args := pgx.NamedArgs{"viewerID": q.ViewerID, "targetID": q.TargetID, "targetMode": q.TargetMode, "seasonID": q.SeasonID, "year": q.Year, "boundary": q.Boundary, "limit": q.Limit + 1, "interviewers": q.InterviewerIDs, "passed": q.Passed}
+	where := `(mi.interviewer_user_id=@viewerID OR mi.interviewee_user_id=@viewerID)`
 	if q.Visibility == MockInterviewsGiven {
-		where = `mi.interviewer_user_id=$1`
+		where = `mi.interviewer_user_id=@viewerID`
 	} else if q.Visibility == MockInterviewsReceived {
-		where = `mi.interviewee_user_id=$1`
+		where = `mi.interviewee_user_id=@viewerID`
 	} else if q.Visibility == MockInterviewsAll {
-		where = `$1::text IS NOT NULL`
+		where = `@viewerID::text IS NOT NULL`
 	} else if q.Visibility == MockInterviewsRelated || q.Visibility == MockInterviewsShared {
-		where = `(mi.interviewer_user_id=$1 OR mi.interviewee_user_id=$1 OR EXISTS (
+		where = `(mi.interviewer_user_id=@viewerID OR mi.interviewee_user_id=@viewerID OR EXISTS (
    SELECT 1 FROM app.enrollments viewer
-   WHERE viewer.user_id=$1 AND viewer.season_id=mi.activity_season_id
+   WHERE viewer.user_id=@viewerID AND viewer.season_id=mi.activity_season_id
     AND viewer.state IN ('active','completed') AND viewer.deleted_at IS NULL
     AND viewer.role IN ('mentor','coordinator')
   ))`
@@ -71,12 +80,14 @@ func (p *Store) ListMockInterviews(ctx context.Context, q MockInterviewQuery) ([
    ))`
 		}
 	}
-	where = "(" + where + ") AND ($2 = '' OR mi.activity_season_id=NULLIF($2,'')::uuid) AND ($3 = 0 OR EXTRACT(YEAR FROM mi.scheduled_at AT TIME ZONE 'Australia/Adelaide')=$3)"
-	where += ` AND ($6='' OR
-  ($7<>'given' AND mi.interviewee_user_id=NULLIF($6,'')::uuid) OR
-  ($7<>'received' AND mi.interviewer_user_id=NULLIF($6,'')::uuid))`
+	where = "(" + where + ") AND (@seasonID = '' OR mi.activity_season_id=NULLIF(@seasonID,'')::uuid) AND (@year = 0 OR EXTRACT(YEAR FROM mi.scheduled_at AT TIME ZONE 'Australia/Adelaide')=@year)"
+	where += ` AND (@targetID='' OR
+  (@targetMode<>'given' AND mi.interviewee_user_id=NULLIF(@targetID,'')::uuid) OR
+  (@targetMode<>'received' AND mi.interviewer_user_id=NULLIF(@targetID,'')::uuid))`
+	where += ` AND (COALESCE(cardinality(@interviewers::uuid[]),0)=0 OR mi.interviewer_user_id=ANY(@interviewers::uuid[]))
+ AND (@passed::boolean IS NULL OR (` + mockPassedSQL + `)=@passed::boolean)`
 	var total int64
-	if err := p.pool.QueryRow(ctx, `SELECT count(*) FROM app.scoped_mock_interviews mi WHERE mi.deleted_at IS NULL AND `+strings.NewReplacer("$6", "$4", "$7", "$5").Replace(where), userID, q.SeasonID, q.Year, q.TargetID, q.TargetMode).Scan(&total); err != nil {
+	if err := p.pool.QueryRow(ctx, `SELECT count(*) FROM app.scoped_mock_interviews mi WHERE mi.deleted_at IS NULL AND `+where, args).Scan(&total); err != nil {
 		return nil, false, 0, err
 	}
 
@@ -99,12 +110,12 @@ func (p *Store) ListMockInterviews(ctx context.Context, q MockInterviewQuery) ([
 		orderBy = "mi.scheduled_at " + order + ",mi.id " + order
 	}
 	query := `WITH boundary AS (
-		SELECT ` + boundarySelect + ` FROM app.mock_interviews WHERE id=NULLIF($4,'')::uuid AND deleted_at IS NULL
+		SELECT ` + boundarySelect + ` FROM app.mock_interviews WHERE id=NULLIF(@boundary,'')::uuid AND deleted_at IS NULL
 	) SELECT ` + mockInterviewColumns + ` FROM app.scoped_mock_interviews mi
 	WHERE mi.deleted_at IS NULL AND ` + where + `
-	  AND (NULLIF($4,'')::uuid IS NULL OR EXISTS (SELECT 1 FROM boundary b WHERE ` + key + ` ` + comparator + ` ` + boundaryKey + `))
-	ORDER BY ` + orderBy + ` LIMIT $5`
-	rows, err := p.pool.Query(ctx, query, userID, q.SeasonID, q.Year, q.Boundary, q.Limit+1, q.TargetID, q.TargetMode)
+	  AND (NULLIF(@boundary,'')::uuid IS NULL OR EXISTS (SELECT 1 FROM boundary b WHERE ` + key + ` ` + comparator + ` ` + boundaryKey + `))
+	ORDER BY ` + orderBy + ` LIMIT @limit`
+	rows, err := p.pool.Query(ctx, query, args)
 	if err != nil {
 		return nil, false, 0, err
 	}

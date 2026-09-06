@@ -52,6 +52,8 @@ export interface Attempt {
   problemUrl?: string;
   difficulty: Difficulty | null;
   category: string | null;
+  categories?: string[];
+  weekId?: string | null;
   outcome: AttemptOutcome;
   confidence: number | null;
   minutes: number | null;

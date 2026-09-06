@@ -12,6 +12,8 @@ import type { ListMockInterviewsMode } from './listMockInterviewsMode';
 import type { SortParameter } from './sortParameter';
 
 export type ListMockInterviewsParams = {
+  passed?: boolean;
+  interviewerId?: string[];
   /**
    * Filter a member whose activity the viewer may read
    */

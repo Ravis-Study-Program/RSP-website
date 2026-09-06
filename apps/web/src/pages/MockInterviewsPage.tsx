@@ -1,3 +1,5 @@
+import { useActivityFilters, filterMocks } from '@/activityFilters';
+import { MockFilters } from '@/components/ActivityFilters';
 import { programmeTimezone, adelaideYear } from '@/activityDates';
 import { ActivityYearFilter } from '@/components/ActivityYearFilter';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -388,7 +390,14 @@ export function MockInterviewsPage() {
   const peopleQuery = useMockParticipants();
   const seasonsQuery = useSeasons();
   const season = seasonsQuery.data?.items.find((item) => item.slug === slug);
-  const query = useMockInterviews(!slug || Boolean(season), season?.id, year);
+  const [filters, setFilters] = useActivityFilters();
+  const query = useMockInterviews(
+    !slug || Boolean(season),
+    season?.id,
+    year,
+    undefined,
+    filters,
+  );
   const [mode, setMode] = useState<ViewMode>('received');
   const [created, setCreated] = useState<MockInterview[]>([]);
   const [updated, setUpdated] = useState<Record<string, MockInterview>>({});
@@ -422,12 +431,13 @@ export function MockInterviewsPage() {
     [created, query.data, removedIds, updated, year, season],
   );
   const filtered = useMemo(() => {
+    const matches = filterMocks(all, filters);
     if (mode === 'received')
-      return all.filter((mock) => mock.interviewee.id === user.data?.id);
+      return matches.filter((mock) => mock.interviewee.id === user.data?.id);
     if (mode === 'given')
-      return all.filter((mock) => mock.interviewer.id === user.data?.id);
-    return all;
-  }, [all, mode, user.data?.id]);
+      return matches.filter((mock) => mock.interviewer.id === user.data?.id);
+    return matches;
+  }, [all, filters, mode, user.data?.id]);
   const availablePeople = peopleQuery.data?.items ?? [];
   const interviewer = user.data
     ? (availablePeople.find((person) => person.id === user.data.id) ??
@@ -458,6 +468,11 @@ export function MockInterviewsPage() {
         }
       />
       <ActivityYearFilter year={year} onChange={setYear} />
+      <MockFilters
+        people={availablePeople}
+        filters={filters}
+        onChange={setFilters}
+      />
       <Tabs.Root
         value={mode}
         onValueChange={(value) => setMode(value as ViewMode)}

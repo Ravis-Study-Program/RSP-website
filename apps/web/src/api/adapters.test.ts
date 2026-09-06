@@ -142,7 +142,8 @@ describe('OpenAPI DTO adapters', () => {
       problemId: problem.id,
       problem: problem.title,
       difficulty: 'Medium',
-      category: 'Hash maps',
+      category: 'Hash maps, Sorting',
+      categories: ['Hash maps', 'Sorting'],
     });
   });
 

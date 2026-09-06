@@ -1,6 +1,7 @@
 package api
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -145,6 +146,21 @@ func (a *API) listMockInterviews(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
+	interviewers, err := selection(r.URL.Query(), "interviewerId", uuidSelection)
+	if err != nil {
+		writeErrorResponse(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	var passed *bool
+	if value := r.URL.Query().Get("passed"); value != "" {
+		if value != "true" && value != "false" {
+			writeErrorResponse(w, http.StatusBadRequest, "passed must be true or false")
+			return
+		}
+		flag := value == "true"
+		passed = &flag
+	}
+	filterBinding, _ := json.Marshal(interviewers)
 	sortBy, err := parseSort(r.URL.Query().Get("sort"), "occurredAt:desc", "occurredAt:desc", "id:asc")
 	if err != nil {
 		writeErrorResponse(w, http.StatusBadRequest, "sort must be occurredAt:desc or id:asc")
@@ -157,7 +173,7 @@ func (a *API) listMockInterviews(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	binding := "mock-interviews|user=" + targetID + "|mode=" + mode + "|sort=" + sortBy + fmt.Sprintf("|season=%s|year=%d", seasonID, year)
+	binding := "mock-interviews|user=" + targetID + "|interviewers=" + string(filterBinding) + "|passed=" + r.URL.Query().Get("passed") + "|mode=" + mode + "|sort=" + sortBy + fmt.Sprintf("|season=%s|year=%d", seasonID, year)
 	limit, boundary, err := parsePagination(r.URL.Query().Get("limit"), r.URL.Query().Get("cursor"), binding, a.cursorSecret)
 	if err != nil {
 		writeErrorResponse(w, http.StatusBadRequest, "The cursor does not match the selected mode and sort.")
@@ -178,7 +194,7 @@ func (a *API) listMockInterviews(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	items, more, total, err := a.db.ListMockInterviews(r.Context(), dal.MockInterviewQuery{
-		SeasonID: seasonID, Year: year, TargetID: targetID, TargetMode: mode,
+		SeasonID: seasonID, Year: year, TargetID: targetID, TargetMode: mode, InterviewerIDs: interviewers, Passed: passed,
 		ViewerID:   actor.UserID,
 		Visibility: visibility,
 		Boundary:   boundary,

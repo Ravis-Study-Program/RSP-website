@@ -28,14 +28,17 @@ func (p *Store) GetAttempt(ctx context.Context, id string) (practice.AttemptReco
 }
 
 type AttemptQuery struct {
-	SeasonID   string
-	Year       int
-	UserID     string
-	Boundary   string
-	Limit      int
-	Outcome    string
-	Difficulty string
-	Direction  string
+	Difficulties []string
+	Categories   []string
+	WeekIDs      []string
+	SeasonID     string
+	Year         int
+	UserID       string
+	Boundary     string
+	Limit        int
+	Outcome      string
+	Difficulty   string
+	Direction    string
 }
 
 func (p *Store) ListAttempts(ctx context.Context, q AttemptQuery) ([]practice.AttemptRecord, bool, int64, error) {
@@ -43,16 +46,25 @@ func (p *Store) ListAttempts(ctx context.Context, q AttemptQuery) ([]practice.At
  AND (@seasonID = '' OR a.activity_season_id=NULLIF(@seasonID,'')::uuid)
  AND (@year = 0 OR EXTRACT(YEAR FROM a.attempted_at AT TIME ZONE 'Australia/Adelaide')=@year)
 		AND (@outcome = '' OR a.outcome::text = @outcome)
-		AND (@difficulty = '' OR EXISTS (
-			SELECT 1 FROM app.leetcode_problems l
-			WHERE l.problem_id = a.problem_id AND l.difficulty::text = @difficulty AND l.deleted_at IS NULL
-		))`
+  AND (COALESCE(cardinality(@weeks::uuid[]),0)=0 OR a.activity_week_id=ANY(@weeks::uuid[]))
+  AND (COALESCE(cardinality(@difficulties::text[]),0)=0 OR EXISTS (
+   SELECT 1 FROM app.leetcode_problems l WHERE l.problem_id=a.problem_id AND l.difficulty::text=ANY(@difficulties::text[]) AND l.deleted_at IS NULL))
+  AND (COALESCE(cardinality(@categories::text[]),0)=0 OR EXISTS (
+   SELECT 1 FROM app.leetcode_problems l
+   JOIN app.leetcode_problem_category_mappings mapping ON mapping.leetcode_problem_id=l.id
+   JOIN app.leetcode_problem_categories category ON category.id=mapping.category_id
+   WHERE l.problem_id=a.problem_id AND l.deleted_at IS NULL AND category.deleted_at IS NULL AND category.name=ANY(@categories::text[])))`
+	difficulties := q.Difficulties
+	if q.Difficulty != "" {
+		difficulties = append(append([]string{}, difficulties...), q.Difficulty)
+	}
 	args := pgx.NamedArgs{
-		"userID":     q.UserID,
-		"seasonID":   q.SeasonID,
-		"year":       q.Year,
-		"outcome":    q.Outcome,
-		"difficulty": q.Difficulty,
+		"userID":       q.UserID,
+		"seasonID":     q.SeasonID,
+		"year":         q.Year,
+		"outcome":      q.Outcome,
+		"difficulties": difficulties,
+		"categories":   q.Categories, "weeks": q.WeekIDs,
 	}
 	var total int64
 	err := p.pool.QueryRow(ctx, `SELECT count(*) FROM app.scoped_problem_attempts a WHERE `+filters, args).Scan(&total)

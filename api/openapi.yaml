@@ -915,6 +915,20 @@ paths:
       operationId: listProblemAttempts
       parameters:
         [
+          {
+            name: category,
+            in: query,
+            style: form,
+            explode: true,
+            schema: { type: array, items: { type: string } },
+          },
+          {
+            name: weekId,
+            in: query,
+            style: form,
+            explode: true,
+            schema: { type: array, items: { type: string, format: uuid } },
+          },
           { $ref: '#/components/parameters/Limit' },
           { $ref: '#/components/parameters/Cursor' },
           { $ref: '#/components/parameters/Direction' },
@@ -933,7 +947,13 @@ paths:
           {
             name: difficulty,
             in: query,
-            schema: { $ref: '#/components/schemas/Difficulty' },
+            style: form,
+            explode: true,
+            schema:
+              {
+                type: array,
+                items: { $ref: '#/components/schemas/Difficulty' },
+              },
           },
           {
             name: seasonId,
@@ -1065,6 +1085,14 @@ paths:
       operationId: listMockInterviews
       parameters:
         [
+          { name: passed, in: query, schema: { type: boolean } },
+          {
+            name: interviewerId,
+            in: query,
+            style: form,
+            explode: true,
+            schema: { type: array, items: { type: string, format: uuid } },
+          },
           {
             name: userId,
             in: query,

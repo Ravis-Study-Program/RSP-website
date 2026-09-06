@@ -27,6 +27,8 @@ vi.mock('@/api/queries', () => ({
   useSeasons: vi.fn(),
   useUserAttempts: vi.fn(),
   useUserProfile: vi.fn(),
+  useLeetcodeProblems: vi.fn(() => ({ data: { items: [] }, isError: false })),
+  useSeasonWeeks: vi.fn(() => ({ data: { items: [] }, isError: false })),
   useActivitySummary: vi.fn(() => ({
     data: {
       attemptCount: 0,
@@ -139,6 +141,7 @@ describe('profile slug suggestion', () => {
       'user-1',
       true,
       'season-1',
+      expect.any(Object),
     );
     expect(useMockInterviews).toHaveBeenLastCalledWith(
       true,

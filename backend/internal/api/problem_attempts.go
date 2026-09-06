@@ -1,6 +1,7 @@
 package api
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"time"
@@ -30,7 +31,27 @@ func (a *API) listProblemAttempts(w http.ResponseWriter, r *http.Request) {
 	if !a.authorizeActivityRead(w, r, targetID, seasonID) {
 		return
 	}
-	outcome, difficulty := r.URL.Query().Get("outcome"), r.URL.Query().Get("difficulty")
+	outcome := r.URL.Query().Get("outcome")
+	difficulties, err := selection(r.URL.Query(), "difficulty", difficultySelection)
+	if err != nil {
+		writeErrorResponse(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	categories, err := selection(r.URL.Query(), "category", nil)
+	if err != nil {
+		writeErrorResponse(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	weeks, err := selection(r.URL.Query(), "weekId", uuidSelection)
+	if err != nil {
+		writeErrorResponse(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	if len(weeks) > 0 && seasonID == "" {
+		writeErrorResponse(w, http.StatusBadRequest, "select a season before filtering weeks")
+		return
+	}
+	filterBinding, _ := json.Marshal([][]string{difficulties, categories, weeks})
 	if _, err := parseSort(r.URL.Query().Get("sort"), "id:asc", "id:asc"); err != nil {
 		writeErrorResponse(w, http.StatusBadRequest, "sort must be id:asc")
 		return
@@ -45,7 +66,7 @@ func (a *API) listProblemAttempts(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	binding := "attempts|id:asc|user=" + targetID + "|outcome=" + outcome + "|difficulty=" + difficulty + fmt.Sprintf("|season=%s|year=%d", seasonID, year)
+	binding := "attempts|id:asc|user=" + targetID + "|outcome=" + outcome + "|selection=" + string(filterBinding) + fmt.Sprintf("|season=%s|year=%d", seasonID, year)
 	limit, after, err := parsePagination(r.URL.Query().Get("limit"), r.URL.Query().Get("cursor"), binding, a.cursorSecret)
 	if err != nil {
 		writeErrorResponse(w, http.StatusBadRequest, cursor.ErrInvalid.Error())
@@ -54,12 +75,12 @@ func (a *API) listProblemAttempts(w http.ResponseWriter, r *http.Request) {
 
 	items, more, total, err := a.db.ListAttempts(r.Context(), dal.AttemptQuery{
 		SeasonID: seasonID, Year: year,
-		UserID:     targetID,
-		Boundary:   after,
-		Limit:      limit,
-		Outcome:    outcome,
-		Difficulty: difficulty,
-		Direction:  direction,
+		UserID:       targetID,
+		Boundary:     after,
+		Limit:        limit,
+		Outcome:      outcome,
+		Difficulties: difficulties, Categories: categories, WeekIDs: weeks,
+		Direction: direction,
 	})
 	if err != nil {
 		a.writeStoreErrorResponse(w, err)

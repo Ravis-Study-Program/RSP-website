@@ -13,6 +13,8 @@ import type { LimitParameter } from './limitParameter';
 import type { SortParameter } from './sortParameter';
 
 export type ListProblemAttemptsParams = {
+  category?: string[];
+  weekId?: string[];
   /**
    * @minimum 1
    * @maximum 100
@@ -26,7 +28,7 @@ export type ListProblemAttemptsParams = {
    */
   userId?: string;
   outcome?: AttemptOutcome;
-  difficulty?: Difficulty;
+  difficulty?: Difficulty[];
   /**
    * Filter by the season derived from activity time and student participation.
    */

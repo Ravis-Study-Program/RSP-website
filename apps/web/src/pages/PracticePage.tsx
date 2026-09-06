@@ -1,3 +1,5 @@
+import { useActivityFilters, filterPractice } from '@/activityFilters';
+import { PracticeFilters } from '@/components/ActivityFilters';
 import { adelaideYear } from '@/activityDates';
 import { ActivityYearFilter } from '@/components/ActivityYearFilter';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -164,7 +166,13 @@ export function PracticePage() {
   const seasons = useSeasons();
   const season = seasons.data?.items.find((item) => item.slug === slug);
   const [year, setYear] = useState<number>();
-  const attemptsQuery = useAttempts(!slug || Boolean(season), season?.id, year);
+  const [filters, setFilters] = useActivityFilters();
+  const attemptsQuery = useAttempts(
+    !slug || Boolean(season),
+    season?.id,
+    year,
+    filters,
+  );
   const problemsQuery = useLeetcodeProblems();
   const [localAttempts, setLocalAttempts] = useState<Attempt[]>([]);
   const [updatedAttempts, setUpdatedAttempts] = useState<
@@ -281,7 +289,14 @@ export function PracticePage() {
       ),
     },
   ];
-  const activity = useMemo(() => recentActivitySeries(data), [data]);
+  const visibleAttempts = useMemo(
+    () => filterPractice(data, filters),
+    [data, filters],
+  );
+  const activity = useMemo(
+    () => recentActivitySeries(visibleAttempts),
+    [visibleAttempts],
+  );
 
   return (
     <div className={styles.page}>
@@ -318,12 +333,19 @@ export function PracticePage() {
           <h2 id="attempts-title" className={styles.sectionTitle}>
             Attempt history
           </h2>
-          <span className={styles.muted}>{data.length} recorded</span>
+          <span className={styles.muted}>
+            {visibleAttempts.length} recorded
+          </span>
         </div>
         <ActivityYearFilter year={year} onChange={setYear} />
+        <PracticeFilters
+          seasonId={season?.id}
+          filters={filters}
+          onChange={setFilters}
+        />
         <DataTable
           ariaLabel="Problem attempts"
-          data={data}
+          data={visibleAttempts}
           columns={columns}
           loading={attemptsQuery.isLoading}
           error={attemptsQuery.isError}
@@ -462,7 +484,8 @@ function AttemptDialog({
       problem: problem.title,
       problemUrl: problem.link,
       difficulty: displayDifficulty(problem.difficulty),
-      category: problem.categories[0] ?? null,
+      category: problem.categories.join(', ') || null,
+      categories: problem.categories,
       outcome: values.outcome,
       confidence,
       minutes: values.minutes,

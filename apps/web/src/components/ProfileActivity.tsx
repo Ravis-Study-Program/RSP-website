@@ -1,5 +1,11 @@
 import { Tabs } from '@base-ui/react/tabs';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
+import {
+  filterPractice,
+  filterMocks,
+  useActivityFilters,
+} from '@/activityFilters';
+import { PracticeFilters, MockFilters } from '@/components/ActivityFilters';
 import type { ColumnDef } from '@tanstack/react-table';
 import { useMockInterviews, useUserAttempts } from '@/api/queries';
 import { DataTable } from '@/components/DataTable';
@@ -54,8 +60,22 @@ export function ProfileActivity({
   person: Person;
   seasonId?: string;
 }) {
-  const attempts = useUserAttempts(person.id, true, seasonId);
+  const [filters, setFilters] = useActivityFilters();
+  const attempts = useUserAttempts(person.id, true, seasonId, filters);
   const mocks = useMockInterviews(true, seasonId, undefined, person.id);
+  const visibleAttempts = useMemo(
+    () => filterPractice(attempts.data?.items ?? [], filters),
+    [attempts.data, filters],
+  );
+  const visibleMocks = useMemo(
+    () => filterMocks(mocks.data?.items ?? [], filters),
+    [mocks.data, filters],
+  );
+  const interviewers = [
+    ...new Map(
+      (mocks.data?.items ?? []).map((m) => [m.interviewer.id, m.interviewer]),
+    ).values(),
+  ];
   const [tab, setTab] = useState('practice');
   const mockColumns: ColumnDef<MockInterview, any>[] = [
     {
@@ -105,9 +125,14 @@ export function ProfileActivity({
         </Tabs.Tab>
       </Tabs.List>
       <Tabs.Panel value="practice">
+        <PracticeFilters
+          seasonId={seasonId}
+          filters={filters}
+          onChange={setFilters}
+        />
         <DataTable
           ariaLabel={`${person.name} practice history`}
-          data={attempts.data?.items ?? []}
+          data={visibleAttempts}
           columns={practiceColumns}
           loading={attempts.isLoading}
           error={attempts.isError}
@@ -136,9 +161,14 @@ export function ProfileActivity({
         />
       </Tabs.Panel>
       <Tabs.Panel value="mocks">
+        <MockFilters
+          people={interviewers}
+          filters={filters}
+          onChange={setFilters}
+        />
         <DataTable
           ariaLabel={`${person.name} mock history`}
-          data={mocks.data?.items ?? []}
+          data={visibleMocks}
           columns={mockColumns}
           loading={mocks.isLoading}
           error={mocks.isError}

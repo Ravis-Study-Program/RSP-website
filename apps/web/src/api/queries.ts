@@ -1,3 +1,8 @@
+import {
+  activityFilterQuery,
+  emptyActivityFilters,
+  type ActivityFilters,
+} from '@/activityFilters';
 import { adelaideYear } from '@/activityDates';
 import { practiceGoalMinutes } from '@/utils';
 import { queryOptions, useQuery } from '@tanstack/react-query';
@@ -398,9 +403,14 @@ export function useEnrollmentCandidates(seasonId?: string, enabled = true) {
   });
 }
 
-export function useAttempts(enabled = true, seasonId?: string, year?: number) {
+export function useAttempts(
+  enabled = true,
+  seasonId?: string,
+  year?: number,
+  filters: ActivityFilters = emptyActivityFilters,
+) {
   return useQuery({
-    queryKey: ['problem-attempts', { seasonId, year }],
+    queryKey: ['problem-attempts', { seasonId, year, filters }],
     enabled,
     queryFn: async () => {
       if (demoMode)
@@ -422,7 +432,7 @@ export function useAttempts(enabled = true, seasonId?: string, year?: number) {
         );
       const [attemptPage, problemPage] = await Promise.all([
         fetchAllPages<ApiAttemptPage['items'][number]>(
-          `/problem-attempts?limit=100${seasonId ? `&seasonId=${encodeURIComponent(seasonId)}` : ''}${year ? `&year=${year}` : ''}`,
+          `/problem-attempts?limit=100${seasonId ? `&seasonId=${encodeURIComponent(seasonId)}` : ''}${year ? `&year=${year}` : ''}${activityFilterQuery(filters)}`,
         ),
         getProblems(),
       ]);
@@ -525,9 +535,10 @@ export function useUserAttempts(
   userId?: string,
   enabled = true,
   seasonId?: string,
+  filters: ActivityFilters = emptyActivityFilters,
 ) {
   return useQuery({
-    queryKey: ['problem-attempts', 'user', userId, { seasonId }],
+    queryKey: ['problem-attempts', 'user', userId, { seasonId, filters }],
     enabled: Boolean(userId) && enabled,
     queryFn: async () => {
       if (!userId) return page([]);
@@ -537,7 +548,7 @@ export function useUserAttempts(
         );
       const [attemptPage, problemPage] = await Promise.all([
         fetchAllPages<ApiAttemptPage['items'][number]>(
-          `/problem-attempts?limit=100&userId=${encodeURIComponent(userId)}${seasonId ? `&seasonId=${encodeURIComponent(seasonId)}` : ''}`,
+          `/problem-attempts?limit=100&userId=${encodeURIComponent(userId)}${seasonId ? `&seasonId=${encodeURIComponent(seasonId)}` : ''}${activityFilterQuery(filters)}`,
         ),
         getProblems(),
       ]);
@@ -661,9 +672,10 @@ export function useMockInterviews(
   seasonId?: string,
   year?: number,
   userId?: string,
+  filters: ActivityFilters = emptyActivityFilters,
 ) {
   return useQuery({
-    queryKey: ['mock-interviews', { seasonId, year, userId }],
+    queryKey: ['mock-interviews', { seasonId, year, userId, filters }],
     enabled,
     queryFn: async () => {
       if (demoMode)
@@ -688,7 +700,7 @@ export function useMockInterviews(
         );
       const [interviewPage, seasonPage, problemPage] = await Promise.all([
         fetchAllPages<ApiMockInterviewPage['items'][number]>(
-          `/mock-interviews?limit=100&mode=all${userId ? `&userId=${encodeURIComponent(userId)}` : ''}${seasonId ? `&seasonId=${encodeURIComponent(seasonId)}` : ''}${year ? `&year=${year}` : ''}`,
+          `/mock-interviews?limit=100&mode=all${userId ? `&userId=${encodeURIComponent(userId)}` : ''}${seasonId ? `&seasonId=${encodeURIComponent(seasonId)}` : ''}${year ? `&year=${year}` : ''}${activityFilterQuery(filters)}`,
         ),
         fetchAllPages<ApiSeasonPage['items'][number]>('/seasons?limit=100'),
         getProblems(),
