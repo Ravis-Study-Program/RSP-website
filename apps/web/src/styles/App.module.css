@@ -1683,3 +1683,29 @@
     border: 1px solid currentColor;
   }
 }
+
+.problemPositioner {
+  z-index: 100;
+  width: var(--anchor-width);
+  max-width: calc(100vw - 2rem);
+}
+.problemPopup {
+  background: var(--surface-raised);
+  border: 1px solid var(--border);
+  box-shadow: 0 8px 28px #0003;
+}
+.problemList {
+  max-height: min(300px, var(--available-height));
+  overflow: auto;
+  padding: 4px;
+}
+.problemOption {
+  padding: 10px 12px;
+  cursor: pointer;
+  overflow-wrap: anywhere;
+}
+.problemOption[data-highlighted] {
+  background: var(--surface-hover);
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}

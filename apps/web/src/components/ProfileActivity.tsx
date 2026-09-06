@@ -11,7 +11,18 @@ import { formatDateTime, interviewPassed } from '@/utils';
 import styles from '@/styles/App.module.css';
 
 const practiceColumns: ColumnDef<Attempt, any>[] = [
-  { accessorKey: 'problem', header: 'Problem' },
+  {
+    accessorKey: 'problem',
+    header: 'Problem',
+    cell: ({ row }) =>
+      row.original.problemUrl ? (
+        <a href={row.original.problemUrl} target="_blank" rel="noreferrer">
+          {row.original.problem}
+        </a>
+      ) : (
+        row.original.problem
+      ),
+  },
   { accessorKey: 'difficulty', header: 'Difficulty' },
   {
     accessorKey: 'outcome',
@@ -106,7 +117,15 @@ export function ProfileActivity({
           getRowId={(a) => a.id}
           renderCard={({ original: a }) => (
             <div>
-              <h3>{a.problem}</h3>
+              <h3>
+                {a.problemUrl ? (
+                  <a href={a.problemUrl} target="_blank" rel="noreferrer">
+                    {a.problem}
+                  </a>
+                ) : (
+                  a.problem
+                )}
+              </h3>
               <p>
                 {a.difficulty} · {a.minutes ?? '—'} min ·{' '}
                 {formatDateTime(a.attemptedAt)}

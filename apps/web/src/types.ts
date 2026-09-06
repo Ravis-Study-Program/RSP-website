@@ -49,6 +49,7 @@ export interface Attempt {
   id: string;
   problemId: string;
   problem: string;
+  problemUrl?: string;
   difficulty: Difficulty | null;
   category: string | null;
   outcome: AttemptOutcome;

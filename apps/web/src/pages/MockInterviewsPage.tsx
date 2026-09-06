@@ -38,6 +38,7 @@ import {
 import { PageHeader, PersonIdentity, usePageTitle } from '@/components/Common';
 import { DataTable } from '@/components/DataTable';
 import { FormDialog, NamedConfirmation } from '@/components/Dialogs';
+import { ProblemSelect } from '@/components/ProblemSelect';
 import { RichTextEditor } from '@/components/RichTextEditor';
 import { RichTextContent } from '@/components/RichTextContent';
 import styles from '@/styles/App.module.css';
@@ -217,28 +218,20 @@ function RoundEditor({
             <label htmlFor={`round-problem-${round.id}`}>
               LeetCode problem
             </label>
-            <select
+            <ProblemSelect
               id={`round-problem-${round.id}`}
-              className={styles.select}
+              problems={problems}
               value={round.problemId ?? ''}
-              onChange={(event) => {
-                const problem = problems.find(
-                  (item) => item.id === event.target.value,
-                );
+              onChange={(problemId) => {
+                const problem = problems.find((p) => p.id === problemId);
                 onChange({
                   ...round,
-                  problemId: event.target.value || undefined,
+                  problemId: problemId || undefined,
                   title: problem?.title ?? 'Choose a LeetCode problem',
+                  link: problem?.link,
                 });
               }}
-            >
-              <option value="">Choose a problem</option>
-              {problems.map((problem) => (
-                <option value={problem.id} key={problem.id}>
-                  {problem.number}. {problem.title}
-                </option>
-              ))}
-            </select>
+            />
           </div>
         ) : null}
         {round.apiType === 'custom' ? (

@@ -218,6 +218,7 @@ export function adaptAttempt(
     id: attempt.id,
     problemId: attempt.problemId,
     problem: problem?.title ?? `Problem ${attempt.problemId}`,
+    problemUrl: problem?.link,
     difficulty: problem ? displayDifficulty(problem.difficulty) : null,
     category: problem?.categories[0] ?? null,
     outcome: attempt.outcome,

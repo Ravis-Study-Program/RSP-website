@@ -27,6 +27,7 @@ import { AppDatePicker } from '@/components/AppDatePicker';
 import { PageHeader, usePageTitle } from '@/components/Common';
 import { DataTable, HighlightText } from '@/components/DataTable';
 import { FormDialog, NamedConfirmation } from '@/components/Dialogs';
+import { ProblemSelect } from '@/components/ProblemSelect';
 import { RichTextEditor } from '@/components/RichTextEditor';
 import { RichTextContent } from '@/components/RichTextContent';
 import { InlineNotice } from '@/components/StatusViews';
@@ -88,7 +89,13 @@ const baseColumns: ColumnDef<Attempt, any>[] = [
     cell: ({ row }) => (
       <div>
         <strong>
-          <HighlightText text={row.original.problem} />
+          {row.original.problemUrl ? (
+            <a href={row.original.problemUrl} target="_blank" rel="noreferrer">
+              <HighlightText text={row.original.problem} />
+            </a>
+          ) : (
+            <HighlightText text={row.original.problem} />
+          )}
         </strong>
         <div className={styles.helper}>
           <HighlightText
@@ -346,7 +353,13 @@ export function PracticePage() {
                 </span>
               </div>
               <h3 className={`${styles.cardTitle} ${styles.cardTitleSpaced}`}>
-                <HighlightText text={row.original.problem} />
+                <a
+                  href={row.original.problemUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  <HighlightText text={row.original.problem} />
+                </a>
               </h3>
               <p className={styles.helper}>
                 {row.original.category} · {formatDate(row.original.attemptedAt)}
@@ -447,6 +460,7 @@ function AttemptDialog({
       id: attempt?.id ?? `attempt_local_${Date.now()}`,
       problemId: values.problemId,
       problem: problem.title,
+      problemUrl: problem.link,
       difficulty: displayDifficulty(problem.difficulty),
       category: problem.categories[0] ?? null,
       outcome: values.outcome,
@@ -536,26 +550,26 @@ function AttemptDialog({
           ) : null}
           <div className={styles.field}>
             <label htmlFor="attempt-problem">Problem</label>
-            <select
-              id="attempt-problem"
-              className={styles.select}
-              disabled={loading || problems.length === 0}
-              aria-invalid={Boolean(errors.problemId)}
-              aria-describedby={
-                errors.problemId ? 'attempt-problem-error' : undefined
-              }
-              {...register('problemId')}
-            >
-              <option value="">
-                {loading ? 'Loading problems…' : 'Choose a problem'}
-              </option>
-              {problems.map((problem) => (
-                <option key={problem.id} value={problem.id}>
-                  {problem.number}. {problem.title} ·{' '}
-                  {displayDifficulty(problem.difficulty)}
-                </option>
-              ))}
-            </select>
+            <Controller
+              name="problemId"
+              control={control}
+              render={({ field }) => (
+                <ProblemSelect
+                  id="attempt-problem"
+                  name={field.name}
+                  problems={problems}
+                  value={field.value}
+                  onChange={field.onChange}
+                  onBlur={field.onBlur}
+                  inputRef={field.ref}
+                  disabled={loading || problems.length === 0}
+                  invalid={Boolean(errors.problemId)}
+                  describedBy={
+                    errors.problemId ? 'attempt-problem-error' : undefined
+                  }
+                />
+              )}
+            />
             {errors.problemId ? (
               <p id="attempt-problem-error" className={styles.fieldError}>
                 {errors.problemId.message}

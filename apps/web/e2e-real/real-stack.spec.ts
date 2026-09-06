@@ -87,7 +87,8 @@ test('student creates, edits, and deletes a Go-backed practice attempt', async (
   ).toBeVisible();
   await page.getByRole('button', { name: 'Log attempt' }).click();
   const create = page.getByRole('dialog', { name: 'Log problem attempt' });
-  await create.getByLabel('Problem').selectOption({ index: 1 });
+  await create.getByLabel('Problem').fill('Two Sum');
+  await page.getByRole('option').filter({ hasText: 'Two Sum' }).first().click();
   await create.getByLabel('Time taken (minutes)').fill('24');
   await create
     .locator('#attempt-notes')

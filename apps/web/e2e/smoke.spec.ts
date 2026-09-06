@@ -508,7 +508,8 @@ test('attempt create, edit, delete and dirty-close confirmation work', async ({
   await page.goto('/practice');
   await page.getByRole('button', { name: 'Log attempt' }).click();
   const dialog = page.getByRole('dialog', { name: 'Log problem attempt' });
-  await dialog.getByLabel('Problem').selectOption({ index: 1 });
+  await dialog.getByLabel('Problem').fill('Two Sum');
+  await page.getByRole('option').filter({ hasText: 'Two Sum' }).first().click();
   await dialog.getByLabel('Time taken (minutes)').fill('24');
   page.once('dialog', async (confirmation) => confirmation.dismiss());
   await dialog.getByRole('button', { name: 'Close dialog' }).click();
@@ -604,7 +605,8 @@ test('mock interview create, round edit and named deletion work', async ({
   const create = page.getByRole('dialog', { name: 'Record mock interview' });
   await create.getByLabel('Interviewee').selectOption('person_amelia');
   await create.getByRole('button', { name: 'Add LeetCode round' }).click();
-  await create.getByLabel('LeetCode problem').selectOption({ index: 1 });
+  await create.getByLabel('LeetCode problem').fill('Two Sum');
+  await page.getByRole('option').filter({ hasText: 'Two Sum' }).first().click();
   await create.getByRole('button', { name: 'Save interview' }).click();
   await page.getByRole('tab', { name: 'Given' }).click();
   await expect(page.getByText('Amelia Chen').first()).toBeVisible();
