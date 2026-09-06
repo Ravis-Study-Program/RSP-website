@@ -48,7 +48,7 @@ func TestDatabaseFailuresAreNotReportedAsPermissionDenials(t *testing.T) {
 
 func assertDatabaseFailure(t *testing.T, response *httptest.ResponseRecorder) {
 	t.Helper()
-	if response.Code != http.StatusInternalServerError || errorCode(t, response) != "internal_error" {
+	if response.Code != http.StatusInternalServerError || errorMessage(t, response) != "The request could not be completed." {
 		t.Fatalf("database failure status=%d body=%s", response.Code, response.Body.String())
 	}
 	if strings.Contains(response.Body.String(), "database is closed") {
@@ -60,11 +60,11 @@ func TestSeasonAdminDistinguishesMissingSeasonFromForbidden(t *testing.T) {
 	fixture := newPostgresFixture(t)
 	missingID := "00000000-0000-7000-8000-000000000199"
 	response := testRequest(t, fixture.handler, http.MethodPost, "/api/v2/seasons/"+missingID+"/weeks", "student", "{}")
-	if response.Code != http.StatusNotFound || errorCode(t, response) != "not_found" {
+	if response.Code != http.StatusNotFound || errorMessage(t, response) != "The requested resource does not exist." {
 		t.Fatalf("missing season status=%d body=%s", response.Code, response.Body.String())
 	}
 	response = testRequest(t, fixture.handler, http.MethodPost, "/api/v2/seasons/"+seasonID+"/weeks", "student", "{}")
-	if response.Code != http.StatusForbidden || errorCode(t, response) != "season_admin_required" {
+	if response.Code != http.StatusForbidden || errorMessage(t, response) != "Season administrator access is required." {
 		t.Fatalf("forbidden season status=%d body=%s", response.Code, response.Body.String())
 	}
 }

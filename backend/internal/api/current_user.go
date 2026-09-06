@@ -99,26 +99,26 @@ func (a *API) updateCurrentUser(w http.ResponseWriter, r *http.Request) {
 	actor := actorFrom(r.Context())
 	var request updateCurrentUserRequest
 	if err := decodeJSON(r.Body, &request); err != nil {
-		writeErrorResponse(w, http.StatusBadRequest, "validation_failed", err.Error())
+		writeErrorResponse(w, http.StatusBadRequest, err.Error())
 		return
 	}
 	if strings.TrimSpace(request.Name) == "" {
-		writeErrorResponse(w, http.StatusBadRequest, "validation_failed", "name is required")
+		writeErrorResponse(w, http.StatusBadRequest, "name is required")
 		return
 	}
 	if _, err := time.LoadLocation(request.Timezone); err != nil {
-		writeErrorResponse(w, http.StatusBadRequest, "validation_failed", "timezone must be an IANA timezone")
+		writeErrorResponse(w, http.StatusBadRequest, "timezone must be an IANA timezone")
 		return
 	}
 	if request.AvatarURL != nil && *request.AvatarURL != "" && !isValidHTTPSURL(*request.AvatarURL) {
-		writeErrorResponse(w, http.StatusBadRequest, "validation_failed", "avatarUrl must be an HTTPS URL")
+		writeErrorResponse(w, http.StatusBadRequest, "avatarUrl must be an HTTPS URL")
 		return
 	}
 
 	if request.Slug != nil {
 		slug := strings.ToLower(strings.TrimSpace(*request.Slug))
 		if len(slug) < 3 || len(slug) > 50 || !validSlug(slug) {
-			writeErrorResponse(w, http.StatusBadRequest, "validation_failed", "slug must be 3-50 lowercase letters, numbers, or hyphens")
+			writeErrorResponse(w, http.StatusBadRequest, "slug must be 3-50 lowercase letters, numbers, or hyphens")
 			return
 		}
 		request.Slug = &slug

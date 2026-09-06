@@ -34,17 +34,17 @@ func (a *API) auditPrivateDataRead(ctx context.Context, actor authz.Actor, subje
 func (a *API) listAdminUsers(w http.ResponseWriter, r *http.Request) {
 	actor := actorFrom(r.Context())
 	if !actor.HasGlobalRole(authz.SystemAdmin) || !actor.HasRecentMFA(time.Now()) {
-		writeErrorResponse(w, http.StatusForbidden, "system_admin_mfa_required", "System Admin access with recent MFA is required.")
+		writeErrorResponse(w, http.StatusForbidden, "System Admin access with recent MFA is required.")
 		return
 	}
 	if _, err := parseSort(r.URL.Query().Get("sort"), "id:asc", "id:asc"); err != nil {
-		writeErrorResponse(w, http.StatusBadRequest, "validation_failed", "sort must be id:asc")
+		writeErrorResponse(w, http.StatusBadRequest, "sort must be id:asc")
 		return
 	}
 
 	direction, err := parsePageDirection(r.URL.Query().Get("direction"))
 	if err != nil {
-		writeErrorResponse(w, http.StatusBadRequest, "validation_failed", "direction must be forward or backward")
+		writeErrorResponse(w, http.StatusBadRequest, "direction must be forward or backward")
 		return
 	}
 
@@ -52,22 +52,22 @@ func (a *API) listAdminUsers(w http.ResponseWriter, r *http.Request) {
 	accountState := r.URL.Query().Get("accountState")
 	globalRole := r.URL.Query().Get("globalRole")
 	if len(query) > 100 {
-		writeErrorResponse(w, http.StatusBadRequest, "validation_failed", "query must be at most 100 characters")
+		writeErrorResponse(w, http.StatusBadRequest, "query must be at most 100 characters")
 		return
 	}
 	if accountState != "" && accountState != "active" && accountState != "suspended" && accountState != "deletion_pending" {
-		writeErrorResponse(w, http.StatusBadRequest, "validation_failed", "accountState must be active, suspended, or deletion_pending")
+		writeErrorResponse(w, http.StatusBadRequest, "accountState must be active, suspended, or deletion_pending")
 		return
 	}
 	if globalRole != "" && globalRole != "director" && globalRole != "system_admin" {
-		writeErrorResponse(w, http.StatusBadRequest, "validation_failed", "globalRole must be director or system_admin")
+		writeErrorResponse(w, http.StatusBadRequest, "globalRole must be director or system_admin")
 		return
 	}
 
 	binding := "admin-users|sort=id:asc|query=" + query + "|accountState=" + accountState + "|globalRole=" + globalRole
 	limit, boundary, err := parsePagination(r.URL.Query().Get("limit"), r.URL.Query().Get("cursor"), binding, a.cursorSecret)
 	if err != nil {
-		writeErrorResponse(w, http.StatusBadRequest, "invalid_cursor", "The cursor does not match the selected admin user filters and sort.")
+		writeErrorResponse(w, http.StatusBadRequest, "The cursor does not match the selected admin user filters and sort.")
 		return
 	}
 
@@ -84,7 +84,7 @@ func (a *API) listAdminUsers(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := a.auditPrivateDataRead(r.Context(), actor, "admin_user_collection", actor.UserID); err != nil {
-		writeErrorResponse(w, http.StatusInternalServerError, "audit_failed", "Private data was not returned because its access could not be audited.")
+		writeErrorResponse(w, http.StatusInternalServerError, "Private data was not returned because its access could not be audited.")
 		return
 	}
 	pageInfo, err := pageInfoForKeyset(
@@ -93,7 +93,7 @@ func (a *API) listAdminUsers(w http.ResponseWriter, r *http.Request) {
 	)
 	if err != nil {
 		a.logger.Error("cursor encoding failed", "error", err)
-		writeErrorResponse(w, http.StatusInternalServerError, "internal_error", "The request could not be completed.")
+		writeErrorResponse(w, http.StatusInternalServerError, "The request could not be completed.")
 		return
 	}
 	response := Page[accounts.User]{
@@ -112,26 +112,26 @@ type setUserAccountStateRequest struct {
 func (a *API) setUserAccountState(w http.ResponseWriter, r *http.Request) {
 	actor := actorFrom(r.Context())
 	if !actor.HasGlobalRole(authz.SystemAdmin) || !actor.HasRecentMFA(time.Now()) {
-		writeErrorResponse(w, http.StatusForbidden, "system_admin_mfa_required", "System Admin access with recent MFA is required.")
+		writeErrorResponse(w, http.StatusForbidden, "System Admin access with recent MFA is required.")
 		return
 	}
 	var request setUserAccountStateRequest
 	if err := decodeJSON(r.Body, &request); err != nil {
-		writeErrorResponse(w, http.StatusBadRequest, "validation_failed", err.Error())
+		writeErrorResponse(w, http.StatusBadRequest, err.Error())
 		return
 	}
 	if request.State != "active" && request.State != "suspended" {
-		writeErrorResponse(w, http.StatusBadRequest, "validation_failed", "state must be active or suspended")
+		writeErrorResponse(w, http.StatusBadRequest, "state must be active or suspended")
 		return
 	}
 	if strings.TrimSpace(request.Reason) == "" || len(request.Reason) > 500 {
-		writeErrorResponse(w, http.StatusBadRequest, "validation_failed", "reason must contain 1-500 characters")
+		writeErrorResponse(w, http.StatusBadRequest, "reason must contain 1-500 characters")
 		return
 	}
 
 	targetID := r.PathValue("id")
 	if a.setAccountState == nil {
-		writeErrorResponse(w, http.StatusServiceUnavailable, "auth_service_unavailable", "Account state administration is temporarily unavailable.")
+		writeErrorResponse(w, http.StatusServiceUnavailable, "Account state administration is temporarily unavailable.")
 		return
 	}
 	current, err := a.db.GetUser(r.Context(), targetID)
@@ -141,7 +141,7 @@ func (a *API) setUserAccountState(w http.ResponseWriter, r *http.Request) {
 	}
 	targetID = current.ID
 	if targetID == actor.UserID && request.State == "suspended" {
-		writeErrorResponse(w, http.StatusConflict, "self_suspension_forbidden", "A System Admin cannot suspend their own account.")
+		writeErrorResponse(w, http.StatusConflict, "A System Admin cannot suspend their own account.")
 		return
 	}
 	subject, err := a.db.ResolveAuthSubjectForUser(r.Context(), targetID)
@@ -150,7 +150,7 @@ func (a *API) setUserAccountState(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := a.setAccountState(r.Context(), authadmin.SetAccountStateInput{AuthUserID: subject, State: request.State, Reason: strings.TrimSpace(request.Reason), ActorUserID: actor.UserID}); err != nil {
-		writeErrorResponse(w, http.StatusBadGateway, "auth_service_failed", "The account state was not changed.")
+		writeErrorResponse(w, http.StatusBadGateway, "The account state was not changed.")
 		return
 	}
 
@@ -171,25 +171,25 @@ type grantUserGlobalRoleRequest struct {
 func (a *API) grantUserGlobalRole(w http.ResponseWriter, r *http.Request) {
 	actor := actorFrom(r.Context())
 	if !actor.HasGlobalRole(authz.SystemAdmin) || !actor.HasRecentMFA(time.Now()) {
-		writeErrorResponse(w, http.StatusForbidden, "system_admin_mfa_required", "System Admin access with recent MFA is required.")
+		writeErrorResponse(w, http.StatusForbidden, "System Admin access with recent MFA is required.")
 		return
 	}
 	var request grantUserGlobalRoleRequest
 	if err := decodeJSON(r.Body, &request); err != nil {
-		writeErrorResponse(w, http.StatusBadRequest, "validation_failed", err.Error())
+		writeErrorResponse(w, http.StatusBadRequest, err.Error())
 		return
 	}
 	if request.Role != "director" && request.Role != "system_admin" {
-		writeErrorResponse(w, http.StatusBadRequest, "validation_failed", "role must be director or system_admin")
+		writeErrorResponse(w, http.StatusBadRequest, "role must be director or system_admin")
 		return
 	}
 	if strings.TrimSpace(request.Reason) == "" || len(request.Reason) > 500 {
-		writeErrorResponse(w, http.StatusBadRequest, "validation_failed", "reason must contain 1-500 characters")
+		writeErrorResponse(w, http.StatusBadRequest, "reason must contain 1-500 characters")
 		return
 	}
 
 	if a.getMFAConfigured == nil {
-		writeErrorResponse(w, http.StatusServiceUnavailable, "auth_service_unavailable", "MFA state could not be verified.")
+		writeErrorResponse(w, http.StatusServiceUnavailable, "MFA state could not be verified.")
 		return
 	}
 	target, err := a.db.GetUser(r.Context(), r.PathValue("id"))
@@ -206,7 +206,7 @@ func (a *API) grantUserGlobalRole(w http.ResponseWriter, r *http.Request) {
 
 	configured, err := a.getMFAConfigured(r.Context(), subject)
 	if err != nil {
-		writeErrorResponse(w, http.StatusBadGateway, "auth_service_failed", "MFA state could not be verified.")
+		writeErrorResponse(w, http.StatusBadGateway, "MFA state could not be verified.")
 		return
 	}
 
@@ -229,7 +229,7 @@ func (a *API) grantUserGlobalRole(w http.ResponseWriter, r *http.Request) {
 func (a *API) listUserGlobalRoles(w http.ResponseWriter, r *http.Request) {
 	actor := actorFrom(r.Context())
 	if !actor.HasGlobalRole(authz.SystemAdmin) || !actor.HasRecentMFA(time.Now()) {
-		writeErrorResponse(w, http.StatusForbidden, "system_admin_mfa_required", "System Admin access with recent MFA is required.")
+		writeErrorResponse(w, http.StatusForbidden, "System Admin access with recent MFA is required.")
 		return
 	}
 	target, err := a.db.GetUser(r.Context(), r.PathValue("id"))
@@ -250,12 +250,12 @@ func (a *API) listUserGlobalRoles(w http.ResponseWriter, r *http.Request) {
 func (a *API) revokeUserGlobalRole(w http.ResponseWriter, r *http.Request) {
 	actor := actorFrom(r.Context())
 	if !actor.HasGlobalRole(authz.SystemAdmin) || !actor.HasRecentMFA(time.Now()) {
-		writeErrorResponse(w, http.StatusForbidden, "system_admin_mfa_required", "System Admin access with recent MFA is required.")
+		writeErrorResponse(w, http.StatusForbidden, "System Admin access with recent MFA is required.")
 		return
 	}
 	targetID, role := r.PathValue("id"), r.PathValue("role")
 	if (role != "director" && role != "system_admin") || strings.TrimSpace(r.URL.Query().Get("reason")) == "" || len(r.URL.Query().Get("reason")) > 500 {
-		writeErrorResponse(w, http.StatusBadRequest, "validation_failed", "valid role and reason up to 500 characters are required")
+		writeErrorResponse(w, http.StatusBadRequest, "valid role and reason up to 500 characters are required")
 		return
 	}
 	target, err := a.db.GetUser(r.Context(), targetID)
@@ -266,7 +266,7 @@ func (a *API) revokeUserGlobalRole(w http.ResponseWriter, r *http.Request) {
 
 	targetID = target.ID
 	if targetID == actor.UserID && role == "system_admin" {
-		writeErrorResponse(w, http.StatusConflict, "self_role_revocation_forbidden", "A System Admin cannot revoke their own System Admin role.")
+		writeErrorResponse(w, http.StatusConflict, "A System Admin cannot revoke their own System Admin role.")
 		return
 	}
 	assignment, err := a.db.RevokeGlobalRole(r.Context(), dal.RevokeGlobalRoleInput{

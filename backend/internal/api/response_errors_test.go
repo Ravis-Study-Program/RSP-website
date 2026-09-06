@@ -11,7 +11,7 @@ import (
 func TestResponseEncodingFailureDoesNotCommitSuccess(t *testing.T) {
 	response := httptest.NewRecorder()
 	writeJSONResponse(response, http.StatusOK, make(chan int))
-	if response.Code != http.StatusInternalServerError || !strings.Contains(response.Body.String(), `"code":"internal_error"`) {
+	if response.Code != http.StatusInternalServerError || errorMessage(t, response) != "The request could not be completed." {
 		t.Fatalf("status=%d body=%s", response.Code, response.Body.String())
 	}
 }

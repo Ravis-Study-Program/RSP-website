@@ -72,7 +72,7 @@ func (a *API) protected(class ratelimit.Class, next http.HandlerFunc) http.Handl
 	return func(w http.ResponseWriter, r *http.Request) {
 		header := r.Header.Get("Authorization")
 		if !strings.HasPrefix(header, "Bearer ") {
-			writeErrorResponse(w, http.StatusUnauthorized, "authentication_required", "A valid access token is required.")
+			writeErrorResponse(w, http.StatusUnauthorized, "A valid access token is required.")
 			return
 		}
 		token := strings.TrimSpace(strings.TrimPrefix(header, "Bearer "))
@@ -87,19 +87,19 @@ func (a *API) protected(class ratelimit.Class, next http.HandlerFunc) http.Handl
 				cause = cause[:512]
 			}
 			a.logger.Warn("authentication failed", "requestId", requestIDFrom(r.Context()), "cause", cause)
-			writeErrorResponse(w, http.StatusUnauthorized, "authentication_required", "A valid access token is required.")
+			writeErrorResponse(w, http.StatusUnauthorized, "A valid access token is required.")
 			return
 		}
 		if actor.AccountState != authz.AccountActive {
-			writeErrorResponse(w, http.StatusForbidden, "account_unavailable", "This account cannot access the product.")
+			writeErrorResponse(w, http.StatusForbidden, "This account cannot access the product.")
 			return
 		}
 		if !actor.EmailVerified {
-			writeErrorResponse(w, http.StatusForbidden, "email_verification_required", "Verify the account email before accessing the product.")
+			writeErrorResponse(w, http.StatusForbidden, "Verify the account email before accessing the product.")
 			return
 		}
 		if r.Method != http.MethodGet && r.Method != http.MethodHead && r.Method != http.MethodOptions && !a.validOrigin(r) {
-			writeErrorResponse(w, http.StatusForbidden, "origin_rejected", "State-changing requests must come from the configured application origin.")
+			writeErrorResponse(w, http.StatusForbidden, "State-changing requests must come from the configured application origin.")
 			return
 		}
 
@@ -112,7 +112,7 @@ func (a *API) protected(class ratelimit.Class, next http.HandlerFunc) http.Handl
 				seconds = 1
 			}
 			w.Header().Set("Retry-After", strconv.Itoa(seconds))
-			writeErrorResponse(w, http.StatusTooManyRequests, "rate_limited", "Wait before trying again.")
+			writeErrorResponse(w, http.StatusTooManyRequests, "Wait before trying again.")
 			return
 		}
 		next(w, r.WithContext(context.WithValue(r.Context(), actorKey{}, actor)))
@@ -125,13 +125,11 @@ func (a *API) validOrigin(r *http.Request) bool {
 }
 
 // writeErrorResponse sends one consistent JSON error response.
-func writeErrorResponse(w http.ResponseWriter, status int, code, message string) {
+func writeErrorResponse(w http.ResponseWriter, status int, message string) {
 	body := struct {
-		Code      string `json:"code"`
 		Message   string `json:"message"`
 		RequestID string `json:"requestId"`
 	}{
-		Code:      code,
 		Message:   message,
 		RequestID: w.Header().Get("X-Request-ID"),
 	}
@@ -145,17 +143,17 @@ func writeErrorResponse(w http.ResponseWriter, status int, code, message string)
 func (a *API) writeStoreErrorResponse(w http.ResponseWriter, err error) {
 	switch {
 	case errors.Is(err, dal.ErrNotFound):
-		writeErrorResponse(w, http.StatusNotFound, "not_found", "The requested resource does not exist.")
+		writeErrorResponse(w, http.StatusNotFound, "The requested resource does not exist.")
 	case errors.Is(err, dal.ErrConflict):
-		writeErrorResponse(w, http.StatusConflict, "conflict", "The requested operation cannot be completed.")
+		writeErrorResponse(w, http.StatusConflict, "The requested operation cannot be completed.")
 	case errors.Is(err, dal.ErrDuplicate):
-		writeErrorResponse(w, http.StatusConflict, "duplicate", "A resource with that unique value already exists.")
+		writeErrorResponse(w, http.StatusConflict, "A resource with that unique value already exists.")
 	default:
 		a.logger.Error(
 			"storage operation failed",
 			"requestId", w.Header().Get("X-Request-ID"),
 			"error", err,
 		)
-		writeErrorResponse(w, http.StatusInternalServerError, "internal_error", "The request could not be completed.")
+		writeErrorResponse(w, http.StatusInternalServerError, "The request could not be completed.")
 	}
 }

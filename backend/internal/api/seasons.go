@@ -16,13 +16,13 @@ import (
 func (a *API) listSeasons(w http.ResponseWriter, r *http.Request) {
 	actor := actorFrom(r.Context())
 	if !actor.CanAccessProgramme() && !actor.IsDirectorOrSystemAdmin() {
-		writeErrorResponse(w, http.StatusForbidden, "season_access_required", "No season access yet.")
+		writeErrorResponse(w, http.StatusForbidden, "No season access yet.")
 		return
 	}
 
 	_, err := parseSort(r.URL.Query().Get("sort"), "id:asc", "id:asc")
 	if err != nil {
-		writeErrorResponse(w, http.StatusBadRequest, "validation_failed", "sort must be id:asc")
+		writeErrorResponse(w, http.StatusBadRequest, "sort must be id:asc")
 		return
 	}
 
@@ -31,13 +31,13 @@ func (a *API) listSeasons(w http.ResponseWriter, r *http.Request) {
 		direction = "forward"
 	}
 	if direction != "forward" && direction != "backward" {
-		writeErrorResponse(w, http.StatusBadRequest, "validation_failed", "direction must be forward or backward")
+		writeErrorResponse(w, http.StatusBadRequest, "direction must be forward or backward")
 		return
 	}
 
 	status := r.URL.Query().Get("status")
 	if status != "" && status != "open" && status != "closed" {
-		writeErrorResponse(w, http.StatusBadRequest, "validation_failed", "status must be open or closed")
+		writeErrorResponse(w, http.StatusBadRequest, "status must be open or closed")
 		return
 	}
 
@@ -45,7 +45,7 @@ func (a *API) listSeasons(w http.ResponseWriter, r *http.Request) {
 	if actor.IsDirectorOrSystemAdmin() {
 		limit, boundary, pageErr := parsePagination(r.URL.Query().Get("limit"), r.URL.Query().Get("cursor"), binding, a.cursorSecret)
 		if pageErr != nil {
-			writeErrorResponse(w, http.StatusBadRequest, "invalid_cursor", cursor.ErrInvalid.Error())
+			writeErrorResponse(w, http.StatusBadRequest, cursor.ErrInvalid.Error())
 			return
 		}
 		items, more, total, listErr := a.db.ListSeasons(r.Context(), dal.SeasonQuery{
@@ -64,7 +64,7 @@ func (a *API) listSeasons(w http.ResponseWriter, r *http.Request) {
 		)
 		if err != nil {
 			a.logger.Error("cursor encoding failed", "error", err)
-			writeErrorResponse(w, http.StatusInternalServerError, "internal_error", "The request could not be completed.")
+			writeErrorResponse(w, http.StatusInternalServerError, "The request could not be completed.")
 			return
 		}
 		response := Page[programme.SeasonRecord]{
@@ -97,12 +97,12 @@ func (a *API) listSeasons(w http.ResponseWriter, r *http.Request) {
 	sort.Slice(items, func(i, j int) bool { return items[i].ID < items[j].ID })
 	limit, boundary, err := parsePagination(r.URL.Query().Get("limit"), r.URL.Query().Get("cursor"), binding, a.cursorSecret)
 	if err != nil {
-		writeErrorResponse(w, http.StatusBadRequest, "invalid_cursor", cursor.ErrInvalid.Error())
+		writeErrorResponse(w, http.StatusBadRequest, cursor.ErrInvalid.Error())
 		return
 	}
 	page, pageInfo, err := paginateOrdered(a.cursorSecret, binding, direction, boundary, limit, items, func(seasonRecord programme.SeasonRecord) string { return seasonRecord.ID })
 	if err != nil {
-		writeErrorResponse(w, http.StatusBadRequest, "invalid_cursor", "The cursor does not match the selected season sort.")
+		writeErrorResponse(w, http.StatusBadRequest, "The cursor does not match the selected season sort.")
 		return
 	}
 
@@ -117,7 +117,7 @@ func (a *API) listSeasons(w http.ResponseWriter, r *http.Request) {
 func (a *API) getSeason(w http.ResponseWriter, r *http.Request) {
 	actor := actorFrom(r.Context())
 	if !actor.CanViewSeason(r.PathValue("id")) {
-		writeErrorResponse(w, http.StatusNotFound, "not_found", "The requested season does not exist.")
+		writeErrorResponse(w, http.StatusNotFound, "The requested season does not exist.")
 		return
 	}
 
@@ -183,16 +183,16 @@ func validSeasonSlug(slug string) bool {
 func (a *API) createSeason(w http.ResponseWriter, r *http.Request) {
 	actor := actorFrom(r.Context())
 	if !actor.IsDirectorOrSystemAdmin() || !actor.HasRecentMFA(time.Now()) {
-		writeErrorResponse(w, http.StatusForbidden, "privileged_mfa_required", "Director or System Admin access with recent MFA is required.")
+		writeErrorResponse(w, http.StatusForbidden, "Director or System Admin access with recent MFA is required.")
 		return
 	}
 	var request seasonInput
 	if err := decodeJSON(r.Body, &request); err != nil {
-		writeErrorResponse(w, http.StatusBadRequest, "validation_failed", err.Error())
+		writeErrorResponse(w, http.StatusBadRequest, err.Error())
 		return
 	}
 	if err := validateSeason(request); err != nil {
-		writeErrorResponse(w, http.StatusBadRequest, "validation_failed", err.Error())
+		writeErrorResponse(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
@@ -220,7 +220,7 @@ func (a *API) updateSeason(w http.ResponseWriter, r *http.Request) {
 	actor := actorFrom(r.Context())
 	seasonID := r.PathValue("id")
 	if !actor.IsDirectorOrSystemAdmin() || !actor.HasRecentMFA(time.Now()) {
-		writeErrorResponse(w, http.StatusForbidden, "privileged_mfa_required", "Director or System Admin access with recent MFA is required.")
+		writeErrorResponse(w, http.StatusForbidden, "Director or System Admin access with recent MFA is required.")
 		return
 	}
 
@@ -231,17 +231,17 @@ func (a *API) updateSeason(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if current.Status != "open" {
-		writeErrorResponse(w, http.StatusConflict, "season_closed", "The season must be reopened before its definition can be changed.")
+		writeErrorResponse(w, http.StatusConflict, "The season must be reopened before its definition can be changed.")
 		return
 	}
 
 	var request seasonInput
 	if err := decodeJSON(r.Body, &request); err != nil {
-		writeErrorResponse(w, http.StatusBadRequest, "validation_failed", err.Error())
+		writeErrorResponse(w, http.StatusBadRequest, err.Error())
 		return
 	}
 	if err := validateSeason(request); err != nil {
-		writeErrorResponse(w, http.StatusBadRequest, "validation_failed", err.Error())
+		writeErrorResponse(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
@@ -278,25 +278,25 @@ func (a *API) updateSeasonResources(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if !actor.IsSeasonAdmin(managedSeason.ID) {
-		writeErrorResponse(w, http.StatusForbidden, "season_admin_required", "Season administrator access is required.")
+		writeErrorResponse(w, http.StatusForbidden, "Season administrator access is required.")
 		return
 	}
 	if managedSeason.Status != "open" {
-		writeErrorResponse(w, http.StatusForbidden, "season_admin_required", "The season must be open.")
+		writeErrorResponse(w, http.StatusForbidden, "The season must be open.")
 		return
 	}
 	if !actor.HasRecentMFA(time.Now()) {
-		writeErrorResponse(w, http.StatusForbidden, "season_admin_required", "Recent MFA is required.")
+		writeErrorResponse(w, http.StatusForbidden, "Recent MFA is required.")
 		return
 	}
 
 	var request updateSeasonResourcesRequest
 	if err := decodeJSON(r.Body, &request); err != nil {
-		writeErrorResponse(w, http.StatusBadRequest, "validation_failed", err.Error())
+		writeErrorResponse(w, http.StatusBadRequest, err.Error())
 		return
 	}
 	if request.ResourcesURL != "" && !isValidHTTPSURL(request.ResourcesURL) {
-		writeErrorResponse(w, http.StatusBadRequest, "validation_failed", "an HTTPS resourcesUrl is required")
+		writeErrorResponse(w, http.StatusBadRequest, "an HTTPS resourcesUrl is required")
 		return
 	}
 	updated, err := a.db.UpdateSeasonResources(r.Context(), dal.UpdateSeasonResourcesInput{
@@ -327,22 +327,22 @@ func (a *API) closeSeason(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if !actor.CanCloseSeason(seasonID) || !actor.HasRecentMFA(time.Now()) {
-		writeErrorResponse(w, http.StatusForbidden, "season_admin_required", "Recent MFA and season administration access are required.")
+		writeErrorResponse(w, http.StatusForbidden, "Recent MFA and season administration access are required.")
 		return
 	}
 
 	if season.Status != "open" {
-		writeErrorResponse(w, http.StatusConflict, "season_closed", "The season is already closed.")
+		writeErrorResponse(w, http.StatusConflict, "The season is already closed.")
 		return
 	}
 
 	var request closeSeasonRequest
 	if err := decodeJSON(r.Body, &request); err != nil {
-		writeErrorResponse(w, http.StatusBadRequest, "validation_failed", err.Error())
+		writeErrorResponse(w, http.StatusBadRequest, err.Error())
 		return
 	}
 	if strings.TrimSpace(request.Reason) == "" {
-		writeErrorResponse(w, http.StatusBadRequest, "validation_failed", "reason is required")
+		writeErrorResponse(w, http.StatusBadRequest, "reason is required")
 		return
 	}
 
@@ -367,18 +367,18 @@ type reopenSeasonRequest struct {
 func (a *API) reopenSeason(w http.ResponseWriter, r *http.Request) {
 	actor := actorFrom(r.Context())
 	if !actor.CanReopenSeason(time.Now()) {
-		writeErrorResponse(w, http.StatusForbidden, "privileged_mfa_required", "Director or System Admin access with recent MFA is required.")
+		writeErrorResponse(w, http.StatusForbidden, "Director or System Admin access with recent MFA is required.")
 		return
 	}
 
 	seasonID := r.PathValue("id")
 	var request reopenSeasonRequest
 	if err := decodeJSON(r.Body, &request); err != nil {
-		writeErrorResponse(w, http.StatusBadRequest, "validation_failed", err.Error())
+		writeErrorResponse(w, http.StatusBadRequest, err.Error())
 		return
 	}
 	if strings.TrimSpace(request.Reason) == "" {
-		writeErrorResponse(w, http.StatusBadRequest, "validation_failed", "reason is required")
+		writeErrorResponse(w, http.StatusBadRequest, "reason is required")
 		return
 	}
 

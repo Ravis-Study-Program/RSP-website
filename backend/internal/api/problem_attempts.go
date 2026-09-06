@@ -18,7 +18,7 @@ import (
 func (a *API) listProblemAttempts(w http.ResponseWriter, r *http.Request) {
 	actor := actorFrom(r.Context())
 	if !actor.CanAccessProgramme() && !actor.IsDirectorOrSystemAdmin() {
-		writeErrorResponse(w, http.StatusForbidden, "season_access_required", "No season access yet.")
+		writeErrorResponse(w, http.StatusForbidden, "No season access yet.")
 		return
 	}
 	targetID := r.URL.Query().Get("userId")
@@ -26,7 +26,7 @@ func (a *API) listProblemAttempts(w http.ResponseWriter, r *http.Request) {
 		targetID = actor.UserID
 	}
 	if targetID != actor.UserID && !actor.CanAccessMemberDirectory() && !actor.IsDirectorOrSystemAdmin() {
-		writeErrorResponse(w, http.StatusForbidden, "directory_access_required", "Only active members and student alumni may view another member's public problem history.")
+		writeErrorResponse(w, http.StatusForbidden, "Only active members and student alumni may view another member's public problem history.")
 		return
 	}
 	if targetID != actor.UserID && !actor.IsDirectorOrSystemAdmin() {
@@ -36,14 +36,14 @@ func (a *API) listProblemAttempts(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		if err != nil || !participant.IsVisibleInDirectory() {
-			writeErrorResponse(w, http.StatusNotFound, "not_found", "The requested member does not exist.")
+			writeErrorResponse(w, http.StatusNotFound, "The requested member does not exist.")
 			return
 		}
 	}
 
 	outcome, difficulty := r.URL.Query().Get("outcome"), r.URL.Query().Get("difficulty")
 	if _, err := parseSort(r.URL.Query().Get("sort"), "id:asc", "id:asc"); err != nil {
-		writeErrorResponse(w, http.StatusBadRequest, "validation_failed", "sort must be id:asc")
+		writeErrorResponse(w, http.StatusBadRequest, "sort must be id:asc")
 		return
 	}
 
@@ -52,14 +52,14 @@ func (a *API) listProblemAttempts(w http.ResponseWriter, r *http.Request) {
 		direction = "forward"
 	}
 	if direction != "forward" && direction != "backward" {
-		writeErrorResponse(w, http.StatusBadRequest, "validation_failed", "direction must be forward or backward")
+		writeErrorResponse(w, http.StatusBadRequest, "direction must be forward or backward")
 		return
 	}
 
 	binding := "attempts|id:asc|user=" + targetID + "|outcome=" + outcome + "|difficulty=" + difficulty
 	limit, after, err := parsePagination(r.URL.Query().Get("limit"), r.URL.Query().Get("cursor"), binding, a.cursorSecret)
 	if err != nil {
-		writeErrorResponse(w, http.StatusBadRequest, "invalid_cursor", cursor.ErrInvalid.Error())
+		writeErrorResponse(w, http.StatusBadRequest, cursor.ErrInvalid.Error())
 		return
 	}
 
@@ -78,7 +78,7 @@ func (a *API) listProblemAttempts(w http.ResponseWriter, r *http.Request) {
 
 	if targetID != actor.UserID {
 		if err := a.auditPrivateDataRead(r.Context(), actor, "problem_attempt_history", targetID); err != nil {
-			writeErrorResponse(w, http.StatusInternalServerError, "audit_failed", "Private data was not returned because its access could not be audited.")
+			writeErrorResponse(w, http.StatusInternalServerError, "Private data was not returned because its access could not be audited.")
 			return
 		}
 	}
@@ -142,7 +142,7 @@ func (a *API) listProblemAttempts(w http.ResponseWriter, r *http.Request) {
 	)
 	if err != nil {
 		a.logger.Error("cursor encoding failed", "error", err)
-		writeErrorResponse(w, http.StatusInternalServerError, "internal_error", "The request could not be completed.")
+		writeErrorResponse(w, http.StatusInternalServerError, "The request could not be completed.")
 		return
 	}
 	response := Page[practice.AttemptRecord]{
@@ -188,16 +188,16 @@ func validateAttempt(request attemptInput) error {
 func (a *API) createProblemAttempt(w http.ResponseWriter, r *http.Request) {
 	actor := actorFrom(r.Context())
 	if !actor.CanAccessProgramme() && !actor.IsDirectorOrSystemAdmin() {
-		writeErrorResponse(w, http.StatusForbidden, "season_access_required", "No season access yet.")
+		writeErrorResponse(w, http.StatusForbidden, "No season access yet.")
 		return
 	}
 	var request attemptInput
 	if err := decodeJSON(r.Body, &request); err != nil {
-		writeErrorResponse(w, http.StatusBadRequest, "validation_failed", err.Error())
+		writeErrorResponse(w, http.StatusBadRequest, err.Error())
 		return
 	}
 	if err := validateAttempt(request); err != nil {
-		writeErrorResponse(w, http.StatusBadRequest, "validation_failed", err.Error())
+		writeErrorResponse(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
@@ -225,16 +225,16 @@ func (a *API) createProblemAttempt(w http.ResponseWriter, r *http.Request) {
 func (a *API) updateProblemAttempt(w http.ResponseWriter, r *http.Request) {
 	actor := actorFrom(r.Context())
 	if !actor.CanAccessProgramme() && !actor.IsDirectorOrSystemAdmin() {
-		writeErrorResponse(w, http.StatusForbidden, "season_access_required", "No season access yet.")
+		writeErrorResponse(w, http.StatusForbidden, "No season access yet.")
 		return
 	}
 	var request attemptInput
 	if err := decodeJSON(r.Body, &request); err != nil {
-		writeErrorResponse(w, http.StatusBadRequest, "validation_failed", err.Error())
+		writeErrorResponse(w, http.StatusBadRequest, err.Error())
 		return
 	}
 	if err := validateAttempt(request); err != nil {
-		writeErrorResponse(w, http.StatusBadRequest, "validation_failed", err.Error())
+		writeErrorResponse(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
@@ -262,7 +262,7 @@ func (a *API) updateProblemAttempt(w http.ResponseWriter, r *http.Request) {
 func (a *API) deleteProblemAttempt(w http.ResponseWriter, r *http.Request) {
 	actor := actorFrom(r.Context())
 	if !actor.CanAccessProgramme() && !actor.IsDirectorOrSystemAdmin() {
-		writeErrorResponse(w, http.StatusForbidden, "season_access_required", "No season access yet.")
+		writeErrorResponse(w, http.StatusForbidden, "No season access yet.")
 		return
 	}
 	if err := a.db.DeleteAttempt(r.Context(), r.PathValue("id"), actor.UserID); err != nil {

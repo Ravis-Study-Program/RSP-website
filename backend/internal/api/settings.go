@@ -72,11 +72,11 @@ func (a *API) getUserPracticeSettings(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if !allowed {
-		writeErrorResponse(w, http.StatusNotFound, "not_found", "The requested member does not exist.")
+		writeErrorResponse(w, http.StatusNotFound, "The requested member does not exist.")
 		return
 	}
 	if err := a.auditPrivateDataRead(r.Context(), actor, "practice_settings", target.ID); err != nil {
-		writeErrorResponse(w, http.StatusInternalServerError, "audit_failed", "Private data was not returned because its access could not be audited.")
+		writeErrorResponse(w, http.StatusInternalServerError, "Private data was not returned because its access could not be audited.")
 		return
 	}
 
@@ -99,19 +99,19 @@ func (a *API) updateCurrentUserPracticeSettings(w http.ResponseWriter, r *http.R
 	actor := actorFrom(r.Context())
 	var request updateCurrentUserPracticeSettingsRequest
 	if err := decodeJSON(r.Body, &request); err != nil {
-		writeErrorResponse(w, http.StatusBadRequest, "validation_failed", err.Error())
+		writeErrorResponse(w, http.StatusBadRequest, err.Error())
 		return
 	}
 	if !validGoal(request.EasyMinutes) {
-		writeErrorResponse(w, http.StatusBadRequest, "validation_failed", "easyMinutes must be between 1 and 180")
+		writeErrorResponse(w, http.StatusBadRequest, "easyMinutes must be between 1 and 180")
 		return
 	}
 	if !validGoal(request.MediumMinutes) {
-		writeErrorResponse(w, http.StatusBadRequest, "validation_failed", "mediumMinutes must be between 1 and 180")
+		writeErrorResponse(w, http.StatusBadRequest, "mediumMinutes must be between 1 and 180")
 		return
 	}
 	if !validGoal(request.HardMinutes) {
-		writeErrorResponse(w, http.StatusBadRequest, "validation_failed", "hardMinutes must be between 1 and 180")
+		writeErrorResponse(w, http.StatusBadRequest, "hardMinutes must be between 1 and 180")
 		return
 	}
 
@@ -122,7 +122,7 @@ func (a *API) updateCurrentUserPracticeSettings(w http.ResponseWriter, r *http.R
 	}
 
 	if !current.GoalsEnabled && (request.EasyMinutes != current.EasyMinutes || request.MediumMinutes != current.MediumMinutes || request.HardMinutes != current.HardMinutes) {
-		writeErrorResponse(w, http.StatusForbidden, "practice_goals_not_enabled", "An assigned mentor or programme administrator must enable personal goals before they can be changed.")
+		writeErrorResponse(w, http.StatusForbidden, "An assigned mentor or programme administrator must enable personal goals before they can be changed.")
 		return
 	}
 
@@ -152,11 +152,11 @@ func (a *API) enablePracticeGoals(w http.ResponseWriter, r *http.Request) {
 	actor := actorFrom(r.Context())
 	var request enablePracticeGoalsRequest
 	if err := decodeJSON(r.Body, &request); err != nil {
-		writeErrorResponse(w, http.StatusBadRequest, "validation_failed", err.Error())
+		writeErrorResponse(w, http.StatusBadRequest, err.Error())
 		return
 	}
 	if request.SeasonID == "" {
-		writeErrorResponse(w, http.StatusBadRequest, "validation_failed", "seasonId is required")
+		writeErrorResponse(w, http.StatusBadRequest, "seasonId is required")
 		return
 	}
 
@@ -175,14 +175,14 @@ func (a *API) enablePracticeGoals(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	if !targetActiveStudent {
-		writeErrorResponse(w, http.StatusNotFound, "active_student_not_found", "The target is not an active student in this season.")
+		writeErrorResponse(w, http.StatusNotFound, "The target is not an active student in this season.")
 		return
 	}
 
 	allowed := false
 	if actor.IsDirectorOrSystemAdmin() {
 		if !actor.HasRecentMFA(time.Now()) {
-			writeErrorResponse(w, http.StatusForbidden, "privileged_mfa_required", "Recent MFA is required.")
+			writeErrorResponse(w, http.StatusForbidden, "Recent MFA is required.")
 			return
 		}
 		allowed = true
@@ -190,7 +190,7 @@ func (a *API) enablePracticeGoals(w http.ResponseWriter, r *http.Request) {
 		switch enrollment.Role {
 		case authz.Coordinator:
 			if !actor.HasRecentMFA(time.Now()) {
-				writeErrorResponse(w, http.StatusForbidden, "privileged_mfa_required", "Recent MFA is required for this administrative action.")
+				writeErrorResponse(w, http.StatusForbidden, "Recent MFA is required for this administrative action.")
 				return
 			}
 			allowed = true
@@ -203,7 +203,7 @@ func (a *API) enablePracticeGoals(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	if !allowed {
-		writeErrorResponse(w, http.StatusForbidden, "forbidden", "Only the assigned mentor or an administrator for this season may enable personal goals.")
+		writeErrorResponse(w, http.StatusForbidden, "Only the assigned mentor or an administrator for this season may enable personal goals.")
 		return
 	}
 

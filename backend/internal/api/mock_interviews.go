@@ -46,29 +46,29 @@ func (a *API) listMockInterviewParticipants(w http.ResponseWriter, r *http.Reque
 	}
 	eligible := err == nil && memberStatus.CanAccessProgramme()
 	if !eligible && !actor.IsDirectorOrSystemAdmin() {
-		writeErrorResponse(w, http.StatusForbidden, "mock_participant_required", "Only programme members may select eligible mock-interview participants.")
+		writeErrorResponse(w, http.StatusForbidden, "Only programme members may select eligible mock-interview participants.")
 		return
 	}
 	if _, err := parseSort(r.URL.Query().Get("sort"), "id:asc", "id:asc"); err != nil {
-		writeErrorResponse(w, http.StatusBadRequest, "validation_failed", "sort must be id:asc")
+		writeErrorResponse(w, http.StatusBadRequest, "sort must be id:asc")
 		return
 	}
 
 	direction, err := parsePageDirection(r.URL.Query().Get("direction"))
 	if err != nil {
-		writeErrorResponse(w, http.StatusBadRequest, "validation_failed", "direction must be forward or backward")
+		writeErrorResponse(w, http.StatusBadRequest, "direction must be forward or backward")
 		return
 	}
 
 	query := strings.TrimSpace(r.URL.Query().Get("query"))
 	if len(query) > 100 {
-		writeErrorResponse(w, http.StatusBadRequest, "validation_failed", "query must be at most 100 characters")
+		writeErrorResponse(w, http.StatusBadRequest, "query must be at most 100 characters")
 		return
 	}
 	binding := "mock-interview-participants|sort=id:asc|query=" + query
 	limit, boundary, err := parsePagination(r.URL.Query().Get("limit"), r.URL.Query().Get("cursor"), binding, a.cursorSecret)
 	if err != nil {
-		writeErrorResponse(w, http.StatusBadRequest, "invalid_cursor", "The cursor does not match the selected participant filters and sort.")
+		writeErrorResponse(w, http.StatusBadRequest, "The cursor does not match the selected participant filters and sort.")
 		return
 	}
 
@@ -98,7 +98,7 @@ func (a *API) listMockInterviewParticipants(w http.ResponseWriter, r *http.Reque
 	)
 	if err != nil {
 		a.logger.Error("cursor encoding failed", "error", err)
-		writeErrorResponse(w, http.StatusInternalServerError, "internal_error", "The request could not be completed.")
+		writeErrorResponse(w, http.StatusInternalServerError, "The request could not be completed.")
 		return
 	}
 	response := Page[mockinterviews.ParticipantSummary]{
@@ -118,7 +118,7 @@ func (a *API) listMockInterviews(w http.ResponseWriter, r *http.Request) {
 	}
 	eligible := err == nil && memberStatus.CanAccessProgramme()
 	if !eligible && !actor.IsDirectorOrSystemAdmin() && !historicalMockReviewer(actor) {
-		writeErrorResponse(w, http.StatusForbidden, "mock_participant_required", "Only active members and alumni may access mock interviews.")
+		writeErrorResponse(w, http.StatusForbidden, "Only active members and alumni may access mock interviews.")
 		return
 	}
 	mode := r.URL.Query().Get("mode")
@@ -126,31 +126,31 @@ func (a *API) listMockInterviews(w http.ResponseWriter, r *http.Request) {
 		mode = "received"
 	}
 	if mode != "received" && mode != "given" && mode != "all" {
-		writeErrorResponse(w, http.StatusBadRequest, "validation_failed", "mode must be received, given, or all")
+		writeErrorResponse(w, http.StatusBadRequest, "mode must be received, given, or all")
 		return
 	}
 	if mode == "all" {
 		if err := a.auditPrivateDataRead(r.Context(), actor, "mock_interview_collection", actor.UserID); err != nil {
-			writeErrorResponse(w, http.StatusInternalServerError, "audit_failed", "Private data was not returned because its access could not be audited.")
+			writeErrorResponse(w, http.StatusInternalServerError, "Private data was not returned because its access could not be audited.")
 			return
 		}
 	}
 	sortBy, err := parseSort(r.URL.Query().Get("sort"), "occurredAt:desc", "occurredAt:desc", "id:asc")
 	if err != nil {
-		writeErrorResponse(w, http.StatusBadRequest, "validation_failed", "sort must be occurredAt:desc or id:asc")
+		writeErrorResponse(w, http.StatusBadRequest, "sort must be occurredAt:desc or id:asc")
 		return
 	}
 
 	direction, err := parsePageDirection(r.URL.Query().Get("direction"))
 	if err != nil {
-		writeErrorResponse(w, http.StatusBadRequest, "validation_failed", "direction must be forward or backward")
+		writeErrorResponse(w, http.StatusBadRequest, "direction must be forward or backward")
 		return
 	}
 
 	binding := "mock-interviews|mode=" + mode + "|sort=" + sortBy
 	limit, boundary, err := parsePagination(r.URL.Query().Get("limit"), r.URL.Query().Get("cursor"), binding, a.cursorSecret)
 	if err != nil {
-		writeErrorResponse(w, http.StatusBadRequest, "invalid_cursor", "The cursor does not match the selected mode and sort.")
+		writeErrorResponse(w, http.StatusBadRequest, "The cursor does not match the selected mode and sort.")
 		return
 	}
 
@@ -195,7 +195,7 @@ func (a *API) listMockInterviews(w http.ResponseWriter, r *http.Request) {
 	)
 	if err != nil {
 		a.logger.Error("cursor encoding failed", "error", err)
-		writeErrorResponse(w, http.StatusInternalServerError, "internal_error", "The request could not be completed.")
+		writeErrorResponse(w, http.StatusInternalServerError, "The request could not be completed.")
 		return
 	}
 	response := Page[mockinterviews.Interview]{
@@ -235,12 +235,12 @@ func (a *API) createMockInterview(w http.ResponseWriter, r *http.Request) {
 	}
 	eligible := err == nil && memberStatus.CanAccessProgramme()
 	if !eligible {
-		writeErrorResponse(w, http.StatusForbidden, "mock_participant_required", "The interviewer must be an active member or alumnus.")
+		writeErrorResponse(w, http.StatusForbidden, "The interviewer must be an active member or alumnus.")
 		return
 	}
 	var request createMockInterviewRequest
 	if err := decodeJSON(r.Body, &request); err != nil {
-		writeErrorResponse(w, http.StatusBadRequest, "validation_failed", err.Error())
+		writeErrorResponse(w, http.StatusBadRequest, err.Error())
 		return
 	}
 	// Eligibility is loaded from app state; the request can only identify the
@@ -254,18 +254,18 @@ func (a *API) createMockInterview(w http.ResponseWriter, r *http.Request) {
 		season, err := a.db.GetSeason(r.Context(), *request.SeasonID)
 		if err != nil {
 			if errors.Is(err, dal.ErrNotFound) {
-				writeErrorResponse(w, http.StatusBadRequest, "invalid_mock_season", "The selected season must exist.")
+				writeErrorResponse(w, http.StatusBadRequest, "The selected season must exist.")
 			} else {
 				a.writeStoreErrorResponse(w, err)
 			}
 			return
 		}
 		if season.Status != "open" {
-			writeErrorResponse(w, http.StatusConflict, "season_closed", "Season-linked mock interview records are locked until the season is reopened.")
+			writeErrorResponse(w, http.StatusConflict, "Season-linked mock interview records are locked until the season is reopened.")
 			return
 		}
 		if request.OccurredAt.Before(season.StartAt) || request.OccurredAt.After(season.EndAt) {
-			writeErrorResponse(w, http.StatusBadRequest, "invalid_mock_season", "The interview date must fall within the selected season.")
+			writeErrorResponse(w, http.StatusBadRequest, "The interview date must fall within the selected season.")
 			return
 		}
 		for _, participantID := range []string{actor.UserID, interviewee.UserID} {
@@ -275,7 +275,7 @@ func (a *API) createMockInterview(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			if !programme.IsEnrolledInSeason(enrollments, season.ID) {
-				writeErrorResponse(w, http.StatusBadRequest, "invalid_mock_season", "Both participants must belong to the selected season.")
+				writeErrorResponse(w, http.StatusBadRequest, "Both participants must belong to the selected season.")
 				return
 			}
 		}
@@ -327,12 +327,12 @@ func (a *API) updateMockInterview(w http.ResponseWriter, r *http.Request) {
 	}
 	eligible := err == nil && memberStatus.CanAccessProgramme()
 	if !eligible && !actor.IsDirectorOrSystemAdmin() {
-		writeErrorResponse(w, http.StatusForbidden, "mock_participant_required", "Only active members and alumni may update mock interviews.")
+		writeErrorResponse(w, http.StatusForbidden, "Only active members and alumni may update mock interviews.")
 		return
 	}
 	var request updateMockInterviewRequest
 	if err := decodeJSON(r.Body, &request); err != nil {
-		writeErrorResponse(w, http.StatusBadRequest, "validation_failed", err.Error())
+		writeErrorResponse(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
@@ -342,25 +342,25 @@ func (a *API) updateMockInterview(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if actor.UserID != storedInterview.InterviewerID {
-		writeErrorResponse(w, http.StatusNotFound, "not_found", "The requested resource does not exist.")
+		writeErrorResponse(w, http.StatusNotFound, "The requested resource does not exist.")
 		return
 	}
 	if storedInterview.SeasonID != nil {
 		season, err := a.db.GetSeason(r.Context(), *storedInterview.SeasonID)
 		if err != nil {
 			if errors.Is(err, dal.ErrNotFound) {
-				writeErrorResponse(w, http.StatusBadRequest, "invalid_mock_season", "The selected season must exist.")
+				writeErrorResponse(w, http.StatusBadRequest, "The selected season must exist.")
 			} else {
 				a.writeStoreErrorResponse(w, err)
 			}
 			return
 		}
 		if season.Status != "open" {
-			writeErrorResponse(w, http.StatusConflict, "season_closed", "Season-linked mock interview records are locked until the season is reopened.")
+			writeErrorResponse(w, http.StatusConflict, "Season-linked mock interview records are locked until the season is reopened.")
 			return
 		}
 		if request.OccurredAt.Before(season.StartAt) || request.OccurredAt.After(season.EndAt) {
-			writeErrorResponse(w, http.StatusBadRequest, "invalid_mock_season", "The interview date must fall within the selected season.")
+			writeErrorResponse(w, http.StatusBadRequest, "The interview date must fall within the selected season.")
 			return
 		}
 		for _, participantID := range []string{storedInterview.InterviewerID, storedInterview.IntervieweeID} {
@@ -370,7 +370,7 @@ func (a *API) updateMockInterview(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			if !programme.IsEnrolledInSeason(enrollments, season.ID) {
-				writeErrorResponse(w, http.StatusBadRequest, "invalid_mock_season", "Both participants must belong to the selected season.")
+				writeErrorResponse(w, http.StatusBadRequest, "Both participants must belong to the selected season.")
 				return
 			}
 		}
@@ -412,7 +412,7 @@ func (a *API) deleteMockInterview(w http.ResponseWriter, r *http.Request) {
 	}
 	eligible := err == nil && memberStatus.CanAccessProgramme()
 	if !eligible && !actor.IsDirectorOrSystemAdmin() {
-		writeErrorResponse(w, http.StatusForbidden, "mock_participant_required", "Only active members and alumni may delete mock interviews.")
+		writeErrorResponse(w, http.StatusForbidden, "Only active members and alumni may delete mock interviews.")
 		return
 	}
 
@@ -422,7 +422,7 @@ func (a *API) deleteMockInterview(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if actor.UserID != storedInterview.InterviewerID {
-		writeErrorResponse(w, http.StatusNotFound, "not_found", "The requested resource does not exist.")
+		writeErrorResponse(w, http.StatusNotFound, "The requested resource does not exist.")
 		return
 	}
 	if storedInterview.SeasonID != nil {
@@ -432,7 +432,7 @@ func (a *API) deleteMockInterview(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		if season.Status != "open" {
-			writeErrorResponse(w, http.StatusConflict, "season_closed", "Season-linked mock interview records are locked until the season is reopened.")
+			writeErrorResponse(w, http.StatusConflict, "Season-linked mock interview records are locked until the season is reopened.")
 			return
 		}
 	}
@@ -463,12 +463,12 @@ func (a *API) reviewMockInterviewRound(w http.ResponseWriter, r *http.Request) {
 	}
 	eligible := err == nil && memberStatus.CanAccessProgramme()
 	if !eligible && !actor.IsDirectorOrSystemAdmin() {
-		writeErrorResponse(w, http.StatusForbidden, "mock_participant_required", "Only active members and alumni may review mock interviews.")
+		writeErrorResponse(w, http.StatusForbidden, "Only active members and alumni may review mock interviews.")
 		return
 	}
 	var request reviewMockInterviewRoundRequest
 	if err := decodeJSON(r.Body, &request); err != nil {
-		writeErrorResponse(w, http.StatusBadRequest, "validation_failed", err.Error())
+		writeErrorResponse(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
@@ -478,7 +478,7 @@ func (a *API) reviewMockInterviewRound(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if actor.UserID != storedInterview.IntervieweeID {
-		writeErrorResponse(w, http.StatusNotFound, "not_found", "The requested resource does not exist.")
+		writeErrorResponse(w, http.StatusNotFound, "The requested resource does not exist.")
 		return
 	}
 	if storedInterview.SeasonID != nil {
@@ -488,7 +488,7 @@ func (a *API) reviewMockInterviewRound(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		if season.Status != "open" {
-			writeErrorResponse(w, http.StatusConflict, "season_closed", "Season-linked mock interview records are locked until the season is reopened.")
+			writeErrorResponse(w, http.StatusConflict, "Season-linked mock interview records are locked until the season is reopened.")
 			return
 		}
 	}
@@ -529,16 +529,16 @@ type correctMockInterviewIdentitiesRequest struct {
 func (a *API) correctMockInterviewIdentities(w http.ResponseWriter, r *http.Request) {
 	actor := actorFrom(r.Context())
 	if !actor.IsDirectorOrSystemAdmin() || !actor.HasRecentMFA(time.Now()) {
-		writeErrorResponse(w, http.StatusForbidden, "privileged_mfa_required", "Director or System Admin access with recent MFA is required.")
+		writeErrorResponse(w, http.StatusForbidden, "Director or System Admin access with recent MFA is required.")
 		return
 	}
 	var request correctMockInterviewIdentitiesRequest
 	if err := decodeJSON(r.Body, &request); err != nil {
-		writeErrorResponse(w, http.StatusBadRequest, "validation_failed", err.Error())
+		writeErrorResponse(w, http.StatusBadRequest, err.Error())
 		return
 	}
 	if request.InterviewerID == "" || request.IntervieweeID == "" || request.InterviewerID == request.IntervieweeID || request.Reason == "" {
-		writeErrorResponse(w, http.StatusBadRequest, "validation_failed", "different interviewerId and intervieweeId, reason, are required")
+		writeErrorResponse(w, http.StatusBadRequest, "different interviewerId and intervieweeId, reason, are required")
 		return
 	}
 
@@ -555,7 +555,7 @@ func (a *API) correctMockInterviewIdentities(w http.ResponseWriter, r *http.Requ
 			return
 		}
 		if err != nil || !participant.CanBeMockInterviewParticipant() {
-			writeErrorResponse(w, http.StatusBadRequest, "invalid_mock_participant", "Corrected participants must be active members or alumni.")
+			writeErrorResponse(w, http.StatusBadRequest, "Corrected participants must be active members or alumni.")
 			return
 		}
 	}
@@ -563,18 +563,18 @@ func (a *API) correctMockInterviewIdentities(w http.ResponseWriter, r *http.Requ
 		season, err := a.db.GetSeason(r.Context(), *request.SeasonID)
 		if err != nil {
 			if errors.Is(err, dal.ErrNotFound) {
-				writeErrorResponse(w, http.StatusBadRequest, "invalid_mock_season", "The selected season must exist.")
+				writeErrorResponse(w, http.StatusBadRequest, "The selected season must exist.")
 			} else {
 				a.writeStoreErrorResponse(w, err)
 			}
 			return
 		}
 		if season.Status != "open" {
-			writeErrorResponse(w, http.StatusConflict, "season_closed", "Season-linked mock interview records are locked until the season is reopened.")
+			writeErrorResponse(w, http.StatusConflict, "Season-linked mock interview records are locked until the season is reopened.")
 			return
 		}
 		if storedInterview.OccurredAt.Before(season.StartAt) || storedInterview.OccurredAt.After(season.EndAt) {
-			writeErrorResponse(w, http.StatusBadRequest, "invalid_mock_season", "The interview date must fall within the selected season.")
+			writeErrorResponse(w, http.StatusBadRequest, "The interview date must fall within the selected season.")
 			return
 		}
 		for _, participantID := range []string{request.InterviewerID, request.IntervieweeID} {
@@ -584,7 +584,7 @@ func (a *API) correctMockInterviewIdentities(w http.ResponseWriter, r *http.Requ
 				return
 			}
 			if !programme.IsEnrolledInSeason(enrollments, season.ID) {
-				writeErrorResponse(w, http.StatusBadRequest, "invalid_mock_season", "Both participants must belong to the selected season.")
+				writeErrorResponse(w, http.StatusBadRequest, "Both participants must belong to the selected season.")
 				return
 			}
 		}
@@ -619,12 +619,12 @@ func (a *API) correctMockInterviewIdentities(w http.ResponseWriter, r *http.Requ
 func (a *API) writeMockErrorResponse(w http.ResponseWriter, err error) {
 	switch {
 	case errors.Is(err, mockinterviews.ErrForbidden):
-		writeErrorResponse(w, http.StatusForbidden, "forbidden", "The current account cannot perform this action.")
+		writeErrorResponse(w, http.StatusForbidden, "The current account cannot perform this action.")
 	case errors.Is(err, mockinterviews.ErrInvalid):
-		writeErrorResponse(w, http.StatusBadRequest, "invalid_mock_interview", err.Error())
+		writeErrorResponse(w, http.StatusBadRequest, err.Error())
 	default:
 		a.logger.Error("mock interview operation failed", "error", err)
-		writeErrorResponse(w, http.StatusInternalServerError, "internal_error", "The request could not be completed.")
+		writeErrorResponse(w, http.StatusInternalServerError, "The request could not be completed.")
 	}
 }
 

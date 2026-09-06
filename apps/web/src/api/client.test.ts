@@ -66,7 +66,9 @@ describe('Better Auth access token acquisition', () => {
     );
 
     await expect(getAccessToken()).rejects.toMatchObject({
-      response: { code: 'invalid_auth_token' },
+      status: 502,
+      message:
+        'The authentication service returned an access token without a valid expiry.',
     });
   });
 });
@@ -76,7 +78,6 @@ describe('API errors', () => {
     const error = await errorFromResponse(
       new Response(
         JSON.stringify({
-          code: 'conflict',
           message: 'The requested operation cannot be completed.',
           requestId: 'request-123',
         }),
@@ -84,14 +85,11 @@ describe('API errors', () => {
       ),
     );
 
-    expect(error).toMatchObject({
-      status: 409,
+    expect(error.status).toBe(409);
+    expect(error.message).toBe('The requested operation cannot be completed.');
+    expect(error.response).toEqual({
       message: 'The requested operation cannot be completed.',
-      response: {
-        code: 'conflict',
-        message: 'The requested operation cannot be completed.',
-        requestId: 'request-123',
-      },
+      requestId: 'request-123',
     });
   });
 });

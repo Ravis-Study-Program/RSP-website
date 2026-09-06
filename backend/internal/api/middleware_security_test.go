@@ -32,16 +32,16 @@ func TestClaimsMustMatchCurrentAccountStateAndSecurityVersion(t *testing.T) {
 func TestWriteStoreErrorResponse(t *testing.T) {
 	unexpected := errors.New("private database failure")
 	tests := []struct {
-		name       string
-		err        error
-		wantStatus int
-		wantCode   string
-		wantLog    bool
+		name        string
+		err         error
+		wantStatus  int
+		wantMessage string
+		wantLog     bool
 	}{
-		{"not found", dal.ErrNotFound, http.StatusNotFound, "not_found", false},
-		{"wrapped conflict", errors.Join(errors.New("update failed"), dal.ErrConflict), http.StatusConflict, "conflict", false},
-		{"duplicate", dal.ErrDuplicate, http.StatusConflict, "duplicate", false},
-		{"unexpected", unexpected, http.StatusInternalServerError, "internal_error", true},
+		{"not found", dal.ErrNotFound, http.StatusNotFound, "The requested resource does not exist.", false},
+		{"wrapped conflict", errors.Join(errors.New("update failed"), dal.ErrConflict), http.StatusConflict, "The requested operation cannot be completed.", false},
+		{"duplicate", dal.ErrDuplicate, http.StatusConflict, "A resource with that unique value already exists.", false},
+		{"unexpected", unexpected, http.StatusInternalServerError, "The request could not be completed.", true},
 	}
 
 	for _, test := range tests {
@@ -53,7 +53,7 @@ func TestWriteStoreErrorResponse(t *testing.T) {
 
 			api.writeStoreErrorResponse(response, test.err)
 
-			if response.Code != test.wantStatus || errorCode(t, response) != test.wantCode {
+			if response.Code != test.wantStatus || errorMessage(t, response) != test.wantMessage {
 				t.Fatalf("status=%d body=%s", response.Code, response.Body.String())
 			}
 			if strings.Contains(response.Body.String(), unexpected.Error()) {

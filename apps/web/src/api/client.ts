@@ -21,7 +21,6 @@ export class ApiError extends Error {
 
 function invalidTokenError(message: string) {
   return new ApiError(502, {
-    code: 'invalid_auth_token',
     message,
     requestId: 'client',
   });
@@ -129,7 +128,6 @@ export async function errorFromResponse(response: Response): Promise<ApiError> {
   const partial =
     payload && typeof payload === 'object'
       ? (payload as {
-          code?: unknown;
           message?: unknown;
           requestId?: unknown;
           detail?: unknown;
@@ -137,8 +135,6 @@ export async function errorFromResponse(response: Response): Promise<ApiError> {
         })
       : {};
   const errorResponse: ErrorResponse = {
-    code:
-      typeof partial.code === 'string' ? partial.code : 'unexpected_response',
     message:
       typeof partial.message === 'string'
         ? partial.message

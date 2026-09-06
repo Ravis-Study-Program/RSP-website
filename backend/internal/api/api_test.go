@@ -39,24 +39,27 @@ func testRequest(t *testing.T, handler http.Handler, method, path, actor, body s
 	return response
 }
 
-func errorCode(t *testing.T, response *httptest.ResponseRecorder) string {
+func errorMessage(t *testing.T, response *httptest.ResponseRecorder) string {
 	t.Helper()
 	if got := response.Header().Get("Content-Type"); got != "application/json" {
 		t.Fatalf("content type %q body %s", got, response.Body.String())
 	}
-	var body map[string]any
+	var body map[string]string
 	if err := json.Unmarshal(response.Body.Bytes(), &body); err != nil {
 		t.Fatal(err)
 	}
-	for _, field := range []string{"code", "message", "requestId"} {
+	for _, field := range []string{"message", "requestId"} {
 		if _, ok := body[field]; !ok {
 			t.Fatalf("missing %s in %#v", field, body)
 		}
 	}
-	if len(body) != 3 {
+	if len(body) != 2 {
 		t.Fatalf("unexpected error response fields: %#v", body)
 	}
-	return body["code"].(string)
+	if body["requestId"] != response.Header().Get("X-Request-ID") {
+		t.Fatalf("request ID does not match response header: %#v", body)
+	}
+	return body["message"]
 }
 
 func TestRequestContextNormalizesRequestIDAndRecovers(t *testing.T) {
@@ -72,8 +75,8 @@ func TestRequestContextNormalizesRequestIDAndRecovers(t *testing.T) {
 	if response.Code != http.StatusInternalServerError || response.Header().Get("X-Request-ID") == request.Header.Get("X-Request-ID") {
 		t.Fatalf("status=%d requestID=%q", response.Code, response.Header().Get("X-Request-ID"))
 	}
-	if got := errorCode(t, response); got != "internal_error" {
-		t.Fatalf("code=%s body=%s", got, response.Body.String())
+	if got := errorMessage(t, response); got != "The request could not be completed." {
+		t.Fatalf("message=%s body=%s", got, response.Body.String())
 	}
 }
 
@@ -88,7 +91,7 @@ func TestRequestBodyLimitStopsBeforeTheHandler(t *testing.T) {
 	body := strings.Repeat("x", int(maxRequestBodyBytes)+1)
 	response := testRequest(t, testHandler(authenticator), http.MethodPatch, "/api/v2/me", "test", body)
 
-	if response.Code != http.StatusBadRequest || errorCode(t, response) != "invalid_request_body" {
+	if response.Code != http.StatusBadRequest || errorMessage(t, response) != "The request body is too large or unreadable." {
 		t.Fatalf("status=%d body=%s", response.Code, response.Body.String())
 	}
 }
@@ -110,7 +113,7 @@ func TestHealthAuthenticationAndOriginChecksDoNotExposeInternalErrors(t *testing
 		t.Fatalf("health status=%d", response.Code)
 	}
 	response := testRequest(t, handler, http.MethodGet, "/api/v2/me", "", "")
-	if response.Code != http.StatusUnauthorized || errorCode(t, response) != "authentication_required" || bytes.Contains(response.Body.Bytes(), []byte("private authentication failure")) {
+	if response.Code != http.StatusUnauthorized || errorMessage(t, response) != "A valid access token is required." || bytes.Contains(response.Body.Bytes(), []byte("private authentication failure")) {
 		t.Fatalf("authentication status=%d body=%s", response.Code, response.Body.String())
 	}
 
@@ -119,7 +122,7 @@ func TestHealthAuthenticationAndOriginChecksDoNotExposeInternalErrors(t *testing
 	request.Header.Set("Origin", "https://evil.test")
 	response = httptest.NewRecorder()
 	handler.ServeHTTP(response, request)
-	if response.Code != http.StatusForbidden || errorCode(t, response) != "origin_rejected" {
+	if response.Code != http.StatusForbidden || errorMessage(t, response) != "State-changing requests must come from the configured application origin." {
 		t.Fatalf("origin status=%d body=%s", response.Code, response.Body.String())
 	}
 }
@@ -136,7 +139,7 @@ func TestRequestCannotSupplyItsOwnActorID(t *testing.T) {
 	body := `{"problemId":"problem","outcome":"independently_solved","confidence":5,"minutes":12,"attemptedAt":"2026-09-01T00:00:00Z","userId":"someone-else"}`
 	response := testRequest(t, testHandler(authenticator), http.MethodPost, "/api/v2/problem-attempts", "student", body)
 
-	if response.Code != http.StatusBadRequest || errorCode(t, response) != "validation_failed" {
+	if response.Code != http.StatusBadRequest || errorMessage(t, response) != `json: unknown field "userId"` {
 		t.Fatalf("status=%d body=%s", response.Code, response.Body.String())
 	}
 }

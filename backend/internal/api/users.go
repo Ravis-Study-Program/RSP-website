@@ -14,13 +14,13 @@ import (
 func (a *API) listUsers(w http.ResponseWriter, r *http.Request) {
 	actor := actorFrom(r.Context())
 	if !actor.CanAccessMemberDirectory() && !actor.IsDirectorOrSystemAdmin() {
-		writeErrorResponse(w, http.StatusForbidden, "season_access_required", "No season access yet.")
+		writeErrorResponse(w, http.StatusForbidden, "No season access yet.")
 		return
 	}
 
 	_, err := parseSort(r.URL.Query().Get("sort"), "id:asc", "id:asc")
 	if err != nil {
-		writeErrorResponse(w, http.StatusBadRequest, "validation_failed", "sort must be id:asc")
+		writeErrorResponse(w, http.StatusBadRequest, "sort must be id:asc")
 		return
 	}
 
@@ -30,21 +30,21 @@ func (a *API) listUsers(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if direction != "forward" && direction != "backward" {
-		writeErrorResponse(w, http.StatusBadRequest, "validation_failed", "direction must be forward or backward")
+		writeErrorResponse(w, http.StatusBadRequest, "direction must be forward or backward")
 		return
 	}
 
 	query := strings.TrimSpace(r.URL.Query().Get("query"))
 	seasonRole, globalRole := r.URL.Query().Get("seasonRole"), r.URL.Query().Get("globalRole")
 	if len(query) > 100 || seasonRole != "" && seasonRole != "student" && seasonRole != "mentor" && seasonRole != "coordinator" || globalRole != "" && globalRole != "director" && globalRole != "system_admin" {
-		writeErrorResponse(w, http.StatusBadRequest, "validation_failed", "query and valid seasonRole/globalRole filters are required")
+		writeErrorResponse(w, http.StatusBadRequest, "query and valid seasonRole/globalRole filters are required")
 		return
 	}
 
 	binding := "users|sort=id:asc|query=" + query + "|seasonRole=" + seasonRole + "|globalRole=" + globalRole
 	limit, boundary, err := parsePagination(r.URL.Query().Get("limit"), r.URL.Query().Get("cursor"), binding, a.cursorSecret)
 	if err != nil {
-		writeErrorResponse(w, http.StatusBadRequest, "invalid_cursor", cursor.ErrInvalid.Error())
+		writeErrorResponse(w, http.StatusBadRequest, cursor.ErrInvalid.Error())
 		return
 	}
 
@@ -71,7 +71,7 @@ func (a *API) listUsers(w http.ResponseWriter, r *http.Request) {
 	)
 	if err != nil {
 		a.logger.Error("cursor encoding failed", "error", err)
-		writeErrorResponse(w, http.StatusInternalServerError, "internal_error", "The request could not be completed.")
+		writeErrorResponse(w, http.StatusInternalServerError, "The request could not be completed.")
 		return
 	}
 	response := Page[accounts.User]{
@@ -85,7 +85,7 @@ func (a *API) listUsers(w http.ResponseWriter, r *http.Request) {
 func (a *API) getUser(w http.ResponseWriter, r *http.Request) {
 	actor := actorFrom(r.Context())
 	if !actor.CanAccessMemberDirectory() && !actor.IsDirectorOrSystemAdmin() {
-		writeErrorResponse(w, http.StatusForbidden, "season_access_required", "No season access yet.")
+		writeErrorResponse(w, http.StatusForbidden, "No season access yet.")
 		return
 	}
 
@@ -102,7 +102,7 @@ func (a *API) getUser(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		if !participant.IsVisibleInDirectory() {
-			writeErrorResponse(w, http.StatusNotFound, "not_found", "The requested resource does not exist.")
+			writeErrorResponse(w, http.StatusNotFound, "The requested resource does not exist.")
 			return
 		}
 	}
@@ -156,7 +156,7 @@ func (a *API) getUser(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	if err := a.auditPrivateDataRead(r.Context(), actor, "user", user.ID); err != nil {
-		writeErrorResponse(w, http.StatusInternalServerError, "audit_failed", "Private data was not returned because its access could not be audited.")
+		writeErrorResponse(w, http.StatusInternalServerError, "Private data was not returned because its access could not be audited.")
 		return
 	}
 	writeJSONResponse(w, http.StatusOK, user)

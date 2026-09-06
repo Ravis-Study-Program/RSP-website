@@ -12,7 +12,7 @@ import (
 func (a *API) listLeetCodeProblems(w http.ResponseWriter, r *http.Request) {
 	actor := actorFrom(r.Context())
 	if !actor.CanAccessProgramme() && !actor.IsDirectorOrSystemAdmin() {
-		writeErrorResponse(w, http.StatusForbidden, "season_access_required", "No season access yet.")
+		writeErrorResponse(w, http.StatusForbidden, "No season access yet.")
 		return
 	}
 
@@ -21,13 +21,13 @@ func (a *API) listLeetCodeProblems(w http.ResponseWriter, r *http.Request) {
 	if raw := r.URL.Query().Get("premium"); raw != "" {
 		parsed, parseErr := strconv.ParseBool(raw)
 		if parseErr != nil {
-			writeErrorResponse(w, http.StatusBadRequest, "validation_failed", "premium must be true or false")
+			writeErrorResponse(w, http.StatusBadRequest, "premium must be true or false")
 			return
 		}
 		premium = &parsed
 	}
 	if _, err := parseSort(r.URL.Query().Get("sort"), "id:asc", "id:asc"); err != nil {
-		writeErrorResponse(w, http.StatusBadRequest, "validation_failed", "sort must be id:asc")
+		writeErrorResponse(w, http.StatusBadRequest, "sort must be id:asc")
 		return
 	}
 
@@ -36,14 +36,14 @@ func (a *API) listLeetCodeProblems(w http.ResponseWriter, r *http.Request) {
 		direction = "forward"
 	}
 	if direction != "forward" && direction != "backward" {
-		writeErrorResponse(w, http.StatusBadRequest, "validation_failed", "direction must be forward or backward")
+		writeErrorResponse(w, http.StatusBadRequest, "direction must be forward or backward")
 		return
 	}
 
 	binding := "problems|id:asc|difficulty=" + difficulty + "|category=" + category + "|premium=" + r.URL.Query().Get("premium")
 	limit, after, err := parsePagination(r.URL.Query().Get("limit"), r.URL.Query().Get("cursor"), binding, a.cursorSecret)
 	if err != nil {
-		writeErrorResponse(w, http.StatusBadRequest, "invalid_cursor", cursor.ErrInvalid.Error())
+		writeErrorResponse(w, http.StatusBadRequest, cursor.ErrInvalid.Error())
 		return
 	}
 
@@ -66,7 +66,7 @@ func (a *API) listLeetCodeProblems(w http.ResponseWriter, r *http.Request) {
 	)
 	if err != nil {
 		a.logger.Error("cursor encoding failed", "error", err)
-		writeErrorResponse(w, http.StatusInternalServerError, "internal_error", "The request could not be completed.")
+		writeErrorResponse(w, http.StatusInternalServerError, "The request could not be completed.")
 		return
 	}
 	response := Page[practice.ProblemRecord]{

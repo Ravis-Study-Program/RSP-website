@@ -113,7 +113,7 @@ func requestContext(logger *slog.Logger, observe func(int, time.Duration), next 
 		// Deferred work runs after the selected endpoint returns or panics.
 		defer func() {
 			if recovered := recover(); recovered != nil {
-				writeErrorResponse(response, http.StatusInternalServerError, "internal_error", "The request could not be completed.")
+				writeErrorResponse(response, http.StatusInternalServerError, "The request could not be completed.")
 				logger.Error("request panic", "requestId", requestID, "error", fmt.Sprint(recovered))
 			}
 			if response.status == 0 {
@@ -138,7 +138,7 @@ func writeJSONResponse(w http.ResponseWriter, status int, body any) {
 	encoded, err := json.Marshal(body)
 	if err != nil {
 		slog.Error("response encoding failed", "error", err)
-		writeErrorResponse(w, http.StatusInternalServerError, "internal_error", "The request could not be completed.")
+		writeErrorResponse(w, http.StatusInternalServerError, "The request could not be completed.")
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
@@ -157,7 +157,7 @@ func (a *API) limitRequestBody(next http.Handler) http.Handler {
 			return
 		}
 		if r.ContentLength > maxRequestBodyBytes {
-			writeErrorResponse(w, http.StatusBadRequest, "invalid_request_body", "The request body is too large or unreadable.")
+			writeErrorResponse(w, http.StatusBadRequest, "The request body is too large or unreadable.")
 			return
 		}
 
@@ -189,7 +189,7 @@ func (a *API) checkLiveness(w http.ResponseWriter, _ *http.Request) {
 func (a *API) checkReadiness(w http.ResponseWriter, r *http.Request) {
 	if a.ready != nil {
 		if err := a.ready(); err != nil {
-			writeErrorResponse(w, http.StatusServiceUnavailable, "not_ready", "A required dependency is unavailable.")
+			writeErrorResponse(w, http.StatusServiceUnavailable, "A required dependency is unavailable.")
 			return
 		}
 	}

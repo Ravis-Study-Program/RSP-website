@@ -28,21 +28,21 @@ func (a *API) receiveIdentityLifecycleEvent(w http.ResponseWriter, r *http.Reque
 	expected := os.Getenv("IDENTITY_SERVICE_TOKEN")
 	header := r.Header.Get("Authorization")
 	if !strings.HasPrefix(header, "Bearer ") {
-		writeErrorResponse(w, http.StatusUnauthorized, "invalid_service_token", "A valid service token is required.")
+		writeErrorResponse(w, http.StatusUnauthorized, "A valid service token is required.")
 		return
 	}
 	provided := strings.TrimPrefix(header, "Bearer ")
 	if expected == "" || len(provided) != len(expected) || subtle.ConstantTimeCompare([]byte(provided), []byte(expected)) != 1 {
-		writeErrorResponse(w, http.StatusUnauthorized, "invalid_service_token", "A valid service token is required.")
+		writeErrorResponse(w, http.StatusUnauthorized, "A valid service token is required.")
 		return
 	}
 	var request receiveIdentityLifecycleEventRequest
 	if err := decodeJSON(r.Body, &request); err != nil {
-		writeErrorResponse(w, http.StatusBadRequest, "validation_failed", err.Error())
+		writeErrorResponse(w, http.StatusBadRequest, err.Error())
 		return
 	}
 	if request.EventID == "" || request.AuthUserID == "" || request.OccurredAt.IsZero() || request.SecurityVersion < 1 {
-		writeErrorResponse(w, http.StatusBadRequest, "validation_failed", "valid eventId, type, authUserId, securityVersion, and occurredAt are required")
+		writeErrorResponse(w, http.StatusBadRequest, "valid eventId, type, authUserId, securityVersion, and occurredAt are required")
 		return
 	}
 

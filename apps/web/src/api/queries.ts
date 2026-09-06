@@ -181,7 +181,6 @@ function selectedDemoUser(): CurrentUser {
 
 function demoAuthenticationError() {
   return new ApiError(401, {
-    code: 'authentication_required',
     message: 'Sign in to continue.',
     requestId: 'demo',
   });
