@@ -110,8 +110,14 @@ func (a Actor) CanRecordActivity() bool {
 	return a.authenticated() && (len(a.Enrollments) > 0 || a.IsDirectorOrSystemAdmin())
 }
 
-// CanViewSeason preserves access to completed seasons for active members and alumni.
-func (a Actor) CanViewSeason(seasonID string) bool {
+// CanReadSharedActivity permits programme members and student alumni to read
+// each other's activity. Contact details and write permissions remain separate.
+func (a Actor) CanReadSharedActivity() bool {
+	return a.authenticated() && (a.IsDirectorOrSystemAdmin() || a.CanAccessMemberDirectory())
+}
+
+// CanReviewSeason retains staff access to the season's historical activity.
+func (a Actor) CanReviewSeason(seasonID string) bool {
 	if !a.authenticated() {
 		return false
 	}
@@ -119,7 +125,12 @@ func (a Actor) CanViewSeason(seasonID string) bool {
 		return true
 	}
 	e, ok := a.Enrollment(seasonID)
-	return ok && (e.State == Active || e.State == Completed && a.CanAccessMemberDirectory())
+	return ok && (e.State == Active || e.State == Completed) && (e.Role == Mentor || e.Role == Coordinator)
+}
+
+// CanViewSeason allows shared season browsing and former staff's own history.
+func (a Actor) CanViewSeason(seasonID string) bool {
+	return a.CanReadSharedActivity() || a.CanReviewSeason(seasonID)
 }
 
 // MemberRelationship contains facts loaded for a private-data access check.

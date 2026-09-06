@@ -245,9 +245,6 @@ func TestActivityFiltersBindCursorsAndPrivateHistory(t *testing.T) {
 	}
 	for _, attempt := range history.Items {
 		want := "private feedback"
-		if attempt.AttemptedAt.Year() == 2027 {
-			want = ""
-		}
 		if attempt.Notes != want {
 			t.Fatalf("private notes at %s=%q", attempt.AttemptedAt, attempt.Notes)
 		}

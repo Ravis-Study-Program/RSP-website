@@ -42,7 +42,7 @@ func (a *API) listSeasons(w http.ResponseWriter, r *http.Request) {
 	}
 
 	binding := "seasons|sort=id:asc|status=" + status
-	if actor.IsDirectorOrSystemAdmin() {
+	if actor.CanReadSharedActivity() {
 		limit, boundary, pageErr := parsePagination(r.URL.Query().Get("limit"), r.URL.Query().Get("cursor"), binding, a.cursorSecret)
 		if pageErr != nil {
 			writeErrorResponse(w, http.StatusBadRequest, cursor.ErrInvalid.Error())

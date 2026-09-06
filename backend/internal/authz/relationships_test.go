@@ -55,11 +55,11 @@ func TestSeasonAccessUsesCurrentAffiliation(t *testing.T) {
 	}{
 		{"active member", []Enrollment{{"s", Mentor, Active}}, true},
 		{"alumnus", []Enrollment{{"s", Student, Completed}}, true},
-		{"completed mentor only", []Enrollment{{"s", Mentor, Completed}}, false},
+		{"completed mentor only", []Enrollment{{"s", Mentor, Completed}}, true},
 		{"completed coordinator with another active enrollment", []Enrollment{{"s", Coordinator, Completed}, {"other", Mentor, Active}}, true},
 		{"completed mentor with alumni affiliation", []Enrollment{{"s", Mentor, Completed}, {"other", Student, Completed}}, true},
-		{"kicked from requested season", []Enrollment{{"s", Student, Kicked}, {"other", Student, Completed}}, false},
-		{"unrelated season", []Enrollment{{"other", Mentor, Active}}, false},
+		{"kicked from requested season with alumni access", []Enrollment{{"s", Student, Kicked}, {"other", Student, Completed}}, true},
+		{"shared season browsing", []Enrollment{{"other", Mentor, Active}}, true},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

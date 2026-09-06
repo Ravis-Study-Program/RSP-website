@@ -29,6 +29,7 @@ const (
 	MockInterviewsReceived MockInterviewVisibility = "received"
 	MockInterviewsRelated  MockInterviewVisibility = "related"
 	MockInterviewsAll      MockInterviewVisibility = "all"
+	MockInterviewsShared   MockInterviewVisibility = "shared"
 )
 
 type MockInterviewQuery struct {
@@ -51,17 +52,21 @@ func (p *Store) ListMockInterviews(ctx context.Context, q MockInterviewQuery) ([
 		where = `mi.interviewee_user_id=$1`
 	} else if q.Visibility == MockInterviewsAll {
 		where = `$1::text IS NOT NULL`
-	} else if q.Visibility == MockInterviewsRelated {
+	} else if q.Visibility == MockInterviewsRelated || q.Visibility == MockInterviewsShared {
 		where = `(mi.interviewer_user_id=$1 OR mi.interviewee_user_id=$1 OR EXISTS (
-			SELECT 1 FROM app.enrollments viewer
-			WHERE viewer.user_id=$1 AND viewer.season_id=mi.activity_season_id AND viewer.state IN ('active','completed') AND viewer.deleted_at IS NULL
-			AND (viewer.role='coordinator' OR (viewer.role='mentor' AND EXISTS (
-				SELECT 1 FROM app.mentorships m
-				JOIN app.enrollments mentor ON mentor.id=m.mentor_enrollment_id
-				JOIN app.enrollments student ON student.id=m.student_enrollment_id
-				WHERE m.season_id=mi.activity_season_id AND m.created_at<=mi.scheduled_at AND (m.ended_at IS NULL OR mi.scheduled_at<m.ended_at) AND m.deleted_at IS NULL
-				AND mentor.user_id=$1 AND student.user_id=mi.interviewee_user_id
-		)))))`
+   SELECT 1 FROM app.enrollments viewer
+   WHERE viewer.user_id=$1 AND viewer.season_id=mi.activity_season_id
+    AND viewer.state IN ('active','completed') AND viewer.deleted_at IS NULL
+    AND viewer.role IN ('mentor','coordinator')
+  ))`
+		if q.Visibility == MockInterviewsShared {
+			where = "(" + where + ` OR EXISTS (
+    SELECT 1 FROM app.users member JOIN app.enrollments membership ON membership.user_id=member.id
+    WHERE member.id IN (mi.interviewer_user_id,mi.interviewee_user_id)
+     AND member.account_state='active' AND member.deleted_at IS NULL AND membership.deleted_at IS NULL
+     AND (membership.state='active' OR (membership.role='student' AND membership.state='completed'))
+   ))`
+		}
 	}
 	where = "(" + where + ") AND ($2 = '' OR mi.activity_season_id=NULLIF($2,'')::uuid) AND ($3 = 0 OR EXTRACT(YEAR FROM mi.scheduled_at AT TIME ZONE 'Australia/Adelaide')=$3)"
 	var total int64

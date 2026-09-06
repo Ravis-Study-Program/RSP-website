@@ -1,12 +1,10 @@
 package api
 
 import (
-	"errors"
 	"fmt"
 	"net/http"
 	"time"
 
-	"github.com/magedmg/RSP-website/backend/internal/authz"
 	"github.com/magedmg/RSP-website/backend/internal/dal"
 	"github.com/magedmg/RSP-website/backend/internal/platform/cursor"
 	"github.com/magedmg/RSP-website/backend/internal/platform/id"
@@ -24,25 +22,12 @@ func (a *API) listProblemAttempts(w http.ResponseWriter, r *http.Request) {
 	if targetID == "" {
 		targetID = actor.UserID
 	}
-	if targetID != actor.UserID && !actor.CanAccessMemberDirectory() && !actor.IsDirectorOrSystemAdmin() {
-		writeErrorResponse(w, http.StatusForbidden, "Only active members and student alumni may view another member's public problem history.")
-		return
-	}
-	if targetID != actor.UserID && !actor.IsDirectorOrSystemAdmin() {
-		participant, err := a.db.GetMemberStatus(r.Context(), targetID)
-		if err != nil && !errors.Is(err, dal.ErrNotFound) {
-			a.writeStoreErrorResponse(w, err)
-			return
-		}
-		if err != nil || !participant.IsVisibleInDirectory() {
-			writeErrorResponse(w, http.StatusNotFound, "The requested member does not exist.")
-			return
-		}
-	}
-
 	seasonID, year, filterErr := activityFilters(r, actor)
 	if filterErr != nil {
 		writeErrorResponse(w, http.StatusBadRequest, filterErr.Error())
+		return
+	}
+	if !a.authorizeActivityRead(w, r, targetID, seasonID) {
 		return
 	}
 	outcome, difficulty := r.URL.Query().Get("outcome"), r.URL.Query().Get("difficulty")
@@ -85,25 +70,6 @@ func (a *API) listProblemAttempts(w http.ResponseWriter, r *http.Request) {
 		if err := a.auditPrivateDataRead(r.Context(), actor, "problem_attempt_history", targetID); err != nil {
 			writeErrorResponse(w, http.StatusInternalServerError, "Private data was not returned because its access could not be audited.")
 			return
-		}
-	}
-	if targetID != actor.UserID && !actor.IsDirectorOrSystemAdmin() {
-		for i := range items {
-			canPrivate := false
-			if items[i].SeasonID != nil {
-				assigned, err := a.db.IsMentorAssignedAt(r.Context(), *items[i].SeasonID, actor.UserID, targetID, items[i].AttemptedAt)
-				if err != nil {
-					a.writeStoreErrorResponse(w, err)
-					return
-				}
-				canPrivate = actor.CanViewMemberPrivateData(targetID, authz.MemberRelationship{SeasonID: *items[i].SeasonID, TargetEnrolled: true, AssignedMentor: assigned})
-			}
-			if !canPrivate {
-				items[i].Notes = ""
-				items[i].Confidence = nil
-				items[i].SeasonID = nil
-				items[i].WeekID = nil
-			}
 		}
 	}
 

@@ -18,7 +18,7 @@ func activityFilters(r *http.Request, actor authz.Actor) (string, int, error) {
 			return "", 0, errors.New("seasonId must be a UUID")
 		}
 	}
-	if seasonID != "" && !actor.IsDirectorOrSystemAdmin() {
+	if seasonID != "" && !actor.CanViewSeason(seasonID) {
 		if _, ok := actor.Enrollment(seasonID); !ok {
 			return "", 0, errors.New("the selected season is not one of your memberships")
 		}

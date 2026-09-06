@@ -166,6 +166,9 @@ func (a *API) listMockInterviews(w http.ResponseWriter, r *http.Request) {
 		visibility = dal.MockInterviewsGiven
 	case "all":
 		visibility = dal.MockInterviewsRelated
+		if actor.CanReadSharedActivity() {
+			visibility = dal.MockInterviewsShared
+		}
 		if actor.IsDirectorOrSystemAdmin() {
 			visibility = dal.MockInterviewsAll
 		}
