@@ -6,6 +6,8 @@ export default defineConfig({
       reporter: ['text', 'json-summary'],
     },
     environment: 'node',
+    // Live cases perform several real password hashes and network round trips.
+    testTimeout: process.env.AUTH_LIVE_TEST === 'true' ? 30_000 : 5_000,
     include: ['test/**/*.test.ts'],
     restoreMocks: true,
   },
