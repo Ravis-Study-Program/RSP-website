@@ -7,7 +7,7 @@ test('season mentors can set student levels and see fixed practice goals', async
     localStorage.setItem('rsp-demo-role', 'mentor');
     localStorage.removeItem('rsp-demo-auth-state');
   });
-  await page.goto('/seasons/2026-semester-2/people');
+  await page.goto('/seasons/summer-2025-26/people');
   await expect(page.getByRole('heading', { name: 'People' })).toBeVisible();
   await page.getByRole('button', { name: 'Set level' }).first().click();
   const dialog = page.getByRole('dialog');

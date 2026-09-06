@@ -14,7 +14,7 @@ async function toggleWeek(page: Page, week: number, checked: boolean) {
 test('practice uses season or all time and clears weeks when changing periods @compat', async ({
   page,
 }, testInfo) => {
-  await page.goto('/seasons/2026-semester-2/practice');
+  await page.goto('/seasons/summer-2025-26/practice');
   await expect(page.getByLabel('View activity')).toHaveValue('season_2026_s2');
   await expect(page.getByLabel('Year (Adelaide time)')).toHaveCount(0);
   await page.getByText('Season weeks: All', { exact: true }).click();
@@ -31,7 +31,7 @@ test('practice uses season or all time and clears weeks when changing periods @c
   await toggleWeek(page, 2, true);
   await expect(anagram).toBeVisible();
   await page.getByLabel('View activity').selectOption('season_2026_s1');
-  await expect(page).toHaveURL(/\/seasons\/2026-semester-1\/practice$/);
+  await expect(page).toHaveURL(/\/seasons\/summer-2024-25\/practice$/);
   await expect(
     page.getByText('Season weeks: All', { exact: true }),
   ).toBeVisible();

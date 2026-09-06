@@ -274,15 +274,15 @@ export const enrollmentCandidatesQueryKey = (seasonId?: string) =>
   ['enrollment-candidates', seasonId] as const;
 
 function demoWeekPage(seasonId: string): WeekPage {
-  if (!seasons.some((season) => season.id === seasonId)) return page([]);
+  const season = seasons.find((season) => season.id === seasonId);
+  if (!season) return page([]);
+  const start = new Date(season.startsAt).getTime();
   const items: Week[] = seasonWeeks.map((week) => ({
     id: `week_${seasonId}_${week.week}`,
     seasonId,
     number: week.week,
-    startAt: week.startsAt,
-    endAt: new Date(
-      new Date(week.startsAt).getTime() + 6 * 86_400_000,
-    ).toISOString(),
+    startAt: new Date(start + (week.week - 1) * 7 * 86_400_000).toISOString(),
+    endAt: new Date(start + week.week * 7 * 86_400_000 - 1).toISOString(),
     resourceUrl: `https://example.test/resources/week-${week.week}`,
   }));
   return page(items);

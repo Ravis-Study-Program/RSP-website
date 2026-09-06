@@ -65,7 +65,7 @@ function defaultValues(season?: Season): SeasonFormValues {
   const start = new Date();
   start.setHours(9, 0, 0, 0);
   const end = new Date(start);
-  end.setMonth(end.getMonth() + 4);
+  end.setMonth(end.getMonth() + 3);
   return season
     ? {
         name: season.name,
@@ -185,7 +185,7 @@ export function SeasonEditorDialog({
   return (
     <FormDialog
       title={season ? `Edit ${season.name}` : 'Create season'}
-      description="Set the programme definition. Privileged changes require recent MFA and are audited."
+      description="Set the dates for this summer programme, usually around three months. These dates determine which activity counts toward the season."
       open={open}
       onOpenChange={(next) => {
         if (

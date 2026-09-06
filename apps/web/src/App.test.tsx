@@ -60,14 +60,14 @@ describe('application routes', () => {
   });
 
   it('redirects old season user routes to people', async () => {
-    const router = renderRoute('/seasons/2026-semester-2/users');
+    const router = renderRoute('/seasons/summer-2025-26/users');
     expect(
       await screen.findByRole('heading', { name: 'People' }, routeTimeout),
     ).toBeInTheDocument();
     await waitFor(
       () =>
         expect(router.state.location.pathname).toBe(
-          '/seasons/2026-semester-2/people',
+          '/seasons/summer-2025-26/people',
         ),
       routeTimeout,
     );
@@ -75,7 +75,7 @@ describe('application routes', () => {
 
   it.each([
     '/profile?user=amelia-chen',
-    '/seasons/2026-semester-2/profile?user=amelia-chen',
+    '/seasons/summer-2025-26/profile?user=amelia-chen',
   ])(
     'redirects legacy profile queries to the canonical public profile',
     async (path) => {

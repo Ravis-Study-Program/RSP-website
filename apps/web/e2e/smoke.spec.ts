@@ -421,24 +421,24 @@ test('coordinator edits only season resources and mentorship forms protect dirty
     'Desktop scoped-season operations',
   );
   await selectDemoRole(page, 'coordinator');
-  await page.goto('/seasons/2026-semester-2');
+  await page.goto('/seasons/summer-2025-26');
   await expect(page.getByRole('button', { name: 'Edit season' })).toHaveCount(
     0,
   );
   await page.getByRole('button', { name: 'Edit resources' }).click();
   const resources = page.getByRole('dialog', {
-    name: /Edit resources for Semester 2, 2026/,
+    name: /Edit resources for Summer 2025\/26/,
   });
   await resources
     .getByLabel('Season resources URL')
-    .fill('https://rsp.org.au/resources/semester-2');
+    .fill('https://rsp.org.au/resources/summer-2025-26');
   page.once('dialog', async (confirmation) => confirmation.dismiss());
   await page.keyboard.press('Escape');
   await expect(resources).toBeVisible();
   await resources.getByRole('button', { name: 'Save resources' }).click();
   await expect(
     page.getByRole('link', { name: 'Season resources' }),
-  ).toHaveAttribute('href', 'https://rsp.org.au/resources/semester-2');
+  ).toHaveAttribute('href', 'https://rsp.org.au/resources/summer-2025-26');
 
   await page.goto('/admin/mentorships');
   await page.getByRole('button', { name: 'Create mentorship' }).click();
@@ -573,14 +573,14 @@ test('director can create, edit and close a season', async ({
 
   await page
     .getByRole('row')
-    .filter({ hasText: 'Semester 2, 2026' })
-    .getByRole('link', { name: 'Semester 2, 2026' })
+    .filter({ hasText: 'Summer 2025/26' })
+    .getByRole('link', { name: 'Summer 2025/26' })
     .click();
   await expect(
-    page.getByRole('heading', { name: 'Semester 2, 2026' }),
+    page.getByRole('heading', { name: 'Summer 2025/26' }),
   ).toBeVisible();
   await page.getByRole('button', { name: 'Edit season' }).click();
-  const edit = page.getByRole('dialog', { name: /Edit Semester 2, 2026/ });
+  const edit = page.getByRole('dialog', { name: /Edit Summer 2025\/26/ });
   await edit.getByLabel('Location').fill('Adelaide City Campus');
   await edit.getByRole('button', { name: 'Save season' }).click();
   await expect(
@@ -589,10 +589,10 @@ test('director can create, edit and close a season', async ({
 
   await page.getByRole('button', { name: 'Close season' }).click();
   const close = page.getByRole('dialog', {
-    name: /Close season: Semester 2, 2026/,
+    name: /Close season: Summer 2025\/26/,
   });
   await close.getByLabel('Reason').fill('Programme completed successfully');
-  await close.getByLabel(/Type Semester 2, 2026/).fill('Semester 2, 2026');
+  await close.getByLabel(/Type Summer 2025\/26/).fill('Summer 2025/26');
   await close.getByRole('button', { name: 'Close season' }).click();
   await expect(page.getByText('This season is read-only.')).toBeVisible();
 

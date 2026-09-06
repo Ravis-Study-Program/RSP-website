@@ -45,7 +45,7 @@ describe('OpenAPI DTO adapters', () => {
       seasonRoles: [
         {
           seasonId: 'season-1',
-          seasonSlug: '2026-semester-2',
+          seasonSlug: 'summer-2025-26',
           role: 'coordinator',
           state: 'active',
         },
@@ -60,7 +60,7 @@ describe('OpenAPI DTO adapters', () => {
       seasonRoles: [
         {
           seasonId: 'season-1',
-          seasonSlug: '2026-semester-2',
+          seasonSlug: 'summer-2025-26',
           role: 'coordinator',
           state: 'active',
         },
@@ -75,8 +75,8 @@ describe('OpenAPI DTO adapters', () => {
       items: [
         {
           id: 'season-1',
-          slug: '2026-semester-2',
-          name: 'Semester 2, 2026',
+          slug: 'summer-2025-26',
+          name: 'Summer 2025/26',
           status: 'open',
           startAt: '2026-07-27T00:00:00Z',
           endAt: '2026-11-20T00:00:00Z',
