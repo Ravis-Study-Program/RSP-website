@@ -1786,8 +1786,24 @@ function MentorshipDialog({
           );
       queryClient.setQueryData<MentorshipPage>(
         seasonMentorshipsQueryKey(seasonId),
-        (current) => upsertPageItem(current, saved),
+        (current) =>
+          upsertPageItem(
+            mentorship && current
+              ? {
+                  ...current,
+                  items: current.items.filter(
+                    (item) => item.id !== mentorship.id,
+                  ),
+                  totalCount: Math.max(0, current.totalCount - 1),
+                }
+              : current,
+            saved,
+          ),
       );
+      if (!demoMode)
+        await queryClient.invalidateQueries({
+          queryKey: seasonMentorshipsQueryKey(seasonId),
+        });
       setOpen(false);
     } catch (requestError) {
       if (requestError instanceof ApiError && requestError.status === 409) {

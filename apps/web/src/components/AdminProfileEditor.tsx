@@ -84,8 +84,13 @@ function ProfileForm({
         await Promise.all([
           client.invalidateQueries({ queryKey: ['admin-users'] }),
           client.invalidateQueries({ queryKey: ['people'] }),
-          client.invalidateQueries({ queryKey: ['user-profile'] }),
+          client.invalidateQueries({ queryKey: ['users'] }),
+          client.invalidateQueries({ queryKey: ['me'] }),
           client.invalidateQueries({ queryKey: ['season-people'] }),
+          client.invalidateQueries({ queryKey: ['season-enrollments'] }),
+          client.invalidateQueries({
+            queryKey: ['mock-interview-participants'],
+          }),
         ]);
         setMessage('Profile updated.');
       }
