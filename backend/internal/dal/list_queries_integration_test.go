@@ -213,6 +213,16 @@ func TestStoreListQueries(t *testing.T) {
 		}))
 	})
 
+	t.Run("historical enrollment cursor includes legacy removed records", func(t *testing.T) {
+		if _, err := db.pool.Exec(ctx, `UPDATE app.enrollments SET deleted_at=now() WHERE id=$1`, queryFixtureID(206)); err != nil {
+			t.Fatal(err)
+		}
+		defer db.pool.Exec(ctx, `UPDATE app.enrollments SET deleted_at=NULL WHERE id=$1`, queryFixtureID(206))
+		expectListPage(t, []int{207, 208}, false, 8, func(e programme.EnrollmentRecord) string { return e.ID })(db.ListEnrollments(ctx, EnrollmentQuery{
+			SeasonID: queryFixtureID(101), Boundary: queryFixtureID(206), Limit: 10, SortBy: "id:asc", Direction: "forward", IncludeInactive: true,
+		}))
+	})
+
 	t.Run("mentorship filters share count and page bindings", func(t *testing.T) {
 		id := func(mentorship programme.MentorshipRecord) string { return mentorship.ID }
 		expectListPage(t, []int{402}, true, 2, id)(db.ListMentorships(ctx, MentorshipQuery{

@@ -64,7 +64,8 @@ func (p *Store) ListEnrollments(ctx context.Context, q EnrollmentQuery) ([]progr
 	}
 	query := `WITH boundary AS (
 		SELECT ` + boundarySelect + ` FROM app.enrollments
-		WHERE id=NULLIF(@boundary, '')::uuid AND season_id = @seasonID AND deleted_at IS NULL
+		WHERE id=NULLIF(@boundary, '')::uuid AND season_id = @seasonID
+		  AND (deleted_at IS NULL OR (@includeInactive AND state IN ('kicked','withdrawn')))
 	) SELECT ` + enrollmentColumns + `
 	FROM app.enrollments e JOIN app.seasons s ON s.id=e.season_id
 	WHERE ` + filters + `
