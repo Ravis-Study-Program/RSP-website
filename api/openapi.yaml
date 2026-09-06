@@ -878,6 +878,44 @@ paths:
         '409': { $ref: '#/components/responses/Error' }
         '401': { $ref: '#/components/responses/Error' }
         '429': { $ref: '#/components/responses/RateLimited' }
+  /me/problem-suggestion:
+    get:
+      operationId: suggestProblem
+      description: Suggests an unattempted problem matching the selected difficulty and topics across the member's complete practice history.
+      parameters:
+        - {
+            name: difficulty,
+            in: query,
+            style: form,
+            explode: true,
+            schema:
+              {
+                type: array,
+                items: { type: string, enum: [easy, medium, hard] },
+              },
+          }
+        - {
+            name: category,
+            in: query,
+            style: form,
+            explode: true,
+            schema: { type: array, items: { type: string } },
+          }
+      responses:
+        default: { $ref: '#/components/responses/Error' }
+        '200':
+          description: A matching question, or null if none remain
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [problem]
+                properties:
+                  problem:
+                    nullable: true
+                    allOf:
+                      - { $ref: '#/components/schemas/LeetcodeProblem' }
+
   /leetcode-problems:
     get:
       operationId: listLeetcodeProblems

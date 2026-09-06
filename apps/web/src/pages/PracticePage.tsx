@@ -1,4 +1,5 @@
 import { useActivityFilters, filterPractice } from '@/activityFilters';
+import { ProblemSuggestion } from '@/components/ProblemSuggestion';
 import { PracticeFilters } from '@/components/ActivityFilters';
 import { adelaideYear } from '@/activityDates';
 import { ActivityYearFilter } from '@/components/ActivityYearFilter';
@@ -338,6 +339,7 @@ export function PracticePage() {
           filters={filters}
           onChange={setFilters}
         />
+        <ProblemSuggestion filters={filters} />
         <DataTable
           ariaLabel="Problem attempts"
           data={visibleAttempts}
