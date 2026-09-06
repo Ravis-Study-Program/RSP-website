@@ -63,12 +63,16 @@ func newPostgresFixture(t *testing.T) postgresFixture {
 
 	actors := map[string]authz.Actor{
 		"student": {
-			UserID: studentID, EmailVerified: true, AccountState: authz.AccountActive,
-			Enrollments: []authz.Enrollment{{SeasonID: seasonID, Role: authz.Student, State: authz.Active}},
+			UserID:        studentID,
+			EmailVerified: true,
+			AccountState:  authz.AccountActive,
+			Enrollments:   []authz.Enrollment{{SeasonID: seasonID, Role: authz.Student, State: authz.Active}},
 		},
 		"other": {
-			UserID: otherID, EmailVerified: true, AccountState: authz.AccountActive,
-			Enrollments: []authz.Enrollment{{SeasonID: seasonID, Role: authz.Mentor, State: authz.Active}},
+			UserID:        otherID,
+			EmailVerified: true,
+			AccountState:  authz.AccountActive,
+			Enrollments:   []authz.Enrollment{{SeasonID: seasonID, Role: authz.Mentor, State: authz.Active}},
 		},
 	}
 	authenticator := AuthenticatorFunc(func(_ context.Context, token string) (authz.Actor, error) {
@@ -88,7 +92,11 @@ func newPostgresFixture(t *testing.T) postgresFixture {
 		SetAccountState: func(context.Context, string, string, string, string) error { return nil },
 		GetMFAState:     func(context.Context, string) (bool, error) { return false, nil },
 	})
-	return postgresFixture{db: db, pool: pool, handler: api.Handler()}
+	return postgresFixture{
+		db:      db,
+		pool:    pool,
+		handler: api.Handler(),
+	}
 }
 
 func truncateAppTables(t *testing.T, db *pgxpool.Pool) {

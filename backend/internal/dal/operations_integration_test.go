@@ -21,8 +21,13 @@ func TestStoreOperations(t *testing.T) {
 	}
 
 	if err := db.ApplyIdentityEvent(ctx, accounts.IdentityEvent{
-		EventID: id.New(), Type: "auth_user_created", AuthUserID: "bootstrap-user",
-		Email: "admin@example.test", EmailVerified: true, SecurityVersion: 1, OccurredAt: time.Now().UTC(),
+		EventID:         id.New(),
+		Type:            "auth_user_created",
+		AuthUserID:      "bootstrap-user",
+		Email:           "admin@example.test",
+		EmailVerified:   true,
+		SecurityVersion: 1,
+		OccurredAt:      time.Now().UTC(),
 	}); err != nil {
 		t.Fatal(err)
 	}

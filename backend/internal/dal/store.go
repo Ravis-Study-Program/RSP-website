@@ -47,8 +47,9 @@ type queryer interface {
 func (s *Store) ObservabilitySnapshot(ctx context.Context) (observability.Snapshot, error) {
 	stats := s.pool.Stat()
 	snapshot := observability.Snapshot{
-		DBPoolAcquiredConnections: stats.AcquiredConns(), DBPoolIdleConnections: stats.IdleConns(),
-		WorkerRuns: map[string]uint64{"success": 0, "partial_failure": 0, "failure": 0},
+		DBPoolAcquiredConnections: stats.AcquiredConns(),
+		DBPoolIdleConnections:     stats.IdleConns(),
+		WorkerRuns:                map[string]uint64{"success": 0, "partial_failure": 0, "failure": 0},
 	}
 	rows, err := s.pool.Query(ctx, `SELECT CASE WHEN succeeded THEN 'success'
   WHEN error_summary IS NOT NULL THEN 'failure' ELSE 'partial_failure' END AS result, count(*)

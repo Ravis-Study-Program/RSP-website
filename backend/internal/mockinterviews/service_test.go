@@ -2,6 +2,7 @@ package mockinterviews
 
 import (
 	"errors"
+	"github.com/magedmg/RSP-website/backend/internal/accounts"
 	"strings"
 	"testing"
 	"time"
@@ -10,7 +11,13 @@ import (
 func score(v int) *int { return &v }
 
 func validCreate() CreateInput {
-	return CreateInput{Interviewee: Participant{UserID: "student", ActiveMember: true}, OccurredAt: time.Now(), DurationMinutes: 60, Notes: "<script>x</script><b>ok</b>", Rounds: []Round{{ID: "r1", Type: Behavioural, Scores: Scores{Behavioural: score(7)}}}}
+	return CreateInput{
+		Interviewee:     accounts.MemberStatus{UserID: "student", ActiveMember: true},
+		OccurredAt:      time.Now(),
+		DurationMinutes: 60,
+		Notes:           "<script>x</script><b>ok</b>",
+		Rounds:          []Round{{ID: "r1", Type: Behavioural, Scores: Scores{Behavioural: score(7)}}},
+	}
 }
 
 func TestOwnershipVersionsReviewAndPass(t *testing.T) {
@@ -19,10 +26,10 @@ func TestOwnershipVersionsReviewAndPass(t *testing.T) {
 	if err != nil || m.InterviewerID != "mentor" || !Passed(m) {
 		t.Fatal("create failed")
 	}
-	if _, err := s.Update(m, "student", UpdateInput{}, time.Now()); !errors.Is(err, ErrForbidden) {
+	if _, err := s.Update(m, "student", UpdateInput{}); !errors.Is(err, ErrForbidden) {
 		t.Fatalf("ownership: %v", err)
 	}
-	m, err = s.Review(m, "student", "r1", "thanks", true, time.Now())
+	m, err = s.ReviewRound(m, ReviewRoundInput{ActorID: "student", RoundID: "r1", Comment: "thanks", Reviewed: true})
 	if err != nil {
 		t.Fatalf("review: %v", err)
 	}
@@ -43,7 +50,7 @@ func TestInterviewerCannotWriteIntervieweeReview(t *testing.T) {
 	if m.Rounds[0].Reviewed || m.Rounds[0].IntervieweeComment != "" {
 		t.Fatalf("create trusted interviewer review: %#v", m.Rounds[0])
 	}
-	m, err = s.Review(m, "student", "r1", "real review", true, time.Now())
+	m, err = s.ReviewRound(m, ReviewRoundInput{ActorID: "student", RoundID: "r1", Comment: "real review", Reviewed: true})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -51,7 +58,11 @@ func TestInterviewerCannotWriteIntervieweeReview(t *testing.T) {
 	updateRounds := append([]Round(nil), m.Rounds...)
 	updateRounds[0].Reviewed = false
 	updateRounds[0].IntervieweeComment = "forged update"
-	m, err = s.Update(m, "mentor", UpdateInput{OccurredAt: m.OccurredAt, DurationMinutes: 70, Rounds: updateRounds}, time.Now())
+	m, err = s.Update(m, "mentor", UpdateInput{
+		OccurredAt:      m.OccurredAt,
+		DurationMinutes: 70,
+		Rounds:          updateRounds,
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -61,15 +72,27 @@ func TestInterviewerCannotWriteIntervieweeReview(t *testing.T) {
 }
 
 func TestParticipantEligibility(t *testing.T) {
-	for _, p := range []Participant{{UserID: "none"}, {UserID: "former", FormerMember: true}, {UserID: "s", ActiveMember: true, Suspended: true}, {UserID: "d", Alumni: true, Deleted: true}, {UserID: "k", ActiveMember: true, KickedOnly: true}} {
+	for _, p := range []accounts.MemberStatus{{UserID: "none"}, {UserID: "former", FormerMember: true}, {
+		UserID:       "s",
+		ActiveMember: true,
+		Suspended:    true,
+	}, {
+		UserID:  "d",
+		Alumni:  true,
+		Deleted: true,
+	}, {
+		UserID:       "k",
+		ActiveMember: true,
+		KickedOnly:   true,
+	}} {
 		in := validCreate()
 		in.Interviewee = p
 		if _, err := new(Service).Create("mentor", in, time.Now()); !errors.Is(err, ErrForbidden) {
 			t.Fatalf("participant allowed: %#v", p)
 		}
 	}
-	former := Participant{UserID: "former", FormerMember: true}
-	if former.Eligible() || !former.ProgrammeAccessEligible() {
+	former := accounts.MemberStatus{UserID: "former", FormerMember: true}
+	if former.CanBeMockInterviewParticipant() || !former.CanAccessProgramme() {
 		t.Fatalf("former member target/caller eligibility was not separated: %#v", former)
 	}
 }

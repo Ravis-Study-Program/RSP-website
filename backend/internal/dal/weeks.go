@@ -97,41 +97,56 @@ func (p *Store) CreateWeek(ctx context.Context, v programme.WeekRecord, actorID 
 	return v, tx.Commit(ctx)
 }
 
-func (p *Store) UpdateWeek(ctx context.Context, seasonID, weekID string, candidate programme.WeekRecord, actorID string, at time.Time) (programme.WeekRecord, error) {
+type UpdateWeekInput struct {
+	SeasonID  string
+	WeekID    string
+	Week      programme.WeekRecord
+	ActorID   string
+	ChangedAt time.Time
+}
+
+func (p *Store) UpdateWeek(ctx context.Context, input UpdateWeekInput) (programme.WeekRecord, error) {
 	tx, err := p.pool.Begin(ctx)
 	if err != nil {
 		return programme.WeekRecord{}, err
 	}
 
 	defer tx.Rollback(context.Background())
-	v, err := scanWeek(tx.QueryRow(ctx, `UPDATE app.season_weeks SET week_number=$3,start_at=$4,end_at=$5,resource_url=$6 WHERE id=$1 AND season_id=$2 AND deleted_at IS NULL RETURNING id,season_id,week_number,start_at,end_at,resource_url`, weekID, seasonID, candidate.Number, candidate.StartAt, candidate.EndAt, candidate.ResourceURL))
+	v, err := scanWeek(tx.QueryRow(ctx, `UPDATE app.season_weeks SET week_number=$3,start_at=$4,end_at=$5,resource_url=$6 WHERE id=$1 AND season_id=$2 AND deleted_at IS NULL RETURNING id,season_id,week_number,start_at,end_at,resource_url`, input.WeekID, input.SeasonID, input.Week.Number, input.Week.StartAt, input.Week.EndAt, input.Week.ResourceURL))
 	if err != nil {
 		if errors.Is(err, ErrNotFound) {
 			return v, noRows(err)
 		}
 		return v, mapDatabaseError(err)
 	}
-	if err := appendAuditTx(ctx, tx, newAudit(actorID, "week.updated", "week", weekID, nil, at)); err != nil {
+	if err := appendAuditTx(ctx, tx, newAudit(input.ActorID, "week.updated", "week", input.WeekID, nil, input.ChangedAt)); err != nil {
 		return v, err
 	}
 	return v, tx.Commit(ctx)
 }
 
-func (p *Store) DeleteWeek(ctx context.Context, seasonID, weekID string, actorID string, at time.Time) error {
+type DeleteWeekInput struct {
+	SeasonID  string
+	WeekID    string
+	ActorID   string
+	ChangedAt time.Time
+}
+
+func (p *Store) DeleteWeek(ctx context.Context, input DeleteWeekInput) error {
 	tx, err := p.pool.Begin(ctx)
 	if err != nil {
 		return err
 	}
 
 	defer tx.Rollback(context.Background())
-	result, err := tx.Exec(ctx, `UPDATE app.season_weeks SET deleted_at=$3 WHERE id=$1 AND season_id=$2 AND deleted_at IS NULL`, weekID, seasonID, at.UTC())
+	result, err := tx.Exec(ctx, `UPDATE app.season_weeks SET deleted_at=$3 WHERE id=$1 AND season_id=$2 AND deleted_at IS NULL`, input.WeekID, input.SeasonID, input.ChangedAt.UTC())
 	if err != nil {
 		return mapDatabaseError(err)
 	}
 	if result.RowsAffected() == 0 {
 		return noRows(err)
 	}
-	if err := appendAuditTx(ctx, tx, newAudit(actorID, "week.deleted", "week", weekID, nil, at)); err != nil {
+	if err := appendAuditTx(ctx, tx, newAudit(input.ActorID, "week.deleted", "week", input.WeekID, nil, input.ChangedAt)); err != nil {
 		return err
 	}
 	return tx.Commit(ctx)

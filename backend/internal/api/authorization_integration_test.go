@@ -13,8 +13,10 @@ import (
 func TestPrivateSettingsUseHistoricalRelationshipPolicy(t *testing.T) {
 	fixture := newPostgresFixture(t)
 	actor := authz.Actor{
-		UserID: otherID, EmailVerified: true, AccountState: authz.AccountActive,
-		Enrollments: []authz.Enrollment{{SeasonID: seasonID, Role: authz.Coordinator, State: authz.Completed}},
+		UserID:        otherID,
+		EmailVerified: true,
+		AccountState:  authz.AccountActive,
+		Enrollments:   []authz.Enrollment{{SeasonID: seasonID, Role: authz.Coordinator, State: authz.Completed}},
 	}
 	handler := New(Config{
 		DB:            fixture.db,
@@ -23,7 +25,7 @@ func TestPrivateSettingsUseHistoricalRelationshipPolicy(t *testing.T) {
 	}).Handler()
 	request := func(want int) {
 		t.Helper()
-		response := testRequest(t, handler, http.MethodGet, "/api/v2/users/"+studentID+"/practice-settings", "", "")
+		response := testRequest(t, handler, http.MethodGet, "/api/v2/users/"+studentID+"/practice-settings", "actor", "")
 		if response.Code != want {
 			t.Fatalf("private settings status=%d, want %d: %s", response.Code, want, response.Body.String())
 		}
@@ -43,7 +45,11 @@ func TestPrivateSettingsUseHistoricalRelationshipPolicy(t *testing.T) {
 	actor.Enrollments[0].State = authz.Withdrawn
 	request(http.StatusNotFound)
 
-	actor.Enrollments[0] = authz.Enrollment{SeasonID: seasonID, Role: authz.Mentor, State: authz.Completed}
+	actor.Enrollments[0] = authz.Enrollment{
+		SeasonID: seasonID,
+		Role:     authz.Mentor,
+		State:    authz.Completed,
+	}
 	request(http.StatusNotFound)
 	if _, err := fixture.pool.Exec(context.Background(), `INSERT INTO app.mentorships(id,season_id,mentor_enrollment_id,student_enrollment_id)
 		VALUES ('00000000-0000-7000-8000-000000000110',$1,$2,$3)`, seasonID, otherMemberID, studentMemberID); err != nil {

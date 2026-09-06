@@ -47,7 +47,11 @@ func (p *Store) ListProblems(ctx context.Context, q ProblemQuery) ([]practice.Pr
 			AND lower(fc.normalized_name) = lower(@category)
 		))
 		AND (CAST(@premium AS boolean) IS NULL OR l.is_premium = @premium)`
-	args := pgx.NamedArgs{"difficulty": q.Difficulty, "category": q.Category, "premium": q.Premium}
+	args := pgx.NamedArgs{
+		"difficulty": q.Difficulty,
+		"category":   q.Category,
+		"premium":    q.Premium,
+	}
 	var total int64
 	err := p.pool.QueryRow(ctx, `SELECT count(*) FROM app.leetcode_problems l
 		JOIN app.problems p ON p.id = l.problem_id

@@ -28,5 +28,13 @@ func newAudit(actorID, action, subjectType, subjectID string, data map[string]an
 	if data == nil {
 		data = map[string]any{}
 	}
-	return audit.Event{ID: id.New(), ActorID: &actor, Action: action, SubjectType: subjectType, SubjectID: subjectID, Data: data, OccurredAt: at.UTC()}
+	return audit.Event{
+		ID:          id.New(),
+		ActorID:     &actor,
+		Action:      action,
+		SubjectType: subjectType,
+		SubjectID:   subjectID,
+		Data:        data,
+		OccurredAt:  at.UTC(),
+	}
 }

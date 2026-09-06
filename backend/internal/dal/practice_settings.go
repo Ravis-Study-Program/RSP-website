@@ -24,62 +24,83 @@ func (p *Store) GetPracticeSettings(ctx context.Context, userID string) (practic
 	return settings, noRows(err)
 }
 
-func (p *Store) UpdatePracticeSettings(ctx context.Context, userID string, easy, medium, hard int, actorID string, at time.Time) (practice.PracticeSettings, error) {
+type UpdatePracticeSettingsInput struct {
+	UserID        string
+	EasyMinutes   int
+	MediumMinutes int
+	HardMinutes   int
+	ActorID       string
+	ChangedAt     time.Time
+}
+
+func (p *Store) UpdatePracticeSettings(ctx context.Context, input UpdatePracticeSettingsInput) (practice.PracticeSettings, error) {
 	tx, err := p.pool.Begin(ctx)
 	if err != nil {
 		return practice.PracticeSettings{}, err
 	}
 
 	defer tx.Rollback(context.Background())
-	if err := ensurePracticeGoals(ctx, tx, userID); err != nil {
+	if err := ensurePracticeGoals(ctx, tx, input.UserID); err != nil {
 		return practice.PracticeSettings{}, err
 	}
-	if easy < 1 || medium < 1 || hard < 1 {
+	if input.EasyMinutes < 1 || input.MediumMinutes < 1 || input.HardMinutes < 1 {
 		return practice.PracticeSettings{}, errors.New("practice goals must be positive")
 	}
-	_, err = tx.Exec(ctx, `UPDATE app.practice_goals SET easy_minutes=$1,medium_minutes=$2,hard_minutes=$3 WHERE user_id = $4`, easy, medium, hard, userID)
+	_, err = tx.Exec(ctx, `UPDATE app.practice_goals SET easy_minutes=$1,medium_minutes=$2,hard_minutes=$3 WHERE user_id = $4`, input.EasyMinutes, input.MediumMinutes, input.HardMinutes, input.UserID)
 	if err != nil {
 		return practice.PracticeSettings{}, err
 	}
-	settings := practice.PracticeSettings{GoalsEnabled: true, EasyMinutes: easy, MediumMinutes: medium, HardMinutes: hard}
-	if err := tx.QueryRow(ctx, `SELECT enabled FROM app.practice_goals WHERE user_id = $1`, userID).Scan(&settings.GoalsEnabled); err != nil {
+	settings := practice.PracticeSettings{
+		GoalsEnabled:  true,
+		EasyMinutes:   input.EasyMinutes,
+		MediumMinutes: input.MediumMinutes,
+		HardMinutes:   input.HardMinutes,
+	}
+	if err := tx.QueryRow(ctx, `SELECT enabled FROM app.practice_goals WHERE user_id = $1`, input.UserID).Scan(&settings.GoalsEnabled); err != nil {
 		return practice.PracticeSettings{}, err
 	}
 
 	if err := appendAuditTx(ctx, tx, audit.Event{
 		ID:          id.New(),
-		ActorID:     &actorID,
+		ActorID:     &input.ActorID,
 		Action:      "practice_settings.updated",
 		SubjectType: "user",
-		SubjectID:   userID,
-		Data:        map[string]any{"easyMinutes": easy, "mediumMinutes": medium, "hardMinutes": hard},
-		OccurredAt:  at.UTC(),
+		SubjectID:   input.UserID,
+		Data:        map[string]any{"easyMinutes": input.EasyMinutes, "mediumMinutes": input.MediumMinutes, "hardMinutes": input.HardMinutes},
+		OccurredAt:  input.ChangedAt.UTC(),
 	}); err != nil {
 		return practice.PracticeSettings{}, err
 	}
 	return settings, tx.Commit(ctx)
 }
 
-func (p *Store) EnablePracticeGoals(ctx context.Context, userID string, actorID, seasonID string, at time.Time) (practice.PracticeSettings, error) {
+type EnablePracticeGoalsInput struct {
+	UserID    string
+	ActorID   string
+	SeasonID  string
+	ChangedAt time.Time
+}
+
+func (p *Store) EnablePracticeGoals(ctx context.Context, input EnablePracticeGoalsInput) (practice.PracticeSettings, error) {
 	tx, err := p.pool.Begin(ctx)
 	if err != nil {
 		return practice.PracticeSettings{}, err
 	}
 
 	defer tx.Rollback(context.Background())
-	if err := ensurePracticeGoals(ctx, tx, userID); err != nil {
+	if err := ensurePracticeGoals(ctx, tx, input.UserID); err != nil {
 		return practice.PracticeSettings{}, err
 	}
 	var stored struct {
 		Enabled                                 bool
 		EasyMinutes, MediumMinutes, HardMinutes int
 	}
-	if err := tx.QueryRow(ctx, `SELECT enabled,easy_minutes,medium_minutes,hard_minutes FROM app.practice_goals WHERE user_id=$1 FOR UPDATE`, userID).Scan(&stored.Enabled, &stored.EasyMinutes, &stored.MediumMinutes, &stored.HardMinutes); err != nil {
+	if err := tx.QueryRow(ctx, `SELECT enabled,easy_minutes,medium_minutes,hard_minutes FROM app.practice_goals WHERE user_id=$1 FOR UPDATE`, input.UserID).Scan(&stored.Enabled, &stored.EasyMinutes, &stored.MediumMinutes, &stored.HardMinutes); err != nil {
 		return practice.PracticeSettings{}, noRows(err)
 	}
 	changed := !stored.Enabled
 	if changed {
-		_, err := tx.Exec(ctx, `UPDATE app.practice_goals SET enabled=$1,enabled_by_user_id=$2,enabled_at=$3 WHERE user_id = $4`, true, actorID, at.UTC(), userID)
+		_, err := tx.Exec(ctx, `UPDATE app.practice_goals SET enabled=$1,enabled_by_user_id=$2,enabled_at=$3 WHERE user_id = $4`, true, input.ActorID, input.ChangedAt.UTC(), input.UserID)
 		if err != nil {
 			return practice.PracticeSettings{}, err
 		}
@@ -88,12 +109,12 @@ func (p *Store) EnablePracticeGoals(ctx context.Context, userID string, actorID,
 	if changed {
 		if err := appendAuditTx(ctx, tx, audit.Event{
 			ID:          id.New(),
-			ActorID:     &actorID,
+			ActorID:     &input.ActorID,
 			Action:      "practice_goals.enabled",
 			SubjectType: "user",
-			SubjectID:   userID,
-			Data:        map[string]any{"seasonId": seasonID},
-			OccurredAt:  at.UTC(),
+			SubjectID:   input.UserID,
+			Data:        map[string]any{"seasonId": input.SeasonID},
+			OccurredAt:  input.ChangedAt.UTC(),
 		}); err != nil {
 			return practice.PracticeSettings{}, err
 		}

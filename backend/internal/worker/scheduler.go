@@ -131,7 +131,13 @@ func (s LeetCodeScheduler) run(ctx context.Context, runID, triggerKind string) e
 			break
 		}
 	}
-	run := Run{ID: runID, TriggerKind: triggerKind, StartedAt: start, FinishedAt: s.now(), Report: report}
+	run := Run{
+		ID:          runID,
+		TriggerKind: triggerKind,
+		StartedAt:   start,
+		FinishedAt:  s.now(),
+		Report:      report,
+	}
 	if runErr != nil {
 		run.Error = runErr.Error()
 	}

@@ -18,12 +18,20 @@ func TestHistoricalPrivateAccessRequiresTheRightRelationship(t *testing.T) {
 		{"unassigned mentor", Mentor, Active, MemberRelationship{SeasonID: "s", TargetEnrolled: true}, false},
 		{"kicked mentor", Mentor, Kicked, MemberRelationship{SeasonID: "s", AssignedMentor: true}, false},
 		{"withdrawn coordinator", Coordinator, Withdrawn, MemberRelationship{SeasonID: "s", TargetEnrolled: true}, false},
-		{"student cannot gain mentor access", Student, Active, MemberRelationship{SeasonID: "s", TargetEnrolled: true, AssignedMentor: true}, false},
+		{"student cannot gain mentor access", Student, Active, MemberRelationship{
+			SeasonID:       "s",
+			TargetEnrolled: true,
+			AssignedMentor: true,
+		}, false},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			actor := activeActor("viewer")
-			actor.Enrollments = []Enrollment{{SeasonID: "s", Role: tc.role, State: tc.state}}
+			actor.Enrollments = []Enrollment{{
+				SeasonID: "s",
+				Role:     tc.role,
+				State:    tc.state,
+			}}
 			if got := actor.CanViewMemberPrivateData("target", tc.relationship); got != tc.want {
 				t.Fatalf("private access=%v, want %v", got, tc.want)
 			}

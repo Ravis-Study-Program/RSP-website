@@ -1,9 +1,8 @@
 package api
 
 import (
-	"context"
 	"fmt"
-	"io"
+
 	"net/http"
 	"strconv"
 	"strings"
@@ -50,40 +49,36 @@ func (m *apiMetrics) observeHTTP(status int, elapsed time.Duration) {
 	m.mu.Unlock()
 }
 
-func (m *apiMetrics) render(ctx context.Context, writer io.Writer, dataSource any) {
-	m.mu.Lock()
-	requests := m.httpRequests
-	buckets := m.httpDurationBuckets
-	durationCount := m.httpDurationCount
-	durationSum := m.httpDurationSumSeconds
-	m.mu.Unlock()
+type httpMetricsSnapshot struct {
+	Requests           [len(httpStatusClasses)]uint64
+	DurationBuckets    [len(httpDurationBoundaries) + 1]uint64
+	DurationCount      uint64
+	DurationSumSeconds float64
+}
 
-	snapshot := observability.Snapshot{
-		WorkerRuns: map[string]uint64{},
-	}
-	snapshotOK := true
-	if source, ok := dataSource.(observability.Source); ok {
-		var err error
-		snapshot, err = source.ObservabilitySnapshot(ctx)
-		if err != nil {
-			snapshot = observability.Snapshot{WorkerRuns: map[string]uint64{}}
-			snapshotOK = false
-		}
-	}
+func (m *apiMetrics) snapshot() httpMetricsSnapshot {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return httpMetricsSnapshot{Requests: m.httpRequests, DurationBuckets: m.httpDurationBuckets, DurationCount: m.httpDurationCount, DurationSumSeconds: m.httpDurationSumSeconds}
+}
+
+func formatMetrics(httpSnapshot httpMetricsSnapshot, snapshot observability.Snapshot, snapshotOK bool) string {
+	var output strings.Builder
+	writer := &output
 
 	fmt.Fprintln(writer, "# HELP rsp_http_requests_total Go API responses by bounded status class.")
 	fmt.Fprintln(writer, "# TYPE rsp_http_requests_total counter")
 	for index, class := range httpStatusClasses {
-		fmt.Fprintf(writer, "rsp_http_requests_total{status_class=%q} %d\n", class, requests[index])
+		fmt.Fprintf(writer, "rsp_http_requests_total{status_class=%q} %d\n", class, httpSnapshot.Requests[index])
 	}
 	fmt.Fprintln(writer, "# HELP rsp_http_request_duration_seconds Go API response duration in seconds.")
 	fmt.Fprintln(writer, "# TYPE rsp_http_request_duration_seconds histogram")
 	for index, boundary := range httpDurationBoundaries {
-		fmt.Fprintf(writer, "rsp_http_request_duration_seconds_bucket{le=%q} %d\n", strconv.FormatFloat(boundary, 'g', -1, 64), buckets[index])
+		fmt.Fprintf(writer, "rsp_http_request_duration_seconds_bucket{le=%q} %d\n", strconv.FormatFloat(boundary, 'g', -1, 64), httpSnapshot.DurationBuckets[index])
 	}
-	fmt.Fprintf(writer, "rsp_http_request_duration_seconds_bucket{le=\"+Inf\"} %d\n", buckets[len(httpDurationBoundaries)])
-	fmt.Fprintf(writer, "rsp_http_request_duration_seconds_sum %s\n", strconv.FormatFloat(durationSum, 'g', -1, 64))
-	fmt.Fprintf(writer, "rsp_http_request_duration_seconds_count %d\n", durationCount)
+	fmt.Fprintf(writer, "rsp_http_request_duration_seconds_bucket{le=\"+Inf\"} %d\n", httpSnapshot.DurationBuckets[len(httpDurationBoundaries)])
+	fmt.Fprintf(writer, "rsp_http_request_duration_seconds_sum %s\n", strconv.FormatFloat(httpSnapshot.DurationSumSeconds, 'g', -1, 64))
+	fmt.Fprintf(writer, "rsp_http_request_duration_seconds_count %d\n", httpSnapshot.DurationCount)
 	fmt.Fprintln(writer, "# HELP rsp_db_pool_acquired_connections PostgreSQL connections currently acquired by the API.")
 	fmt.Fprintln(writer, "# TYPE rsp_db_pool_acquired_connections gauge")
 	fmt.Fprintf(writer, "rsp_db_pool_acquired_connections %d\n", snapshot.DBPoolAcquiredConnections)
@@ -102,6 +97,7 @@ func (m *apiMetrics) render(ctx context.Context, writer io.Writer, dataSource an
 	} else {
 		fmt.Fprintln(writer, "rsp_observability_snapshot_success 0")
 	}
+	return output.String()
 }
 
 type statusWriter struct {

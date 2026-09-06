@@ -1,8 +1,6 @@
 package api
 
 import (
-	"context"
-	"errors"
 	"net/http"
 	"strings"
 	"testing"
@@ -11,33 +9,20 @@ import (
 	"github.com/magedmg/RSP-website/backend/internal/platform/observability"
 )
 
-type observableSource struct {
-	snapshot observability.Snapshot
-	err      error
-}
-
-func (source *observableSource) ObservabilitySnapshot(context.Context) (observability.Snapshot, error) {
-	return source.snapshot, source.err
-}
-
 func TestMetricsMatchDashboardSeriesWithBoundedLabels(t *testing.T) {
 	metrics := newAPIMetrics()
 	metrics.observeHTTP(http.StatusCreated, 12*time.Millisecond)
 	metrics.observeHTTP(http.StatusServiceUnavailable, 2*time.Second)
-	source := &observableSource{
-		snapshot: observability.Snapshot{
-			DBPoolAcquiredConnections: 3,
-			DBPoolIdleConnections:     7,
-			WorkerRuns: map[string]uint64{
-				"success":         8,
-				"partial_failure": 1,
-				"failure":         2,
-			},
+	snapshot := observability.Snapshot{
+		DBPoolAcquiredConnections: 3,
+		DBPoolIdleConnections:     7,
+		WorkerRuns: map[string]uint64{
+			"success":         8,
+			"partial_failure": 1,
+			"failure":         2,
 		},
 	}
-	var output strings.Builder
-	metrics.render(context.Background(), &output, source)
-	body := output.String()
+	body := formatMetrics(metrics.snapshot(), snapshot, true)
 	for _, expected := range []string{
 		`rsp_http_requests_total{status_class="2xx"} 1`,
 		`rsp_http_requests_total{status_class="5xx"} 1`,
@@ -58,10 +43,7 @@ func TestMetricsMatchDashboardSeriesWithBoundedLabels(t *testing.T) {
 
 func TestMetricsSnapshotFailureIsSafeAndDoesNotLeakError(t *testing.T) {
 	metrics := newAPIMetrics()
-	source := &observableSource{err: errors.New("private@example.com")}
-	var output strings.Builder
-	metrics.render(context.Background(), &output, source)
-	body := output.String()
+	body := formatMetrics(metrics.snapshot(), observability.Snapshot{}, false)
 	if !strings.Contains(body, "rsp_observability_snapshot_success 0") {
 		t.Fatalf("missing safe failure state:\n%s", body)
 	}

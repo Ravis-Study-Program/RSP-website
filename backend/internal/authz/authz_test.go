@@ -6,7 +6,12 @@ import (
 )
 
 func activeActor(id string) Actor {
-	return Actor{UserID: id, EmailVerified: true, AccountState: AccountActive, GlobalRoles: map[GlobalRole]bool{}}
+	return Actor{
+		UserID:        id,
+		EmailVerified: true,
+		AccountState:  AccountActive,
+		GlobalRoles:   map[GlobalRole]bool{},
+	}
 }
 
 func TestPermissionMatrix(t *testing.T) {
@@ -31,8 +36,16 @@ func TestPermissionMatrix(t *testing.T) {
 		{"director", func() Actor { a := activeActor("u"); a.GlobalRoles[Director] = true; a.MFAAt = &recent; return a }(), false, true, true},
 		{"system admin", func() Actor { a := activeActor("u"); a.GlobalRoles[SystemAdmin] = true; a.MFAAt = &recent; return a }(), false, true, true},
 		{"kicked", func() Actor { a := activeActor("u"); a.Enrollments = []Enrollment{{"s", Student, Kicked}}; return a }(), false, false, false},
-		{"suspended", Actor{UserID: "u", EmailVerified: true, AccountState: Suspended}, false, false, false},
-		{"deleted", Actor{UserID: "u", EmailVerified: true, AccountState: Deleted}, false, false, false},
+		{"suspended", Actor{
+			UserID:        "u",
+			EmailVerified: true,
+			AccountState:  Suspended,
+		}, false, false, false},
+		{"deleted", Actor{
+			UserID:        "u",
+			EmailVerified: true,
+			AccountState:  Deleted,
+		}, false, false, false},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -42,7 +55,11 @@ func TestPermissionMatrix(t *testing.T) {
 			if got := tc.actor.IsSeasonAdmin("s"); got != tc.manage {
 				t.Fatalf("manage=%v", got)
 			}
-			if got := tc.actor.CanViewMemberPrivateData("target", MemberRelationship{SeasonID: "s", TargetEnrolled: true, AssignedMentor: true}); got != tc.private {
+			if got := tc.actor.CanViewMemberPrivateData("target", MemberRelationship{
+				SeasonID:       "s",
+				TargetEnrolled: true,
+				AssignedMentor: true,
+			}); got != tc.private {
 				t.Fatalf("private=%v", got)
 			}
 		})
@@ -66,7 +83,15 @@ func TestAlumniIsDerivedOnlyFromCompletedStudent(t *testing.T) {
 
 func TestSeasonAdminIsSeasonSpecificAndIndependentOfMFA(t *testing.T) {
 	actor := activeActor("coordinator")
-	actor.Enrollments = []Enrollment{{SeasonID: "managed", Role: Coordinator, State: Active}, {SeasonID: "historical", Role: Coordinator, State: Completed}}
+	actor.Enrollments = []Enrollment{{
+		SeasonID: "managed",
+		Role:     Coordinator,
+		State:    Active,
+	}, {
+		SeasonID: "historical",
+		Role:     Coordinator,
+		State:    Completed,
+	}}
 	if !actor.IsSeasonAdmin("managed") || actor.IsSeasonAdmin("another") || actor.IsSeasonAdmin("historical") {
 		t.Fatal("season admin role scope was not respected")
 	}

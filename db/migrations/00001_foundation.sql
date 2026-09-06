@@ -77,7 +77,7 @@ CREATE TABLE app.user_profiles (
   user_id uuid PRIMARY KEY REFERENCES app.users(id) ON DELETE RESTRICT,
   updated_at timestamptz NOT NULL DEFAULT now(),
   slug text NOT NULL,
-    CHECK (length(trim(slug) > 0 AND slug ==  lower(slug)),
+    CHECK (length(trim(slug)) > 0 AND slug = lower(slug)),
   display_name text NOT NULL,
     CHECK (length(trim(display_name)) > 0),
   avatar_url text

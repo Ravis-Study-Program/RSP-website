@@ -55,8 +55,18 @@ func testLeetCodeWorkerRuns(t *testing.T, ctx context.Context, repository *Store
 	}
 	queued := loadRun(manualID)
 	now := time.Now().UTC().Add(time.Hour)
-	syncer := &workerTestSyncer{report: worker.Report{Fetched: 3, Applied: 2, Failed: 1}}
-	scheduler := worker.LeetCodeScheduler{Locker: state, State: state, Syncer: syncer, Now: func() time.Time { return now }, Retries: 1}
+	syncer := &workerTestSyncer{report: worker.Report{
+		Fetched: 3,
+		Applied: 2,
+		Failed:  1,
+	}}
+	scheduler := worker.LeetCodeScheduler{
+		Locker:  state,
+		State:   state,
+		Syncer:  syncer,
+		Now:     func() time.Time { return now },
+		Retries: 1,
+	}
 	if err := scheduler.RunManual(ctx, manualID); err == nil {
 		t.Fatal("partial manual failure was accepted")
 	}

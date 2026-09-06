@@ -1,6 +1,7 @@
 package api
 
 import (
+	"github.com/magedmg/RSP-website/backend/internal/dal"
 	"github.com/magedmg/RSP-website/backend/internal/programme"
 	"net/http"
 	"time"
@@ -8,8 +9,9 @@ import (
 	"github.com/magedmg/RSP-website/backend/internal/authz"
 )
 
-func (a *API) practiceSettings(w http.ResponseWriter, r *http.Request) {
-	settings, err := a.db.GetPracticeSettings(r.Context(), actorFrom(r.Context()).UserID)
+func (a *API) getCurrentUserPracticeSettings(w http.ResponseWriter, r *http.Request) {
+	actor := actorFrom(r.Context())
+	settings, err := a.db.GetPracticeSettings(r.Context(), actor.UserID)
 	if err != nil {
 		a.writeStoreErrorResponse(w, err)
 		return
@@ -18,17 +20,18 @@ func (a *API) practiceSettings(w http.ResponseWriter, r *http.Request) {
 	writeJSONResponse(w, http.StatusOK, settings)
 }
 
-func (a *API) userPracticeSettings(w http.ResponseWriter, r *http.Request) {
+func (a *API) getUserPracticeSettings(w http.ResponseWriter, r *http.Request) {
+	actor := actorFrom(r.Context())
 	target, err := a.db.GetUser(r.Context(), r.PathValue("id"))
 	if err != nil {
 		a.writeStoreErrorResponse(w, err)
 		return
 	}
 
-	allowed := actorFrom(r.Context()).CanViewMemberPrivateData(target.ID, authz.MemberRelationship{})
+	allowed := actor.CanViewMemberPrivateData(target.ID, authz.MemberRelationship{})
 	var targetEnrollments []programme.EnrollmentRecord
 	targetLoaded := false
-	for _, enrollment := range actorFrom(r.Context()).Enrollments {
+	for _, enrollment := range actor.Enrollments {
 		if allowed {
 			break
 		}
@@ -55,14 +58,14 @@ func (a *API) userPracticeSettings(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 		if enrollment.Role == authz.Mentor {
-			assigned, err := a.db.IsMentorAssigned(r.Context(), enrollment.SeasonID, actorFrom(r.Context()).UserID, target.ID)
+			assigned, err := a.db.IsMentorAssigned(r.Context(), enrollment.SeasonID, actor.UserID, target.ID)
 			if err != nil {
 				a.writeStoreErrorResponse(w, err)
 				return
 			}
 			relationship.AssignedMentor = assigned
 		}
-		if actorFrom(r.Context()).CanViewMemberPrivateData(target.ID, relationship) {
+		if actor.CanViewMemberPrivateData(target.ID, relationship) {
 			allowed = true
 			break
 		}
@@ -72,7 +75,7 @@ func (a *API) userPracticeSettings(w http.ResponseWriter, r *http.Request) {
 		writeErrorResponse(w, http.StatusNotFound, "not_found", "The requested member does not exist.")
 		return
 	}
-	if err := a.auditPrivateDataRead(r.Context(), actorFrom(r.Context()), "practice_settings", target.ID); err != nil {
+	if err := a.auditPrivateDataRead(r.Context(), actor, "practice_settings", target.ID); err != nil {
 		writeErrorResponse(w, http.StatusInternalServerError, "audit_failed", "Private data was not returned because its access could not be audited.")
 		return
 	}
@@ -86,14 +89,20 @@ func (a *API) userPracticeSettings(w http.ResponseWriter, r *http.Request) {
 	writeJSONResponse(w, http.StatusOK, settings)
 }
 
-func (a *API) updatePracticeSettings(w http.ResponseWriter, r *http.Request) {
+type updateCurrentUserPracticeSettingsRequest struct {
+	EasyMinutes   int `json:"easyMinutes"`
+	MediumMinutes int `json:"mediumMinutes"`
+	HardMinutes   int `json:"hardMinutes"`
+}
+
+func (a *API) updateCurrentUserPracticeSettings(w http.ResponseWriter, r *http.Request) {
 	actor := actorFrom(r.Context())
-	var in struct {
-		EasyMinutes   int `json:"easyMinutes"`
-		MediumMinutes int `json:"mediumMinutes"`
-		HardMinutes   int `json:"hardMinutes"`
+	var request updateCurrentUserPracticeSettingsRequest
+	if err := decodeJSON(r.Body, &request); err != nil {
+		writeErrorResponse(w, http.StatusBadRequest, "validation_failed", err.Error())
+		return
 	}
-	if err := decodeJSON(r.Body, &in); err != nil || !validGoal(in.EasyMinutes) || !validGoal(in.MediumMinutes) || !validGoal(in.HardMinutes) {
+	if !validGoal(request.EasyMinutes) || !validGoal(request.MediumMinutes) || !validGoal(request.HardMinutes) {
 		writeErrorResponse(w, http.StatusBadRequest, "validation_failed", "goals between 1 and 180 minutes are required")
 		return
 	}
@@ -104,12 +113,19 @@ func (a *API) updatePracticeSettings(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if !current.GoalsEnabled && (in.EasyMinutes != current.EasyMinutes || in.MediumMinutes != current.MediumMinutes || in.HardMinutes != current.HardMinutes) {
+	if !current.GoalsEnabled && (request.EasyMinutes != current.EasyMinutes || request.MediumMinutes != current.MediumMinutes || request.HardMinutes != current.HardMinutes) {
 		writeErrorResponse(w, http.StatusForbidden, "practice_goals_not_enabled", "An assigned mentor or programme administrator must enable personal goals before they can be changed.")
 		return
 	}
 
-	updated, err := a.db.UpdatePracticeSettings(r.Context(), actor.UserID, in.EasyMinutes, in.MediumMinutes, in.HardMinutes, actor.UserID, time.Now().UTC())
+	updated, err := a.db.UpdatePracticeSettings(r.Context(), dal.UpdatePracticeSettingsInput{
+		UserID:        actor.UserID,
+		EasyMinutes:   request.EasyMinutes,
+		MediumMinutes: request.MediumMinutes,
+		HardMinutes:   request.HardMinutes,
+		ActorID:       actor.UserID,
+		ChangedAt:     time.Now().UTC(),
+	})
 	if err != nil {
 		a.writeStoreErrorResponse(w, err)
 		return
@@ -120,12 +136,18 @@ func (a *API) updatePracticeSettings(w http.ResponseWriter, r *http.Request) {
 
 func validGoal(minutes int) bool { return minutes >= 1 && minutes <= 180 }
 
+type enablePracticeGoalsRequest struct {
+	SeasonID string `json:"seasonId"`
+}
+
 func (a *API) enablePracticeGoals(w http.ResponseWriter, r *http.Request) {
 	actor := actorFrom(r.Context())
-	var in struct {
-		SeasonID string `json:"seasonId"`
+	var request enablePracticeGoalsRequest
+	if err := decodeJSON(r.Body, &request); err != nil {
+		writeErrorResponse(w, http.StatusBadRequest, "validation_failed", err.Error())
+		return
 	}
-	if err := decodeJSON(r.Body, &in); err != nil || in.SeasonID == "" {
+	if request.SeasonID == "" {
 		writeErrorResponse(w, http.StatusBadRequest, "validation_failed", "seasonId is required")
 		return
 	}
@@ -139,7 +161,7 @@ func (a *API) enablePracticeGoals(w http.ResponseWriter, r *http.Request) {
 	}
 
 	for _, enrollment := range enrollments {
-		if enrollment.SeasonID == in.SeasonID && enrollment.Role == "student" && enrollment.State == "active" {
+		if enrollment.SeasonID == request.SeasonID && enrollment.Role == "student" && enrollment.State == "active" {
 			targetActiveStudent = true
 			break
 		}
@@ -156,7 +178,7 @@ func (a *API) enablePracticeGoals(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		allowed = true
-	} else if enrollment, ok := actor.Enrollment(in.SeasonID); ok && enrollment.State == authz.Active {
+	} else if enrollment, ok := actor.Enrollment(request.SeasonID); ok && enrollment.State == authz.Active {
 		switch enrollment.Role {
 		case authz.Coordinator:
 			if !actor.HasRecentMFA(time.Now()) {
@@ -165,7 +187,7 @@ func (a *API) enablePracticeGoals(w http.ResponseWriter, r *http.Request) {
 			}
 			allowed = true
 		case authz.Mentor:
-			allowed, err = a.db.IsMentorAssigned(r.Context(), in.SeasonID, actor.UserID, targetID)
+			allowed, err = a.db.IsMentorAssigned(r.Context(), request.SeasonID, actor.UserID, targetID)
 			if err != nil {
 				a.writeStoreErrorResponse(w, err)
 				return
@@ -177,7 +199,12 @@ func (a *API) enablePracticeGoals(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	settings, err := a.db.EnablePracticeGoals(r.Context(), targetID, actor.UserID, in.SeasonID, time.Now().UTC())
+	settings, err := a.db.EnablePracticeGoals(r.Context(), dal.EnablePracticeGoalsInput{
+		UserID:    targetID,
+		ActorID:   actor.UserID,
+		SeasonID:  request.SeasonID,
+		ChangedAt: time.Now().UTC(),
+	})
 	if err != nil {
 		a.writeStoreErrorResponse(w, err)
 		return

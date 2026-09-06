@@ -27,7 +27,11 @@ func (p *Store) ListMentorships(ctx context.Context, q MentorshipQuery) ([]progr
 	const filters = `m.season_id = @seasonID AND m.ended_at IS NULL AND m.deleted_at IS NULL
 		AND (@mentorUserID = '' OR mentor.user_id = NULLIF(@mentorUserID, '')::uuid)
 		AND (@studentUserID = '' OR student.user_id = NULLIF(@studentUserID, '')::uuid)`
-	args := pgx.NamedArgs{"seasonID": q.SeasonID, "mentorUserID": q.MentorUserID, "studentUserID": q.StudentUserID}
+	args := pgx.NamedArgs{
+		"seasonID":      q.SeasonID,
+		"mentorUserID":  q.MentorUserID,
+		"studentUserID": q.StudentUserID,
+	}
 	var total int64
 	if err := p.pool.QueryRow(ctx, `SELECT count(*)`+base+` WHERE `+filters, args).Scan(&total); err != nil {
 		return nil, false, 0, err
@@ -95,7 +99,16 @@ func (p *Store) CreateMentorship(ctx context.Context, v programme.MentorshipReco
 	return v, tx.Commit(ctx)
 }
 
-func (p *Store) UpdateMentorship(ctx context.Context, seasonID, mentorshipID string, mentorUserID, studentUserID, actorID string, at time.Time) (programme.MentorshipRecord, error) {
+type UpdateMentorshipInput struct {
+	SeasonID      string
+	MentorshipID  string
+	MentorUserID  string
+	StudentUserID string
+	ActorID       string
+	ChangedAt     time.Time
+}
+
+func (p *Store) UpdateMentorship(ctx context.Context, input UpdateMentorshipInput) (programme.MentorshipRecord, error) {
 	tx, err := p.pool.Begin(ctx)
 	if err != nil {
 		return programme.MentorshipRecord{}, err
@@ -103,34 +116,41 @@ func (p *Store) UpdateMentorship(ctx context.Context, seasonID, mentorshipID str
 
 	defer tx.Rollback(context.Background())
 	var v programme.MentorshipRecord
-	err = tx.QueryRow(ctx, `UPDATE app.mentorships SET mentor_enrollment_id=(SELECT id FROM app.enrollments WHERE season_id=$2 AND user_id=$3 AND role IN ('mentor','coordinator') AND state='active' AND deleted_at IS NULL),student_enrollment_id=(SELECT id FROM app.enrollments WHERE season_id=$2 AND user_id=$4 AND role='student' AND state='active' AND deleted_at IS NULL) WHERE id=$1 AND season_id=$2 AND ended_at IS NULL AND deleted_at IS NULL RETURNING id,season_id,$3::text,$4::text`, mentorshipID, seasonID, mentorUserID, studentUserID).Scan(&v.ID, &v.SeasonID, &v.MentorUserID, &v.StudentUserID)
+	err = tx.QueryRow(ctx, `UPDATE app.mentorships SET mentor_enrollment_id=(SELECT id FROM app.enrollments WHERE season_id=$2 AND user_id=$3 AND role IN ('mentor','coordinator') AND state='active' AND deleted_at IS NULL),student_enrollment_id=(SELECT id FROM app.enrollments WHERE season_id=$2 AND user_id=$4 AND role='student' AND state='active' AND deleted_at IS NULL) WHERE id=$1 AND season_id=$2 AND ended_at IS NULL AND deleted_at IS NULL RETURNING id,season_id,$3::text,$4::text`, input.MentorshipID, input.SeasonID, input.MentorUserID, input.StudentUserID).Scan(&v.ID, &v.SeasonID, &v.MentorUserID, &v.StudentUserID)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return v, ErrNotFound
 		}
 		return v, mapDatabaseError(err)
 	}
-	if err := appendAuditTx(ctx, tx, newAudit(actorID, "mentorship.updated", "mentorship", mentorshipID, nil, at)); err != nil {
+	if err := appendAuditTx(ctx, tx, newAudit(input.ActorID, "mentorship.updated", "mentorship", input.MentorshipID, nil, input.ChangedAt)); err != nil {
 		return v, err
 	}
 	return v, tx.Commit(ctx)
 }
 
-func (p *Store) DeleteMentorship(ctx context.Context, seasonID, mentorshipID string, actorID string, at time.Time) error {
+type DeleteMentorshipInput struct {
+	SeasonID     string
+	MentorshipID string
+	ActorID      string
+	ChangedAt    time.Time
+}
+
+func (p *Store) DeleteMentorship(ctx context.Context, input DeleteMentorshipInput) error {
 	tx, err := p.pool.Begin(ctx)
 	if err != nil {
 		return err
 	}
 
 	defer tx.Rollback(context.Background())
-	result, err := tx.Exec(ctx, `UPDATE app.mentorships SET ended_at=$3 WHERE id=$1 AND season_id=$2 AND ended_at IS NULL AND deleted_at IS NULL`, mentorshipID, seasonID, at.UTC())
+	result, err := tx.Exec(ctx, `UPDATE app.mentorships SET ended_at=$3 WHERE id=$1 AND season_id=$2 AND ended_at IS NULL AND deleted_at IS NULL`, input.MentorshipID, input.SeasonID, input.ChangedAt.UTC())
 	if err != nil {
 		return mapDatabaseError(err)
 	}
 	if result.RowsAffected() == 0 {
 		return ErrNotFound
 	}
-	if err := appendAuditTx(ctx, tx, newAudit(actorID, "mentorship.deleted", "mentorship", mentorshipID, nil, at)); err != nil {
+	if err := appendAuditTx(ctx, tx, newAudit(input.ActorID, "mentorship.deleted", "mentorship", input.MentorshipID, nil, input.ChangedAt)); err != nil {
 		return err
 	}
 	return tx.Commit(ctx)

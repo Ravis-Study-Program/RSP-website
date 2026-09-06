@@ -29,7 +29,11 @@ func TestDecodeJSONRequiresOneValueWithKnownFields(t *testing.T) {
 
 func TestStreamingRequestBodyLimit(t *testing.T) {
 	handler := testHandler(AuthenticatorFunc(func(context.Context, string) (authz.Actor, error) {
-		return authz.Actor{UserID: "student", EmailVerified: true, AccountState: authz.AccountActive}, nil
+		return authz.Actor{
+			UserID:        "student",
+			EmailVerified: true,
+			AccountState:  authz.AccountActive,
+		}, nil
 	}))
 	request := httptest.NewRequest(http.MethodPatch, "/api/v2/me", strings.NewReader(`{"name":"`+strings.Repeat("x", int(maxRequestBodyBytes))+`"}`))
 	request.ContentLength = -1

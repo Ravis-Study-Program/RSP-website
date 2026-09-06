@@ -117,7 +117,14 @@ func (c Client) Sync(ctx context.Context) (worker.Report, error) {
 				categories = append(categories, name)
 			}
 		}
-		p := Problem{Number: number, Title: strings.TrimSpace(raw.Title), Slug: strings.TrimSpace(raw.TitleSlug), Difficulty: strings.ToLower(raw.Difficulty), Premium: raw.Premium, Categories: categories}
+		p := Problem{
+			Number:     number,
+			Title:      strings.TrimSpace(raw.Title),
+			Slug:       strings.TrimSpace(raw.TitleSlug),
+			Difficulty: strings.ToLower(raw.Difficulty),
+			Premium:    raw.Premium,
+			Categories: categories,
+		}
 		if numberErr != nil {
 			p.Number = 0
 		}

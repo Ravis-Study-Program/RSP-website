@@ -47,7 +47,13 @@ func main() {
 		os.Exit(1)
 	}
 	defer state.Close()
-	scheduler := worker.LeetCodeScheduler{Locker: state, State: state, Syncer: leetcode.Client{URL: syncURL, Sink: state}, Retries: 3, Timeout: 2 * time.Minute}
+	scheduler := worker.LeetCodeScheduler{
+		Locker:  state,
+		State:   state,
+		Syncer:  leetcode.Client{URL: syncURL, Sink: state},
+		Retries: 3,
+		Timeout: 2 * time.Minute,
+	}
 	ticker := time.NewTicker(time.Minute)
 	defer ticker.Stop()
 

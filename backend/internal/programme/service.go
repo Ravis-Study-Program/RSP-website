@@ -7,15 +7,7 @@ import (
 )
 
 var (
-	ErrClosed    = errors.New("season is closed")
-	ErrForbidden = errors.New("forbidden")
-)
-
-type GlobalRole string
-
-const (
-	Director    GlobalRole = "director"
-	SystemAdmin GlobalRole = "system_admin"
+	ErrClosed = errors.New("season is closed")
 )
 
 // Enrollment is the part of an enrollment that season transitions change.
@@ -112,10 +104,7 @@ func Close(s Season, actorID, reason, eventID string, now time.Time) (Transition
 }
 
 // Reopen reopens a season without changing the supplied value.
-func Reopen(s Season, e CloseEvent, role GlobalRole) (Season, error) {
-	if role != Director && role != SystemAdmin {
-		return Season{}, ErrForbidden
-	}
+func Reopen(s Season, e CloseEvent) Season {
 	reopened := cloneSeason(s)
 	for i := range reopened.Enrollments {
 		if reopened.Enrollments[i].CompletedByCloseID != nil && *reopened.Enrollments[i].CompletedByCloseID == e.ID {
@@ -128,7 +117,7 @@ func Reopen(s Season, e CloseEvent, role GlobalRole) (Season, error) {
 		}
 	}
 	reopened.Status = "open"
-	return reopened, nil
+	return reopened
 }
 
 func cloneSeason(s Season) Season {

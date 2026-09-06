@@ -36,7 +36,9 @@ func loadProgrammeSeason(ctx context.Context, tx pgx.Tx, seasonID string) (progr
 			return programme.Season{}, nil, err
 		}
 		season.Enrollments = append(season.Enrollments, programme.Enrollment{
-			ID: item.ID, State: item.State, AssignmentState: item.AssignmentState,
+			ID:              item.ID,
+			State:           item.State,
+			AssignmentState: item.AssignmentState,
 		})
 		items = append(items, item)
 	}

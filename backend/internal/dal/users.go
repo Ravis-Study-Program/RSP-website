@@ -90,7 +90,11 @@ func (p *Store) ListUsers(ctx context.Context, q UserQuery) ([]accounts.User, bo
 			WHERE role_filter.user_id = u.id AND role_filter.state = 'active'
 			AND role_filter.role::text = @globalRole
 		))`
-	args := pgx.NamedArgs{"search": strings.TrimSpace(q.Search), "seasonRole": q.SeasonRole, "globalRole": q.GlobalRole}
+	args := pgx.NamedArgs{
+		"search":     strings.TrimSpace(q.Search),
+		"seasonRole": q.SeasonRole,
+		"globalRole": q.GlobalRole,
+	}
 	var total int64
 	if err := p.pool.QueryRow(ctx, `SELECT count(*) FROM app.users u JOIN app.user_profiles p ON p.user_id=u.id WHERE `+filters, args).Scan(&total); err != nil {
 		return nil, false, 0, err
@@ -118,7 +122,11 @@ func (p *Store) ListAdminUsers(ctx context.Context, q AdminUserQuery) ([]account
 			WHERE role_filter.user_id = u.id AND role_filter.state <> 'revoked'
 			AND role_filter.role::text = @globalRole
 		))`
-	args := pgx.NamedArgs{"search": strings.TrimSpace(q.Search), "accountState": q.AccountState, "globalRole": q.GlobalRole}
+	args := pgx.NamedArgs{
+		"search":       strings.TrimSpace(q.Search),
+		"accountState": q.AccountState,
+		"globalRole":   q.GlobalRole,
+	}
 	var total int64
 	if err := p.pool.QueryRow(ctx, `SELECT count(*) FROM app.users u JOIN app.user_profiles p ON p.user_id=u.id JOIN app.user_contacts c ON c.user_id=u.id WHERE `+filters, args).Scan(&total); err != nil {
 		return nil, false, 0, err
@@ -217,7 +225,17 @@ func (p *Store) ListEnrollmentCandidates(ctx context.Context, q EnrollmentCandid
 	return items, more, total, nil
 }
 
-func (p *Store) UpdateUser(ctx context.Context, userID string, update func(*accounts.User) error, actorID string, at time.Time) (accounts.User, error) {
+type UpdateUserProfileInput struct {
+	UserID    string
+	Name      string
+	Slug      *string
+	AvatarURL *string
+	Timezone  string
+	ActorID   string
+	ChangedAt time.Time
+}
+
+func (p *Store) UpdateUserProfile(ctx context.Context, input UpdateUserProfileInput) (accounts.User, error) {
 	tx, err := p.pool.Begin(ctx)
 	if err != nil {
 		return accounts.User{}, err
@@ -231,20 +249,24 @@ func (p *Store) UpdateUser(ctx context.Context, userID string, update func(*acco
 		JOIN app.user_profiles p ON p.user_id=u.id
 		JOIN app.user_preferences pr ON pr.user_id=u.id
 		JOIN app.user_contacts c ON c.user_id=u.id
-		WHERE u.id=$1 AND u.deleted_at IS NULL FOR UPDATE OF u`, userID).Scan(&user.ID, &user.Slug, &user.Name, &user.AvatarURL, &user.Timezone, &user.TimezoneConfigured, &user.Email, &user.AccountState)
+		WHERE u.id=$1 AND u.deleted_at IS NULL FOR UPDATE OF u`, input.UserID).Scan(&user.ID, &user.Slug, &user.Name, &user.AvatarURL, &user.Timezone, &user.TimezoneConfigured, &user.Email, &user.AccountState)
 	if err != nil {
 		return user, noRows(err)
 	}
-	if err := update(&user); err != nil {
+	user.Name = input.Name
+	if input.Slug != nil {
+		user.Slug = *input.Slug
+	}
+	user.AvatarURL = input.AvatarURL
+	user.Timezone = input.Timezone
+	user.TimezoneConfigured = true
+	if _, err := tx.Exec(ctx, `UPDATE app.user_profiles SET slug=$1,display_name=$2,avatar_url=$3 WHERE user_id=$4`, user.Slug, user.Name, user.AvatarURL, input.UserID); err != nil {
 		return user, err
 	}
-	if _, err := tx.Exec(ctx, `UPDATE app.user_profiles SET slug=$1,display_name=$2,avatar_url=$3 WHERE user_id=$4`, user.Slug, user.Name, user.AvatarURL, userID); err != nil {
+	if _, err := tx.Exec(ctx, `UPDATE app.user_preferences SET timezone=$1,timezone_configured=$2 WHERE user_id=$3`, user.Timezone, user.TimezoneConfigured, input.UserID); err != nil {
 		return user, err
 	}
-	if _, err := tx.Exec(ctx, `UPDATE app.user_preferences SET timezone=$1,timezone_configured=$2 WHERE user_id=$3`, user.Timezone, user.TimezoneConfigured, userID); err != nil {
-		return user, err
-	}
-	if err := appendAuditTx(ctx, tx, newAudit(actorID, "user.updated", "user", userID, nil, at)); err != nil {
+	if err := appendAuditTx(ctx, tx, newAudit(input.ActorID, "user.updated", "user", input.UserID, nil, input.ChangedAt)); err != nil {
 		return user, err
 	}
 	if err := tx.Commit(ctx); err != nil {

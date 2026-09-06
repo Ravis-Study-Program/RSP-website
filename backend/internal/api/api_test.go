@@ -79,7 +79,11 @@ func TestRequestContextNormalizesRequestIDAndRecovers(t *testing.T) {
 
 func TestRequestBodyLimitStopsBeforeTheHandler(t *testing.T) {
 	authenticator := AuthenticatorFunc(func(context.Context, string) (authz.Actor, error) {
-		return authz.Actor{UserID: "test", EmailVerified: true, AccountState: authz.AccountActive}, nil
+		return authz.Actor{
+			UserID:        "test",
+			EmailVerified: true,
+			AccountState:  authz.AccountActive,
+		}, nil
 	})
 	body := strings.Repeat("x", int(maxRequestBodyBytes)+1)
 	response := testRequest(t, testHandler(authenticator), http.MethodPatch, "/api/v2/me", "test", body)
@@ -92,7 +96,11 @@ func TestRequestBodyLimitStopsBeforeTheHandler(t *testing.T) {
 func TestHealthAuthenticationAndOriginChecksDoNotExposeInternalErrors(t *testing.T) {
 	authenticator := AuthenticatorFunc(func(_ context.Context, token string) (authz.Actor, error) {
 		if token == "student" {
-			return authz.Actor{UserID: "student", EmailVerified: true, AccountState: authz.AccountActive}, nil
+			return authz.Actor{
+				UserID:        "student",
+				EmailVerified: true,
+				AccountState:  authz.AccountActive,
+			}, nil
 		}
 		return authz.Actor{}, errors.New("private authentication failure")
 	})

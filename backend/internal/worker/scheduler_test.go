@@ -86,7 +86,14 @@ func TestDecideDueIsPureAndDistinguishesScheduleFromCatchup(t *testing.T) {
 func TestTimeoutIsRecordedAndDueWindowIsAttemptedOnlyOnce(t *testing.T) {
 	now := time.Date(2026, 8, 13, 12, 0, 0, 0, time.UTC)
 	st := &state{}
-	sy := LeetCodeScheduler{Locker: &lock{ok: true}, State: st, Syncer: blockingSyncer{}, Now: func() time.Time { return now }, Timeout: 5 * time.Millisecond, Retries: 1}
+	sy := LeetCodeScheduler{
+		Locker:  &lock{ok: true},
+		State:   st,
+		Syncer:  blockingSyncer{},
+		Now:     func() time.Time { return now },
+		Timeout: 5 * time.Millisecond,
+		Retries: 1,
+	}
 	ran, err := sy.RunDue(context.Background())
 	if !ran || !errors.Is(err, context.DeadlineExceeded) || len(st.runs) != 1 || st.runs[0].Error == "" {
 		t.Fatalf("timeout run: ran=%v err=%v runs=%#v", ran, err, st.runs)
@@ -102,7 +109,12 @@ func TestSundayScheduleCatchupAndLock(t *testing.T) {
 	now := time.Date(2026, 8, 13, 12, 0, 0, 0, time.UTC)
 	l := &lock{ok: true}
 	st := &state{}
-	sy := LeetCodeScheduler{Locker: l, State: st, Syncer: &syncer{}, Now: func() time.Time { return now }}
+	sy := LeetCodeScheduler{
+		Locker: l,
+		State:  st,
+		Syncer: &syncer{},
+		Now:    func() time.Time { return now },
+	}
 	ran, err := sy.RunDue(context.Background())
 	if err != nil || !ran || len(st.runs) != 1 || !l.unlocked || st.runs[0].TriggerKind != "catch_up" {
 		t.Fatalf("catchup failed: %v", err)
@@ -122,7 +134,12 @@ func TestSundayScheduleCatchupAndLock(t *testing.T) {
 func TestSundayScheduledTrigger(t *testing.T) {
 	now := time.Date(2026, 8, 16, 3, 0, 20, 0, time.UTC)
 	st := &state{}
-	sy := LeetCodeScheduler{Locker: &lock{ok: true}, State: st, Syncer: &syncer{}, Now: func() time.Time { return now }}
+	sy := LeetCodeScheduler{
+		Locker: &lock{ok: true},
+		State:  st,
+		Syncer: &syncer{},
+		Now:    func() time.Time { return now },
+	}
 	ran, err := sy.RunDue(context.Background())
 	if err != nil || !ran || len(st.runs) != 1 || st.runs[0].TriggerKind != "schedule" || st.runs[0].ID != "" {
 		t.Fatalf("scheduled trigger: ran=%v runs=%#v err=%v", ran, st.runs, err)
@@ -134,7 +151,13 @@ func TestRetriesAndPartialFailure(t *testing.T) {
 	l := &lock{ok: true}
 	st := &state{}
 	sync := &syncer{failUntil: 2}
-	sy := LeetCodeScheduler{Locker: l, State: st, Syncer: sync, Now: func() time.Time { return now }, Retries: 3}
+	sy := LeetCodeScheduler{
+		Locker:  l,
+		State:   st,
+		Syncer:  sync,
+		Now:     func() time.Time { return now },
+		Retries: 3,
+	}
 	if err := sy.RunManual(context.Background(), "retry-run"); err != nil || sync.calls != 3 {
 		t.Fatalf("retry: %v calls %d", err, sync.calls)
 	}
@@ -150,7 +173,12 @@ func TestManualRunKeepsQueuedIDAndBypassesWeeklySchedule(t *testing.T) {
 	now := time.Date(2026, 8, 16, 4, 0, 0, 0, time.UTC)
 	lastSuccess := now.Add(-time.Minute)
 	st := &state{last: &lastSuccess}
-	sy := LeetCodeScheduler{Locker: &lock{ok: true}, State: st, Syncer: &syncer{}, Now: func() time.Time { return now }}
+	sy := LeetCodeScheduler{
+		Locker: &lock{ok: true},
+		State:  st,
+		Syncer: &syncer{},
+		Now:    func() time.Time { return now },
+	}
 	if err := sy.RunManual(context.Background(), "queued-run"); err != nil {
 		t.Fatal(err)
 	}
@@ -165,7 +193,13 @@ func TestManualRunKeepsQueuedIDAndBypassesWeeklySchedule(t *testing.T) {
 func TestFailedManualRunDoesNotConsumeScheduledAttempt(t *testing.T) {
 	now := time.Date(2026, 8, 16, 4, 0, 0, 0, time.UTC)
 	st := &state{}
-	sy := LeetCodeScheduler{Locker: &lock{ok: true}, State: st, Syncer: &syncer{partial: true}, Now: func() time.Time { return now }, Retries: 1}
+	sy := LeetCodeScheduler{
+		Locker:  &lock{ok: true},
+		State:   st,
+		Syncer:  &syncer{partial: true},
+		Now:     func() time.Time { return now },
+		Retries: 1,
+	}
 	if err := sy.RunManual(context.Background(), "failed-manual-run"); err == nil {
 		t.Fatal("partial failure was accepted")
 	}
@@ -181,7 +215,11 @@ func TestFailedManualRunDoesNotConsumeScheduledAttempt(t *testing.T) {
 func TestManualRunRequiresQueuedID(t *testing.T) {
 	st := &state{}
 	sync := &syncer{}
-	sy := LeetCodeScheduler{Locker: &lock{ok: true}, State: st, Syncer: sync}
+	sy := LeetCodeScheduler{
+		Locker: &lock{ok: true},
+		State:  st,
+		Syncer: sync,
+	}
 	if err := sy.RunManual(context.Background(), ""); err == nil || sync.calls != 0 || len(st.runs) != 0 {
 		t.Fatalf("missing ID started a run: calls=%d runs=%#v err=%v", sync.calls, st.runs, err)
 	}

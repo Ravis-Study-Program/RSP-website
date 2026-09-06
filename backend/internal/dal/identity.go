@@ -219,7 +219,15 @@ func applyMFAConfigured(ctx context.Context, tx pgx.Tx, userID string, at time.T
 		return err
 	}
 	for _, assignment := range global {
-		event := audit.Event{ID: id.New(), ActorID: &userID, Action: "global_role.activated", SubjectType: "global_role_assignment", SubjectID: assignment.ID, Data: map[string]any{"role": assignment.Role, "reason": "mfa_configured"}, OccurredAt: at.UTC()}
+		event := audit.Event{
+			ID:          id.New(),
+			ActorID:     &userID,
+			Action:      "global_role.activated",
+			SubjectType: "global_role_assignment",
+			SubjectID:   assignment.ID,
+			Data:        map[string]any{"role": assignment.Role, "reason": "mfa_configured"},
+			OccurredAt:  at.UTC(),
+		}
 		if err := appendAuditTx(ctx, tx, event); err != nil {
 			return err
 		}

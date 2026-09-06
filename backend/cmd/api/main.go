@@ -77,7 +77,11 @@ func main() {
 	})
 	apiHandler := app.Handler()
 
-	server := &http.Server{Addr: env("API_ADDR", ":4000"), Handler: apiHandler, ReadHeaderTimeout: 5 * time.Second}
+	server := &http.Server{
+		Addr:              env("API_ADDR", ":4000"),
+		Handler:           apiHandler,
+		ReadHeaderTimeout: 5 * time.Second,
+	}
 	logger.Info("api listening", "address", server.Addr)
 	if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 		logger.Error("api stopped", "error", err)

@@ -8,13 +8,14 @@ import (
 	"log/slog"
 	"net/http"
 	"regexp"
-	"strconv"
+
 	"time"
 
 	"github.com/magedmg/RSP-website/backend/internal/dal"
 	"github.com/magedmg/RSP-website/backend/internal/mockinterviews"
-	"github.com/magedmg/RSP-website/backend/internal/platform/cursor"
+
 	"github.com/magedmg/RSP-website/backend/internal/platform/id"
+	"github.com/magedmg/RSP-website/backend/internal/platform/observability"
 	"github.com/magedmg/RSP-website/backend/internal/platform/ratelimit"
 	"github.com/magedmg/RSP-website/backend/internal/platform/sanitize"
 )
@@ -88,7 +89,7 @@ func New(c Config) *API {
 func (a *API) Handler() http.Handler {
 	routes := http.NewServeMux()
 	registerRoutes(routes, a)
-	routes.HandleFunc("POST /internal/auth/lifecycle-events", a.identityLifecycle)
+	routes.HandleFunc("POST /internal/auth/lifecycle-events", a.receiveIdentityLifecycleEvent)
 
 	handler := a.limitRequestBody(routes)
 	return requestContext(a.logger, a.telemetry.observeHTTP, handler)
@@ -174,29 +175,11 @@ func decodeJSON(body io.Reader, destination any) error {
 	return nil
 }
 
-func (a *API) page(r *http.Request, binding string) (int, string, error) {
-	limit := 25
-	if raw := r.URL.Query().Get("limit"); raw != "" {
-		v, err := strconv.Atoi(raw)
-		if err != nil || v < 1 || v > 100 {
-			return 0, "", cursor.ErrInvalid
-		}
-
-		limit = v
-	}
-	encoded := r.URL.Query().Get("cursor")
-	if encoded == "" {
-		return limit, "", nil
-	}
-	after, err := cursor.Decode(a.cursorSecret, encoded, binding)
-	return limit, after, err
-}
-
-func (a *API) live(w http.ResponseWriter, _ *http.Request) {
+func (a *API) checkLiveness(w http.ResponseWriter, _ *http.Request) {
 	writeJSONResponse(w, http.StatusOK, map[string]string{"status": "ok"})
 }
 
-func (a *API) readiness(w http.ResponseWriter, r *http.Request) {
+func (a *API) checkReadiness(w http.ResponseWriter, r *http.Request) {
 	if a.ready != nil {
 		if err := a.ready(); err != nil {
 			writeErrorResponse(w, http.StatusServiceUnavailable, "not_ready", "A required dependency is unavailable.")
@@ -206,7 +189,21 @@ func (a *API) readiness(w http.ResponseWriter, r *http.Request) {
 	writeJSONResponse(w, http.StatusOK, map[string]string{"status": "ready"})
 }
 
-func (a *API) metrics(w http.ResponseWriter, r *http.Request) {
+func (a *API) getMetrics(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/plain; version=0.0.4; charset=utf-8")
-	a.telemetry.render(r.Context(), w, a.db)
+	snapshot := observability.Snapshot{}
+	snapshotOK := true
+	if a.db != nil {
+		var err error
+		snapshot, err = a.db.ObservabilitySnapshot(r.Context())
+		if err != nil {
+			a.logger.Error("metrics snapshot failed", "error", err)
+			snapshot = observability.Snapshot{}
+			snapshotOK = false
+		}
+	}
+	body := formatMetrics(a.telemetry.snapshot(), snapshot, snapshotOK)
+	if _, err := io.WriteString(w, body); err != nil {
+		a.logger.Error("metrics response failed", "error", err)
+	}
 }

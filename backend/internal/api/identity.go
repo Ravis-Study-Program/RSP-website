@@ -10,7 +10,21 @@ import (
 	"github.com/magedmg/RSP-website/backend/internal/accounts"
 )
 
-func (a *API) identityLifecycle(w http.ResponseWriter, r *http.Request) {
+type receiveIdentityLifecycleEventRequest struct {
+	EventID          string     `json:"eventId"`
+	Type             string     `json:"type"`
+	AuthUserID       string     `json:"authUserId"`
+	Email            string     `json:"email"`
+	EmailVerified    bool       `json:"emailVerified"`
+	OccurredAt       time.Time  `json:"occurredAt"`
+	RecoveryDeadline *time.Time `json:"recoveryDeadline"`
+	Reason           string     `json:"reason"`
+	AccountState     string     `json:"accountState"`
+	ActorUserID      string     `json:"actorUserId"`
+	SecurityVersion  int64      `json:"securityVersion"`
+}
+
+func (a *API) receiveIdentityLifecycleEvent(w http.ResponseWriter, r *http.Request) {
 	expected := os.Getenv("IDENTITY_SERVICE_TOKEN")
 	header := r.Header.Get("Authorization")
 	if !strings.HasPrefix(header, "Bearer ") {
@@ -22,25 +36,29 @@ func (a *API) identityLifecycle(w http.ResponseWriter, r *http.Request) {
 		writeErrorResponse(w, http.StatusUnauthorized, "invalid_service_token", "A valid service token is required.")
 		return
 	}
-	var in struct {
-		EventID          string     `json:"eventId"`
-		Type             string     `json:"type"`
-		AuthUserID       string     `json:"authUserId"`
-		Email            string     `json:"email"`
-		EmailVerified    bool       `json:"emailVerified"`
-		OccurredAt       time.Time  `json:"occurredAt"`
-		RecoveryDeadline *time.Time `json:"recoveryDeadline"`
-		Reason           string     `json:"reason"`
-		AccountState     string     `json:"accountState"`
-		ActorUserID      string     `json:"actorUserId"`
-		SecurityVersion  int64      `json:"securityVersion"`
+	var request receiveIdentityLifecycleEventRequest
+	if err := decodeJSON(r.Body, &request); err != nil {
+		writeErrorResponse(w, http.StatusBadRequest, "validation_failed", err.Error())
+		return
 	}
-	if err := decodeJSON(r.Body, &in); err != nil || in.EventID == "" || in.AuthUserID == "" || in.OccurredAt.IsZero() || in.SecurityVersion < 1 {
+	if request.EventID == "" || request.AuthUserID == "" || request.OccurredAt.IsZero() || request.SecurityVersion < 1 {
 		writeErrorResponse(w, http.StatusBadRequest, "validation_failed", "valid eventId, type, authUserId, securityVersion, and occurredAt are required")
 		return
 	}
 
-	err := a.db.ApplyIdentityEvent(r.Context(), accounts.IdentityEvent{EventID: in.EventID, Type: in.Type, AuthUserID: in.AuthUserID, Email: in.Email, EmailVerified: in.EmailVerified, SecurityVersion: in.SecurityVersion, OccurredAt: in.OccurredAt.UTC(), RecoveryDeadline: in.RecoveryDeadline, Reason: in.Reason, AccountState: in.AccountState, ActorUserID: in.ActorUserID})
+	err := a.db.ApplyIdentityEvent(r.Context(), accounts.IdentityEvent{
+		EventID:          request.EventID,
+		Type:             request.Type,
+		AuthUserID:       request.AuthUserID,
+		Email:            request.Email,
+		EmailVerified:    request.EmailVerified,
+		SecurityVersion:  request.SecurityVersion,
+		OccurredAt:       request.OccurredAt.UTC(),
+		RecoveryDeadline: request.RecoveryDeadline,
+		Reason:           request.Reason,
+		AccountState:     request.AccountState,
+		ActorUserID:      request.ActorUserID,
+	})
 	if err != nil {
 		a.writeStoreErrorResponse(w, err)
 		return

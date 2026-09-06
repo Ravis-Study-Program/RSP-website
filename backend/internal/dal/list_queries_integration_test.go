@@ -29,82 +29,299 @@ func TestStoreListQueries(t *testing.T) {
 	t.Run("directory filters and cursor directions", func(t *testing.T) {
 		id := func(user accounts.User) string { return user.ID }
 		expectListPage(t, []int{1, 2}, true, 5, id)(db.ListUsers(ctx, UserQuery{Limit: 2, Direction: "forward"}))
-		expectListPage(t, []int{3, 4}, true, 5, id)(db.ListUsers(ctx, UserQuery{Boundary: queryFixtureID(2), Limit: 2, Direction: "forward"}))
-		expectListPage(t, []int{2, 3}, true, 5, id)(db.ListUsers(ctx, UserQuery{Boundary: queryFixtureID(4), Limit: 2, Direction: "backward"}))
-		expectListPage(t, []int{4}, false, 1, id)(db.ListUsers(ctx, UserQuery{Limit: 2, Direction: "forward", Search: "  dELTa  ", SeasonRole: "student"}))
-		expectListPage(t, []int{2}, false, 1, id)(db.ListUsers(ctx, UserQuery{Limit: 2, Direction: "forward", SeasonRole: "mentor", GlobalRole: "director"}))
-		expectListPage(t, nil, false, 0, id)(db.ListUsers(ctx, UserQuery{Limit: 2, Direction: "forward", SeasonRole: "student", GlobalRole: "director"}))
+		expectListPage(t, []int{3, 4}, true, 5, id)(db.ListUsers(ctx, UserQuery{
+			Boundary:  queryFixtureID(2),
+			Limit:     2,
+			Direction: "forward",
+		}))
+		expectListPage(t, []int{2, 3}, true, 5, id)(db.ListUsers(ctx, UserQuery{
+			Boundary:  queryFixtureID(4),
+			Limit:     2,
+			Direction: "backward",
+		}))
+		expectListPage(t, []int{4}, false, 1, id)(db.ListUsers(ctx, UserQuery{
+			Limit:      2,
+			Direction:  "forward",
+			Search:     "  dELTa  ",
+			SeasonRole: "student",
+		}))
+		expectListPage(t, []int{2}, false, 1, id)(db.ListUsers(ctx, UserQuery{
+			Limit:      2,
+			Direction:  "forward",
+			SeasonRole: "mentor",
+			GlobalRole: "director",
+		}))
+		expectListPage(t, nil, false, 0, id)(db.ListUsers(ctx, UserQuery{
+			Limit:      2,
+			Direction:  "forward",
+			SeasonRole: "student",
+			GlobalRole: "director",
+		}))
 	})
 
 	t.Run("admin filters retain pending roles and private email search", func(t *testing.T) {
 		id := func(user accounts.User) string { return user.ID }
-		expectListPage(t, []int{7}, false, 1, id)(db.ListAdminUsers(ctx, AdminUserQuery{Limit: 2, Direction: "forward", AccountState: "suspended", GlobalRole: "director"}))
-		expectListPage(t, []int{7}, false, 1, id)(db.ListAdminUsers(ctx, AdminUserQuery{Limit: 2, Direction: "backward", Search: " secret-golf@ "}))
-		expectListPage(t, []int{2}, true, 2, id)(db.ListAdminUsers(ctx, AdminUserQuery{Limit: 1, Direction: "forward", GlobalRole: "director"}))
-		expectListPage(t, []int{7}, false, 2, id)(db.ListAdminUsers(ctx, AdminUserQuery{Boundary: queryFixtureID(2), Limit: 1, Direction: "forward", GlobalRole: "director"}))
-		expectListPage(t, []int{2}, false, 2, id)(db.ListAdminUsers(ctx, AdminUserQuery{Boundary: queryFixtureID(7), Limit: 1, Direction: "backward", GlobalRole: "director"}))
+		expectListPage(t, []int{7}, false, 1, id)(db.ListAdminUsers(ctx, AdminUserQuery{
+			Limit:        2,
+			Direction:    "forward",
+			AccountState: "suspended",
+			GlobalRole:   "director",
+		}))
+		expectListPage(t, []int{7}, false, 1, id)(db.ListAdminUsers(ctx, AdminUserQuery{
+			Limit:     2,
+			Direction: "backward",
+			Search:    " secret-golf@ ",
+		}))
+		expectListPage(t, []int{2}, true, 2, id)(db.ListAdminUsers(ctx, AdminUserQuery{
+			Limit:      1,
+			Direction:  "forward",
+			GlobalRole: "director",
+		}))
+		expectListPage(t, []int{7}, false, 2, id)(db.ListAdminUsers(ctx, AdminUserQuery{
+			Boundary:   queryFixtureID(2),
+			Limit:      1,
+			Direction:  "forward",
+			GlobalRole: "director",
+		}))
+		expectListPage(t, []int{2}, false, 2, id)(db.ListAdminUsers(ctx, AdminUserQuery{
+			Boundary:   queryFixtureID(7),
+			Limit:      1,
+			Direction:  "backward",
+			GlobalRole: "director",
+		}))
 	})
 
 	t.Run("candidates exclude existing enrollments and unverified users", func(t *testing.T) {
 		id := func(user accounts.EnrollmentCandidate) string { return user.ID }
-		expectListPage(t, []int{9}, true, 2, id)(db.ListEnrollmentCandidates(ctx, EnrollmentCandidateQuery{SeasonID: queryFixtureID(101), Limit: 1, Direction: "forward"}))
-		expectListPage(t, []int{11}, false, 2, id)(db.ListEnrollmentCandidates(ctx, EnrollmentCandidateQuery{SeasonID: queryFixtureID(101), Boundary: queryFixtureID(9), Limit: 1, Direction: "forward"}))
-		expectListPage(t, []int{9}, false, 2, id)(db.ListEnrollmentCandidates(ctx, EnrollmentCandidateQuery{SeasonID: queryFixtureID(101), Boundary: queryFixtureID(11), Limit: 1, Direction: "backward"}))
-		expectListPage(t, []int{11}, false, 1, id)(db.ListEnrollmentCandidates(ctx, EnrollmentCandidateQuery{SeasonID: queryFixtureID(101), Search: " KILO ", Limit: 2, Direction: "forward"}))
+		expectListPage(t, []int{9}, true, 2, id)(db.ListEnrollmentCandidates(ctx, EnrollmentCandidateQuery{
+			SeasonID:  queryFixtureID(101),
+			Limit:     1,
+			Direction: "forward",
+		}))
+		expectListPage(t, []int{11}, false, 2, id)(db.ListEnrollmentCandidates(ctx, EnrollmentCandidateQuery{
+			SeasonID:  queryFixtureID(101),
+			Boundary:  queryFixtureID(9),
+			Limit:     1,
+			Direction: "forward",
+		}))
+		expectListPage(t, []int{9}, false, 2, id)(db.ListEnrollmentCandidates(ctx, EnrollmentCandidateQuery{
+			SeasonID:  queryFixtureID(101),
+			Boundary:  queryFixtureID(11),
+			Limit:     1,
+			Direction: "backward",
+		}))
+		expectListPage(t, []int{11}, false, 1, id)(db.ListEnrollmentCandidates(ctx, EnrollmentCandidateQuery{
+			SeasonID:  queryFixtureID(101),
+			Search:    " KILO ",
+			Limit:     2,
+			Direction: "forward",
+		}))
 	})
 
 	t.Run("season status and backwards order", func(t *testing.T) {
 		id := func(season programme.SeasonRecord) string { return season.ID }
 		expectListPage(t, []int{101, 102}, true, 3, id)(db.ListSeasons(ctx, SeasonQuery{Limit: 2, Direction: "forward"}))
-		expectListPage(t, []int{101, 102}, false, 3, id)(db.ListSeasons(ctx, SeasonQuery{Boundary: queryFixtureID(103), Limit: 2, Direction: "backward"}))
-		expectListPage(t, []int{103}, false, 1, id)(db.ListSeasons(ctx, SeasonQuery{Limit: 2, Direction: "forward", Status: "closed"}))
+		expectListPage(t, []int{101, 102}, false, 3, id)(db.ListSeasons(ctx, SeasonQuery{
+			Boundary:  queryFixtureID(103),
+			Limit:     2,
+			Direction: "backward",
+		}))
+		expectListPage(t, []int{103}, false, 1, id)(db.ListSeasons(ctx, SeasonQuery{
+			Limit:     2,
+			Direction: "forward",
+			Status:    "closed",
+		}))
 	})
 
 	t.Run("weeks sort by number rather than id", func(t *testing.T) {
 		id := func(week programme.WeekRecord) string { return week.ID }
-		expectListPage(t, []int{302, 301}, true, 3, id)(db.ListWeeks(ctx, WeekQuery{SeasonID: queryFixtureID(101), Limit: 2, SortBy: "number:asc", Direction: "forward"}))
-		expectListPage(t, []int{303}, false, 3, id)(db.ListWeeks(ctx, WeekQuery{SeasonID: queryFixtureID(101), Boundary: queryFixtureID(301), Limit: 2, SortBy: "number:asc", Direction: "forward"}))
-		expectListPage(t, []int{302, 301}, false, 3, id)(db.ListWeeks(ctx, WeekQuery{SeasonID: queryFixtureID(101), Boundary: queryFixtureID(303), Limit: 2, SortBy: "number:asc", Direction: "backward"}))
-		expectListPage(t, []int{301, 302}, true, 3, id)(db.ListWeeks(ctx, WeekQuery{SeasonID: queryFixtureID(101), Limit: 2, SortBy: "id:asc", Direction: "forward"}))
+		expectListPage(t, []int{302, 301}, true, 3, id)(db.ListWeeks(ctx, WeekQuery{
+			SeasonID:  queryFixtureID(101),
+			Limit:     2,
+			SortBy:    "number:asc",
+			Direction: "forward",
+		}))
+		expectListPage(t, []int{303}, false, 3, id)(db.ListWeeks(ctx, WeekQuery{
+			SeasonID:  queryFixtureID(101),
+			Boundary:  queryFixtureID(301),
+			Limit:     2,
+			SortBy:    "number:asc",
+			Direction: "forward",
+		}))
+		expectListPage(t, []int{302, 301}, false, 3, id)(db.ListWeeks(ctx, WeekQuery{
+			SeasonID:  queryFixtureID(101),
+			Boundary:  queryFixtureID(303),
+			Limit:     2,
+			SortBy:    "number:asc",
+			Direction: "backward",
+		}))
+		expectListPage(t, []int{301, 302}, true, 3, id)(db.ListWeeks(ctx, WeekQuery{
+			SeasonID:  queryFixtureID(101),
+			Limit:     2,
+			SortBy:    "id:asc",
+			Direction: "forward",
+		}))
 	})
 
 	t.Run("enrollment state filters and role ordering", func(t *testing.T) {
 		id := func(enrollment programme.EnrollmentRecord) string { return enrollment.ID }
-		expectListPage(t, []int{202, 201}, true, 6, id)(db.ListEnrollments(ctx, EnrollmentQuery{SeasonID: queryFixtureID(101), Limit: 2, SortBy: "role:asc", Direction: "forward"}))
-		expectListPage(t, []int{202, 201}, false, 6, id)(db.ListEnrollments(ctx, EnrollmentQuery{SeasonID: queryFixtureID(101), Boundary: queryFixtureID(203), Limit: 2, SortBy: "role:asc", Direction: "backward"}))
-		expectListPage(t, []int{204}, false, 1, id)(db.ListEnrollments(ctx, EnrollmentQuery{SeasonID: queryFixtureID(101), Limit: 10, Role: "student", State: "completed", SortBy: "role:asc", Direction: "forward"}))
-		expectListPage(t, []int{205}, false, 1, id)(db.ListEnrollments(ctx, EnrollmentQuery{SeasonID: queryFixtureID(101), Limit: 10, Role: "mentor", State: "completed", SortBy: "role:asc", Direction: "forward", IncludeInactive: true}))
-		expectListPage(t, nil, false, 0, id)(db.ListEnrollments(ctx, EnrollmentQuery{SeasonID: queryFixtureID(101), Limit: 10, Role: "mentor", State: "completed", SortBy: "role:asc", Direction: "forward"}))
-		expectListPage(t, []int{206}, false, 1, id)(db.ListEnrollments(ctx, EnrollmentQuery{SeasonID: queryFixtureID(101), Limit: 10, State: "kicked", SortBy: "id:asc", Direction: "forward", IncludeInactive: true}))
+		expectListPage(t, []int{202, 201}, true, 6, id)(db.ListEnrollments(ctx, EnrollmentQuery{
+			SeasonID:  queryFixtureID(101),
+			Limit:     2,
+			SortBy:    "role:asc",
+			Direction: "forward",
+		}))
+		expectListPage(t, []int{202, 201}, false, 6, id)(db.ListEnrollments(ctx, EnrollmentQuery{
+			SeasonID:  queryFixtureID(101),
+			Boundary:  queryFixtureID(203),
+			Limit:     2,
+			SortBy:    "role:asc",
+			Direction: "backward",
+		}))
+		expectListPage(t, []int{204}, false, 1, id)(db.ListEnrollments(ctx, EnrollmentQuery{
+			SeasonID:  queryFixtureID(101),
+			Limit:     10,
+			Role:      "student",
+			State:     "completed",
+			SortBy:    "role:asc",
+			Direction: "forward",
+		}))
+		expectListPage(t, []int{205}, false, 1, id)(db.ListEnrollments(ctx, EnrollmentQuery{
+			SeasonID:        queryFixtureID(101),
+			Limit:           10,
+			Role:            "mentor",
+			State:           "completed",
+			SortBy:          "role:asc",
+			Direction:       "forward",
+			IncludeInactive: true,
+		}))
+		expectListPage(t, nil, false, 0, id)(db.ListEnrollments(ctx, EnrollmentQuery{
+			SeasonID:  queryFixtureID(101),
+			Limit:     10,
+			Role:      "mentor",
+			State:     "completed",
+			SortBy:    "role:asc",
+			Direction: "forward",
+		}))
+		expectListPage(t, []int{206}, false, 1, id)(db.ListEnrollments(ctx, EnrollmentQuery{
+			SeasonID:        queryFixtureID(101),
+			Limit:           10,
+			State:           "kicked",
+			SortBy:          "id:asc",
+			Direction:       "forward",
+			IncludeInactive: true,
+		}))
 	})
 
 	t.Run("mentorship filters share count and page bindings", func(t *testing.T) {
 		id := func(mentorship programme.MentorshipRecord) string { return mentorship.ID }
-		expectListPage(t, []int{402}, true, 2, id)(db.ListMentorships(ctx, MentorshipQuery{SeasonID: queryFixtureID(101), Limit: 1, SortBy: "student:asc", Direction: "forward"}))
-		expectListPage(t, []int{401}, false, 2, id)(db.ListMentorships(ctx, MentorshipQuery{SeasonID: queryFixtureID(101), Boundary: queryFixtureID(402), Limit: 1, SortBy: "student:asc", Direction: "forward", MentorUserID: queryFixtureID(2)}))
-		expectListPage(t, []int{402}, false, 2, id)(db.ListMentorships(ctx, MentorshipQuery{SeasonID: queryFixtureID(101), Boundary: queryFixtureID(401), Limit: 1, SortBy: "student:asc", Direction: "backward"}))
-		expectListPage(t, []int{401}, false, 1, id)(db.ListMentorships(ctx, MentorshipQuery{SeasonID: queryFixtureID(101), Limit: 2, SortBy: "id:asc", Direction: "forward", MentorUserID: queryFixtureID(2), StudentUserID: queryFixtureID(3)}))
-		expectListPage(t, nil, false, 0, id)(db.ListMentorships(ctx, MentorshipQuery{SeasonID: queryFixtureID(101), Limit: 2, SortBy: "id:asc", Direction: "forward", MentorUserID: queryFixtureID(1)}))
+		expectListPage(t, []int{402}, true, 2, id)(db.ListMentorships(ctx, MentorshipQuery{
+			SeasonID:  queryFixtureID(101),
+			Limit:     1,
+			SortBy:    "student:asc",
+			Direction: "forward",
+		}))
+		expectListPage(t, []int{401}, false, 2, id)(db.ListMentorships(ctx, MentorshipQuery{
+			SeasonID:     queryFixtureID(101),
+			Boundary:     queryFixtureID(402),
+			Limit:        1,
+			SortBy:       "student:asc",
+			Direction:    "forward",
+			MentorUserID: queryFixtureID(2),
+		}))
+		expectListPage(t, []int{402}, false, 2, id)(db.ListMentorships(ctx, MentorshipQuery{
+			SeasonID:  queryFixtureID(101),
+			Boundary:  queryFixtureID(401),
+			Limit:     1,
+			SortBy:    "student:asc",
+			Direction: "backward",
+		}))
+		expectListPage(t, []int{401}, false, 1, id)(db.ListMentorships(ctx, MentorshipQuery{
+			SeasonID:      queryFixtureID(101),
+			Limit:         2,
+			SortBy:        "id:asc",
+			Direction:     "forward",
+			MentorUserID:  queryFixtureID(2),
+			StudentUserID: queryFixtureID(3),
+		}))
+		expectListPage(t, nil, false, 0, id)(db.ListMentorships(ctx, MentorshipQuery{
+			SeasonID:     queryFixtureID(101),
+			Limit:        2,
+			SortBy:       "id:asc",
+			Direction:    "forward",
+			MentorUserID: queryFixtureID(1),
+		}))
 	})
 
 	t.Run("problem category difficulty and nullable premium", func(t *testing.T) {
 		id := func(problem practice.ProblemRecord) string { return problem.ID }
 		premium, free := true, false
 		expectListPage(t, []int{601, 602}, true, 3, id)(db.ListProblems(ctx, ProblemQuery{Limit: 2, Direction: "forward"}))
-		expectListPage(t, []int{601, 602}, false, 3, id)(db.ListProblems(ctx, ProblemQuery{Boundary: queryFixtureID(603), Limit: 2, Direction: "backward"}))
-		expectListPage(t, []int{603}, false, 3, id)(db.ListProblems(ctx, ProblemQuery{Boundary: queryFixtureID(602), Limit: 2, Direction: "forward"}))
-		expectListPage(t, []int{601}, false, 1, id)(db.ListProblems(ctx, ProblemQuery{Limit: 2, Difficulty: "easy", Category: "ArRaY", Premium: &free, Direction: "forward"}))
-		expectListPage(t, []int{602}, false, 1, id)(db.ListProblems(ctx, ProblemQuery{Limit: 2, Difficulty: "easy", Category: "array", Premium: &premium, Direction: "forward"}))
-		expectListPage(t, nil, false, 0, id)(db.ListProblems(ctx, ProblemQuery{Limit: 2, Difficulty: "hard", Category: "array", Direction: "forward"}))
+		expectListPage(t, []int{601, 602}, false, 3, id)(db.ListProblems(ctx, ProblemQuery{
+			Boundary:  queryFixtureID(603),
+			Limit:     2,
+			Direction: "backward",
+		}))
+		expectListPage(t, []int{603}, false, 3, id)(db.ListProblems(ctx, ProblemQuery{
+			Boundary:  queryFixtureID(602),
+			Limit:     2,
+			Direction: "forward",
+		}))
+		expectListPage(t, []int{601}, false, 1, id)(db.ListProblems(ctx, ProblemQuery{
+			Limit:      2,
+			Difficulty: "easy",
+			Category:   "ArRaY",
+			Premium:    &free,
+			Direction:  "forward",
+		}))
+		expectListPage(t, []int{602}, false, 1, id)(db.ListProblems(ctx, ProblemQuery{
+			Limit:      2,
+			Difficulty: "easy",
+			Category:   "array",
+			Premium:    &premium,
+			Direction:  "forward",
+		}))
+		expectListPage(t, nil, false, 0, id)(db.ListProblems(ctx, ProblemQuery{
+			Limit:      2,
+			Difficulty: "hard",
+			Category:   "array",
+			Direction:  "forward",
+		}))
 	})
 
 	t.Run("attempt user outcome difficulty and backwards pages", func(t *testing.T) {
 		id := func(attempt practice.AttemptRecord) string { return attempt.ID }
-		expectListPage(t, []int{701, 702}, true, 3, id)(db.ListAttempts(ctx, AttemptQuery{UserID: queryFixtureID(1), Limit: 2, Direction: "forward"}))
-		expectListPage(t, []int{701, 702}, false, 3, id)(db.ListAttempts(ctx, AttemptQuery{UserID: queryFixtureID(1), Boundary: queryFixtureID(703), Limit: 2, Direction: "backward"}))
-		expectListPage(t, []int{703}, false, 3, id)(db.ListAttempts(ctx, AttemptQuery{UserID: queryFixtureID(1), Boundary: queryFixtureID(702), Limit: 2, Direction: "forward"}))
-		expectListPage(t, []int{702}, false, 1, id)(db.ListAttempts(ctx, AttemptQuery{UserID: queryFixtureID(1), Limit: 2, Outcome: "not_solved", Difficulty: "easy", Direction: "forward"}))
-		expectListPage(t, nil, false, 0, id)(db.ListAttempts(ctx, AttemptQuery{UserID: queryFixtureID(1), Limit: 2, Outcome: "not_solved", Difficulty: "hard", Direction: "forward"}))
+		expectListPage(t, []int{701, 702}, true, 3, id)(db.ListAttempts(ctx, AttemptQuery{
+			UserID:    queryFixtureID(1),
+			Limit:     2,
+			Direction: "forward",
+		}))
+		expectListPage(t, []int{701, 702}, false, 3, id)(db.ListAttempts(ctx, AttemptQuery{
+			UserID:    queryFixtureID(1),
+			Boundary:  queryFixtureID(703),
+			Limit:     2,
+			Direction: "backward",
+		}))
+		expectListPage(t, []int{703}, false, 3, id)(db.ListAttempts(ctx, AttemptQuery{
+			UserID:    queryFixtureID(1),
+			Boundary:  queryFixtureID(702),
+			Limit:     2,
+			Direction: "forward",
+		}))
+		expectListPage(t, []int{702}, false, 1, id)(db.ListAttempts(ctx, AttemptQuery{
+			UserID:     queryFixtureID(1),
+			Limit:      2,
+			Outcome:    "not_solved",
+			Difficulty: "easy",
+			Direction:  "forward",
+		}))
+		expectListPage(t, nil, false, 0, id)(db.ListAttempts(ctx, AttemptQuery{
+			UserID:     queryFixtureID(1),
+			Limit:      2,
+			Outcome:    "not_solved",
+			Difficulty: "hard",
+			Direction:  "forward",
+		}))
 	})
 }
 

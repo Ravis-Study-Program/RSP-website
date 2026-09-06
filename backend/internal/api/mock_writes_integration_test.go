@@ -84,10 +84,23 @@ func createMockForWrites(t *testing.T, fixture postgresFixture) mockinterviews.I
 		"interviewee": map[string]string{"userId": otherID}, "seasonId": seasonID,
 		"occurredAt": "2026-09-01T00:00:00Z", "durationMinutes": 60, "notes": "original",
 		"rounds": []map[string]any{
-			{"id": mockRoundID, "type": "behavioural", "scores": map[string]int{"behavioural": 7}},
-			{"id": mockLeetCodeRoundID, "type": "leetcode", "problemId": leetcodeProblemID,
-				"scores": map[string]int{"confirmQuestions": 7, "algorithmDesign": 8, "complexityAnalysis": 7, "coding": 8, "testing": 7}},
-			{"id": mockCustomRoundID, "type": "custom", "content": "Design a cache", "scores": map[string]int{"custom": 8}},
+			{
+				"id":     mockRoundID,
+				"type":   "behavioural",
+				"scores": map[string]int{"behavioural": 7},
+			},
+			{
+				"id":        mockLeetCodeRoundID,
+				"type":      "leetcode",
+				"problemId": leetcodeProblemID,
+				"scores":    map[string]int{"confirmQuestions": 7, "algorithmDesign": 8, "complexityAnalysis": 7, "coding": 8, "testing": 7},
+			},
+			{
+				"id":      mockCustomRoundID,
+				"type":    "custom",
+				"content": "Design a cache",
+				"scores":  map[string]int{"custom": 8},
+			},
 		},
 	}, http.StatusCreated)
 }
@@ -95,8 +108,14 @@ func createMockForWrites(t *testing.T, fixture postgresFixture) mockinterviews.I
 func mockUpdateBody(interview mockinterviews.Interview) map[string]any {
 	rounds := make([]mockRoundRequest, len(interview.Rounds))
 	for i, round := range interview.Rounds {
-		rounds[i] = mockRoundRequest{ID: round.ID, Type: round.Type, ProblemID: round.ProblemID,
-			Content: round.Content, Link: round.Link, Scores: round.Scores}
+		rounds[i] = mockRoundRequest{
+			ID:        round.ID,
+			Type:      round.Type,
+			ProblemID: round.ProblemID,
+			Content:   round.Content,
+			Link:      round.Link,
+			Scores:    round.Scores,
+		}
 	}
 	return map[string]any{"occurredAt": interview.OccurredAt,
 		"durationMinutes": interview.DurationMinutes, "notes": interview.Notes, "rounds": rounds}
@@ -104,7 +123,9 @@ func mockUpdateBody(interview mockinterviews.Interview) map[string]any {
 
 func mockDirectorHandler(fixture postgresFixture) http.Handler {
 	return New(Config{
-		DB: fixture.db, PublicOrigin: "https://rsp.test", CursorSecret: []byte("0123456789abcdef"),
+		DB:           fixture.db,
+		PublicOrigin: "https://rsp.test",
+		CursorSecret: []byte("0123456789abcdef"),
 		Authenticator: AuthenticatorFunc(func(context.Context, string) (authz.Actor, error) {
 			now := time.Now().UTC()
 			return authz.Actor{UserID: studentID, EmailVerified: true, AccountState: authz.AccountActive,
@@ -205,10 +226,17 @@ func TestMockRoundEditsOnlyReplaceChangedSubtypes(t *testing.T) {
 	before := mockRoundMetadata(t, fixture, interview.ID)
 	score := 9
 	interview.Rounds[0].Scores.Behavioural = &score
-	interview.Rounds[1] = mockinterviews.Round{ID: mockLeetCodeRoundID, Type: mockinterviews.Custom,
-		Content: "Changed round kind", Scores: mockinterviews.Scores{Custom: &score}}
-	interview.Rounds[2] = mockinterviews.Round{ID: mockAddedRoundID, Type: mockinterviews.Behavioural,
-		Scores: mockinterviews.Scores{Behavioural: &score}}
+	interview.Rounds[1] = mockinterviews.Round{
+		ID:      mockLeetCodeRoundID,
+		Type:    mockinterviews.Custom,
+		Content: "Changed round kind",
+		Scores:  mockinterviews.Scores{Custom: &score},
+	}
+	interview.Rounds[2] = mockinterviews.Round{
+		ID:     mockAddedRoundID,
+		Type:   mockinterviews.Behavioural,
+		Scores: mockinterviews.Scores{Behavioural: &score},
+	}
 	interview = mockRequest(t, fixture.handler, http.MethodPatch, path, "student", mockUpdateBody(interview), http.StatusOK)
 	after := mockRoundMetadata(t, fixture, interview.ID)
 	if len(after) != 3 || !reflect.DeepEqual(before[mockRoundID], after[mockRoundID]) {

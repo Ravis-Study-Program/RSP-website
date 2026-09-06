@@ -34,7 +34,12 @@ type Limiter struct {
 }
 
 func New() *Limiter {
-	return &Limiter{window: time.Minute, limits: map[Class]int{Read: 120, Write: 20, Sensitive: 5}, buckets: map[string]bucket{}, now: time.Now}
+	return &Limiter{
+		window:  time.Minute,
+		limits:  map[Class]int{Read: 120, Write: 20, Sensitive: 5},
+		buckets: map[string]bucket{},
+		now:     time.Now,
+	}
 }
 
 func (l *Limiter) Allow(account string, class Class) Result {
@@ -48,9 +53,18 @@ func (l *Limiter) Allow(account string, class Class) Result {
 	}
 	limit := l.limits[class]
 	if b.used >= limit {
-		return Result{Allowed: false, Limit: limit, Remaining: 0, RetryAfter: b.started.Add(l.window).Sub(now)}
+		return Result{
+			Allowed:    false,
+			Limit:      limit,
+			Remaining:  0,
+			RetryAfter: b.started.Add(l.window).Sub(now),
+		}
 	}
 	b.used++
 	l.buckets[key] = b
-	return Result{Allowed: true, Limit: limit, Remaining: limit - b.used}
+	return Result{
+		Allowed:   true,
+		Limit:     limit,
+		Remaining: limit - b.used,
+	}
 }

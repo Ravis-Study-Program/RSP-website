@@ -2,6 +2,7 @@ package dal
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -43,7 +44,11 @@ func (p *Store) ListAttempts(ctx context.Context, q AttemptQuery) ([]practice.At
 			SELECT 1 FROM app.leetcode_problems l
 			WHERE l.problem_id = a.problem_id AND l.difficulty::text = @difficulty AND l.deleted_at IS NULL
 		))`
-	args := pgx.NamedArgs{"userID": q.UserID, "outcome": q.Outcome, "difficulty": q.Difficulty}
+	args := pgx.NamedArgs{
+		"userID":     q.UserID,
+		"outcome":    q.Outcome,
+		"difficulty": q.Difficulty,
+	}
 	var total int64
 	err := p.pool.QueryRow(ctx, `SELECT count(*) FROM app.problem_attempts a WHERE `+filters, args).Scan(&total)
 	if err != nil {
@@ -120,7 +125,15 @@ func (p *Store) CreateAttempt(ctx context.Context, v practice.AttemptRecord) (pr
 	}
 
 	actorID := v.UserID
-	if err := appendAuditTx(ctx, tx, audit.Event{ID: id.New(), ActorID: &actorID, Action: "attempt.created", SubjectType: "problem_attempt", SubjectID: v.ID, Data: map[string]any{}, OccurredAt: time.Now().UTC()}); err != nil {
+	if err := appendAuditTx(ctx, tx, audit.Event{
+		ID:          id.New(),
+		ActorID:     &actorID,
+		Action:      "attempt.created",
+		SubjectType: "problem_attempt",
+		SubjectID:   v.ID,
+		Data:        map[string]any{},
+		OccurredAt:  time.Now().UTC(),
+	}); err != nil {
 		return v, err
 	}
 	if err := tx.Commit(ctx); err != nil {
@@ -129,7 +142,21 @@ func (p *Store) CreateAttempt(ctx context.Context, v practice.AttemptRecord) (pr
 	return v, nil
 }
 
-func (p *Store) UpdateAttempt(ctx context.Context, id, userID string, fn func(*practice.AttemptRecord) error) (practice.AttemptRecord, error) {
+type UpdateAttemptInput struct {
+	AttemptID   string
+	UserID      string
+	ProblemID   string
+	Outcome     string
+	Confidence  *int
+	Minutes     int
+	Notes       string
+	AttemptedAt time.Time
+	SeasonID    *string
+	WeekID      *string
+	ChangedAt   time.Time
+}
+
+func (p *Store) UpdateAttempt(ctx context.Context, input UpdateAttemptInput) (practice.AttemptRecord, error) {
 	tx, err := p.pool.Begin(ctx)
 	if err != nil {
 		return practice.AttemptRecord{}, err
@@ -138,27 +165,38 @@ func (p *Store) UpdateAttempt(ctx context.Context, id, userID string, fn func(*p
 	defer tx.Rollback(context.Background())
 	v, err := scanAttempt(tx.QueryRow(ctx, `SELECT `+attemptColumns+` FROM app.problem_attempts a
 		LEFT JOIN app.enrollments e ON e.id=a.enrollment_id
-		WHERE a.id=$1 AND a.user_id=$2 AND a.deleted_at IS NULL FOR UPDATE OF a`, id, userID))
+		WHERE a.id=$1 AND a.user_id=$2 AND a.deleted_at IS NULL FOR UPDATE OF a`, input.AttemptID, input.UserID))
 	if err != nil {
 		return practice.AttemptRecord{}, err
 	}
-	if err := fn(&v); err != nil {
-		return v, err
-	}
+	v.ProblemID = input.ProblemID
+	v.Outcome = input.Outcome
+	v.Confidence = input.Confidence
+	v.Minutes = input.Minutes
+	v.Notes = input.Notes
+	v.AttemptedAt = input.AttemptedAt
+	v.SeasonID = input.SeasonID
+	v.WeekID = input.WeekID
 	if v.WeekID != nil && v.SeasonID == nil {
 		return v, ErrConflict
 	}
 	var enrollmentID *string
 	if v.SeasonID != nil {
-		resolved, err := resolveAttemptEnrollment(ctx, tx, userID, *v.SeasonID)
+		resolved, err := resolveAttemptEnrollment(ctx, tx, input.UserID, *v.SeasonID)
 		if err != nil {
-			return v, ErrConflict
+			if errors.Is(err, ErrNotFound) {
+				return v, ErrConflict
+			}
+			return v, err
 		}
 
 		enrollmentID = &resolved
 		if v.WeekID != nil {
 			valid, err := attemptWeekExists(ctx, tx, *v.WeekID, *v.SeasonID)
-			if err != nil || !valid {
+			if err != nil {
+				return v, err
+			}
+			if !valid {
 				return v, ErrConflict
 			}
 		}
@@ -168,11 +206,11 @@ func (p *Store) UpdateAttempt(ctx context.Context, id, userID string, fn func(*p
 		return v, noRows(err)
 	}
 
-	_, err = tx.Exec(ctx, `UPDATE app.problem_attempts SET problem_id=$1,enrollment_id=$2,attempted_at=$3,time_taken_minutes=$4,outcome=$5,confidence=$6,notes_html=$7,season_week_id=$8 WHERE id = $9 AND user_id = $10`, baseProblemID, enrollmentID, v.AttemptedAt.UTC(), v.Minutes, v.Outcome, v.Confidence, v.Notes, v.WeekID, id, userID)
+	_, err = tx.Exec(ctx, `UPDATE app.problem_attempts SET problem_id=$1,enrollment_id=$2,attempted_at=$3,time_taken_minutes=$4,outcome=$5,confidence=$6,notes_html=$7,season_week_id=$8 WHERE id = $9 AND user_id = $10`, baseProblemID, enrollmentID, v.AttemptedAt.UTC(), v.Minutes, v.Outcome, v.Confidence, v.Notes, v.WeekID, input.AttemptID, input.UserID)
 	if err != nil {
 		return v, mapDatabaseError(err)
 	}
-	if err := appendAuditTx(ctx, tx, newAudit(userID, "attempt.updated", "problem_attempt", id, nil, time.Now())); err != nil {
+	if err := appendAuditTx(ctx, tx, newAudit(input.UserID, "attempt.updated", "problem_attempt", input.AttemptID, nil, input.ChangedAt)); err != nil {
 		return v, err
 	}
 	if err := tx.Commit(ctx); err != nil {

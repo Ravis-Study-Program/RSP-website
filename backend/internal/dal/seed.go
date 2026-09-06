@@ -103,26 +103,51 @@ func (s *Store) Seed(ctx context.Context, options SeedOptions) error {
 		return errors.New("seed data already exists")
 	}
 
-	studentID, err := resolveSeedUser(ctx, tx, seedUser{FallbackEmail: "student@rsp.local", Email: options.StudentEmail, Slug: "dev-student", DisplayName: "Dev Student"})
+	studentID, err := resolveSeedUser(ctx, tx, seedUser{
+		FallbackEmail: "student@rsp.local",
+		Email:         options.StudentEmail,
+		Slug:          "dev-student",
+		DisplayName:   "Dev Student",
+	})
 	if err != nil {
 		return err
 	}
 
-	mentorID, err := resolveSeedUser(ctx, tx, seedUser{FallbackEmail: "mentor@rsp.local", Email: options.MentorEmail, Slug: "dev-mentor", DisplayName: "Dev Mentor"})
+	mentorID, err := resolveSeedUser(ctx, tx, seedUser{
+		FallbackEmail: "mentor@rsp.local",
+		Email:         options.MentorEmail,
+		Slug:          "dev-mentor",
+		DisplayName:   "Dev Mentor",
+	})
 	if err != nil {
 		return err
 	}
 
-	coordinatorID, err := resolveSeedUser(ctx, tx, seedUser{FallbackEmail: "coordinator@rsp.local", Email: options.CoordinatorEmail, Slug: "dev-coordinator", DisplayName: "Dev Coordinator"})
+	coordinatorID, err := resolveSeedUser(ctx, tx, seedUser{
+		FallbackEmail: "coordinator@rsp.local",
+		Email:         options.CoordinatorEmail,
+		Slug:          "dev-coordinator",
+		DisplayName:   "Dev Coordinator",
+	})
 	if err != nil {
 		return err
 	}
 
-	privileged := seedUser{FallbackEmail: "director@rsp.local", Email: options.DirectorEmail, Slug: "dev-director", DisplayName: "Dev Director"}
+	privileged := seedUser{
+		FallbackEmail: "director@rsp.local",
+		Email:         options.DirectorEmail,
+		Slug:          "dev-director",
+		DisplayName:   "Dev Director",
+	}
 	privilegedRole := "director"
 	privilegedAuditAction := "development_seed.director_granted"
 	if options.SiteAdminEmail != "" {
-		privileged = seedUser{FallbackEmail: "site-admin@rsp.local", Email: options.SiteAdminEmail, Slug: "dev-site-admin", DisplayName: "Dev Site Admin"}
+		privileged = seedUser{
+			FallbackEmail: "site-admin@rsp.local",
+			Email:         options.SiteAdminEmail,
+			Slug:          "dev-site-admin",
+			DisplayName:   "Dev Site Admin",
+		}
 		privilegedRole = "system_admin"
 		privilegedAuditAction = "development_seed.site_admin_granted"
 	}

@@ -14,7 +14,6 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/magedmg/RSP-website/backend/internal/authz"
 	"github.com/magedmg/RSP-website/backend/internal/dal"
 	"github.com/magedmg/RSP-website/backend/internal/mockinterviews"
 	"github.com/magedmg/RSP-website/backend/internal/platform/id"
@@ -63,15 +62,25 @@ func TestMockListUsesBoundedReadsAndPreservesPageValues(t *testing.T) {
 	// Include interviewee-owned values in the equality checks against detail reads.
 	base.Rounds[0].Reviewed = true
 	base.Rounds[0].IntervieweeComment = "Thanks for the interview"
-	if _, err := fixture.db.ReviewMockInterviewRound(ctx, base, base.Rounds[0].ID, otherID, time.Now()); err != nil {
+	if _, err := fixture.db.ReviewMockInterviewRound(ctx, dal.ReviewMockInterviewRoundInput{
+		Interview: base,
+		RoundID:   base.Rounds[0].ID,
+		ActorID:   otherID,
+		ChangedAt: time.Now(),
+	}); err != nil {
 		t.Fatal(err)
 	}
 
 	repository, queries := countedMockRepository(t, fixture)
-	actor := authz.Actor{UserID: studentID}
+
 	for _, limit := range []int{1, 4} {
 		queries.statements = nil
-		items, more, total, err := repository.ListMockInterviews(ctx, actor, dal.MockInterviewQuery{Mode: "given", Limit: limit, SortBy: "occurredAt:desc", Direction: "forward"})
+		items, more, total, err := repository.ListMockInterviews(ctx, dal.MockInterviewQuery{ViewerID: studentID,
+			Visibility: dal.MockInterviewsGiven,
+			Limit:      limit,
+			SortBy:     "occurredAt:desc",
+			Direction:  "forward",
+		})
 		if err != nil || total != 4 || len(items) != limit || more != (limit < 4) {
 			t.Fatalf("limit=%d items=%d more=%v total=%d error=%v", limit, len(items), more, total, err)
 		}
@@ -92,20 +101,42 @@ func TestMockListUsesBoundedReadsAndPreservesPageValues(t *testing.T) {
 		}
 		return interviews[i].OccurredAt.After(interviews[j].OccurredAt)
 	})
-	first, more, total, err := repository.ListMockInterviews(ctx, actor, dal.MockInterviewQuery{Mode: "given", Limit: 2, SortBy: "occurredAt:desc", Direction: "forward"})
+	first, more, total, err := repository.ListMockInterviews(ctx, dal.MockInterviewQuery{ViewerID: studentID,
+		Visibility: dal.MockInterviewsGiven,
+		Limit:      2,
+		SortBy:     "occurredAt:desc",
+		Direction:  "forward",
+	})
 	if err != nil || !more || total != 4 || len(first) != 2 || first[0].ID != interviews[0].ID || first[1].ID != interviews[1].ID {
 		t.Fatalf("first page=%#v more=%v total=%d error=%v", first, more, total, err)
 	}
-	second, more, _, err := repository.ListMockInterviews(ctx, actor, dal.MockInterviewQuery{Mode: "given", Boundary: first[1].ID, Limit: 2, SortBy: "occurredAt:desc", Direction: "forward"})
+	second, more, _, err := repository.ListMockInterviews(ctx, dal.MockInterviewQuery{ViewerID: studentID,
+		Visibility: dal.MockInterviewsGiven,
+		Boundary:   first[1].ID,
+		Limit:      2,
+		SortBy:     "occurredAt:desc",
+		Direction:  "forward",
+	})
 	if err != nil || more || len(second) != 2 || second[0].ID != interviews[2].ID || second[1].ID != interviews[3].ID {
 		t.Fatalf("second page=%#v more=%v error=%v", second, more, err)
 	}
-	previous, more, _, err := repository.ListMockInterviews(ctx, actor, dal.MockInterviewQuery{Mode: "given", Boundary: second[0].ID, Limit: 2, SortBy: "occurredAt:desc", Direction: "backward"})
+	previous, more, _, err := repository.ListMockInterviews(ctx, dal.MockInterviewQuery{ViewerID: studentID,
+		Visibility: dal.MockInterviewsGiven,
+		Boundary:   second[0].ID,
+		Limit:      2,
+		SortBy:     "occurredAt:desc",
+		Direction:  "backward",
+	})
 	if err != nil || more || !reflect.DeepEqual(first, previous) {
 		t.Fatalf("backward page=%#v more=%v error=%v", previous, more, err)
 	}
 	queries.statements = nil
-	items, more, total, err := repository.ListMockInterviews(ctx, actor, dal.MockInterviewQuery{Mode: "received", Limit: 4, SortBy: "id:asc", Direction: "forward"})
+	items, more, total, err := repository.ListMockInterviews(ctx, dal.MockInterviewQuery{ViewerID: studentID,
+		Visibility: dal.MockInterviewsReceived,
+		Limit:      4,
+		SortBy:     "id:asc",
+		Direction:  "forward",
+	})
 	if err != nil || more || total != 0 || len(items) != 0 || len(queries.statements) != 2 {
 		t.Fatalf("empty received page=%#v more=%v total=%d queries=%d error=%v", items, more, total, len(queries.statements), err)
 	}

@@ -7,7 +7,6 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/magedmg/RSP-website/backend/internal/authz"
 	"github.com/magedmg/RSP-website/backend/internal/mockinterviews"
 	"github.com/magedmg/RSP-website/backend/internal/platform/id"
 )
@@ -23,24 +22,34 @@ func scanMockInterview(row pgx.Row) (mockinterviews.Interview, error) {
 	return interview, noRows(err)
 }
 
+type MockInterviewVisibility string
+
+const (
+	MockInterviewsGiven    MockInterviewVisibility = "given"
+	MockInterviewsReceived MockInterviewVisibility = "received"
+	MockInterviewsRelated  MockInterviewVisibility = "related"
+	MockInterviewsAll      MockInterviewVisibility = "all"
+)
+
 type MockInterviewQuery struct {
-	Mode      string
-	Boundary  string
-	Limit     int
-	SortBy    string
-	Direction string
+	ViewerID   string
+	Visibility MockInterviewVisibility
+	Boundary   string
+	Limit      int
+	SortBy     string
+	Direction  string
 }
 
-func (p *Store) ListMockInterviews(ctx context.Context, actor authz.Actor, q MockInterviewQuery) ([]mockinterviews.Interview, bool, int64, error) {
-	userID := actor.UserID
+func (p *Store) ListMockInterviews(ctx context.Context, q MockInterviewQuery) ([]mockinterviews.Interview, bool, int64, error) {
+	userID := q.ViewerID
 	where := `(mi.interviewer_user_id=$1 OR mi.interviewee_user_id=$1)`
-	if q.Mode == "given" {
+	if q.Visibility == MockInterviewsGiven {
 		where = `mi.interviewer_user_id=$1`
-	} else if q.Mode == "received" {
+	} else if q.Visibility == MockInterviewsReceived {
 		where = `mi.interviewee_user_id=$1`
-	} else if q.Mode == "all" && actor.IsDirectorOrSystemAdmin() {
+	} else if q.Visibility == MockInterviewsAll {
 		where = `$1::text IS NOT NULL`
-	} else if q.Mode == "all" {
+	} else if q.Visibility == MockInterviewsRelated {
 		where = `(mi.interviewer_user_id=$1 OR mi.interviewee_user_id=$1 OR EXISTS (
 			SELECT 1 FROM app.enrollments viewer
 			WHERE viewer.user_id=$1 AND viewer.season_id=mi.season_id AND viewer.state IN ('active','completed') AND viewer.deleted_at IS NULL
@@ -105,39 +114,6 @@ func (p *Store) ListMockInterviews(ctx context.Context, actor authz.Actor, q Moc
 		return nil, false, 0, err
 	}
 	return items, more, total, nil
-}
-
-func (p *Store) GetMockParticipant(ctx context.Context, userID string) (mockinterviews.Participant, error) {
-	var row struct {
-		ID, AccountState                   string
-		ActiveMember, Alumni, FormerMember bool
-		HasEnrollment, HasKicked           bool
-	}
-	err := p.pool.QueryRow(ctx, `SELECT u.id,u.account_state::text AS account_state,
-		EXISTS(SELECT 1 FROM app.enrollments e WHERE e.user_id=u.id AND e.state='active' AND e.deleted_at IS NULL) AS active_member,
-		EXISTS(SELECT 1 FROM app.enrollments e WHERE e.user_id=u.id AND e.role='student' AND e.state='completed' AND e.deleted_at IS NULL) AS alumni,
-		EXISTS(SELECT 1 FROM app.enrollments e WHERE e.user_id=u.id AND e.state='completed' AND e.deleted_at IS NULL) AS former_member,
-		EXISTS(SELECT 1 FROM app.enrollments e WHERE e.user_id=u.id AND e.deleted_at IS NULL) AS has_enrollment,
-		EXISTS(SELECT 1 FROM app.enrollments e WHERE e.user_id=u.id AND e.state='kicked' AND e.deleted_at IS NULL) AS has_kicked
-		FROM app.users u WHERE u.id=$1`, userID).Scan(&row.ID, &row.AccountState, &row.ActiveMember, &row.Alumni, &row.FormerMember, &row.HasEnrollment, &row.HasKicked)
-	if err != nil || row.ID == "" {
-		if err == nil {
-			err = pgx.ErrNoRows
-		}
-		return mockinterviews.Participant{}, noRows(err)
-	}
-
-	ptn := mockinterviews.Participant{
-		UserID:       row.ID,
-		ActiveMember: row.ActiveMember,
-		Alumni:       row.Alumni,
-		FormerMember: row.FormerMember,
-		Inactive:     row.AccountState != "active",
-		Suspended:    row.AccountState == "suspended",
-		Deleted:      row.AccountState == "deleted",
-	}
-	ptn.KickedOnly = row.HasEnrollment && row.HasKicked && !ptn.ActiveMember && !ptn.FormerMember
-	return ptn, nil
 }
 
 func (p *Store) GetMockInterview(ctx context.Context, interviewID string) (mockinterviews.Interview, error) {
@@ -237,7 +213,15 @@ func scoresFromDB(values ...*int16) mockinterviews.Scores {
 		n := int(*v)
 		return &n
 	}
-	return mockinterviews.Scores{Behavioural: toInt(values[0]), ConfirmQuestions: toInt(values[1]), AlgorithmDesign: toInt(values[2]), ComplexityAnalysis: toInt(values[3]), Coding: toInt(values[4]), Testing: toInt(values[5]), Custom: toInt(values[6])}
+	return mockinterviews.Scores{
+		Behavioural:        toInt(values[0]),
+		ConfirmQuestions:   toInt(values[1]),
+		AlgorithmDesign:    toInt(values[2]),
+		ComplexityAnalysis: toInt(values[3]),
+		Coding:             toInt(values[4]),
+		Testing:            toInt(values[5]),
+		Custom:             toInt(values[6]),
+	}
 }
 
 func (p *Store) CreateMockInterview(ctx context.Context, v mockinterviews.Interview, actorID string, at time.Time) (mockinterviews.Interview, error) {
@@ -288,12 +272,38 @@ func (p *Store) DeleteMockInterview(ctx context.Context, v mockinterviews.Interv
 }
 
 // ReviewMockInterviewRound changes only the selected round's interviewee-owned fields.
-func (p *Store) ReviewMockInterviewRound(ctx context.Context, v mockinterviews.Interview, roundID, actorID string, at time.Time) (mockinterviews.Interview, error) {
-	return p.writeMockInterview(ctx, v, actorID, "interviewee review", "mock_interview.reviewed", at, func(tx pgx.Tx) error {
+type ReviewMockInterviewRoundInput struct {
+	Interview mockinterviews.Interview
+	RoundID   string
+	ActorID   string
+	ChangedAt time.Time
+}
+
+func (p *Store) ReviewMockInterviewRound(ctx context.Context, input ReviewMockInterviewRoundInput) (mockinterviews.Interview, error) {
+	return p.writeMockInterview(ctx, input.Interview, input.ActorID, "interviewee review", "mock_interview.reviewed", input.ChangedAt, func(tx pgx.Tx) error {
+		if input.Interview.SeasonID != nil {
+			// Read participant membership again while the write transaction holds
+			// the season and interview locks.
+			for _, userID := range []string{input.Interview.InterviewerID, input.Interview.IntervieweeID} {
+				var enrolled bool
+				err := tx.QueryRow(ctx, `SELECT EXISTS (
+                    SELECT 1 FROM app.enrollments
+                    WHERE user_id=$1 AND season_id=$2
+                    AND state IN ('active','completed') AND deleted_at IS NULL
+                )`, userID, *input.Interview.SeasonID).Scan(&enrolled)
+				if err != nil {
+					return err
+				}
+				if !enrolled {
+					return ErrConflict
+				}
+			}
+		}
+
 		var reviewedRound *mockinterviews.Round
-		for i := range v.Rounds {
-			if v.Rounds[i].ID == roundID {
-				reviewedRound = &v.Rounds[i]
+		for i := range input.Interview.Rounds {
+			if input.Interview.Rounds[i].ID == input.RoundID {
+				reviewedRound = &input.Interview.Rounds[i]
 				break
 			}
 		}
@@ -304,10 +314,10 @@ func (p *Store) ReviewMockInterviewRound(ctx context.Context, v mockinterviews.I
 		var reviewedAt *time.Time
 		if reviewedRound.Reviewed {
 			status = "reviewed"
-			timestamp := at.UTC()
+			timestamp := input.ChangedAt.UTC()
 			reviewedAt = &timestamp
 		}
-		result, err := tx.Exec(ctx, `UPDATE app.mock_interview_rounds SET review_status=$1,reviewed_at=$2,interviewee_comment_html=$3 WHERE id = $4 AND mock_interview_id = $5 AND deleted_at IS NULL`, status, reviewedAt, reviewedRound.IntervieweeComment, roundID, v.ID)
+		result, err := tx.Exec(ctx, `UPDATE app.mock_interview_rounds SET review_status=$1,reviewed_at=$2,interviewee_comment_html=$3 WHERE id = $4 AND mock_interview_id = $5 AND deleted_at IS NULL`, status, reviewedAt, reviewedRound.IntervieweeComment, input.RoundID, input.Interview.ID)
 		if err != nil {
 			return err
 		}
@@ -319,9 +329,16 @@ func (p *Store) ReviewMockInterviewRound(ctx context.Context, v mockinterviews.I
 }
 
 // CorrectMockInterviewIdentities preserves all interview content and round metadata.
-func (p *Store) CorrectMockInterviewIdentities(ctx context.Context, v mockinterviews.Interview, actorID, reason string, at time.Time) (mockinterviews.Interview, error) {
-	return p.writeMockInterview(ctx, v, actorID, "identity correction: "+reason, "mock_interview.identities_corrected", at, func(tx pgx.Tx) error {
-		_, err := tx.Exec(ctx, `UPDATE app.mock_interviews SET interviewer_user_id=$1,interviewee_user_id=$2,season_id=$3 WHERE id = $4`, v.InterviewerID, v.IntervieweeID, v.SeasonID, v.ID)
+type CorrectMockInterviewIdentitiesInput struct {
+	Interview mockinterviews.Interview
+	ActorID   string
+	Reason    string
+	ChangedAt time.Time
+}
+
+func (p *Store) CorrectMockInterviewIdentities(ctx context.Context, input CorrectMockInterviewIdentitiesInput) (mockinterviews.Interview, error) {
+	return p.writeMockInterview(ctx, input.Interview, input.ActorID, "identity correction: "+input.Reason, "mock_interview.identities_corrected", input.ChangedAt, func(tx pgx.Tx) error {
+		_, err := tx.Exec(ctx, `UPDATE app.mock_interviews SET interviewer_user_id=$1,interviewee_user_id=$2,season_id=$3 WHERE id = $4`, input.Interview.InterviewerID, input.Interview.IntervieweeID, input.Interview.SeasonID, input.Interview.ID)
 		return err
 	})
 }

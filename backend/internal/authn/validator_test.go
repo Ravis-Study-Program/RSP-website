@@ -22,18 +22,34 @@ func TestValidatesIssuerAudienceSignatureKidExpiryAndVerification(t *testing.T) 
 	key, _ := rsa.GenerateKey(rand.Reader, 2048)
 	encode := func(v *big.Int) string { return base64.RawURLEncoding.EncodeToString(v.Bytes()) }
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		_ = json.NewEncoder(w).Encode(map[string]any{"keys": []map[string]string{{"kty": "RSA", "kid": "k1", "n": encode(key.N), "e": encode(big.NewInt(int64(key.E)))}}})
+		_ = json.NewEncoder(w).Encode(map[string]any{"keys": []map[string]string{{
+			"kty": "RSA",
+			"kid": "k1",
+			"n":   encode(key.N),
+			"e":   encode(big.NewInt(int64(key.E))),
+		}}})
 	}))
 	defer server.Close()
 	now := time.Now()
 	makeToken := func(verified bool, aud string, expires time.Time) string {
-		c := Claims{EmailVerified: verified, AccountState: "active", SecurityVersion: 1, MFAVerified: true, MFAVerifiedAt: &ClaimDateTime{Time: now}, RegisteredClaims: jwt.RegisteredClaims{Issuer: "auth", Subject: "auth-user", Audience: jwt.ClaimStrings{aud}, IssuedAt: jwt.NewNumericDate(now), ExpiresAt: jwt.NewNumericDate(expires)}}
+		c := Claims{
+			EmailVerified:    verified,
+			AccountState:     "active",
+			SecurityVersion:  1,
+			MFAVerified:      true,
+			MFAVerifiedAt:    &ClaimDateTime{Time: now},
+			RegisteredClaims: jwt.RegisteredClaims{Issuer: "auth", Subject: "auth-user", Audience: jwt.ClaimStrings{aud}, IssuedAt: jwt.NewNumericDate(now), ExpiresAt: jwt.NewNumericDate(expires)},
+		}
 		tok := jwt.NewWithClaims(jwt.SigningMethodRS256, c)
 		tok.Header["kid"] = "k1"
 		raw, _ := tok.SignedString(key)
 		return raw
 	}
-	v := Validator{Issuer: "auth", Audience: "rsp-api", JWKSURL: server.URL}
+	v := Validator{
+		Issuer:   "auth",
+		Audience: "rsp-api",
+		JWKSURL:  server.URL,
+	}
 	claims, err := v.Validate(context.Background(), makeToken(true, "rsp-api", now.Add(time.Minute)))
 	if err != nil || claims.Subject != "auth-user" {
 		t.Fatalf("valid token: %v", err)
@@ -74,16 +90,31 @@ func TestRefreshesKnownKeyAfterTTLAndRejectsRetiredKey(t *testing.T) {
 		if rotated.Load() {
 			key, kid = replacement, "replacement"
 		}
-		_ = json.NewEncoder(w).Encode(map[string]any{"keys": []map[string]string{{"kty": "RSA", "kid": kid, "n": encode(key.N), "e": encode(big.NewInt(int64(key.E)))}}})
+		_ = json.NewEncoder(w).Encode(map[string]any{"keys": []map[string]string{{
+			"kty": "RSA",
+			"kid": kid,
+			"n":   encode(key.N),
+			"e":   encode(big.NewInt(int64(key.E))),
+		}}})
 	}))
 	defer server.Close()
 
 	now := time.Now()
-	claims := Claims{EmailVerified: true, AccountState: "active", SecurityVersion: 1, RegisteredClaims: jwt.RegisteredClaims{Issuer: "auth", Subject: "auth-user", Audience: jwt.ClaimStrings{"rsp-api"}, IssuedAt: jwt.NewNumericDate(now), ExpiresAt: jwt.NewNumericDate(now.Add(time.Minute))}}
+	claims := Claims{
+		EmailVerified:    true,
+		AccountState:     "active",
+		SecurityVersion:  1,
+		RegisteredClaims: jwt.RegisteredClaims{Issuer: "auth", Subject: "auth-user", Audience: jwt.ClaimStrings{"rsp-api"}, IssuedAt: jwt.NewNumericDate(now), ExpiresAt: jwt.NewNumericDate(now.Add(time.Minute))},
+	}
 	token := jwt.NewWithClaims(jwt.SigningMethodRS256, claims)
 	token.Header["kid"] = "retired"
 	raw, _ := token.SignedString(retired)
-	validator := Validator{Issuer: "auth", Audience: "rsp-api", JWKSURL: server.URL, TTL: time.Millisecond}
+	validator := Validator{
+		Issuer:   "auth",
+		Audience: "rsp-api",
+		JWKSURL:  server.URL,
+		TTL:      time.Millisecond,
+	}
 	if _, err := validator.Validate(context.Background(), raw); err != nil {
 		t.Fatalf("initial token rejected: %v", err)
 	}
@@ -99,18 +130,32 @@ func TestRejectsUnavailableStateAndMissingSecurityVersion(t *testing.T) {
 	key, _ := rsa.GenerateKey(rand.Reader, 2048)
 	encode := func(v *big.Int) string { return base64.RawURLEncoding.EncodeToString(v.Bytes()) }
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		_ = json.NewEncoder(w).Encode(map[string]any{"keys": []map[string]string{{"kty": "RSA", "kid": "k1", "n": encode(key.N), "e": encode(big.NewInt(int64(key.E)))}}})
+		_ = json.NewEncoder(w).Encode(map[string]any{"keys": []map[string]string{{
+			"kty": "RSA",
+			"kid": "k1",
+			"n":   encode(key.N),
+			"e":   encode(big.NewInt(int64(key.E))),
+		}}})
 	}))
 	defer server.Close()
 	now := time.Now()
 	sign := func(state string, version int64) string {
-		claims := Claims{EmailVerified: true, AccountState: state, SecurityVersion: version, RegisteredClaims: jwt.RegisteredClaims{Issuer: "auth", Subject: "auth-user", Audience: jwt.ClaimStrings{"rsp-api"}, IssuedAt: jwt.NewNumericDate(now), ExpiresAt: jwt.NewNumericDate(now.Add(time.Minute))}}
+		claims := Claims{
+			EmailVerified:    true,
+			AccountState:     state,
+			SecurityVersion:  version,
+			RegisteredClaims: jwt.RegisteredClaims{Issuer: "auth", Subject: "auth-user", Audience: jwt.ClaimStrings{"rsp-api"}, IssuedAt: jwt.NewNumericDate(now), ExpiresAt: jwt.NewNumericDate(now.Add(time.Minute))},
+		}
 		token := jwt.NewWithClaims(jwt.SigningMethodRS256, claims)
 		token.Header["kid"] = "k1"
 		raw, _ := token.SignedString(key)
 		return raw
 	}
-	validator := Validator{Issuer: "auth", Audience: "rsp-api", JWKSURL: server.URL}
+	validator := Validator{
+		Issuer:   "auth",
+		Audience: "rsp-api",
+		JWKSURL:  server.URL,
+	}
 	for name, raw := range map[string]string{
 		"suspended":        sign("suspended", 2),
 		"deletion pending": sign("deletion_pending", 2),
@@ -123,7 +168,11 @@ func TestRejectsUnavailableStateAndMissingSecurityVersion(t *testing.T) {
 }
 
 func TestValidateClaimsIsPure(t *testing.T) {
-	claims := Claims{EmailVerified: true, AccountState: "active", SecurityVersion: 1}
+	claims := Claims{
+		EmailVerified:   true,
+		AccountState:    "active",
+		SecurityVersion: 1,
+	}
 	if err := ValidateClaims(claims); err != nil {
 		t.Fatal(err)
 	}
