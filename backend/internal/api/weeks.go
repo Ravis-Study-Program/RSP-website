@@ -12,7 +12,9 @@ import (
 func (a *API) listWeeks(w http.ResponseWriter, r *http.Request) {
 	actor := actorFrom(r.Context())
 	seasonID := r.PathValue("id")
-	if !actor.CanViewSeason(seasonID) {
+	canReadResources := actor.CanViewSeason(seasonID)
+	_, ownSeason := actor.Enrollment(seasonID)
+	if !canReadResources && !ownSeason {
 		writeErrorResponse(w, http.StatusForbidden, "The current account cannot access this season.")
 		return
 	}
@@ -65,6 +67,11 @@ func (a *API) listWeeks(w http.ResponseWriter, r *http.Request) {
 		Items:      items,
 		PageInfo:   pageInfo,
 		TotalCount: total,
+	}
+	if !canReadResources {
+		for i := range response.Items {
+			response.Items[i].ResourceURL = ""
+		}
 	}
 	writeJSONResponse(w, http.StatusOK, response)
 }

@@ -19,6 +19,8 @@ export interface MockInterview {
   interviewee: MockParticipantSummary;
   /** @nullable */
   seasonId?: string | null;
+  /** @nullable */
+  weekId?: string | null;
   occurredAt: string;
   /** @minimum 1 */
   durationMinutes: number;

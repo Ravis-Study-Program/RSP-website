@@ -160,7 +160,12 @@ func (a *API) listMockInterviews(w http.ResponseWriter, r *http.Request) {
 		flag := value == "true"
 		passed = &flag
 	}
-	filterBinding, _ := json.Marshal(interviewers)
+	weeks, err := selection(r.URL.Query(), "weekId", uuidSelection)
+	if err != nil || len(weeks) > 0 && seasonID == "" {
+		writeErrorResponse(w, http.StatusBadRequest, "Week filters require a season and valid week IDs.")
+		return
+	}
+	filterBinding, _ := json.Marshal(struct{ Interviewers, Weeks []string }{interviewers, weeks})
 	sortBy, err := parseSort(r.URL.Query().Get("sort"), "occurredAt:desc", "occurredAt:desc", "id:asc")
 	if err != nil {
 		writeErrorResponse(w, http.StatusBadRequest, "sort must be occurredAt:desc or id:asc")
@@ -194,7 +199,7 @@ func (a *API) listMockInterviews(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	items, more, total, err := a.db.ListMockInterviews(r.Context(), dal.MockInterviewQuery{
-		SeasonID: seasonID, Year: year, TargetID: targetID, TargetMode: mode, InterviewerIDs: interviewers, Passed: passed,
+		SeasonID: seasonID, Year: year, TargetID: targetID, TargetMode: mode, InterviewerIDs: interviewers, Passed: passed, WeekIDs: weeks,
 		ViewerID:   actor.UserID,
 		Visibility: visibility,
 		Boundary:   boundary,

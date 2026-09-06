@@ -58,6 +58,7 @@ type Interview struct {
 	Interviewer     ParticipantSummary `json:"interviewer"`
 	Interviewee     ParticipantSummary `json:"interviewee"`
 	SeasonID        *string            `json:"seasonId,omitempty"`
+	WeekID          *string            `json:"weekId,omitempty"`
 	OccurredAt      time.Time          `json:"occurredAt"`
 	DurationMinutes int                `json:"durationMinutes"`
 	Notes           string             `json:"notes"`
@@ -186,6 +187,7 @@ func (s Service) CorrectIdentities(m Interview, input CorrectIdentitiesInput) (I
 	updated.InterviewerID = input.InterviewerID
 	updated.IntervieweeID = input.IntervieweeID
 	updated.SeasonID = nil // Recalculated from the corrected interviewee on persistence.
+	updated.WeekID = nil
 	return updated, nil
 }
 

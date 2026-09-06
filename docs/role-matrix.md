@@ -82,6 +82,10 @@ Alumni derives only from a completed student enrollment. Kicked/withdrawn
 enrollments never grant alumni access, although a different completed student
 enrollment still can.
 
+Former members can read their own season and week names/numbers and dates to
+filter personal activity. Resource links remain hidden when season-resource
+access is unavailable.
+
 ## Mock interview authority
 
 - Eligible participants are current or former programme members, including

@@ -12,6 +12,10 @@ import type { ListMockInterviewsMode } from './listMockInterviewsMode';
 import type { SortParameter } from './sortParameter';
 
 export type ListMockInterviewsParams = {
+  /**
+   * Filter by weeks within the selected season.
+   */
+  weekId?: string[];
   passed?: boolean;
   interviewerId?: string[];
   /**

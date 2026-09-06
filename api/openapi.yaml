@@ -629,6 +629,7 @@ paths:
     parameters: [{ $ref: '#/components/parameters/ID' }]
     get:
       operationId: listSeasonWeeks
+      description: Current and former members may read their own season's week numbers and dates. Resource links are included only with season-resource access.
       parameters:
         [
           { $ref: '#/components/parameters/Limit' },
@@ -1302,6 +1303,14 @@ paths:
       operationId: listMockInterviews
       parameters:
         [
+          {
+            name: weekId,
+            in: query,
+            style: form,
+            explode: true,
+            description: Filter by weeks within the selected season.,
+            schema: { type: array, items: { type: string, format: uuid } },
+          },
           { name: passed, in: query, schema: { type: boolean } },
           {
             name: interviewerId,
@@ -2579,6 +2588,7 @@ components:
           interviewer: { $ref: '#/components/schemas/MockParticipantSummary' },
           interviewee: { $ref: '#/components/schemas/MockParticipantSummary' },
           seasonId: { type: string, nullable: true },
+          weekId: { type: string, nullable: true },
           occurredAt: { type: string, format: date-time },
           durationMinutes: { type: integer, minimum: 1 },
           notes: { type: string },

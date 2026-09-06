@@ -11,13 +11,13 @@ import (
 	"github.com/magedmg/RSP-website/backend/internal/platform/id"
 )
 
-const mockInterviewColumns = `mi.id,mi.interviewer_user_id,mi.interviewee_user_id,mi.activity_season_id,
+const mockInterviewColumns = `mi.id,mi.interviewer_user_id,mi.interviewee_user_id,mi.activity_season_id,mi.activity_week_id,
 	mi.scheduled_at,mi.duration_minutes,COALESCE(mi.interviewer_notes_html,''),mi.deleted_at`
 
 func scanMockInterview(row pgx.Row) (mockinterviews.Interview, error) {
 	var interview mockinterviews.Interview
 	err := row.Scan(&interview.ID, &interview.InterviewerID, &interview.IntervieweeID,
-		&interview.SeasonID, &interview.OccurredAt, &interview.DurationMinutes,
+		&interview.SeasonID, &interview.WeekID, &interview.OccurredAt, &interview.DurationMinutes,
 		&interview.Notes, &interview.DeletedAt)
 	return interview, noRows(err)
 }
@@ -33,6 +33,7 @@ const (
 )
 
 type MockInterviewQuery struct {
+	WeekIDs        []string
 	InterviewerIDs []string
 	Passed         *bool
 	TargetID       string
@@ -57,6 +58,7 @@ const mockPassedSQL = `SELECT COALESCE(bool_and(scores.value>=5),false)
 
 func (p *Store) ListMockInterviews(ctx context.Context, q MockInterviewQuery) ([]mockinterviews.Interview, bool, int64, error) {
 	args := pgx.NamedArgs{"viewerID": q.ViewerID, "targetID": q.TargetID, "targetMode": q.TargetMode, "seasonID": q.SeasonID, "year": q.Year, "boundary": q.Boundary, "limit": q.Limit + 1, "interviewers": q.InterviewerIDs, "passed": q.Passed}
+	args["weeks"] = q.WeekIDs
 	where := `(mi.interviewer_user_id=@viewerID OR mi.interviewee_user_id=@viewerID)`
 	if q.Visibility == MockInterviewsGiven {
 		where = `mi.interviewer_user_id=@viewerID`
@@ -85,6 +87,7 @@ func (p *Store) ListMockInterviews(ctx context.Context, q MockInterviewQuery) ([
   (@targetMode<>'given' AND mi.interviewee_user_id=NULLIF(@targetID,'')::uuid) OR
   (@targetMode<>'received' AND mi.interviewer_user_id=NULLIF(@targetID,'')::uuid))`
 	where += ` AND (COALESCE(cardinality(@interviewers::uuid[]),0)=0 OR mi.interviewer_user_id=ANY(@interviewers::uuid[]))
+ AND (COALESCE(cardinality(@weeks::uuid[]),0)=0 OR mi.activity_week_id=ANY(@weeks::uuid[]))
  AND (@passed::boolean IS NULL OR (` + mockPassedSQL + `)=@passed::boolean)`
 	var total int64
 	if err := p.pool.QueryRow(ctx, `SELECT count(*) FROM app.scoped_mock_interviews mi WHERE mi.deleted_at IS NULL AND `+where, args).Scan(&total); err != nil {
