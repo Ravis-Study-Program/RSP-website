@@ -45,9 +45,11 @@ export function RoleBadge({ role }: { role: Role }) {
 export function PersonIdentity({
   person,
   privateView = false,
+  seasonId,
 }: {
   person: Person;
   privateView?: boolean;
+  seasonId?: string;
 }) {
   return (
     <span className={styles.personIdentity}>
@@ -55,7 +57,11 @@ export function PersonIdentity({
         {person.initials}
       </span>
       <span className={styles.personIdentityText}>
-        <Link to={`/people/${person.slug}`}>{person.name}</Link>
+        <Link
+          to={`/people/${person.slug}${seasonId ? `?seasonId=${encodeURIComponent(seasonId)}` : ''}`}
+        >
+          {person.name}
+        </Link>
         <span>
           {privateView && person.email
             ? person.email

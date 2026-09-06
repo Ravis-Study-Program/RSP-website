@@ -5,6 +5,8 @@ import { MemoryRouter } from 'react-router-dom';
 
 import { apiRequest } from '@/api/client';
 import {
+  useActivitySummary,
+  useMockInterviews,
   useCurrentUser,
   useSeasons,
   useUserAttempts,
@@ -25,6 +27,40 @@ vi.mock('@/api/queries', () => ({
   useSeasons: vi.fn(),
   useUserAttempts: vi.fn(),
   useUserProfile: vi.fn(),
+  useActivitySummary: vi.fn(() => ({
+    data: {
+      attemptCount: 0,
+      mockInterviewCount: 0,
+      mocksReceived: 0,
+      mocksConducted: 0,
+      lastActivityAt: null,
+    },
+    isError: false,
+  })),
+  useMockInterviews: vi.fn(() => ({
+    data: { items: [] },
+    isLoading: false,
+    isError: false,
+  })),
+  useUserParticipation: vi.fn(() => ({
+    data: {
+      items: [
+        {
+          id: 'enrollment-1',
+          seasonId: 'season-1',
+          seasonName: 'Season One',
+          startAt: '2026-01-01',
+          endAt: '2026-12-31',
+          role: 'student',
+          state: 'active',
+          lastStudentLevel: 'beginner',
+          periods: [],
+        },
+      ],
+    },
+    isLoading: false,
+    isError: false,
+  })),
 }));
 
 const currentUser: CurrentUser = {
@@ -93,6 +129,25 @@ describe('profile slug suggestion', () => {
       </QueryClientProvider>,
     );
 
+    expect(screen.getByLabelText('View activity')).toHaveValue('');
+    await user.selectOptions(
+      screen.getByLabelText('View activity'),
+      'season-1',
+    );
+    expect(useActivitySummary).toHaveBeenLastCalledWith('user-1', 'season-1');
+    expect(useUserAttempts).toHaveBeenLastCalledWith(
+      'user-1',
+      true,
+      'season-1',
+    );
+    expect(useMockInterviews).toHaveBeenLastCalledWith(
+      true,
+      'season-1',
+      undefined,
+      'user-1',
+    );
+    await user.selectOptions(screen.getByLabelText('View activity'), '');
+    expect(useActivitySummary).toHaveBeenLastCalledWith('user-1', undefined);
     await user.click(screen.getByRole('button', { name: /edit profile/i }));
     await user.click(screen.getByRole('button', { name: 'Suggest' }));
 

@@ -3,6 +3,7 @@ package dal
 import (
 	"context"
 	"encoding/json"
+	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -33,6 +34,8 @@ const (
 )
 
 type MockInterviewQuery struct {
+	TargetID   string
+	TargetMode string
 	SeasonID   string
 	Year       int
 	ViewerID   string
@@ -69,8 +72,11 @@ func (p *Store) ListMockInterviews(ctx context.Context, q MockInterviewQuery) ([
 		}
 	}
 	where = "(" + where + ") AND ($2 = '' OR mi.activity_season_id=NULLIF($2,'')::uuid) AND ($3 = 0 OR EXTRACT(YEAR FROM mi.scheduled_at AT TIME ZONE 'Australia/Adelaide')=$3)"
+	where += ` AND ($6='' OR
+  ($7<>'given' AND mi.interviewee_user_id=NULLIF($6,'')::uuid) OR
+  ($7<>'received' AND mi.interviewer_user_id=NULLIF($6,'')::uuid))`
 	var total int64
-	if err := p.pool.QueryRow(ctx, `SELECT count(*) FROM app.scoped_mock_interviews mi WHERE mi.deleted_at IS NULL AND `+where, userID, q.SeasonID, q.Year).Scan(&total); err != nil {
+	if err := p.pool.QueryRow(ctx, `SELECT count(*) FROM app.scoped_mock_interviews mi WHERE mi.deleted_at IS NULL AND `+strings.NewReplacer("$6", "$4", "$7", "$5").Replace(where), userID, q.SeasonID, q.Year, q.TargetID, q.TargetMode).Scan(&total); err != nil {
 		return nil, false, 0, err
 	}
 
@@ -98,7 +104,7 @@ func (p *Store) ListMockInterviews(ctx context.Context, q MockInterviewQuery) ([
 	WHERE mi.deleted_at IS NULL AND ` + where + `
 	  AND (NULLIF($4,'')::uuid IS NULL OR EXISTS (SELECT 1 FROM boundary b WHERE ` + key + ` ` + comparator + ` ` + boundaryKey + `))
 	ORDER BY ` + orderBy + ` LIMIT $5`
-	rows, err := p.pool.Query(ctx, query, userID, q.SeasonID, q.Year, q.Boundary, q.Limit+1)
+	rows, err := p.pool.Query(ctx, query, userID, q.SeasonID, q.Year, q.Boundary, q.Limit+1, q.TargetID, q.TargetMode)
 	if err != nil {
 		return nil, false, 0, err
 	}

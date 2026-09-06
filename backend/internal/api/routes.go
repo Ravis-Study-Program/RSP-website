@@ -26,6 +26,7 @@ func registerAccountRoutes(mux *http.ServeMux, a *API) {
 	mux.HandleFunc("PATCH /api/v2/me", a.protected(ratelimit.Write, a.updateCurrentUser))
 	mux.HandleFunc("GET /api/v2/me/slug-suggestion", a.protected(ratelimit.Read, a.suggestCurrentUserSlug))
 	mux.HandleFunc("GET /api/v2/users", a.protected(ratelimit.Read, a.listUsers))
+	mux.HandleFunc("GET /api/v2/users/{id}/participation", a.protected(ratelimit.Read, a.getUserParticipation))
 	mux.HandleFunc("GET /api/v2/users/{id}/activity-summary", a.protected(ratelimit.Read, a.getUserActivitySummary))
 	mux.HandleFunc("GET /api/v2/users/{id}", a.protected(ratelimit.Read, a.getUser))
 	mux.HandleFunc("GET /api/v2/admin/users", a.protected(ratelimit.Read, a.listAdminUsers))

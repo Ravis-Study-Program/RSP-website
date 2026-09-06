@@ -62,7 +62,11 @@ export function PeoplePage() {
         accessorKey: 'name',
         header: 'Person',
         cell: ({ row }) => (
-          <PersonIdentity person={row.original} privateView={privateView} />
+          <PersonIdentity
+            seasonId={season?.id}
+            person={row.original}
+            privateView={privateView}
+          />
         ),
       },
       {
@@ -169,7 +173,11 @@ export function PeoplePage() {
         getRowId={(person) => person.id}
         renderCard={(row) => (
           <div>
-            <PersonIdentity person={row.original} privateView={privateView} />
+            <PersonIdentity
+              seasonId={season?.id}
+              person={row.original}
+              privateView={privateView}
+            />
             <div className={`${styles.inline} ${styles.inlineSpaced}`}>
               {row.original.roles.map((role) => (
                 <RoleBadge key={role} role={role} />

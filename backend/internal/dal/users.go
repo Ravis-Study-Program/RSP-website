@@ -43,7 +43,7 @@ func (p *Store) GetUser(ctx context.Context, userID string) (accounts.User, erro
 		JOIN app.user_preferences pr ON pr.user_id=u.id
 		JOIN app.user_contacts c ON c.user_id=u.id
 		LEFT JOIN app.global_role_assignments g ON g.user_id=u.id
-		WHERE u.id=$1 AND u.deleted_at IS NULL
+		WHERE (u.id::text=$1 OR p.slug=$1) AND u.deleted_at IS NULL
 		GROUP BY u.id,p.slug,p.display_name,p.avatar_url,pr.timezone,pr.timezone_configured,c.email,u.account_state`
 	return scanUser(p.pool.QueryRow(ctx, query, userID))
 }

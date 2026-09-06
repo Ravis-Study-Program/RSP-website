@@ -148,6 +148,29 @@ paths:
         '403': { $ref: '#/components/responses/Error' }
         '401': { $ref: '#/components/responses/Error' }
         '429': { $ref: '#/components/responses/RateLimited' }
+  /users/{id}/participation:
+    parameters: [{ $ref: '#/components/parameters/ID' }]
+    get:
+      operationId: getUserParticipation
+      parameters:
+        - { name: seasonId, in: query, schema: { type: string, format: uuid } }
+      responses:
+        default: { $ref: '#/components/responses/Error' }
+        '200':
+          description: Recorded programme participation, without administrative reasons
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - { $ref: '#/components/schemas/PageEnvelope' }
+                  - type: object
+                    required: [items]
+                    properties:
+                      items:
+                        {
+                          type: array,
+                          items: { $ref: '#/components/schemas/Participation' },
+                        }
   /users/{id}/activity-summary:
     parameters: [{ $ref: '#/components/parameters/ID' }]
     get:
@@ -190,6 +213,8 @@ paths:
       ]
     get:
       operationId: getUser
+      parameters:
+        - { name: seasonId, in: query, schema: { type: string, format: uuid } }
       responses:
         default: { $ref: '#/components/responses/Error' }
         '200':
@@ -1035,6 +1060,12 @@ paths:
       operationId: listMockInterviews
       parameters:
         [
+          {
+            name: userId,
+            in: query,
+            description: Filter a member whose activity the viewer may read,
+            schema: { type: string, format: uuid },
+          },
           { $ref: '#/components/parameters/Limit' },
           { $ref: '#/components/parameters/Cursor' },
           { $ref: '#/components/parameters/Direction' },
@@ -1819,6 +1850,35 @@ components:
             },
           ],
       }
+    ParticipationPeriod:
+      type: object
+      required: [role, startedAt, endedAt]
+      properties:
+        role: { $ref: '#/components/schemas/SeasonRole' }
+        startedAt: { type: string, format: date-time }
+        endedAt: { type: string, format: date-time, nullable: true }
+    Participation:
+      allOf:
+        - { $ref: '#/components/schemas/Enrollment' }
+        - type: object
+          required:
+            [seasonName, seasonSlug, startAt, endAt, lastStudentLevel, periods]
+          properties:
+            seasonName: { type: string }
+            seasonSlug: { type: string }
+            startAt: { type: string, format: date-time }
+            endAt: { type: string, format: date-time }
+            lastStudentLevel:
+              {
+                type: string,
+                enum:
+                  [novice, beginner, intermediate, advanced, not_applicable],
+              }
+            periods:
+              {
+                type: array,
+                items: { $ref: '#/components/schemas/ParticipationPeriod' },
+              }
     ActivitySummary:
       type: object
       required:

@@ -1,10 +1,9 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { IconEdit, IconLock, IconMail, IconWorld } from '@tabler/icons-react';
-import type { ColumnDef } from '@tanstack/react-table';
 import { useMemo, useState } from 'react';
 import type { Resolver } from 'react-hook-form';
 import { useForm } from 'react-hook-form';
-import { useParams } from 'react-router-dom';
+import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { z } from 'zod';
 
 import { adaptCurrentPerson, adaptCurrentUser } from '@/api/adapters';
@@ -15,12 +14,14 @@ import {
   demoMode,
   useCurrentUser,
   useSeasons,
-  useUserAttempts,
+  useActivitySummary,
+  useUserParticipation,
   useUserProfile,
 } from '@/api/queries';
 import { useQueryClient } from '@tanstack/react-query';
 import { MetricCard, RoleBadge, usePageTitle } from '@/components/Common';
-import { DataTable } from '@/components/DataTable';
+import { ProfileActivity } from '@/components/ProfileActivity';
+import { studentLevelLabel } from '@/studentLevels';
 import { FormDialog } from '@/components/Dialogs';
 import { TimezoneSelect } from '@/components/TimezoneSelect';
 import {
@@ -29,8 +30,12 @@ import {
   PageSkeleton,
 } from '@/components/StatusViews';
 import styles from '@/styles/App.module.css';
-import type { Attempt } from '@/types';
-import { formatDateTime, initials, supportedTimezones } from '@/utils';
+import {
+  formatDate,
+  formatDateTime,
+  initials,
+  supportedTimezones,
+} from '@/utils';
 
 const profileSchema = z.object({
   name: z.string().trim().min(2, 'Enter your name.').max(120),
@@ -59,6 +64,8 @@ type ProfileValues = z.infer<typeof profileSchema>;
 
 export function ProfilePage() {
   const { slug } = useParams();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const seasonId = searchParams.get('seasonId') || undefined;
   const user = useCurrentUser();
   const isSelf = !slug || slug === user.data?.slug;
   const hasProgrammeAccess = Boolean(
@@ -67,15 +74,25 @@ export function ProfilePage() {
       user.data.globalRoles.length > 0 ||
       user.data.alumni),
   );
-  const seasons = useSeasons(isSelf && hasProgrammeAccess);
-  const publicProfile = useUserProfile(isSelf ? undefined : slug);
+  const seasons = useSeasons(hasProgrammeAccess);
+  const publicProfile = useUserProfile(isSelf ? undefined : slug, seasonId);
   const person = isSelf
     ? user.data
       ? adaptCurrentPerson(user.data, seasons.data?.items)
       : undefined
     : (publicProfile.data ?? undefined);
-  const canViewMemberHistory = hasProgrammeAccess;
-  const attemptHistory = useUserAttempts(person?.id, canViewMemberHistory);
+  const participation = useUserParticipation(
+    person?.id,
+    hasProgrammeAccess,
+    seasonId,
+  );
+  const summary = useActivitySummary(
+    hasProgrammeAccess ? person?.id : undefined,
+    hasProgrammeAccess ? seasonId : undefined,
+  );
+  const selectedSeason = seasons.data?.items.find(
+    (season) => season.id === seasonId,
+  );
   const showProgrammeDetails = !isSelf || hasProgrammeAccess;
   const [savedName, setSavedName] = useState<string | null>(null);
   const [savedSlug, setSavedSlug] = useState<string | null>(null);
@@ -115,7 +132,23 @@ export function ProfilePage() {
       </div>
     );
 
+  if (seasonId && !seasons.isLoading && !selectedSeason)
+    return (
+      <div className={styles.page}>
+        <ErrorState
+          title="Season unavailable"
+          message="This season does not exist or is not available to your account."
+        />
+      </div>
+    );
   const displayName = savedName ?? person.name;
+  const selectedParticipation = participation.data?.items.find(
+    (entry) => entry.seasonId === seasonId,
+  );
+  const displayedRoles = selectedParticipation
+    ? [selectedParticipation.role]
+    : person.roles;
+  const displayedStatus = selectedParticipation?.state ?? person.status;
   return (
     <div className={styles.page}>
       <header className={styles.profileHeader}>
@@ -124,24 +157,62 @@ export function ProfilePage() {
           <h1>{displayName}</h1>
           <p>
             @{savedSlug ?? person.slug}
-            {person.season ? ` · ${person.season}` : ''}
+            {showProgrammeDetails
+              ? ` · ${selectedSeason?.name ?? 'All time'}`
+              : ''}
           </p>
         </div>
       </header>
+      {showProgrammeDetails ? (
+        <div className={styles.field}>
+          <label htmlFor="profile-season">View activity</label>
+          <select
+            id="profile-season"
+            className={styles.select}
+            value={seasonId ?? ''}
+            onChange={(event) => {
+              const next = new URLSearchParams(searchParams);
+              if (event.target.value) next.set('seasonId', event.target.value);
+              else next.delete('seasonId');
+              setSearchParams(next);
+            }}
+          >
+            <option value="">All time</option>
+            {(seasons.data?.items ?? [])
+              .filter(
+                (season) =>
+                  season.id === seasonId ||
+                  participation.data?.items.some(
+                    (entry) => entry.seasonId === season.id,
+                  ),
+              )
+              .map((season) => (
+                <option key={season.id} value={season.id}>
+                  {season.name}
+                </option>
+              ))}
+          </select>
+          <p className={styles.helper}>
+            {selectedSeason
+              ? `Activity recorded in ${selectedSeason.name}`
+              : 'Complete practice and mock history, including activity between seasons.'}
+          </p>
+        </div>
+      ) : null}
       <div className={styles.profileActions}>
         {showProgrammeDetails ? (
           <div className={styles.inline}>
-            {person.roles.map((role) => (
+            {displayedRoles.map((role) => (
               <RoleBadge role={role} key={role} />
             ))}
             <span
               className={
-                person.status === 'active'
+                displayedStatus === 'active'
                   ? styles.badgeSuccess
                   : styles.badgeNeutral
               }
             >
-              {person.status}
+              {displayedStatus}
             </span>
           </div>
         ) : null}
@@ -171,22 +242,26 @@ export function ProfilePage() {
         <div className={styles.metricGrid}>
           <MetricCard
             label="Practice attempts"
-            value={person.attempts}
-            detail="Public programme activity count"
+            value={summary.data?.attemptCount ?? '—'}
+            detail={selectedSeason?.name ?? 'All time'}
           />
           <MetricCard
             label="Mock interviews"
-            value={person.interviews}
-            detail="Received and conducted"
+            value={summary.data?.mockInterviewCount ?? '—'}
+            detail={
+              summary.data
+                ? `${summary.data.mocksReceived} received · ${summary.data.mocksConducted} conducted`
+                : 'Received and conducted'
+            }
           />
           <MetricCard
-            label="Last active"
+            label="Last recorded activity"
             value={
-              person.lastActiveAt
-                ? formatDateTime(person.lastActiveAt).split(',')[0]
+              summary.data?.lastActivityAt
+                ? formatDateTime(summary.data.lastActivityAt).split(',')[0]
                 : 'Not available'
             }
-            detail="Shown to approved members"
+            detail={selectedSeason?.name ?? 'All time'}
           />
         </div>
       ) : null}
@@ -199,20 +274,50 @@ export function ProfilePage() {
               <h2 className={styles.sectionTitle}>Programme participation</h2>
             </div>
             <div className={styles.panel}>
-              <ul className={styles.cleanList}>
-                <li className={styles.listRow}>
-                  <span>Current season</span>
-                  <strong>{person.season}</strong>
-                </li>
-                <li className={styles.listRow}>
-                  <span>Role badges</span>
-                  <strong>{person.roles.join(', ')}</strong>
-                </li>
-                <li className={styles.listRow}>
-                  <span>Activity visibility</span>
-                  <strong>Members and alumni</strong>
-                </li>
-              </ul>
+              {participation.isLoading ? (
+                <p role="status">Loading participation…</p>
+              ) : participation.isError ? (
+                <ErrorState
+                  title="Participation unavailable"
+                  onRetry={() => void participation.refetch()}
+                />
+              ) : (
+                <ol className={styles.timeline}>
+                  {(participation.data?.items ?? []).map((entry) => (
+                    <li key={entry.id} className={styles.timelineItem}>
+                      <div className={styles.timelineContent}>
+                        <Link
+                          to={`${isSelf ? '/profile' : `/people/${person.slug}`}?seasonId=${encodeURIComponent(entry.seasonId)}`}
+                        >
+                          {entry.seasonName}
+                        </Link>
+                        <p>
+                          {formatDate(entry.startAt)} –{' '}
+                          {formatDate(entry.endAt)} · {entry.role} ·{' '}
+                          {entry.state}
+                        </p>
+                        {entry.lastStudentLevel !== 'not_applicable' ? (
+                          <p>
+                            Student level:{' '}
+                            {studentLevelLabel(entry.lastStudentLevel)}
+                          </p>
+                        ) : null}
+                        {entry.periods.map((period, index) => (
+                          <p className={styles.helper} key={index}>
+                            {period.role}: {formatDate(period.startedAt)} –{' '}
+                            {period.endedAt
+                              ? formatDate(period.endedAt)
+                              : 'Season end'}
+                          </p>
+                        ))}
+                      </div>
+                    </li>
+                  ))}
+                  {!participation.data?.items.length ? (
+                    <li>No recorded season participation.</li>
+                  ) : null}
+                </ol>
+              )}
             </div>
           </section>
         ) : null}
@@ -244,86 +349,18 @@ export function ProfilePage() {
           </section>
         ) : null}
       </div>
-      {showProgrammeDetails ? (
-        <section
-          className={styles.section}
-          aria-labelledby="public-practice-title"
-        >
-          <div className={styles.sectionHeader}>
-            <h2 id="public-practice-title" className={styles.sectionTitle}>
-              Public problem history
-            </h2>
-          </div>
-          <DataTable
-            ariaLabel={`${displayName} public problem history`}
-            data={attemptHistory.data?.items ?? []}
-            columns={profileAttemptColumns}
-            loading={canViewMemberHistory && attemptHistory.isLoading}
-            error={canViewMemberHistory && attemptHistory.isError}
-            onRetry={() => void attemptHistory.refetch()}
-            emptyTitle="No public attempts"
-            emptyMessage="Outcome-known practice will appear here when it is available to your account."
-            getRowId={(attempt) => attempt.id}
-            renderCard={(row) => (
-              <div>
-                <h3 className={styles.cardTitle}>{row.original.problem}</h3>
-                <p>
-                  {row.original.difficulty ?? 'Difficulty unavailable'} ·{' '}
-                  {row.original.outcome.replaceAll('_', ' ')}
-                </p>
-                <p className={styles.helper}>
-                  {formatDateTime(row.original.attemptedAt)}
-                </p>
-              </div>
-            )}
-          />
-        </section>
+      {showProgrammeDetails && summary.isError ? (
+        <ErrorState
+          title="Activity totals unavailable"
+          onRetry={() => void summary.refetch()}
+        />
       ) : null}
       {showProgrammeDetails ? (
-        <section
-          className={styles.section}
-          aria-labelledby="interview-participation-title"
-        >
-          <div className={styles.sectionHeader}>
-            <h2
-              id="interview-participation-title"
-              className={styles.sectionTitle}
-            >
-              Mock interview participation
-            </h2>
-          </div>
-          <div className={styles.panel}>
-            <p>
-              {person.interviews ?? 0} mock{' '}
-              {person.interviews === 1 ? 'interview' : 'interviews'} received or
-              conducted.
-            </p>
-            <p className={styles.helper}>
-              Detailed private notes and scores remain visible only to
-              authorised relationships. The API currently exposes the safe
-              aggregate for another member.
-            </p>
-          </div>
-        </section>
+        <ProfileActivity person={person} seasonId={seasonId} />
       ) : null}
     </div>
   );
 }
-
-const profileAttemptColumns: ColumnDef<Attempt, any>[] = [
-  { accessorKey: 'problem', header: 'Problem' },
-  { accessorKey: 'difficulty', header: 'Difficulty' },
-  {
-    accessorKey: 'outcome',
-    header: 'Outcome',
-    cell: ({ getValue }) => String(getValue()).replaceAll('_', ' '),
-  },
-  {
-    accessorKey: 'attemptedAt',
-    header: 'Attempted',
-    cell: ({ getValue }) => formatDateTime(getValue()),
-  },
-];
 
 function EditProfileDialog({
   user,

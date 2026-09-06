@@ -29,6 +29,7 @@ import type {
   Mentorship,
   ProblemPage,
   PracticeSettings,
+  Participation,
   SeasonPage as ApiSeasonPage,
   User as ApiUser,
   UserPrivate,
@@ -499,9 +500,9 @@ export function useMockParticipants() {
   });
 }
 
-export function useUserProfile(identifier?: string) {
+export function useUserProfile(identifier?: string, seasonId?: string) {
   return useQuery({
-    queryKey: ['users', identifier],
+    queryKey: ['users', identifier, { seasonId }],
     enabled: Boolean(identifier),
     queryFn: async () => {
       if (!identifier) return null;
@@ -512,22 +513,31 @@ export function useUserProfile(identifier?: string) {
           ) ?? null,
         );
       return adaptPerson(
-        await apiRequest<ApiUser>(`/users/${encodeURIComponent(identifier)}`),
+        await apiRequest<ApiUser>(
+          `/users/${encodeURIComponent(identifier)}${seasonId ? `?seasonId=${encodeURIComponent(seasonId)}` : ''}`,
+        ),
       );
     },
   });
 }
 
-export function useUserAttempts(userId?: string, enabled = true) {
+export function useUserAttempts(
+  userId?: string,
+  enabled = true,
+  seasonId?: string,
+) {
   return useQuery({
-    queryKey: ['problem-attempts', 'user', userId],
+    queryKey: ['problem-attempts', 'user', userId, { seasonId }],
     enabled: Boolean(userId) && enabled,
     queryFn: async () => {
       if (!userId) return page([]);
-      if (demoMode) return wait(page(attempts));
+      if (demoMode)
+        return wait(
+          page(attempts.filter((a) => !seasonId || a.seasonId === seasonId)),
+        );
       const [attemptPage, problemPage] = await Promise.all([
         fetchAllPages<ApiAttemptPage['items'][number]>(
-          `/problem-attempts?limit=100&userId=${encodeURIComponent(userId)}`,
+          `/problem-attempts?limit=100&userId=${encodeURIComponent(userId)}${seasonId ? `&seasonId=${encodeURIComponent(seasonId)}` : ''}`,
         ),
         getProblems(),
       ]);
@@ -645,9 +655,10 @@ export function useMockInterviews(
   enabled = true,
   seasonId?: string,
   year?: number,
+  userId?: string,
 ) {
   return useQuery({
-    queryKey: ['mock-interviews', { seasonId, year }],
+    queryKey: ['mock-interviews', { seasonId, year, userId }],
     enabled,
     queryFn: async () => {
       if (demoMode)
@@ -656,6 +667,9 @@ export function useMockInterviews(
             mockInterviews.filter((item) => {
               const season = seasons.find((item) => item.id === seasonId);
               return (
+                (!userId ||
+                  item.interviewee.id === userId ||
+                  item.interviewer.id === userId) &&
                 (!year || adelaideYear(item.occurredAt) === year) &&
                 (!seasonId ||
                   Boolean(
@@ -669,7 +683,7 @@ export function useMockInterviews(
         );
       const [interviewPage, seasonPage, problemPage] = await Promise.all([
         fetchAllPages<ApiMockInterviewPage['items'][number]>(
-          `/mock-interviews?limit=100&mode=all${seasonId ? `&seasonId=${encodeURIComponent(seasonId)}` : ''}${year ? `&year=${year}` : ''}`,
+          `/mock-interviews?limit=100&mode=all${userId ? `&userId=${encodeURIComponent(userId)}` : ''}${seasonId ? `&seasonId=${encodeURIComponent(seasonId)}` : ''}${year ? `&year=${year}` : ''}`,
         ),
         fetchAllPages<ApiSeasonPage['items'][number]>('/seasons?limit=100'),
         getProblems(),
@@ -726,6 +740,44 @@ export function useActivitySummary(userId?: string, seasonId?: string) {
         userId
           ? `/users/${encodeURIComponent(userId)}/activity-summary${seasonId ? `?seasonId=${encodeURIComponent(seasonId)}` : ''}`
           : `/seasons/${encodeURIComponent(seasonId!)}/activity-summary`,
+      );
+    },
+  });
+}
+
+export function useUserParticipation(
+  userId?: string,
+  enabled = true,
+  seasonId?: string,
+) {
+  return useQuery({
+    queryKey: ['participation', userId, { seasonId }],
+    enabled: Boolean(userId) && enabled,
+    queryFn: async (): Promise<Page<Participation>> => {
+      if (demoMode)
+        return page(
+          seasons.flatMap((season) =>
+            demoEnrollmentPage(season.id)
+              .items.filter((e) => e.userId === userId)
+              .map((e) => ({
+                ...e,
+                seasonName: season.name,
+                seasonSlug: season.slug,
+                startAt: season.startsAt,
+                endAt: season.endsAt,
+                lastStudentLevel: e.studentLevel,
+                periods: [
+                  {
+                    role: e.role,
+                    startedAt: season.startsAt,
+                    endedAt: season.status === 'closed' ? season.endsAt : null,
+                  },
+                ],
+              })),
+          ),
+        );
+      return apiRequest<Page<Participation>>(
+        `/users/${encodeURIComponent(userId!)}/participation${seasonId ? `?seasonId=${encodeURIComponent(seasonId)}` : ''}`,
       );
     },
   });

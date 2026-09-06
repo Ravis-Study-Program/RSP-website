@@ -127,6 +127,10 @@ func (a *API) listMockInterviews(w http.ResponseWriter, r *http.Request) {
 		writeErrorResponse(w, http.StatusBadRequest, filterErr.Error())
 		return
 	}
+	targetID := r.URL.Query().Get("userId")
+	if targetID != "" && !a.authorizeActivityRead(w, r, targetID, seasonID) {
+		return
+	}
 	mode := r.URL.Query().Get("mode")
 	if mode == "" {
 		mode = "received"
@@ -135,7 +139,7 @@ func (a *API) listMockInterviews(w http.ResponseWriter, r *http.Request) {
 		writeErrorResponse(w, http.StatusBadRequest, "mode must be received, given, or all")
 		return
 	}
-	if mode == "all" {
+	if mode == "all" || targetID != "" {
 		if err := a.auditPrivateDataRead(r.Context(), actor, "mock_interview_collection", actor.UserID); err != nil {
 			writeErrorResponse(w, http.StatusInternalServerError, "Private data was not returned because its access could not be audited.")
 			return
@@ -153,7 +157,7 @@ func (a *API) listMockInterviews(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	binding := "mock-interviews|mode=" + mode + "|sort=" + sortBy + fmt.Sprintf("|season=%s|year=%d", seasonID, year)
+	binding := "mock-interviews|user=" + targetID + "|mode=" + mode + "|sort=" + sortBy + fmt.Sprintf("|season=%s|year=%d", seasonID, year)
 	limit, boundary, err := parsePagination(r.URL.Query().Get("limit"), r.URL.Query().Get("cursor"), binding, a.cursorSecret)
 	if err != nil {
 		writeErrorResponse(w, http.StatusBadRequest, "The cursor does not match the selected mode and sort.")
@@ -161,10 +165,10 @@ func (a *API) listMockInterviews(w http.ResponseWriter, r *http.Request) {
 	}
 
 	visibility := dal.MockInterviewsReceived
-	switch mode {
-	case "given":
+	if mode == "given" {
 		visibility = dal.MockInterviewsGiven
-	case "all":
+	}
+	if mode == "all" || targetID != "" {
 		visibility = dal.MockInterviewsRelated
 		if actor.CanReadSharedActivity() {
 			visibility = dal.MockInterviewsShared
@@ -174,7 +178,7 @@ func (a *API) listMockInterviews(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	items, more, total, err := a.db.ListMockInterviews(r.Context(), dal.MockInterviewQuery{
-		SeasonID: seasonID, Year: year,
+		SeasonID: seasonID, Year: year, TargetID: targetID, TargetMode: mode,
 		ViewerID:   actor.UserID,
 		Visibility: visibility,
 		Boundary:   boundary,

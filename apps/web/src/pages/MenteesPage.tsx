@@ -60,7 +60,13 @@ export function MenteesPage() {
       {
         accessorKey: 'name',
         header: 'Mentee',
-        cell: ({ row }) => <PersonIdentity person={row.original} privateView />,
+        cell: ({ row }) => (
+          <PersonIdentity
+            seasonId={season?.id}
+            person={row.original}
+            privateView
+          />
+        ),
       },
       {
         accessorKey: 'studentLevel',
@@ -125,7 +131,11 @@ export function MenteesPage() {
         getRowId={(person) => person.id}
         renderCard={(row) => (
           <div>
-            <PersonIdentity person={row.original} privateView />
+            <PersonIdentity
+              seasonId={season?.id}
+              person={row.original}
+              privateView
+            />
             <p>
               {row.original.attempts ?? '—'} attempts ·{' '}
               {row.original.interviews ?? '—'} interviews

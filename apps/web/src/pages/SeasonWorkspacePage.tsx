@@ -63,7 +63,9 @@ export function SeasonWorkspacePage() {
       user.data.alumni ||
       user.data.seasonRoles.some(
         (membership) =>
-          membership.seasonId === season.id && membership.state === 'active',
+          membership.state === 'active' ||
+          (membership.seasonId === season.id &&
+            membership.state === 'completed'),
       )),
   );
   if (!hasSeasonAccess) return <Navigate to="/forbidden" replace />;

@@ -89,6 +89,17 @@ function ProtectedShell() {
         (membership) => membership.state === 'active',
       )),
   );
+  const historicalReview = user.data?.seasonRoles.some(
+    (membership) =>
+      membership.state === 'completed' &&
+      (membership.role === 'mentor' || membership.role === 'coordinator') &&
+      (location.pathname === '/seasons' ||
+        location.pathname === `/seasons/${membership.seasonSlug}` ||
+        location.pathname.startsWith(`/seasons/${membership.seasonSlug}/`) ||
+        (location.pathname.startsWith('/people/') &&
+          new URLSearchParams(location.search).get('seasonId') ===
+            membership.seasonId)),
+  );
   const formerMemberRoutes = [
     '/',
     '/dashboard',
@@ -101,6 +112,7 @@ function ProtectedShell() {
     user.data &&
     isMember &&
     !hasDirectoryAccess &&
+    !historicalReview &&
     !formerMemberRoutes.includes(location.pathname)
   )
     return <Navigate to="/forbidden" replace />;

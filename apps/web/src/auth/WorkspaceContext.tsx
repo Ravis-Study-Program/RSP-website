@@ -15,6 +15,7 @@ import type { Me } from '@/api/generated/models';
 import { currentUserOptions, demoMode, useCurrentUser } from '@/api/queries';
 import type { Role } from '@/types';
 import { configureDisplayTimezone } from '@/utils';
+import { useLocation, useNavigate } from 'react-router-dom';
 
 export interface WorkspaceOption {
   id: string;
@@ -33,6 +34,8 @@ const WorkspaceContext = createContext<WorkspaceValue | null>(null);
 
 export function WorkspaceProvider({ children }: PropsWithChildren) {
   const userQuery = useCurrentUser();
+  const location = useLocation();
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const timezoneInitialisation = useRef<string | null>(null);
   if (userQuery.data?.timezone)
@@ -80,7 +83,10 @@ export function WorkspaceProvider({ children }: PropsWithChildren) {
       });
     options.push(
       ...userQuery.data.seasonRoles
-        .filter((membership) => membership.state === 'active')
+        .filter(
+          (membership) =>
+            membership.state === 'active' || membership.state === 'completed',
+        )
         .map((membership) => ({
           id: membership.seasonId,
           label: membership.seasonSlug
@@ -111,15 +117,32 @@ export function WorkspaceProvider({ children }: PropsWithChildren) {
     return options;
   }, [userQuery.data]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const routeSeasonSlug = location.pathname.match(/^\/seasons\/([^/]+)/)?.[1];
   const activeWorkspace =
-    workspaces.find((item) => item.id === selectedId) ?? workspaces[0] ?? null;
+    workspaces.find(
+      (item) => item.seasonSlug === routeSeasonSlug && routeSeasonSlug,
+    ) ??
+    workspaces.find((item) => item.id === selectedId) ??
+    workspaces[0] ??
+    null;
 
   return (
     <WorkspaceContext.Provider
       value={{
         workspaces,
         activeWorkspace,
-        setActiveWorkspaceId: setSelectedId,
+        setActiveWorkspaceId: (id) => {
+          setSelectedId(id);
+          const chosen = workspaces.find((item) => item.id === id);
+          const section = location.pathname.match(
+            /^\/seasons\/[^/]+\/(people|practice|mock-interviews|mentees)$/,
+          )?.[1];
+          navigate(
+            chosen?.seasonSlug
+              ? `/seasons/${chosen.seasonSlug}${section ? `/${section}` : ''}`
+              : '/dashboard',
+          );
+        },
       }}
     >
       {children}

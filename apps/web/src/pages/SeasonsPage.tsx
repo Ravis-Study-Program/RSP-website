@@ -20,14 +20,16 @@ export function SeasonsPage() {
     ),
   );
   const canBrowseAll = Boolean(
-    user.data && (user.data.globalRoles.length > 0 || user.data.alumni),
+    user.data &&
+    (user.data.globalRoles.length > 0 ||
+      user.data.alumni ||
+      user.data.seasonRoles.some((m) => m.state === 'active')),
   );
   const visibleSeasonIds = new Set(
     user.data?.seasonRoles
       .filter(
         (membership) =>
-          membership.state === 'active' ||
-          (membership.role === 'student' && membership.state === 'completed'),
+          membership.state === 'active' || membership.state === 'completed',
       )
       .map((membership) => membership.seasonId) ?? [],
   );

@@ -13,6 +13,10 @@ import type { SortParameter } from './sortParameter';
 
 export type ListMockInterviewsParams = {
   /**
+   * Filter a member whose activity the viewer may read
+   */
+  userId?: string;
+  /**
    * @minimum 1
    * @maximum 100
    */

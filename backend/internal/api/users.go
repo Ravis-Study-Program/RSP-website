@@ -84,7 +84,7 @@ func (a *API) listUsers(w http.ResponseWriter, r *http.Request) {
 
 func (a *API) getUser(w http.ResponseWriter, r *http.Request) {
 	actor := actorFrom(r.Context())
-	if !actor.CanAccessMemberDirectory() && !actor.IsDirectorOrSystemAdmin() {
+	if !actor.CanRecordActivity() {
 		writeErrorResponse(w, http.StatusForbidden, "No season access yet.")
 		return
 	}
@@ -95,16 +95,13 @@ func (a *API) getUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if actor.UserID != user.ID && !actor.IsDirectorOrSystemAdmin() {
-		participant, eligibilityErr := a.db.GetMemberStatus(r.Context(), user.ID)
-		if eligibilityErr != nil {
-			a.writeStoreErrorResponse(w, eligibilityErr)
-			return
-		}
-		if !participant.IsVisibleInDirectory() {
-			writeErrorResponse(w, http.StatusNotFound, "The requested resource does not exist.")
-			return
-		}
+	seasonID, _, filterErr := activityFilters(r, actor)
+	if filterErr != nil {
+		writeErrorResponse(w, http.StatusBadRequest, filterErr.Error())
+		return
+	}
+	if !a.authorizeActivityRead(w, r, user.ID, seasonID) {
+		return
 	}
 	if actor.UserID != user.ID && !actor.IsDirectorOrSystemAdmin() {
 		canPrivate := actor.CanViewMemberPrivateData(user.ID, authz.MemberRelationship{})
