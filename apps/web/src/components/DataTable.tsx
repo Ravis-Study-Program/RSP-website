@@ -64,6 +64,7 @@ export interface DataTableProps<TData> {
   renderExpanded?: (row: Row<TData>) => ReactNode;
   defaultExpanded?: boolean;
   getRowId?: (row: TData) => string;
+  renderSummary?: (rows: TData[]) => ReactNode;
 }
 
 export function DataTable<TData>({
@@ -80,6 +81,7 @@ export function DataTable<TData>({
   renderExpanded,
   defaultExpanded = false,
   getRowId,
+  renderSummary,
 }: DataTableProps<TData>) {
   const [sorting, setSorting] = useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
@@ -427,6 +429,7 @@ export function DataTable<TData>({
           </>
         )}
       </section>
+      {renderSummary?.(filteredRows.map((row) => row.original))}
     </SearchHighlightContext.Provider>
   );
 }

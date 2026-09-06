@@ -76,3 +76,29 @@ describe('DataTable', () => {
     expect(screen.getAllByText('Amelia').length).toBeGreaterThan(0);
   });
 });
+
+it('summarises all filtered records independently of pagination', async () => {
+  const user = userEvent.setup();
+  render(
+    <DataTable
+      ariaLabel="Summary members"
+      data={Array.from({ length: 23 }, (_, i) => ({
+        id: String(i),
+        name: i < 12 ? 'Amelia' : 'Noah',
+        status: 'active',
+      }))}
+      columns={columns}
+      emptyTitle="None"
+      emptyMessage="None"
+      renderCard={(row) => row.original.name}
+      renderSummary={(rows) => (
+        <output aria-label="Summary count">{rows.length}</output>
+      )}
+    />,
+  );
+  expect(screen.getByLabelText('Summary count')).toHaveTextContent('23');
+  await user.click(screen.getByRole('button', { name: 'Next page' }));
+  expect(screen.getByLabelText('Summary count')).toHaveTextContent('23');
+  await user.type(screen.getByLabelText('Search summary members'), 'Amelia');
+  expect(screen.getByLabelText('Summary count')).toHaveTextContent('12');
+});

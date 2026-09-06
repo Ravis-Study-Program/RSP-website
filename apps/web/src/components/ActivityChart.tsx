@@ -82,7 +82,7 @@ export function ActivityChart({
       </div>
       <p className={styles.chartSummary}>
         Activity summary: {attempts} practice attempts and {interviews} mock
-        interviews across {data.length} weeks.
+        interviews across {data.length} periods.
         {busiest && busiest.attempts + busiest.interviews > 0
           ? ` ${busiest.week} had the highest recorded activity.`
           : ' No activity was recorded in this period.'}

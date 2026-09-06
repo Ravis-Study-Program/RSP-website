@@ -100,7 +100,15 @@ describe('profile slug suggestion', () => {
     } as unknown as ReturnType<typeof useCurrentUser>);
     vi.mocked(useSeasons).mockReturnValue({
       data: {
-        items: [{ id: 'season-1', slug: 'season-one', name: 'Season One' }],
+        items: [
+          {
+            id: 'season-1',
+            slug: 'season-one',
+            name: 'Season One',
+            startsAt: '2026-01-01T00:00:00Z',
+            endsAt: '2026-12-31T00:00:00Z',
+          },
+        ],
       },
       isLoading: false,
       isError: false,

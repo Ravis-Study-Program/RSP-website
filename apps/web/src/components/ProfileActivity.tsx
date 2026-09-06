@@ -7,7 +7,10 @@ import {
 } from '@/activityFilters';
 import { PracticeFilters, MockFilters } from '@/components/ActivityFilters';
 import type { ColumnDef } from '@tanstack/react-table';
-import { useMockInterviews, useUserAttempts } from '@/api/queries';
+import { useMockInterviews, useUserAttempts, useSeasons } from '@/api/queries';
+import { PracticeAnalytics } from '@/components/PracticeAnalytics';
+import { ActivityChart } from '@/components/ActivityChart';
+import { activitySeries } from '@/activityAnalytics';
 import { DataTable } from '@/components/DataTable';
 import { MockFeedback } from '@/components/MockFeedback';
 import { PersonIdentity } from '@/components/Common';
@@ -60,6 +63,8 @@ export function ProfileActivity({
   person: Person;
   seasonId?: string;
 }) {
+  const seasons = useSeasons();
+  const season = seasons.data?.items.find((s) => s.id === seasonId);
   const [filters, setFilters] = useActivityFilters();
   const attempts = useUserAttempts(person.id, true, seasonId, filters);
   const mocks = useMockInterviews(true, seasonId, undefined, person.id);
@@ -133,6 +138,9 @@ export function ProfileActivity({
         <DataTable
           ariaLabel={`${person.name} practice history`}
           data={visibleAttempts}
+          renderSummary={(rows) => (
+            <PracticeAnalytics attempts={rows} season={season} />
+          )}
           columns={practiceColumns}
           loading={attempts.isLoading}
           error={attempts.isError}
@@ -169,6 +177,9 @@ export function ProfileActivity({
         <DataTable
           ariaLabel={`${person.name} mock history`}
           data={visibleMocks}
+          renderSummary={(rows) => (
+            <ActivityChart data={activitySeries([], rows, { season })} />
+          )}
           columns={mockColumns}
           loading={mocks.isLoading}
           error={mocks.isError}

@@ -24,7 +24,7 @@ import {
   useLeetcodeProblems,
   useSeasons,
 } from '@/api/queries';
-import { ActivityChart } from '@/components/ActivityChart';
+import { PracticeAnalytics } from '@/components/PracticeAnalytics';
 import { AppDatePicker } from '@/components/AppDatePicker';
 import { PageHeader, usePageTitle } from '@/components/Common';
 import { DataTable, HighlightText } from '@/components/DataTable';
@@ -40,7 +40,6 @@ import {
   difficultyGoal,
   formatDate,
   outcomeLabel,
-  recentActivitySeries,
   zonedDateTimeToUtc,
 } from '@/utils';
 
@@ -293,10 +292,6 @@ export function PracticePage() {
     () => filterPractice(data, filters),
     [data, filters],
   );
-  const activity = useMemo(
-    () => recentActivitySeries(visibleAttempts),
-    [visibleAttempts],
-  );
 
   return (
     <div className={styles.page}>
@@ -346,6 +341,9 @@ export function PracticePage() {
         <DataTable
           ariaLabel="Problem attempts"
           data={visibleAttempts}
+          renderSummary={(rows) => (
+            <PracticeAnalytics attempts={rows} season={season} year={year} />
+          )}
           columns={columns}
           loading={attemptsQuery.isLoading}
           error={attemptsQuery.isError}
@@ -419,20 +417,6 @@ export function PracticePage() {
             </div>
           )}
         />
-      </section>
-
-      <section
-        className={styles.section}
-        aria-labelledby="practice-trend-title"
-      >
-        <div className={styles.sectionHeader}>
-          <h2 id="practice-trend-title" className={styles.sectionTitle}>
-            Practice trend
-          </h2>
-        </div>
-        <div className={styles.panel}>
-          <ActivityChart data={activity} />
-        </div>
       </section>
     </div>
   );
