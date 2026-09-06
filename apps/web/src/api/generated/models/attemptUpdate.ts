@@ -7,6 +7,4 @@
  */
 import type { AttemptMutation } from './attemptMutation';
 
-export type AttemptUpdate = AttemptMutation & {
-  [key: string]: unknown;
-};
+export type AttemptUpdate = AttemptMutation & { [key: string]: unknown };

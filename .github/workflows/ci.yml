@@ -416,10 +416,10 @@ jobs:
         run: |
           migration_dir="$(mktemp -d)"
           trap 'rm -rf "$migration_dir"' EXIT
-          go run ./backend/cmd/rsp-migrate auth0 plan \
-            --auth0-users backend/internal/migration/testdata/auth0_users.json \
-            --app-candidates backend/internal/migration/testdata/auth0_app_candidates.json \
-            --resolutions backend/internal/migration/testdata/auth0_resolutions.json \
+          go run ./scripts/legacy-migration/cmd auth0 plan \
+            --auth0-users scripts/legacy-migration/migration/testdata/auth0_users.json \
+            --app-candidates scripts/legacy-migration/migration/testdata/auth0_app_candidates.json \
+            --resolutions scripts/legacy-migration/migration/testdata/auth0_resolutions.json \
             --plan "$migration_dir/auth0-plan.json"
           jq -e '
             .version == 1 and
@@ -445,14 +445,14 @@ jobs:
               (.resolvedAppUserId // "") == "" and
               ((.candidateAppUserIds // []) | length) == 0)
           ' "$migration_dir/auth0-plan.json"
-          go run ./backend/cmd/rsp-migrate legacy dry-run \
-            --source-fixture backend/internal/migration/testdata/valid_snapshot.json \
+          go run ./scripts/legacy-migration/cmd legacy dry-run \
+            --source-fixture scripts/legacy-migration/migration/testdata/valid_snapshot.json \
             --manifest "$migration_dir/manifest.json"
-          go run ./backend/cmd/rsp-migrate legacy apply \
-            --source-fixture backend/internal/migration/testdata/valid_snapshot.json \
+          go run ./scripts/legacy-migration/cmd legacy apply \
+            --source-fixture scripts/legacy-migration/migration/testdata/valid_snapshot.json \
             --target-state "$migration_dir/target-state.json" \
             --manifest "$migration_dir/manifest.json"
-          go run ./backend/cmd/rsp-migrate legacy verify \
+          go run ./scripts/legacy-migration/cmd legacy verify \
             --target-state "$migration_dir/target-state.json" \
             --manifest "$migration_dir/manifest.json" \
             > "$migration_dir/verification.json"
@@ -478,14 +478,17 @@ jobs:
             (.checksum | length == 64)
           ' \
             "$migration_dir/manifest.json"
-          run_id="$(jq -er '.runId' "$migration_dir/manifest.json")"
-          go run ./backend/cmd/rsp-migrate legacy rollback \
+          cp "$migration_dir/target-state.json" "$migration_dir/before-repeat.json"
+          if go run ./scripts/legacy-migration/cmd legacy apply \
+            --source-fixture scripts/legacy-migration/migration/testdata/valid_snapshot.json \
             --target-state "$migration_dir/target-state.json" \
-            --run-id "$run_id"
-          jq -e --arg run_id "$run_id" '
-            .runs[$run_id].state == "rolled_back" and
-            ([.tables[] | length] | all(. == 0))
-          ' "$migration_dir/target-state.json"
+            --manifest "$migration_dir/manifest.json" \
+            > "$migration_dir/repeat.log" 2>&1; then
+            echo "Repeated migration unexpectedly succeeded" >&2
+            exit 1
+          fi
+          grep -F 'migration run has already been applied' "$migration_dir/repeat.log"
+          cmp "$migration_dir/before-repeat.json" "$migration_dir/target-state.json"
 
   containers:
     name: Production images and Trivy

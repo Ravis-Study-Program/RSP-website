@@ -7,6 +7,4 @@
  */
 import type { SeasonMutation } from './seasonMutation';
 
-export type SeasonUpdate = SeasonMutation & {
-  [key: string]: unknown;
-};
+export type SeasonUpdate = SeasonMutation & { [key: string]: unknown };

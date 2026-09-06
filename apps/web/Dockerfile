@@ -11,6 +11,7 @@ RUN pnpm install --frozen-lockfile --filter @rsp/web...
 FROM base AS development
 
 COPY --chown=node:node apps/web apps/web
+RUN chown -R node:node /workspace/apps/web
 COPY --chown=node:node api/openapi.yaml api/openapi.yaml
 USER node
 EXPOSE 5173
@@ -38,7 +39,8 @@ RUN apk add --no-cache git \
 
 FROM alpine:3.24 AS runtime
 
-RUN apk add --no-cache ca-certificates mailcap \
+RUN apk upgrade --no-cache \
+    && apk add --no-cache ca-certificates mailcap \
     && addgroup -S -g 10001 rsp \
     && adduser -S -D -H -u 10001 -G rsp rsp \
     && mkdir -p /config/caddy /data/caddy /srv \

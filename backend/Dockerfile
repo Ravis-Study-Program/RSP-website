@@ -55,7 +55,8 @@ RUN --mount=type=cache,target=/go/pkg/mod \
       ./scripts/legacy-migration/cmd
 
 FROM alpine:${ALPINE_VERSION} AS runtime-base
-RUN addgroup -S -g 10001 rsp \
+RUN apk upgrade --no-cache \
+    && addgroup -S -g 10001 rsp \
     && adduser -S -D -H -u 10001 -G rsp rsp
 
 FROM runtime-base AS runtime
