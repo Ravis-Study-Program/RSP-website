@@ -122,3 +122,22 @@ test('system admin edits profile details and requests email verification separat
     currentEmail!,
   );
 });
+
+test('administrators can correct the person attached to an enrollment', async ({
+  page,
+}) => {
+  await page.addInitScript(() =>
+    localStorage.setItem('rsp-demo-role', 'director'),
+  );
+  await page.goto('/admin/enrollments');
+  await page
+    .getByRole('button', { name: 'Correct person or season' })
+    .filter({ visible: true })
+    .first()
+    .click();
+  const dialog = page.getByRole('dialog', { name: /Correct enrollment for/ });
+  await expect(dialog.getByLabel('Correct person')).toBeEnabled();
+  await dialog.getByLabel('Correct person').selectOption({ index: 1 });
+  await dialog.getByRole('button', { name: 'Save correction' }).click();
+  await expect(dialog).not.toBeVisible();
+});

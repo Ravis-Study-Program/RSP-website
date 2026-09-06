@@ -55,6 +55,7 @@ import {
 } from '@/api/queries';
 import { MetricCard, PageHeader, usePageTitle } from '@/components/Common';
 import { AppDatePicker } from '@/components/AppDatePicker';
+import { EnrollmentCorrection } from '@/components/EnrollmentCorrection';
 import { AdminProfileEditor } from '@/components/AdminProfileEditor';
 import { Invitations } from '@/components/Invitations';
 import { DataTable } from '@/components/DataTable';
@@ -413,30 +414,45 @@ export function AdminResourcePage({
             ? (enrollments.data?.items ?? []).map((enrollment) => ({
                 id: enrollment.id,
                 primary:
-                  peopleById.get(enrollment.userId)?.name ?? enrollment.userId,
+                  enrollment.member?.name ??
+                  peopleById.get(enrollment.userId)?.name ??
+                  enrollment.userId,
                 secondary:
-                  peopleById.get(enrollment.userId)?.slug ?? enrollment.userId,
+                  enrollment.member?.slug ??
+                  peopleById.get(enrollment.userId)?.slug ??
+                  enrollment.userId,
                 status: enrollment.state,
                 detail: `${enrollment.role}${enrollment.role === 'student' ? ` · ${enrollment.studentLevel.replace('_', ' ')}` : ''}${enrollment.assignmentState === 'pending_mfa' ? ' · pending MFA' : ''}`,
-                actions: selectedSeason ? (
-                  <div className={styles.inline}>
-                    {enrollment.role !== 'coordinator' ? (
-                      <EnrollmentDialog
-                        seasonId={selectedSeason.id}
-                        accounts={people.data?.items ?? []}
+                actions:
+                  selectedSeason?.status === 'open' ? (
+                    <div className={styles.inline}>
+                      <EnrollmentCorrection
                         enrollment={enrollment}
+                        seasons={manageableSeasons}
+                        name={
+                          enrollment.member?.name ??
+                          peopleById.get(enrollment.userId)?.name ??
+                          enrollment.userId
+                        }
                       />
-                    ) : null}
-                    <RemoveEnrollmentDialog
-                      seasonId={selectedSeason.id}
-                      enrollment={enrollment}
-                      name={
-                        peopleById.get(enrollment.userId)?.name ??
-                        enrollment.userId
-                      }
-                    />
-                  </div>
-                ) : undefined,
+                      {enrollment.state === 'active' &&
+                      enrollment.role !== 'coordinator' ? (
+                        <EnrollmentDialog
+                          seasonId={selectedSeason.id}
+                          accounts={people.data?.items ?? []}
+                          enrollment={enrollment}
+                        />
+                      ) : null}
+                      <RemoveEnrollmentDialog
+                        seasonId={selectedSeason.id}
+                        enrollment={enrollment}
+                        name={
+                          peopleById.get(enrollment.userId)?.name ??
+                          enrollment.userId
+                        }
+                      />
+                    </div>
+                  ) : undefined,
               }))
             : (mentorships.data?.items ?? []).map((mentorship) => ({
                 id: mentorship.id,

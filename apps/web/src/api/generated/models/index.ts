@@ -18,6 +18,7 @@ export * from './attemptMutationOutcome';
 export * from './attemptOutcome';
 export * from './attemptPage';
 export * from './attemptUpdate';
+export * from './correctEnrollmentBody';
 export * from './cursorParameter';
 export * from './difficulty';
 export * from './directionParameter';

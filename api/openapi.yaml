@@ -807,6 +807,40 @@ paths:
         '409': { $ref: '#/components/responses/Error' }
         '401': { $ref: '#/components/responses/Error' }
         '429': { $ref: '#/components/responses/RateLimited' }
+  /seasons/{id}/members/{memberId}/correction:
+    parameters:
+      - { $ref: '#/components/parameters/ID' }
+      - {
+          name: memberId,
+          in: path,
+          required: true,
+          schema: { type: string, format: uuid },
+        }
+    post:
+      operationId: correctEnrollment
+      description: Corrects the person or season while retaining participation dates, removing affected mentor assignments and keeping activity owners unchanged. Both seasons must be open.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [userId, seasonId]
+              properties:
+                userId: { type: string, format: uuid }
+                seasonId: { type: string, format: uuid }
+      responses:
+        default: { $ref: '#/components/responses/Error' }
+        '200':
+          {
+            description: Corrected enrollment,
+            content:
+              {
+                application/json:
+                  { schema: { $ref: '#/components/schemas/Enrollment' } },
+              },
+          }
+
   /seasons/{id}/members/{memberId}/student-level:
     parameters:
       [
