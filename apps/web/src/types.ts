@@ -101,6 +101,7 @@ export interface MockRound {
 
 export interface MockInterview {
   seasonId?: string | null;
+  weekId?: string | null;
   id: string;
   interviewee: Person;
   interviewer: Person;

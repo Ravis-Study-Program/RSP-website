@@ -45,11 +45,13 @@ test('former students can record mocks today in Adelaide and filter their person
   await edit.getByLabel('Duration (minutes)').fill('65');
   await edit.getByRole('button', { name: 'Save interview' }).click();
   await expect(edit).toBeHidden();
-  await page.getByLabel('Year (Adelaide time)').selectOption('2025');
+  await page.getByLabel('View activity').selectOption('season_2026_s1');
+  await expect(page).toHaveURL(/\/mock-interviews\?seasonId=season_2026_s1/);
   await expect(page.getByRole('button', { name: 'Edit details' })).toHaveCount(
     0,
   );
-  await page.getByLabel('Year (Adelaide time)').selectOption('2026');
+  await page.getByLabel('View activity').selectOption('');
+  await expect(page).not.toHaveURL(/seasonId=/);
   await expect(
     page
       .getByText(/65 min/)
@@ -60,10 +62,16 @@ test('former students can record mocks today in Adelaide and filter their person
   await expect(
     page.getByRole('heading', { name: 'Problem practice', exact: true }),
   ).toBeVisible();
-  await page.getByLabel('Year (Adelaide time)').selectOption('2025');
+  await page.getByLabel('View activity').selectOption('season_2026_s1');
   await expect(
     page.getByText('Binary Tree Level Order Traversal', { exact: true }),
   ).toHaveCount(0);
+  await page.getByLabel('View activity').selectOption('');
+  await expect(
+    page
+      .getByText('Binary Tree Level Order Traversal', { exact: true })
+      .filter({ visible: true }),
+  ).toBeVisible();
   await page.goto('/graduates');
   await expect(page).toHaveURL(/\/forbidden$/);
 });

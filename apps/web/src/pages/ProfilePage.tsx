@@ -96,6 +96,7 @@ export function ProfilePage() {
   const showProgrammeDetails = !isSelf || hasProgrammeAccess;
   const [savedName, setSavedName] = useState<string | null>(null);
   const [savedSlug, setSavedSlug] = useState<string | null>(null);
+  const [activityTab, setActivityTab] = useState('practice');
   usePageTitle(person?.name ?? 'Profile');
 
   if (
@@ -173,6 +174,7 @@ export function ProfilePage() {
             onChange={(event) => {
               const next = new URLSearchParams(searchParams);
               next.delete('weekId');
+              next.delete('year');
               if (event.target.value) next.set('seasonId', event.target.value);
               else next.delete('seasonId');
               setSearchParams(next);
@@ -358,7 +360,12 @@ export function ProfilePage() {
         />
       ) : null}
       {showProgrammeDetails ? (
-        <ProfileActivity person={person} seasonId={seasonId} />
+        <ProfileActivity
+          person={person}
+          seasonId={seasonId}
+          tab={activityTab}
+          onTabChange={setActivityTab}
+        />
       ) : null}
     </div>
   );

@@ -39,17 +39,17 @@ export function activityFilterQuery(filters: ActivityFilters) {
   return params.size ? `&${params}` : '';
 }
 
-export function useActivityFilters() {
+export function useActivityFilters(seasonId?: string) {
   const [params, setParams] = useSearchParams();
   const filters = useMemo<ActivityFilters>(
     () => ({
       difficulties: params.getAll('difficulty'),
       categories: params.getAll('category'),
-      weeks: params.getAll('weekId'),
+      weeks: seasonId ? params.getAll('weekId') : [],
       interviewers: params.getAll('interviewerId'),
       passed: params.get('passed') ?? '',
     }),
-    [params],
+    [params, seasonId],
   );
   const update = (change: Partial<ActivityFilters>) => {
     const next = new URLSearchParams(params);
@@ -85,6 +85,7 @@ export function filterMocks(mocks: MockInterview[], filters: ActivityFilters) {
     (m) =>
       (!filters.interviewers.length ||
         filters.interviewers.includes(m.interviewer.id)) &&
-      (!filters.passed || interviewPassed(m) === (filters.passed === 'true')),
+      (!filters.passed || interviewPassed(m) === (filters.passed === 'true')) &&
+      (!filters.weeks.length || filters.weeks.includes(m.weekId ?? '')),
   );
 }

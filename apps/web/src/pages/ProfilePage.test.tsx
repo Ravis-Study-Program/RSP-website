@@ -154,7 +154,6 @@ describe('profile slug suggestion', () => {
     expect(useMockInterviews).toHaveBeenLastCalledWith(
       true,
       'season-1',
-      undefined,
       'user-1',
     );
     await user.selectOptions(screen.getByLabelText('View activity'), '');

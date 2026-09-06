@@ -47,3 +47,42 @@ it('combines result and interviewer selection', () => {
     }).map((m) => m.id),
   ).toEqual(['b']);
 });
+
+it('matches any selected mock week and combines it with interviewer and result', () => {
+  const mocks = [
+    {
+      id: 'a',
+      weekId: '1',
+      interviewer: { id: 'one' },
+      rounds: [{ score: 8 }],
+    },
+    {
+      id: 'b',
+      weekId: '2',
+      interviewer: { id: 'one' },
+      rounds: [{ score: 8 }],
+    },
+    {
+      id: 'c',
+      weekId: '1',
+      interviewer: { id: 'two' },
+      rounds: [{ score: 8 }],
+    },
+    {
+      id: 'd',
+      weekId: '2',
+      interviewer: { id: 'one' },
+      rounds: [{ score: 4 }],
+    },
+    { id: 'e', interviewer: { id: 'one' }, rounds: [{ score: 8 }] },
+  ] as MockInterview[];
+  expect(
+    filterMocks(mocks, {
+      ...emptyActivityFilters,
+      weeks: ['1', '2'],
+      interviewers: ['one'],
+      passed: 'true',
+    }).map((mock) => mock.id),
+  ).toEqual(['a', 'b']);
+  expect(filterMocks(mocks, emptyActivityFilters)).toHaveLength(5);
+});

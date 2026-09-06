@@ -1,15 +1,15 @@
 import { useActivityFilters, filterPractice } from '@/activityFilters';
 import { ProblemSuggestion } from '@/components/ProblemSuggestion';
 import { PracticeFilters } from '@/components/ActivityFilters';
-import { adelaideYear } from '@/activityDates';
-import { ActivityYearFilter } from '@/components/ActivityYearFilter';
+import { ActivityPeriodFilter } from '@/components/ActivityPeriodFilter';
+import { useActivitySeason } from '@/activityPeriod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { IconEdit, IconPlus } from '@tabler/icons-react';
 import type { ColumnDef } from '@tanstack/react-table';
 import type { Resolver } from 'react-hook-form';
 import { useMemo, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
-import { useBeforeUnload, useParams } from 'react-router-dom';
+import { useBeforeUnload } from 'react-router-dom';
 import { z } from 'zod';
 
 import { adaptAttempt, displayDifficulty, indexProblems } from '@/api/adapters';
@@ -21,9 +21,9 @@ import type {
 } from '@/api/generated/models';
 import {
   demoMode,
+  demoActivityWeekId,
   useAttempts,
   useLeetcodeProblems,
-  useSeasons,
 } from '@/api/queries';
 import { PracticeAnalytics } from '@/components/PracticeAnalytics';
 import { AppDatePicker } from '@/components/AppDatePicker';
@@ -33,7 +33,7 @@ import { FormDialog, NamedConfirmation } from '@/components/Dialogs';
 import { ProblemSelect } from '@/components/ProblemSelect';
 import { RichTextEditor } from '@/components/RichTextEditor';
 import { RichTextContent } from '@/components/RichTextContent';
-import { InlineNotice } from '@/components/StatusViews';
+import { ErrorState, InlineNotice } from '@/components/StatusViews';
 import styles from '@/styles/App.module.css';
 import type { Attempt } from '@/types';
 import {
@@ -162,15 +162,11 @@ const baseColumns: ColumnDef<Attempt, any>[] = [
 
 export function PracticePage() {
   usePageTitle('Practice');
-  const { slug } = useParams();
-  const seasons = useSeasons();
-  const season = seasons.data?.items.find((item) => item.slug === slug);
-  const [year, setYear] = useState<number>();
-  const [filters, setFilters] = useActivityFilters();
+  const { seasons, season, hasSelection } = useActivitySeason();
+  const [filters, setFilters] = useActivityFilters(season?.id);
   const attemptsQuery = useAttempts(
-    !slug || Boolean(season),
+    !hasSelection || Boolean(season),
     season?.id,
-    year,
     filters,
   );
   const problemsQuery = useLeetcodeProblems();
@@ -198,23 +194,23 @@ export function PracticePage() {
         )
         .filter((attempt) => !removedIds.includes(attempt.id))
         .map((attempt) => updatedAttempts[attempt.id] ?? attempt)
+        .map((attempt) =>
+          demoMode
+            ? {
+                ...attempt,
+                weekId: demoActivityWeekId(season?.id, attempt.attemptedAt),
+              }
+            : attempt,
+        )
         .filter(
           (attempt) =>
-            (!year || adelaideYear(attempt.attemptedAt) === year) &&
-            (!season ||
-              (demoMode
-                ? attempt.attemptedAt >= season.startsAt &&
-                  attempt.attemptedAt <= season.endsAt
-                : attempt.seasonId === season.id)),
+            !season ||
+            (demoMode
+              ? attempt.attemptedAt >= season.startsAt &&
+                attempt.attemptedAt <= season.endsAt
+              : attempt.seasonId === season.id),
         ),
-    [
-      localAttempts,
-      attemptsQuery.data,
-      removedIds,
-      updatedAttempts,
-      year,
-      season,
-    ],
+    [localAttempts, attemptsQuery.data, removedIds, updatedAttempts, season],
   );
   const saveAttempt = (attempt: Attempt) => {
     if (attempt.id.startsWith('attempt_local_'))
@@ -294,6 +290,17 @@ export function PracticePage() {
     [data, filters],
   );
 
+  if (seasons.isError || (hasSelection && !seasons.isLoading && !season))
+    return (
+      <div className={styles.page}>
+        <ErrorState
+          title="Season unavailable"
+          message="The selected season could not be loaded."
+          onRetry={() => void seasons.refetch()}
+        />
+      </div>
+    );
+
   return (
     <div className={styles.page}>
       <PageHeader
@@ -333,7 +340,11 @@ export function PracticePage() {
             {visibleAttempts.length} recorded
           </span>
         </div>
-        <ActivityYearFilter year={year} onChange={setYear} />
+        <ActivityPeriodFilter
+          section="practice"
+          season={season}
+          seasons={seasons.data?.items ?? []}
+        />
         <PracticeFilters
           seasonId={season?.id}
           filters={filters}
@@ -344,10 +355,10 @@ export function PracticePage() {
           ariaLabel="Problem attempts"
           data={visibleAttempts}
           renderSummary={(rows) => (
-            <PracticeAnalytics attempts={rows} season={season} year={year} />
+            <PracticeAnalytics attempts={rows} season={season} />
           )}
           columns={columns}
-          loading={attemptsQuery.isLoading}
+          loading={attemptsQuery.isLoading || seasons.isLoading}
           error={attemptsQuery.isError}
           onRetry={() => void attemptsQuery.refetch()}
           emptyTitle="No attempts recorded"

@@ -298,6 +298,7 @@ export function adaptMockInterview(
       context.users.get(interview.interviewerId) ??
       adaptMockParticipant(interview.interviewer),
     seasonId: interview.seasonId,
+    weekId: interview.weekId,
     season: interview.seasonId
       ? (context.seasons.get(interview.seasonId)?.name ?? null)
       : null,

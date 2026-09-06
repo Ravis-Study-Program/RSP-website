@@ -3,7 +3,6 @@ import {
   emptyActivityFilters,
   type ActivityFilters,
 } from '@/activityFilters';
-import { adelaideYear } from '@/activityDates';
 import { practiceGoalMinutes } from '@/utils';
 import { queryOptions, useQuery } from '@tanstack/react-query';
 
@@ -289,6 +288,14 @@ function demoWeekPage(seasonId: string): WeekPage {
   return page(items);
 }
 
+export function demoActivityWeekId(seasonId: string | undefined, at: string) {
+  return seasonId
+    ? demoWeekPage(seasonId).items.find(
+        (week) => at >= week.startAt && at <= week.endAt,
+      )?.id
+    : undefined;
+}
+
 function demoEnrollmentPage(seasonId: string): EnrollmentPage {
   if (!seasons.some((season) => season.id === seasonId)) return page([]);
   const items: Enrollment[] = people
@@ -409,33 +416,36 @@ export function useEnrollmentCandidates(seasonId?: string, enabled = true) {
 export function useAttempts(
   enabled = true,
   seasonId?: string,
-  year?: number,
   filters: ActivityFilters = emptyActivityFilters,
 ) {
   return useQuery({
-    queryKey: ['problem-attempts', { seasonId, year, filters }],
+    queryKey: ['problem-attempts', { seasonId, filters }],
     enabled,
     queryFn: async () => {
       if (demoMode)
         return wait(
           page(
-            attempts.filter((item) => {
-              const season = seasons.find((item) => item.id === seasonId);
-              return (
-                (!year || adelaideYear(item.attemptedAt) === year) &&
-                (!seasonId ||
+            attempts
+              .filter((item) => {
+                const season = seasons.find((item) => item.id === seasonId);
+                return (
+                  !seasonId ||
                   Boolean(
                     season &&
                     item.attemptedAt >= season.startsAt &&
                     item.attemptedAt <= season.endsAt,
-                  ))
-              );
-            }),
+                  )
+                );
+              })
+              .map((item) => ({
+                ...item,
+                weekId: demoActivityWeekId(seasonId, item.attemptedAt),
+              })),
           ),
         );
       const [attemptPage, problemPage] = await Promise.all([
         fetchAllPages<ApiAttemptPage['items'][number]>(
-          `/problem-attempts?limit=100${seasonId ? `&seasonId=${encodeURIComponent(seasonId)}` : ''}${year ? `&year=${year}` : ''}${activityFilterQuery(filters)}`,
+          `/problem-attempts?limit=100${seasonId ? `&seasonId=${encodeURIComponent(seasonId)}` : ''}${activityFilterQuery(filters)}`,
         ),
         getProblems(),
       ]);
@@ -547,7 +557,24 @@ export function useUserAttempts(
       if (!userId) return page([]);
       if (demoMode)
         return wait(
-          page(attempts.filter((a) => !seasonId || a.seasonId === seasonId)),
+          page(
+            attempts
+              .filter((attempt) => {
+                const season = seasons.find((item) => item.id === seasonId);
+                return (
+                  !seasonId ||
+                  Boolean(
+                    season &&
+                    attempt.attemptedAt >= season.startsAt &&
+                    attempt.attemptedAt <= season.endsAt,
+                  )
+                );
+              })
+              .map((attempt) => ({
+                ...attempt,
+                weekId: demoActivityWeekId(seasonId, attempt.attemptedAt),
+              })),
+          ),
         );
       const [attemptPage, problemPage] = await Promise.all([
         fetchAllPages<ApiAttemptPage['items'][number]>(
@@ -673,37 +700,40 @@ export function useSeasonPeople(seasonId?: string, seasonName?: string) {
 export function useMockInterviews(
   enabled = true,
   seasonId?: string,
-  year?: number,
   userId?: string,
   filters: ActivityFilters = emptyActivityFilters,
 ) {
   return useQuery({
-    queryKey: ['mock-interviews', { seasonId, year, userId, filters }],
+    queryKey: ['mock-interviews', { seasonId, userId, filters }],
     enabled,
     queryFn: async () => {
       if (demoMode)
         return wait(
           page(
-            mockInterviews.filter((item) => {
-              const season = seasons.find((item) => item.id === seasonId);
-              return (
-                (!userId ||
-                  item.interviewee.id === userId ||
-                  item.interviewer.id === userId) &&
-                (!year || adelaideYear(item.occurredAt) === year) &&
-                (!seasonId ||
-                  Boolean(
-                    season &&
-                    item.occurredAt >= season.startsAt &&
-                    item.occurredAt <= season.endsAt,
-                  ))
-              );
-            }),
+            mockInterviews
+              .filter((item) => {
+                const season = seasons.find((item) => item.id === seasonId);
+                return (
+                  (!userId ||
+                    item.interviewee.id === userId ||
+                    item.interviewer.id === userId) &&
+                  (!seasonId ||
+                    Boolean(
+                      season &&
+                      item.occurredAt >= season.startsAt &&
+                      item.occurredAt <= season.endsAt,
+                    ))
+                );
+              })
+              .map((item) => ({
+                ...item,
+                weekId: demoActivityWeekId(seasonId, item.occurredAt),
+              })),
           ),
         );
       const [interviewPage, seasonPage, problemPage] = await Promise.all([
         fetchAllPages<ApiMockInterviewPage['items'][number]>(
-          `/mock-interviews?limit=100&mode=all${userId ? `&userId=${encodeURIComponent(userId)}` : ''}${seasonId ? `&seasonId=${encodeURIComponent(seasonId)}` : ''}${year ? `&year=${year}` : ''}${activityFilterQuery(filters)}`,
+          `/mock-interviews?limit=100&mode=all${userId ? `&userId=${encodeURIComponent(userId)}` : ''}${seasonId ? `&seasonId=${encodeURIComponent(seasonId)}` : ''}${activityFilterQuery(filters)}`,
         ),
         fetchAllPages<ApiSeasonPage['items'][number]>('/seasons?limit=100'),
         getProblems(),

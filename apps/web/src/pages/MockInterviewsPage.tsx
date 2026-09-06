@@ -1,7 +1,8 @@
 import { useActivityFilters, filterMocks } from '@/activityFilters';
 import { MockFilters } from '@/components/ActivityFilters';
-import { programmeTimezone, adelaideYear } from '@/activityDates';
-import { ActivityYearFilter } from '@/components/ActivityYearFilter';
+import { programmeTimezone } from '@/activityDates';
+import { ActivityPeriodFilter } from '@/components/ActivityPeriodFilter';
+import { useActivitySeason } from '@/activityPeriod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Tabs } from '@base-ui/react/tabs';
 import {
@@ -16,7 +17,7 @@ import type { ColumnDef, Row } from '@tanstack/react-table';
 import type { Resolver } from 'react-hook-form';
 import { useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
-import { useBeforeUnload, useParams } from 'react-router-dom';
+import { useBeforeUnload } from 'react-router-dom';
 import { z } from 'zod';
 
 import { adaptCurrentPerson, adaptMockInterview } from '@/api/adapters';
@@ -31,16 +32,17 @@ import type {
 } from '@/api/generated/models';
 import {
   demoMode,
+  demoActivityWeekId,
   useCurrentUser,
   useLeetcodeProblems,
   useMockInterviews,
   useMockParticipants,
-  useSeasons,
 } from '@/api/queries';
 import { PageHeader, PersonIdentity, usePageTitle } from '@/components/Common';
 import { DataTable } from '@/components/DataTable';
 import { FormDialog, NamedConfirmation } from '@/components/Dialogs';
 import { ProblemSelect } from '@/components/ProblemSelect';
+import { ErrorState } from '@/components/StatusViews';
 import { RichTextEditor } from '@/components/RichTextEditor';
 import { RichTextContent } from '@/components/RichTextContent';
 import styles from '@/styles/App.module.css';
@@ -390,18 +392,14 @@ type ViewMode = 'received' | 'given' | 'all';
 
 export function MockInterviewsPage() {
   usePageTitle('Mock interviews');
-  const { slug } = useParams();
-  const [year, setYear] = useState<number>();
+  const { seasons: seasonsQuery, season, hasSelection } = useActivitySeason();
   const user = useCurrentUser();
   const peopleQuery = useMockParticipants();
-  const seasonsQuery = useSeasons();
-  const season = seasonsQuery.data?.items.find((item) => item.slug === slug);
   const columns = useMemo(() => columnsForSeason(season?.id), [season?.id]);
-  const [filters, setFilters] = useActivityFilters();
+  const [filters, setFilters] = useActivityFilters(season?.id);
   const query = useMockInterviews(
-    !slug || Boolean(season),
+    !hasSelection || Boolean(season),
     season?.id,
-    year,
     undefined,
     filters,
   );
@@ -427,15 +425,23 @@ export function MockInterviewsPage() {
         )
         .filter((mock) => !removedIds.includes(mock.id))
         .map((mock) => updated[mock.id] ?? mock)
+        .map((mock) =>
+          demoMode
+            ? {
+                ...mock,
+                weekId: demoActivityWeekId(season?.id, mock.occurredAt),
+              }
+            : mock,
+        )
         .filter(
           (mock) =>
-            (!year || adelaideYear(mock.occurredAt) === year) &&
-            (!season ||
-              (demoMode
-                ? mock.season === season.name
-                : mock.seasonId === season.id)),
+            !season ||
+            (demoMode
+              ? mock.occurredAt >= season.startsAt &&
+                mock.occurredAt <= season.endsAt
+              : mock.seasonId === season.id),
         ),
-    [created, query.data, removedIds, updated, year, season],
+    [created, query.data, removedIds, updated, season],
   );
   const filtered = useMemo(() => {
     const matches = filterMocks(all, filters);
@@ -459,6 +465,20 @@ export function MockInterviewsPage() {
     setRemovedIds((ids) => [...ids, mock.id]);
   };
 
+  if (
+    seasonsQuery.isError ||
+    (hasSelection && !seasonsQuery.isLoading && !season)
+  )
+    return (
+      <div className={styles.page}>
+        <ErrorState
+          title="Season unavailable"
+          message="The selected season could not be loaded."
+          onRetry={() => void seasonsQuery.refetch()}
+        />
+      </div>
+    );
+
   return (
     <div className={styles.page}>
       <PageHeader
@@ -474,8 +494,13 @@ export function MockInterviewsPage() {
           />
         }
       />
-      <ActivityYearFilter year={year} onChange={setYear} />
+      <ActivityPeriodFilter
+        section="mock-interviews"
+        season={season}
+        seasons={seasonsQuery.data?.items ?? []}
+      />
       <MockFilters
+        seasonId={season?.id}
         people={availablePeople}
         filters={filters}
         onChange={setFilters}

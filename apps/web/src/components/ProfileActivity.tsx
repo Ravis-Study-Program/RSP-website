@@ -1,5 +1,5 @@
 import { Tabs } from '@base-ui/react/tabs';
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import {
   filterPractice,
   filterMocks,
@@ -59,15 +59,19 @@ const practiceColumns: ColumnDef<Attempt, any>[] = [
 export function ProfileActivity({
   person,
   seasonId,
+  tab,
+  onTabChange,
 }: {
   person: Person;
   seasonId?: string;
+  tab: string;
+  onTabChange: (tab: string) => void;
 }) {
   const seasons = useSeasons();
   const season = seasons.data?.items.find((s) => s.id === seasonId);
-  const [filters, setFilters] = useActivityFilters();
+  const [filters, setFilters] = useActivityFilters(seasonId);
   const attempts = useUserAttempts(person.id, true, seasonId, filters);
-  const mocks = useMockInterviews(true, seasonId, undefined, person.id);
+  const mocks = useMockInterviews(true, seasonId, person.id);
   const visibleAttempts = useMemo(
     () => filterPractice(attempts.data?.items ?? [], filters),
     [attempts.data, filters],
@@ -81,7 +85,6 @@ export function ProfileActivity({
       (mocks.data?.items ?? []).map((m) => [m.interviewer.id, m.interviewer]),
     ).values(),
   ];
-  const [tab, setTab] = useState('practice');
   const mockColumns: ColumnDef<MockInterview, any>[] = [
     {
       accessorKey: 'occurredAt',
@@ -120,7 +123,10 @@ export function ProfileActivity({
     },
   ];
   return (
-    <Tabs.Root value={tab} onValueChange={(value) => setTab(String(value))}>
+    <Tabs.Root
+      value={tab}
+      onValueChange={(value) => onTabChange(String(value))}
+    >
       <Tabs.List className={styles.tabsList} aria-label="Profile activity">
         <Tabs.Tab value="practice" className={styles.tab}>
           Practice
@@ -174,6 +180,7 @@ export function ProfileActivity({
       </Tabs.Panel>
       <Tabs.Panel value="mocks">
         <MockFilters
+          seasonId={seasonId}
           people={interviewers}
           filters={filters}
           onChange={setFilters}

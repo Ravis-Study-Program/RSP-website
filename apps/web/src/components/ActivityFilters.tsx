@@ -66,7 +66,6 @@ export function PracticeFilters({
   onChange: (change: Partial<ActivityFilters>) => void;
 }) {
   const problems = useLeetcodeProblems();
-  const weeks = useSeasonWeeks(seasonId);
   const categories = [
     ...new Set((problems.data?.items ?? []).flatMap((p) => p.categories)),
   ].sort();
@@ -87,17 +86,11 @@ export function PracticeFilters({
         selected={filters.categories}
         onChange={(categories) => onChange({ categories })}
       />
-      {seasonId ? (
-        <Choices
-          label="Season weeks"
-          options={(weeks.data?.items ?? []).map((w) => ({
-            label: `Week ${w.number}`,
-            value: w.id,
-          }))}
-          selected={filters.weeks}
-          onChange={(weeks) => onChange({ weeks })}
-        />
-      ) : null}
+      <SeasonWeekFilter
+        seasonId={seasonId}
+        filters={filters}
+        onChange={onChange}
+      />
       <button
         className={styles.buttonQuiet}
         type="button"
@@ -107,7 +100,7 @@ export function PracticeFilters({
       >
         Clear practice filters
       </button>
-      {problems.isError || weeks.isError ? (
+      {problems.isError ? (
         <p role="alert">Some filter choices could not be loaded.</p>
       ) : null}
     </div>
@@ -115,10 +108,12 @@ export function PracticeFilters({
 }
 
 export function MockFilters({
+  seasonId,
   people,
   filters,
   onChange,
 }: {
+  seasonId?: string;
   people: Person[];
   filters: ActivityFilters;
   onChange: (change: Partial<ActivityFilters>) => void;
@@ -143,15 +138,53 @@ export function MockFilters({
         selected={filters.interviewers}
         onChange={(interviewers) => onChange({ interviewers })}
       />
+      <SeasonWeekFilter
+        seasonId={seasonId}
+        filters={filters}
+        onChange={onChange}
+      />
       <button
         className={styles.buttonQuiet}
         type="button"
         onClick={() =>
-          onChange({ passed: emptyActivityFilters.passed, interviewers: [] })
+          onChange({
+            passed: emptyActivityFilters.passed,
+            interviewers: [],
+            weeks: [],
+          })
         }
       >
         Clear mock filters
       </button>
     </div>
+  );
+}
+
+function SeasonWeekFilter({
+  seasonId,
+  filters,
+  onChange,
+}: {
+  seasonId?: string;
+  filters: ActivityFilters;
+  onChange: (change: Partial<ActivityFilters>) => void;
+}) {
+  const weeks = useSeasonWeeks(seasonId);
+  if (!seasonId) return null;
+  return (
+    <>
+      <Choices
+        label="Season weeks"
+        options={(weeks.data?.items ?? []).map((week) => ({
+          label: `Week ${week.number}`,
+          value: week.id,
+        }))}
+        selected={filters.weeks}
+        onChange={(weeks) => onChange({ weeks })}
+      />
+      {weeks.isError ? (
+        <p role="alert">Season weeks could not be loaded.</p>
+      ) : null}
+    </>
   );
 }

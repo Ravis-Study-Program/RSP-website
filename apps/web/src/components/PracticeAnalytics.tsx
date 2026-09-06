@@ -28,11 +28,9 @@ const colors = [
 export function PracticeAnalytics({
   attempts,
   season,
-  year,
 }: {
   attempts: Attempt[];
   season?: Season;
-  year?: number;
 }) {
   const [goals, setGoals] = useState(true);
   const breakdown = difficultyBreakdown(attempts);
@@ -49,7 +47,7 @@ export function PracticeAnalytics({
       <p className={styles.helper}>
         Charts include every matching attempt, across all table pages.
       </p>
-      <ActivityChart data={activitySeries(attempts, [], { season, year })} />
+      <ActivityChart data={activitySeries(attempts, [], { season })} />
       <div className={styles.analyticsGrid}>
         <section className={styles.panel} aria-label="Difficulty breakdown">
           <h3>Difficulty breakdown</h3>

@@ -5,7 +5,7 @@ import type { Attempt, MockInterview, Season } from '@/types';
 export function activitySeries(
   attempts: Attempt[],
   mocks: MockInterview[] = [],
-  period?: { season?: Season; year?: number },
+  period?: { season?: Season },
 ) {
   const dates = [
     ...attempts.map((a) => a.attemptedAt),
@@ -13,18 +13,12 @@ export function activitySeries(
   ]
     .map((d) => calendarDateKey(d, programmeTimezone))
     .sort();
-  let start = period?.season
+  const start = period?.season
     ? calendarDateKey(period.season.startsAt, programmeTimezone)
     : dates[0];
-  let end = period?.season
+  const end = period?.season
     ? calendarDateKey(period.season.endsAt, programmeTimezone)
     : dates.at(-1);
-  if (period?.year) {
-    const first = `${period.year}-01-01`,
-      last = `${period.year}-12-31`;
-    start = period.season && start && start > first ? start : first;
-    end = period.season && end && end < last ? end : last;
-  }
   if (!start || !end || end < start) return [];
   const monthly = Date.parse(end) - Date.parse(start) > 120 * 86_400_000;
   const key = (day: string) => {
