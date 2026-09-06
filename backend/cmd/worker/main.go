@@ -22,8 +22,8 @@ func main() {
 	slog.SetDefault(logger)
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
-	url := os.Getenv("DATABASE_URL")
-	if url == "" {
+	databaseURL := os.Getenv("DATABASE_URL")
+	if databaseURL == "" {
 		logger.Error("DATABASE_URL is required")
 		os.Exit(1)
 	}
@@ -34,31 +34,31 @@ func main() {
 		os.Exit(1)
 	}
 
-	repository, err := dal.Open(ctx, url)
+	store, err := dal.Open(ctx, databaseURL)
 	if err != nil {
 		logger.Error("database connection failed", "error", err)
 		os.Exit(1)
 	}
 
-	defer repository.Close()
-	state, err := repository.OpenWorkerSession(ctx)
+	defer store.Close()
+	workerSession, err := store.OpenWorkerSession(ctx)
 	if err != nil {
 		logger.Error("database connection acquisition failed", "error", err)
 		os.Exit(1)
 	}
-	defer state.Close()
+	defer workerSession.Close()
 	scheduler := worker.LeetCodeScheduler{
-		Locker:  state,
-		State:   state,
-		Syncer:  leetcode.Client{URL: syncURL, Sink: state},
-		Retries: 3,
-		Timeout: 2 * time.Minute,
+		Locker:      workerSession,
+		State:       workerSession,
+		Syncer:      leetcode.Client{URL: syncURL, Sink: workerSession},
+		MaxAttempts: 3,
+		Timeout:     2 * time.Minute,
 	}
 	ticker := time.NewTicker(time.Minute)
 	defer ticker.Stop()
 
 	run := func() {
-		runID, err := state.PendingManualRunID(ctx)
+		runID, err := workerSession.PendingManualRunID(ctx)
 		ran := false
 		if err == nil {
 			if runID != "" {

@@ -93,35 +93,14 @@ func ValidateClaims(claims Claims) error {
 }
 
 func (v *Validator) Validate(ctx context.Context, raw string) (Claims, error) {
-	if v.Client == nil {
-		v.Client = &http.Client{Timeout: 5 * time.Second}
-	}
-	if v.TTL == 0 {
-		v.TTL = 5 * time.Minute
-	}
-	if err := v.refresh(ctx, false); err != nil {
+	if err := v.refreshSigningKeys(ctx, false); err != nil {
 		return Claims{}, fmt.Errorf("%w: key refresh failed", ErrInvalidToken)
 	}
 
 	claims := Claims{}
 	parser := jwt.NewParser(jwt.WithIssuer(v.Issuer), jwt.WithAudience(v.Audience), jwt.WithExpirationRequired(), jwt.WithIssuedAt(), jwt.WithLeeway(30*time.Second), jwt.WithValidMethods([]string{"RS256", "RS384", "RS512", "EdDSA", "ES256"}))
 	token, err := parser.ParseWithClaims(raw, &claims, func(t *jwt.Token) (any, error) {
-		kid, _ := t.Header["kid"].(string)
-		if kid == "" {
-			return nil, ErrInvalidToken
-		}
-		key, ok := v.key(kid)
-		if !ok {
-			if err := v.refresh(ctx, true); err != nil {
-				return nil, err
-			}
-
-			key, ok = v.key(kid)
-		}
-		if !ok {
-			return nil, fmt.Errorf("%w: unknown key id", ErrInvalidToken)
-		}
-		return key, nil
+		return v.signingKeyForToken(ctx, t)
 	})
 	if err != nil || !token.Valid || claims.Subject == "" {
 		return Claims{}, fmt.Errorf("%w: %v", ErrInvalidToken, err)
@@ -132,17 +111,44 @@ func (v *Validator) Validate(ctx context.Context, raw string) (Claims, error) {
 	return claims, nil
 }
 
-func (v *Validator) key(kid string) (any, bool) {
+func (v *Validator) signingKeyForToken(ctx context.Context, t *jwt.Token) (any, error) {
+	kid, _ := t.Header["kid"].(string)
+	if kid == "" {
+		return nil, ErrInvalidToken
+	}
+	key, ok := v.cachedSigningKey(kid)
+	if !ok {
+		if err := v.refreshSigningKeys(ctx, true); err != nil {
+			return nil, err
+		}
+
+		key, ok = v.cachedSigningKey(kid)
+	}
+	if !ok {
+		return nil, fmt.Errorf("%w: unknown key id", ErrInvalidToken)
+	}
+	return key, nil
+}
+
+func (v *Validator) cachedSigningKey(kid string) (any, bool) {
 	v.mu.RLock()
 	defer v.mu.RUnlock()
 	key, ok := v.keys[kid]
 	return key, ok
 }
 
-func (v *Validator) refresh(ctx context.Context, force bool) error {
+func (v *Validator) refreshSigningKeys(ctx context.Context, force bool) error {
 	v.mu.Lock()
 	defer v.mu.Unlock()
-	if !force && len(v.keys) > 0 && time.Since(v.loadedAt) < v.TTL {
+	ttl := v.TTL
+	if ttl == 0 {
+		ttl = 5 * time.Minute
+	}
+	client := v.Client
+	if client == nil {
+		client = &http.Client{Timeout: 5 * time.Second}
+	}
+	if !force && len(v.keys) > 0 && time.Since(v.loadedAt) < ttl {
 		return nil
 	}
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, v.JWKSURL, nil)
@@ -150,7 +156,7 @@ func (v *Validator) refresh(ctx context.Context, force bool) error {
 		return err
 	}
 
-	res, err := v.Client.Do(req)
+	res, err := client.Do(req)
 	if err != nil {
 		return err
 	}

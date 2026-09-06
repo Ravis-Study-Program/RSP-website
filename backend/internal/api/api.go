@@ -8,12 +8,11 @@ import (
 	"log/slog"
 	"net/http"
 	"regexp"
-
 	"time"
 
+	"github.com/magedmg/RSP-website/backend/internal/authadmin"
 	"github.com/magedmg/RSP-website/backend/internal/dal"
 	"github.com/magedmg/RSP-website/backend/internal/mockinterviews"
-
 	"github.com/magedmg/RSP-website/backend/internal/platform/id"
 	"github.com/magedmg/RSP-website/backend/internal/platform/observability"
 	"github.com/magedmg/RSP-website/backend/internal/platform/ratelimit"
@@ -28,31 +27,31 @@ const maxRequestBodyBytes int64 = 1 << 20
 
 // Config contains the dependencies needed by the HTTP API.
 type Config struct {
-	DB              *dal.Store
-	Authenticator   Authenticator
-	PublicOrigin    string
-	CursorSecret    []byte
-	Logger          *slog.Logger
-	Ready           func() error
-	SyncLeetCode    func(context.Context, string, string) error
-	SetAccountState func(context.Context, string, string, string, string) error
-	GetMFAState     func(context.Context, string) (bool, error)
+	DB                *dal.Store
+	Authenticator     Authenticator
+	PublicOrigin      string
+	CursorSecret      []byte
+	Logger            *slog.Logger
+	Ready             func() error
+	QueueLeetCodeSync func(context.Context, string, string) error
+	SetAccountState   func(context.Context, authadmin.SetAccountStateInput) error
+	GetMFAConfigured  func(context.Context, string) (bool, error)
 }
 
 // API connects HTTP handlers to authentication, application services, and storage.
 type API struct {
-	db              *dal.Store
-	auth            Authenticator
-	publicOrigin    string
-	cursorSecret    []byte
-	logger          *slog.Logger
-	limiter         *ratelimit.Limiter
-	ready           func() error
-	syncLeetCode    func(context.Context, string, string) error
-	setAccountState func(context.Context, string, string, string, string) error
-	getMFAState     func(context.Context, string) (bool, error)
-	telemetry       *apiMetrics
-	mockRules       mockinterviews.Service
+	db                   *dal.Store
+	auth                 Authenticator
+	publicOrigin         string
+	cursorSecret         []byte
+	logger               *slog.Logger
+	limiter              *ratelimit.Limiter
+	ready                func() error
+	queueLeetCodeSyncRun func(context.Context, string, string) error
+	setAccountState      func(context.Context, authadmin.SetAccountStateInput) error
+	getMFAConfigured     func(context.Context, string) (bool, error)
+	telemetry            *apiMetrics
+	mockRules            mockinterviews.Service
 }
 
 // New constructs the HTTP API from its dependencies.
@@ -67,18 +66,18 @@ func New(c Config) *API {
 	}
 	cleaner := sanitize.New()
 	return &API{
-		db:              c.DB,
-		auth:            c.Authenticator,
-		publicOrigin:    c.PublicOrigin,
-		cursorSecret:    secret,
-		logger:          logger,
-		limiter:         ratelimit.New(),
-		ready:           c.Ready,
-		syncLeetCode:    c.SyncLeetCode,
-		setAccountState: c.SetAccountState,
-		getMFAState:     c.GetMFAState,
-		telemetry:       newAPIMetrics(),
-		mockRules:       mockinterviews.Service{Sanitize: cleaner.String},
+		db:                   c.DB,
+		auth:                 c.Authenticator,
+		publicOrigin:         c.PublicOrigin,
+		cursorSecret:         secret,
+		logger:               logger,
+		limiter:              ratelimit.New(),
+		ready:                c.Ready,
+		queueLeetCodeSyncRun: c.QueueLeetCodeSync,
+		setAccountState:      c.SetAccountState,
+		getMFAConfigured:     c.GetMFAConfigured,
+		telemetry:            newAPIMetrics(),
+		mockRules:            mockinterviews.Service{Sanitize: cleaner.String},
 	}
 }
 
@@ -136,9 +135,17 @@ func requestIDFrom(ctx context.Context) string {
 
 // writeJSONResponse sends one JSON response with the supplied HTTP status.
 func writeJSONResponse(w http.ResponseWriter, status int, body any) {
+	encoded, err := json.Marshal(body)
+	if err != nil {
+		slog.Error("response encoding failed", "error", err)
+		writeErrorResponse(w, http.StatusInternalServerError, "internal_error", "The request could not be completed.")
+		return
+	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
-	_ = json.NewEncoder(w).Encode(body)
+	if _, err := w.Write(append(encoded, '\n')); err != nil {
+		slog.Error("response write failed", "error", err)
+	}
 }
 
 // limitRequestBody rejects requests larger than the API accepts and also caps

@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/magedmg/RSP-website/backend/internal/accounts"
+	"github.com/magedmg/RSP-website/backend/internal/authadmin"
 	"github.com/magedmg/RSP-website/backend/internal/authz"
 	"github.com/magedmg/RSP-website/backend/internal/dal"
 	"github.com/magedmg/RSP-website/backend/internal/platform/audit"
@@ -50,10 +51,19 @@ func (a *API) listAdminUsers(w http.ResponseWriter, r *http.Request) {
 	query := strings.TrimSpace(r.URL.Query().Get("query"))
 	accountState := r.URL.Query().Get("accountState")
 	globalRole := r.URL.Query().Get("globalRole")
-	if len(query) > 100 || accountState != "" && accountState != "active" && accountState != "suspended" && accountState != "deletion_pending" || globalRole != "" && globalRole != "director" && globalRole != "system_admin" {
-		writeErrorResponse(w, http.StatusBadRequest, "validation_failed", "query and valid accountState/globalRole filters are required")
+	if len(query) > 100 {
+		writeErrorResponse(w, http.StatusBadRequest, "validation_failed", "query must be at most 100 characters")
 		return
 	}
+	if accountState != "" && accountState != "active" && accountState != "suspended" && accountState != "deletion_pending" {
+		writeErrorResponse(w, http.StatusBadRequest, "validation_failed", "accountState must be active, suspended, or deletion_pending")
+		return
+	}
+	if globalRole != "" && globalRole != "director" && globalRole != "system_admin" {
+		writeErrorResponse(w, http.StatusBadRequest, "validation_failed", "globalRole must be director or system_admin")
+		return
+	}
+
 	binding := "admin-users|sort=id:asc|query=" + query + "|accountState=" + accountState + "|globalRole=" + globalRole
 	limit, boundary, err := parsePagination(r.URL.Query().Get("limit"), r.URL.Query().Get("cursor"), binding, a.cursorSecret)
 	if err != nil {
@@ -77,10 +87,15 @@ func (a *API) listAdminUsers(w http.ResponseWriter, r *http.Request) {
 		writeErrorResponse(w, http.StatusInternalServerError, "audit_failed", "Private data was not returned because its access could not be audited.")
 		return
 	}
-	pageInfo := pageInfoForKeyset(
+	pageInfo, err := pageInfoForKeyset(
 		a.cursorSecret, binding, direction, boundary, items, more,
 		func(user accounts.User) string { return user.ID },
 	)
+	if err != nil {
+		a.logger.Error("cursor encoding failed", "error", err)
+		writeErrorResponse(w, http.StatusInternalServerError, "internal_error", "The request could not be completed.")
+		return
+	}
 	response := Page[accounts.User]{
 		Items:      items,
 		PageInfo:   pageInfo,
@@ -105,8 +120,12 @@ func (a *API) setUserAccountState(w http.ResponseWriter, r *http.Request) {
 		writeErrorResponse(w, http.StatusBadRequest, "validation_failed", err.Error())
 		return
 	}
-	if (request.State != "active" && request.State != "suspended") || strings.TrimSpace(request.Reason) == "" || len(request.Reason) > 500 {
-		writeErrorResponse(w, http.StatusBadRequest, "validation_failed", "state active or suspended and a reason up to 500 characters are required")
+	if request.State != "active" && request.State != "suspended" {
+		writeErrorResponse(w, http.StatusBadRequest, "validation_failed", "state must be active or suspended")
+		return
+	}
+	if strings.TrimSpace(request.Reason) == "" || len(request.Reason) > 500 {
+		writeErrorResponse(w, http.StatusBadRequest, "validation_failed", "reason must contain 1-500 characters")
 		return
 	}
 
@@ -130,7 +149,7 @@ func (a *API) setUserAccountState(w http.ResponseWriter, r *http.Request) {
 		a.writeStoreErrorResponse(w, err)
 		return
 	}
-	if err := a.setAccountState(r.Context(), subject, request.State, strings.TrimSpace(request.Reason), actor.UserID); err != nil {
+	if err := a.setAccountState(r.Context(), authadmin.SetAccountStateInput{AuthUserID: subject, State: request.State, Reason: strings.TrimSpace(request.Reason), ActorUserID: actor.UserID}); err != nil {
 		writeErrorResponse(w, http.StatusBadGateway, "auth_service_failed", "The account state was not changed.")
 		return
 	}
@@ -160,11 +179,16 @@ func (a *API) grantUserGlobalRole(w http.ResponseWriter, r *http.Request) {
 		writeErrorResponse(w, http.StatusBadRequest, "validation_failed", err.Error())
 		return
 	}
-	if (request.Role != "director" && request.Role != "system_admin") || strings.TrimSpace(request.Reason) == "" || len(request.Reason) > 500 {
-		writeErrorResponse(w, http.StatusBadRequest, "validation_failed", "role and a reason up to 500 characters are required")
+	if request.Role != "director" && request.Role != "system_admin" {
+		writeErrorResponse(w, http.StatusBadRequest, "validation_failed", "role must be director or system_admin")
 		return
 	}
-	if a.getMFAState == nil {
+	if strings.TrimSpace(request.Reason) == "" || len(request.Reason) > 500 {
+		writeErrorResponse(w, http.StatusBadRequest, "validation_failed", "reason must contain 1-500 characters")
+		return
+	}
+
+	if a.getMFAConfigured == nil {
 		writeErrorResponse(w, http.StatusServiceUnavailable, "auth_service_unavailable", "MFA state could not be verified.")
 		return
 	}
@@ -180,7 +204,7 @@ func (a *API) grantUserGlobalRole(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	configured, err := a.getMFAState(r.Context(), subject)
+	configured, err := a.getMFAConfigured(r.Context(), subject)
 	if err != nil {
 		writeErrorResponse(w, http.StatusBadGateway, "auth_service_failed", "MFA state could not be verified.")
 		return

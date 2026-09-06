@@ -16,7 +16,7 @@ type workerTestSyncer struct {
 	calls  int
 }
 
-func (s *workerTestSyncer) Sync(context.Context) (worker.Report, error) {
+func (s *workerTestSyncer) SyncCatalogue(context.Context) (worker.Report, error) {
 	s.calls++
 	return s.report, nil
 }
@@ -61,11 +61,11 @@ func testLeetCodeWorkerRuns(t *testing.T, ctx context.Context, repository *Store
 		Failed:  1,
 	}}
 	scheduler := worker.LeetCodeScheduler{
-		Locker:  state,
-		State:   state,
-		Syncer:  syncer,
-		Now:     func() time.Time { return now },
-		Retries: 1,
+		Locker:      state,
+		State:       state,
+		Syncer:      syncer,
+		Now:         func() time.Time { return now },
+		MaxAttempts: 1,
 	}
 	if err := scheduler.RunManual(ctx, manualID); err == nil {
 		t.Fatal("partial manual failure was accepted")
@@ -78,7 +78,7 @@ func testLeetCodeWorkerRuns(t *testing.T, ctx context.Context, repository *Store
 	if pendingID, err := state.PendingManualRunID(ctx); err != nil || pendingID != "" {
 		t.Fatalf("failed request remained pending: id=%q err=%v", pendingID, err)
 	}
-	if lastAttempt, err := state.LastAttempt(ctx); err != nil || lastAttempt != nil {
+	if lastAttempt, err := state.LastScheduledAttemptAt(ctx); err != nil || lastAttempt != nil {
 		t.Fatalf("manual failure consumed scheduled attempt: last=%v err=%v", lastAttempt, err)
 	}
 	var auditCount int

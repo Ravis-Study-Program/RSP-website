@@ -37,9 +37,17 @@ Caddy routes the single local origin and denies public metrics paths.
 | Jobs        | `backend/cmd/worker`, `backend/internal/worker`, `backend/internal/dal` | Scheduled LeetCode synchronization, catch-up, retry, advisory locking and PostgreSQL run state.               |
 | Operations  | `deploy`, `compose.yaml`, `scripts/legacy-migration`                    | Local ingress, container topology, and one-time legacy import tooling.                                        |
 
-Feature services own business rules. Transport code must not recreate role or
-ownership checks, and SQL must not infer an actor from request data. Mutations
-that span related records use one request-scoped transaction.
+Handlers own the HTTP request and response. They extract path/query/body values,
+call pure authorization predicates such as `actor.IsSeasonAdmin(seasonID)`, load
+records explicitly, and decide which status and error to return. Permission
+helpers return booleans; loaders and mutations return values and errors. Helpers
+that perform a check do not also write an HTTP response.
+
+Domain packages own the rules used by those checks. The handler supplies an
+explicit viewer ID and visibility scope to list queries; SQL applies that scope
+without receiving an HTTP request or the whole actor. Mutations that span
+related records use one request-scoped transaction. Database checks and locks
+remain inside that transaction even when a handler also checks the same record.
 
 HTTP handlers call the concrete PostgreSQL store. Feature packages contain
 plain data types and business rules, and they do not import HTTP or database
@@ -51,7 +59,11 @@ The DAL is one concrete `dal.Store` with a private `pgxpool.Pool`. Its files
 follow application features (`users.go`, `seasons.go`, `enrollments.go`,
 `mock_interviews.go`, and so on). SQL and its row mapping live together.
 List methods take named query structs so filters and cursor parameters are
-visible at the call site. Handlers use domain rules and call the DAL directly;
+visible at the call site. Multi-field mutations take named input structs and
+load the current row inside the transaction. Promotion and removal are separate
+operations. Response builders receive loaded data; formatting a response does
+not cause a database read. Unexpected storage failures are logged and become a
+generic HTTP 500, while known missing rows and conflicts retain their statuses. Handlers use domain rules and call the DAL directly;
 there is no additional repository or generic CRUD layer.
 
 The worker acquires a `dal.WorkerSession` for its advisory lock, run state, and
@@ -60,7 +72,10 @@ catalogue writes. They use the same connection until the scheduler stops.
 import tool lives under `scripts/legacy-migration`, outside the application
 packages and runtime images. It uses dedicated connections for its read-only
 repeatable-read source snapshot and target transaction. Goose only owns the
-current application schema.
+current application schema. Its planner separates source analysis, approved
+resolutions, feature transformations, and manifest construction. Reference
+resolution finishes before provenance checksums are calculated, including
+snapshots that share transformed row values.
 
 ## Identity and request flow
 

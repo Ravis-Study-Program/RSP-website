@@ -21,9 +21,9 @@ type state struct {
 	runs []Run
 }
 
-func (s *state) LastSuccess(context.Context) (*time.Time, error) { return s.last, nil }
+func (s *state) LastSuccessfulSyncAt(context.Context) (*time.Time, error) { return s.last, nil }
 
-func (s *state) LastAttempt(context.Context) (*time.Time, error) {
+func (s *state) LastScheduledAttemptAt(context.Context) (*time.Time, error) {
 	for i := len(s.runs) - 1; i >= 0; i-- {
 		if s.runs[i].TriggerKind == "schedule" || s.runs[i].TriggerKind == "catch_up" {
 			return &s.runs[i].StartedAt, nil
@@ -32,7 +32,7 @@ func (s *state) LastAttempt(context.Context) (*time.Time, error) {
 	return nil, nil
 }
 
-func (s *state) Record(_ context.Context, r Run) error {
+func (s *state) RecordSyncRun(_ context.Context, r Run) error {
 	s.runs = append(s.runs, r)
 	if r.Error == "" {
 		v := r.FinishedAt
@@ -49,12 +49,12 @@ type syncer struct {
 
 type blockingSyncer struct{}
 
-func (blockingSyncer) Sync(ctx context.Context) (Report, error) {
+func (blockingSyncer) SyncCatalogue(ctx context.Context) (Report, error) {
 	<-ctx.Done()
 	return Report{}, ctx.Err()
 }
 
-func (s *syncer) Sync(context.Context) (Report, error) {
+func (s *syncer) SyncCatalogue(context.Context) (Report, error) {
 	s.calls++
 	if s.calls <= s.failUntil {
 		return Report{}, errors.New("temporary")
@@ -87,12 +87,12 @@ func TestTimeoutIsRecordedAndDueWindowIsAttemptedOnlyOnce(t *testing.T) {
 	now := time.Date(2026, 8, 13, 12, 0, 0, 0, time.UTC)
 	st := &state{}
 	sy := LeetCodeScheduler{
-		Locker:  &lock{ok: true},
-		State:   st,
-		Syncer:  blockingSyncer{},
-		Now:     func() time.Time { return now },
-		Timeout: 5 * time.Millisecond,
-		Retries: 1,
+		Locker:      &lock{ok: true},
+		State:       st,
+		Syncer:      blockingSyncer{},
+		Now:         func() time.Time { return now },
+		Timeout:     5 * time.Millisecond,
+		MaxAttempts: 1,
 	}
 	ran, err := sy.RunDue(context.Background())
 	if !ran || !errors.Is(err, context.DeadlineExceeded) || len(st.runs) != 1 || st.runs[0].Error == "" {
@@ -152,11 +152,11 @@ func TestRetriesAndPartialFailure(t *testing.T) {
 	st := &state{}
 	sync := &syncer{failUntil: 2}
 	sy := LeetCodeScheduler{
-		Locker:  l,
-		State:   st,
-		Syncer:  sync,
-		Now:     func() time.Time { return now },
-		Retries: 3,
+		Locker:      l,
+		State:       st,
+		Syncer:      sync,
+		Now:         func() time.Time { return now },
+		MaxAttempts: 3,
 	}
 	if err := sy.RunManual(context.Background(), "retry-run"); err != nil || sync.calls != 3 {
 		t.Fatalf("retry: %v calls %d", err, sync.calls)
@@ -194,11 +194,11 @@ func TestFailedManualRunDoesNotConsumeScheduledAttempt(t *testing.T) {
 	now := time.Date(2026, 8, 16, 4, 0, 0, 0, time.UTC)
 	st := &state{}
 	sy := LeetCodeScheduler{
-		Locker:  &lock{ok: true},
-		State:   st,
-		Syncer:  &syncer{partial: true},
-		Now:     func() time.Time { return now },
-		Retries: 1,
+		Locker:      &lock{ok: true},
+		State:       st,
+		Syncer:      &syncer{partial: true},
+		Now:         func() time.Time { return now },
+		MaxAttempts: 1,
 	}
 	if err := sy.RunManual(context.Background(), "failed-manual-run"); err == nil {
 		t.Fatal("partial failure was accepted")

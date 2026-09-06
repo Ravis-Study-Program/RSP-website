@@ -14,6 +14,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"github.com/magedmg/RSP-website/backend/internal/authadmin"
 	"github.com/magedmg/RSP-website/backend/internal/authz"
 	"github.com/magedmg/RSP-website/backend/internal/dal"
 )
@@ -83,14 +84,14 @@ func newPostgresFixture(t *testing.T) postgresFixture {
 		return actor, nil
 	})
 	api := New(Config{
-		DB:              db,
-		Authenticator:   authenticator,
-		PublicOrigin:    "https://rsp.test",
-		CursorSecret:    []byte("0123456789abcdef"),
-		Ready:           func() error { return db.Ping(context.Background()) },
-		SyncLeetCode:    func(context.Context, string, string) error { return nil },
-		SetAccountState: func(context.Context, string, string, string, string) error { return nil },
-		GetMFAState:     func(context.Context, string) (bool, error) { return false, nil },
+		DB:                db,
+		Authenticator:     authenticator,
+		PublicOrigin:      "https://rsp.test",
+		CursorSecret:      []byte("0123456789abcdef"),
+		Ready:             func() error { return db.Ping(context.Background()) },
+		QueueLeetCodeSync: func(context.Context, string, string) error { return nil },
+		SetAccountState:   func(context.Context, authadmin.SetAccountStateInput) error { return nil },
+		GetMFAConfigured:  func(context.Context, string) (bool, error) { return false, nil },
 	})
 	return postgresFixture{
 		db:      db,

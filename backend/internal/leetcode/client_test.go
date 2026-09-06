@@ -9,7 +9,7 @@ import (
 
 type recordingSink struct{ problems []Problem }
 
-func (s *recordingSink) Upsert(_ context.Context, problem Problem) error {
+func (s *recordingSink) UpsertProblem(_ context.Context, problem Problem) error {
 	s.problems = append(s.problems, problem)
 	return nil
 }
@@ -23,7 +23,7 @@ func TestSyncHandlesPartialCatalogFailure(t *testing.T) {
 	}))
 	defer server.Close()
 	sink := &recordingSink{}
-	report, err := Client{URL: server.URL, Sink: sink}.Sync(context.Background())
+	report, err := Client{URL: server.URL, Sink: sink}.SyncCatalogue(context.Background())
 	if err != nil || report.Fetched != 2 || report.Applied != 1 || report.Failed != 1 {
 		t.Fatalf("report=%#v err=%v", report, err)
 	}
@@ -33,7 +33,7 @@ func TestSyncHandlesPartialCatalogFailure(t *testing.T) {
 }
 
 func TestSyncRequiresDurableSink(t *testing.T) {
-	if _, err := (Client{}).Sync(context.Background()); err == nil {
+	if _, err := (Client{}).SyncCatalogue(context.Background()); err == nil {
 		t.Fatal("expected missing sink error")
 	}
 }

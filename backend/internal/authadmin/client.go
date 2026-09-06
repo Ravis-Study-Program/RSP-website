@@ -18,13 +18,20 @@ type Client struct {
 	HTTP    *http.Client
 }
 
-func (c Client) SetAccountState(ctx context.Context, authUserID, state, reason, actorUserID string) error {
-	body, err := json.Marshal(map[string]string{"state": state, "reason": reason, "actorUserId": actorUserID})
+type SetAccountStateInput struct {
+	AuthUserID  string
+	State       string
+	Reason      string
+	ActorUserID string
+}
+
+func (c Client) SetAccountState(ctx context.Context, input SetAccountStateInput) error {
+	body, err := json.Marshal(map[string]string{"state": input.State, "reason": input.Reason, "actorUserId": input.ActorUserID})
 	if err != nil {
 		return err
 	}
 
-	request, err := c.request(ctx, http.MethodPost, "/internal/auth/users/"+url.PathEscape(authUserID)+"/state", bytes.NewReader(body))
+	request, err := c.request(ctx, http.MethodPost, "/internal/auth/users/"+url.PathEscape(input.AuthUserID)+"/state", bytes.NewReader(body))
 	if err != nil {
 		return err
 	}
@@ -44,7 +51,7 @@ func (c Client) SetAccountState(ctx context.Context, authUserID, state, reason, 
 	return nil
 }
 
-func (c Client) MFAConfigured(ctx context.Context, authUserID string) (bool, error) {
+func (c Client) GetMFAConfigured(ctx context.Context, authUserID string) (bool, error) {
 	request, err := c.request(ctx, http.MethodGet, "/internal/auth/users/"+url.PathEscape(authUserID)+"/mfa-state", nil)
 	if err != nil {
 		return false, err

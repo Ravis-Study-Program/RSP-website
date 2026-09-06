@@ -16,7 +16,6 @@ import (
 	"github.com/testcontainers/testcontainers-go/wait"
 
 	"github.com/magedmg/RSP-website/backend/internal/accounts"
-
 	"github.com/magedmg/RSP-website/backend/internal/leetcode"
 	"github.com/magedmg/RSP-website/backend/internal/mockinterviews"
 	"github.com/magedmg/RSP-website/backend/internal/platform/audit"
@@ -186,12 +185,12 @@ func TestPostgres18MigrationsAndDAL(t *testing.T) {
 		Difficulty: "medium",
 		Categories: []string{"Graphs", "Graphs"},
 	}
-	if err := sink.Upsert(ctx, problem); err != nil {
+	if err := sink.UpsertProblem(ctx, problem); err != nil {
 		t.Fatalf("create LeetCode catalogue item: %v", err)
 	}
 	problem.Title = "Updated Integration Problem"
 	problem.Categories = []string{"Dynamic Programming"}
-	if err := sink.Upsert(ctx, problem); err != nil {
+	if err := sink.UpsertProblem(ctx, problem); err != nil {
 		t.Fatalf("update LeetCode catalogue item: %v", err)
 	}
 	var categoryCount int

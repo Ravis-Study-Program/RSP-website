@@ -65,15 +65,15 @@ func main() {
 	}
 
 	app := api.New(api.Config{
-		DB:              db,
-		Authenticator:   authenticator,
-		PublicOrigin:    env("PUBLIC_ORIGIN", "http://localhost:8080"),
-		CursorSecret:    []byte(env("CURSOR_SECRET", "development-cursor-secret-change-me")),
-		Logger:          logger,
-		Ready:           ready,
-		SyncLeetCode:    db.QueueLeetCodeSync,
-		SetAccountState: authClient.SetAccountState,
-		GetMFAState:     authClient.MFAConfigured,
+		DB:                db,
+		Authenticator:     authenticator,
+		PublicOrigin:      env("PUBLIC_ORIGIN", "http://localhost:8080"),
+		CursorSecret:      []byte(env("CURSOR_SECRET", "development-cursor-secret-change-me")),
+		Logger:            logger,
+		Ready:             ready,
+		QueueLeetCodeSync: db.QueueLeetCodeSync,
+		SetAccountState:   authClient.SetAccountState,
+		GetMFAConfigured:  authClient.GetMFAConfigured,
 	})
 	apiHandler := app.Handler()
 

@@ -92,10 +92,15 @@ func (a *API) listMockInterviewParticipants(w http.ResponseWriter, r *http.Reque
 			AvatarURL: user.AvatarURL,
 		})
 	}
-	pageInfo := pageInfoForKeyset(
+	pageInfo, err := pageInfoForKeyset(
 		a.cursorSecret, binding, direction, boundary, items, more,
 		func(storedInterview mockinterviews.ParticipantSummary) string { return storedInterview.ID },
 	)
+	if err != nil {
+		a.logger.Error("cursor encoding failed", "error", err)
+		writeErrorResponse(w, http.StatusInternalServerError, "internal_error", "The request could not be completed.")
+		return
+	}
 	response := Page[mockinterviews.ParticipantSummary]{
 		Items:      items,
 		PageInfo:   pageInfo,
@@ -184,10 +189,15 @@ func (a *API) listMockInterviews(w http.ResponseWriter, r *http.Request) {
 	for index := range items {
 		items[index] = withMockParticipantSummaries(items[index], summaries)
 	}
-	pageInfo := pageInfoForKeyset(
+	pageInfo, err := pageInfoForKeyset(
 		a.cursorSecret, binding, direction, boundary, items, more,
 		func(storedInterview mockinterviews.Interview) string { return storedInterview.ID },
 	)
+	if err != nil {
+		a.logger.Error("cursor encoding failed", "error", err)
+		writeErrorResponse(w, http.StatusInternalServerError, "internal_error", "The request could not be completed.")
+		return
+	}
 	response := Page[mockinterviews.Interview]{
 		Items:      items,
 		PageInfo:   pageInfo,
@@ -281,7 +291,7 @@ func (a *API) createMockInterview(w http.ResponseWriter, r *http.Request) {
 	}
 	storedInterview, err := a.mockRules.Create(actor.UserID, input, now)
 	if err != nil {
-		writeMockErrorResponse(w, err)
+		a.writeMockErrorResponse(w, err)
 		return
 	}
 	storedInterview.ID = id.New()
@@ -374,7 +384,7 @@ func (a *API) updateMockInterview(w http.ResponseWriter, r *http.Request) {
 	}
 	storedInterview, err = a.mockRules.Update(storedInterview, actor.UserID, input)
 	if err != nil {
-		writeMockErrorResponse(w, err)
+		a.writeMockErrorResponse(w, err)
 		return
 	}
 	storedInterview, err = a.db.UpdateMockInterview(r.Context(), storedInterview, actor.UserID, now)
@@ -429,7 +439,7 @@ func (a *API) deleteMockInterview(w http.ResponseWriter, r *http.Request) {
 	now := time.Now().UTC()
 	storedInterview, err = a.mockRules.Delete(storedInterview, actor.UserID, now)
 	if err != nil {
-		writeMockErrorResponse(w, err)
+		a.writeMockErrorResponse(w, err)
 		return
 	}
 	if _, err = a.db.DeleteMockInterview(r.Context(), storedInterview, actor.UserID, now); err != nil {
@@ -485,7 +495,7 @@ func (a *API) reviewMockInterviewRound(w http.ResponseWriter, r *http.Request) {
 	now := time.Now().UTC()
 	storedInterview, err = a.mockRules.ReviewRound(storedInterview, mockinterviews.ReviewRoundInput{ActorID: actor.UserID, RoundID: r.PathValue("roundId"), Comment: request.Comment, Reviewed: request.Reviewed})
 	if err != nil {
-		writeMockErrorResponse(w, err)
+		a.writeMockErrorResponse(w, err)
 		return
 	}
 	storedInterview, err = a.db.ReviewMockInterviewRound(r.Context(), dal.ReviewMockInterviewRoundInput{
@@ -582,7 +592,7 @@ func (a *API) correctMockInterviewIdentities(w http.ResponseWriter, r *http.Requ
 	now := time.Now().UTC()
 	storedInterview, err = a.mockRules.CorrectIdentities(storedInterview, mockinterviews.CorrectIdentitiesInput{InterviewerID: request.InterviewerID, IntervieweeID: request.IntervieweeID, SeasonID: request.SeasonID, Reason: request.Reason})
 	if err != nil {
-		writeMockErrorResponse(w, err)
+		a.writeMockErrorResponse(w, err)
 		return
 	}
 	storedInterview, err = a.db.CorrectMockInterviewIdentities(r.Context(), dal.CorrectMockInterviewIdentitiesInput{
@@ -606,12 +616,15 @@ func (a *API) correctMockInterviewIdentities(w http.ResponseWriter, r *http.Requ
 	writeJSONResponse(w, http.StatusOK, response)
 }
 
-func writeMockErrorResponse(w http.ResponseWriter, err error) {
+func (a *API) writeMockErrorResponse(w http.ResponseWriter, err error) {
 	switch {
 	case errors.Is(err, mockinterviews.ErrForbidden):
 		writeErrorResponse(w, http.StatusForbidden, "forbidden", "The current account cannot perform this action.")
-	default:
+	case errors.Is(err, mockinterviews.ErrInvalid):
 		writeErrorResponse(w, http.StatusBadRequest, "invalid_mock_interview", err.Error())
+	default:
+		a.logger.Error("mock interview operation failed", "error", err)
+		writeErrorResponse(w, http.StatusInternalServerError, "internal_error", "The request could not be completed.")
 	}
 }
 
@@ -634,23 +647,4 @@ func withMockParticipantSummaries(interview mockinterviews.Interview, summaries 
 	interview.Interviewer = lookup(interview.InterviewerID)
 	interview.Interviewee = lookup(interview.IntervieweeID)
 	return interview
-}
-
-func (a *API) queueLeetCodeSync(w http.ResponseWriter, r *http.Request) {
-	actor := actorFrom(r.Context())
-	if !actor.IsDirectorOrSystemAdmin() || !actor.HasRecentMFA(time.Now()) {
-		writeErrorResponse(w, http.StatusForbidden, "privileged_mfa_required", "Recent MFA is required.")
-		return
-	}
-	if a.syncLeetCode == nil {
-		writeErrorResponse(w, http.StatusServiceUnavailable, "sync_unavailable", "The LeetCode worker queue is unavailable.")
-		return
-	}
-	if err := a.syncLeetCode(r.Context(), actor.UserID, requestIDFrom(r.Context())); err != nil {
-		a.logger.Error("LeetCode sync enqueue failed", "requestId", requestIDFrom(r.Context()), "error", err.Error())
-		writeErrorResponse(w, http.StatusServiceUnavailable, "sync_failed", "The LeetCode sync request could not be queued.")
-		return
-	}
-
-	writeJSONResponse(w, http.StatusAccepted, map[string]string{"status": "accepted"})
 }

@@ -1,12 +1,12 @@
 package api
 
 import (
-	"github.com/magedmg/RSP-website/backend/internal/dal"
-	"github.com/magedmg/RSP-website/backend/internal/programme"
 	"net/http"
 	"time"
 
 	"github.com/magedmg/RSP-website/backend/internal/authz"
+	"github.com/magedmg/RSP-website/backend/internal/dal"
+	"github.com/magedmg/RSP-website/backend/internal/programme"
 )
 
 func (a *API) getCurrentUserPracticeSettings(w http.ResponseWriter, r *http.Request) {
@@ -102,8 +102,16 @@ func (a *API) updateCurrentUserPracticeSettings(w http.ResponseWriter, r *http.R
 		writeErrorResponse(w, http.StatusBadRequest, "validation_failed", err.Error())
 		return
 	}
-	if !validGoal(request.EasyMinutes) || !validGoal(request.MediumMinutes) || !validGoal(request.HardMinutes) {
-		writeErrorResponse(w, http.StatusBadRequest, "validation_failed", "goals between 1 and 180 minutes are required")
+	if !validGoal(request.EasyMinutes) {
+		writeErrorResponse(w, http.StatusBadRequest, "validation_failed", "easyMinutes must be between 1 and 180")
+		return
+	}
+	if !validGoal(request.MediumMinutes) {
+		writeErrorResponse(w, http.StatusBadRequest, "validation_failed", "mediumMinutes must be between 1 and 180")
+		return
+	}
+	if !validGoal(request.HardMinutes) {
+		writeErrorResponse(w, http.StatusBadRequest, "validation_failed", "hardMinutes must be between 1 and 180")
 		return
 	}
 

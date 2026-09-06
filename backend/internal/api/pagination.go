@@ -89,34 +89,46 @@ func paginateOrdered[T any](secret []byte, binding, direction, boundary string, 
 	return page, info, nil
 }
 
-func pageInfoForKeyset[T any](secret []byte, binding, direction, boundary string, items []T, more bool, identity func(T) string) PageInfo {
+func pageInfoForKeyset[T any](secret []byte, binding, direction, boundary string, items []T, more bool, identity func(T) string) (PageInfo, error) {
 	info := PageInfo{HasMore: more}
 	if len(items) == 0 {
-		return info
+		return info, nil
 	}
 
 	first, last := identity(items[0]), identity(items[len(items)-1])
 	if direction == "backward" {
 		if more {
-			encoded, _ := cursor.Encode(secret, first, binding)
+			encoded, err := cursor.Encode(secret, first, binding)
+			if err != nil {
+				return PageInfo{}, err
+			}
 			info.PreviousCursor = &encoded
 		}
 		if boundary != "" {
-			encoded, _ := cursor.Encode(secret, last, binding)
+			encoded, err := cursor.Encode(secret, last, binding)
+			if err != nil {
+				return PageInfo{}, err
+			}
 			info.NextCursor = &encoded
 		}
-		return info
+		return info, nil
 	}
 
 	if boundary != "" {
-		encoded, _ := cursor.Encode(secret, first, binding)
+		encoded, err := cursor.Encode(secret, first, binding)
+		if err != nil {
+			return PageInfo{}, err
+		}
 		info.PreviousCursor = &encoded
 	}
 	if more {
-		encoded, _ := cursor.Encode(secret, last, binding)
+		encoded, err := cursor.Encode(secret, last, binding)
+		if err != nil {
+			return PageInfo{}, err
+		}
 		info.NextCursor = &encoded
 	}
-	return info
+	return info, nil
 }
 
 func parsePagination(rawLimit, encodedCursor, binding string, secret []byte) (int, string, error) {

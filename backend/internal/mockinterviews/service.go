@@ -4,9 +4,10 @@ package mockinterviews
 import (
 	"errors"
 	"fmt"
-	"github.com/magedmg/RSP-website/backend/internal/accounts"
 	"net/url"
 	"time"
+
+	"github.com/magedmg/RSP-website/backend/internal/accounts"
 )
 
 var (

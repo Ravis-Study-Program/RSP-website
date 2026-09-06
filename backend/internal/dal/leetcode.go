@@ -12,8 +12,8 @@ import (
 	"github.com/magedmg/RSP-website/backend/internal/platform/id"
 )
 
-// Upsert keeps each catalogue item and its category membership in one transaction.
-func (s *WorkerSession) Upsert(ctx context.Context, problem leetcode.Problem) error {
+// UpsertProblem keeps each catalogue item and its category membership in one transaction.
+func (s *WorkerSession) UpsertProblem(ctx context.Context, problem leetcode.Problem) error {
 	tx, err := s.conn.Begin(ctx)
 	if err != nil {
 		return err

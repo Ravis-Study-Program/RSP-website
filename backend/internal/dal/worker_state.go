@@ -45,17 +45,17 @@ func (s *WorkerSession) Unlock(ctx context.Context, key int64) error {
 	_, err := s.conn.Exec(ctx, `SELECT pg_advisory_unlock($1)`, key)
 	return err
 }
-func (s *WorkerSession) LastSuccess(ctx context.Context) (*time.Time, error) {
+func (s *WorkerSession) LastSuccessfulSyncAt(ctx context.Context) (*time.Time, error) {
 	var at *time.Time
 	err := s.conn.QueryRow(ctx, `SELECT max(finished_at) FROM app.leetcode_sync_runs WHERE succeeded`).Scan(&at)
 	return at, err
 }
-func (s *WorkerSession) LastAttempt(ctx context.Context) (*time.Time, error) {
+func (s *WorkerSession) LastScheduledAttemptAt(ctx context.Context) (*time.Time, error) {
 	var at *time.Time
 	err := s.conn.QueryRow(ctx, `SELECT max(started_at) FROM app.leetcode_sync_runs WHERE trigger_kind IN ('schedule','catch_up')`).Scan(&at)
 	return at, err
 }
-func (s *WorkerSession) Record(ctx context.Context, run worker.Run) error {
+func (s *WorkerSession) RecordSyncRun(ctx context.Context, run worker.Run) error {
 	if run.ID != "" {
 		_, err := s.conn.Exec(ctx, `UPDATE app.leetcode_sync_runs SET finished_at=$2,succeeded=$3,
    fetched_count=$4,changed_count=$5,error_summary=$6 WHERE id=$1`, run.ID, run.FinishedAt.UTC(), run.Error == "", run.Report.Fetched, run.Report.Applied, nullableString(run.Error))

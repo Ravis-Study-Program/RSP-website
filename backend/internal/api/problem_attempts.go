@@ -2,8 +2,8 @@ package api
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
-	"strconv"
 	"time"
 
 	"github.com/magedmg/RSP-website/backend/internal/authz"
@@ -14,69 +14,6 @@ import (
 	"github.com/magedmg/RSP-website/backend/internal/practice"
 	"github.com/magedmg/RSP-website/backend/internal/programme"
 )
-
-func (a *API) listLeetCodeProblems(w http.ResponseWriter, r *http.Request) {
-	actor := actorFrom(r.Context())
-	if !actor.CanAccessProgramme() && !actor.IsDirectorOrSystemAdmin() {
-		writeErrorResponse(w, http.StatusForbidden, "season_access_required", "No season access yet.")
-		return
-	}
-
-	difficulty, category := r.URL.Query().Get("difficulty"), r.URL.Query().Get("category")
-	var premium *bool
-	if raw := r.URL.Query().Get("premium"); raw != "" {
-		parsed, parseErr := strconv.ParseBool(raw)
-		if parseErr != nil {
-			writeErrorResponse(w, http.StatusBadRequest, "validation_failed", "premium must be true or false")
-			return
-		}
-		premium = &parsed
-	}
-	if _, err := parseSort(r.URL.Query().Get("sort"), "id:asc", "id:asc"); err != nil {
-		writeErrorResponse(w, http.StatusBadRequest, "validation_failed", "sort must be id:asc")
-		return
-	}
-
-	direction := r.URL.Query().Get("direction")
-	if direction == "" {
-		direction = "forward"
-	}
-	if direction != "forward" && direction != "backward" {
-		writeErrorResponse(w, http.StatusBadRequest, "validation_failed", "direction must be forward or backward")
-		return
-	}
-
-	binding := "problems|id:asc|difficulty=" + difficulty + "|category=" + category + "|premium=" + r.URL.Query().Get("premium")
-	limit, after, err := parsePagination(r.URL.Query().Get("limit"), r.URL.Query().Get("cursor"), binding, a.cursorSecret)
-	if err != nil {
-		writeErrorResponse(w, http.StatusBadRequest, "invalid_cursor", cursor.ErrInvalid.Error())
-		return
-	}
-
-	items, more, total, err := a.db.ListProblems(r.Context(), dal.ProblemQuery{
-		Boundary:   after,
-		Limit:      limit,
-		Difficulty: difficulty,
-		Category:   category,
-		Premium:    premium,
-		Direction:  direction,
-	})
-	if err != nil {
-		a.writeStoreErrorResponse(w, err)
-		return
-	}
-
-	pageInfo := pageInfoForKeyset(
-		a.cursorSecret, binding, direction, after, items, more,
-		func(record practice.ProblemRecord) string { return record.ID },
-	)
-	response := Page[practice.ProblemRecord]{
-		Items:      items,
-		PageInfo:   pageInfo,
-		TotalCount: total,
-	}
-	writeJSONResponse(w, http.StatusOK, response)
-}
 
 func (a *API) listProblemAttempts(w http.ResponseWriter, r *http.Request) {
 	actor := actorFrom(r.Context())
@@ -98,7 +35,7 @@ func (a *API) listProblemAttempts(w http.ResponseWriter, r *http.Request) {
 			a.writeStoreErrorResponse(w, err)
 			return
 		}
-		if err != nil || !participant.CanBeMockInterviewParticipant() {
+		if err != nil || !participant.IsVisibleInDirectory() {
 			writeErrorResponse(w, http.StatusNotFound, "not_found", "The requested member does not exist.")
 			return
 		}
@@ -199,10 +136,15 @@ func (a *API) listProblemAttempts(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	pageInfo := pageInfoForKeyset(
+	pageInfo, err := pageInfoForKeyset(
 		a.cursorSecret, binding, direction, after, items, more,
 		func(attempt practice.AttemptRecord) string { return attempt.ID },
 	)
+	if err != nil {
+		a.logger.Error("cursor encoding failed", "error", err)
+		writeErrorResponse(w, http.StatusInternalServerError, "internal_error", "The request could not be completed.")
+		return
+	}
 	response := Page[practice.AttemptRecord]{
 		Items:      items,
 		PageInfo:   pageInfo,
@@ -219,16 +161,28 @@ type attemptInput struct {
 	SeasonID, WeekID          *string
 }
 
-func validateAttempt(request attemptInput) bool {
-	if request.ProblemID == "" || request.Minutes <= 0 || request.AttemptedAt.IsZero() || (request.WeekID != nil && request.SeasonID == nil) {
-		return false
+func validateAttempt(request attemptInput) error {
+	if request.ProblemID == "" {
+		return fmt.Errorf("problemId is required")
+	}
+	if request.Minutes <= 0 {
+		return fmt.Errorf("minutes must be greater than zero")
+	}
+	if request.AttemptedAt.IsZero() {
+		return fmt.Errorf("attemptedAt is required")
+	}
+	if request.WeekID != nil && request.SeasonID == nil {
+		return fmt.Errorf("seasonId is required when weekId is provided")
 	}
 	switch request.Outcome {
 	case string(practice.Independent), string(practice.WithHints), string(practice.NotSolved):
 	default:
-		return false
+		return fmt.Errorf("outcome must be independently_solved, solved_with_hints, or not_solved")
 	}
-	return request.Confidence == nil || (*request.Confidence >= 1 && *request.Confidence <= 5)
+	if request.Confidence != nil && (*request.Confidence < 1 || *request.Confidence > 5) {
+		return fmt.Errorf("confidence must be between 1 and 5")
+	}
+	return nil
 }
 
 func (a *API) createProblemAttempt(w http.ResponseWriter, r *http.Request) {
@@ -242,8 +196,8 @@ func (a *API) createProblemAttempt(w http.ResponseWriter, r *http.Request) {
 		writeErrorResponse(w, http.StatusBadRequest, "validation_failed", err.Error())
 		return
 	}
-	if !validateAttempt(request) {
-		writeErrorResponse(w, http.StatusBadRequest, "validation_failed", "valid problem, outcome, confidence, duration, and date are required")
+	if err := validateAttempt(request); err != nil {
+		writeErrorResponse(w, http.StatusBadRequest, "validation_failed", err.Error())
 		return
 	}
 
@@ -279,8 +233,8 @@ func (a *API) updateProblemAttempt(w http.ResponseWriter, r *http.Request) {
 		writeErrorResponse(w, http.StatusBadRequest, "validation_failed", err.Error())
 		return
 	}
-	if !validateAttempt(request) {
-		writeErrorResponse(w, http.StatusBadRequest, "validation_failed", "valid fields are required")
+	if err := validateAttempt(request); err != nil {
+		writeErrorResponse(w, http.StatusBadRequest, "validation_failed", err.Error())
 		return
 	}
 

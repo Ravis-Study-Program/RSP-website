@@ -17,13 +17,13 @@ type Locker interface {
 }
 
 type State interface {
-	LastSuccess(context.Context) (*time.Time, error)
-	LastAttempt(context.Context) (*time.Time, error)
-	Record(context.Context, Run) error
+	LastSuccessfulSyncAt(context.Context) (*time.Time, error)
+	LastScheduledAttemptAt(context.Context) (*time.Time, error)
+	RecordSyncRun(context.Context, Run) error
 }
 
 type Syncer interface {
-	Sync(context.Context) (Report, error)
+	SyncCatalogue(context.Context) (Report, error)
 }
 
 // Report counts catalogue items fetched, successfully upserted, or rejected.
@@ -63,22 +63,22 @@ func DecideDue(now time.Time, lastSuccess, lastAttempt *time.Time) ScheduleDecis
 
 // LeetCodeScheduler runs weekly, catch-up, and explicitly queued syncs.
 type LeetCodeScheduler struct {
-	Locker  Locker
-	State   State
-	Syncer  Syncer
-	Now     func() time.Time
-	Timeout time.Duration
-	Retries int
+	Locker      Locker
+	State       State
+	Syncer      Syncer
+	Now         func() time.Time
+	Timeout     time.Duration
+	MaxAttempts int
 }
 
 func (s LeetCodeScheduler) RunDue(ctx context.Context) (bool, error) {
 	now := s.now()
-	last, err := s.State.LastSuccess(ctx)
+	last, err := s.State.LastSuccessfulSyncAt(ctx)
 	if err != nil {
 		return false, err
 	}
 
-	lastAttempt, err := s.State.LastAttempt(ctx)
+	lastAttempt, err := s.State.LastScheduledAttemptAt(ctx)
 	if err != nil {
 		return false, err
 	}
@@ -111,15 +111,15 @@ func (s LeetCodeScheduler) run(ctx context.Context, runID, triggerKind string) e
 	if timeout == 0 {
 		timeout = 2 * time.Minute
 	}
-	retries := s.Retries
-	if retries == 0 {
-		retries = 3
+	maxAttempts := s.MaxAttempts
+	if maxAttempts == 0 {
+		maxAttempts = 3
 	}
 	var report Report
 	var runErr error
-	for attempt := 0; attempt < retries; attempt++ {
+	for attempt := 0; attempt < maxAttempts; attempt++ {
 		runCtx, cancel := context.WithTimeout(ctx, timeout)
-		report, runErr = s.Syncer.Sync(runCtx)
+		report, runErr = s.Syncer.SyncCatalogue(runCtx)
 		cancel()
 		if runErr == nil && report.Failed == 0 {
 			break
@@ -141,7 +141,7 @@ func (s LeetCodeScheduler) run(ctx context.Context, runID, triggerKind string) e
 	if runErr != nil {
 		run.Error = runErr.Error()
 	}
-	if err := s.State.Record(ctx, run); err != nil {
+	if err := s.State.RecordSyncRun(ctx, run); err != nil {
 		return err
 	}
 	return runErr

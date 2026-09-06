@@ -2,10 +2,11 @@ package mockinterviews
 
 import (
 	"errors"
-	"github.com/magedmg/RSP-website/backend/internal/accounts"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/magedmg/RSP-website/backend/internal/accounts"
 )
 
 func score(v int) *int { return &v }

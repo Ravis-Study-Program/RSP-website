@@ -50,7 +50,19 @@ func TestValidatesIssuerAudienceSignatureKidExpiryAndVerification(t *testing.T) 
 		Audience: "rsp-api",
 		JWKSURL:  server.URL,
 	}
-	claims, err := v.Validate(context.Background(), makeToken(true, "rsp-api", now.Add(time.Minute)))
+	raw := makeToken(true, "rsp-api", now.Add(time.Minute))
+	start := make(chan struct{})
+	results := make(chan error, 8)
+	for range 8 {
+		go func() { <-start; _, err := v.Validate(context.Background(), raw); results <- err }()
+	}
+	close(start)
+	for range 8 {
+		if err := <-results; err != nil {
+			t.Fatalf("concurrent validation: %v", err)
+		}
+	}
+	claims, err := v.Validate(context.Background(), raw)
 	if err != nil || claims.Subject != "auth-user" {
 		t.Fatalf("valid token: %v", err)
 	}
