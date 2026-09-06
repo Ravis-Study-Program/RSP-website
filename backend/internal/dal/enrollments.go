@@ -128,6 +128,9 @@ func (p *Store) CreateEnrollment(ctx context.Context, v programme.EnrollmentReco
 	}
 
 	defer tx.Rollback(context.Background())
+	if err = lockOpenSeason(ctx, tx, v.SeasonID); err != nil {
+		return v, err
+	}
 	studentLevel := "not_applicable"
 	if v.Role == "student" {
 		studentLevel = "novice"

@@ -473,6 +473,13 @@ paths:
         '401': { $ref: '#/components/responses/Error' }
         '403': { $ref: '#/components/responses/Error' }
         '429': { $ref: '#/components/responses/RateLimited' }
+    delete:
+      operationId: deleteEmptySeason
+      description: Deletes a season and its schedule only when it has no enrollment history, activity or pending invitations. Audit history is retained.
+      responses:
+        default: { $ref: '#/components/responses/Error' }
+        '204': { description: Empty season deleted }
+        '409': { $ref: '#/components/responses/Error' }
     patch:
       operationId: updateSeason
       requestBody:

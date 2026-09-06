@@ -166,3 +166,44 @@ test('removing a mentor keeps their season record visible', async ({
     row.getByRole('button', { name: 'Remove', exact: true }),
   ).toHaveCount(0);
 });
+
+test('administrators delete empty seasons and retain populated seasons', async ({
+  page,
+}) => {
+  await page.addInitScript(() =>
+    localStorage.setItem('rsp-demo-role', 'director'),
+  );
+  await page.goto('/admin/seasons');
+  const populated = page
+    .locator('tr:visible, article:visible')
+    .filter({ has: page.getByRole('button', { name: 'Delete empty season' }) })
+    .first();
+  await populated.getByRole('button', { name: 'Delete empty season' }).click();
+  let confirmation = page.getByRole('alertdialog');
+  const label = await confirmation.locator('label strong').textContent();
+  await confirmation.getByRole('textbox').fill(label!);
+  await confirmation
+    .getByRole('button', { name: 'Delete empty season' })
+    .click();
+  await expect(confirmation.getByRole('alert')).toContainText(
+    'cannot be deleted',
+  );
+  await confirmation.getByRole('button', { name: 'Cancel' }).click();
+
+  await page.getByRole('button', { name: 'Create season' }).click();
+  const create = page.getByRole('dialog', { name: 'Create season' });
+  await create.getByLabel('Name').fill('Empty test season');
+  await create.getByLabel('URL slug').fill('empty-test-season');
+  await create.getByLabel('Location').fill('Test campus');
+  await create.getByRole('button', { name: 'Create season' }).click();
+  const row = page
+    .locator('tr:visible, article:visible')
+    .filter({ hasText: 'Empty test season' });
+  await row.getByRole('button', { name: 'Delete empty season' }).click();
+  confirmation = page.getByRole('alertdialog');
+  await confirmation.getByRole('textbox').fill('Empty test season');
+  await confirmation
+    .getByRole('button', { name: 'Delete empty season' })
+    .click();
+  await expect(row).toHaveCount(0);
+});

@@ -87,6 +87,9 @@ func (p *Store) CreateWeek(ctx context.Context, v programme.WeekRecord, actorID 
 	}
 
 	defer tx.Rollback(context.Background())
+	if err = lockOpenSeason(ctx, tx, v.SeasonID); err != nil {
+		return v, err
+	}
 	_, err = tx.Exec(ctx, `INSERT INTO app.season_weeks(id,season_id,week_number,start_at,end_at,resource_url) VALUES($1,$2,$3,$4,$5,$6)`, v.ID, v.SeasonID, v.Number, v.StartAt, v.EndAt, v.ResourceURL)
 	if err != nil {
 		return v, mapDatabaseError(err)

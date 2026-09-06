@@ -55,6 +55,7 @@ import {
 } from '@/api/queries';
 import { MetricCard, PageHeader, usePageTitle } from '@/components/Common';
 import { AppDatePicker } from '@/components/AppDatePicker';
+import { DeleteEmptySeason } from '@/components/DeleteEmptySeason';
 import { EnrollmentCorrection } from '@/components/EnrollmentCorrection';
 import { AdminProfileEditor } from '@/components/AdminProfileEditor';
 import { Invitations } from '@/components/Invitations';
@@ -361,6 +362,7 @@ export function AdminResourcePage({
           actions: (
             <div className={styles.inline}>
               <SeasonEditorDialog season={season} />
+              <DeleteEmptySeason season={season} />
               {season.status === 'open' ? (
                 <SeasonLifecycleDialog season={season} action="close" />
               ) : (

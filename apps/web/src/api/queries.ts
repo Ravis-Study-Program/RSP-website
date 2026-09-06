@@ -275,6 +275,7 @@ export const enrollmentCandidatesQueryKey = (seasonId?: string) =>
   ['enrollment-candidates', seasonId] as const;
 
 function demoWeekPage(seasonId: string): WeekPage {
+  if (!seasons.some((season) => season.id === seasonId)) return page([]);
   const items: Week[] = seasonWeeks.map((week) => ({
     id: `week_${seasonId}_${week.week}`,
     seasonId,
@@ -289,6 +290,7 @@ function demoWeekPage(seasonId: string): WeekPage {
 }
 
 function demoEnrollmentPage(seasonId: string): EnrollmentPage {
+  if (!seasons.some((season) => season.id === seasonId)) return page([]);
   const items: Enrollment[] = people
     .filter((person) =>
       person.roles.some(
@@ -315,6 +317,7 @@ function demoEnrollmentPage(seasonId: string): EnrollmentPage {
 }
 
 function demoMentorshipPage(seasonId: string): MentorshipPage {
+  if (!seasons.some((season) => season.id === seasonId)) return page([]);
   const mentor = people.find((person) => person.roles.includes('mentor'));
   const student = people.find(
     (person) =>
