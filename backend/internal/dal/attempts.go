@@ -53,7 +53,7 @@ func (p *Store) ListAttempts(ctx context.Context, q AttemptQuery) ([]practice.At
    SELECT 1 FROM app.leetcode_problems l
    JOIN app.leetcode_problem_category_mappings mapping ON mapping.leetcode_problem_id=l.id
    JOIN app.leetcode_problem_categories category ON category.id=mapping.category_id
-   WHERE l.problem_id=a.problem_id AND l.deleted_at IS NULL AND category.deleted_at IS NULL AND category.name=ANY(@categories::text[])))`
+   WHERE l.problem_id=a.problem_id AND l.deleted_at IS NULL AND category.deleted_at IS NULL AND lower(category.normalized_name) IN (SELECT lower(unnest(@categories::text[])))))`
 	difficulties := q.Difficulties
 	if q.Difficulty != "" {
 		difficulties = append(append([]string{}, difficulties...), q.Difficulty)
