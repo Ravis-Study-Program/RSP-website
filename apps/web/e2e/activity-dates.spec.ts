@@ -32,10 +32,8 @@ test('former students can record mocks today in Adelaide and filter their person
   await page.getByRole('tab', { name: 'Given' }).click();
   await expect(
     page
-      .getByRole(
-        testInfo.project.name.includes('mobile') ? 'heading' : 'link',
-        { name: 'Amelia Chen', exact: true },
-      )
+      .getByRole('link', { name: 'Amelia Chen', exact: true })
+      .filter({ visible: true })
       .first(),
   ).toBeVisible();
   await page.getByRole('button', { name: 'Edit details' }).first().click();

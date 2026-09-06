@@ -34,6 +34,28 @@ test('practice charts follow filters and the picker accepts keyboard search', as
   });
 });
 
+test('profiles switch between seasons and all time with readable activity', async ({
+  page,
+}, testInfo) => {
+  await page.goto('/people/amelia-chen?seasonId=season_2026_s2');
+  await expect(page.getByLabel('View activity')).toHaveValue('season_2026_s2');
+  await page.getByLabel('View activity').selectOption('season_2026_s1');
+  await expect(page).toHaveURL(/seasonId=season_2026_s1/);
+  await page.getByLabel('View activity').selectOption('');
+  await expect(page).not.toHaveURL(/seasonId=/);
+  await expect(
+    page.getByRole('heading', { name: 'Programme participation' }),
+  ).toBeVisible();
+  await page.getByRole('tab', { name: /Mock interviews/ }).click();
+  await expect(
+    page.getByRole('combobox', { name: 'Result', exact: true }),
+  ).toBeVisible();
+  await page.screenshot({
+    path: testInfo.outputPath('profile-history.png'),
+    fullPage: true,
+  });
+});
+
 test('suggesting a question leaves practice counts unchanged', async ({
   page,
 }, testInfo) => {

@@ -199,7 +199,7 @@ test('role-aware navigation covers every major programme role', async ({
   test.skip(testInfo.project.name.includes('mobile'), 'Desktop role matrix');
   const cases = [
     ['student', 'Season'],
-    ['mentor', 'My mentees'],
+    ['mentor', 'My students'],
     ['coordinator', 'Mentor teams'],
     ['graduate', 'Directory'],
     ['director', 'Administration'],
@@ -220,7 +220,7 @@ test('role-aware navigation covers every major programme role', async ({
   }
 });
 
-test('completed non-student members keep global practice without directory or admin access', async ({
+test('completed staff can review their season and keep personal practice without global directory or admin access', async ({
   page,
 }, testInfo) => {
   test.skip(
@@ -232,6 +232,12 @@ test('completed non-student members keep global practice without directory or ad
   const navigation = page.getByRole('navigation', {
     name: 'Primary navigation',
   });
+  await expect(
+    navigation.getByRole('link', { name: 'My students' }),
+  ).toBeVisible();
+  await page
+    .getByRole('combobox', { name: 'Workspace', exact: true })
+    .selectOption({ label: 'Former member workspace' });
   await expect(
     navigation.getByRole('link', { name: 'Practice' }),
   ).toBeVisible();
@@ -481,7 +487,9 @@ test('system admin can grant a pending-MFA role and suspend and reactivate an ac
   const row = page.getByRole('row').filter({ hasText: 'Amelia Chen' });
   await row.getByRole('button', { name: 'Manage account' }).click();
   const dialog = page.getByRole('dialog', { name: 'Administer Amelia Chen' });
-  await expect(dialog.getByText('amelia@example.test')).toBeVisible();
+  await expect(
+    dialog.getByText('Current email: amelia@example.test', { exact: true }),
+  ).toBeVisible();
   await dialog
     .getByLabel('Reason for role grant')
     .fill('Acceptance test role assignment');
@@ -609,7 +617,12 @@ test('mock interview create, round edit and named deletion work', async ({
   await page.getByRole('option').filter({ hasText: 'Two Sum' }).first().click();
   await create.getByRole('button', { name: 'Save interview' }).click();
   await page.getByRole('tab', { name: 'Given' }).click();
-  await expect(page.getByText('Amelia Chen').first()).toBeVisible();
+  await expect(
+    page
+      .getByRole('link', { name: /Amelia Chen/ })
+      .filter({ visible: true })
+      .first(),
+  ).toBeVisible();
 
   await page.getByRole('button', { name: 'Edit details' }).first().click();
   const edit = page.getByRole('dialog', { name: 'Edit interview details' });
