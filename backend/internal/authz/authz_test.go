@@ -36,13 +36,13 @@ func TestPermissionMatrix(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			if got := tc.actor.EligibleMember(); got != tc.eligible {
+			if got := tc.actor.CanAccessMemberDirectory(); got != tc.eligible {
 				t.Fatalf("eligible=%v", got)
 			}
-			if got := tc.actor.CanManageSeason("s", true); got != tc.manage {
+			if got := tc.actor.IsSeasonAdmin("s"); got != tc.manage {
 				t.Fatalf("manage=%v", got)
 			}
-			if got := tc.actor.CanViewPrivate("target", MemberRelationship{SeasonID: "s", TargetEnrolled: true, AssignedMentor: true}); got != tc.private {
+			if got := tc.actor.CanViewMemberPrivateData("target", MemberRelationship{SeasonID: "s", TargetEnrolled: true, AssignedMentor: true}); got != tc.private {
 				t.Fatalf("private=%v", got)
 			}
 		})
@@ -53,13 +53,28 @@ func TestAlumniIsDerivedOnlyFromCompletedStudent(t *testing.T) {
 	for _, e := range []Enrollment{{"s", Student, Active}, {"s", Student, Kicked}, {"s", Mentor, Completed}} {
 		a := activeActor("u")
 		a.Enrollments = []Enrollment{e}
-		if a.Alumni() {
+		if a.IsStudentAlumnus() {
 			t.Fatalf("unexpected alumni for %#v", e)
 		}
 	}
 	a := activeActor("u")
 	a.Enrollments = []Enrollment{{"s", Student, Completed}}
-	if !a.Alumni() {
+	if !a.IsStudentAlumnus() {
 		t.Fatal("completed student was not alumni")
+	}
+}
+
+func TestSeasonAdminIsSeasonSpecificAndIndependentOfMFA(t *testing.T) {
+	actor := activeActor("coordinator")
+	actor.Enrollments = []Enrollment{{SeasonID: "managed", Role: Coordinator, State: Active}, {SeasonID: "historical", Role: Coordinator, State: Completed}}
+	if !actor.IsSeasonAdmin("managed") || actor.IsSeasonAdmin("another") || actor.IsSeasonAdmin("historical") {
+		t.Fatal("season admin role scope was not respected")
+	}
+	if actor.HasRecentMFA(time.Now()) {
+		t.Fatal("fixture unexpectedly has MFA")
+	}
+	actor.AccountState = Suspended
+	if actor.IsSeasonAdmin("managed") {
+		t.Fatal("suspended coordinator may administer season")
 	}
 }

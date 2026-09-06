@@ -107,7 +107,7 @@ func TestPostgres18MigrationsAndDAL(t *testing.T) {
 	}
 
 	actor, err := repository.ResolveAuthSubject(ctx, "auth-integration")
-	if err != nil || !actor.IsGlobal("director") || actor.SecurityVersion != 2 {
+	if err != nil || !actor.HasGlobalRole("director") || actor.SecurityVersion != 2 {
 		t.Fatalf("MFA role activation: actor=%#v err=%v", actor, err)
 	}
 

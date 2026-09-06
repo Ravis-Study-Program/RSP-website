@@ -2,6 +2,7 @@ package api
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"io"
@@ -28,7 +29,7 @@ func testRequest(t *testing.T, handler http.Handler, method, path, actor, body s
 	t.Helper()
 	request := httptest.NewRequest(method, path, strings.NewReader(body))
 	if actor != "" {
-		request.Header.Set("X-Test-Actor", actor)
+		request.Header.Set("Authorization", "Bearer "+actor)
 	}
 	if body != "" {
 		request.Header.Set("Content-Type", "application/json")
@@ -77,7 +78,7 @@ func TestRequestContextNormalizesRequestIDAndRecovers(t *testing.T) {
 }
 
 func TestRequestBodyLimitStopsBeforeTheHandler(t *testing.T) {
-	authenticator := AuthenticatorFunc(func(*http.Request) (authz.Actor, error) {
+	authenticator := AuthenticatorFunc(func(context.Context, string) (authz.Actor, error) {
 		return authz.Actor{UserID: "test", EmailVerified: true, AccountState: authz.AccountActive}, nil
 	})
 	body := strings.Repeat("x", int(maxRequestBodyBytes)+1)
@@ -89,8 +90,8 @@ func TestRequestBodyLimitStopsBeforeTheHandler(t *testing.T) {
 }
 
 func TestHealthAuthenticationAndOriginChecksDoNotExposeInternalErrors(t *testing.T) {
-	authenticator := AuthenticatorFunc(func(request *http.Request) (authz.Actor, error) {
-		if request.Header.Get("X-Test-Actor") == "student" {
+	authenticator := AuthenticatorFunc(func(_ context.Context, token string) (authz.Actor, error) {
+		if token == "student" {
 			return authz.Actor{UserID: "student", EmailVerified: true, AccountState: authz.AccountActive}, nil
 		}
 		return authz.Actor{}, errors.New("private authentication failure")
@@ -106,7 +107,7 @@ func TestHealthAuthenticationAndOriginChecksDoNotExposeInternalErrors(t *testing
 	}
 
 	request := httptest.NewRequest(http.MethodDelete, "/api/v2/problem-attempts/anything", nil)
-	request.Header.Set("X-Test-Actor", "student")
+	request.Header.Set("Authorization", "Bearer student")
 	request.Header.Set("Origin", "https://evil.test")
 	response = httptest.NewRecorder()
 	handler.ServeHTTP(response, request)
@@ -116,7 +117,7 @@ func TestHealthAuthenticationAndOriginChecksDoNotExposeInternalErrors(t *testing
 }
 
 func TestRequestCannotSupplyItsOwnActorID(t *testing.T) {
-	authenticator := AuthenticatorFunc(func(*http.Request) (authz.Actor, error) {
+	authenticator := AuthenticatorFunc(func(context.Context, string) (authz.Actor, error) {
 		return authz.Actor{
 			UserID:        "student",
 			EmailVerified: true,

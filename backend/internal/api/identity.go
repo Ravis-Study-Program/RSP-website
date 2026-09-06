@@ -35,7 +35,7 @@ func (a *API) identityLifecycle(w http.ResponseWriter, r *http.Request) {
 		ActorUserID      string     `json:"actorUserId"`
 		SecurityVersion  int64      `json:"securityVersion"`
 	}
-	if err := decodeJSON(w, r, &in); err != nil || in.EventID == "" || in.AuthUserID == "" || in.OccurredAt.IsZero() || in.SecurityVersion < 1 {
+	if err := decodeJSON(r.Body, &in); err != nil || in.EventID == "" || in.AuthUserID == "" || in.OccurredAt.IsZero() || in.SecurityVersion < 1 {
 		writeErrorResponse(w, http.StatusBadRequest, "validation_failed", "valid eventId, type, authUserId, securityVersion, and occurredAt are required")
 		return
 	}

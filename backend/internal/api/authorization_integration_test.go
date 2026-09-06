@@ -18,7 +18,7 @@ func TestPrivateSettingsUseHistoricalRelationshipPolicy(t *testing.T) {
 	}
 	handler := New(Config{
 		DB:            fixture.db,
-		Authenticator: AuthenticatorFunc(func(*http.Request) (authz.Actor, error) { return actor, nil }),
+		Authenticator: AuthenticatorFunc(func(context.Context, string) (authz.Actor, error) { return actor, nil }),
 		CursorSecret:  []byte("0123456789abcdef"),
 	}).Handler()
 	request := func(want int) {

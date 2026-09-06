@@ -159,11 +159,10 @@ func (a *API) limitRequestBody(next http.Handler) http.Handler {
 }
 
 // decodeJSON accepts exactly one JSON value and rejects unknown object fields.
-func decodeJSON(w http.ResponseWriter, r *http.Request, dst any) error {
-	r.Body = http.MaxBytesReader(w, r.Body, maxRequestBodyBytes)
-	dec := json.NewDecoder(r.Body)
+func decodeJSON(body io.Reader, destination any) error {
+	dec := json.NewDecoder(body)
 	dec.DisallowUnknownFields()
-	if err := dec.Decode(dst); err != nil {
+	if err := dec.Decode(destination); err != nil {
 		return err
 	}
 	if err := dec.Decode(&struct{}{}); err != io.EOF {

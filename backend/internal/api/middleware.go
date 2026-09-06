@@ -16,12 +16,14 @@ import (
 )
 
 type Authenticator interface {
-	Authenticate(*http.Request) (authz.Actor, error)
+	Authenticate(context.Context, string) (authz.Actor, error)
 }
 
-type AuthenticatorFunc func(*http.Request) (authz.Actor, error)
+type AuthenticatorFunc func(context.Context, string) (authz.Actor, error)
 
-func (f AuthenticatorFunc) Authenticate(r *http.Request) (authz.Actor, error) { return f(r) }
+func (f AuthenticatorFunc) Authenticate(ctx context.Context, token string) (authz.Actor, error) {
+	return f(ctx, token)
+}
 
 // SubjectResolver resolves a validated token subject into a domain actor.
 // Authentication needs only subject resolution, not every database operation.
@@ -34,18 +36,13 @@ type BearerAuthenticator struct {
 	Subjects  SubjectResolver
 }
 
-func (b BearerAuthenticator) Authenticate(r *http.Request) (authz.Actor, error) {
-	header := r.Header.Get("Authorization")
-	if !strings.HasPrefix(header, "Bearer ") {
-		return authz.Actor{}, authn.ErrInvalidToken
-	}
-
-	claims, err := b.Validator.Validate(r.Context(), strings.TrimSpace(strings.TrimPrefix(header, "Bearer ")))
+func (b BearerAuthenticator) Authenticate(ctx context.Context, token string) (authz.Actor, error) {
+	claims, err := b.Validator.Validate(ctx, token)
 	if err != nil {
 		return authz.Actor{}, err
 	}
 
-	actor, err := b.Subjects.ResolveAuthSubject(r.Context(), claims.Subject)
+	actor, err := b.Subjects.ResolveAuthSubject(ctx, claims.Subject)
 	if err != nil {
 		return authz.Actor{}, err
 	}
@@ -73,8 +70,18 @@ func actorFrom(ctx context.Context) authz.Actor { return ctx.Value(actorKey{}).(
 
 func (a *API) protected(class ratelimit.Class, next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		actor, err := a.auth.Authenticate(r)
+		header := r.Header.Get("Authorization")
+		if !strings.HasPrefix(header, "Bearer ") {
+			writeErrorResponse(w, http.StatusUnauthorized, "authentication_required", "A valid access token is required.")
+			return
+		}
+		token := strings.TrimSpace(strings.TrimPrefix(header, "Bearer "))
+		actor, err := a.auth.Authenticate(r.Context(), token)
 		if err != nil {
+			if !errors.Is(err, authn.ErrInvalidToken) && !errors.Is(err, authn.ErrUnverified) && !errors.Is(err, authn.ErrAccountUnavailable) && !errors.Is(err, dal.ErrNotFound) {
+				a.writeStoreErrorResponse(w, err)
+				return
+			}
 			cause := err.Error()
 			if len(cause) > 512 {
 				cause = cause[:512]

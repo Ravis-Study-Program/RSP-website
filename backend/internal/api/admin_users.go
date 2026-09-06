@@ -2,6 +2,7 @@
 package api
 
 import (
+	"context"
 	"net/http"
 	"strings"
 	"time"
@@ -13,32 +14,18 @@ import (
 	"github.com/magedmg/RSP-website/backend/internal/platform/id"
 )
 
-func (a *API) auditSystemAdminPrivateRead(w http.ResponseWriter, r *http.Request, subjectType, subjectID string) bool {
-	actor := actorFrom(r.Context())
-	if !actor.IsGlobal(authz.SystemAdmin) || subjectID == actor.UserID && subjectType == "user" {
-		return true
+func (a *API) auditPrivateDataRead(ctx context.Context, actor authz.Actor, subjectType, subjectID string) error {
+	if !actor.HasGlobalRole(authz.SystemAdmin) || subjectID == actor.UserID && subjectType == "user" {
+		return nil
 	}
 	actorID := actor.UserID
-	err := a.db.AppendAudit(r.Context(), audit.Event{ID: id.New(), ActorID: &actorID, Action: "private_data.viewed", SubjectType: subjectType, SubjectID: subjectID, Data: map[string]any{}, OccurredAt: time.Now().UTC()})
-	if err != nil {
-		writeErrorResponse(w, http.StatusInternalServerError, "audit_failed", "Private data was not returned because its access could not be audited.")
-		return false
-	}
-	return true
-}
-
-func (a *API) systemAdmin(w http.ResponseWriter, r *http.Request) (authz.Actor, bool) {
-	actor := actorFrom(r.Context())
-	if !actor.IsGlobal(authz.SystemAdmin) || !actor.HasRecentMFA(time.Now()) {
-		writeErrorResponse(w, http.StatusForbidden, "system_admin_mfa_required", "System Admin access with recent MFA is required.")
-		return authz.Actor{}, false
-	}
-	return actor, true
+	return a.db.AppendAudit(ctx, audit.Event{ID: id.New(), ActorID: &actorID, Action: "private_data.viewed", SubjectType: subjectType, SubjectID: subjectID, Data: map[string]any{}, OccurredAt: time.Now().UTC()})
 }
 
 func (a *API) listAdminUsers(w http.ResponseWriter, r *http.Request) {
-	actor, ok := a.systemAdmin(w, r)
-	if !ok {
+	actor := actorFrom(r.Context())
+	if !actor.HasGlobalRole(authz.SystemAdmin) || !actor.HasRecentMFA(time.Now()) {
+		writeErrorResponse(w, http.StatusForbidden, "system_admin_mfa_required", "System Admin access with recent MFA is required.")
 		return
 	}
 	if _, err := requestedSort(r, "id:asc", "id:asc"); err != nil {
@@ -78,7 +65,8 @@ func (a *API) listAdminUsers(w http.ResponseWriter, r *http.Request) {
 		a.writeStoreErrorResponse(w, err)
 		return
 	}
-	if !a.auditSystemAdminPrivateRead(w, r, "admin_user_collection", actor.UserID) {
+	if err := a.auditPrivateDataRead(r.Context(), actorFrom(r.Context()), "admin_user_collection", actor.UserID); err != nil {
+		writeErrorResponse(w, http.StatusInternalServerError, "audit_failed", "Private data was not returned because its access could not be audited.")
 		return
 	}
 	pageInfo := pageInfoForKeyset(
@@ -94,15 +82,16 @@ func (a *API) listAdminUsers(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *API) setUserAccountState(w http.ResponseWriter, r *http.Request) {
-	actor, ok := a.systemAdmin(w, r)
-	if !ok {
+	actor := actorFrom(r.Context())
+	if !actor.HasGlobalRole(authz.SystemAdmin) || !actor.HasRecentMFA(time.Now()) {
+		writeErrorResponse(w, http.StatusForbidden, "system_admin_mfa_required", "System Admin access with recent MFA is required.")
 		return
 	}
 	var in struct {
 		State  string `json:"state"`
 		Reason string `json:"reason"`
 	}
-	if err := decodeJSON(w, r, &in); err != nil || (in.State != "active" && in.State != "suspended") || strings.TrimSpace(in.Reason) == "" || len(in.Reason) > 500 {
+	if err := decodeJSON(r.Body, &in); err != nil || (in.State != "active" && in.State != "suspended") || strings.TrimSpace(in.Reason) == "" || len(in.Reason) > 500 {
 		writeErrorResponse(w, http.StatusBadRequest, "validation_failed", "state active or suspended and a reason up to 500 characters are required")
 		return
 	}
@@ -142,15 +131,16 @@ func (a *API) setUserAccountState(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *API) grantUserGlobalRole(w http.ResponseWriter, r *http.Request) {
-	actor, ok := a.systemAdmin(w, r)
-	if !ok {
+	actor := actorFrom(r.Context())
+	if !actor.HasGlobalRole(authz.SystemAdmin) || !actor.HasRecentMFA(time.Now()) {
+		writeErrorResponse(w, http.StatusForbidden, "system_admin_mfa_required", "System Admin access with recent MFA is required.")
 		return
 	}
 	var in struct {
 		Role   string `json:"role"`
 		Reason string `json:"reason"`
 	}
-	if err := decodeJSON(w, r, &in); err != nil || (in.Role != "director" && in.Role != "system_admin") || strings.TrimSpace(in.Reason) == "" || len(in.Reason) > 500 {
+	if err := decodeJSON(r.Body, &in); err != nil || (in.Role != "director" && in.Role != "system_admin") || strings.TrimSpace(in.Reason) == "" || len(in.Reason) > 500 {
 		writeErrorResponse(w, http.StatusBadRequest, "validation_failed", "role and a reason up to 500 characters are required")
 		return
 	}
@@ -186,7 +176,9 @@ func (a *API) grantUserGlobalRole(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *API) listUserGlobalRoles(w http.ResponseWriter, r *http.Request) {
-	if _, ok := a.systemAdmin(w, r); !ok {
+	actor := actorFrom(r.Context())
+	if !actor.HasGlobalRole(authz.SystemAdmin) || !actor.HasRecentMFA(time.Now()) {
+		writeErrorResponse(w, http.StatusForbidden, "system_admin_mfa_required", "System Admin access with recent MFA is required.")
 		return
 	}
 	target, err := a.db.GetUser(r.Context(), r.PathValue("id"))
@@ -205,8 +197,9 @@ func (a *API) listUserGlobalRoles(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *API) revokeUserGlobalRole(w http.ResponseWriter, r *http.Request) {
-	actor, ok := a.systemAdmin(w, r)
-	if !ok {
+	actor := actorFrom(r.Context())
+	if !actor.HasGlobalRole(authz.SystemAdmin) || !actor.HasRecentMFA(time.Now()) {
+		writeErrorResponse(w, http.StatusForbidden, "system_admin_mfa_required", "System Admin access with recent MFA is required.")
 		return
 	}
 	targetID, role := r.PathValue("id"), r.PathValue("role")

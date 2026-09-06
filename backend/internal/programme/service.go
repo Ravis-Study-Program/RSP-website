@@ -135,3 +135,13 @@ func cloneSeason(s Season) Season {
 	s.Enrollments = append([]Enrollment(nil), s.Enrollments...)
 	return s
 }
+
+// IsEnrolledInSeason includes active and historical participation.
+func IsEnrolledInSeason(enrollments []EnrollmentRecord, seasonID string) bool {
+	for _, enrollment := range enrollments {
+		if enrollment.SeasonID == seasonID && (enrollment.State == "active" || enrollment.State == "completed") {
+			return true
+		}
+	}
+	return false
+}

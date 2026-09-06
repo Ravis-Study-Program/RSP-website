@@ -47,9 +47,11 @@ func (a Actor) authenticated() bool {
 	return a.UserID != "" && a.EmailVerified && a.AccountState == AccountActive
 }
 
-func (a Actor) IsGlobal(role GlobalRole) bool { return a.GlobalRoles[role] }
+func (a Actor) HasGlobalRole(role GlobalRole) bool { return a.GlobalRoles[role] }
 
-func (a Actor) IsPrivileged() bool { return a.IsGlobal(Director) || a.IsGlobal(SystemAdmin) }
+func (a Actor) IsDirectorOrSystemAdmin() bool {
+	return a.HasGlobalRole(Director) || a.HasGlobalRole(SystemAdmin)
+}
 
 func (a Actor) HasRecentMFA(now time.Time) bool {
 	return a.MFAAt != nil && now.Sub(a.MFAAt.UTC()) >= 0 && now.Sub(a.MFAAt.UTC()) <= 15*time.Minute
@@ -64,7 +66,7 @@ func (a Actor) Enrollment(seasonID string) (Enrollment, bool) {
 	return Enrollment{}, false
 }
 
-func (a Actor) Alumni() bool {
+func (a Actor) IsStudentAlumnus() bool {
 	for _, e := range a.Enrollments {
 		if e.Role == Student && e.State == Completed {
 			return true
@@ -73,11 +75,11 @@ func (a Actor) Alumni() bool {
 	return false
 }
 
-func (a Actor) EligibleMember() bool {
+func (a Actor) CanAccessMemberDirectory() bool {
 	if !a.authenticated() {
 		return false
 	}
-	if a.Alumni() {
+	if a.IsStudentAlumnus() {
 		return true
 	}
 	for _, e := range a.Enrollments {
@@ -91,7 +93,7 @@ func (a Actor) EligibleMember() bool {
 // ProgrammeAccess includes historical members whose active enrollment was
 // completed by closing a season. It is intentionally broader than
 // EligibleMember, which remains the directory/basic-profile policy.
-func (a Actor) ProgrammeAccess() bool {
+func (a Actor) CanAccessProgramme() bool {
 	if !a.authenticated() {
 		return false
 	}
@@ -108,11 +110,11 @@ func (a Actor) CanViewSeason(seasonID string) bool {
 	if !a.authenticated() {
 		return false
 	}
-	if a.IsPrivileged() {
+	if a.IsDirectorOrSystemAdmin() {
 		return true
 	}
 	e, ok := a.Enrollment(seasonID)
-	return ok && (e.State == Active || e.State == Completed && a.EligibleMember())
+	return ok && (e.State == Active || e.State == Completed && a.CanAccessMemberDirectory())
 }
 
 // MemberRelationship contains facts loaded for a private-data access check.
@@ -124,11 +126,11 @@ type MemberRelationship struct {
 
 // CanViewPrivate includes historical mentor/coordinator relationships after a
 // season closes. TargetEnrolled means an active or completed target enrollment.
-func (a Actor) CanViewPrivate(targetID string, relationship MemberRelationship) bool {
+func (a Actor) CanViewMemberPrivateData(targetID string, relationship MemberRelationship) bool {
 	if !a.authenticated() {
 		return false
 	}
-	if a.UserID == targetID || a.IsPrivileged() {
+	if a.UserID == targetID || a.IsDirectorOrSystemAdmin() {
 		return true
 	}
 	e, ok := a.Enrollment(relationship.SeasonID)
@@ -139,28 +141,28 @@ func (a Actor) CanViewPrivate(targetID string, relationship MemberRelationship) 
 		(e.Role == Coordinator && relationship.TargetEnrolled)
 }
 
-func (a Actor) CanManageSeason(seasonID string, open bool) bool {
-	if !a.authenticated() || !open {
+func (a Actor) IsSeasonAdmin(seasonID string) bool {
+	if !a.authenticated() {
 		return false
 	}
-	if a.IsPrivileged() {
+	if a.IsDirectorOrSystemAdmin() {
 		return true
 	}
 	e, ok := a.Enrollment(seasonID)
 	return ok && e.State == Active && e.Role == Coordinator
 }
 
-func (a Actor) CanCloseSeason(seasonID string) bool { return a.CanManageSeason(seasonID, true) }
+func (a Actor) CanCloseSeason(seasonID string) bool { return a.IsSeasonAdmin(seasonID) }
 
 func (a Actor) CanReopenSeason(now time.Time) bool {
-	return a.authenticated() && a.IsPrivileged() && a.HasRecentMFA(now)
+	return a.authenticated() && a.IsDirectorOrSystemAdmin() && a.HasRecentMFA(now)
 }
 
-func (a Actor) CanPromoteOrRemove(seasonID string, assignedMentee, targetActive bool) bool {
+func (a Actor) CanPromoteOrRemoveStudent(seasonID string, assignedMentee, targetActive bool) bool {
 	if !targetActive || !a.authenticated() {
 		return false
 	}
-	if a.IsPrivileged() {
+	if a.IsDirectorOrSystemAdmin() {
 		return true
 	}
 	e, ok := a.Enrollment(seasonID)

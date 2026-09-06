@@ -14,62 +14,9 @@ import (
 	"github.com/magedmg/RSP-website/backend/internal/programme"
 )
 
-func (a *API) requirePracticeAccess(w http.ResponseWriter, r *http.Request) bool {
-	actor := actorFrom(r.Context())
-	if actor.ProgrammeAccess() || actor.IsPrivileged() {
-		return true
-	}
-	writeErrorResponse(w, http.StatusForbidden, "season_access_required", "No season access yet.")
-	return false
-}
-
-func (a *API) canViewMemberPrivate(r *http.Request, targetID string) (bool, error) {
-	actor := actorFrom(r.Context())
-	if actor.CanViewPrivate(targetID, authz.MemberRelationship{}) {
-		return true, nil
-	}
-
-	var targetEnrollments []programme.EnrollmentRecord
-	targetLoaded := false
-	for _, enrollment := range actor.Enrollments {
-		if enrollment.State != authz.Active && enrollment.State != authz.Completed {
-			continue
-		}
-		relationship := authz.MemberRelationship{SeasonID: enrollment.SeasonID}
-		if enrollment.Role == authz.Coordinator {
-			if !targetLoaded {
-				var err error
-				targetEnrollments, err = a.db.ListEnrollmentsForUser(r.Context(), targetID)
-				if err != nil {
-					return false, err
-				}
-
-				targetLoaded = true
-			}
-			for _, target := range targetEnrollments {
-				if target.SeasonID == enrollment.SeasonID && (target.State == "active" || target.State == "completed") {
-					relationship.TargetEnrolled = true
-					break
-				}
-			}
-		}
-		if enrollment.Role == authz.Mentor {
-			assigned, err := a.db.IsMentorAssigned(r.Context(), enrollment.SeasonID, actor.UserID, targetID)
-			if err != nil {
-				return false, err
-			}
-			relationship.AssignedMentor = assigned
-		}
-		if actor.CanViewPrivate(targetID, relationship) {
-			return true, nil
-		}
-	}
-
-	return false, nil
-}
-
 func (a *API) problems(w http.ResponseWriter, r *http.Request) {
-	if !a.requirePracticeAccess(w, r) {
+	if !actorFrom(r.Context()).CanAccessProgramme() && !actorFrom(r.Context()).IsDirectorOrSystemAdmin() {
+		writeErrorResponse(w, http.StatusForbidden, "season_access_required", "No season access yet.")
 		return
 	}
 
@@ -130,7 +77,8 @@ func (a *API) problems(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *API) attempts(w http.ResponseWriter, r *http.Request) {
-	if !a.requirePracticeAccess(w, r) {
+	if !actorFrom(r.Context()).CanAccessProgramme() && !actorFrom(r.Context()).IsDirectorOrSystemAdmin() {
+		writeErrorResponse(w, http.StatusForbidden, "season_access_required", "No season access yet.")
 		return
 	}
 
@@ -139,11 +87,11 @@ func (a *API) attempts(w http.ResponseWriter, r *http.Request) {
 	if targetID == "" {
 		targetID = actor.UserID
 	}
-	if targetID != actor.UserID && !actor.EligibleMember() && !actor.IsPrivileged() {
+	if targetID != actor.UserID && !actor.CanAccessMemberDirectory() && !actor.IsDirectorOrSystemAdmin() {
 		writeErrorResponse(w, http.StatusForbidden, "directory_access_required", "Only active members and student alumni may view another member's public problem history.")
 		return
 	}
-	if targetID != actor.UserID && !actor.IsPrivileged() {
+	if targetID != actor.UserID && !actor.IsDirectorOrSystemAdmin() {
 		participant, err := a.db.GetMockParticipant(r.Context(), targetID)
 		if err != nil || !participant.Eligible() {
 			writeErrorResponse(w, http.StatusNotFound, "not_found", "The requested member does not exist.")
@@ -186,15 +134,56 @@ func (a *API) attempts(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if targetID != actor.UserID && !a.auditSystemAdminPrivateRead(w, r, "problem_attempt_history", targetID) {
-		return
-	}
-	if targetID != actor.UserID && !actor.IsPrivileged() {
-		canPrivate, err := a.canViewMemberPrivate(r, targetID)
-		if err != nil {
-			a.writeStoreErrorResponse(w, err)
+	if targetID != actor.UserID {
+		if err := a.auditPrivateDataRead(r.Context(), actorFrom(r.Context()), "problem_attempt_history", targetID); err != nil {
+			writeErrorResponse(w, http.StatusInternalServerError, "audit_failed", "Private data was not returned because its access could not be audited.")
 			return
 		}
+	}
+	if targetID != actor.UserID && !actor.IsDirectorOrSystemAdmin() {
+		canPrivate := actorFrom(r.Context()).CanViewMemberPrivateData(targetID, authz.MemberRelationship{})
+		var targetEnrollments []programme.EnrollmentRecord
+		targetLoaded := false
+		for _, enrollment := range actorFrom(r.Context()).Enrollments {
+			if canPrivate {
+				break
+			}
+			if enrollment.State != authz.Active && enrollment.State != authz.Completed {
+				continue
+			}
+			relationship := authz.MemberRelationship{SeasonID: enrollment.SeasonID}
+			if enrollment.Role == authz.Coordinator {
+				if !targetLoaded {
+					var err error
+					targetEnrollments, err = a.db.ListEnrollmentsForUser(r.Context(), targetID)
+					if err != nil {
+						a.writeStoreErrorResponse(w, err)
+						return
+					}
+
+					targetLoaded = true
+				}
+				for _, target := range targetEnrollments {
+					if target.SeasonID == enrollment.SeasonID && (target.State == "active" || target.State == "completed") {
+						relationship.TargetEnrolled = true
+						break
+					}
+				}
+			}
+			if enrollment.Role == authz.Mentor {
+				assigned, err := a.db.IsMentorAssigned(r.Context(), enrollment.SeasonID, actorFrom(r.Context()).UserID, targetID)
+				if err != nil {
+					a.writeStoreErrorResponse(w, err)
+					return
+				}
+				relationship.AssignedMentor = assigned
+			}
+			if actorFrom(r.Context()).CanViewMemberPrivateData(targetID, relationship) {
+				canPrivate = true
+				break
+			}
+		}
+
 		if !canPrivate {
 			for i := range items {
 				items[i].Notes = ""
@@ -238,12 +227,13 @@ func validateAttempt(in attemptInput) bool {
 }
 
 func (a *API) createAttempt(w http.ResponseWriter, r *http.Request) {
-	if !a.requirePracticeAccess(w, r) {
+	if !actorFrom(r.Context()).CanAccessProgramme() && !actorFrom(r.Context()).IsDirectorOrSystemAdmin() {
+		writeErrorResponse(w, http.StatusForbidden, "season_access_required", "No season access yet.")
 		return
 	}
 	actor := actorFrom(r.Context())
 	var in attemptInput
-	if err := decodeJSON(w, r, &in); err != nil || !validateAttempt(in) {
+	if err := decodeJSON(r.Body, &in); err != nil || !validateAttempt(in) {
 		writeErrorResponse(w, http.StatusBadRequest, "validation_failed", "valid problem, outcome, confidence, duration, and date are required")
 		return
 	}
@@ -259,13 +249,14 @@ func (a *API) createAttempt(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *API) updateAttempt(w http.ResponseWriter, r *http.Request) {
-	if !a.requirePracticeAccess(w, r) {
+	if !actorFrom(r.Context()).CanAccessProgramme() && !actorFrom(r.Context()).IsDirectorOrSystemAdmin() {
+		writeErrorResponse(w, http.StatusForbidden, "season_access_required", "No season access yet.")
 		return
 	}
 
 	actor := actorFrom(r.Context())
 	var in attemptInput
-	if err := decodeJSON(w, r, &in); err != nil || !validateAttempt(in) {
+	if err := decodeJSON(r.Body, &in); err != nil || !validateAttempt(in) {
 		writeErrorResponse(w, http.StatusBadRequest, "validation_failed", "valid fields are required")
 		return
 	}
@@ -290,7 +281,8 @@ func (a *API) updateAttempt(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *API) deleteAttempt(w http.ResponseWriter, r *http.Request) {
-	if !a.requirePracticeAccess(w, r) {
+	if !actorFrom(r.Context()).CanAccessProgramme() && !actorFrom(r.Context()).IsDirectorOrSystemAdmin() {
+		writeErrorResponse(w, http.StatusForbidden, "season_access_required", "No season access yet.")
 		return
 	}
 	actor := actorFrom(r.Context())

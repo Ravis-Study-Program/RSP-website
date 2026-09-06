@@ -9,7 +9,6 @@ import (
 	"os"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/magedmg/RSP-website/backend/internal/authz"
 	"github.com/magedmg/RSP-website/backend/internal/dal"
@@ -24,7 +23,7 @@ func TestDatabaseFailuresAreNotReportedAsPermissionDenials(t *testing.T) {
 	brokenDB.Close()
 	api := New(Config{
 		DB: brokenDB,
-		Authenticator: AuthenticatorFunc(func(*http.Request) (authz.Actor, error) {
+		Authenticator: AuthenticatorFunc(func(context.Context, string) (authz.Actor, error) {
 			return authz.Actor{
 				UserID: studentID, EmailVerified: true, AccountState: authz.AccountActive,
 				Enrollments: []authz.Enrollment{{SeasonID: seasonID, Role: authz.Student, State: authz.Active}},
@@ -41,19 +40,10 @@ func TestDatabaseFailuresAreNotReportedAsPermissionDenials(t *testing.T) {
 		{http.MethodPost, "/api/v2/mock-interviews"},
 	} {
 		t.Run(tc.method+" "+tc.path, func(t *testing.T) {
-			response := testRequest(t, handler, tc.method, tc.path, "", "{}")
+			response := testRequest(t, handler, tc.method, tc.path, "student", "{}")
 			assertDatabaseFailure(t, response)
 		})
 	}
-	t.Run("selected mock season", func(t *testing.T) {
-		response := httptest.NewRecorder()
-		request := httptest.NewRequest(http.MethodPost, "/", nil)
-		selectedSeason := seasonID
-		if api.validMockSeason(response, request, &selectedSeason, time.Now()) {
-			t.Fatal("unavailable database accepted a season")
-		}
-		assertDatabaseFailure(t, response)
-	})
 }
 
 func assertDatabaseFailure(t *testing.T, response *httptest.ResponseRecorder) {

@@ -24,17 +24,17 @@ func TestHistoricalPrivateAccessRequiresTheRightRelationship(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			actor := activeActor("viewer")
 			actor.Enrollments = []Enrollment{{SeasonID: "s", Role: tc.role, State: tc.state}}
-			if got := actor.CanViewPrivate("target", tc.relationship); got != tc.want {
+			if got := actor.CanViewMemberPrivateData("target", tc.relationship); got != tc.want {
 				t.Fatalf("private access=%v, want %v", got, tc.want)
 			}
 		})
 	}
 	actor := activeActor("viewer")
-	if !actor.CanViewPrivate("viewer", MemberRelationship{}) {
+	if !actor.CanViewMemberPrivateData("viewer", MemberRelationship{}) {
 		t.Fatal("member cannot view their own private data")
 	}
 	actor.AccountState = Suspended
-	if actor.CanViewPrivate("viewer", MemberRelationship{}) {
+	if actor.CanViewMemberPrivateData("viewer", MemberRelationship{}) {
 		t.Fatal("suspended account can view private data")
 	}
 }

@@ -105,7 +105,7 @@ func mockUpdateBody(interview mockinterviews.Interview) map[string]any {
 func mockDirectorHandler(fixture postgresFixture) http.Handler {
 	return New(Config{
 		DB: fixture.db, PublicOrigin: "https://rsp.test", CursorSecret: []byte("0123456789abcdef"),
-		Authenticator: AuthenticatorFunc(func(*http.Request) (authz.Actor, error) {
+		Authenticator: AuthenticatorFunc(func(context.Context, string) (authz.Actor, error) {
 			now := time.Now().UTC()
 			return authz.Actor{UserID: studentID, EmailVerified: true, AccountState: authz.AccountActive,
 				GlobalRoles: map[authz.GlobalRole]bool{authz.Director: true}, MFAAt: &now}, nil

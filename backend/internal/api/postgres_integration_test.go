@@ -71,8 +71,8 @@ func newPostgresFixture(t *testing.T) postgresFixture {
 			Enrollments: []authz.Enrollment{{SeasonID: seasonID, Role: authz.Mentor, State: authz.Active}},
 		},
 	}
-	authenticator := AuthenticatorFunc(func(request *http.Request) (authz.Actor, error) {
-		actor, ok := actors[request.Header.Get("X-Test-Actor")]
+	authenticator := AuthenticatorFunc(func(_ context.Context, token string) (authz.Actor, error) {
+		actor, ok := actors[token]
 		if !ok {
 			return authz.Actor{}, errors.New("missing test actor")
 		}
@@ -201,7 +201,7 @@ func TestPostgresBackedMockInterviewSurvivesHandlerRecreation(t *testing.T) {
 
 	fixture.handler = New(Config{
 		DB: fixture.db,
-		Authenticator: AuthenticatorFunc(func(*http.Request) (authz.Actor, error) {
+		Authenticator: AuthenticatorFunc(func(context.Context, string) (authz.Actor, error) {
 			return authz.Actor{
 				UserID:        studentID,
 				EmailVerified: true,

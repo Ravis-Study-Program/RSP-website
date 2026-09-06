@@ -45,7 +45,7 @@ func (a *API) currentUserResponse(r *http.Request, actor authz.Actor, user accou
 		roles = append(roles, meSeasonRole{SeasonID: enrollment.SeasonID, SeasonSlug: season.Slug, Role: string(enrollment.Role), State: string(enrollment.State)})
 	}
 	sort.Slice(roles, func(i, j int) bool { return roles[i].SeasonSlug < roles[j].SeasonSlug })
-	return meResponse{User: user, EmailVerified: actor.EmailVerified, MFAVerified: actor.HasRecentMFA(time.Now()), SeasonRoles: roles, Alumni: actor.Alumni()}, nil
+	return meResponse{User: user, EmailVerified: actor.EmailVerified, MFAVerified: actor.HasRecentMFA(time.Now()), SeasonRoles: roles, Alumni: actor.IsStudentAlumnus()}, nil
 }
 
 func (a *API) me(w http.ResponseWriter, r *http.Request) {
@@ -83,7 +83,7 @@ func (a *API) updateMe(w http.ResponseWriter, r *http.Request) {
 		AvatarURL *string `json:"avatarUrl"`
 		Timezone  string  `json:"timezone"`
 	}
-	if err := decodeJSON(w, r, &in); err != nil {
+	if err := decodeJSON(r.Body, &in); err != nil {
 		writeErrorResponse(w, http.StatusBadRequest, "validation_failed", err.Error())
 		return
 	}
@@ -147,7 +147,7 @@ func validSlug(slug string) bool {
 
 func (a *API) users(w http.ResponseWriter, r *http.Request) {
 	actor := actorFrom(r.Context())
-	if !actor.EligibleMember() && !actor.IsPrivileged() {
+	if !actor.CanAccessMemberDirectory() && !actor.IsDirectorOrSystemAdmin() {
 		writeErrorResponse(w, http.StatusForbidden, "season_access_required", "No season access yet.")
 		return
 	}
@@ -213,7 +213,7 @@ func (a *API) users(w http.ResponseWriter, r *http.Request) {
 
 func (a *API) user(w http.ResponseWriter, r *http.Request) {
 	actor := actorFrom(r.Context())
-	if !actor.EligibleMember() && !actor.IsPrivileged() {
+	if !actor.CanAccessMemberDirectory() && !actor.IsDirectorOrSystemAdmin() {
 		writeErrorResponse(w, http.StatusForbidden, "season_access_required", "No season access yet.")
 		return
 	}
@@ -224,7 +224,7 @@ func (a *API) user(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if actor.UserID != user.ID && !actor.IsPrivileged() {
+	if actor.UserID != user.ID && !actor.IsDirectorOrSystemAdmin() {
 		participant, eligibilityErr := a.db.GetMockParticipant(r.Context(), user.ID)
 		if eligibilityErr != nil {
 			a.writeStoreErrorResponse(w, eligibilityErr)
@@ -235,18 +235,57 @@ func (a *API) user(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	if actor.UserID != user.ID && !actor.IsPrivileged() {
-		canPrivate, permissionErr := a.canViewMemberPrivate(r, user.ID)
-		if permissionErr != nil {
-			a.writeStoreErrorResponse(w, permissionErr)
-			return
+	if actor.UserID != user.ID && !actor.IsDirectorOrSystemAdmin() {
+		canPrivate := actorFrom(r.Context()).CanViewMemberPrivateData(user.ID, authz.MemberRelationship{})
+		var targetEnrollments []programme.EnrollmentRecord
+		targetLoaded := false
+		for _, enrollment := range actorFrom(r.Context()).Enrollments {
+			if canPrivate {
+				break
+			}
+			if enrollment.State != authz.Active && enrollment.State != authz.Completed {
+				continue
+			}
+			relationship := authz.MemberRelationship{SeasonID: enrollment.SeasonID}
+			if enrollment.Role == authz.Coordinator {
+				if !targetLoaded {
+					var err error
+					targetEnrollments, err = a.db.ListEnrollmentsForUser(r.Context(), user.ID)
+					if err != nil {
+						a.writeStoreErrorResponse(w, err)
+						return
+					}
+
+					targetLoaded = true
+				}
+				for _, target := range targetEnrollments {
+					if target.SeasonID == enrollment.SeasonID && (target.State == "active" || target.State == "completed") {
+						relationship.TargetEnrolled = true
+						break
+					}
+				}
+			}
+			if enrollment.Role == authz.Mentor {
+				assigned, err := a.db.IsMentorAssigned(r.Context(), enrollment.SeasonID, actorFrom(r.Context()).UserID, user.ID)
+				if err != nil {
+					a.writeStoreErrorResponse(w, err)
+					return
+				}
+				relationship.AssignedMentor = assigned
+			}
+			if actorFrom(r.Context()).CanViewMemberPrivateData(user.ID, relationship) {
+				canPrivate = true
+				break
+			}
 		}
+
 		if !canPrivate {
 			user.Email = ""
 			user.AccountState = ""
 		}
 	}
-	if !a.auditSystemAdminPrivateRead(w, r, "user", user.ID) {
+	if err := a.auditPrivateDataRead(r.Context(), actorFrom(r.Context()), "user", user.ID); err != nil {
+		writeErrorResponse(w, http.StatusInternalServerError, "audit_failed", "Private data was not returned because its access could not be audited.")
 		return
 	}
 	writeJSONResponse(w, http.StatusOK, user)
@@ -254,7 +293,7 @@ func (a *API) user(w http.ResponseWriter, r *http.Request) {
 
 func (a *API) seasons(w http.ResponseWriter, r *http.Request) {
 	actor := actorFrom(r.Context())
-	if !actor.ProgrammeAccess() && !actor.IsPrivileged() {
+	if !actor.CanAccessProgramme() && !actor.IsDirectorOrSystemAdmin() {
 		writeErrorResponse(w, http.StatusForbidden, "season_access_required", "No season access yet.")
 		return
 	}
@@ -281,7 +320,7 @@ func (a *API) seasons(w http.ResponseWriter, r *http.Request) {
 	}
 
 	binding := "seasons|sort=id:asc|status=" + status
-	if actor.IsPrivileged() {
+	if actor.IsDirectorOrSystemAdmin() {
 		limit, boundary, pageErr := a.page(r, binding)
 		if pageErr != nil {
 			writeErrorResponse(w, http.StatusBadRequest, "invalid_cursor", cursor.ErrInvalid.Error())
@@ -417,12 +456,12 @@ func validWebURL(raw string, httpsOnly bool) bool {
 
 func (a *API) createSeason(w http.ResponseWriter, r *http.Request) {
 	actor := actorFrom(r.Context())
-	if !actor.IsPrivileged() || !actor.HasRecentMFA(time.Now()) {
+	if !actor.IsDirectorOrSystemAdmin() || !actor.HasRecentMFA(time.Now()) {
 		writeErrorResponse(w, http.StatusForbidden, "privileged_mfa_required", "Director or System Admin access with recent MFA is required.")
 		return
 	}
 	var in seasonInput
-	if err := decodeJSON(w, r, &in); err != nil || !validSeason(in) {
+	if err := decodeJSON(r.Body, &in); err != nil || !validSeason(in) {
 		writeErrorResponse(w, http.StatusBadRequest, "validation_failed", "valid name, slug, dates, and HTTPS URLs are required")
 		return
 	}
@@ -440,7 +479,7 @@ func (a *API) createSeason(w http.ResponseWriter, r *http.Request) {
 func (a *API) updateSeason(w http.ResponseWriter, r *http.Request) {
 	actor := actorFrom(r.Context())
 	seasonID := r.PathValue("id")
-	if !actor.IsPrivileged() || !actor.HasRecentMFA(time.Now()) {
+	if !actor.IsDirectorOrSystemAdmin() || !actor.HasRecentMFA(time.Now()) {
 		writeErrorResponse(w, http.StatusForbidden, "privileged_mfa_required", "Director or System Admin access with recent MFA is required.")
 		return
 	}
@@ -457,7 +496,7 @@ func (a *API) updateSeason(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var in seasonInput
-	if err := decodeJSON(w, r, &in); err != nil || !validSeason(in) {
+	if err := decodeJSON(r.Body, &in); err != nil || !validSeason(in) {
 		writeErrorResponse(w, http.StatusBadRequest, "validation_failed", "valid fields are required")
 		return
 	}
@@ -482,14 +521,28 @@ func (a *API) updateSeason(w http.ResponseWriter, r *http.Request) {
 
 func (a *API) updateSeasonResources(w http.ResponseWriter, r *http.Request) {
 	seasonID := r.PathValue("id")
-	if _, ok := a.requireSeasonAdmin(w, r); !ok {
+	managedSeason, err := a.db.GetSeason(r.Context(), r.PathValue("id"))
+	if err != nil {
+		a.writeStoreErrorResponse(w, err)
+		return
+	}
+	if !actorFrom(r.Context()).IsSeasonAdmin(managedSeason.ID) {
+		writeErrorResponse(w, http.StatusForbidden, "season_admin_required", "Season administrator access is required.")
+		return
+	}
+	if managedSeason.Status != "open" {
+		writeErrorResponse(w, http.StatusForbidden, "season_admin_required", "The season must be open.")
+		return
+	}
+	if !actorFrom(r.Context()).HasRecentMFA(time.Now()) {
+		writeErrorResponse(w, http.StatusForbidden, "season_admin_required", "Recent MFA is required.")
 		return
 	}
 
 	var in struct {
 		ResourcesURL string `json:"resourcesUrl"`
 	}
-	if err := decodeJSON(w, r, &in); err != nil || in.ResourcesURL != "" && !validWebURL(in.ResourcesURL, true) {
+	if err := decodeJSON(r.Body, &in); err != nil || in.ResourcesURL != "" && !validWebURL(in.ResourcesURL, true) {
 		writeErrorResponse(w, http.StatusBadRequest, "validation_failed", "an HTTPS resourcesUrl is required")
 		return
 	}
@@ -529,7 +582,7 @@ func (a *API) closeSeason(w http.ResponseWriter, r *http.Request) {
 	var in struct {
 		Reason string `json:"reason"`
 	}
-	if err := decodeJSON(w, r, &in); err != nil || strings.TrimSpace(in.Reason) == "" {
+	if err := decodeJSON(r.Body, &in); err != nil || strings.TrimSpace(in.Reason) == "" {
 		writeErrorResponse(w, http.StatusBadRequest, "validation_failed", "reason is required")
 		return
 	}
@@ -554,7 +607,7 @@ func (a *API) reopenSeason(w http.ResponseWriter, r *http.Request) {
 	var in struct {
 		Reason string `json:"reason"`
 	}
-	if err := decodeJSON(w, r, &in); err != nil || strings.TrimSpace(in.Reason) == "" {
+	if err := decodeJSON(r.Body, &in); err != nil || strings.TrimSpace(in.Reason) == "" {
 		writeErrorResponse(w, http.StatusBadRequest, "validation_failed", "reason is required")
 		return
 	}

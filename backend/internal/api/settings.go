@@ -1,6 +1,7 @@
 package api
 
 import (
+	"github.com/magedmg/RSP-website/backend/internal/programme"
 	"net/http"
 	"time"
 
@@ -24,17 +25,55 @@ func (a *API) userPracticeSettings(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	allowed, err := a.canViewMemberPrivate(r, target.ID)
-	if err != nil {
-		a.writeStoreErrorResponse(w, err)
-		return
+	allowed := actorFrom(r.Context()).CanViewMemberPrivateData(target.ID, authz.MemberRelationship{})
+	var targetEnrollments []programme.EnrollmentRecord
+	targetLoaded := false
+	for _, enrollment := range actorFrom(r.Context()).Enrollments {
+		if allowed {
+			break
+		}
+		if enrollment.State != authz.Active && enrollment.State != authz.Completed {
+			continue
+		}
+		relationship := authz.MemberRelationship{SeasonID: enrollment.SeasonID}
+		if enrollment.Role == authz.Coordinator {
+			if !targetLoaded {
+				var err error
+				targetEnrollments, err = a.db.ListEnrollmentsForUser(r.Context(), target.ID)
+				if err != nil {
+					a.writeStoreErrorResponse(w, err)
+					return
+				}
+
+				targetLoaded = true
+			}
+			for _, target := range targetEnrollments {
+				if target.SeasonID == enrollment.SeasonID && (target.State == "active" || target.State == "completed") {
+					relationship.TargetEnrolled = true
+					break
+				}
+			}
+		}
+		if enrollment.Role == authz.Mentor {
+			assigned, err := a.db.IsMentorAssigned(r.Context(), enrollment.SeasonID, actorFrom(r.Context()).UserID, target.ID)
+			if err != nil {
+				a.writeStoreErrorResponse(w, err)
+				return
+			}
+			relationship.AssignedMentor = assigned
+		}
+		if actorFrom(r.Context()).CanViewMemberPrivateData(target.ID, relationship) {
+			allowed = true
+			break
+		}
 	}
 
 	if !allowed {
 		writeErrorResponse(w, http.StatusNotFound, "not_found", "The requested member does not exist.")
 		return
 	}
-	if !a.auditSystemAdminPrivateRead(w, r, "practice_settings", target.ID) {
+	if err := a.auditPrivateDataRead(r.Context(), actorFrom(r.Context()), "practice_settings", target.ID); err != nil {
+		writeErrorResponse(w, http.StatusInternalServerError, "audit_failed", "Private data was not returned because its access could not be audited.")
 		return
 	}
 
@@ -54,7 +93,7 @@ func (a *API) updatePracticeSettings(w http.ResponseWriter, r *http.Request) {
 		MediumMinutes int `json:"mediumMinutes"`
 		HardMinutes   int `json:"hardMinutes"`
 	}
-	if err := decodeJSON(w, r, &in); err != nil || !validGoal(in.EasyMinutes) || !validGoal(in.MediumMinutes) || !validGoal(in.HardMinutes) {
+	if err := decodeJSON(r.Body, &in); err != nil || !validGoal(in.EasyMinutes) || !validGoal(in.MediumMinutes) || !validGoal(in.HardMinutes) {
 		writeErrorResponse(w, http.StatusBadRequest, "validation_failed", "goals between 1 and 180 minutes are required")
 		return
 	}
@@ -86,7 +125,7 @@ func (a *API) enablePracticeGoals(w http.ResponseWriter, r *http.Request) {
 	var in struct {
 		SeasonID string `json:"seasonId"`
 	}
-	if err := decodeJSON(w, r, &in); err != nil || in.SeasonID == "" {
+	if err := decodeJSON(r.Body, &in); err != nil || in.SeasonID == "" {
 		writeErrorResponse(w, http.StatusBadRequest, "validation_failed", "seasonId is required")
 		return
 	}
@@ -111,7 +150,7 @@ func (a *API) enablePracticeGoals(w http.ResponseWriter, r *http.Request) {
 	}
 
 	allowed := false
-	if actor.IsPrivileged() {
+	if actor.IsDirectorOrSystemAdmin() {
 		if !actor.HasRecentMFA(time.Now()) {
 			writeErrorResponse(w, http.StatusForbidden, "privileged_mfa_required", "Recent MFA is required.")
 			return

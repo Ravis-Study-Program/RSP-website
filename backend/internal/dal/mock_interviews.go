@@ -38,7 +38,7 @@ func (p *Store) ListMockInterviews(ctx context.Context, actor authz.Actor, q Moc
 		where = `mi.interviewer_user_id=$1`
 	} else if q.Mode == "received" {
 		where = `mi.interviewee_user_id=$1`
-	} else if q.Mode == "all" && actor.IsPrivileged() {
+	} else if q.Mode == "all" && actor.IsDirectorOrSystemAdmin() {
 		where = `$1::text IS NOT NULL`
 	} else if q.Mode == "all" {
 		where = `(mi.interviewer_user_id=$1 OR mi.interviewee_user_id=$1 OR EXISTS (
