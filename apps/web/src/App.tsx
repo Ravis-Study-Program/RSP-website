@@ -72,6 +72,12 @@ function ProtectedShell() {
         replace
       />
     );
+  if (
+    user.data?.emailVerified &&
+    sessionStorage.getItem('rsp-pending-invitation') &&
+    (location.pathname === '/dashboard' || location.pathname === '/profile')
+  )
+    return <Navigate to="/invitations/accept" replace />;
   const isMember = Boolean(
     user.data &&
     (user.data.seasonRoles.length > 0 ||
@@ -190,6 +196,14 @@ function LegacyProfileRedirect() {
 }
 
 export const routeObjects: RouteObject[] = [
+  {
+    path: '/invitations/accept',
+    lazy: async () => ({
+      Component: (await import('@/pages/InvitationAcceptPage'))
+        .InvitationAcceptPage,
+    }),
+    errorElement: <RouteErrorPage />,
+  },
   {
     path: '/sign-in',
     element: <SignInPage />,

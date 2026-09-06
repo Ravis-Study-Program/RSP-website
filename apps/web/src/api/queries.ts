@@ -81,7 +81,7 @@ interface ApiPage<T> {
  * (participant selectors and season joins). The API cursor remains opaque and
  * is always passed back verbatim.
  */
-async function fetchAllPages<T>(path: string): Promise<ApiPage<T>> {
+export async function fetchAllPages<T>(path: string): Promise<ApiPage<T>> {
   const items: T[] = [];
   const seen = new Set<string>();
   let cursor: string | null = null;

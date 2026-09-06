@@ -55,6 +55,7 @@ import {
 } from '@/api/queries';
 import { MetricCard, PageHeader, usePageTitle } from '@/components/Common';
 import { AppDatePicker } from '@/components/AppDatePicker';
+import { Invitations } from '@/components/Invitations';
 import { DataTable } from '@/components/DataTable';
 import { FormDialog, NamedConfirmation } from '@/components/Dialogs';
 import {
@@ -537,6 +538,9 @@ export function AdminResourcePage({
             </select>
           </div>
         </div>
+      ) : null}
+      {resource === 'enrollments' && selectedSeason ? (
+        <Invitations key={selectedSeason.id} season={selectedSeason} />
       ) : null}
       <DataTable
         ariaLabel={`Admin ${config.title}`}

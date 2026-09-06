@@ -54,3 +54,37 @@ test('suggesting a question leaves practice counts unchanged', async ({
     fullPage: true,
   });
 });
+
+test('administrators create, resend and cancel season invitations', async ({
+  page,
+}) => {
+  await page.addInitScript(() =>
+    localStorage.setItem('rsp-demo-role', 'director'),
+  );
+  await page.goto('/admin/enrollments');
+  await page.getByRole('button', { name: 'Invite a member' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Invite a member' });
+  await dialog.getByLabel('Name', { exact: true }).fill('Invited member');
+  await dialog
+    .getByLabel('Email', { exact: true })
+    .fill('invited@example.test');
+  await dialog.getByRole('button', { name: 'Send invitation' }).click();
+  await expect(
+    page.getByText(
+      'Invitation email queued. The recipient has 7 days to accept.',
+    ),
+  ).toBeVisible();
+  const invitations = page.getByRole('region', {
+    name: 'Invitations',
+    exact: true,
+  });
+  await invitations
+    .getByRole('button', { name: 'Resend', exact: true })
+    .filter({ visible: true })
+    .click();
+  await invitations
+    .getByRole('button', { name: 'Cancel invitation', exact: true })
+    .filter({ visible: true })
+    .click();
+  await expect(page.getByText('Invitation cancelled.')).toBeVisible();
+});
