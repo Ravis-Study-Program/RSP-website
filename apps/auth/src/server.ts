@@ -6,11 +6,12 @@ import {
 } from 'node:http';
 
 import { APIError } from 'better-auth';
+import { createEmailVerificationToken } from 'better-auth/api';
 import { z } from 'zod';
 
 import { accountLifecycle, auth, pool } from './auth.js';
 import { config } from './config.js';
-import { invitationEmail } from './email/templates.js';
+import { verificationEmail, invitationEmail } from './email/templates.js';
 import {
   ACCOUNT_DELETION_RECOVERY_PATH,
   ACCOUNT_DELETION_REQUEST_PATH,
@@ -601,7 +602,7 @@ function internalUserRoute(
   pathname: string,
 ): { authUserId: string; action: string } | undefined {
   const match =
-    /^\/internal\/auth\/users\/([^/]+)\/(revoke-sessions|state|mfa-state|deletion|deletion-cancel|pseudonymize)$/.exec(
+    /^\/internal\/auth\/users\/([^/]+)\/(revoke-sessions|state|mfa-state|email-change|deletion|deletion-cancel|pseudonymize)$/.exec(
       pathname,
     );
   if (!match?.[1] || !match[2]) return undefined;
@@ -658,6 +659,66 @@ async function handleInternal(
   }
 
   switch (route.action) {
+    case 'email-change': {
+      const parsed = z
+        .object({ email: z.email().max(254), deliveryId: z.uuid() })
+        .safeParse(body);
+      if (!parsed.success) {
+        sendProblem(
+          response,
+          400,
+          'invalid_request',
+          'A valid new email is required',
+          id,
+        );
+        return;
+      }
+      const newEmail = parsed.data.email.toLowerCase();
+      const current = await pool.query<{ email: string }>(
+        "SELECT email FROM users WHERE id=$1 AND account_state='active' AND email_verified=true",
+        [route.authUserId],
+      );
+      if (!current.rows[0]) {
+        sendProblem(
+          response,
+          404,
+          'auth_user_not_found',
+          'Verified active account not found',
+          id,
+        );
+        return;
+      }
+      const duplicate = await pool.query(
+        'SELECT id FROM users WHERE lower(email)=$1',
+        [newEmail],
+      );
+      if (duplicate.rowCount) {
+        sendProblem(
+          response,
+          409,
+          'email_in_use',
+          'This email address is already in use',
+          id,
+        );
+        return;
+      }
+      const token = await createEmailVerificationToken(
+        config.secret,
+        current.rows[0].email,
+        newEmail,
+        3600,
+        { requestType: 'change-email-verification' },
+      );
+      const link = new URL('/api/auth/verify-email', config.baseUrl);
+      link.searchParams.set('token', token);
+      link.searchParams.set('callbackURL', '/sign-in?emailChanged=true');
+      await accountLifecycle.queueEmail(parsed.data.deliveryId, {
+        ...verificationEmail(newEmail, link.toString()),
+        subject: 'Verify your new RSP email address',
+      });
+      sendJson(response, 202, { queued: true }, id);
+      return;
+    }
     case 'mfa-state': {
       const result = await pool.query<{ two_factor_enabled: boolean | null }>(
         "SELECT two_factor_enabled FROM users WHERE id = $1 AND account_state = 'active'",

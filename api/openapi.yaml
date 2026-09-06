@@ -1458,6 +1458,63 @@ paths:
         '409': { $ref: '#/components/responses/Error' }
         '401': { $ref: '#/components/responses/Error' }
         '429': { $ref: '#/components/responses/RateLimited' }
+  /admin/users/{id}/profile:
+    parameters: [{ $ref: '#/components/parameters/ID' }]
+    get:
+      operationId: getAdminProfile
+      responses:
+        default: { $ref: '#/components/responses/Error' }
+        '200':
+          {
+            description: Restricted profile and contact data,
+            content:
+              {
+                application/json:
+                  { schema: { $ref: '#/components/schemas/AdminProfile' } },
+              },
+          }
+    patch:
+      operationId: updateAdminProfile
+      requestBody:
+        {
+          required: true,
+          content:
+            {
+              application/json:
+                { schema: { $ref: '#/components/schemas/AdminProfileUpdate' } },
+            },
+        }
+      responses:
+        default: { $ref: '#/components/responses/Error' }
+        '200':
+          {
+            description: Corrected profile,
+            content:
+              {
+                application/json:
+                  { schema: { $ref: '#/components/schemas/AdminProfile' } },
+              },
+          }
+  /admin/users/{id}/email-change:
+    parameters: [{ $ref: '#/components/parameters/ID' }]
+    post:
+      operationId: requestAdminEmailChange
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email]
+              properties:
+                email: { type: string, format: email }
+      responses:
+        default: { $ref: '#/components/responses/Error' }
+        '202':
+          {
+            description: Verification queued; the current email remains unchanged,
+          }
+
   /admin/leetcode/sync:
     post:
       operationId: requestLeetcodeSync
@@ -1685,6 +1742,23 @@ components:
             { schema: { $ref: '#/components/schemas/ErrorResponse' } },
         }
   schemas:
+    AdminProfileUpdate:
+      type: object
+      required: [name, slug, avatarUrl, discordId]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 100 }
+        slug: { type: string, minLength: 3, maxLength: 50 }
+        avatarUrl: { type: string, nullable: true }
+        discordId: { type: string, nullable: true, maxLength: 100 }
+    AdminProfile:
+      allOf:
+        - { $ref: '#/components/schemas/AdminProfileUpdate' }
+        - type: object
+          required: [id, email]
+          properties:
+            id: { type: string, format: uuid }
+            email: { type: string, format: email }
+
     InvitationToken:
       type: object
       required: [token]

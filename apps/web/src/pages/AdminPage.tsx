@@ -55,6 +55,7 @@ import {
 } from '@/api/queries';
 import { MetricCard, PageHeader, usePageTitle } from '@/components/Common';
 import { AppDatePicker } from '@/components/AppDatePicker';
+import { AdminProfileEditor } from '@/components/AdminProfileEditor';
 import { Invitations } from '@/components/Invitations';
 import { DataTable } from '@/components/DataTable';
 import { FormDialog, NamedConfirmation } from '@/components/Dialogs';
@@ -854,6 +855,10 @@ function UserAdministrationDialog({
         ) : null}
         {user ? (
           <>
+            <AdminProfileEditor
+              user={user}
+              onSaved={(updated) => setUser({ ...user, ...updated })}
+            />
             <section aria-labelledby={`account-state-${person.id}`}>
               <h3
                 id={`account-state-${person.id}`}

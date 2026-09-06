@@ -27,20 +27,22 @@ const maxRequestBodyBytes int64 = 1 << 20
 
 // Config contains the dependencies needed by the HTTP API.
 type Config struct {
-	SendInvitation    func(context.Context, authadmin.InvitationEmailInput) error
-	DB                *dal.Store
-	Authenticator     Authenticator
-	PublicOrigin      string
-	CursorSecret      []byte
-	Logger            *slog.Logger
-	Ready             func() error
-	QueueLeetCodeSync func(context.Context, string, string) error
-	SetAccountState   func(context.Context, authadmin.SetAccountStateInput) error
-	GetMFAConfigured  func(context.Context, string) (bool, error)
+	RequestEmailChange func(context.Context, authadmin.EmailChangeInput) error
+	SendInvitation     func(context.Context, authadmin.InvitationEmailInput) error
+	DB                 *dal.Store
+	Authenticator      Authenticator
+	PublicOrigin       string
+	CursorSecret       []byte
+	Logger             *slog.Logger
+	Ready              func() error
+	QueueLeetCodeSync  func(context.Context, string, string) error
+	SetAccountState    func(context.Context, authadmin.SetAccountStateInput) error
+	GetMFAConfigured   func(context.Context, string) (bool, error)
 }
 
 // API connects HTTP handlers to authentication, application services, and storage.
 type API struct {
+	requestEmailChange   func(context.Context, authadmin.EmailChangeInput) error
 	sendInvitation       func(context.Context, authadmin.InvitationEmailInput) error
 	db                   *dal.Store
 	auth                 Authenticator
@@ -68,6 +70,7 @@ func New(c Config) *API {
 	}
 	cleaner := sanitize.New()
 	return &API{
+		requestEmailChange:   c.RequestEmailChange,
 		sendInvitation:       c.SendInvitation,
 		db:                   c.DB,
 		auth:                 c.Authenticator,

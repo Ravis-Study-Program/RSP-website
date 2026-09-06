@@ -242,6 +242,87 @@ live.sequential('live Better Auth handler and PostgreSQL', () => {
     await pool.end();
   });
 
+  it('admin email correction verifies the new address before changing identity and revokes sessions', async () => {
+    await resetAuthRateLimits();
+    const oldEmail = `admin-correction-${randomUUID()}@example.test`;
+    const newEmail = `verified-correction-${randomUUID()}@example.test`;
+    expect(
+      (
+        await call('/sign-up/email', {
+          body: { name: 'Email correction', email: oldEmail, password },
+        })
+      ).status,
+    ).toBe(200);
+    await verifyThroughCapturedEmail(oldEmail);
+    const current = await pool.query<{ id: string }>(
+      'SELECT id FROM auth.users WHERE email=$1',
+      [oldEmail],
+    );
+    const targetId = current.rows[0]!.id;
+    const cookies = jar();
+    expect((await signIn(oldEmail, cookies)).status).toBe(200);
+    const deliveryId = randomUUID();
+    try {
+      const denied = await fetch(
+        `${origin}/internal/auth/users/${targetId}/email-change`,
+        {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ email: newEmail, deliveryId }),
+        },
+      );
+      expect(denied.status).toBe(401);
+      const queued = await fetch(
+        `${origin}/internal/auth/users/${targetId}/email-change`,
+        {
+          method: 'POST',
+          headers: {
+            authorization: `Bearer ${internalToken}`,
+            'content-type': 'application/json',
+          },
+          body: JSON.stringify({ email: newEmail, deliveryId }),
+        },
+      );
+      expect(queued.status).toBe(202);
+      expect(
+        (
+          await pool.query('SELECT email FROM auth.users WHERE id=$1', [
+            targetId,
+          ])
+        ).rows[0].email,
+      ).toBe(oldEmail);
+      const outbox = await pool.query<{
+        payload: { to: string; text: string };
+      }>('SELECT payload FROM auth.lifecycle_outbox WHERE id=$1', [deliveryId]);
+      expect(outbox.rows[0]!.payload.to).toBe(newEmail);
+      const link = outbox.rows[0]!.payload.text.match(
+        /https?:\/\/[^\s]+\/api\/auth\/verify-email\?[^\s]+/,
+      )![0];
+      const verified = await fetch(link, { redirect: 'manual' });
+      expect(verified.status).toBe(302);
+      expect(verified.headers.get('location')).toBe(
+        '/sign-in?emailChanged=true',
+      );
+      const after = await pool.query(
+        'SELECT email,email_verified FROM auth.users WHERE id=$1',
+        [targetId],
+      );
+      expect(after.rows[0]).toMatchObject({
+        email: newEmail,
+        email_verified: true,
+      });
+      expect(await sessionCount(targetId)).toBe(0);
+      const events = await pool.query(
+        "SELECT payload FROM auth.lifecycle_outbox WHERE payload->>'type'='email_changed' AND payload->>'authUserId'=$1",
+        [targetId],
+      );
+      expect(events.rows).toHaveLength(1);
+      expect(events.rows[0].payload.email).toBe(newEmail);
+    } finally {
+      await pool.query('DELETE FROM auth.users WHERE id=$1', [targetId]);
+    }
+  });
+
   it('enables TOTP, stores only backup hashes, revokes setup sessions and records the transition', async () => {
     await resetAuthRateLimits();
     const enable = await call('/two-factor/enable', {

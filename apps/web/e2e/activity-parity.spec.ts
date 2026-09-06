@@ -88,3 +88,37 @@ test('administrators create, resend and cancel season invitations', async ({
     .click();
   await expect(page.getByText('Invitation cancelled.')).toBeVisible();
 });
+
+test('system admin edits profile details and requests email verification separately', async ({
+  page,
+}) => {
+  await page.addInitScript(() =>
+    localStorage.setItem('rsp-demo-role', 'system_admin'),
+  );
+  await page.goto('/admin/users');
+  await page
+    .getByRole('button', { name: 'Manage account' })
+    .filter({ visible: true })
+    .first()
+    .click();
+  const editor = page.getByRole('region', {
+    name: 'Edit profile and contact details',
+  });
+  await editor.getByLabel('Name', { exact: true }).fill('Corrected member');
+  await editor.getByLabel('Discord', { exact: true }).fill('member.discord');
+  await editor.getByRole('button', { name: 'Save profile' }).click();
+  await expect(editor.getByText('Profile updated.')).toBeVisible();
+  const currentEmail = await editor
+    .getByText('Current email:', { exact: false })
+    .textContent();
+  await editor.getByLabel('New email address').fill('changed@example.test');
+  await editor.getByRole('button', { name: 'Send email verification' }).click();
+  await expect(
+    editor.getByText(
+      'Verification sent to the new address. The current email remains until it is verified.',
+    ),
+  ).toBeVisible();
+  await expect(editor.getByText('Current email:', { exact: false })).toHaveText(
+    currentEmail!,
+  );
+});

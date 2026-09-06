@@ -90,5 +90,8 @@ func registerMockInterviewRoutes(mux *http.ServeMux, a *API) {
 }
 
 func registerAdminRoutes(mux *http.ServeMux, a *API) {
+	mux.HandleFunc("GET /api/v2/admin/users/{id}/profile", a.protected(ratelimit.Read, a.getAdminProfile))
+	mux.HandleFunc("PATCH /api/v2/admin/users/{id}/profile", a.protected(ratelimit.Sensitive, a.updateAdminProfile))
+	mux.HandleFunc("POST /api/v2/admin/users/{id}/email-change", a.protected(ratelimit.Sensitive, a.requestAdminEmailChange))
 	mux.HandleFunc("POST /api/v2/admin/leetcode/sync", a.protected(ratelimit.Sensitive, a.queueLeetCodeSync))
 }

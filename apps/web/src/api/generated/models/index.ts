@@ -9,6 +9,8 @@
 export * from './accountStateMutation';
 export * from './accountStateMutationState';
 export * from './activitySummary';
+export * from './adminProfile';
+export * from './adminProfileUpdate';
 export * from './assignmentState';
 export * from './attempt';
 export * from './attemptMutation';
@@ -98,6 +100,7 @@ export * from './promotion';
 export * from './promotionRole';
 export * from './rateLimitedResponse';
 export * from './reasoned';
+export * from './requestAdminEmailChangeBody';
 export * from './revokeAdminUserGlobalRoleParams';
 export * from './roundReview';
 export * from './scores';

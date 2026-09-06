@@ -128,3 +128,30 @@ func (c Client) SendInvitation(ctx context.Context, input InvitationEmailInput) 
 	}
 	return nil
 }
+
+type EmailChangeInput struct {
+	AuthUserID string `json:"-"`
+	Email      string `json:"email"`
+	DeliveryID string `json:"deliveryId"`
+}
+
+func (c Client) RequestEmailChange(ctx context.Context, input EmailChangeInput) error {
+	body, err := json.Marshal(input)
+	if err != nil {
+		return err
+	}
+	request, err := c.request(ctx, http.MethodPost, "/internal/auth/users/"+url.PathEscape(input.AuthUserID)+"/email-change", bytes.NewReader(body))
+	if err != nil {
+		return err
+	}
+	request.Header.Set("Content-Type", "application/json")
+	response, err := c.httpClient().Do(request)
+	if err != nil {
+		return err
+	}
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusAccepted {
+		return fmt.Errorf("auth email change request returned %d", response.StatusCode)
+	}
+	return nil
+}
