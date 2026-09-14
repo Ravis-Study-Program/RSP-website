@@ -84,7 +84,7 @@ services:
     restart: unless-stopped
     environment:
       DATABASE_URL: postgresql://rsp_app:${APP_DB_PASSWORD}@postgres:5432/${POSTGRES_DB}?sslmode=disable&options=-c%20search_path%3Dapp
-      APP_ENV: production
+      APP_ENV: ${NODE_ENV:-production}
       API_ADDR: :8080
       PUBLIC_ORIGIN: ${PUBLIC_ORIGIN}
       CURSOR_SECRET: ${CURSOR_SECRET}
