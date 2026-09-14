@@ -134,7 +134,7 @@ services:
     restart: unless-stopped
     environment:
       DATABASE_URL: postgresql://rsp_auth:${AUTH_DB_PASSWORD}@postgres:5432/${POSTGRES_DB}?sslmode=disable&options=-c%20search_path%3Dauth
-      NODE_ENV: ${NODE_ENV:-production}
+      NODE_ENV: ${AUTH_NODE_ENV:-production}
       AUTH_HOST: 0.0.0.0
       AUTH_PORT: 3001
       BETTER_AUTH_URL: ${PUBLIC_ORIGIN}
