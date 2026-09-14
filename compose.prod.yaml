@@ -1,0 +1,194 @@
+name: rsp-website
+
+x-postgres-image: &postgres-image postgres:18.6-alpine3.24
+
+services:
+  postgres:
+    image: *postgres-image
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - postgres-data:/var/lib/postgresql
+    healthcheck:
+      test: [CMD-SHELL, 'pg_isready -U "$$POSTGRES_USER" -d "$$POSTGRES_DB"']
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  provision-db:
+    image: *postgres-image
+    restart: 'no'
+    environment:
+      PGHOST: postgres
+      PGDATABASE: ${POSTGRES_DB}
+      PGUSER: ${POSTGRES_USER}
+      PGPASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - ./deploy/postgres/provision-roles.sql:/provision.sql:ro
+    entrypoint: [psql]
+    command:
+      - --set
+      - ON_ERROR_STOP=1
+      - --set
+      - migration_password=${MIGRATION_DB_PASSWORD}
+      - --set
+      - app_password=${APP_DB_PASSWORD}
+      - --set
+      - auth_password=${AUTH_DB_PASSWORD}
+      - --file
+      - /provision.sql
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  migrate-app:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+      target: migrations
+    restart: 'no'
+    environment:
+      GOOSE_DBSTRING: postgresql://rsp_migration:${MIGRATION_DB_PASSWORD}@postgres:5432/${POSTGRES_DB}?sslmode=disable
+    command: [up]
+    depends_on:
+      provision-db:
+        condition: service_completed_successfully
+
+  migrate-auth:
+    image: *postgres-image
+    restart: 'no'
+    environment:
+      PGHOST: postgres
+      PGDATABASE: ${POSTGRES_DB}
+      PGUSER: rsp_auth
+      PGPASSWORD: ${AUTH_DB_PASSWORD}
+    volumes:
+      - ./deploy/postgres/migrate-auth.sql:/migrate-auth.sql:ro
+      - ./apps/auth/migrations:/apps/auth/migrations:ro
+    entrypoint: [psql]
+    command: [--set, ON_ERROR_STOP=1, --file, /migrate-auth.sql]
+    depends_on:
+      provision-db:
+        condition: service_completed_successfully
+
+  api:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+      target: runtime
+      args:
+        BINARY: api
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql://rsp_app:${APP_DB_PASSWORD}@postgres:5432/${POSTGRES_DB}?sslmode=disable&options=-c%20search_path%3Dapp
+      APP_ENV: production
+      API_ADDR: :8080
+      PUBLIC_ORIGIN: ${PUBLIC_ORIGIN}
+      CURSOR_SECRET: ${CURSOR_SECRET}
+      AUTH_ISSUER: ${AUTH_ISSUER}
+      AUTH_AUDIENCE: ${AUTH_AUDIENCE}
+      AUTH_JWKS_URL: http://auth:3001/api/auth/jwks
+      AUTH_INTERNAL_URL: http://auth:3001
+      IDENTITY_SERVICE_TOKEN: ${IDENTITY_SERVICE_TOKEN}
+    depends_on:
+      migrate-app:
+        condition: service_completed_successfully
+    healthcheck:
+      test:
+        [
+          CMD,
+          wget,
+          -q,
+          -O,
+          /dev/null,
+          http://127.0.0.1:8080/api/v2/health/ready,
+        ]
+      interval: 10s
+      timeout: 3s
+      retries: 20
+
+  worker:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+      target: runtime
+      args:
+        BINARY: worker
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql://rsp_app:${APP_DB_PASSWORD}@postgres:5432/${POSTGRES_DB}?sslmode=disable&options=-c%20search_path%3Dapp
+      APP_ENV: production
+      LEETCODE_SYNC_URL: ${LEETCODE_SYNC_URL}
+    depends_on:
+      migrate-app:
+        condition: service_completed_successfully
+
+  auth:
+    build:
+      context: .
+      dockerfile: apps/auth/Dockerfile
+      target: runtime
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql://rsp_auth:${AUTH_DB_PASSWORD}@postgres:5432/${POSTGRES_DB}?sslmode=disable&options=-c%20search_path%3Dauth
+      NODE_ENV: production
+      AUTH_HOST: 0.0.0.0
+      AUTH_PORT: 3001
+      BETTER_AUTH_URL: ${PUBLIC_ORIGIN}
+      BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET}
+      AUTH_TRUSTED_ORIGINS: ${AUTH_TRUSTED_ORIGINS}
+      AUTH_COOKIE_SECURE: 'true'
+      AUTH_TRUST_PROXY_HEADERS: 'true'
+      AUTH_IP_ADDRESS_HEADER: ${AUTH_IP_ADDRESS_HEADER:-x-real-ip}
+      AUTH_MFA_MAX_AGE_SECONDS: ${AUTH_MFA_MAX_AGE_SECONDS:-300}
+      RSP_API_AUDIENCE: ${AUTH_AUDIENCE}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
+      EMAIL_PROVIDER: ${EMAIL_PROVIDER}
+      EMAIL_FROM: ${EMAIL_FROM}
+      AWS_REGION: ${AWS_REGION}
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
+      IDENTITY_SERVICE_URL: http://api:8080
+      IDENTITY_SERVICE_TOKEN: ${IDENTITY_SERVICE_TOKEN}
+    depends_on:
+      migrate-auth:
+        condition: service_completed_successfully
+      api:
+        condition: service_healthy
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+      target: runtime
+    restart: unless-stopped
+    depends_on:
+      auth:
+        condition: service_healthy
+
+  caddy:
+    image: caddy:2.11.4-alpine
+    restart: unless-stopped
+    expose:
+      - '8080'
+    volumes:
+      - ./deploy/caddy/Caddyfile.prod:/etc/caddy/Caddyfile:ro
+    depends_on:
+      api:
+        condition: service_healthy
+      auth:
+        condition: service_healthy
+      web:
+        condition: service_started
+    healthcheck:
+      test: [CMD, wget, -q, -O, /dev/null, http://127.0.0.1:8080/health/live]
+      interval: 10s
+      timeout: 3s
+      retries: 20
+
+volumes:
+  postgres-data:

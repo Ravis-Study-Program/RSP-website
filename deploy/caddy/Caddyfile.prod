@@ -1,0 +1,27 @@
+:8080 {
+	log
+
+	handle /health/live {
+		respond 200
+	}
+
+	handle /metrics {
+		respond 404
+	}
+
+	handle /api/v2/metrics {
+		respond 404
+	}
+
+	handle /api/auth/* {
+		reverse_proxy auth:3001
+	}
+
+	handle /api/v2/* {
+		reverse_proxy api:8080
+	}
+
+	handle {
+		reverse_proxy web:8080
+	}
+}
