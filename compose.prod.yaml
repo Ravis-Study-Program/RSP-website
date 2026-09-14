@@ -194,7 +194,8 @@ services:
       - dokploy-network
 
 volumes:
-  networks:
-    dokploy-network:
-      external: true
   postgres-data:
+
+networks:
+  dokploy-network:
+    external: true
