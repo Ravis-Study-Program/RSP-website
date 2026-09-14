@@ -189,6 +189,12 @@ services:
       interval: 10s
       timeout: 3s
       retries: 20
+    networks:
+      - default
+      - dokploy-network
 
 volumes:
+  networks:
+    dokploy-network:
+      external: true
   postgres-data:
