@@ -89,7 +89,7 @@ func (t *snapshotTransformer) addRow(target, sourceTable string, source Row, id 
 func (t *snapshotTransformer) transformSeasons() error {
 	for _, source := range t.snapshot.Tables["Season"] {
 		id := sourceID("Season", source)
-		closed := timeBefore(source["EndDateInclusiveUtc"], t.snapshot.CapturedAt)
+		closed := timeBefore(source["EndDateInclusiveUTC"], t.snapshot.CapturedAt)
 		status := "open"
 		var closedAt any
 		if closed {
@@ -103,7 +103,7 @@ func (t *snapshotTransformer) transformSeasons() error {
 				return err
 			}
 		}
-		values := Row{"id": id, "slug": source["Slug"], "name": source["Name"], "status": status, "start_at": source["StartDateInclusiveUtc"], "end_at": source["EndDateInclusiveUtc"], "location": source["Location"], "image_url": source["ImageUrl"], "resources_url": source["ResourcesUrl"], "closed_at": closedAt, "deleted_at": source["DeletedAtUtc"], "created_at": source["CreatedAtUtc"], "updated_at": source["UpdatedAtUtc"]}
+		values := Row{"id": id, "slug": source["Slug"], "name": source["Name"], "status": status, "start_at": source["StartDateInclusiveUTC"], "end_at": source["EndDateInclusiveUTC"], "location": source["Location"], "image_url": source["ImageUrl"], "resources_url": source["ResourcesUrl"], "closed_at": closedAt, "deleted_at": source["DeletedAtUtc"], "created_at": source["CreatedAtUtc"], "updated_at": source["UpdatedAtUtc"]}
 		if err := t.addRow("seasons", "Season", source, id, values, ""); err != nil {
 			return err
 		}
