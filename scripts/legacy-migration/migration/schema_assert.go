@@ -26,7 +26,7 @@ var legacyPlannerColumns = map[string][]string{
 	"MockInterview":      {"CreatedAtUtc", "DeletedAtUtc", "IntervieweeUserId", "InterviewerUserId", "IsPass", "Notes", "SeasonId", "SeasonWeekId", "StartDate", "TimeTakenInMinutes", "UpdatedAtUtc"},
 	"MockInterviewRound": {"BehaviouralMockInterviewRoundId", "CreatedAtUtc", "CustomMockInterviewRoundId", "DeletedAtUtc", "IntervieweeComment", "IsReviewedByInterviewee", "LeetcodeMockInterviewRoundId", "MockInterviewId", "UpdatedAtUtc"},
 	"Problem":            {"CreatedAtUtc", "DeletedAtUtc", "Link", "Title", "UpdatedAtUtc"},
-	"ProblemAttempt":     {"AttemptStartDateUtc", "CreatedAtUtc", "CustomProblemId", "DeletedAtUtc", "EnrollmentId", "LeetcodeProblemId", "Notes", "SeasonId", "SeasonWeekId", "TimeTakenInMinutes", "UpdatedAtUtc", "UserId"},
+	"ProblemAttempt":     {"AttemptStartDateUtc", "CreatedAtUtc", "CustomProblemId", "DeletedAtUtc", "EnrollmentId", "LeetcodeProblemId", "Notes", "SeasonWeekId", "TimeTakenInMinutes", "UpdatedAtUtc", "UserId"},
 	"Season":             {"CreatedAtUtc", "DeletedAtUtc", "EndDateInclusiveUTC", "ImageUrl", "Location", "Name", "ResourcesUrl", "Slug", "StartDateInclusiveUTC", "UpdatedAtUtc"},
 	"SeasonWeek":         {"CreatedAtUtc", "DeletedAtUtc", "EndDate", "SeasonId", "StartDate", "UpdatedAtUtc", "WeekNumber"},
 	"User":               {"CreatedAtUtc", "DeletedAtUtc", "DiscordId", "Email", "IsAdmin", "IsGraduate", "Name", "ProfileImage", "Slug", "UserId"},
