@@ -106,14 +106,7 @@ func (t *snapshotTransformer) transformSeasons() error {
 		slug := stringValue(source["Slug"])
 		normalizedSlug := strings.ToLower(strings.TrimSpace(slug))
 		if normalizedSlug != slug {
-			*t.autoFixes = append(*t.autoFixes, AutoFix{
-				Code:        "NORMALIZE_SEASON_SLUG",
-				SourceTable: "Season",
-				SourceID:    id,
-				Detail:      "season slug lowercased to satisfy the target slug format",
-				Before:      source["Slug"],
-				After:       normalizedSlug,
-			})
+			*t.autoFixes = append(*t.autoFixes, AutoFix{Code: "NORMALIZE_SEASON_SLUG", SourceTable: "Season", SourceID: id, Detail: "season slug lowercased to satisfy the target slug format", Before: source["Slug"], After: normalizedSlug})
 		}
 		values := Row{"id": id, "slug": normalizedSlug, "name": source["Name"], "status": status, "start_at": source["StartDateInclusiveUTC"], "end_at": source["EndDateInclusiveUTC"], "location": source["Location"], "image_url": source["ImageUrl"], "resources_url": source["ResourcesUrl"], "closed_at": closedAt, "deleted_at": source["DeletedAtUtc"], "created_at": source["CreatedAtUtc"], "updated_at": source["UpdatedAtUtc"]}
 		if err := t.addRow("seasons", "Season", source, id, values, ""); err != nil {
@@ -197,7 +190,27 @@ func (t *snapshotTransformer) transformProgramme() error {
 		}
 		role := mapEnum(numberValue(source["Role"]), []string{"student", "mentor", "coordinator"})
 		level := mapEnum(numberValue(source["StudentRolePromotion"]), []string{"not_applicable", "novice", "beginner", "intermediate", "advanced"})
-		values := Row{"id": id, "user_id": source["UserId"], "season_id": source["SeasonId"], "role": role, "student_level": level, "state": state, "completed_by_close_id": completedBy, "state_changed_at": stateChanged, "deleted_at": source["DeletedAtUtc"], "created_at": source["CreatedAtUtc"], "updated_at": source["UpdatedAtUtc"]}
+		// enrollments_coordinator_mfa admits exactly three shapes: an active
+		// coordinator awaiting TOTP, an active activated assignment, or a
+		// non-active revoked one. Legacy rows carry no assignment lifecycle, so
+		// derive it from the state resolved above rather than leaning on column
+		// defaults, which only satisfied the constraint while every enrollment
+		// stayed active.
+		assignmentState := "active"
+		var activatedAt any = source["CreatedAtUtc"]
+		if role == "coordinator" {
+			assignmentState, activatedAt = "pending_mfa", nil
+		}
+		var closeAssignmentState, closeActivatedAt any
+		if state != "active" {
+			// enrollments_close_assignment_snapshot wants the pre-close
+			// assignment preserved whenever a close event completed the row.
+			if completedBy != nil {
+				closeAssignmentState, closeActivatedAt = assignmentState, activatedAt
+			}
+			assignmentState, activatedAt = "revoked", nil
+		}
+		values := Row{"id": id, "user_id": source["UserId"], "season_id": source["SeasonId"], "role": role, "student_level": level, "state": state, "assignment_state": assignmentState, "activated_at": activatedAt, "completed_by_close_id": completedBy, "close_assignment_state": closeAssignmentState, "close_activated_at": closeActivatedAt, "state_changed_at": stateChanged, "deleted_at": source["DeletedAtUtc"], "created_at": source["CreatedAtUtc"], "updated_at": source["UpdatedAtUtc"]}
 		if err := t.addRow("enrollments", "Enrollment", source, id, values, ""); err != nil {
 			return err
 		}
