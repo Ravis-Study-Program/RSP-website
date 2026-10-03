@@ -103,7 +103,19 @@ func (t *snapshotTransformer) transformSeasons() error {
 				return err
 			}
 		}
-		values := Row{"id": id, "slug": source["Slug"], "name": source["Name"], "status": status, "start_at": source["StartDateInclusiveUTC"], "end_at": source["EndDateInclusiveUTC"], "location": source["Location"], "image_url": source["ImageUrl"], "resources_url": source["ResourcesUrl"], "closed_at": closedAt, "deleted_at": source["DeletedAtUtc"], "created_at": source["CreatedAtUtc"], "updated_at": source["UpdatedAtUtc"]}
+		slug := stringValue(source["Slug"])
+		normalizedSlug := strings.ToLower(strings.TrimSpace(slug))
+		if normalizedSlug != slug {
+			*t.autoFixes = append(*t.autoFixes, AutoFix{
+				Code:        "NORMALIZE_SEASON_SLUG",
+				SourceTable: "Season",
+				SourceID:    id,
+				Detail:      "season slug lowercased to satisfy the target slug format",
+				Before:      source["Slug"],
+				After:       normalizedSlug,
+			})
+		}
+		values := Row{"id": id, "slug": normalizedSlug, "name": source["Name"], "status": status, "start_at": source["StartDateInclusiveUTC"], "end_at": source["EndDateInclusiveUTC"], "location": source["Location"], "image_url": source["ImageUrl"], "resources_url": source["ResourcesUrl"], "closed_at": closedAt, "deleted_at": source["DeletedAtUtc"], "created_at": source["CreatedAtUtc"], "updated_at": source["UpdatedAtUtc"]}
 		if err := t.addRow("seasons", "Season", source, id, values, ""); err != nil {
 			return err
 		}
