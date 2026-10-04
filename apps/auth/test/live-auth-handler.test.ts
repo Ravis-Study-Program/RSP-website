@@ -165,6 +165,43 @@ async function verifyThroughCapturedEmail(targetEmail: string): Promise<void> {
     expect(verification.headers.get('location')).toBe('/');
 }
 
+async function resetTokenFromCapturedEmail(
+  targetEmail: string,
+): Promise<string> {
+  if (!mailpitUrl)
+    throw new Error('AUTH_LIVE_MAILPIT_URL is required for live reset tests');
+  for (let attempt = 0; attempt < 20; attempt += 1) {
+    const list = await fetch(`${mailpitUrl}/api/v1/messages`);
+    const body = (await list.json()) as {
+      messages?: Array<{
+        ID: string;
+        Subject?: string;
+        To?: Array<{ Address?: string }>;
+      }>;
+    };
+    const messageId = body.messages?.find(
+      (message) =>
+        message.Subject === 'Reset your RSP password' &&
+        message.To?.some(
+          (recipient) =>
+            recipient.Address?.toLowerCase() === targetEmail.toLowerCase(),
+        ),
+    )?.ID;
+    if (messageId) {
+      const message = (await (
+        await fetch(`${mailpitUrl}/api/v1/message/${messageId}`)
+      ).json()) as { Text?: string };
+      const token = message.Text?.match(
+        /\/api\/auth\/reset-password\/([A-Za-z0-9_-]+)/,
+      )?.[1];
+      if (!token) throw new Error('reset URL was absent from captured email');
+      return token;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  }
+  throw new Error(`reset email for ${targetEmail} was not captured`);
+}
+
 live.sequential('live Better Auth handler and PostgreSQL', () => {
   const suffix = randomUUID();
   const email = `auth-live-${suffix}@example.test`;
@@ -885,6 +922,61 @@ live.sequential('live Better Auth handler and PostgreSQL', () => {
       status: 409,
     });
     await pool.query('DELETE FROM auth.users WHERE id = $1', [linkedUserId]);
+  });
+
+  it('lets an Auth0-imported member with no password reset it and then sign in', async () => {
+    await resetAuthRateLimits();
+    // Mirrors the row rsp-migrate auth0 apply writes for a database user:
+    // a verified Better Auth user with no credential account.
+    const importedEmail = `auth-imported-${suffix}@example.test`;
+    const importedUserId = randomUUID().replaceAll('-', '');
+    const importedPassword = 'ImportedMemberPassword-2026';
+    await pool.query(
+      `INSERT INTO auth.users
+         (id, name, email, email_verified, created_at, updated_at,
+          two_factor_enabled, account_state, security_version)
+       VALUES ($1, 'Imported Member', $2, true, now(), now(), false, 'active', 1)`,
+      [importedUserId, importedEmail],
+    );
+    try {
+      const before = await call('/sign-in/email', {
+        body: { email: importedEmail, password: importedPassword },
+      });
+      expect(before.status).toBe(401);
+      await expect(before.json()).resolves.toMatchObject({
+        code: 'INVALID_EMAIL_OR_PASSWORD',
+      });
+
+      const request = await call('/request-password-reset', {
+        body: { email: importedEmail, redirectTo: '/reset-password' },
+      });
+      expect(request.status).toBe(200);
+      const token = await resetTokenFromCapturedEmail(importedEmail);
+      const reset = await call('/reset-password', {
+        body: { token, newPassword: importedPassword },
+      });
+      expect(reset.status).toBe(200);
+
+      const methods = await pool.query<{
+        provider_id: string;
+        account_id: string;
+      }>(
+        'SELECT provider_id, account_id FROM auth.accounts WHERE user_id = $1',
+        [importedUserId],
+      );
+      expect(methods.rows).toEqual([
+        { provider_id: 'credential', account_id: importedUserId },
+      ]);
+      const after = await call('/sign-in/email', {
+        body: { email: importedEmail, password: importedPassword },
+        cookies: jar(),
+      });
+      expect(after.status).toBe(200);
+    } finally {
+      await pool.query('DELETE FROM auth.users WHERE id = $1', [
+        importedUserId,
+      ]);
+    }
   });
 
   it('disabling MFA revokes sessions and records the state for privileged-role demotion', async () => {

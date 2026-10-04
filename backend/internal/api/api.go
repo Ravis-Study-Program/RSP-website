@@ -38,6 +38,8 @@ type Config struct {
 	QueueLeetCodeSync  func(context.Context, string, string) error
 	SetAccountState    func(context.Context, authadmin.SetAccountStateInput) error
 	GetMFAConfigured   func(context.Context, string) (bool, error)
+	// RateLimits overrides the per-account limits; zero fields use defaults.
+	RateLimits ratelimit.Limits
 }
 
 // API connects HTTP handlers to authentication, application services, and storage.
@@ -77,7 +79,7 @@ func New(c Config) *API {
 		publicOrigin:         c.PublicOrigin,
 		cursorSecret:         secret,
 		logger:               logger,
-		limiter:              ratelimit.New(),
+		limiter:              ratelimit.NewWithLimits(c.RateLimits),
 		ready:                c.Ready,
 		queueLeetCodeSyncRun: c.QueueLeetCodeSync,
 		setAccountState:      c.SetAccountState,
