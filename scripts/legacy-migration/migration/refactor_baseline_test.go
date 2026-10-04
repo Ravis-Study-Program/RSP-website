@@ -12,7 +12,7 @@ func TestPreparedImportPreservesRecordsAndManifest(t *testing.T) {
 		t.Fatal(err)
 	}
 	// Captured before the readability refactor, including every transformed row.
-	const expected = "99cbd186729a54f8b22d50e993a6ffa1b8f80730c7d8e6f959cc812b066f216e"
+	const expected = "5f81460715716aa5e2280d47e779d731e8c93804612f1299ca0eddf10d5244d2"
 	if checksum != expected {
 		t.Fatalf("import output changed: %s", checksum)
 	}

@@ -39,11 +39,23 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 			return 2
 		}
 	case "auth0":
-		if args[1] != "plan" {
+		switch args[1] {
+		case "normalize":
+			err = normalizeAuth0(args[2:], stdout, stderr)
+		case "candidates":
+			err = auth0Candidates(ctx, args[2:], stdout, stderr)
+		case "propose":
+			err = proposeAuth0(args[2:], stdout, stderr)
+		case "plan":
+			err = planAuth0(args[2:], stdout, stderr, time.Now)
+		case "apply":
+			err = applyAuth0(ctx, args[2:], stdout, stderr)
+		case "verify":
+			err = verifyAuth0(ctx, args[2:], stdout, stderr)
+		default:
 			printUsage(stderr)
 			return 2
 		}
-		err = planAuth0(args[2:], stdout, stderr, time.Now)
 	default:
 		printUsage(stderr)
 		return 2
@@ -60,7 +72,10 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 		errors.Is(err, legacy.ErrSourceDrift) ||
 		errors.Is(err, legacy.ErrManifestChecksum) ||
 		errors.Is(err, legacy.ErrResolutionChecksum) ||
-		errors.Is(err, legacy.ErrResolutionBinding) {
+		errors.Is(err, legacy.ErrResolutionBinding) ||
+		errors.Is(err, legacy.ErrAuth0PlanDrift) ||
+		errors.Is(err, legacy.ErrAuth0Unresolved) ||
+		errors.Is(err, legacy.ErrAuth0ImportInvariant) {
 		return 3
 	}
 	return 1
@@ -295,7 +310,12 @@ func verify(ctx context.Context, engine *legacy.Engine, args []string, stdout, s
 
 func printUsage(writer io.Writer) {
 	fmt.Fprintln(writer, "usage:")
+	fmt.Fprintln(writer, "  rsp-migrate auth0 normalize --export FILE --out FILE")
+	fmt.Fprintln(writer, "  rsp-migrate auth0 candidates --run-id ID --target-dsn DSN --out FILE")
+	fmt.Fprintln(writer, "  rsp-migrate auth0 propose --auth0-users FILE --app-candidates FILE --out FILE --report FILE")
 	fmt.Fprintln(writer, "  rsp-migrate auth0 plan --auth0-users FILE --app-candidates FILE [--resolutions FILE] --plan FILE")
+	fmt.Fprintln(writer, "  rsp-migrate auth0 apply --plan FILE --auth0-users FILE --app-candidates FILE [--resolutions FILE] --run-id ID --target-dsn DSN [--allow-unresolved]")
+	fmt.Fprintln(writer, "  rsp-migrate auth0 verify --run-id ID --target-dsn DSN")
 	fmt.Fprintln(writer, "  rsp-migrate legacy dry-run --source-fixture FILE|--source-dsn DSN --manifest FILE [--resolution FILE]")
 	fmt.Fprintln(writer, "  rsp-migrate legacy apply --source-fixture FILE|--source-dsn DSN --manifest FILE --target-state FILE|--target-dsn DSN [--resolution FILE]")
 	fmt.Fprintln(writer, "  rsp-migrate legacy verify --manifest FILE --target-state FILE|--target-dsn DSN")

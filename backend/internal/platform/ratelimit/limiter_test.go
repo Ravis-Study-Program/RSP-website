@@ -26,3 +26,18 @@ func TestClassesAndReset(t *testing.T) {
 		t.Fatal("did not reset")
 	}
 }
+
+func TestConfiguredLimitsFallBackToDefaults(t *testing.T) {
+	l := NewWithLimits(Limits{Read: 3})
+	for i := 0; i < 3; i++ {
+		if !l.Allow("u", Read).Allowed {
+			t.Fatal("configured read limit applied too early")
+		}
+	}
+	if l.Allow("u", Read).Allowed {
+		t.Fatal("configured read limit was not enforced")
+	}
+	if got := l.Allow("u", Sensitive); got.Limit != DefaultLimits().Sensitive {
+		t.Fatalf("unset sensitive limit = %d, want default", got.Limit)
+	}
+}

@@ -1,6 +1,10 @@
 package main
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/magedmg/RSP-website/backend/internal/platform/ratelimit"
+)
 
 func TestValidateProductionConfig(t *testing.T) {
 	valid := map[string]string{
@@ -34,5 +38,25 @@ func TestValidateProductionConfig(t *testing.T) {
 				t.Fatal("invalid production configuration accepted")
 			}
 		})
+	}
+}
+
+func TestRateLimitsFromEnv(t *testing.T) {
+	values := map[string]string{"API_RATE_LIMIT_READ_PER_MINUTE": " 2000 "}
+	limits, err := rateLimitsFromEnv(func(key string) string { return values[key] })
+	if err != nil {
+		t.Fatal(err)
+	}
+	if limits.Read != 2000 || limits.Write != 0 || limits.Sensitive != 0 {
+		t.Fatalf("limits = %+v", limits)
+	}
+	for _, bad := range []string{"0", "-5", "lots", "1.5"} {
+		values["API_RATE_LIMIT_READ_PER_MINUTE"] = bad
+		if _, err := rateLimitsFromEnv(func(key string) string { return values[key] }); err == nil {
+			t.Fatalf("invalid limit %q was accepted", bad)
+		}
+	}
+	if limits, err := rateLimitsFromEnv(func(string) string { return "" }); err != nil || limits != (ratelimit.Limits{}) {
+		t.Fatalf("unset limits = %+v, %v", limits, err)
 	}
 }

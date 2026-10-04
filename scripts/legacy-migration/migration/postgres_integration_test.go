@@ -145,6 +145,10 @@ func seedPostgresLegacyFixture(ctx context.Context, db *sql.DB, snapshot Snapsho
 		for _, idColumn := range legacyIDFields[table] {
 			columns[idColumn] = true
 		}
+		// Empty fixture tables still need the full legacy shape the planner reads.
+		for _, column := range legacyPlannerColumns[table] {
+			columns[column] = true
+		}
 		for _, row := range snapshot.Tables[table] {
 			for column := range row {
 				columns[column] = true
