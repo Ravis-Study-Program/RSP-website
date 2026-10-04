@@ -177,7 +177,9 @@ export function Invitations({ season }: { season: Season }) {
             {form.role === 'coordinator' ? (
               <p>Coordinator access becomes active after MFA is configured.</p>
             ) : null}
-            {message ? <p role="status">{message}</p> : null}
+            {/* Gate on open: the dialog stays mounted through its close
+                animation, which would briefly duplicate the section status. */}
+            {message && open ? <p role="status">{message}</p> : null}
             <button className={styles.buttonPrimary} disabled={busy}>
               {busy ? 'Sending…' : 'Send invitation'}
             </button>
