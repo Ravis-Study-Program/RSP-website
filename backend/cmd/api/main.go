@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -15,6 +16,7 @@ import (
 	"github.com/magedmg/RSP-website/backend/internal/authadmin"
 	"github.com/magedmg/RSP-website/backend/internal/authn"
 	"github.com/magedmg/RSP-website/backend/internal/dal"
+	"github.com/magedmg/RSP-website/backend/internal/platform/ratelimit"
 )
 
 func main() {
@@ -25,6 +27,15 @@ func main() {
 			logger.Error("invalid production configuration", "error", err)
 			os.Exit(1)
 		}
+	}
+
+	rateLimits, err := rateLimitsFromEnv(os.Getenv)
+	if err != nil {
+		logger.Error("invalid rate limit configuration", "error", err)
+		os.Exit(1)
+	}
+	if rateLimits != (ratelimit.Limits{}) {
+		logger.Info("rate limits overridden", "read", rateLimits.Read, "write", rateLimits.Write, "sensitive", rateLimits.Sensitive)
 	}
 
 	databaseURL := os.Getenv("DATABASE_URL")
@@ -76,6 +87,7 @@ func main() {
 		SendInvitation:     authClient.SendInvitation,
 		RequestEmailChange: authClient.RequestEmailChange,
 		GetMFAConfigured:   authClient.GetMFAConfigured,
+		RateLimits:         rateLimits,
 	})
 	apiHandler := app.Handler()
 
@@ -113,6 +125,31 @@ func validateProductionConfig(getenv func(string) string) error {
 	}
 
 	return nil
+}
+
+// rateLimitsFromEnv reads optional per-minute overrides. Unset variables keep
+// the defaults; a set but invalid value is an error rather than a silent default.
+func rateLimitsFromEnv(getenv func(string) string) (ratelimit.Limits, error) {
+	var limits ratelimit.Limits
+	for _, setting := range []struct {
+		key    string
+		target *int
+	}{
+		{"API_RATE_LIMIT_READ_PER_MINUTE", &limits.Read},
+		{"API_RATE_LIMIT_WRITE_PER_MINUTE", &limits.Write},
+		{"API_RATE_LIMIT_SENSITIVE_PER_MINUTE", &limits.Sensitive},
+	} {
+		raw := strings.TrimSpace(getenv(setting.key))
+		if raw == "" {
+			continue
+		}
+		value, err := strconv.Atoi(raw)
+		if err != nil || value < 1 {
+			return ratelimit.Limits{}, errors.New(setting.key + " must be a positive integer")
+		}
+		*setting.target = value
+	}
+	return limits, nil
 }
 
 func env(k, f string) string {

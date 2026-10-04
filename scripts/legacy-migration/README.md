@@ -15,3 +15,7 @@ go run ./scripts/legacy-migration/cmd legacy dry-run \
 ```
 
 Use `docs/data-migration.md` for the complete rehearsal and cutover procedure.
+
+The `auth0` commands import Auth0 identities onto a verified data migration
+run. Apply `auth0-import-schema.sql` first; it is additive and safe to re-run
+on a target that already holds the data migration. See `docs/auth-cutover.md`.
