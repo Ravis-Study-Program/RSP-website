@@ -218,7 +218,22 @@ func (t *snapshotTransformer) transformProgramme() error {
 	for _, source := range t.snapshot.Tables["Mentorship"] {
 		id := sourceID("Mentorship", source)
 		mentor := t.enrollments[stringValue(source["MentorEnrollmentId"])]
-		values := Row{"id": id, "season_id": mentor["SeasonId"], "mentor_enrollment_id": source["MentorEnrollmentId"], "student_enrollment_id": source["MenteeEnrollmentId"], "ended_at": nil, "deleted_at": source["DeletedAtUtc"], "created_at": source["CreatedAtUtc"], "updated_at": source["UpdatedAtUtc"]}
+		student := t.enrollments[stringValue(source["MenteeEnrollmentId"])]
+		// A mentorship cannot outlive the enrollments it joins. When a student
+		// is kicked or withdraws the mentorship ended at that moment; leaving
+		// ended_at null imports it as live against a departed member, which
+		// validate_mentorship rejects and which would be wrong even if it did
+		// not. Take the earliest departure of either side.
+		endedAt := t.enrollmentEndedAt(mentor)
+		if studentEnded := t.enrollmentEndedAt(student); studentEnded != nil {
+			if endedAt == nil || stringValue(studentEnded) < stringValue(endedAt) {
+				endedAt = studentEnded
+			}
+		}
+		if endedAt != nil {
+			*t.autoFixes = append(*t.autoFixes, AutoFix{Code: "END_MENTORSHIP_WITH_ENROLLMENT", SourceTable: "Mentorship", SourceID: id, Detail: "mentorship ended when its enrollment was removed", Before: nil, After: endedAt})
+		}
+		values := Row{"id": id, "season_id": mentor["SeasonId"], "mentor_enrollment_id": source["MentorEnrollmentId"], "student_enrollment_id": source["MenteeEnrollmentId"], "ended_at": endedAt, "deleted_at": source["DeletedAtUtc"], "created_at": source["CreatedAtUtc"], "updated_at": source["UpdatedAtUtc"]}
 		if err := t.addRow("mentorships", "Mentorship", source, id, values, ""); err != nil {
 			return err
 		}
@@ -234,6 +249,25 @@ func (t *snapshotTransformer) transformProgramme() error {
 		if err := t.addRow("enrollment_removal_events", "KickStudentEvent", source, id, values, ""); err != nil {
 			return err
 		}
+	}
+	return nil
+}
+
+// enrollmentEndedAt reports when an enrollment stopped being a live member of
+// its season, or nil while it is still active or merely completed by a season
+// close. A kick event is authoritative over the soft-delete timestamp because
+// the kick carries the real moment; transformProgramme derives the enrollment
+// state the same way.
+func (t *snapshotTransformer) enrollmentEndedAt(enrollment Row) any {
+	if enrollment == nil {
+		return nil
+	}
+	key := stringValue(enrollment["UserId"]) + "\x00" + stringValue(enrollment["SeasonId"])
+	if kick := t.kicksByMemberSeason[key]; kick != nil {
+		return kick["KickedAtUtc"]
+	}
+	if deleted := enrollment["DeletedAtUtc"]; deleted != nil && stringValue(deleted) != "" {
+		return deleted
 	}
 	return nil
 }
