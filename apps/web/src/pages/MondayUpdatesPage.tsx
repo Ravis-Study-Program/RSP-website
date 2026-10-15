@@ -284,7 +284,7 @@ export function MondayUpdatesPage() {
                 message="Post your first update for this range so your mentor can see what you worked on."
               />
             ) : (
-              <div className={styles.cardGrid}>
+              <div className={styles.cleanList}>
                 {ownUpdates.map((update) => (
                   <StudentUpdateCard
                     key={update.id}
@@ -385,7 +385,7 @@ export function MondayUpdatesPage() {
                   {studentUpdates.length === 0 ? (
                     <p className={styles.muted}>No update in this range.</p>
                   ) : (
-                    <div className={styles.cardGrid}>
+                    <div className={styles.cleanList}>
                       {studentUpdates.map((update) => (
                         <MentorUpdateCard
                           key={update.id}
