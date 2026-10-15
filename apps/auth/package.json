@@ -22,7 +22,7 @@
   "dependencies": {
     "@aws-sdk/client-sesv2": "3.1109.0",
     "better-auth": "1.6.27",
-    "nodemailer": "9.0.5",
+    "nodemailer": "10.0.13",
     "pg": "8.23.0",
     "zod": "4.4.3"
   },
@@ -33,6 +33,6 @@
     "auth": "1.6.27",
     "tsx": "4.23.12",
     "typescript": "7.0.2",
-    "vitest": "4.1.10"
+    "vitest": "4.1.11"
   }
 }

@@ -154,7 +154,7 @@ func TestPlannerReportsLegacyResultMismatches(t *testing.T) {
 	}
 
 	snapshot = validSnapshot(t)
-	snapshot.Tables["Season"][0]["EndDateInclusiveUtc"] = "2026-08-01T00:00:00Z"
+	snapshot.Tables["Season"][0]["EndDateInclusiveUTC"] = "2026-08-01T00:00:00Z"
 	prepared, err = NewPlanner(fixedNow).Plan(snapshot, nil)
 	if err != nil {
 		t.Fatal(err)
@@ -240,7 +240,7 @@ func TestMissingTableAndOrphanAreBlocking(t *testing.T) {
 
 func TestEndedSeasonCreatesCloseEventAndCompletesEnrollments(t *testing.T) {
 	snapshot := validSnapshot(t)
-	snapshot.Tables["Season"][0]["EndDateInclusiveUtc"] = "2026-08-01T00:00:00Z"
+	snapshot.Tables["Season"][0]["EndDateInclusiveUTC"] = "2026-08-01T00:00:00Z"
 	prepared, err := NewPlanner(fixedNow).Plan(snapshot, nil)
 	if err != nil {
 		t.Fatal(err)

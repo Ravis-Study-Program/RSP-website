@@ -44,6 +44,9 @@ func (source *PostgresSource) Snapshot(ctx context.Context, options SnapshotOpti
 
 	snapshot.CapturedAt = snapshot.CapturedAt.UTC()
 	snapshot.Schema, err = readLegacySchema(ctx, tx)
+	if err := AssertSchemaContract(snapshot.Schema); err != nil {
+		return Snapshot{}, err
+	}
 	if err != nil {
 		return Snapshot{}, err
 	}

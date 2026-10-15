@@ -62,7 +62,7 @@ func analyzeUsers(snapshot Snapshot) []Anomaly {
 	}
 	endedSeasons := map[string]string{}
 	for _, row := range snapshot.Tables["Season"] {
-		if timeBefore(row["EndDateInclusiveUtc"], snapshot.CapturedAt) {
+		if timeBefore(row["EndDateInclusiveUTC"], snapshot.CapturedAt) {
 			id := sourceID("Season", row)
 			endedSeasons[id] = id
 		}
@@ -96,8 +96,8 @@ func analyzeProgramme(snapshot Snapshot) []Anomaly {
 
 	for _, row := range snapshot.Tables["Season"] {
 		id := sourceID("Season", row)
-		if invalidTimeRange(row["StartDateInclusiveUtc"], row["EndDateInclusiveUtc"]) {
-			result = append(result, anomaly("INVALID_SEASON_RANGE", "Season", id, "blocking", "season end precedes start", Row{"field": "EndDateInclusiveUtc"}))
+		if invalidTimeRange(row["StartDateInclusiveUTC"], row["EndDateInclusiveUTC"]) {
+			result = append(result, anomaly("INVALID_SEASON_RANGE", "Season", id, "blocking", "season end precedes start", Row{"field": "EndDateInclusiveUTC"}))
 		}
 	}
 	for _, row := range snapshot.Tables["SeasonWeek"] {
@@ -115,8 +115,8 @@ func analyzeProgramme(snapshot Snapshot) []Anomaly {
 		if season := seasons[seasonID]; season != nil {
 			weekStart, weekStartOK := parseTime(row["StartDate"])
 			weekEnd, weekEndOK := parseTime(row["EndDate"])
-			seasonStart, seasonStartOK := parseTime(season["StartDateInclusiveUtc"])
-			seasonEnd, seasonEndOK := parseTime(season["EndDateInclusiveUtc"])
+			seasonStart, seasonStartOK := parseTime(season["StartDateInclusiveUTC"])
+			seasonEnd, seasonEndOK := parseTime(season["EndDateInclusiveUTC"])
 			if weekStartOK && weekEndOK && seasonStartOK && seasonEndOK && (weekStart.Before(seasonStart) || weekEnd.After(seasonEnd)) {
 				result = append(result, anomaly("WEEK_OUTSIDE_SEASON", "SeasonWeek", id, "blocking", "week dates fall outside its season", Row{"field": "StartDate"}))
 			}

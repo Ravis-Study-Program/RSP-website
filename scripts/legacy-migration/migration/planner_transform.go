@@ -89,7 +89,7 @@ func (t *snapshotTransformer) addRow(target, sourceTable string, source Row, id 
 func (t *snapshotTransformer) transformSeasons() error {
 	for _, source := range t.snapshot.Tables["Season"] {
 		id := sourceID("Season", source)
-		closed := timeBefore(source["EndDateInclusiveUtc"], t.snapshot.CapturedAt)
+		closed := timeBefore(source["EndDateInclusiveUTC"], t.snapshot.CapturedAt)
 		status := "open"
 		var closedAt any
 		if closed {
@@ -103,7 +103,12 @@ func (t *snapshotTransformer) transformSeasons() error {
 				return err
 			}
 		}
-		values := Row{"id": id, "slug": source["Slug"], "name": source["Name"], "status": status, "start_at": source["StartDateInclusiveUtc"], "end_at": source["EndDateInclusiveUtc"], "location": source["Location"], "image_url": source["ImageUrl"], "resources_url": source["ResourcesUrl"], "closed_at": closedAt, "deleted_at": source["DeletedAtUtc"], "created_at": source["CreatedAtUtc"], "updated_at": source["UpdatedAtUtc"]}
+		slug := stringValue(source["Slug"])
+		normalizedSlug := strings.ToLower(strings.TrimSpace(slug))
+		if normalizedSlug != slug {
+			*t.autoFixes = append(*t.autoFixes, AutoFix{Code: "NORMALIZE_SEASON_SLUG", SourceTable: "Season", SourceID: id, Detail: "season slug lowercased to satisfy the target slug format", Before: source["Slug"], After: normalizedSlug})
+		}
+		values := Row{"id": id, "slug": normalizedSlug, "name": source["Name"], "status": status, "start_at": source["StartDateInclusiveUTC"], "end_at": source["EndDateInclusiveUTC"], "location": source["Location"], "image_url": source["ImageUrl"], "resources_url": source["ResourcesUrl"], "closed_at": closedAt, "deleted_at": source["DeletedAtUtc"], "created_at": source["CreatedAtUtc"], "updated_at": source["UpdatedAtUtc"]}
 		if err := t.addRow("seasons", "Season", source, id, values, ""); err != nil {
 			return err
 		}
@@ -185,7 +190,27 @@ func (t *snapshotTransformer) transformProgramme() error {
 		}
 		role := mapEnum(numberValue(source["Role"]), []string{"student", "mentor", "coordinator"})
 		level := mapEnum(numberValue(source["StudentRolePromotion"]), []string{"not_applicable", "novice", "beginner", "intermediate", "advanced"})
-		values := Row{"id": id, "user_id": source["UserId"], "season_id": source["SeasonId"], "role": role, "student_level": level, "state": state, "completed_by_close_id": completedBy, "state_changed_at": stateChanged, "deleted_at": source["DeletedAtUtc"], "created_at": source["CreatedAtUtc"], "updated_at": source["UpdatedAtUtc"]}
+		// enrollments_coordinator_mfa admits exactly three shapes: an active
+		// coordinator awaiting TOTP, an active activated assignment, or a
+		// non-active revoked one. Legacy rows carry no assignment lifecycle, so
+		// derive it from the state resolved above rather than leaning on column
+		// defaults, which only satisfied the constraint while every enrollment
+		// stayed active.
+		assignmentState := "active"
+		var activatedAt any = source["CreatedAtUtc"]
+		if role == "coordinator" {
+			assignmentState, activatedAt = "pending_mfa", nil
+		}
+		var closeAssignmentState, closeActivatedAt any
+		if state != "active" {
+			// enrollments_close_assignment_snapshot wants the pre-close
+			// assignment preserved whenever a close event completed the row.
+			if completedBy != nil {
+				closeAssignmentState, closeActivatedAt = assignmentState, activatedAt
+			}
+			assignmentState, activatedAt = "revoked", nil
+		}
+		values := Row{"id": id, "user_id": source["UserId"], "season_id": source["SeasonId"], "role": role, "student_level": level, "state": state, "assignment_state": assignmentState, "activated_at": activatedAt, "completed_by_close_id": completedBy, "close_assignment_state": closeAssignmentState, "close_activated_at": closeActivatedAt, "state_changed_at": stateChanged, "deleted_at": source["DeletedAtUtc"], "created_at": source["CreatedAtUtc"], "updated_at": source["UpdatedAtUtc"]}
 		if err := t.addRow("enrollments", "Enrollment", source, id, values, ""); err != nil {
 			return err
 		}
@@ -193,7 +218,22 @@ func (t *snapshotTransformer) transformProgramme() error {
 	for _, source := range t.snapshot.Tables["Mentorship"] {
 		id := sourceID("Mentorship", source)
 		mentor := t.enrollments[stringValue(source["MentorEnrollmentId"])]
-		values := Row{"id": id, "season_id": mentor["SeasonId"], "mentor_enrollment_id": source["MentorEnrollmentId"], "student_enrollment_id": source["MenteeEnrollmentId"], "ended_at": nil, "deleted_at": source["DeletedAtUtc"], "created_at": source["CreatedAtUtc"], "updated_at": source["UpdatedAtUtc"]}
+		student := t.enrollments[stringValue(source["MenteeEnrollmentId"])]
+		// A mentorship cannot outlive the enrollments it joins. When a student
+		// is kicked or withdraws the mentorship ended at that moment; leaving
+		// ended_at null imports it as live against a departed member, which
+		// validate_mentorship rejects and which would be wrong even if it did
+		// not. Take the earliest departure of either side.
+		endedAt := t.enrollmentEndedAt(mentor)
+		if studentEnded := t.enrollmentEndedAt(student); studentEnded != nil {
+			if endedAt == nil || stringValue(studentEnded) < stringValue(endedAt) {
+				endedAt = studentEnded
+			}
+		}
+		if endedAt != nil {
+			*t.autoFixes = append(*t.autoFixes, AutoFix{Code: "END_MENTORSHIP_WITH_ENROLLMENT", SourceTable: "Mentorship", SourceID: id, Detail: "mentorship ended when its enrollment was removed", Before: nil, After: endedAt})
+		}
+		values := Row{"id": id, "season_id": mentor["SeasonId"], "mentor_enrollment_id": source["MentorEnrollmentId"], "student_enrollment_id": source["MenteeEnrollmentId"], "ended_at": endedAt, "deleted_at": source["DeletedAtUtc"], "created_at": source["CreatedAtUtc"], "updated_at": source["UpdatedAtUtc"]}
 		if err := t.addRow("mentorships", "Mentorship", source, id, values, ""); err != nil {
 			return err
 		}
@@ -209,6 +249,25 @@ func (t *snapshotTransformer) transformProgramme() error {
 		if err := t.addRow("enrollment_removal_events", "KickStudentEvent", source, id, values, ""); err != nil {
 			return err
 		}
+	}
+	return nil
+}
+
+// enrollmentEndedAt reports when an enrollment stopped being a live member of
+// its season, or nil while it is still active or merely completed by a season
+// close. A kick event is authoritative over the soft-delete timestamp because
+// the kick carries the real moment; transformProgramme derives the enrollment
+// state the same way.
+func (t *snapshotTransformer) enrollmentEndedAt(enrollment Row) any {
+	if enrollment == nil {
+		return nil
+	}
+	key := stringValue(enrollment["UserId"]) + "\x00" + stringValue(enrollment["SeasonId"])
+	if kick := t.kicksByMemberSeason[key]; kick != nil {
+		return kick["KickedAtUtc"]
+	}
+	if deleted := enrollment["DeletedAtUtc"]; deleted != nil && stringValue(deleted) != "" {
+		return deleted
 	}
 	return nil
 }
