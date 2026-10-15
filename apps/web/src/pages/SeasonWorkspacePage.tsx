@@ -1,4 +1,9 @@
-import { IconCalendarEvent, IconLock, IconUsers } from '@tabler/icons-react';
+import {
+  IconCalendarEvent,
+  IconLock,
+  IconNotebook,
+  IconUsers,
+} from '@tabler/icons-react';
 import { Link, Navigate, useParams } from 'react-router-dom';
 
 import {
@@ -265,6 +270,20 @@ export function SeasonWorkspacePage() {
                   <span aria-hidden="true">→</span>
                 </Link>
               </li>
+              {isGlobalManager ? (
+                <li>
+                  <Link
+                    className={styles.resourceLink}
+                    to={`/seasons/${season.slug}/monday-updates`}
+                  >
+                    <span>
+                      <IconNotebook size={18} aria-hidden="true" /> Monday
+                      updates
+                    </span>
+                    <span aria-hidden="true">→</span>
+                  </Link>
+                </li>
+              ) : null}
               {season.resourcesUrl ? (
                 <li>
                   <ExternalLink href={season.resourcesUrl}>

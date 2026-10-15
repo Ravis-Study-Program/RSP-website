@@ -1747,6 +1747,191 @@ paths:
         '409': { $ref: '#/components/responses/Error' }
         '401': { $ref: '#/components/responses/Error' }
         '429': { $ref: '#/components/responses/RateLimited' }
+  /seasons/{id}/monday-updates:
+    parameters:
+      - { $ref: '#/components/parameters/ID' }
+    get:
+      operationId: listMondayUpdates
+      description: Monday updates whose own date range overlaps the selected range, with each update's marks and the activity its own dates include.
+      parameters:
+        [
+          {
+            name: startDate,
+            in: query,
+            required: true,
+            description: First calendar date of the selected range in Australia/Adelaide.,
+            schema: { type: string, format: date },
+          },
+          {
+            name: endDate,
+            in: query,
+            required: true,
+            description: Last calendar date of the selected range in Australia/Adelaide.,
+            schema: { type: string, format: date },
+          },
+          {
+            name: studentId,
+            in: query,
+            style: form,
+            explode: true,
+            description: Students to narrow the list to; only the students the authenticated account may read are returned.,
+            schema: { type: array, items: { type: string, format: uuid } },
+          },
+          { $ref: '#/components/parameters/Limit' },
+          { $ref: '#/components/parameters/Cursor' },
+        ]
+      responses:
+        default: { $ref: '#/components/responses/Error' }
+        '200':
+          {
+            description: Monday update page,
+            content:
+              {
+                application/json:
+                  { schema: { $ref: '#/components/schemas/MondayUpdatePage' } },
+              },
+          }
+        '400': { $ref: '#/components/responses/Error' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+    post:
+      operationId: createMondayUpdate
+      requestBody:
+        {
+          required: true,
+          content:
+            {
+              application/json:
+                {
+                  schema: { $ref: '#/components/schemas/MondayUpdateMutation' },
+                },
+            },
+        }
+      responses:
+        default: { $ref: '#/components/responses/Error' }
+        '201':
+          {
+            description: Created Monday update,
+            content:
+              {
+                application/json:
+                  { schema: { $ref: '#/components/schemas/MondayUpdate' } },
+              },
+          }
+        '400': { $ref: '#/components/responses/Error' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+  /seasons/{id}/monday-updates/{updateId}:
+    parameters:
+      - { $ref: '#/components/parameters/ID' }
+      - {
+          name: updateId,
+          in: path,
+          required: true,
+          schema: { type: string, format: uuid },
+        }
+    delete:
+      operationId: deleteMondayUpdate
+      description: Soft-deletes the authenticated student's own Monday update.
+      responses:
+        default: { $ref: '#/components/responses/Error' }
+        '204': { description: Deleted Monday update }
+        '400': { $ref: '#/components/responses/Error' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+  /seasons/{id}/monday-updates/{updateId}/mark:
+    parameters:
+      - { $ref: '#/components/parameters/ID' }
+      - {
+          name: updateId,
+          in: path,
+          required: true,
+          schema: { type: string, format: uuid },
+        }
+    put:
+      operationId: putMondayUpdateMark
+      description: Creates or replaces the authenticated mentor's own mark and comment on one update.
+      requestBody:
+        {
+          required: true,
+          content:
+            {
+              application/json:
+                {
+                  schema:
+                    { $ref: '#/components/schemas/MondayUpdateMarkMutation' },
+                },
+            },
+        }
+      responses:
+        default: { $ref: '#/components/responses/Error' }
+        '200':
+          {
+            description: Saved mark,
+            content:
+              {
+                application/json:
+                  {
+                    schema:
+                      { $ref: '#/components/schemas/MondayUpdateMarkRecord' },
+                  },
+              },
+          }
+        '400': { $ref: '#/components/responses/Error' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+  /seasons/{id}/monday-update-review:
+    parameters:
+      - { $ref: '#/components/parameters/ID' }
+    get:
+      operationId: listMondayUpdateReview
+      description: One row per student enrolled in the season, with deduplicated solved counts and each update's content and marks.
+      parameters:
+        [
+          {
+            name: startDate,
+            in: query,
+            required: true,
+            description: First calendar date of the selected range in Australia/Adelaide.,
+            schema: { type: string, format: date },
+          },
+          {
+            name: endDate,
+            in: query,
+            required: true,
+            description: Last calendar date of the selected range in Australia/Adelaide.,
+            schema: { type: string, format: date },
+          },
+          { $ref: '#/components/parameters/Limit' },
+          { $ref: '#/components/parameters/Cursor' },
+        ]
+      responses:
+        default: { $ref: '#/components/responses/Error' }
+        '200':
+          {
+            description: Monday update review page,
+            content:
+              {
+                application/json:
+                  {
+                    schema:
+                      { $ref: '#/components/schemas/MondayUpdateReviewPage' },
+                  },
+              },
+          }
+        '400': { $ref: '#/components/responses/Error' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '429': { $ref: '#/components/responses/RateLimited' }
 components:
   securitySchemes:
     bearerAuth: { type: http, scheme: bearer, bearerFormat: JWT }
@@ -2700,3 +2885,211 @@ components:
       properties:
         message: { type: string }
         requestId: { type: string }
+    MondayUpdateMark:
+      type: string
+      enum: [way_ahead, doing_good, on_track, a_bit_behind, at_risk]
+    PersonSummary:
+      type: object
+      additionalProperties: false
+      required: [id, slug, name]
+      properties:
+        id: { type: string }
+        slug: { type: string }
+        name: { type: string }
+        avatarUrl: { type: string, nullable: true }
+    MondayUpdateAttempt:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          id,
+          problemId,
+          problem,
+          problemUrl,
+          difficulty,
+          outcome,
+          minutes,
+          attemptedAt,
+        ]
+      properties:
+        id: { type: string }
+        problemId: { type: string }
+        problem: { type: string }
+        problemUrl: { type: string }
+        difficulty:
+          {
+            type: string,
+            description: LeetCode difficulty as easy/medium/hard; empty when the problem records no difficulty.,
+          }
+        outcome: { $ref: '#/components/schemas/AttemptOutcome' }
+        minutes: { type: integer, minimum: 1 }
+        attemptedAt: { type: string, format: date-time }
+    MondayUpdateMock:
+      type: object
+      additionalProperties: false
+      required: [id, occurredAt, durationMinutes]
+      properties:
+        id: { type: string }
+        occurredAt: { type: string, format: date-time }
+        durationMinutes: { type: integer, minimum: 1 }
+    MondayUpdateActivity:
+      type: object
+      additionalProperties: false
+      required: [attempts, mocks]
+      properties:
+        attempts:
+          {
+            type: array,
+            items: { $ref: '#/components/schemas/MondayUpdateAttempt' },
+          }
+        mocks:
+          {
+            type: array,
+            items: { $ref: '#/components/schemas/MondayUpdateMock' },
+          }
+    MondayUpdateMarkRecord:
+      type: object
+      additionalProperties: false
+      required: [id, mentor, mark, commentHtml, updatedAt]
+      properties:
+        id: { type: string }
+        mentor: { $ref: '#/components/schemas/PersonSummary' }
+        mark: { $ref: '#/components/schemas/MondayUpdateMark' }
+        commentHtml: { type: string }
+        updatedAt: { type: string, format: date-time }
+    MondayUpdate:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          id,
+          seasonId,
+          student,
+          startDate,
+          endDate,
+          contentHtml,
+          createdAt,
+          marks,
+          activity,
+        ]
+      properties:
+        id: { type: string }
+        seasonId: { type: string }
+        student: { $ref: '#/components/schemas/PersonSummary' }
+        startDate: { type: string, format: date }
+        endDate: { type: string, format: date }
+        contentHtml: { type: string }
+        createdAt: { type: string, format: date-time }
+        marks:
+          {
+            type: array,
+            items: { $ref: '#/components/schemas/MondayUpdateMarkRecord' },
+          }
+        activity: { $ref: '#/components/schemas/MondayUpdateActivity' }
+    MondayUpdatePage:
+      {
+        allOf:
+          [
+            { $ref: '#/components/schemas/PageEnvelope' },
+            {
+              type: object,
+              required: [items],
+              properties:
+                {
+                  items:
+                    {
+                      type: array,
+                      items: { $ref: '#/components/schemas/MondayUpdate' },
+                    },
+                },
+            },
+          ],
+      }
+    MondayUpdateMutation:
+      type: object
+      additionalProperties: false
+      required: [startDate, endDate, contentHtml]
+      properties:
+        startDate:
+          {
+            type: string,
+            format: date,
+            description: First calendar date the update covers in Australia/Adelaide.,
+          }
+        endDate:
+          {
+            type: string,
+            format: date,
+            description: Last calendar date the update covers in Australia/Adelaide.,
+          }
+        contentHtml: { type: string, maxLength: 20000 }
+    MondayUpdateMarkMutation:
+      type: object
+      additionalProperties: false
+      required: [mark]
+      properties:
+        mark: { $ref: '#/components/schemas/MondayUpdateMark' }
+        commentHtml:
+          {
+            type: string,
+            maxLength: 20000,
+            description: Replaces the mentor's comment; omitted or empty leaves no comment.,
+          }
+    MondayUpdateDifficultyCounts:
+      type: object
+      additionalProperties: false
+      required: [easy, medium, hard]
+      properties:
+        easy: { type: integer, format: int64, minimum: 0 }
+        medium: { type: integer, format: int64, minimum: 0 }
+        hard: { type: integer, format: int64, minimum: 0 }
+    MondayUpdateReviewUpdate:
+      type: object
+      additionalProperties: false
+      required: [id, startDate, endDate, contentHtml, createdAt, marks]
+      properties:
+        id: { type: string }
+        startDate: { type: string, format: date }
+        endDate: { type: string, format: date }
+        contentHtml: { type: string }
+        createdAt: { type: string, format: date-time }
+        marks:
+          {
+            type: array,
+            items: { $ref: '#/components/schemas/MondayUpdateMarkRecord' },
+          }
+    MondayUpdateReviewRow:
+      type: object
+      additionalProperties: false
+      required: [student, leetcodeCounts, mockCount, updateCount, updates]
+      properties:
+        student: { $ref: '#/components/schemas/PersonSummary' }
+        leetcodeCounts:
+          { $ref: '#/components/schemas/MondayUpdateDifficultyCounts' }
+        mockCount: { type: integer, format: int64, minimum: 0 }
+        updateCount: { type: integer, format: int64, minimum: 0 }
+        updates:
+          {
+            type: array,
+            items: { $ref: '#/components/schemas/MondayUpdateReviewUpdate' },
+          }
+    MondayUpdateReviewPage:
+      {
+        allOf:
+          [
+            { $ref: '#/components/schemas/PageEnvelope' },
+            {
+              type: object,
+              required: [items],
+              properties:
+                {
+                  items:
+                    {
+                      type: array,
+                      items:
+                        { $ref: '#/components/schemas/MondayUpdateReviewRow' },
+                    },
+                },
+            },
+          ],
+      }

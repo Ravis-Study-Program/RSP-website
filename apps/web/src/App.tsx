@@ -285,6 +285,13 @@ export const routeObjects: RouteObject[] = [
         }),
       },
       {
+        path: '/seasons/:slug/monday-updates',
+        lazy: async () => ({
+          Component: (await import('@/pages/MondayUpdatesPage'))
+            .MondayUpdatesPage,
+        }),
+      },
+      {
         path: '/practice',
         lazy: async () => ({
           Component: (await import('@/pages/PracticePage')).PracticePage,

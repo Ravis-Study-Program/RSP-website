@@ -1,10 +1,21 @@
 import type {
+  MondayUpdate,
+  MondayUpdateActivity,
+  MondayUpdateAttempt,
+  MondayUpdateMark,
+  MondayUpdateMarkRecord,
+  MondayUpdateMock,
+  PersonSummary,
+} from '@/api/generated/models';
+import { defaultMondayUpdateRange, programmeTimezone } from '@/activityDates';
+import type {
   Attempt,
   CurrentUser,
   MockInterview,
   Person,
   Season,
 } from '@/types';
+import { calendarDateKey } from '@/utils';
 
 export const demoUser: CurrentUser = {
   id: 'usr_01j_rsp_director',
@@ -334,4 +345,285 @@ export const seasonWeeks = [
     startsAt: '2025-12-21T13:30:00Z',
     resource: 'Tree visualiser',
   },
+];
+
+/**
+ * Monday update fixtures are anchored to the week the range pickers default to,
+ * so the demo screens always have several updates per student to show. Offsets
+ * are 0 = Monday … 6 = Sunday of that week.
+ */
+const demoMondayWeek = defaultMondayUpdateRange();
+
+function demoMondayDay(offset: number) {
+  const date = new Date(`${demoMondayWeek.startDate}T00:00:00Z`);
+  date.setUTCDate(date.getUTCDate() + offset);
+  return date.toISOString().slice(0, 10);
+}
+
+/** Adelaide midday, so an activity timestamp keeps the calendar date it names. */
+const demoMondayInstant = (dayOffset: number) =>
+  `${demoMondayDay(dayOffset)}T04:00:00Z`;
+
+const demoMondayProblems = {
+  twoSum: { id: 'lc_1', title: 'Two Sum', slug: 'two-sum', difficulty: 'easy' },
+  validAnagram: {
+    id: 'lc_242',
+    title: 'Valid Anagram',
+    slug: 'valid-anagram',
+    difficulty: 'easy',
+  },
+  climbingStairs: {
+    id: 'lc_70',
+    title: 'Climbing Stairs',
+    slug: 'climbing-stairs',
+    difficulty: 'easy',
+  },
+  mergeIntervals: {
+    id: 'lc_56',
+    title: 'Merge Intervals',
+    slug: 'merge-intervals',
+    difficulty: 'medium',
+  },
+  levelOrder: {
+    id: 'lc_102',
+    title: 'Binary Tree Level Order Traversal',
+    slug: 'binary-tree-level-order-traversal',
+    difficulty: 'medium',
+  },
+  trappingRainWater: {
+    id: 'lc_42',
+    title: 'Trapping Rain Water',
+    slug: 'trapping-rain-water',
+    difficulty: 'hard',
+  },
+} as const;
+
+function demoMondayAttempt(
+  id: string,
+  dayOffset: number,
+  problem: (typeof demoMondayProblems)[keyof typeof demoMondayProblems],
+  outcome: MondayUpdateAttempt['outcome'],
+  minutes: number,
+): MondayUpdateAttempt {
+  return {
+    id,
+    problemId: problem.id,
+    problem: problem.title,
+    problemUrl: `https://leetcode.com/problems/${problem.slug}/`,
+    difficulty: problem.difficulty,
+    outcome,
+    minutes,
+    attemptedAt: demoMondayInstant(dayOffset),
+  };
+}
+
+function demoMondayMock(
+  id: string,
+  dayOffset: number,
+  durationMinutes: number,
+): MondayUpdateMock {
+  return {
+    id,
+    occurredAt: demoMondayInstant(dayOffset),
+    durationMinutes,
+  };
+}
+
+const demoMondayStudents: PersonSummary[] = [people[0], people[2]].map(
+  (person) => ({
+    id: person.id,
+    slug: person.slug,
+    name: person.name,
+    avatarUrl: person.avatarUrl,
+  }),
+);
+
+const demoMondayMentor: PersonSummary = {
+  id: people[1].id,
+  slug: people[1].slug,
+  name: people[1].name,
+  avatarUrl: people[1].avatarUrl,
+};
+
+const demoMondayActivity: Record<string, MondayUpdateActivity> = {
+  [demoMondayStudents[0].id]: {
+    attempts: [
+      demoMondayAttempt(
+        'monday_attempt_amelia_1',
+        0,
+        demoMondayProblems.twoSum,
+        'independently_solved',
+        12,
+      ),
+      demoMondayAttempt(
+        'monday_attempt_amelia_2',
+        1,
+        demoMondayProblems.mergeIntervals,
+        'solved_with_hints',
+        38,
+      ),
+      demoMondayAttempt(
+        'monday_attempt_amelia_3',
+        3,
+        demoMondayProblems.levelOrder,
+        'not_solved',
+        44,
+      ),
+      demoMondayAttempt(
+        'monday_attempt_amelia_4',
+        4,
+        demoMondayProblems.trappingRainWater,
+        'independently_solved',
+        52,
+      ),
+      demoMondayAttempt(
+        'monday_attempt_amelia_5',
+        6,
+        demoMondayProblems.climbingStairs,
+        'unknown',
+        9,
+      ),
+    ],
+    mocks: [
+      demoMondayMock('monday_mock_amelia_1', 1, 45),
+      demoMondayMock('monday_mock_amelia_2', 5, 55),
+    ],
+  },
+  [demoMondayStudents[1].id]: {
+    attempts: [
+      demoMondayAttempt(
+        'monday_attempt_zara_1',
+        0,
+        demoMondayProblems.validAnagram,
+        'independently_solved',
+        16,
+      ),
+      demoMondayAttempt(
+        'monday_attempt_zara_2',
+        2,
+        demoMondayProblems.mergeIntervals,
+        'solved_with_hints',
+        41,
+      ),
+      demoMondayAttempt(
+        'monday_attempt_zara_3',
+        3,
+        demoMondayProblems.trappingRainWater,
+        'not_solved',
+        50,
+      ),
+      demoMondayAttempt(
+        'monday_attempt_zara_4',
+        5,
+        demoMondayProblems.levelOrder,
+        'independently_solved',
+        34,
+      ),
+    ],
+    mocks: [
+      demoMondayMock('monday_mock_zara_1', 2, 60),
+      demoMondayMock('monday_mock_zara_2', 6, 30),
+    ],
+  },
+};
+
+function demoMondayMark(
+  id: string,
+  mark: MondayUpdateMark,
+  commentHtml: string,
+  dayOffset: number,
+): MondayUpdateMarkRecord {
+  return {
+    id,
+    mentor: demoMondayMentor,
+    mark,
+    commentHtml,
+    updatedAt: demoMondayInstant(dayOffset),
+  };
+}
+
+function demoMondayUpdate(
+  id: string,
+  student: PersonSummary,
+  startOffset: number,
+  endOffset: number,
+  contentHtml: string,
+  marks: MondayUpdateMarkRecord[],
+): MondayUpdate {
+  const startDate = demoMondayDay(startOffset);
+  const endDate = demoMondayDay(endOffset);
+  const activity = demoMondayActivity[student.id] ?? {
+    attempts: [],
+    mocks: [],
+  };
+  // The real API derives activity from the update's own Adelaide date range.
+  const within = (at: string) => {
+    const dateKey = calendarDateKey(at, programmeTimezone);
+    return dateKey >= startDate && dateKey <= endDate;
+  };
+  return {
+    id,
+    seasonId: seasons[0].id,
+    student,
+    startDate,
+    endDate,
+    contentHtml,
+    createdAt: `${endDate}T11:30:00Z`,
+    marks,
+    activity: {
+      attempts: activity.attempts.filter((attempt) =>
+        within(attempt.attemptedAt),
+      ),
+      mocks: activity.mocks.filter((mock) => within(mock.occurredAt)),
+    },
+  };
+}
+
+export const mondayUpdates: MondayUpdate[] = [
+  demoMondayUpdate(
+    'monday_update_amelia_1',
+    demoMondayStudents[0],
+    0,
+    2,
+    '<p>Finished the hash map pattern this week and slowed down on invariants before coding.</p>',
+    [
+      demoMondayMark(
+        'monday_mark_amelia_1',
+        'on_track',
+        '<p>Good week. Keep narrating the invariant before you start typing.</p>',
+        3,
+      ),
+    ],
+  ),
+  demoMondayUpdate(
+    'monday_update_amelia_2',
+    demoMondayStudents[0],
+    3,
+    6,
+    '<p>Intervals are still shaky; two mocks helped me talk through the trade-offs.</p>',
+    [],
+  ),
+  demoMondayUpdate(
+    'monday_update_zara_1',
+    demoMondayStudents[1],
+    0,
+    3,
+    '<p>Started the week with anagrams and moved on to interval merging.</p>',
+    [],
+  ),
+  demoMondayUpdate(
+    'monday_update_zara_2',
+    demoMondayStudents[1],
+    2,
+    6,
+    '<p>Overlapping week: kept going on intervals and finished with tree traversal.</p>',
+    [
+      demoMondayMark(
+        'monday_mark_zara_2',
+        'doing_good',
+        '<p>Solid progress on interval reasoning. Next: re-derive the merge condition aloud.</p>',
+        7,
+      ),
+    ],
+  ),
 ];

@@ -56,6 +56,7 @@ type API struct {
 	getMFAConfigured     func(context.Context, string) (bool, error)
 	telemetry            *apiMetrics
 	mockRules            mockinterviews.Service
+	sanitizeHTML         func(string) string
 }
 
 // New constructs the HTTP API from its dependencies.
@@ -84,6 +85,7 @@ func New(c Config) *API {
 		getMFAConfigured:     c.GetMFAConfigured,
 		telemetry:            newAPIMetrics(),
 		mockRules:            mockinterviews.Service{Sanitize: cleaner.String},
+		sanitizeHTML:         cleaner.String,
 	}
 }
 

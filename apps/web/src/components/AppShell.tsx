@@ -6,6 +6,7 @@ import {
   IconLogout,
   IconMessage2,
   IconMoon,
+  IconNotebook,
   IconSchool,
   IconSettings,
   IconSun,
@@ -41,6 +42,11 @@ function itemsFor(role: string | undefined, seasonSlug?: string): NavItem[] {
         to: `${seasonBase}/mock-interviews`,
         icon: IconMessage2,
       },
+      {
+        label: 'Monday updates',
+        to: `${seasonBase}/monday-updates`,
+        icon: IconNotebook,
+      },
       { label: 'People', to: `${seasonBase}/people`, icon: IconUsers },
     ];
   }
@@ -52,6 +58,11 @@ function itemsFor(role: string | undefined, seasonSlug?: string): NavItem[] {
         label: 'Mock interviews',
         to: `${seasonBase}/mock-interviews`,
         icon: IconMessage2,
+      },
+      {
+        label: 'Monday updates',
+        to: `${seasonBase}/monday-updates`,
+        icon: IconNotebook,
       },
       { label: 'People', to: `${seasonBase}/people`, icon: IconSchool },
     ];
@@ -71,6 +82,11 @@ function itemsFor(role: string | undefined, seasonSlug?: string): NavItem[] {
         label: 'Mock interviews',
         to: `${seasonBase}/mock-interviews`,
         icon: IconMessage2,
+      },
+      {
+        label: 'Monday updates',
+        to: `${seasonBase}/monday-updates`,
+        icon: IconNotebook,
       },
       {
         label: 'Season operations',
