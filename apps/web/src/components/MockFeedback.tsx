@@ -1,10 +1,11 @@
+import { Card } from '@/components/ui/card';
 import { RichTextContent } from '@/components/RichTextContent';
 import type { MockInterview } from '@/types';
 import styles from '@/styles/App.module.css';
 
 export function MockFeedback({ mock }: { mock: MockInterview }) {
   return (
-    <div className={styles.panel}>
+    <Card className="gap-4 p-5">
       <h3 className={styles.cardTitle}>Interview feedback</h3>
       <RichTextContent html={mock.notes} empty="No overall interview notes." />
       <div className={styles.rounds}>
@@ -36,6 +37,6 @@ export function MockFeedback({ mock }: { mock: MockInterview }) {
           </article>
         ))}
       </div>
-    </div>
+    </Card>
   );
 }

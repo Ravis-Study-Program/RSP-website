@@ -1,3 +1,11 @@
+import { Badge } from '@/components/ui/badge';
+import { Card } from '@/components/ui/card';
+import {
+  NativeSelect,
+  NativeSelectOption,
+} from '@/components/ui/native-select';
+import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { IconEdit, IconLock, IconMail, IconWorld } from '@tabler/icons-react';
 import { useMemo, useState } from 'react';
@@ -167,9 +175,9 @@ export function ProfilePage() {
       {showProgrammeDetails ? (
         <div className={styles.field}>
           <label htmlFor="profile-season">View activity</label>
-          <select
+          <NativeSelect
             id="profile-season"
-            className={styles.select}
+            className="w-full"
             value={seasonId ?? ''}
             onChange={(event) => {
               const next = new URLSearchParams(searchParams);
@@ -180,7 +188,7 @@ export function ProfilePage() {
               setSearchParams(next);
             }}
           >
-            <option value="">All time</option>
+            <NativeSelectOption value="">All time</NativeSelectOption>
             {(seasons.data?.items ?? [])
               .filter(
                 (season) =>
@@ -190,11 +198,11 @@ export function ProfilePage() {
                   ),
               )
               .map((season) => (
-                <option key={season.id} value={season.id}>
+                <NativeSelectOption key={season.id} value={season.id}>
                   {season.name}
-                </option>
+                </NativeSelectOption>
               ))}
-          </select>
+          </NativeSelect>
           <p className={styles.helper}>
             {selectedSeason
               ? `Activity recorded in ${selectedSeason.name}`
@@ -276,7 +284,7 @@ export function ProfilePage() {
             <div className={styles.sectionHeader}>
               <h2 className={styles.sectionTitle}>Programme participation</h2>
             </div>
-            <div className={styles.panel}>
+            <Card className="gap-4 p-5">
               {participation.isLoading ? (
                 <p role="status">Loading participation…</p>
               ) : participation.isError ? (
@@ -322,7 +330,7 @@ export function ProfilePage() {
                   ) : null}
                 </ol>
               )}
-            </div>
+            </Card>
           </section>
         ) : null}
         {isSelf ? (
@@ -330,7 +338,7 @@ export function ProfilePage() {
             <div className={styles.sectionHeader}>
               <h2 className={styles.sectionTitle}>Private account details</h2>
             </div>
-            <div className={styles.panel}>
+            <Card className="gap-4 p-5">
               <ul className={styles.cleanList}>
                 <li className={styles.listRow}>
                   <span className={styles.inline}>
@@ -346,10 +354,12 @@ export function ProfilePage() {
                 </li>
                 <li className={styles.listRow}>
                   <span>Email verification</span>
-                  <span className={styles.badgeSuccess}>Verified</span>
+                  <Badge variant="secondary" className={styles.badgeSuccess}>
+                    Verified
+                  </Badge>
                 </li>
               </ul>
-            </div>
+            </Card>
           </section>
         ) : null}
       </div>
@@ -494,9 +504,8 @@ function EditProfileDialog({
         ) : null}
         <div className={styles.field}>
           <label htmlFor="profile-name">Name</label>
-          <input
+          <Input
             id="profile-name"
-            className={styles.input}
             aria-invalid={Boolean(errors.name)}
             {...register('name')}
           />
@@ -508,9 +517,8 @@ function EditProfileDialog({
           <div className={styles.field}>
             <label htmlFor="profile-slug">Profile slug</label>
             <div className={styles.inline}>
-              <input
+              <Input
                 id="profile-slug"
-                className={styles.input}
                 autoCapitalize="none"
                 autoComplete="off"
                 aria-invalid={Boolean(errors.slug || suggestionError)}
@@ -519,14 +527,14 @@ function EditProfileDialog({
                 }
                 {...register('slug')}
               />
-              <button
-                className={styles.buttonSecondary}
+              <Button
+                variant="outline"
                 type="button"
                 disabled={isSuggesting}
                 onClick={() => void suggestSlug()}
               >
                 {isSuggesting ? 'Suggesting…' : 'Suggest'}
-              </button>
+              </Button>
             </div>
             {errors.slug ? (
               <p className={styles.fieldError}>{errors.slug.message}</p>
@@ -571,20 +579,16 @@ function EditProfileDialog({
           )}
         </div>
         <div className={styles.dialogActions}>
-          <button
-            className={styles.buttonSecondary}
+          <Button
+            variant="outline"
             type="button"
             onClick={() => onOpenChange(false)}
           >
             Cancel
-          </button>
-          <button
-            className={styles.button}
-            type="submit"
-            disabled={isSubmitting}
-          >
+          </Button>
+          <Button type="submit" disabled={isSubmitting}>
             {isSubmitting ? 'Saving…' : 'Save profile'}
-          </button>
+          </Button>
         </div>
       </form>
     </FormDialog>

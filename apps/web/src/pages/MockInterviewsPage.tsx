@@ -1,10 +1,18 @@
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import {
+  NativeSelect,
+  NativeSelectOption,
+} from '@/components/ui/native-select';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import { useActivityFilters, filterMocks } from '@/activityFilters';
 import { MockFilters } from '@/components/ActivityFilters';
 import { programmeTimezone } from '@/activityDates';
 import { ActivityPeriodFilter } from '@/components/ActivityPeriodFilter';
 import { useActivitySeason } from '@/activityPeriod';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Tabs } from '@base-ui/react/tabs';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import {
   IconArrowDown,
   IconArrowUp,
@@ -172,50 +180,50 @@ function RoundEditor({
       <div className={styles.roundHeader}>
         <strong>Round {index + 1}</strong>
         <div className={styles.inline}>
-          <button
-            className={styles.iconButton}
+          <Button
+            variant="ghost"
+            size="icon"
             type="button"
             aria-label={`Move round ${index + 1} up`}
             disabled={index === 0}
             onClick={() => onMove(-1)}
           >
             <IconArrowUp size={16} aria-hidden="true" />
-          </button>
-          <button
-            className={styles.iconButton}
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
             type="button"
             aria-label={`Move round ${index + 1} down`}
             disabled={index === total - 1}
             onClick={() => onMove(1)}
           >
             <IconArrowDown size={16} aria-hidden="true" />
-          </button>
+          </Button>
           {total > 1 ? (
-            <button
-              className={styles.buttonQuiet}
-              type="button"
-              onClick={onRemove}
-            >
+            <Button variant="ghost" type="button" onClick={onRemove}>
               <IconTrash size={16} aria-hidden="true" /> Remove
-            </button>
+            </Button>
           ) : null}
         </div>
       </div>
       <div className={styles.fieldGrid}>
         <div className={styles.field}>
           <label htmlFor={`round-type-${round.id}`}>Round type</label>
-          <select
+          <NativeSelect
             id={`round-type-${round.id}`}
-            className={styles.select}
+            className="w-full"
             value={round.apiType}
             onChange={(event) =>
               changeType(event.target.value as MockRound['apiType'])
             }
           >
-            <option value="leetcode">LeetCode</option>
-            <option value="custom">Custom</option>
-            <option value="behavioural">Behavioural</option>
-          </select>
+            <NativeSelectOption value="leetcode">LeetCode</NativeSelectOption>
+            <NativeSelectOption value="custom">Custom</NativeSelectOption>
+            <NativeSelectOption value="behavioural">
+              Behavioural
+            </NativeSelectOption>
+          </NativeSelect>
         </div>
         {round.apiType === 'leetcode' ? (
           <div className={styles.field}>
@@ -243,9 +251,8 @@ function RoundEditor({
             <label htmlFor={`round-link-${round.id}`}>
               Reference link (optional)
             </label>
-            <input
+            <Input
               id={`round-link-${round.id}`}
-              className={styles.input}
               type="url"
               value={round.link ?? ''}
               onChange={(event) =>
@@ -259,9 +266,8 @@ function RoundEditor({
             <label htmlFor={`round-score-${round.id}-${criterion}`}>
               {scoreLabel(criterion)} score (0–10)
             </label>
-            <input
+            <Input
               id={`round-score-${round.id}-${criterion}`}
-              className={styles.input}
               type="number"
               min="0"
               max="10"
@@ -302,8 +308,9 @@ const columnsForSeason = (
     enableSorting: false,
     enableHiding: false,
     cell: ({ row }) => (
-      <button
-        className={styles.iconButton}
+      <Button
+        variant="ghost"
+        size="icon"
         type="button"
         aria-label={`${row.getIsExpanded() ? 'Hide' : 'Show'} details for ${row.original.interviewee.name}`}
         aria-expanded={row.getIsExpanded()}
@@ -314,7 +321,7 @@ const columnsForSeason = (
         ) : (
           <IconChevronDown size={18} />
         )}
-      </button>
+      </Button>
     ),
   },
   {
@@ -505,22 +512,13 @@ export function MockInterviewsPage() {
         filters={filters}
         onChange={setFilters}
       />
-      <Tabs.Root
-        value={mode}
-        onValueChange={(value) => setMode(value as ViewMode)}
-      >
-        <Tabs.List className={styles.tabsList} aria-label="Mock interview view">
-          <Tabs.Tab className={styles.tab} value="received">
-            Received
-          </Tabs.Tab>
-          <Tabs.Tab className={styles.tab} value="given">
-            Given
-          </Tabs.Tab>
-          <Tabs.Tab className={styles.tab} value="all">
-            All available
-          </Tabs.Tab>
-        </Tabs.List>
-        <Tabs.Panel value={mode}>
+      <Tabs value={mode} onValueChange={(value) => setMode(value as ViewMode)}>
+        <TabsList aria-label="Mock interview view">
+          <TabsTrigger value="received">Received</TabsTrigger>
+          <TabsTrigger value="given">Given</TabsTrigger>
+          <TabsTrigger value="all">All available</TabsTrigger>
+        </TabsList>
+        <TabsContent value={mode}>
           <DataTable
             ariaLabel={`${mode} mock interviews`}
             data={filtered}
@@ -614,14 +612,14 @@ export function MockInterviewsPage() {
                   {row.original.rounds.length}{' '}
                   {row.original.rounds.length === 1 ? 'round' : 'rounds'}
                 </p>
-                <button
-                  className={styles.buttonSecondary}
+                <Button
+                  variant="outline"
                   type="button"
                   aria-expanded={row.getIsExpanded()}
                   onClick={row.getToggleExpandedHandler()}
                 >
                   View details
-                </button>
+                </Button>
                 {row.getIsExpanded() ? (
                   <div className={styles.expandedDetails}>
                     <MockDetails
@@ -650,8 +648,8 @@ export function MockInterviewsPage() {
               </div>
             )}
           />
-        </Tabs.Panel>
-      </Tabs.Root>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
@@ -695,7 +693,9 @@ function MockDetails({
                   {round.score === null ? 'Not scored' : `${round.score}/10`}
                 </span>
               </div>
-              <span className={styles.badgeNeutral}>{round.type}</span>
+              <Badge variant="secondary" className={styles.badgeNeutral}>
+                {round.type}
+              </Badge>
               <RichTextContent html={round.notes} />
             </article>
           ))}
@@ -860,9 +860,8 @@ function EditMockDialog({
             <label htmlFor={`edit-duration-${mock.id}`}>
               Duration (minutes)
             </label>
-            <input
+            <Input
               id={`edit-duration-${mock.id}`}
-              className={styles.input}
               type="number"
               min="1"
               value={durationMinutes}
@@ -914,27 +913,26 @@ function EditMockDialog({
           ))}
           <div className={styles.buttonRow}>
             {(['leetcode', 'custom', 'behavioural'] as const).map((type) => (
-              <button
-                className={styles.buttonSecondary}
+              <Button
+                variant="outline"
                 type="button"
                 key={type}
                 onClick={() => setRounds((items) => [...items, newRound(type)])}
               >
                 <IconPlus size={17} aria-hidden="true" /> Add {type} round
-              </button>
+              </Button>
             ))}
           </div>
         </fieldset>
         <div className={styles.dialogActions}>
-          <button
-            className={styles.buttonSecondary}
+          <Button
+            variant="outline"
             type="button"
             onClick={() => requestOpenChange(false)}
           >
             Cancel
-          </button>
-          <button
-            className={styles.button}
+          </Button>
+          <Button
             type="button"
             disabled={
               pending ||
@@ -947,7 +945,7 @@ function EditMockDialog({
             onClick={() => void save()}
           >
             {pending ? 'Saving…' : 'Save interview'}
-          </button>
+          </Button>
         </div>
       </div>
     </FormDialog>
@@ -1036,18 +1034,18 @@ function RoundReviewDialog({
         ) : null}
         <div className={styles.field}>
           <label htmlFor={`review-round-${mock.id}`}>Round</label>
-          <select
+          <NativeSelect
             id={`review-round-${mock.id}`}
-            className={styles.select}
+            className="w-full"
             value={roundId}
             onChange={(event) => chooseRound(event.target.value)}
           >
             {mock.rounds.map((round) => (
-              <option key={round.id} value={round.id}>
+              <NativeSelectOption key={round.id} value={round.id}>
                 {round.title}
-              </option>
+              </NativeSelectOption>
             ))}
-          </select>
+          </NativeSelect>
         </div>
         <RichTextEditor
           id={`review-comment-${mock.id}`}
@@ -1064,21 +1062,20 @@ function RoundReviewDialog({
           Mark this round reviewed
         </label>
         <div className={styles.dialogActions}>
-          <button
-            className={styles.buttonSecondary}
+          <Button
+            variant="outline"
             type="button"
             onClick={() => requestOpenChange(false)}
           >
             Cancel
-          </button>
-          <button
-            className={styles.button}
+          </Button>
+          <Button
             type="button"
             disabled={pending || !roundId || !dirty}
             onClick={() => void save()}
           >
             {pending ? 'Saving…' : 'Save review'}
-          </button>
+          </Button>
         </div>
       </div>
     </FormDialog>
@@ -1218,63 +1215,61 @@ function IdentityCorrectionDialog({
             <label htmlFor={`correct-interviewer-${mock.id}`}>
               Interviewer
             </label>
-            <select
+            <NativeSelect
               id={`correct-interviewer-${mock.id}`}
-              className={styles.select}
+              className="w-full"
               value={interviewerId}
               onChange={(event) => setInterviewerId(event.target.value)}
             >
               {candidates.map((person) => (
-                <option value={person.id} key={person.id}>
+                <NativeSelectOption value={person.id} key={person.id}>
                   {person.name}
-                </option>
+                </NativeSelectOption>
               ))}
-            </select>
+            </NativeSelect>
           </div>
           <div className={styles.field}>
             <label htmlFor={`correct-interviewee-${mock.id}`}>
               Interviewee
             </label>
-            <select
+            <NativeSelect
               id={`correct-interviewee-${mock.id}`}
-              className={styles.select}
+              className="w-full"
               value={intervieweeId}
               onChange={(event) => setIntervieweeId(event.target.value)}
             >
               {candidates.map((person) => (
-                <option value={person.id} key={person.id}>
+                <NativeSelectOption value={person.id} key={person.id}>
                   {person.name}
-                </option>
+                </NativeSelectOption>
               ))}
-            </select>
+            </NativeSelect>
           </div>
         </div>
         <div className={styles.field}>
           <label htmlFor={`correction-reason-${mock.id}`}>Audited reason</label>
-          <textarea
+          <Textarea
             id={`correction-reason-${mock.id}`}
-            className={styles.textarea}
             maxLength={2000}
             value={reason}
             onChange={(event) => setReason(event.target.value)}
           />
         </div>
         <div className={styles.dialogActions}>
-          <button
-            className={styles.buttonSecondary}
+          <Button
+            variant="outline"
             type="button"
             onClick={() => requestOpenChange(false)}
           >
             Cancel
-          </button>
-          <button
-            className={styles.button}
+          </Button>
+          <Button
             type="button"
             disabled={pending || !reason.trim()}
             onClick={() => void save()}
           >
             {pending ? 'Correcting…' : 'Save audited correction'}
-          </button>
+          </Button>
         </div>
       </div>
     </FormDialog>
@@ -1469,21 +1464,23 @@ function NewMockDialog({
       <form className={styles.form} noValidate onSubmit={onSubmit}>
         <div className={styles.field}>
           <label htmlFor="mock-interviewee">Interviewee</label>
-          <select
+          <NativeSelect
             id="mock-interviewee"
-            className={styles.select}
+            className="w-full"
             {...register('intervieweeId')}
           >
-            <option value="">Choose an eligible participant</option>
+            <NativeSelectOption value="">
+              Choose an eligible participant
+            </NativeSelectOption>
             {people
               .filter((person) => person.id !== interviewer?.id)
               .map((person) => (
-                <option key={person.id} value={person.id}>
+                <NativeSelectOption key={person.id} value={person.id}>
                   {person.name}
                   {person.roles.length ? ` · ${person.roles.join(', ')}` : ''}
-                </option>
+                </NativeSelectOption>
               ))}
-          </select>
+          </NativeSelect>
           {errors.intervieweeId ? (
             <p className={styles.fieldError}>{errors.intervieweeId.message}</p>
           ) : null}
@@ -1491,9 +1488,8 @@ function NewMockDialog({
         <div className={styles.fieldGrid}>
           <div className={styles.field}>
             <label htmlFor="mock-recording-time">Time (Adelaide)</label>
-            <input
+            <Input
               id="mock-recording-time"
-              className={styles.input}
               type="time"
               {...register('occurredAt')}
             />
@@ -1507,9 +1503,8 @@ function NewMockDialog({
           </div>
           <div className={styles.field}>
             <label htmlFor="mock-duration">Duration (minutes)</label>
-            <input
+            <Input
               id="mock-duration"
-              className={styles.input}
               type="number"
               min="15"
               max="240"
@@ -1547,8 +1542,8 @@ function NewMockDialog({
           ))}
           <div className={styles.buttonRow}>
             {(['leetcode', 'custom', 'behavioural'] as const).map((type) => (
-              <button
-                className={styles.buttonSecondary}
+              <Button
+                variant="outline"
                 type="button"
                 key={type}
                 onClick={() => {
@@ -1557,25 +1552,21 @@ function NewMockDialog({
                 }}
               >
                 <IconPlus size={17} aria-hidden="true" /> Add {type} round
-              </button>
+              </Button>
             ))}
           </div>
         </fieldset>
         <div className={styles.dialogActions}>
-          <button
-            className={styles.buttonSecondary}
+          <Button
+            variant="outline"
             type="button"
             onClick={() => requestOpen(false)}
           >
             Cancel
-          </button>
-          <button
-            className={styles.button}
-            type="submit"
-            disabled={isSubmitting}
-          >
+          </Button>
+          <Button type="submit" disabled={isSubmitting}>
             {isSubmitting ? 'Saving…' : 'Save interview'}
-          </button>
+          </Button>
         </div>
       </form>
     </FormDialog>

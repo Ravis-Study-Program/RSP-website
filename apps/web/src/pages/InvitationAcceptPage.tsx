@@ -1,3 +1,5 @@
+import { Card } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate } from 'react-router-dom';
@@ -79,7 +81,7 @@ export function InvitationAcceptPage() {
       {!token ? (
         <p>Open the invitation link from your email.</p>
       ) : accepted ? (
-        <div className={styles.panel}>
+        <Card className="gap-4 p-5">
           <h2>You have joined {preview.data?.seasonName ?? 'the season'}.</h2>
           {accepted.assignmentState === 'pending_mfa' ? (
             <p>Set up MFA in Settings to activate your coordinator access.</p>
@@ -94,11 +96,11 @@ export function InvitationAcceptPage() {
           >
             Continue
           </Link>
-        </div>
+        </Card>
       ) : session.isLoading || user.isLoading ? (
         <p role="status">Checking your account…</p>
       ) : !session.data?.user ? (
-        <div className={styles.panel}>
+        <Card className="gap-4 p-5">
           <p>
             Sign in or create an account with the invited email address. Your
             invitation will be waiting when you return.
@@ -106,14 +108,14 @@ export function InvitationAcceptPage() {
           <Link className={styles.buttonPrimary} to="/sign-in">
             Sign in or create an account
           </Link>
-        </div>
+        </Card>
       ) : !verified ? (
-        <div className={styles.panel}>
+        <Card className="gap-4 p-5">
           <p>Verify your email address before accepting.</p>
           <Link className={styles.buttonPrimary} to="/verify-email">
             Verify email
           </Link>
-        </div>
+        </Card>
       ) : preview.isLoading ? (
         <p role="status">Checking the invitation…</p>
       ) : preview.isError ? (
@@ -122,24 +124,21 @@ export function InvitationAcceptPage() {
           address that received the invitation.
         </p>
       ) : preview.data ? (
-        <div className={styles.panel}>
+        <Card className="gap-4 p-5">
           <h2>{preview.data.seasonName}</h2>
           <p>
             {preview.data.email} has been invited as a {preview.data.role}.
           </p>
-          <button
-            className={styles.buttonPrimary}
-            disabled={busy}
-            onClick={() => void accept()}
-          >
+          <Button type="submit" disabled={busy} onClick={() => void accept()}>
             {busy ? 'Joining…' : 'Accept invitation'}
-          </button>
+          </Button>
           {error ? <p role="alert">{error}</p> : null}
-        </div>
+        </Card>
       ) : null}
       {session.data?.user && !accepted ? (
-        <button
-          className={styles.buttonSecondary}
+        <Button
+          variant="outline"
+          type="submit"
           onClick={() => {
             void signOut()
               .then(() => {
@@ -151,17 +150,18 @@ export function InvitationAcceptPage() {
           }}
         >
           Use another account
-        </button>
+        </Button>
       ) : null}
-      <button
-        className={styles.buttonQuiet}
+      <Button
+        variant="ghost"
+        type="submit"
         onClick={() => {
           sessionStorage.removeItem(pendingInvitationKey);
           navigate('/profile');
         }}
       >
         Dismiss invitation
-      </button>
+      </Button>
     </main>
   );
 }

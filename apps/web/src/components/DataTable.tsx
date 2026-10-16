@@ -1,3 +1,17 @@
+import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
+import {
+  Table,
+  TableHeader,
+  TableRow,
+  TableHead,
+  TableBody,
+  TableCell,
+} from '@/components/ui/table';
+import {
+  NativeSelect,
+  NativeSelectOption,
+} from '@/components/ui/native-select';
 import {
   type ColumnDef,
   type ColumnFiltersState,
@@ -178,9 +192,9 @@ export function DataTable<TData>({
             >
               Search {ariaLabel.toLowerCase()}
             </label>
-            <input
+            <Input
               id={`${ariaLabel}-search`}
-              className={styles.searchInput}
+              className="pl-9"
               type="search"
               placeholder={searchPlaceholder}
               value={globalFilter}
@@ -188,13 +202,13 @@ export function DataTable<TData>({
             />
           </div>
           <div className={styles.toolbarActions}>
-            <button
-              className={styles.buttonQuiet}
+            <Button
+              variant="ghost"
               type="button"
               onClick={() => setDense((value) => !value)}
             >
               {dense ? 'Comfortable rows' : 'Compact rows'}
-            </button>
+            </Button>
             <details className={styles.columnMenu}>
               <summary
                 className={styles.iconButton}
@@ -243,8 +257,7 @@ export function DataTable<TData>({
                     return (
                       <label className={styles.field} key={column.id}>
                         <span>{label}</span>
-                        <input
-                          className={styles.input}
+                        <Input
                           value={
                             (column.getFilterValue() as string | undefined) ??
                             ''
@@ -260,18 +273,19 @@ export function DataTable<TData>({
                     );
                   })}
                 {columnFilters.length ? (
-                  <button
-                    className={styles.buttonSecondary}
+                  <Button
+                    variant="outline"
                     type="button"
                     onClick={() => setColumnFilters([])}
                   >
                     Clear column filters
-                  </button>
+                  </Button>
                 ) : null}
               </div>
             </details>
-            <button
-              className={styles.iconButton}
+            <Button
+              variant="ghost"
+              size="icon"
               type="button"
               onClick={() => setFullscreen((value) => !value)}
               aria-label={
@@ -283,7 +297,7 @@ export function DataTable<TData>({
               ) : (
                 <IconArrowsMaximize size={19} aria-hidden="true" />
               )}
-            </button>
+            </Button>
           </div>
         </div>
         <div className={styles.visuallyHidden} aria-live="polite">
@@ -302,8 +316,8 @@ export function DataTable<TData>({
             )}
             action={
               globalFilter || columnFilters.length ? (
-                <button
-                  className={styles.buttonSecondary}
+                <Button
+                  variant="outline"
                   type="button"
                   onClick={() => {
                     setGlobalFilter('');
@@ -311,22 +325,22 @@ export function DataTable<TData>({
                   }}
                 >
                   Clear filters
-                </button>
+                </Button>
               ) : undefined
             }
           />
         ) : (
           <>
             <div className={styles.desktopTable}>
-              <table className={styles.dataTable}>
+              <Table className={styles.dataTable}>
                 <caption className={styles.visuallyHidden}>
                   {ariaLabel}. Sortable and filterable data table.
                 </caption>
-                <thead>
+                <TableHeader>
                   {table.getHeaderGroups().map((headerGroup) => (
-                    <tr key={headerGroup.id}>
+                    <TableRow key={headerGroup.id}>
                       {headerGroup.headers.map((header) => (
-                        <th
+                        <TableHead
                           key={header.id}
                           scope="col"
                           aria-sort={
@@ -338,8 +352,9 @@ export function DataTable<TData>({
                           }
                         >
                           {header.isPlaceholder ? null : header.column.getCanSort() ? (
-                            <button
-                              className={styles.sortButton}
+                            <Button
+                              variant="ghost"
+                              className="h-auto justify-start p-0 hover:bg-transparent"
                               type="button"
                               onClick={header.column.getToggleSortingHandler()}
                             >
@@ -352,28 +367,28 @@ export function DataTable<TData>({
                               ) : header.column.getIsSorted() === 'desc' ? (
                                 <IconChevronDown size={15} aria-hidden="true" />
                               ) : null}
-                            </button>
+                            </Button>
                           ) : (
                             flexRender(
                               header.column.columnDef.header,
                               header.getContext(),
                             )
                           )}
-                        </th>
+                        </TableHead>
                       ))}
-                    </tr>
+                    </TableRow>
                   ))}
-                </thead>
-                <tbody>
+                </TableHeader>
+                <TableBody>
                   {pageRows.map((row) => (
-                    <TableRow
+                    <DataTableRecord
                       key={row.id}
                       row={row}
                       renderExpanded={renderExpanded}
                     />
                   ))}
-                </tbody>
-              </table>
+                </TableBody>
+              </Table>
             </div>
             <div className={styles.mobileCards}>
               {pageRows.map((row) => (
@@ -385,8 +400,8 @@ export function DataTable<TData>({
             <div className={styles.tablePagination}>
               <label className={styles.inline}>
                 <span className={styles.metricLabel}>Rows per page</span>
-                <select
-                  className={styles.select}
+                <NativeSelect
+                  className="w-full"
                   value={table.getState().pagination.pageSize}
                   onChange={(event) => {
                     const value = Number(event.target.value);
@@ -395,35 +410,37 @@ export function DataTable<TData>({
                   }}
                 >
                   {[10, 25, 50, 100].map((value) => (
-                    <option key={value} value={value}>
+                    <NativeSelectOption key={value} value={value}>
                       {value}
-                    </option>
+                    </NativeSelectOption>
                   ))}
-                </select>
+                </NativeSelect>
               </label>
               <span className={styles.muted}>
                 Page {table.getState().pagination.pageIndex + 1} of{' '}
                 {Math.max(table.getPageCount(), 1)}
               </span>
               <div className={styles.paginationControls}>
-                <button
-                  className={styles.iconButton}
+                <Button
+                  variant="ghost"
+                  size="icon"
                   type="button"
                   disabled={!table.getCanPreviousPage()}
                   onClick={() => table.previousPage()}
                   aria-label="Previous page"
                 >
                   <IconChevronLeft size={19} aria-hidden="true" />
-                </button>
-                <button
-                  className={styles.iconButton}
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
                   type="button"
                   disabled={!table.getCanNextPage()}
                   onClick={() => table.nextPage()}
                   aria-label="Next page"
                 >
                   <IconChevronRight size={19} aria-hidden="true" />
-                </button>
+                </Button>
               </div>
             </div>
           </>
@@ -434,7 +451,7 @@ export function DataTable<TData>({
   );
 }
 
-function TableRow<TData>({
+function DataTableRecord<TData>({
   row,
   renderExpanded,
 }: {
@@ -443,17 +460,19 @@ function TableRow<TData>({
 }) {
   return (
     <>
-      <tr>
+      <TableRow>
         {row.getVisibleCells().map((cell) => (
-          <td key={cell.id}>
+          <TableCell key={cell.id}>
             {flexRender(cell.column.columnDef.cell, cell.getContext())}
-          </td>
+          </TableCell>
         ))}
-      </tr>
+      </TableRow>
       {row.getIsExpanded() && renderExpanded ? (
-        <tr className={styles.expandedRow}>
-          <td colSpan={row.getVisibleCells().length}>{renderExpanded(row)}</td>
-        </tr>
+        <TableRow className={styles.expandedRow}>
+          <TableCell colSpan={row.getVisibleCells().length}>
+            {renderExpanded(row)}
+          </TableCell>
+        </TableRow>
       ) : null}
     </>
   );

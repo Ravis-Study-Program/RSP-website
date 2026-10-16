@@ -1,3 +1,6 @@
+import { Textarea } from '@/components/ui/textarea';
+import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
 import { IconUserMinus } from '@tabler/icons-react';
 import type { ColumnDef } from '@tanstack/react-table';
 import { useMemo, useState } from 'react';
@@ -268,9 +271,8 @@ function RemovalDialog({
     >
       <div className={styles.field}>
         <label htmlFor={`reason-${person.id}`}>Removal reason</label>
-        <textarea
+        <Textarea
           id={`reason-${person.id}`}
-          className={styles.textarea}
           required
           value={reason}
           onChange={(event) => setReason(event.target.value)}
@@ -280,9 +282,8 @@ function RemovalDialog({
         <label htmlFor={`name-${person.id}`}>
           Type <strong>{person.name}</strong> to confirm
         </label>
-        <input
+        <Input
           id={`name-${person.id}`}
-          className={styles.input}
           value={confirmation}
           onChange={(event) => setConfirmation(event.target.value)}
         />
@@ -293,8 +294,8 @@ function RemovalDialog({
         </p>
       ) : null}
       <div className={styles.dialogActions}>
-        <button
-          className={styles.buttonDanger}
+        <Button
+          variant="destructive"
           type="button"
           disabled={
             pending ||
@@ -305,7 +306,7 @@ function RemovalDialog({
           onClick={() => void remove()}
         >
           {pending ? 'Removing…' : 'Remove member'}
-        </button>
+        </Button>
       </div>
     </FormDialog>
   );

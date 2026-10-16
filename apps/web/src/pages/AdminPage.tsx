@@ -1,3 +1,12 @@
+import { Badge } from '@/components/ui/badge';
+import { Card } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import {
+  NativeSelect,
+  NativeSelectOption,
+} from '@/components/ui/native-select';
+import { Textarea } from '@/components/ui/textarea';
+import { Input } from '@/components/ui/input';
 import {
   IconCalendarEvent,
   IconChecklist,
@@ -173,12 +182,14 @@ export function AdminPage() {
                   {resource.title}
                 </h2>
                 <p className={styles.muted}>{resource.description}</p>
-                <Link
-                  className={styles.buttonSecondary}
-                  to={`/admin/${resource.slug}`}
+                <Button
+                  nativeButton={false}
+                  role="link"
+                  variant="outline"
+                  render={<Link to={`/admin/${resource.slug}`} />}
                 >
                   Manage {resource.title.toLowerCase()}
-                </Link>
+                </Button>
               </article>
             );
           })}
@@ -187,7 +198,7 @@ export function AdminPage() {
         <div className={styles.sectionHeader}>
           <h2 className={styles.sectionTitle}>Technical operations</h2>
         </div>
-        <div className={styles.panel}>
+        <Card className="gap-4 p-5">
           {syncStatus ? <p role="status">{syncStatus}</p> : null}
           <div className={styles.listRow}>
             <span>
@@ -197,14 +208,14 @@ export function AdminPage() {
                 Sunday 03:00 UTC.
               </span>
             </span>
-            <button
-              className={styles.buttonSecondary}
+            <Button
+              variant="outline"
               type="button"
               disabled={syncPending}
               onClick={() => void sync()}
             >
               {syncPending ? 'Queueing…' : 'Run audited sync'}
-            </button>
+            </Button>
           </div>
           <div className={styles.listRow}>
             <span>
@@ -213,9 +224,11 @@ export function AdminPage() {
                 The API does not yet expose an audit-query endpoint.
               </span>
             </span>
-            <span className={styles.badgeNeutral}>Unavailable</span>
+            <Badge variant="secondary" className={styles.badgeNeutral}>
+              Unavailable
+            </Badge>
           </div>
-        </div>
+        </Card>
       </section>
     </div>
   );
@@ -399,12 +412,14 @@ export function AdminResourcePage({
               detail: person.roles.join(', ') || 'Registered nonmember',
               actions: (
                 <div className={styles.inline}>
-                  <Link
-                    className={styles.buttonQuiet}
-                    to={`/people/${account.slug}`}
+                  <Button
+                    nativeButton={false}
+                    role="link"
+                    variant="ghost"
+                    render={<Link to={`/people/${account.slug}`} />}
                   >
                     Open profile
-                  </Link>
+                  </Button>
                   <UserAdministrationDialog
                     person={person}
                     currentUserId={currentUser.data?.id}
@@ -533,9 +548,9 @@ export function AdminResourcePage({
         <div className={`${styles.panel} ${styles.panelSpaced}`}>
           <div className={styles.field}>
             <label htmlFor={`admin-${resource}-season`}>Season</label>
-            <select
+            <NativeSelect
               id={`admin-${resource}-season`}
-              className={styles.select}
+              className="w-full"
               value={selectedSeason?.slug ?? ''}
               disabled={!manageableSeasons.length}
               onChange={(event) => {
@@ -547,14 +562,16 @@ export function AdminResourcePage({
             >
               {manageableSeasons.length ? (
                 manageableSeasons.map((season) => (
-                  <option value={season.slug} key={season.id}>
+                  <NativeSelectOption value={season.slug} key={season.id}>
                     {season.name} · {season.status}
-                  </option>
+                  </NativeSelectOption>
                 ))
               ) : (
-                <option value="">No manageable season</option>
+                <NativeSelectOption value="">
+                  No manageable season
+                </NativeSelectOption>
               )}
-            </select>
+            </NativeSelect>
           </div>
         </div>
       ) : null}
@@ -863,13 +880,9 @@ function UserAdministrationDialog({
           </p>
         ) : null}
         {!loading && !user && error ? (
-          <button
-            className={styles.buttonSecondary}
-            type="button"
-            onClick={() => void load()}
-          >
+          <Button variant="outline" type="button" onClick={() => void load()}>
             Retry
-          </button>
+          </Button>
         ) : null}
         {user ? (
           <>
@@ -900,9 +913,8 @@ function UserAdministrationDialog({
                 <label htmlFor={`account-reason-${person.id}`}>
                   Audited reason
                 </label>
-                <textarea
+                <Textarea
                   id={`account-reason-${person.id}`}
-                  className={styles.textarea}
                   maxLength={500}
                   value={accountReason}
                   onChange={(event) => setAccountReason(event.target.value)}
@@ -913,9 +925,8 @@ function UserAdministrationDialog({
                   <label htmlFor={`account-confirm-${person.id}`}>
                     Type <strong>{person.name}</strong> to confirm suspension
                   </label>
-                  <input
+                  <Input
                     id={`account-confirm-${person.id}`}
-                    className={styles.input}
                     value={accountConfirmation}
                     onChange={(event) =>
                       setAccountConfirmation(event.target.value)
@@ -923,7 +934,8 @@ function UserAdministrationDialog({
                   />
                 </div>
               ) : null}
-              <button
+              <Button
+                variant="destructive"
                 className={
                   user.accountState === 'suspended'
                     ? styles.buttonSecondary
@@ -944,7 +956,7 @@ function UserAdministrationDialog({
                   : user.accountState === 'suspended'
                     ? 'Reactivate account'
                     : 'Suspend account'}
-              </button>
+              </Button>
               {person.id === currentUserId &&
               user.accountState !== 'suspended' ? (
                 <p className={styles.helper}>
@@ -968,8 +980,8 @@ function UserAdministrationDialog({
                           {assignment.state.replace('_', ' ')}
                         </span>
                       </span>
-                      <button
-                        className={styles.buttonDanger}
+                      <Button
+                        variant="destructive"
                         type="button"
                         disabled={
                           Boolean(pending) ||
@@ -983,7 +995,7 @@ function UserAdministrationDialog({
                         {pending === `revoke-${assignment.role}`
                           ? 'Revoking…'
                           : 'Revoke'}
-                      </button>
+                      </Button>
                     </li>
                   ))}
                 </ul>
@@ -996,9 +1008,8 @@ function UserAdministrationDialog({
                     <label htmlFor={`grant-reason-${person.id}`}>
                       Reason for role grant
                     </label>
-                    <textarea
+                    <Textarea
                       id={`grant-reason-${person.id}`}
-                      className={styles.textarea}
                       maxLength={500}
                       value={grantReason}
                       onChange={(event) => setGrantReason(event.target.value)}
@@ -1008,9 +1019,9 @@ function UserAdministrationDialog({
                     <label htmlFor={`grant-role-${person.id}`}>
                       Grant role
                     </label>
-                    <select
+                    <NativeSelect
                       id={`grant-role-${person.id}`}
-                      className={styles.select}
+                      className="w-full"
                       value={
                         availableRoles.includes(grantRole)
                           ? grantRole
@@ -1021,13 +1032,12 @@ function UserAdministrationDialog({
                       }
                     >
                       {availableRoles.map((role) => (
-                        <option value={role} key={role}>
+                        <NativeSelectOption value={role} key={role}>
                           {roleLabel(role)}
-                        </option>
+                        </NativeSelectOption>
                       ))}
-                    </select>
-                    <button
-                      className={styles.button}
+                    </NativeSelect>
+                    <Button
                       type="button"
                       disabled={Boolean(pending) || !grantReason.trim()}
                       onClick={() => void grantGlobalRole()}
@@ -1035,7 +1045,7 @@ function UserAdministrationDialog({
                       {pending.startsWith('grant-')
                         ? 'Granting…'
                         : 'Grant role'}
-                    </button>
+                    </Button>
                   </div>
                 </>
               ) : null}
@@ -1045,9 +1055,8 @@ function UserAdministrationDialog({
                     <label htmlFor={`role-reason-${person.id}`}>
                       Reason for role revocation
                     </label>
-                    <textarea
+                    <Textarea
                       id={`role-reason-${person.id}`}
-                      className={styles.textarea}
                       maxLength={500}
                       value={roleReason}
                       onChange={(event) => setRoleReason(event.target.value)}
@@ -1058,9 +1067,8 @@ function UserAdministrationDialog({
                       Type <strong>{person.name}</strong> to confirm a
                       revocation
                     </label>
-                    <input
+                    <Input
                       id={`role-confirm-${person.id}`}
-                      className={styles.input}
                       value={roleConfirmation}
                       onChange={(event) =>
                         setRoleConfirmation(event.target.value)
@@ -1241,9 +1249,8 @@ function WeekDialog({ seasonId, week }: { seasonId: string; week?: Week }) {
             <label htmlFor={`week-number-${week?.id ?? 'new'}`}>
               Week number
             </label>
-            <input
+            <Input
               id={`week-number-${week?.id ?? 'new'}`}
-              className={styles.input}
               type="number"
               min="1"
               value={number}
@@ -1266,9 +1273,8 @@ function WeekDialog({ seasonId, week }: { seasonId: string; week?: Week }) {
             <label htmlFor={`week-resource-${week?.id ?? 'new'}`}>
               Resource URL (optional)
             </label>
-            <input
+            <Input
               id={`week-resource-${week?.id ?? 'new'}`}
-              className={styles.input}
               type="url"
               value={resourceUrl}
               onChange={(event) => setResourceUrl(event.target.value)}
@@ -1276,14 +1282,9 @@ function WeekDialog({ seasonId, week }: { seasonId: string; week?: Week }) {
           </div>
         </div>
         <div className={styles.dialogActions}>
-          <button
-            className={styles.button}
-            type="button"
-            disabled={pending}
-            onClick={() => void save()}
-          >
+          <Button type="button" disabled={pending} onClick={() => void save()}>
             {pending ? 'Saving…' : week ? 'Save week' : 'Create week'}
-          </button>
+          </Button>
         </div>
       </div>
     </FormDialog>
@@ -1511,13 +1512,9 @@ export function EnrollmentDialog({
               Verified enrollment candidates could not be loaded.
             </p>
             {onRetryAccounts ? (
-              <button
-                className={styles.buttonSecondary}
-                type="button"
-                onClick={onRetryAccounts}
-              >
+              <Button variant="outline" type="button" onClick={onRetryAccounts}>
                 Retry accounts
-              </button>
+              </Button>
             ) : null}
           </div>
         ) : null}
@@ -1525,68 +1522,73 @@ export function EnrollmentDialog({
           <label htmlFor={`enrollment-user-${enrollment?.id ?? 'new'}`}>
             Account
           </label>
-          <select
+          <NativeSelect
             id={`enrollment-user-${enrollment?.id ?? 'new'}`}
-            className={styles.select}
+            className="w-full"
             disabled={Boolean(enrollment) || accountsLoading || accountsError}
             value={userId}
             onChange={(event) => setUserId(event.target.value)}
           >
-            <option value="">
+            <NativeSelectOption value="">
               {accountsLoading
                 ? 'Loading verified accounts…'
                 : accounts.length
                   ? 'Choose an account'
                   : 'No eligible verified accounts'}
-            </option>
+            </NativeSelectOption>
             {accounts.map((person) => (
-              <option value={person.id} key={person.id}>
+              <NativeSelectOption value={person.id} key={person.id}>
                 {person.name} · @{person.slug}
-              </option>
+              </NativeSelectOption>
             ))}
-          </select>
+          </NativeSelect>
         </div>
         <div className={styles.field}>
           <label htmlFor={`enrollment-role-${enrollment?.id ?? 'new'}`}>
             Season role
           </label>
-          <select
+          <NativeSelect
             id={`enrollment-role-${enrollment?.id ?? 'new'}`}
-            className={styles.select}
+            className="w-full"
             value={role}
             onChange={(event) => setRole(event.target.value as SeasonRole)}
           >
             {!enrollment && allowCoordinator ? (
-              <option value="coordinator">Coordinator</option>
+              <NativeSelectOption value="coordinator">
+                Coordinator
+              </NativeSelectOption>
             ) : null}
-            <option value="mentor">Mentor</option>
-            <option value="student">Student</option>
-          </select>
+            <NativeSelectOption value="mentor">Mentor</NativeSelectOption>
+            <NativeSelectOption value="student">Student</NativeSelectOption>
+          </NativeSelect>
         </div>
         {enrollment && role === 'student' ? (
           <div className={styles.field}>
             <label htmlFor={`enrollment-level-${enrollment.id}`}>
               Student level
             </label>
-            <select
+            <NativeSelect
               id={`enrollment-level-${enrollment.id}`}
-              className={styles.select}
+              className="w-full"
               value={studentLevel}
               onChange={(event) =>
                 setStudentLevel(event.target.value as typeof studentLevel)
               }
             >
-              <option value="novice">Novice</option>
-              <option value="beginner">Beginner</option>
-              <option value="intermediate">Intermediate</option>
-              <option value="advanced">Advance</option>
-              <option value="not_applicable">Not applicable</option>
-            </select>
+              <NativeSelectOption value="novice">Novice</NativeSelectOption>
+              <NativeSelectOption value="beginner">Beginner</NativeSelectOption>
+              <NativeSelectOption value="intermediate">
+                Intermediate
+              </NativeSelectOption>
+              <NativeSelectOption value="advanced">Advance</NativeSelectOption>
+              <NativeSelectOption value="not_applicable">
+                Not applicable
+              </NativeSelectOption>
+            </NativeSelect>
           </div>
         ) : null}
         <div className={styles.dialogActions}>
-          <button
-            className={styles.button}
+          <Button
             type="button"
             disabled={pending || !userId}
             onClick={() => void save()}
@@ -1596,7 +1598,7 @@ export function EnrollmentDialog({
               : enrollment
                 ? 'Save enrollment'
                 : 'Add member'}
-          </button>
+          </Button>
         </div>
       </div>
     </FormDialog>
@@ -1673,10 +1675,9 @@ function RemoveEnrollmentDialog({
       <div className={styles.form}>
         <div className={styles.field}>
           <label htmlFor={`admin-remove-reason-${enrollment.id}`}>Reason</label>
-          <textarea
+          <Textarea
             id={`admin-remove-reason-${enrollment.id}`}
             maxLength={500}
-            className={styles.textarea}
             value={reason}
             onChange={(event) => setReason(event.target.value)}
           />
@@ -1685,9 +1686,8 @@ function RemoveEnrollmentDialog({
           <label htmlFor={`admin-remove-confirm-${enrollment.id}`}>
             Type <strong>{name}</strong> to confirm
           </label>
-          <input
+          <Input
             id={`admin-remove-confirm-${enrollment.id}`}
-            className={styles.input}
             value={confirmation}
             onChange={(event) => setConfirmation(event.target.value)}
           />
@@ -1698,8 +1698,8 @@ function RemoveEnrollmentDialog({
           </p>
         ) : null}
         <div className={styles.dialogActions}>
-          <button
-            className={styles.buttonDanger}
+          <Button
+            variant="destructive"
             type="button"
             disabled={
               pending || reason.trim().length < 5 || confirmation !== name
@@ -1707,7 +1707,7 @@ function RemoveEnrollmentDialog({
             onClick={() => void remove()}
           >
             {pending ? 'Removing…' : 'Remove member'}
-          </button>
+          </Button>
         </div>
       </div>
     </FormDialog>
@@ -1851,41 +1851,40 @@ function MentorshipDialog({
           <label htmlFor={`admin-mentor-${mentorship?.id ?? 'new'}`}>
             Mentor
           </label>
-          <select
+          <NativeSelect
             id={`admin-mentor-${mentorship?.id ?? 'new'}`}
-            className={styles.select}
+            className="w-full"
             value={mentorUserId}
             onChange={(event) => setMentorUserId(event.target.value)}
           >
-            <option value="">Choose a mentor</option>
+            <NativeSelectOption value="">Choose a mentor</NativeSelectOption>
             {mentors.map((person) => (
-              <option value={person.id} key={person.id}>
+              <NativeSelectOption value={person.id} key={person.id}>
                 {person.name}
-              </option>
+              </NativeSelectOption>
             ))}
-          </select>
+          </NativeSelect>
         </div>
         <div className={styles.field}>
           <label htmlFor={`admin-student-${mentorship?.id ?? 'new'}`}>
             Student
           </label>
-          <select
+          <NativeSelect
             id={`admin-student-${mentorship?.id ?? 'new'}`}
-            className={styles.select}
+            className="w-full"
             value={studentUserId}
             onChange={(event) => setStudentUserId(event.target.value)}
           >
-            <option value="">Choose a student</option>
+            <NativeSelectOption value="">Choose a student</NativeSelectOption>
             {students.map((person) => (
-              <option value={person.id} key={person.id}>
+              <NativeSelectOption value={person.id} key={person.id}>
                 {person.name}
-              </option>
+              </NativeSelectOption>
             ))}
-          </select>
+          </NativeSelect>
         </div>
         <div className={styles.dialogActions}>
-          <button
-            className={styles.button}
+          <Button
             type="button"
             disabled={pending || !mentorUserId || !studentUserId}
             onClick={() => void save()}
@@ -1895,7 +1894,7 @@ function MentorshipDialog({
               : mentorship
                 ? 'Save mentorship'
                 : 'Create mentorship'}
-          </button>
+          </Button>
         </div>
       </div>
     </FormDialog>

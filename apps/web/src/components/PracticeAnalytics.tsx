@@ -1,3 +1,4 @@
+import { Card } from '@/components/ui/card';
 import { useState } from 'react';
 import {
   CartesianGrid,
@@ -119,10 +120,10 @@ export function PracticeAnalytics({
                       cursor={{ strokeDasharray: '3 3' }}
                       content={({ active, payload }) =>
                         active && payload?.[0] ? (
-                          <div className={styles.panel}>
+                          <Card className="gap-4 p-5">
                             {payload[0].payload.name}:{' '}
                             {payload[0].payload.minutes} min
-                          </div>
+                          </Card>
                         ) : null
                       }
                     />

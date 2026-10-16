@@ -1,3 +1,7 @@
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
+
 import {
   IconArrowRight,
   IconCalendarEvent,
@@ -104,32 +108,39 @@ export function DashboardPage() {
     <div className={styles.page}>
       <header className={styles.pageHeader}>
         <div>
-          <p className={styles.eyebrow}>Workspace</p>
           <h1 className={styles.pageTitle}>
             Welcome, {user.data.name.split(' ')[0]}.
           </h1>
-          <p className={styles.lede}>
-            {dashboardIntro(role)} Focus on the next useful action; the detail
-            is here when you need it.
-          </p>
+          <p className={styles.lede}>{dashboardIntro(role)}</p>
         </div>
         <div className={styles.headerActions}>
-          <Link
-            className={styles.button}
-            to={
-              role === 'coordinator'
-                ? `/seasons/${currentSeason?.slug}/people`
-                : '/practice'
+          <Button
+            nativeButton={false}
+            role="link"
+            variant="default"
+            render={
+              <Link
+                to={
+                  role === 'coordinator'
+                    ? `/seasons/${currentSeason?.slug}/people`
+                    : '/practice'
+                }
+              />
             }
           >
             {role === 'coordinator'
               ? 'Review season roster'
               : 'Continue practice'}{' '}
             <IconArrowRight size={18} aria-hidden="true" />
-          </Link>
-          <Link className={styles.buttonSecondary} to="/mock-interviews">
+          </Button>
+          <Button
+            nativeButton={false}
+            role="link"
+            variant="outline"
+            render={<Link to="/mock-interviews" />}
+          >
             Mock interviews
-          </Link>
+          </Button>
         </div>
       </header>
 
@@ -220,7 +231,7 @@ export function DashboardPage() {
         )}
       </div>
 
-      <div className={styles.grid2}>
+      <div className="mt-8 grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)]">
         <section
           className={styles.section}
           aria-labelledby="dashboard-focus-title"
@@ -231,78 +242,92 @@ export function DashboardPage() {
                 ? 'Operations needing attention'
                 : role === 'mentor'
                   ? 'Your mentor team'
-                  : 'Recommended next problem'}
+                  : 'Practice history'}
             </h2>
           </div>
           {role === 'coordinator' ? (
-            <div className={styles.panel}>
-              <ul className={styles.cleanList}>
-                <li className={styles.listRow}>
-                  <span>
-                    <IconUsers size={18} aria-hidden="true" />{' '}
-                    {unassigned.length
-                      ? `${unassigned.length} ${unassigned.length === 1 ? 'student is' : 'students are'} unassigned`
-                      : 'Every active student is assigned'}
-                  </span>
-                  <Link to={`/seasons/${currentSeason?.slug}/mentor-teams`}>
-                    Mentor teams
-                  </Link>
-                </li>
-                <li className={styles.listRow}>
-                  <span>
-                    <IconClipboardCheck size={18} aria-hidden="true" />{' '}
-                    {activeEnrollments.length} active{' '}
-                    {activeEnrollments.length === 1
-                      ? 'enrollment'
-                      : 'enrollments'}
-                  </span>
-                  <Link to="/admin/enrollments">Manage</Link>
-                </li>
-                <li className={styles.listRow}>
-                  <span>
-                    <IconCalendarEvent size={18} aria-hidden="true" />{' '}
-                    {missingWeekResources
-                      ? `${missingWeekResources} ${missingWeekResources === 1 ? 'week has' : 'weeks have'} no resource link`
-                      : 'All scheduled weeks have resource links'}
-                  </span>
-                  <Link to="/admin/weeks">Weeks</Link>
-                </li>
-              </ul>
-            </div>
-          ) : role === 'mentor' ? (
-            <div className={styles.panel}>
-              {mentees.length ? (
+            <Card>
+              <CardContent>
                 <ul className={styles.cleanList}>
-                  {mentees.slice(0, 3).map((person) => (
-                    <li className={styles.personRow} key={person.id}>
-                      <PersonIdentity
-                        person={person}
-                        seasonId={currentSeason?.id}
-                      />
-                      <span className={styles.badgeNeutral}>
-                        {person.attempts ?? '—'} attempts
-                      </span>
-                    </li>
-                  ))}
+                  <li className={styles.listRow}>
+                    <span>
+                      <IconUsers size={18} aria-hidden="true" />{' '}
+                      {unassigned.length
+                        ? `${unassigned.length} ${unassigned.length === 1 ? 'student is' : 'students are'} unassigned`
+                        : 'Every active student is assigned'}
+                    </span>
+                    <Link to={`/seasons/${currentSeason?.slug}/mentor-teams`}>
+                      Mentor teams
+                    </Link>
+                  </li>
+                  <li className={styles.listRow}>
+                    <span>
+                      <IconClipboardCheck size={18} aria-hidden="true" />{' '}
+                      {activeEnrollments.length} active{' '}
+                      {activeEnrollments.length === 1
+                        ? 'enrollment'
+                        : 'enrollments'}
+                    </span>
+                    <Link to="/admin/enrollments">Manage</Link>
+                  </li>
+                  <li className={styles.listRow}>
+                    <span>
+                      <IconCalendarEvent size={18} aria-hidden="true" />{' '}
+                      {missingWeekResources
+                        ? `${missingWeekResources} ${missingWeekResources === 1 ? 'week has' : 'weeks have'} no resource link`
+                        : 'All scheduled weeks have resource links'}
+                    </span>
+                    <Link to="/admin/weeks">Weeks</Link>
+                  </li>
                 </ul>
-              ) : (
-                <p className={styles.muted}>
-                  No active students are assigned to you in this season.
-                </p>
-              )}
-            </div>
+              </CardContent>
+            </Card>
+          ) : role === 'mentor' ? (
+            <Card>
+              <CardContent>
+                {mentees.length ? (
+                  <ul className={styles.cleanList}>
+                    {mentees.slice(0, 3).map((person) => (
+                      <li className={styles.personRow} key={person.id}>
+                        <PersonIdentity
+                          person={person}
+                          seasonId={currentSeason?.id}
+                        />
+                        <Badge
+                          variant="secondary"
+                          className={styles.badgeNeutral}
+                        >
+                          {person.attempts ?? '—'} attempts
+                        </Badge>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className={styles.muted}>
+                    No active students are assigned to you in this season.
+                  </p>
+                )}
+              </CardContent>
+            </Card>
           ) : (
-            <div className={styles.panel}>
-              <p>
-                Review your recorded problem attempts, outcomes and practice
-                time.
-              </p>
-              <div className={styles.buttonRow}>
-                <Link className={styles.button} to="/practice">
-                  View practice history
-                </Link>
-              </div>
-            </div>
+            <Card>
+              <CardContent>
+                <p>
+                  Review your recorded problem attempts, outcomes and practice
+                  time.
+                </p>
+                <div className={styles.buttonRow}>
+                  <Button
+                    nativeButton={false}
+                    role="link"
+                    variant="default"
+                    render={<Link to="/practice" />}
+                  >
+                    View practice history
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
           )}
         </section>
 
@@ -312,9 +337,11 @@ export function DashboardPage() {
               Your recent activity
             </h2>
           </div>
-          <div className={styles.panel}>
-            <ActivityChart data={activity} />
-          </div>
+          <Card>
+            <CardContent>
+              <ActivityChart data={activity} />
+            </CardContent>
+          </Card>
         </section>
       </div>
     </div>

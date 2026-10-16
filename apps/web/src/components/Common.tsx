@@ -1,3 +1,11 @@
+import { Badge } from '@/components/ui/badge';
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardDescription,
+} from '@/components/ui/card';
+
 import { IconArrowUpRight } from '@tabler/icons-react';
 import { useEffect, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
@@ -25,7 +33,9 @@ export function PageHeader({
   return (
     <header className={styles.pageHeader}>
       <div>
-        {eyebrow ? <p className={styles.eyebrow}>{eyebrow}</p> : null}
+        {eyebrow ? (
+          <p className="mb-1 text-sm text-muted-foreground">{eyebrow}</p>
+        ) : null}
         <h1 className={styles.pageTitle}>{title}</h1>
         <p className={styles.lede}>{description}</p>
       </div>
@@ -39,7 +49,7 @@ export function RoleBadge({ role }: { role: Role }) {
     role === 'system_admin'
       ? 'System Admin'
       : role[0].toUpperCase() + role.slice(1);
-  return <span className={styles.badge}>{label}</span>;
+  return <Badge variant="secondary">{label}</Badge>;
 }
 
 export function PersonIdentity({
@@ -102,10 +112,16 @@ export function MetricCard({
   detail: string;
 }) {
   return (
-    <article className={styles.metricCard}>
-      <span className={styles.metricLabel}>{label}</span>
-      <strong className={styles.metricValue}>{value}</strong>
-      <span className={styles.helper}>{detail}</span>
-    </article>
+    <Card>
+      <CardHeader>
+        <CardDescription>{label}</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <strong className="block text-3xl font-semibold tracking-tight tabular-nums">
+          {value}
+        </strong>
+        <p className="mt-1 text-sm text-muted-foreground">{detail}</p>
+      </CardContent>
+    </Card>
   );
 }

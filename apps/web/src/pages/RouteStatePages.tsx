@@ -1,3 +1,5 @@
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import {
   IconAlertTriangle,
   IconLock,
@@ -201,14 +203,14 @@ export function SignInPage() {
           </p>
         ) : null}
         {resetMessage ? <p role="status">{resetMessage}</p> : null}
-        <button
-          className={styles.buttonSecondary}
+        <Button
+          variant="outline"
           type="button"
           disabled={googlePending}
           onClick={() => void google()}
         >
           {googlePending ? 'Opening Google…' : 'Continue with Google'}
-        </button>
+        </Button>
         <div className={styles.authDivider} aria-hidden="true">
           <span>or</span>
         </div>
@@ -217,7 +219,7 @@ export function SignInPage() {
           role="tablist"
           aria-label="Email account action"
         >
-          <button
+          <Button
             className={styles.authTab}
             type="button"
             role="tab"
@@ -226,8 +228,8 @@ export function SignInPage() {
             onClick={() => setMode('sign-in')}
           >
             Sign in
-          </button>
-          <button
+          </Button>
+          <Button
             className={styles.authTab}
             type="button"
             role="tab"
@@ -236,7 +238,7 @@ export function SignInPage() {
             onClick={() => setMode('sign-up')}
           >
             Create account
-          </button>
+          </Button>
         </div>
         <form
           id="email-auth-form"
@@ -247,9 +249,8 @@ export function SignInPage() {
           {mode === 'sign-up' ? (
             <div className={styles.field}>
               <label htmlFor="auth-name">Name</label>
-              <input
+              <Input
                 id="auth-name"
-                className={styles.input}
                 autoComplete="name"
                 aria-invalid={Boolean(errors.name)}
                 {...register('name')}
@@ -261,9 +262,8 @@ export function SignInPage() {
           ) : null}
           <div className={styles.field}>
             <label htmlFor="auth-email">Email</label>
-            <input
+            <Input
               id="auth-email"
-              className={styles.input}
               type="email"
               autoComplete="email"
               aria-invalid={Boolean(errors.email)}
@@ -275,9 +275,8 @@ export function SignInPage() {
           </div>
           <div className={styles.field}>
             <label htmlFor="auth-password">Password</label>
-            <input
+            <Input
               id="auth-password"
-              className={styles.input}
               type="password"
               autoComplete={
                 mode === 'sign-up' ? 'new-password' : 'current-password'
@@ -289,26 +288,22 @@ export function SignInPage() {
               <p className={styles.fieldError}>{errors.password.message}</p>
             ) : null}
           </div>
-          <button
-            className={styles.button}
-            type="submit"
-            disabled={isSubmitting}
-          >
+          <Button type="submit" disabled={isSubmitting}>
             {isSubmitting
               ? 'Please wait…'
               : mode === 'sign-up'
                 ? 'Create account'
                 : 'Sign in with email'}
-          </button>
+          </Button>
           {mode === 'sign-in' ? (
-            <button
-              className={styles.buttonQuiet}
+            <Button
+              variant="ghost"
               type="button"
               disabled={resetPending}
               onClick={() => void forgotPassword()}
             >
               {resetPending ? 'Requesting…' : 'Forgot password?'}
-            </button>
+            </Button>
           ) : null}
         </form>
       </div>
@@ -365,9 +360,8 @@ export function ResetPasswordPage() {
         ) : null}
         <div className={styles.field}>
           <label htmlFor="reset-password">New password</label>
-          <input
+          <Input
             id="reset-password"
-            className={styles.input}
             type="password"
             autoComplete="new-password"
             value={password}
@@ -378,21 +372,25 @@ export function ResetPasswordPage() {
           <label htmlFor="reset-password-confirmation">
             Confirm new password
           </label>
-          <input
+          <Input
             id="reset-password-confirmation"
-            className={styles.input}
             type="password"
             autoComplete="new-password"
             value={confirmation}
             onChange={(event) => setConfirmation(event.target.value)}
           />
         </div>
-        <button className={styles.button} type="submit" disabled={pending}>
+        <Button type="submit" disabled={pending}>
           {pending ? 'Resetting…' : 'Reset password'}
-        </button>
-        <Link className={styles.buttonSecondary} to="/sign-in">
+        </Button>
+        <Button
+          nativeButton={false}
+          role="link"
+          variant="outline"
+          render={<Link to="/sign-in" />}
+        >
           Back to sign in
-        </Link>
+        </Button>
       </form>
     </StateLayout>
   );
@@ -439,29 +437,23 @@ export function VerifyEmailPage() {
         {status ? <p role="status">{status}</p> : null}
         <div className={styles.field}>
           <label htmlFor="verification-email">Email</label>
-          <input
+          <Input
             id="verification-email"
-            className={styles.input}
             type="email"
             value={email}
             onChange={(event) => setEmail(event.target.value)}
           />
         </div>
-        <button
-          className={styles.button}
-          type="button"
-          disabled={pending}
-          onClick={() => void resend()}
-        >
+        <Button type="button" disabled={pending} onClick={() => void resend()}>
           {pending ? 'Sending…' : 'Resend verification email'}
-        </button>
-        <button
-          className={styles.buttonSecondary}
+        </Button>
+        <Button
+          variant="outline"
           type="button"
           onClick={() => void anotherAccount()}
         >
           Use another account
-        </button>
+        </Button>
       </div>
     </StateLayout>
   );
@@ -510,9 +502,8 @@ export function TwoFactorPage() {
           <label htmlFor="two-factor-code">
             {method === 'totp' ? 'Authenticator code' : 'Backup code'}
           </label>
-          <input
+          <Input
             id="two-factor-code"
-            className={styles.input}
             value={code}
             onChange={(event) => setCode(event.target.value)}
             inputMode={method === 'totp' ? 'numeric' : 'text'}
@@ -520,11 +511,11 @@ export function TwoFactorPage() {
             required
           />
         </div>
-        <button className={styles.button} type="submit" disabled={pending}>
+        <Button type="submit" disabled={pending}>
           {pending ? 'Verifying…' : 'Verify'}
-        </button>
-        <button
-          className={styles.buttonSecondary}
+        </Button>
+        <Button
+          variant="outline"
           type="button"
           onClick={() => {
             setMethod(method === 'totp' ? 'backup-code' : 'totp');
@@ -534,7 +525,7 @@ export function TwoFactorPage() {
           {method === 'totp'
             ? 'Use a backup code'
             : 'Use an authenticator code'}
-        </button>
+        </Button>
       </form>
     </StateLayout>
   );
@@ -548,9 +539,14 @@ export function ForbiddenPage() {
       title="You do not have access"
       message="This workspace or action is outside your current programme role."
     >
-      <Link className={styles.button} to="/dashboard">
+      <Button
+        nativeButton={false}
+        role="link"
+        variant="default"
+        render={<Link to="/dashboard" />}
+      >
         Back to dashboard
-      </Link>
+      </Button>
     </StateLayout>
   );
 }
@@ -571,9 +567,14 @@ export function AccountUnavailablePage() {
       title="Account unavailable"
       message={message}
     >
-      <Link className={styles.buttonSecondary} to="/sign-in">
+      <Button
+        nativeButton={false}
+        role="link"
+        variant="outline"
+        render={<Link to="/sign-in" />}
+      >
         Return to sign in
-      </Link>
+      </Button>
     </StateLayout>
   );
 }
@@ -586,9 +587,14 @@ export function NotFoundPage() {
       title="Page not found"
       message="The link may be outdated, or this page may have moved."
     >
-      <Link className={styles.button} to="/dashboard">
+      <Button
+        nativeButton={false}
+        role="link"
+        variant="default"
+        render={<Link to="/dashboard" />}
+      >
         Go to dashboard
-      </Link>
+      </Button>
     </StateLayout>
   );
 }
@@ -607,16 +613,17 @@ export function RouteErrorPage() {
       title={`Something went wrong (${status})`}
       message={message}
     >
-      <button
-        className={styles.button}
-        type="button"
-        onClick={() => window.location.reload()}
-      >
+      <Button type="button" onClick={() => window.location.reload()}>
         <IconRefresh size={18} aria-hidden="true" /> Reload page
-      </button>
-      <Link className={styles.buttonSecondary} to="/dashboard">
+      </Button>
+      <Button
+        nativeButton={false}
+        role="link"
+        variant="outline"
+        render={<Link to="/dashboard" />}
+      >
         Dashboard
-      </Link>
+      </Button>
     </StateLayout>
   );
 }

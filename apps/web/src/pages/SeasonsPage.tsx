@@ -1,3 +1,4 @@
+import { Button } from '@/components/ui/button';
 import { IconArrowRight, IconCalendarEvent } from '@tabler/icons-react';
 import type { ColumnDef } from '@tanstack/react-table';
 import { Link } from 'react-router-dom';
@@ -88,12 +89,14 @@ export function SeasonsPage() {
       cell: ({ row }) => (
         <div className={styles.inline}>
           {canCreate ? <SeasonEditorDialog season={row.original} /> : null}
-          <Link
-            className={styles.buttonQuiet}
-            to={`/seasons/${row.original.slug}`}
+          <Button
+            nativeButton={false}
+            role="link"
+            variant="ghost"
+            render={<Link to={`/seasons/${row.original.slug}`} />}
           >
             Open <IconArrowRight size={17} aria-hidden="true" />
-          </Link>
+          </Button>
         </div>
       ),
     },
@@ -138,12 +141,14 @@ export function SeasonsPage() {
               {formatDate(row.original.endsAt)}
             </p>
             <p>{row.original.summary}</p>
-            <Link
-              className={styles.buttonSecondary}
-              to={`/seasons/${row.original.slug}`}
+            <Button
+              nativeButton={false}
+              role="link"
+              variant="outline"
+              render={<Link to={`/seasons/${row.original.slug}`} />}
             >
               Open season
-            </Link>
+            </Button>
           </div>
         )}
       />

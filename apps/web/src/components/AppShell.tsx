@@ -1,3 +1,8 @@
+import { Button } from '@/components/ui/button';
+import {
+  NativeSelect,
+  NativeSelectOption,
+} from '@/components/ui/native-select';
 import {
   IconAdjustments,
   IconBriefcase,
@@ -14,7 +19,13 @@ import {
 } from '@tabler/icons-react';
 import { useEffect, useMemo, useState, type ComponentType } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom';
+import {
+  Link,
+  NavLink,
+  Outlet,
+  useNavigate,
+  useLocation,
+} from 'react-router-dom';
 
 import { signOut } from '@/api/authClient';
 import { useCurrentUser } from '@/api/queries';
@@ -131,8 +142,9 @@ function ThemeButton({
 }) {
   const Icon = theme === 'dark' ? IconSun : IconMoon;
   return (
-    <button
-      className={inverse ? styles.navLink : styles.iconButton}
+    <Button
+      variant="ghost"
+      className={inverse ? `${styles.navLink} justify-start` : undefined}
       type="button"
       onClick={onToggle}
       aria-label={`Use ${theme === 'dark' ? 'light' : 'dark'} theme`}
@@ -141,7 +153,7 @@ function ThemeButton({
       {inverse ? (
         <span>{theme === 'dark' ? 'Light theme' : 'Dark theme'}</span>
       ) : null}
-    </button>
+    </Button>
   );
 }
 
@@ -149,6 +161,7 @@ export function AppShell() {
   const userQuery = useCurrentUser();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
+  const location = useLocation();
   const { workspaces, activeWorkspace, setActiveWorkspaceId } = useWorkspace();
   const [theme, setTheme] = useState(
     () =>
@@ -174,7 +187,7 @@ export function AppShell() {
     localStorage.setItem('rsp-theme', theme);
     document
       .querySelector('meta[name="theme-color"]')
-      ?.setAttribute('content', theme === 'dark' ? '#080808' : '#121212');
+      ?.setAttribute('content', theme === 'dark' ? '#171717' : '#ffffff');
   }, [theme]);
 
   const workspaceSelect = (className: string, showLabel: boolean) => {
@@ -191,18 +204,18 @@ export function AppShell() {
             Workspace
           </label>
         )}
-        <select
+        <NativeSelect
           id={showLabel ? 'workspace-select' : 'workspace-select-mobile'}
           className={className}
           value={activeWorkspace?.id ?? ''}
           onChange={(event) => setActiveWorkspaceId(event.target.value)}
         >
           {workspaces.map((workspace) => (
-            <option key={workspace.id} value={workspace.id}>
+            <NativeSelectOption key={workspace.id} value={workspace.id}>
               {workspace.label}
-            </option>
+            </NativeSelectOption>
           ))}
-        </select>
+        </NativeSelect>
       </div>
     );
   };
@@ -240,10 +253,11 @@ export function AppShell() {
         <Link className={styles.brand} to={homePath} aria-label="RSP home">
           <img src="/assets/rsp-logo.png" alt="" />
           <span className={styles.brandCopy}>
-            <strong>RSP Workspace</strong>
+            <strong>Ravi’s Study Program</strong>
+            <span>Member workspace</span>
           </span>
         </Link>
-        {workspaceSelect(styles.workspaceSelect, true)}
+        {workspaceSelect('w-full', true)}
         {nav()}
         <div className={styles.sidebarFooter}>
           <Link className={styles.navLink} to="/settings">
@@ -265,16 +279,14 @@ export function AppShell() {
               </span>
             </span>
           </div>
-          <button
-            className={styles.navLink}
+          <Button
+            variant="ghost"
+            className={`${styles.navLink} justify-start`}
             type="button"
             onClick={() => void handleSignOut()}
           >
             <IconLogout size={19} aria-hidden="true" /> Sign out
-          </button>
-          <span className={styles.commandHint}>
-            Quick navigation <span className={styles.kbd}>⌘ K</span>
-          </span>
+          </Button>
         </div>
       </aside>
       <header className={styles.mobileHeader}>
@@ -285,26 +297,46 @@ export function AppShell() {
             <span>Workspace</span>
           </span>
         </Link>
-        {workspaceSelect(styles.mobileWorkspace, false)}
+        {workspaceSelect('min-w-0 max-w-[44vw]', false)}
         <div className={styles.inline}>
-          <Link
-            className={styles.iconButton}
-            to="/settings"
-            aria-label="Account settings"
+          <Button
+            nativeButton={false}
+            role="link"
+            variant="ghost"
+            size="icon"
+            render={<Link to="/settings" aria-label="Account settings" />}
           >
             <IconSettings size={19} aria-hidden="true" />
-          </Link>
+          </Button>
           <ThemeButton
             theme={theme}
             onToggle={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
           />
         </div>
       </header>
-      <main id="main-content" className={styles.main} tabIndex={-1}>
-        <Outlet />
-      </main>
+      <div className={styles.workspaceBody}>
+        <header className={styles.workspaceHeader}>
+          <div className="flex min-w-0 items-center gap-3 text-sm">
+            <span className="text-muted-foreground">Workspace</span>
+            <span className="text-border" aria-hidden="true">
+              /
+            </span>
+            <span className="truncate font-medium">
+              {navItems.find((item) => location.pathname === item.to)?.label ??
+                (location.pathname === '/settings'
+                  ? 'Settings'
+                  : location.pathname === '/profile'
+                    ? 'Profile'
+                    : 'Overview')}
+            </span>
+          </div>
+          <CommandPalette />
+        </header>
+        <main id="main-content" className={styles.main} tabIndex={-1}>
+          <Outlet />
+        </main>
+      </div>
       {nav(true)}
-      <CommandPalette />
     </div>
   );
 }

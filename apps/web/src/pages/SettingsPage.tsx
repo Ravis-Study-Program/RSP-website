@@ -1,3 +1,7 @@
+import { Card } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import { IconAlertTriangle, IconCheck } from '@tabler/icons-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useEffect, useMemo, useState } from 'react';
@@ -160,14 +164,13 @@ export function SettingsPage() {
         title="Settings"
         description="Set your display timezone, view practice goals and manage account security."
         actions={
-          <button
-            className={styles.button}
+          <Button
             type="button"
             disabled={saving || !dirty || !timezoneValid}
             onClick={() => void saveSettings()}
           >
             {saving ? 'Saving…' : 'Save settings'}
-          </button>
+          </Button>
         }
       />
       {saved ? (
@@ -193,7 +196,7 @@ export function SettingsPage() {
               Display and time
             </h2>
           </div>
-          <div className={styles.panel}>
+          <Card className="gap-4 p-5">
             <div className={styles.field}>
               <label htmlFor="timezone">Timezone</label>
               <TimezoneSelect
@@ -222,7 +225,7 @@ export function SettingsPage() {
                 </p>
               ) : null}
             </div>
-          </div>
+          </Card>
         </section>
         <section className={styles.section} aria-labelledby="goals-title">
           <div className={styles.sectionHeader}>
@@ -239,7 +242,7 @@ export function SettingsPage() {
             Security
           </h2>
         </div>
-        <div className={styles.panel}>
+        <Card className="gap-4 p-5">
           <div className={styles.listRow}>
             <span className={styles.personIdentity}>
               <span className={styles.personIdentityText}>
@@ -271,8 +274,8 @@ export function SettingsPage() {
           </div>
           <div className={styles.listRow}>
             <span>Connected sign-in methods</span>
-            <button
-              className={styles.buttonSecondary}
+            <Button
+              variant="outline"
               type="button"
               onClick={() =>
                 void linkGoogleAccount().catch((error: unknown) =>
@@ -285,7 +288,7 @@ export function SettingsPage() {
               }
             >
               Connect Google
-            </button>
+            </Button>
           </div>
           <div className={styles.listRow}>
             <span>
@@ -327,15 +330,15 @@ export function SettingsPage() {
                 End this browser session securely.
               </span>
             </span>
-            <button
-              className={styles.buttonSecondary}
+            <Button
+              variant="outline"
               type="button"
               onClick={() => void endSession()}
             >
               Sign out
-            </button>
+            </Button>
           </div>
-        </div>
+        </Card>
       </section>
       <section className={styles.section} aria-labelledby="danger-title">
         <div className={styles.sectionHeader}>
@@ -343,7 +346,7 @@ export function SettingsPage() {
             Account deletion
           </h2>
         </div>
-        <div className={styles.panel}>
+        <Card className="gap-4 p-5">
           <InlineNotice tone="warning">
             <IconAlertTriangle size={19} aria-hidden="true" /> Requesting
             deletion revokes all sessions immediately. A verified recovery link
@@ -357,7 +360,7 @@ export function SettingsPage() {
               onConfirm={() => void deleteAccount()}
             />
           </div>
-        </div>
+        </Card>
       </section>
     </div>
   );
@@ -365,7 +368,7 @@ export function SettingsPage() {
 
 export function PracticePreferencesPanel() {
   return (
-    <div className={styles.panel}>
+    <Card className="gap-4 p-5">
       <p className={styles.helper}>
         Time goals are fixed for everyone and apply automatically.
       </p>
@@ -377,7 +380,7 @@ export function PracticePreferencesPanel() {
           </div>
         ))}
       </dl>
-    </div>
+    </Card>
   );
 }
 
@@ -457,9 +460,8 @@ function MfaSetupDialog({ onComplete }: { onComplete: () => void }) {
           <>
             <div className={styles.field}>
               <label htmlFor="mfa-password">Current password</label>
-              <input
+              <Input
                 id="mfa-password"
-                className={styles.input}
                 type="password"
                 autoComplete="current-password"
                 value={password}
@@ -470,46 +472,38 @@ function MfaSetupDialog({ onComplete }: { onComplete: () => void }) {
                 before setting up TOTP.
               </p>
             </div>
-            <button
-              className={styles.button}
+            <Button
               type="button"
               disabled={pending || password.length < 12}
               onClick={() => void begin()}
             >
               {pending ? 'Starting…' : 'Begin setup'}
-            </button>
+            </Button>
           </>
         ) : (
           <>
             <div className={styles.field}>
               <label htmlFor="mfa-uri">Authenticator setup URI</label>
-              <textarea
-                id="mfa-uri"
-                className={styles.textarea}
-                readOnly
-                value={totpURI}
-              />
+              <Textarea id="mfa-uri" readOnly value={totpURI} />
             </div>
             <BackupCodeList codes={backupCodes} />
             <div className={styles.field}>
               <label htmlFor="mfa-code">Authenticator code</label>
-              <input
+              <Input
                 id="mfa-code"
-                className={styles.input}
                 inputMode="numeric"
                 autoComplete="one-time-code"
                 value={code}
                 onChange={(event) => setCode(event.target.value)}
               />
             </div>
-            <button
-              className={styles.button}
+            <Button
               type="button"
               disabled={pending || code.length < 6}
               onClick={() => void verify()}
             >
               {pending ? 'Verifying…' : 'Verify and finish'}
-            </button>
+            </Button>
           </>
         )}
       </div>
@@ -560,35 +554,29 @@ function BackupCodesDialog({ onComplete }: { onComplete: () => void }) {
               All sessions have been revoked. Confirm only after storing the
               codes.
             </p>
-            <button
-              className={styles.button}
-              type="button"
-              onClick={onComplete}
-            >
+            <Button type="button" onClick={onComplete}>
               I stored the codes — sign in again
-            </button>
+            </Button>
           </>
         ) : (
           <>
             <div className={styles.field}>
               <label htmlFor="backup-password">Current password</label>
-              <input
+              <Input
                 id="backup-password"
-                className={styles.input}
                 type="password"
                 autoComplete="current-password"
                 value={password}
                 onChange={(event) => setPassword(event.target.value)}
               />
             </div>
-            <button
-              className={styles.button}
+            <Button
               type="button"
               disabled={pending || password.length < 12}
               onClick={() => void regenerate()}
             >
               {pending ? 'Regenerating…' : 'Regenerate codes'}
-            </button>
+            </Button>
           </>
         )}
       </div>
@@ -637,9 +625,8 @@ function ChangeEmailDialog({ onRequested }: { onRequested: () => void }) {
         ) : null}
         <div className={styles.field}>
           <label htmlFor="new-account-email">New email</label>
-          <input
+          <Input
             id="new-account-email"
-            className={styles.input}
             type="email"
             autoComplete="email"
             value={email}
@@ -647,14 +634,13 @@ function ChangeEmailDialog({ onRequested }: { onRequested: () => void }) {
           />
         </div>
         <div className={styles.dialogActions}>
-          <button
-            className={styles.button}
+          <Button
             type="button"
             disabled={pending}
             onClick={() => void submit()}
           >
             {pending ? 'Requesting…' : 'Send verification'}
-          </button>
+          </Button>
         </div>
       </div>
     </FormDialog>
@@ -708,9 +694,8 @@ function ChangePasswordDialog({ onChanged }: { onChanged: () => void }) {
         ) : null}
         <div className={styles.field}>
           <label htmlFor="current-account-password">Current password</label>
-          <input
+          <Input
             id="current-account-password"
-            className={styles.input}
             type="password"
             autoComplete="current-password"
             value={currentPassword}
@@ -719,9 +704,8 @@ function ChangePasswordDialog({ onChanged }: { onChanged: () => void }) {
         </div>
         <div className={styles.field}>
           <label htmlFor="new-account-password">New password</label>
-          <input
+          <Input
             id="new-account-password"
-            className={styles.input}
             type="password"
             autoComplete="new-password"
             value={newPassword}
@@ -730,9 +714,8 @@ function ChangePasswordDialog({ onChanged }: { onChanged: () => void }) {
         </div>
         <div className={styles.field}>
           <label htmlFor="confirm-account-password">Confirm new password</label>
-          <input
+          <Input
             id="confirm-account-password"
-            className={styles.input}
             type="password"
             autoComplete="new-password"
             value={confirmation}
@@ -740,14 +723,13 @@ function ChangePasswordDialog({ onChanged }: { onChanged: () => void }) {
           />
         </div>
         <div className={styles.dialogActions}>
-          <button
-            className={styles.button}
+          <Button
             type="button"
             disabled={pending}
             onClick={() => void submit()}
           >
             {pending ? 'Changing…' : 'Change password'}
-          </button>
+          </Button>
         </div>
       </div>
     </FormDialog>
@@ -795,9 +777,8 @@ function ConnectPasswordDialog({ onConnected }: { onConnected: () => void }) {
         ) : null}
         <div className={styles.field}>
           <label htmlFor="connect-password">New password</label>
-          <input
+          <Input
             id="connect-password"
-            className={styles.input}
             type="password"
             autoComplete="new-password"
             value={password}
@@ -808,9 +789,8 @@ function ConnectPasswordDialog({ onConnected }: { onConnected: () => void }) {
           <label htmlFor="connect-password-confirmation">
             Confirm new password
           </label>
-          <input
+          <Input
             id="connect-password-confirmation"
-            className={styles.input}
             type="password"
             autoComplete="new-password"
             value={confirmation}
@@ -818,14 +798,13 @@ function ConnectPasswordDialog({ onConnected }: { onConnected: () => void }) {
           />
         </div>
         <div className={styles.dialogActions}>
-          <button
-            className={styles.button}
+          <Button
             type="button"
             disabled={pending}
             onClick={() => void submit()}
           >
             {pending ? 'Connecting…' : 'Connect and sign out'}
-          </button>
+          </Button>
         </div>
       </div>
     </FormDialog>

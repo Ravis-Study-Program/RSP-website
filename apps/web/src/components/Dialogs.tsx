@@ -1,6 +1,21 @@
-import { AlertDialog } from '@base-ui/react/alert-dialog';
-import { Button } from '@base-ui/react/button';
-import { Dialog } from '@base-ui/react/dialog';
+import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
+import {
+  AlertDialog,
+  AlertDialogTrigger,
+  AlertDialogContent,
+  AlertDialogTitle,
+  AlertDialogDescription,
+  AlertDialogCancel,
+} from '@/components/ui/alert-dialog';
+import {
+  Dialog,
+  DialogTrigger,
+  DialogContent,
+  DialogTitle,
+  DialogDescription,
+  DialogClose,
+} from '@/components/ui/dialog';
 import { IconTrash, IconX } from '@tabler/icons-react';
 import { useId, useState, type PropsWithChildren, type ReactNode } from 'react';
 
@@ -21,37 +36,27 @@ export function FormDialog({
   onOpenChange?: (open: boolean) => void;
 }>) {
   return (
-    <Dialog.Root open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={onOpenChange}>
       {trigger ? (
-        <Dialog.Trigger render={<Button className={styles.button} />}>
-          {trigger}
-        </Dialog.Trigger>
+        <DialogTrigger render={<Button />}>{trigger}</DialogTrigger>
       ) : null}
-      <Dialog.Portal>
-        <Dialog.Backdrop className={styles.dialogBackdrop} />
-        <Dialog.Viewport className={styles.dialogViewport}>
-          <Dialog.Popup className={styles.dialogPopup}>
-            <div className={styles.dialogHeader}>
-              <div>
-                <Dialog.Title className={styles.dialogTitle}>
-                  {title}
-                </Dialog.Title>
-                <Dialog.Description className={styles.dialogDescription}>
-                  {description}
-                </Dialog.Description>
-              </div>
-              <Dialog.Close
-                className={styles.iconButton}
-                aria-label="Close dialog"
-              >
-                <IconX size={18} aria-hidden="true" />
-              </Dialog.Close>
-            </div>
-            {children}
-          </Dialog.Popup>
-        </Dialog.Viewport>
-      </Dialog.Portal>
-    </Dialog.Root>
+
+      <DialogContent showCloseButton={false}>
+        <div className={styles.dialogHeader}>
+          <div>
+            <DialogTitle>{title}</DialogTitle>
+            <DialogDescription>{description}</DialogDescription>
+          </div>
+          <DialogClose
+            render={<Button variant="ghost" size="icon" />}
+            aria-label="Close dialog"
+          >
+            <IconX size={18} aria-hidden="true" />
+          </DialogClose>
+        </div>
+        {children}
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -89,7 +94,7 @@ export function NamedConfirmation({
     }
   };
   return (
-    <AlertDialog.Root
+    <AlertDialog
       open={open}
       onOpenChange={(next) => {
         if (pending) return;
@@ -100,56 +105,49 @@ export function NamedConfirmation({
         }
       }}
     >
-      <AlertDialog.Trigger className={styles.buttonDanger}>
+      <AlertDialogTrigger render={<Button variant="destructive" />}>
         <IconTrash size={17} aria-hidden="true" /> {actionLabel}
-      </AlertDialog.Trigger>
-      <AlertDialog.Portal>
-        <AlertDialog.Backdrop className={styles.dialogBackdrop} />
-        <AlertDialog.Viewport className={styles.dialogViewport}>
-          <AlertDialog.Popup className={styles.dialogPopup}>
-            <AlertDialog.Title className={styles.dialogTitle}>
-              {actionLabel} {name}?
-            </AlertDialog.Title>
-            <AlertDialog.Description className={styles.dialogDescription}>
-              {description}
-            </AlertDialog.Description>
-            <div className={`${styles.field} ${styles.fieldSpaced}`}>
-              <label htmlFor={confirmationId}>
-                Type <strong>{name}</strong> to confirm
-              </label>
-              <input
-                id={confirmationId}
-                className={styles.input}
-                value={value}
-                autoComplete="off"
-                onChange={(event) => setValue(event.target.value)}
-              />
-            </div>
-            {error ? (
-              <p className={styles.fieldError} role="alert">
-                {error}
-              </p>
-            ) : null}
-            <div className={styles.dialogActions}>
-              <AlertDialog.Close
-                className={styles.buttonSecondary}
-                disabled={pending}
-              >
-                Cancel
-              </AlertDialog.Close>
-              <button
-                type="button"
-                className={styles.buttonDanger}
-                disabled={value !== name || pending}
-                onClick={() => void confirm()}
-              >
-                {pending ? 'Working…' : actionLabel}
-              </button>
-            </div>
-          </AlertDialog.Popup>
-        </AlertDialog.Viewport>
-      </AlertDialog.Portal>
-    </AlertDialog.Root>
+      </AlertDialogTrigger>
+
+      <AlertDialogContent>
+        <AlertDialogTitle>
+          {actionLabel} {name}?
+        </AlertDialogTitle>
+        <AlertDialogDescription>{description}</AlertDialogDescription>
+        <div className={`${styles.field} ${styles.fieldSpaced}`}>
+          <label htmlFor={confirmationId}>
+            Type <strong>{name}</strong> to confirm
+          </label>
+          <Input
+            id={confirmationId}
+            value={value}
+            autoComplete="off"
+            onChange={(event) => setValue(event.target.value)}
+          />
+        </div>
+        {error ? (
+          <p className={styles.fieldError} role="alert">
+            {error}
+          </p>
+        ) : null}
+        <div className={styles.dialogActions}>
+          <AlertDialogCancel
+            className={styles.buttonSecondary}
+            disabled={pending}
+          >
+            Cancel
+          </AlertDialogCancel>
+          <Button
+            variant="destructive"
+            type="button"
+            disabled={value !== name || pending}
+            onClick={() => void confirm()}
+          >
+            {pending ? 'Working…' : actionLabel}
+          </Button>
+        </div>
+      </AlertDialogContent>
+    </AlertDialog>
   );
 }
 
@@ -159,37 +157,30 @@ export function DirtyFormGuard({
   blocker: { state: string; proceed?: () => void; reset?: () => void };
 }) {
   return (
-    <AlertDialog.Root open={blocker.state === 'blocked'}>
-      <AlertDialog.Portal>
-        <AlertDialog.Backdrop className={styles.dialogBackdrop} />
-        <AlertDialog.Viewport className={styles.dialogViewport}>
-          <AlertDialog.Popup className={styles.dialogPopup}>
-            <AlertDialog.Title className={styles.dialogTitle}>
-              Discard unsaved changes?
-            </AlertDialog.Title>
-            <AlertDialog.Description className={styles.dialogDescription}>
-              Your edits have not been saved. You can stay and finish, or
-              discard them and leave.
-            </AlertDialog.Description>
-            <div className={styles.dialogActions}>
-              <button
-                className={styles.buttonSecondary}
-                type="button"
-                onClick={() => blocker.reset?.()}
-              >
-                Stay here
-              </button>
-              <button
-                className={styles.buttonDanger}
-                type="button"
-                onClick={() => blocker.proceed?.()}
-              >
-                Discard changes
-              </button>
-            </div>
-          </AlertDialog.Popup>
-        </AlertDialog.Viewport>
-      </AlertDialog.Portal>
-    </AlertDialog.Root>
+    <AlertDialog open={blocker.state === 'blocked'}>
+      <AlertDialogContent>
+        <AlertDialogTitle>Discard unsaved changes?</AlertDialogTitle>
+        <AlertDialogDescription>
+          Your edits have not been saved. You can stay and finish, or discard
+          them and leave.
+        </AlertDialogDescription>
+        <div className={styles.dialogActions}>
+          <Button
+            variant="outline"
+            type="button"
+            onClick={() => blocker.reset?.()}
+          >
+            Stay here
+          </Button>
+          <Button
+            variant="destructive"
+            type="button"
+            onClick={() => blocker.proceed?.()}
+          >
+            Discard changes
+          </Button>
+        </div>
+      </AlertDialogContent>
+    </AlertDialog>
   );
 }

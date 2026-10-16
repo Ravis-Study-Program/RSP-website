@@ -1,4 +1,4 @@
-import { Tabs } from '@base-ui/react/tabs';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { useMemo } from 'react';
 import {
   filterPractice,
@@ -17,7 +17,6 @@ import { PersonIdentity } from '@/components/Common';
 import { RichTextContent } from '@/components/RichTextContent';
 import type { Attempt, MockInterview, Person } from '@/types';
 import { formatDateTime, interviewPassed } from '@/utils';
-import styles from '@/styles/App.module.css';
 
 const practiceColumns: ColumnDef<Attempt, any>[] = [
   {
@@ -123,19 +122,12 @@ export function ProfileActivity({
     },
   ];
   return (
-    <Tabs.Root
-      value={tab}
-      onValueChange={(value) => onTabChange(String(value))}
-    >
-      <Tabs.List className={styles.tabsList} aria-label="Profile activity">
-        <Tabs.Tab value="practice" className={styles.tab}>
-          Practice
-        </Tabs.Tab>
-        <Tabs.Tab value="mocks" className={styles.tab}>
-          Mock interviews
-        </Tabs.Tab>
-      </Tabs.List>
-      <Tabs.Panel value="practice">
+    <Tabs value={tab} onValueChange={(value) => onTabChange(String(value))}>
+      <TabsList aria-label="Profile activity">
+        <TabsTrigger value="practice">Practice</TabsTrigger>
+        <TabsTrigger value="mocks">Mock interviews</TabsTrigger>
+      </TabsList>
+      <TabsContent value="practice">
         <PracticeFilters
           seasonId={seasonId}
           filters={filters}
@@ -177,8 +169,8 @@ export function ProfileActivity({
             </div>
           )}
         />
-      </Tabs.Panel>
-      <Tabs.Panel value="mocks">
+      </TabsContent>
+      <TabsContent value="mocks">
         <MockFilters
           seasonId={seasonId}
           people={interviewers}
@@ -213,7 +205,7 @@ export function ProfileActivity({
             </div>
           )}
         />
-      </Tabs.Panel>
-    </Tabs.Root>
+      </TabsContent>
+    </Tabs>
   );
 }

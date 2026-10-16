@@ -1,3 +1,8 @@
+import {
+  NativeSelect,
+  NativeSelectOption,
+} from '@/components/ui/native-select';
+import { Button } from '@/components/ui/button';
 import { IconArrowUp } from '@tabler/icons-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useId, useState } from 'react';
@@ -98,9 +103,9 @@ export function StudentLevelDialog({
       ) : null}
       <div className={styles.field}>
         <label htmlFor={fieldId}>Student level</label>
-        <select
+        <NativeSelect
           id={fieldId}
-          className={styles.select}
+          className="w-full"
           value={level}
           disabled={pending}
           onChange={(event) =>
@@ -108,23 +113,22 @@ export function StudentLevelDialog({
           }
         >
           {Object.entries(studentLevels).map(([value, label]) => (
-            <option key={value} value={value}>
+            <NativeSelectOption key={value} value={value}>
               {label}
-            </option>
+            </NativeSelectOption>
           ))}
-        </select>
+        </NativeSelect>
       </div>
       <div className={styles.dialogFooter}>
-        <button
+        <Button
           type="button"
-          className={styles.button}
           disabled={
             pending || !person.enrollmentId || level === person.studentLevel
           }
           onClick={() => void save()}
         >
           {pending ? 'Saving…' : 'Save level'}
-        </button>
+        </Button>
       </div>
     </FormDialog>
   );
