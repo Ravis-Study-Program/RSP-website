@@ -48,7 +48,7 @@ const badgeNeutralClass = 'bg-muted text-muted-foreground';
 const metricGridClass =
   'mt-4 grid grid-cols-2 gap-3 min-[56rem]:grid-cols-3 min-[56rem]:gap-4';
 const resourceLinkClass =
-  'flex min-h-7 items-center justify-between gap-4 py-1 font-medium text-foreground hover:underline';
+  'flex min-h-11 items-center justify-between gap-4 py-3 font-medium text-foreground hover:underline';
 
 export function SeasonWorkspacePage() {
   const { slug } = useParams();
@@ -82,14 +82,14 @@ export function SeasonWorkspacePage() {
 
   const hasSeasonAccess = Boolean(
     user.data &&
-    (user.data.globalRoles.length > 0 ||
-      user.data.alumni ||
-      user.data.seasonRoles.some(
-        (membership) =>
-          membership.state === 'active' ||
-          (membership.seasonId === season.id &&
-            membership.state === 'completed'),
-      )),
+      (user.data.globalRoles.length > 0 ||
+        user.data.alumni ||
+        user.data.seasonRoles.some(
+          (membership) =>
+            membership.state === 'active' ||
+            (membership.seasonId === season.id &&
+              membership.state === 'completed'),
+        )),
   );
   if (!hasSeasonAccess) return <Navigate to="/forbidden" replace />;
 
