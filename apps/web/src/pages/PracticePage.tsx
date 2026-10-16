@@ -1,3 +1,10 @@
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import {
+  NativeSelect,
+  NativeSelectOption,
+} from '@/components/ui/native-select';
+import { Input } from '@/components/ui/input';
 import { useActivityFilters, filterPractice } from '@/activityFilters';
 import { ProblemSuggestion } from '@/components/ProblemSuggestion';
 import { PracticeFilters } from '@/components/ActivityFilters';
@@ -110,7 +117,11 @@ const baseColumns: ColumnDef<Attempt, any>[] = [
   {
     accessorKey: 'difficulty',
     header: 'Difficulty',
-    cell: ({ getValue }) => <span className={styles.badge}>{getValue()}</span>,
+    cell: ({ getValue }) => (
+      <Badge variant="secondary" className={styles.badge}>
+        {getValue()}
+      </Badge>
+    ),
   },
   {
     accessorKey: 'outcome',
@@ -255,14 +266,14 @@ export function PracticePage() {
       enableHiding: false,
       cell: ({ row }) => (
         <div className={styles.inline}>
-          <button
-            className={styles.buttonQuiet}
+          <Button
+            variant="ghost"
             type="button"
             aria-expanded={row.getIsExpanded()}
             onClick={row.getToggleExpandedHandler()}
           >
             {row.getIsExpanded() ? 'Hide notes' : 'View notes'}
-          </button>
+          </Button>
           <AttemptDialog
             attempt={row.original}
             problems={problemsQuery.data?.items ?? []}
@@ -372,7 +383,9 @@ export function PracticePage() {
           renderCard={(row) => (
             <div>
               <div className={styles.inline}>
-                <span className={styles.badge}>{row.original.difficulty}</span>
+                <Badge variant="secondary" className={styles.badge}>
+                  {row.original.difficulty}
+                </Badge>
                 <span
                   className={
                     row.original.outcome === 'independently_solved'
@@ -599,25 +612,28 @@ function AttemptDialog({
           <div className={styles.fieldGrid}>
             <div className={styles.field}>
               <label htmlFor="attempt-outcome">Outcome</label>
-              <select
+              <NativeSelect
                 id="attempt-outcome"
-                className={styles.select}
+                className="w-full"
                 {...register('outcome')}
               >
-                <option value="independently_solved">
+                <NativeSelectOption value="independently_solved">
                   Independently solved
-                </option>
-                <option value="solved_with_hints">Solved with hints</option>
-                <option value="not_solved">Not solved</option>
-              </select>
+                </NativeSelectOption>
+                <NativeSelectOption value="solved_with_hints">
+                  Solved with hints
+                </NativeSelectOption>
+                <NativeSelectOption value="not_solved">
+                  Not solved
+                </NativeSelectOption>
+              </NativeSelect>
             </div>
             <div className={styles.field}>
               <label htmlFor="attempt-confidence">
                 Confidence (optional, 1–5)
               </label>
-              <input
+              <Input
                 id="attempt-confidence"
-                className={styles.input}
                 type="number"
                 min="1"
                 max="5"
@@ -636,9 +652,8 @@ function AttemptDialog({
             </div>
             <div className={styles.field}>
               <label htmlFor="attempt-minutes">Time taken (minutes)</label>
-              <input
+              <Input
                 id="attempt-minutes"
-                className={styles.input}
                 type="number"
                 min="1"
                 max="600"
@@ -676,24 +691,20 @@ function AttemptDialog({
             )}
           />
           <div className={styles.dialogActions}>
-            <button
-              className={styles.buttonSecondary}
+            <Button
+              variant="outline"
               type="button"
               onClick={() => requestOpenChange(false)}
             >
               Cancel
-            </button>
-            <button
-              className={styles.button}
-              type="submit"
-              disabled={isSubmitting}
-            >
+            </Button>
+            <Button type="submit" disabled={isSubmitting}>
               {isSubmitting
                 ? 'Saving…'
                 : attempt
                   ? 'Update attempt'
                   : 'Save attempt'}
-            </button>
+            </Button>
           </div>
         </form>
       </FormDialog>

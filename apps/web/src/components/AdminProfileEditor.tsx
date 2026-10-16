@@ -1,3 +1,5 @@
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiRequest } from '@/api/client';
@@ -31,7 +33,9 @@ export function AdminProfileEditor({
     return (
       <p role="alert">
         Profile details could not be loaded.{' '}
-        <button onClick={() => void query.refetch()}>Retry</button>
+        <Button type="submit" onClick={() => void query.refetch()}>
+          Retry
+        </Button>
       </p>
     );
   return <ProfileForm key={user.id} profile={query.data} onSaved={onSaved} />;
@@ -112,8 +116,7 @@ function ProfileForm({
       >
         <label className={styles.field}>
           Name
-          <input
-            className={styles.input}
+          <Input
             value={form.name}
             required
             maxLength={100}
@@ -122,8 +125,7 @@ function ProfileForm({
         </label>
         <label className={styles.field}>
           Profile slug
-          <input
-            className={styles.input}
+          <Input
             value={form.slug}
             required
             minLength={3}
@@ -133,8 +135,7 @@ function ProfileForm({
         </label>
         <label className={styles.field}>
           Avatar URL
-          <input
-            className={styles.input}
+          <Input
             type="url"
             value={form.avatarUrl ?? ''}
             placeholder="https://…"
@@ -143,16 +144,15 @@ function ProfileForm({
         </label>
         <label className={styles.field}>
           Discord
-          <input
-            className={styles.input}
+          <Input
             value={form.discordId ?? ''}
             maxLength={100}
             onChange={(e) => setForm({ ...form, discordId: e.target.value })}
           />
         </label>
-        <button className={styles.buttonPrimary} disabled={pending}>
+        <Button type="submit" disabled={pending}>
           Save profile
-        </button>
+        </Button>
       </form>
       <form
         className={styles.formStack}
@@ -164,8 +164,7 @@ function ProfileForm({
         <p>Current email: {profile.email}</p>
         <label className={styles.field}>
           New email address
-          <input
-            className={styles.input}
+          <Input
             type="email"
             required
             value={email}
@@ -176,9 +175,9 @@ function ProfileForm({
           The recipient must verify the new address before their sign-in email
           changes.
         </p>
-        <button className={styles.buttonSecondary} disabled={pending}>
+        <Button variant="outline" type="submit" disabled={pending}>
           Send email verification
-        </button>
+        </Button>
       </form>
       {error ? <p role="alert">{error}</p> : null}
       {message ? <p role="status">{message}</p> : null}

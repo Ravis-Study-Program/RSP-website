@@ -1,3 +1,9 @@
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import {
+  NativeSelect,
+  NativeSelectOption,
+} from '@/components/ui/native-select';
 import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiRequest } from '@/api/client';
@@ -94,20 +100,22 @@ export function Invitations({ season }: { season: Season }) {
     ['pending', 'expired'].includes(invitation.status) &&
     season.status === 'open' ? (
       <div className={styles.inline}>
-        <button
-          className={styles.buttonSecondary}
+        <Button
+          variant="outline"
+          type="submit"
           disabled={busy}
           onClick={() => void save(invitation, 'resend')}
         >
           Resend
-        </button>
-        <button
-          className={styles.buttonQuiet}
+        </Button>
+        <Button
+          variant="ghost"
+          type="submit"
           disabled={busy}
           onClick={() => void save(invitation, 'cancel')}
         >
           Cancel invitation
-        </button>
+        </Button>
       </div>
     ) : null;
   return (
@@ -138,8 +146,7 @@ export function Invitations({ season }: { season: Season }) {
           >
             <label className={styles.field}>
               Name
-              <input
-                className={styles.input}
+              <Input
                 required
                 maxLength={100}
                 value={form.name}
@@ -148,8 +155,7 @@ export function Invitations({ season }: { season: Season }) {
             </label>
             <label className={styles.field}>
               Email
-              <input
-                className={styles.input}
+              <Input
                 type="email"
                 required
                 maxLength={254}
@@ -159,8 +165,8 @@ export function Invitations({ season }: { season: Season }) {
             </label>
             <label className={styles.field}>
               Role
-              <select
-                className={styles.select}
+              <NativeSelect
+                className="w-full"
                 value={form.role}
                 onChange={(e) =>
                   setForm({
@@ -169,10 +175,12 @@ export function Invitations({ season }: { season: Season }) {
                   })
                 }
               >
-                <option value="student">Student</option>
-                <option value="mentor">Mentor</option>
-                <option value="coordinator">Coordinator</option>
-              </select>
+                <NativeSelectOption value="student">Student</NativeSelectOption>
+                <NativeSelectOption value="mentor">Mentor</NativeSelectOption>
+                <NativeSelectOption value="coordinator">
+                  Coordinator
+                </NativeSelectOption>
+              </NativeSelect>
             </label>
             {form.role === 'coordinator' ? (
               <p>Coordinator access becomes active after MFA is configured.</p>
@@ -180,9 +188,9 @@ export function Invitations({ season }: { season: Season }) {
             {/* Gate on open: the dialog stays mounted through its close
                 animation, which would briefly duplicate the section status. */}
             {message && open ? <p role="status">{message}</p> : null}
-            <button className={styles.buttonPrimary} disabled={busy}>
+            <Button type="submit" disabled={busy}>
               {busy ? 'Sending…' : 'Send invitation'}
-            </button>
+            </Button>
           </form>
         </FormDialog>
       </div>

@@ -1,3 +1,5 @@
+import { Card } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 import { useState } from 'react';
 import { ApiError, apiRequest } from '@/api/client';
 import { demoMode, useAttempts, useLeetcodeProblems } from '@/api/queries';
@@ -55,10 +57,10 @@ export function ProblemSuggestion({ filters }: { filters: ActivityFilters }) {
     }
   }
   return (
-    <div className={styles.panel}>
+    <Card className="gap-4 p-5">
       <div className={styles.inline}>
-        <button
-          className={styles.buttonSecondary}
+        <Button
+          variant="outline"
           type="button"
           disabled={
             pending || (demoMode && (catalog.isLoading || history.isLoading))
@@ -66,7 +68,7 @@ export function ProblemSuggestion({ filters }: { filters: ActivityFilters }) {
           onClick={() => void suggest()}
         >
           {pending ? 'Finding a question…' : 'Suggest a question'}
-        </button>
+        </Button>
         <span className={styles.helper}>
           Uses the selected difficulty and topics and excludes your previous
           attempts from every season.
@@ -88,6 +90,6 @@ export function ProblemSuggestion({ filters }: { filters: ActivityFilters }) {
           </p>
         ) : null}
       </div>
-    </div>
+    </Card>
   );
 }

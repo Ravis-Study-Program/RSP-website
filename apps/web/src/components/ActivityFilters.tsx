@@ -1,3 +1,9 @@
+import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
+import {
+  NativeSelect,
+  NativeSelectOption,
+} from '@/components/ui/native-select';
 import { useState } from 'react';
 import { useLeetcodeProblems, useSeasonWeeks } from '@/api/queries';
 import { emptyActivityFilters, type ActivityFilters } from '@/activityFilters';
@@ -23,8 +29,7 @@ function Choices({
         {selected.length ? ` (${selected.length})` : ': All'}
       </summary>
       {options.length > 8 ? (
-        <input
-          className={styles.input}
+        <Input
           aria-label={`Search ${label.toLowerCase()}`}
           value={search}
           onChange={(e) => setSearch(e.target.value)}
@@ -91,15 +96,15 @@ export function PracticeFilters({
         filters={filters}
         onChange={onChange}
       />
-      <button
-        className={styles.buttonQuiet}
+      <Button
+        variant="ghost"
         type="button"
         onClick={() =>
           onChange({ difficulties: [], categories: [], weeks: [] })
         }
       >
         Clear practice filters
-      </button>
+      </Button>
       {problems.isError ? (
         <p role="alert">Some filter choices could not be loaded.</p>
       ) : null}
@@ -122,15 +127,15 @@ export function MockFilters({
     <div className={styles.activityFilters} aria-label="Mock filters">
       <label>
         Result{' '}
-        <select
-          className={styles.select}
+        <NativeSelect
+          className="w-full"
           value={filters.passed}
           onChange={(e) => onChange({ passed: e.target.value })}
         >
-          <option value="">All results</option>
-          <option value="true">Pass</option>
-          <option value="false">Needs work</option>
-        </select>
+          <NativeSelectOption value="">All results</NativeSelectOption>
+          <NativeSelectOption value="true">Pass</NativeSelectOption>
+          <NativeSelectOption value="false">Needs work</NativeSelectOption>
+        </NativeSelect>
       </label>
       <Choices
         label="Interviewers"
@@ -143,8 +148,8 @@ export function MockFilters({
         filters={filters}
         onChange={onChange}
       />
-      <button
-        className={styles.buttonQuiet}
+      <Button
+        variant="ghost"
         type="button"
         onClick={() =>
           onChange({
@@ -155,7 +160,7 @@ export function MockFilters({
         }
       >
         Clear mock filters
-      </button>
+      </Button>
     </div>
   );
 }

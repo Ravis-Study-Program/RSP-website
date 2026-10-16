@@ -1,3 +1,8 @@
+import {
+  NativeSelect,
+  NativeSelectOption,
+} from '@/components/ui/native-select';
+import { Button } from '@/components/ui/button';
 import { useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { apiRequest } from '@/api/client';
@@ -115,55 +120,57 @@ export function EnrollmentCorrection({
       >
         <label className={styles.field}>
           Correct season
-          <select
-            className={styles.select}
+          <NativeSelect
+            className="w-full"
             value={seasonId}
             onChange={(e) => setSeasonId(e.target.value)}
           >
             {seasons
               .filter((s) => s.status === 'open')
               .map((s) => (
-                <option value={s.id} key={s.id}>
+                <NativeSelectOption value={s.id} key={s.id}>
                   {s.name}
-                </option>
+                </NativeSelectOption>
               ))}
-          </select>
+          </NativeSelect>
         </label>
         <label className={styles.field}>
           Correct person
-          <select
-            className={styles.select}
+          <NativeSelect
+            className="w-full"
             value={userId}
             onChange={(e) => setUserId(e.target.value)}
             disabled={candidates.isLoading}
           >
-            <option value={enrollment.userId}>{name}</option>
+            <NativeSelectOption value={enrollment.userId}>
+              {name}
+            </NativeSelectOption>
             {candidates.data?.items
               .filter((p) => p.id !== enrollment.userId)
               .map((p) => (
-                <option key={p.id} value={p.id}>
+                <NativeSelectOption key={p.id} value={p.id}>
                   {p.name} ({p.slug})
-                </option>
+                </NativeSelectOption>
               ))}
-          </select>
+          </NativeSelect>
         </label>
         {candidates.isError ? (
           <p role="alert">
             People could not be loaded.{' '}
-            <button type="button" onClick={() => void candidates.refetch()}>
+            <Button type="button" onClick={() => void candidates.refetch()}>
               Retry
-            </button>
+            </Button>
           </p>
         ) : null}
         {error ? <p role="alert">{error}</p> : null}
-        <button
-          className={styles.buttonPrimary}
+        <Button
+          type="submit"
           disabled={
             pending || !dirty || candidates.isLoading || candidates.isError
           }
         >
           {pending ? 'Correcting…' : 'Save correction'}
-        </button>
+        </Button>
       </form>
     </FormDialog>
   );

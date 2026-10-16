@@ -10,7 +10,7 @@ database exports, or legacy C# runtime.
 ## Repository map
 
 ```text
-apps/web/       React, Vite, Base UI, TanStack Query and Table
+apps/web/       React, Vite, shadcn/ui (Base UI), Tailwind CSS, TanStack Query and Table
 apps/auth/      Better Auth TypeScript service
 backend/        Go API, worker, and administration CLI
 scripts/        One-time operational scripts, including legacy import tooling
@@ -78,3 +78,13 @@ Start with [architecture](docs/architecture.md), then use the
 Data and identity cutovers are deliberately separate runbooks:
 [data migration](docs/data-migration.md) and
 [auth cutover](docs/auth-cutover.md).
+
+## Frontend components
+
+Shared controls live in `apps/web/src/components/ui` and use the shadcn/ui
+Base Nova design with Base UI primitives. `apps/web/components.json` configures
+component generation; run `pnpm dlx shadcn@latest add <component>` from
+`apps/web` to add components. Theme tokens are in `src/styles/tokens.css`,
+with Tailwind theme mappings in `src/styles/global.css`. Page-specific responsive
+layouts remain in `src/styles/App.module.css` in the components cascade layer.
+The segmented date picker retains React Aria for timezone-aware date/time entry.

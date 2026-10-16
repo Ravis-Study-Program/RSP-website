@@ -1,3 +1,7 @@
+import {
+  NativeSelect,
+  NativeSelectOption,
+} from '@/components/ui/native-select';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import type { Season } from '@/types';
 import styles from '@/styles/App.module.css';
@@ -17,8 +21,8 @@ export function ActivityPeriodFilter({
   return (
     <label className={styles.field}>
       View activity
-      <select
-        className={styles.select}
+      <NativeSelect
+        className="w-full"
         value={season?.id ?? ''}
         onChange={(event) => {
           const selected = seasons.find(
@@ -39,13 +43,13 @@ export function ActivityPeriodFilter({
           });
         }}
       >
-        <option value="">All time</option>
+        <NativeSelectOption value="">All time</NativeSelectOption>
         {seasons.map((item) => (
-          <option key={item.id} value={item.id}>
+          <NativeSelectOption key={item.id} value={item.id}>
             {item.name}
-          </option>
+          </NativeSelectOption>
         ))}
-      </select>
+      </NativeSelect>
     </label>
   );
 }

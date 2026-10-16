@@ -1,3 +1,4 @@
+import { Button } from '@/components/ui/button';
 import { IconAlertTriangle, IconInbox, IconRefresh } from '@tabler/icons-react';
 
 import styles from '@/styles/App.module.css';
@@ -70,13 +71,9 @@ export function ErrorState({
         <h2>{title}</h2>
         <p>{message}</p>
         {onRetry ? (
-          <button
-            className={styles.buttonSecondary}
-            type="button"
-            onClick={onRetry}
-          >
+          <Button variant="outline" type="button" onClick={onRetry}>
             <IconRefresh size={18} aria-hidden="true" /> Retry
-          </button>
+          </Button>
         ) : null}
       </div>
     </div>

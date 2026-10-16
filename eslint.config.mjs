@@ -76,6 +76,10 @@ export default tseslint.config(
       ...react.configs.flat['jsx-runtime'].rules,
       ...jsxA11y.flatConfigs.recommended.rules,
       ...reactHooks.configs.flat.recommended.rules,
+      'jsx-a11y/label-has-associated-control': [
+        'error',
+        { controlComponents: ['Input', 'NativeSelect', 'Textarea'] },
+      ],
       // TanStack Table deliberately uses a heterogeneous value type here.
       '@typescript-eslint/no-explicit-any': 'off',
       // The app does not enable the React Compiler. Keep the runtime Hooks

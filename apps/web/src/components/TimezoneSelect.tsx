@@ -1,3 +1,4 @@
+import { Input } from '@/components/ui/input';
 import {
   useEffect,
   useMemo,
@@ -106,11 +107,10 @@ export function TimezoneSelect({
 
   return (
     <div ref={rootRef} className={styles.timezoneSelect}>
-      <input
+      <Input
         ref={setRefs}
         id={id}
         name={name}
-        className={styles.input}
         role="combobox"
         aria-autocomplete="list"
         aria-controls={`${id}-options`}

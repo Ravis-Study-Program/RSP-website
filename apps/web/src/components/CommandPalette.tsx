@@ -1,4 +1,13 @@
-import { Dialog } from '@base-ui/react/dialog';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import {
+  Dialog,
+  DialogTrigger,
+  DialogContent,
+  DialogTitle,
+  DialogDescription,
+  DialogClose,
+} from '@/components/ui/dialog';
 import { IconSearch, IconX } from '@tabler/icons-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
@@ -187,83 +196,79 @@ export function CommandPalette() {
   }, []);
 
   return (
-    <Dialog.Root
+    <Dialog
       open={open}
       onOpenChange={(next) => {
         setOpen(next);
         if (!next) setQuery('');
       }}
     >
-      <Dialog.Portal>
-        <Dialog.Backdrop className={styles.dialogBackdrop} />
-        <Dialog.Viewport className={styles.dialogViewport}>
-          <Dialog.Popup
-            className={styles.dialogPopup}
-            initialFocus={searchInputRef}
+      <DialogTrigger
+        aria-label="Search pages"
+        render={
+          <Button variant="outline" className="gap-2 text-muted-foreground" />
+        }
+      >
+        <IconSearch size={16} aria-hidden="true" />
+        <span className="hidden sm:inline">Search pages</span>
+        <kbd className="ml-5 hidden rounded border px-1.5 text-xs sm:inline">
+          ⌘ K
+        </kbd>
+      </DialogTrigger>
+      <DialogContent showCloseButton={false} initialFocus={searchInputRef}>
+        <div className={styles.dialogHeader}>
+          <div>
+            <DialogTitle>Quick navigation</DialogTitle>
+            <DialogDescription>
+              Search pages available in your current role.
+            </DialogDescription>
+          </div>
+          <DialogClose
+            className={styles.iconButton}
+            aria-label="Close quick navigation"
           >
-            <div className={styles.dialogHeader}>
-              <div>
-                <Dialog.Title className={styles.dialogTitle}>
-                  Quick navigation
-                </Dialog.Title>
-                <Dialog.Description className={styles.dialogDescription}>
-                  Search pages available in your current role.
-                </Dialog.Description>
-              </div>
-              <Dialog.Close
-                className={styles.iconButton}
-                aria-label="Close quick navigation"
-              >
-                <IconX size={18} aria-hidden="true" />
-              </Dialog.Close>
-            </div>
-            <div className={`${styles.searchWrap} ${styles.stateForm}`}>
-              <IconSearch size={18} aria-hidden="true" />
-              <label className={styles.visuallyHidden} htmlFor="command-search">
-                Search pages
-              </label>
-              <input
-                id="command-search"
-                ref={searchInputRef}
-                className={styles.searchInput}
-                autoComplete="off"
-                placeholder="Search pages…"
-                value={query}
-                onChange={(event) => setQuery(event.target.value)}
-              />
-            </div>
-            <nav
-              aria-label="Quick navigation results"
-              className={styles.sectionHeaderSpaced}
-            >
-              <ul className={styles.cleanList}>
-                {filtered.map((command) => (
-                  <li key={command.to}>
-                    <Link
-                      className={styles.resourceLink}
-                      to={command.to}
-                      onClick={() => setOpen(false)}
-                    >
-                      <span>
-                        <strong>{command.label}</strong>
-                        <span
-                          className={`${styles.helper} ${styles.helperBlock}`}
-                        >
-                          {command.description}
-                        </span>
-                      </span>
-                      <span aria-hidden="true">→</span>
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-              {!filtered.length ? (
-                <p className={styles.muted}>No matching pages.</p>
-              ) : null}
-            </nav>
-          </Dialog.Popup>
-        </Dialog.Viewport>
-      </Dialog.Portal>
-    </Dialog.Root>
+            <IconX size={18} aria-hidden="true" />
+          </DialogClose>
+        </div>
+        <div className={`${styles.searchWrap} ${styles.stateForm}`}>
+          <IconSearch size={18} aria-hidden="true" />
+          <label className={styles.visuallyHidden} htmlFor="command-search">
+            Search pages
+          </label>
+          <Input
+            id="command-search"
+            ref={searchInputRef}
+            className="pl-9"
+            autoComplete="off"
+            placeholder="Search pages…"
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+          />
+        </div>
+        <nav aria-label="Quick navigation results" className="-mx-1">
+          <ul className={styles.cleanList}>
+            {filtered.map((command) => (
+              <li key={command.to}>
+                <Link
+                  className="block rounded-md px-3 py-2 text-sm hover:bg-muted focus-visible:bg-muted"
+                  to={command.to}
+                  onClick={() => setOpen(false)}
+                >
+                  <span>
+                    <strong>{command.label}</strong>
+                    <span className="mt-0.5 block text-sm font-normal text-muted-foreground">
+                      {command.description}
+                    </span>
+                  </span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+          {!filtered.length ? (
+            <p className={styles.muted}>No matching pages.</p>
+          ) : null}
+        </nav>
+      </DialogContent>
+    </Dialog>
   );
 }

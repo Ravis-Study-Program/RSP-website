@@ -1,4 +1,13 @@
 import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardDescription,
+} from '@/components/ui/card';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import {
   IconAlertTriangle,
   IconLock,
   IconMailCheck,
@@ -39,19 +48,15 @@ function StateLayout({
   title,
   message,
   children,
-  variant = 'default',
 }: {
   icon: React.ReactNode;
   title: string;
   message: string;
   children?: React.ReactNode;
-  variant?: 'default' | 'auth';
 }) {
   return (
     <div className={styles.page}>
-      <section
-        className={`${styles.statusCard} ${variant === 'auth' ? styles.authCard : ''}`}
-      >
+      <section className={styles.statusCard}>
         <div className={styles.statusContent}>
           {icon}
           <h1>{title}</h1>
@@ -86,6 +91,7 @@ export function SignInPage() {
     register,
     handleSubmit,
     setError,
+    clearErrors,
     formState: { errors, isSubmitting },
   } = useForm<Values>({
     resolver: zodResolver(schema as never) as Resolver<Values>,
@@ -167,152 +173,187 @@ export function SignInPage() {
   };
 
   return (
-    <StateLayout
-      icon={<img src="/assets/rsp-logo.png" alt="RSP" width="72" height="72" />}
-      title="Welcome to RSP"
-      message="Sign in with Google or your verified email and password to continue."
-      variant="auth"
-    >
-      <div className={`${styles.form} ${styles.stateForm}`}>
-        {searchParams.get('verified') === 'true' ? (
-          <p className={styles.inlineNotice}>
-            Email verified. Sign in to continue.
-          </p>
-        ) : null}
-        {searchParams.get('securityChanged') === 'true' ? (
-          <p className={styles.inlineNotice}>
-            Your security settings were updated and all sessions were revoked.
-            Sign in again to continue.
-          </p>
-        ) : null}
-        {searchParams.get('reset') === 'true' ? (
-          <p className={styles.inlineNotice}>
-            Password reset complete. Sign in with your new password.
-          </p>
-        ) : null}
-        {searchParams.get('passwordConnected') === 'true' ? (
-          <p className={styles.inlineNotice}>
-            Password sign-in was connected. Sign in again to continue.
-          </p>
-        ) : null}
-        {requestError ? (
-          <p className={styles.fieldError} role="alert">
-            {requestError}
-          </p>
-        ) : null}
-        {resetMessage ? <p role="status">{resetMessage}</p> : null}
-        <button
-          className={styles.buttonSecondary}
-          type="button"
-          disabled={googlePending}
-          onClick={() => void google()}
-        >
-          {googlePending ? 'Opening Google…' : 'Continue with Google'}
-        </button>
-        <div className={styles.authDivider} aria-hidden="true">
-          <span>or</span>
+    <main className="flex min-h-svh items-center justify-center bg-muted/40 px-4 py-10 sm:py-16">
+      <div className="w-full max-w-sm">
+        <div className="mb-6 flex items-center justify-center gap-3">
+          <img src="/assets/rsp-logo.png" alt="" className="size-9" />
+          <span className="text-base font-semibold">Ravi’s Study Program</span>
         </div>
-        <div
-          className={styles.authMode}
-          role="tablist"
-          aria-label="Email account action"
-        >
-          <button
-            className={styles.authTab}
-            type="button"
-            role="tab"
-            aria-selected={mode === 'sign-in'}
-            aria-controls="email-auth-form"
-            onClick={() => setMode('sign-in')}
-          >
-            Sign in
-          </button>
-          <button
-            className={styles.authTab}
-            type="button"
-            role="tab"
-            aria-selected={mode === 'sign-up'}
-            aria-controls="email-auth-form"
-            onClick={() => setMode('sign-up')}
-          >
-            Create account
-          </button>
-        </div>
-        <form
-          id="email-auth-form"
-          className={styles.form}
-          noValidate
-          onSubmit={submit}
-        >
-          {mode === 'sign-up' ? (
-            <div className={styles.field}>
-              <label htmlFor="auth-name">Name</label>
-              <input
-                id="auth-name"
-                className={styles.input}
-                autoComplete="name"
-                aria-invalid={Boolean(errors.name)}
-                {...register('name')}
-              />
-              {errors.name ? (
-                <p className={styles.fieldError}>{errors.name.message}</p>
-              ) : null}
-            </div>
-          ) : null}
-          <div className={styles.field}>
-            <label htmlFor="auth-email">Email</label>
-            <input
-              id="auth-email"
-              className={styles.input}
-              type="email"
-              autoComplete="email"
-              aria-invalid={Boolean(errors.email)}
-              {...register('email')}
-            />
-            {errors.email ? (
-              <p className={styles.fieldError}>{errors.email.message}</p>
-            ) : null}
-          </div>
-          <div className={styles.field}>
-            <label htmlFor="auth-password">Password</label>
-            <input
-              id="auth-password"
-              className={styles.input}
-              type="password"
-              autoComplete={
-                mode === 'sign-up' ? 'new-password' : 'current-password'
-              }
-              aria-invalid={Boolean(errors.password)}
-              {...register('password')}
-            />
-            {errors.password ? (
-              <p className={styles.fieldError}>{errors.password.message}</p>
-            ) : null}
-          </div>
-          <button
-            className={styles.button}
-            type="submit"
-            disabled={isSubmitting}
-          >
-            {isSubmitting
-              ? 'Please wait…'
-              : mode === 'sign-up'
-                ? 'Create account'
-                : 'Sign in with email'}
-          </button>
-          {mode === 'sign-in' ? (
-            <button
-              className={styles.buttonQuiet}
-              type="button"
-              disabled={resetPending}
-              onClick={() => void forgotPassword()}
+        <Card className="gap-6 py-6">
+          <CardHeader className="gap-2 px-6 text-center">
+            <h1 className="text-2xl font-semibold tracking-tight">
+              {mode === 'sign-in' ? 'Welcome to RSP' : 'Create your account'}
+            </h1>
+            <CardDescription>
+              {mode === 'sign-in'
+                ? 'Sign in to your study workspace.'
+                : 'Get started with Google or your email.'}
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="px-6">
+            <Tabs
+              value={mode}
+              onValueChange={(value) => {
+                setMode(value as 'sign-in' | 'sign-up');
+                clearErrors();
+                setRequestError('');
+                setResetMessage('');
+              }}
+              className="gap-6"
             >
-              {resetPending ? 'Requesting…' : 'Forgot password?'}
-            </button>
-          ) : null}
-        </form>
+              <TabsList aria-label="Email account action" className="w-full">
+                <TabsTrigger
+                  value="sign-in"
+                  disabled={isSubmitting || googlePending}
+                >
+                  Sign in
+                </TabsTrigger>
+                <TabsTrigger
+                  value="sign-up"
+                  disabled={isSubmitting || googlePending}
+                >
+                  Create account
+                </TabsTrigger>
+              </TabsList>
+              <TabsContent value={mode} className="space-y-5">
+                {searchParams.get('verified') === 'true' ? (
+                  <p className={styles.inlineNotice}>
+                    Email verified. Sign in to continue.
+                  </p>
+                ) : null}
+                {searchParams.get('securityChanged') === 'true' ? (
+                  <p className={styles.inlineNotice}>
+                    Your security settings were updated and all sessions were
+                    revoked. Sign in again to continue.
+                  </p>
+                ) : null}
+                {searchParams.get('reset') === 'true' ? (
+                  <p className={styles.inlineNotice}>
+                    Password reset complete. Sign in with your new password.
+                  </p>
+                ) : null}
+                {searchParams.get('passwordConnected') === 'true' ? (
+                  <p className={styles.inlineNotice}>
+                    Password sign-in was connected. Sign in again to continue.
+                  </p>
+                ) : null}
+                {requestError ? (
+                  <p className={styles.fieldError} role="alert">
+                    {requestError}
+                  </p>
+                ) : null}
+                {resetMessage ? <p role="status">{resetMessage}</p> : null}
+                <Button
+                  variant="outline"
+                  type="button"
+                  className="w-full"
+                  disabled={googlePending || isSubmitting}
+                  onClick={() => void google()}
+                >
+                  {googlePending ? 'Opening Google…' : 'Continue with Google'}
+                </Button>
+                <div className={styles.authDivider} aria-hidden="true">
+                  <span>or</span>
+                </div>
+                <form
+                  id="email-auth-form"
+                  className={styles.form}
+                  noValidate
+                  onSubmit={submit}
+                >
+                  {mode === 'sign-up' ? (
+                    <div className={styles.field}>
+                      <label htmlFor="auth-name">Name</label>
+                      <Input
+                        id="auth-name"
+                        autoComplete="name"
+                        aria-invalid={Boolean(errors.name)}
+                        {...register('name')}
+                      />
+                      {errors.name ? (
+                        <p className={styles.fieldError}>
+                          {errors.name.message}
+                        </p>
+                      ) : null}
+                    </div>
+                  ) : null}
+                  <div className={styles.field}>
+                    <label htmlFor="auth-email">Email</label>
+                    <Input
+                      id="auth-email"
+                      type="email"
+                      autoComplete="email"
+                      aria-invalid={Boolean(errors.email)}
+                      {...register('email')}
+                    />
+                    {errors.email ? (
+                      <p className={styles.fieldError}>
+                        {errors.email.message}
+                      </p>
+                    ) : null}
+                  </div>
+                  <div className={styles.field}>
+                    <label htmlFor="auth-password">Password</label>
+                    <Input
+                      id="auth-password"
+                      type="password"
+                      autoComplete={
+                        mode === 'sign-up' ? 'new-password' : 'current-password'
+                      }
+                      aria-invalid={Boolean(errors.password)}
+                      aria-describedby={
+                        errors.password
+                          ? 'auth-password-error'
+                          : mode === 'sign-up'
+                            ? 'auth-password-hint'
+                            : undefined
+                      }
+                      {...register('password')}
+                    />
+                    {mode === 'sign-up' ? (
+                      <p
+                        id="auth-password-hint"
+                        className="text-xs text-muted-foreground"
+                      >
+                        Use at least 12 characters.
+                      </p>
+                    ) : null}
+                    {errors.password ? (
+                      <p id="auth-password-error" className={styles.fieldError}>
+                        {errors.password.message}
+                      </p>
+                    ) : null}
+                  </div>
+                  <Button
+                    className="w-full"
+                    type="submit"
+                    disabled={isSubmitting || googlePending}
+                  >
+                    {isSubmitting
+                      ? mode === 'sign-up'
+                        ? 'Creating account…'
+                        : 'Signing in…'
+                      : mode === 'sign-up'
+                        ? 'Create account'
+                        : 'Sign in with email'}
+                  </Button>
+                  {mode === 'sign-in' ? (
+                    <Button
+                      variant="ghost"
+                      type="button"
+                      disabled={resetPending}
+                      onClick={() => void forgotPassword()}
+                    >
+                      {resetPending ? 'Requesting…' : 'Forgot password?'}
+                    </Button>
+                  ) : null}
+                </form>
+              </TabsContent>
+            </Tabs>
+          </CardContent>
+        </Card>
       </div>
-    </StateLayout>
+    </main>
   );
 }
 
@@ -365,9 +406,8 @@ export function ResetPasswordPage() {
         ) : null}
         <div className={styles.field}>
           <label htmlFor="reset-password">New password</label>
-          <input
+          <Input
             id="reset-password"
-            className={styles.input}
             type="password"
             autoComplete="new-password"
             value={password}
@@ -378,21 +418,25 @@ export function ResetPasswordPage() {
           <label htmlFor="reset-password-confirmation">
             Confirm new password
           </label>
-          <input
+          <Input
             id="reset-password-confirmation"
-            className={styles.input}
             type="password"
             autoComplete="new-password"
             value={confirmation}
             onChange={(event) => setConfirmation(event.target.value)}
           />
         </div>
-        <button className={styles.button} type="submit" disabled={pending}>
+        <Button type="submit" disabled={pending}>
           {pending ? 'Resetting…' : 'Reset password'}
-        </button>
-        <Link className={styles.buttonSecondary} to="/sign-in">
+        </Button>
+        <Button
+          nativeButton={false}
+          role="link"
+          variant="outline"
+          render={<Link to="/sign-in" />}
+        >
           Back to sign in
-        </Link>
+        </Button>
       </form>
     </StateLayout>
   );
@@ -439,29 +483,23 @@ export function VerifyEmailPage() {
         {status ? <p role="status">{status}</p> : null}
         <div className={styles.field}>
           <label htmlFor="verification-email">Email</label>
-          <input
+          <Input
             id="verification-email"
-            className={styles.input}
             type="email"
             value={email}
             onChange={(event) => setEmail(event.target.value)}
           />
         </div>
-        <button
-          className={styles.button}
-          type="button"
-          disabled={pending}
-          onClick={() => void resend()}
-        >
+        <Button type="button" disabled={pending} onClick={() => void resend()}>
           {pending ? 'Sending…' : 'Resend verification email'}
-        </button>
-        <button
-          className={styles.buttonSecondary}
+        </Button>
+        <Button
+          variant="outline"
           type="button"
           onClick={() => void anotherAccount()}
         >
           Use another account
-        </button>
+        </Button>
       </div>
     </StateLayout>
   );
@@ -510,9 +548,8 @@ export function TwoFactorPage() {
           <label htmlFor="two-factor-code">
             {method === 'totp' ? 'Authenticator code' : 'Backup code'}
           </label>
-          <input
+          <Input
             id="two-factor-code"
-            className={styles.input}
             value={code}
             onChange={(event) => setCode(event.target.value)}
             inputMode={method === 'totp' ? 'numeric' : 'text'}
@@ -520,11 +557,11 @@ export function TwoFactorPage() {
             required
           />
         </div>
-        <button className={styles.button} type="submit" disabled={pending}>
+        <Button type="submit" disabled={pending}>
           {pending ? 'Verifying…' : 'Verify'}
-        </button>
-        <button
-          className={styles.buttonSecondary}
+        </Button>
+        <Button
+          variant="outline"
           type="button"
           onClick={() => {
             setMethod(method === 'totp' ? 'backup-code' : 'totp');
@@ -534,7 +571,7 @@ export function TwoFactorPage() {
           {method === 'totp'
             ? 'Use a backup code'
             : 'Use an authenticator code'}
-        </button>
+        </Button>
       </form>
     </StateLayout>
   );
@@ -548,9 +585,14 @@ export function ForbiddenPage() {
       title="You do not have access"
       message="This workspace or action is outside your current programme role."
     >
-      <Link className={styles.button} to="/dashboard">
+      <Button
+        nativeButton={false}
+        role="link"
+        variant="default"
+        render={<Link to="/dashboard" />}
+      >
         Back to dashboard
-      </Link>
+      </Button>
     </StateLayout>
   );
 }
@@ -571,9 +613,14 @@ export function AccountUnavailablePage() {
       title="Account unavailable"
       message={message}
     >
-      <Link className={styles.buttonSecondary} to="/sign-in">
+      <Button
+        nativeButton={false}
+        role="link"
+        variant="outline"
+        render={<Link to="/sign-in" />}
+      >
         Return to sign in
-      </Link>
+      </Button>
     </StateLayout>
   );
 }
@@ -586,9 +633,14 @@ export function NotFoundPage() {
       title="Page not found"
       message="The link may be outdated, or this page may have moved."
     >
-      <Link className={styles.button} to="/dashboard">
+      <Button
+        nativeButton={false}
+        role="link"
+        variant="default"
+        render={<Link to="/dashboard" />}
+      >
         Go to dashboard
-      </Link>
+      </Button>
     </StateLayout>
   );
 }
@@ -607,16 +659,17 @@ export function RouteErrorPage() {
       title={`Something went wrong (${status})`}
       message={message}
     >
-      <button
-        className={styles.button}
-        type="button"
-        onClick={() => window.location.reload()}
-      >
+      <Button type="button" onClick={() => window.location.reload()}>
         <IconRefresh size={18} aria-hidden="true" /> Reload page
-      </button>
-      <Link className={styles.buttonSecondary} to="/dashboard">
+      </Button>
+      <Button
+        nativeButton={false}
+        role="link"
+        variant="outline"
+        render={<Link to="/dashboard" />}
+      >
         Dashboard
-      </Link>
+      </Button>
     </StateLayout>
   );
 }

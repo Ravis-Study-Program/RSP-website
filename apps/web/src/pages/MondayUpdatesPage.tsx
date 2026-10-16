@@ -1,3 +1,9 @@
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import {
+  NativeSelect,
+  NativeSelectOption,
+} from '@/components/ui/native-select';
 import { useQueryClient, type QueryClient } from '@tanstack/react-query';
 import type { ColumnDef } from '@tanstack/react-table';
 import { IconChevronDown, IconChevronUp } from '@tabler/icons-react';
@@ -375,11 +381,11 @@ export function MondayUpdatesPage() {
                       {studentLabel(studentId)}
                     </h3>
                     {studentUpdates.length ? (
-                      <span className={styles.badge}>
+                      <Badge variant="secondary" className={styles.badge}>
                         {studentUpdates.length === 1
                           ? '1 update in this range'
                           : `${studentUpdates.length} updates in this range`}
-                      </span>
+                      </Badge>
                     ) : null}
                   </div>
                   {studentUpdates.length === 0 ? (
@@ -509,9 +515,9 @@ function StudentUpdateForm({
           }
         />
         <div className={styles.buttonRow}>
-          <button className={styles.button} type="submit" disabled={pending}>
+          <Button type="submit" disabled={pending}>
             {pending ? 'Posting…' : 'Post update'}
-          </button>
+          </Button>
         </div>
       </form>
     </section>
@@ -551,7 +557,9 @@ function UpdateActivity({ update }: { update: MondayUpdate }) {
               </span>
               <span className={styles.inline}>
                 {attempt.difficulty ? (
-                  <span className={styles.badge}>{attempt.difficulty}</span>
+                  <Badge variant="secondary" className={styles.badge}>
+                    {attempt.difficulty}
+                  </Badge>
                 ) : null}
                 <span className={outcomeClass(attempt.outcome)}>
                   {outcomeLabel(attempt.outcome)}
@@ -679,21 +687,21 @@ function MentorUpdateCard({
       <div className={styles.fieldGrid}>
         <div className={styles.field}>
           <label htmlFor={`monday-mark-${update.id}`}>Mark for {label}</label>
-          <select
+          <NativeSelect
             id={`monday-mark-${update.id}`}
-            className={styles.select}
+            className="w-full"
             value={mark}
             onChange={(event) =>
               setMark(event.target.value as MondayUpdateMark | '')
             }
           >
-            <option value="">No mark yet</option>
+            <NativeSelectOption value="">No mark yet</NativeSelectOption>
             {markOptions.map((option) => (
-              <option key={option.value} value={option.value}>
+              <NativeSelectOption key={option.value} value={option.value}>
                 {option.label}
-              </option>
+              </NativeSelectOption>
             ))}
-          </select>
+          </NativeSelect>
         </div>
       </div>
       <RichTextEditor
@@ -713,14 +721,13 @@ function MentorUpdateCard({
         </span>
       ) : null}
       <div className={styles.buttonRow}>
-        <button
-          className={styles.button}
+        <Button
           type="button"
           disabled={pending || !mark}
           onClick={() => void save()}
         >
           {pending ? 'Saving…' : 'Save mark'}
-        </button>
+        </Button>
       </div>
       {otherMarks.length ? (
         <div className={styles.helperBlock}>
@@ -729,7 +736,9 @@ function MentorUpdateCard({
             {otherMarks.map((record) => (
               <li key={record.id}>
                 <strong>{record.mentor.name}</strong>{' '}
-                <span className={styles.badge}>{markLabel(record.mark)}</span>
+                <Badge variant="secondary" className={styles.badge}>
+                  {markLabel(record.mark)}
+                </Badge>
                 <RichTextContent
                   html={record.commentHtml}
                   empty="No comment."
@@ -772,7 +781,9 @@ function ReviewUpdateList({
               {update.marks.map((record) => (
                 <li key={record.id}>
                   <strong>{record.mentor.name}</strong>{' '}
-                  <span className={styles.badge}>{markLabel(record.mark)}</span>
+                  <Badge variant="secondary" className={styles.badge}>
+                    {markLabel(record.mark)}
+                  </Badge>
                   <RichTextContent
                     html={record.commentHtml}
                     empty="No comment."
@@ -806,8 +817,9 @@ function ReviewerTable({
         enableSorting: false,
         enableHiding: false,
         cell: ({ row }) => (
-          <button
-            className={styles.iconButton}
+          <Button
+            variant="ghost"
+            size="icon"
             type="button"
             aria-label={`${row.getIsExpanded() ? 'Hide' : 'Show'} details for ${row.original.student.name}`}
             aria-expanded={row.getIsExpanded()}
@@ -818,7 +830,7 @@ function ReviewerTable({
             ) : (
               <IconChevronDown size={18} aria-hidden="true" />
             )}
-          </button>
+          </Button>
         ),
       },
       {
@@ -843,11 +855,11 @@ function ReviewerTable({
           row.leetcodeCounts.hard,
         cell: ({ row }) => (
           <div>
-            <span className={styles.badge}>
+            <Badge variant="secondary" className={styles.badge}>
               {row.original.leetcodeCounts.easy} /{' '}
               {row.original.leetcodeCounts.medium} /{' '}
               {row.original.leetcodeCounts.hard}
-            </span>
+            </Badge>
             <div className={styles.helper}>easy / medium / hard</div>
           </div>
         ),
@@ -891,11 +903,11 @@ function ReviewerTable({
           </h3>
           <p className={styles.helper}>{row.original.student.slug}</p>
           <div className={styles.inline}>
-            <span className={styles.badge}>
+            <Badge variant="secondary" className={styles.badge}>
               {row.original.leetcodeCounts.easy} /{' '}
               {row.original.leetcodeCounts.medium} /{' '}
               {row.original.leetcodeCounts.hard}
-            </span>
+            </Badge>
             <span className={styles.helper}>easy / medium / hard</span>
           </div>
           <p className={styles.helper}>

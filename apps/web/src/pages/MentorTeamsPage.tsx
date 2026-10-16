@@ -1,3 +1,10 @@
+import { Card } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import {
+  NativeSelect,
+  NativeSelectOption,
+} from '@/components/ui/native-select';
+import { Button } from '@/components/ui/button';
 import { IconArrowRight, IconPlus, IconUsersGroup } from '@tabler/icons-react';
 import { useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
@@ -52,13 +59,13 @@ export function MentorTeamsPage() {
               className={`${styles.sectionHeader} ${styles.sectionHeaderSpaced}`}
             >
               <h2 className={styles.cardTitle}>Assigned students</h2>
-              <span className={styles.badge}>
+              <Badge variant="secondary" className={styles.badge}>
                 {
                   students.filter(
                     (student) => student.mentorshipMentorId === mentor.id,
                   ).length
                 }
-              </span>
+              </Badge>
             </div>
             <ul className={styles.cleanList}>
               {students
@@ -82,7 +89,7 @@ export function MentorTeamsPage() {
         <div className={styles.sectionHeader}>
           <h2 className={styles.sectionTitle}>Unassigned students</h2>
         </div>
-        <div className={styles.panel}>
+        <Card className="gap-4 p-5">
           <ul className={styles.cleanList}>
             {students
               .filter((student) => student.status === 'unassigned')
@@ -103,7 +110,7 @@ export function MentorTeamsPage() {
                 </li>
               ))}
           </ul>
-        </div>
+        </Card>
       </section>
     </div>
   );
@@ -196,52 +203,51 @@ function MentorshipDialog({
         ) : null}
         <div className={styles.field}>
           <label htmlFor={`mentor-${initialStudentId || 'new'}`}>Mentor</label>
-          <select
+          <NativeSelect
             id={`mentor-${initialStudentId || 'new'}`}
-            className={styles.select}
+            className="w-full"
             value={mentorId}
             onChange={(event) => setMentorId(event.target.value)}
           >
-            <option value="">Choose a mentor</option>
+            <NativeSelectOption value="">Choose a mentor</NativeSelectOption>
             {mentors.map((mentor) => (
-              <option key={mentor.id} value={mentor.id}>
+              <NativeSelectOption key={mentor.id} value={mentor.id}>
                 {mentor.name}
-              </option>
+              </NativeSelectOption>
             ))}
-          </select>
+          </NativeSelect>
         </div>
         <div className={styles.field}>
           <label htmlFor={`student-${initialStudentId || 'new'}`}>
             Student
           </label>
-          <select
+          <NativeSelect
             id={`student-${initialStudentId || 'new'}`}
-            className={styles.select}
+            className="w-full"
             value={studentId}
             disabled={Boolean(initialStudentId)}
             onChange={(event) => setStudentId(event.target.value)}
           >
-            <option value="">Choose a student</option>
+            <NativeSelectOption value="">Choose a student</NativeSelectOption>
             {students
               .filter((student) => student.status === 'unassigned')
               .map((student) => (
-                <option key={student.id} value={student.id}>
+                <NativeSelectOption key={student.id} value={student.id}>
                   {student.name}
-                </option>
+                </NativeSelectOption>
               ))}
-          </select>
+          </NativeSelect>
         </div>
         <div className={styles.dialogActions}>
-          <button
-            className={styles.buttonSecondary}
+          <Button
+            variant="outline"
             type="button"
             disabled={pending}
             onClick={() => requestOpenChange(false)}
           >
             Cancel
-          </button>
-          <button
-            className={styles.button}
+          </Button>
+          <Button
             type="button"
             disabled={
               pending || !mentorId || !studentId || (!demoMode && !seasonId)
@@ -249,7 +255,7 @@ function MentorshipDialog({
             onClick={() => void create()}
           >
             {pending ? 'Assigning…' : 'Create mentorship'}
-          </button>
+          </Button>
         </div>
       </div>
     </FormDialog>

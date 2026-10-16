@@ -1,3 +1,6 @@
+import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
+import { Textarea } from '@/components/ui/textarea';
 import { zodResolver } from '@hookform/resolvers/zod';
 import {
   IconEdit,
@@ -224,9 +227,8 @@ export function SeasonEditorDialog({
             label="Name"
             error={form.formState.errors.name?.message}
           >
-            <input
+            <Input
               id="season-name"
-              className={styles.input}
               autoComplete="off"
               {...form.register('name')}
             />
@@ -236,9 +238,8 @@ export function SeasonEditorDialog({
             label="URL slug"
             error={form.formState.errors.slug?.message}
           >
-            <input
+            <Input
               id="season-slug"
-              className={styles.input}
               autoCapitalize="none"
               autoComplete="off"
               {...form.register('slug')}
@@ -275,9 +276,8 @@ export function SeasonEditorDialog({
             label="Location"
             error={form.formState.errors.location?.message}
           >
-            <input
+            <Input
               id="season-location"
-              className={styles.input}
               autoComplete="organization"
               {...form.register('location')}
             />
@@ -287,9 +287,8 @@ export function SeasonEditorDialog({
             label="Image URL (optional)"
             error={form.formState.errors.imageUrl?.message}
           >
-            <input
+            <Input
               id="season-image"
-              className={styles.input}
               type="url"
               inputMode="url"
               {...form.register('imageUrl')}
@@ -300,9 +299,8 @@ export function SeasonEditorDialog({
             label="Resources URL (optional)"
             error={form.formState.errors.resourcesUrl?.message}
           >
-            <input
+            <Input
               id="season-resources"
-              className={styles.input}
               type="url"
               inputMode="url"
               {...form.register('resourcesUrl')}
@@ -315,17 +313,13 @@ export function SeasonEditorDialog({
           </p>
         ) : null}
         <div className={styles.dialogActions}>
-          <button
-            className={styles.button}
-            type="submit"
-            disabled={form.formState.isSubmitting}
-          >
+          <Button type="submit" disabled={form.formState.isSubmitting}>
             {form.formState.isSubmitting
               ? 'Saving…'
               : season
                 ? 'Save season'
                 : 'Create season'}
-          </button>
+          </Button>
         </div>
       </form>
     </FormDialog>
@@ -422,9 +416,8 @@ export function SeasonResourcesDialog({ season }: { season: Season }) {
           <label htmlFor={`season-resources-only-${season.id}`}>
             Season resources URL
           </label>
-          <input
+          <Input
             id={`season-resources-only-${season.id}`}
-            className={styles.input}
             type="url"
             inputMode="url"
             value={resourcesUrl}
@@ -438,21 +431,20 @@ export function SeasonResourcesDialog({ season }: { season: Season }) {
           </p>
         ) : null}
         <div className={styles.dialogActions}>
-          <button
-            className={styles.buttonSecondary}
+          <Button
+            variant="outline"
             type="button"
             onClick={() => requestOpenChange(false)}
           >
             Cancel
-          </button>
-          <button
-            className={styles.button}
+          </Button>
+          <Button
             type="button"
             disabled={pending || !dirty}
             onClick={() => void save()}
           >
             {pending ? 'Saving…' : 'Save resources'}
-          </button>
+          </Button>
         </div>
       </div>
     </FormDialog>
@@ -579,9 +571,8 @@ export function SeasonLifecycleDialog({
       <div className={styles.form}>
         <div className={styles.field}>
           <label htmlFor={`season-${action}-reason`}>Reason</label>
-          <textarea
+          <Textarea
             id={`season-${action}-reason`}
-            className={styles.textarea}
             required
             value={reason}
             onChange={(event) => setReason(event.target.value)}
@@ -591,9 +582,8 @@ export function SeasonLifecycleDialog({
           <label htmlFor={`season-${action}-confirm`}>
             Type <strong>{season.name}</strong> to confirm
           </label>
-          <input
+          <Input
             id={`season-${action}-confirm`}
-            className={styles.input}
             autoComplete="off"
             value={confirmation}
             onChange={(event) => setConfirmation(event.target.value)}
@@ -605,7 +595,8 @@ export function SeasonLifecycleDialog({
           </p>
         ) : null}
         <div className={styles.dialogActions}>
-          <button
+          <Button
+            variant="destructive"
             className={action === 'close' ? styles.buttonDanger : styles.button}
             type="button"
             disabled={
@@ -618,7 +609,7 @@ export function SeasonLifecycleDialog({
             {pending
               ? `${action === 'close' ? 'Closing' : 'Reopening'}…`
               : label}
-          </button>
+          </Button>
         </div>
       </div>
     </FormDialog>

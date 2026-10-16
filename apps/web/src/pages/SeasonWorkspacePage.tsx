@@ -1,3 +1,4 @@
+import { Card } from '@/components/ui/card';
 import {
   IconCalendarEvent,
   IconLock,
@@ -199,7 +200,7 @@ export function SeasonWorkspacePage() {
             </h2>
             <Link to={`/seasons/${season.slug}/practice`}>Open practice</Link>
           </div>
-          <div className={styles.panel}>
+          <Card className="gap-4 p-5">
             {weeks.isLoading ? (
               <p role="status">Loading programme weeks…</p>
             ) : weeks.isError ? (
@@ -234,7 +235,7 @@ export function SeasonWorkspacePage() {
                 ))}
               </ol>
             )}
-          </div>
+          </Card>
         </section>
         <section
           className={styles.section}
@@ -245,7 +246,7 @@ export function SeasonWorkspacePage() {
               Workspace
             </h2>
           </div>
-          <div className={styles.panel}>
+          <Card className="gap-4 p-5">
             <ul className={styles.resourceList}>
               <li>
                 <Link
@@ -297,7 +298,7 @@ export function SeasonWorkspacePage() {
                 </ExternalLink>
               </li>
             </ul>
-          </div>
+          </Card>
         </section>
       </div>
     </div>

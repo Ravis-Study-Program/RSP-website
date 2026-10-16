@@ -1,4 +1,12 @@
-import { Dialog } from '@base-ui/react/dialog';
+import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogTitle,
+  DialogDescription,
+  DialogClose,
+} from '@/components/ui/dialog';
 import {
   EditorContent,
   Extension,
@@ -322,7 +330,7 @@ export function RichTextEditor({
         </div>
         <EditorContent className={styles.editorContent} editor={editor} />
       </div>
-      <Dialog.Root
+      <Dialog
         open={linkOpen}
         onOpenChange={(next) => {
           setLinkOpen(next);
@@ -332,62 +340,50 @@ export function RichTextEditor({
           }
         }}
       >
-        <Dialog.Portal>
-          <Dialog.Backdrop className={styles.dialogBackdrop} />
-          <Dialog.Viewport className={styles.dialogViewport}>
-            <Dialog.Popup className={styles.dialogPopup}>
-              <Dialog.Title className={styles.dialogTitle}>
-                Add or edit link
-              </Dialog.Title>
-              <Dialog.Description className={styles.dialogDescription}>
-                Links may use HTTP, HTTPS or mailto addresses.
-              </Dialog.Description>
-              <form className={styles.form} onSubmit={saveLink}>
-                <div className={styles.field}>
-                  <label htmlFor={`${id}-link-address`}>Link address</label>
-                  <input
-                    id={`${id}-link-address`}
-                    className={styles.input}
-                    type="text"
-                    inputMode="url"
-                    autoComplete="url"
-                    // The link popover is a dialog; moving focus to its only
-                    // text field is the expected keyboard interaction.
-                    // eslint-disable-next-line jsx-a11y/no-autofocus
-                    autoFocus
-                    value={linkAddress}
-                    aria-invalid={Boolean(linkError)}
-                    aria-describedby={
-                      linkError ? `${id}-link-error` : undefined
-                    }
-                    onChange={(event) => {
-                      setLinkAddress(event.target.value);
-                      setLinkError('');
-                    }}
-                  />
-                  {linkError ? (
-                    <p
-                      id={`${id}-link-error`}
-                      className={styles.fieldError}
-                      role="alert"
-                    >
-                      {linkError}
-                    </p>
-                  ) : null}
-                </div>
-                <div className={styles.dialogActions}>
-                  <Dialog.Close className={styles.buttonSecondary}>
-                    Cancel
-                  </Dialog.Close>
-                  <button className={styles.button} type="submit">
-                    Save link
-                  </button>
-                </div>
-              </form>
-            </Dialog.Popup>
-          </Dialog.Viewport>
-        </Dialog.Portal>
-      </Dialog.Root>
+        <DialogContent showCloseButton={false}>
+          <DialogTitle>Add or edit link</DialogTitle>
+          <DialogDescription>
+            Links may use HTTP, HTTPS or mailto addresses.
+          </DialogDescription>
+          <form className={styles.form} onSubmit={saveLink}>
+            <div className={styles.field}>
+              <label htmlFor={`${id}-link-address`}>Link address</label>
+              <Input
+                id={`${id}-link-address`}
+                type="text"
+                inputMode="url"
+                autoComplete="url"
+                // The link popover is a dialog; moving focus to its only
+                // text field is the expected keyboard interaction.
+                // eslint-disable-next-line jsx-a11y/no-autofocus
+                autoFocus
+                value={linkAddress}
+                aria-invalid={Boolean(linkError)}
+                aria-describedby={linkError ? `${id}-link-error` : undefined}
+                onChange={(event) => {
+                  setLinkAddress(event.target.value);
+                  setLinkError('');
+                }}
+              />
+              {linkError ? (
+                <p
+                  id={`${id}-link-error`}
+                  className={styles.fieldError}
+                  role="alert"
+                >
+                  {linkError}
+                </p>
+              ) : null}
+            </div>
+            <div className={styles.dialogActions}>
+              <DialogClose className={styles.buttonSecondary}>
+                Cancel
+              </DialogClose>
+              <Button type="submit">Save link</Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
       <p id={`${id}-help`} className={styles.helper}>
         Use the toolbar for supported formatting. Unsafe markup is removed by
         the server.
@@ -431,7 +427,8 @@ function EditorButton({
   children: React.ReactNode;
 }) {
   return (
-    <button
+    <Button
+      variant="ghost"
       ref={buttonRef}
       className={styles.editorButton}
       type="button"
@@ -440,6 +437,6 @@ function EditorButton({
       onClick={onClick}
     >
       {children}
-    </button>
+    </Button>
   );
 }
