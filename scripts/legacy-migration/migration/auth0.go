@@ -13,16 +13,21 @@ type Auth0Identity struct {
 }
 
 type Auth0User struct {
-	UserID        string          `json:"userId"`
-	Email         string          `json:"email,omitempty"`
-	EmailVerified bool            `json:"emailVerified"`
-	PasswordHash  string          `json:"passwordHash,omitempty"`
-	Identities    []Auth0Identity `json:"identities"`
+	UserID        string `json:"userId"`
+	Email         string `json:"email,omitempty"`
+	EmailVerified bool   `json:"emailVerified"`
+	PasswordHash  string `json:"passwordHash,omitempty"`
+	Blocked       bool   `json:"blocked,omitempty"`
+	// LegacyUserID is the legacy RSP UserId the old server wrote into
+	// app_metadata. It is evidence for proposed resolutions, never a mapping.
+	LegacyUserID string          `json:"legacyUserId,omitempty"`
+	Identities   []Auth0Identity `json:"identities"`
 }
 
 type AppIdentityCandidate struct {
-	AppUserID string `json:"appUserId"`
-	Email     string `json:"email,omitempty"`
+	AppUserID    string `json:"appUserId"`
+	Email        string `json:"email,omitempty"`
+	LegacyUserID string `json:"legacyUserId,omitempty"`
 }
 
 type IdentityResolution struct {
@@ -38,6 +43,7 @@ type Auth0ImportItem struct {
 	EmailVerified          bool            `json:"emailVerified"`
 	PasswordHashCompatible bool            `json:"passwordHashCompatible"`
 	RequiresPasswordReset  bool            `json:"requiresPasswordReset"`
+	Blocked                bool            `json:"blocked,omitempty"`
 	Identities             []Auth0Identity `json:"identities"`
 	Detail                 string          `json:"detail"`
 }
@@ -88,6 +94,7 @@ func PlanAuth0Import(users []Auth0User, candidates []AppIdentityCandidate, resol
 		}
 	}
 	seenAuth0 := map[string]bool{}
+	blocked := map[string]bool{}
 	seenProviderAccounts := map[string]string{}
 	providerAccounts := make([]Auth0Identity, 0)
 	for _, user := range users {
@@ -95,6 +102,7 @@ func PlanAuth0Import(users []Auth0User, candidates []AppIdentityCandidate, resol
 			return Auth0ImportPlan{}, fmt.Errorf("missing or duplicate Auth0 user id %q", user.UserID)
 		}
 		seenAuth0[user.UserID] = true
+		blocked[user.UserID] = user.Blocked
 		if len(user.Identities) == 0 {
 			return Auth0ImportPlan{}, fmt.Errorf("Auth0 user %s has no provider identities", user.UserID)
 		}
@@ -121,6 +129,9 @@ func PlanAuth0Import(users []Auth0User, candidates []AppIdentityCandidate, resol
 		if !seenAuth0[resolution.Auth0UserID] {
 			return Auth0ImportPlan{}, fmt.Errorf("identity resolution references unknown Auth0 user %s", resolution.Auth0UserID)
 		}
+		if blocked[resolution.Auth0UserID] {
+			return Auth0ImportPlan{}, fmt.Errorf("identity resolution references blocked Auth0 user %s", resolution.Auth0UserID)
+		}
 		if _, duplicate := resolvedByAuth0[resolution.Auth0UserID]; duplicate {
 			return Auth0ImportPlan{}, fmt.Errorf("duplicate identity resolution for %s", resolution.Auth0UserID)
 		}
@@ -128,7 +139,7 @@ func PlanAuth0Import(users []Auth0User, candidates []AppIdentityCandidate, resol
 	}
 	plan := Auth0ImportPlan{Version: 1, CreatedAt: now.UTC()}
 	for _, user := range users {
-		item := Auth0ImportItem{Auth0UserID: user.UserID, EmailVerified: user.EmailVerified, Identities: append([]Auth0Identity(nil), user.Identities...)}
+		item := Auth0ImportItem{Auth0UserID: user.UserID, EmailVerified: user.EmailVerified, Blocked: user.Blocked, Identities: append([]Auth0Identity(nil), user.Identities...)}
 		sort.Slice(item.Identities, func(left, right int) bool {
 			return item.Identities[left].Provider+"\x00"+item.Identities[left].ProviderAccountID < item.Identities[right].Provider+"\x00"+item.Identities[right].ProviderAccountID
 		})
@@ -144,7 +155,10 @@ func PlanAuth0Import(users []Auth0User, candidates []AppIdentityCandidate, resol
 		}
 		item.PasswordHashCompatible = hasPasswordIdentity && user.PasswordHash != "" && compatible(user.PasswordHash)
 		item.RequiresPasswordReset = hasPasswordIdentity && !item.PasswordHashCompatible
-		if appUserID := resolvedByAuth0[user.UserID]; appUserID != "" {
+		if user.Blocked {
+			item.Status = Auth0StatusRequiresResolution
+			item.Detail = "Auth0 user is blocked and is never imported"
+		} else if appUserID := resolvedByAuth0[user.UserID]; appUserID != "" {
 			item.ResolvedAppUserID = appUserID
 			if item.RequiresPasswordReset {
 				item.Status = Auth0StatusPasswordResetRequired

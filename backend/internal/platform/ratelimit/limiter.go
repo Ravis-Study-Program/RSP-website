@@ -25,6 +25,16 @@ type bucket struct {
 	used    int
 }
 
+// Limits are the per-account requests allowed per minute for each class.
+type Limits struct {
+	Read, Write, Sensitive int
+}
+
+// DefaultLimits are the production limits.
+func DefaultLimits() Limits {
+	return Limits{Read: 120, Write: 20, Sensitive: 5}
+}
+
 type Limiter struct {
 	mu      sync.Mutex
 	window  time.Duration
@@ -33,10 +43,28 @@ type Limiter struct {
 	now     func() time.Time
 }
 
+// New returns a limiter using DefaultLimits.
 func New() *Limiter {
+	return NewWithLimits(DefaultLimits())
+}
+
+// NewWithLimits returns a limiter with explicit per-minute limits. A zero
+// field falls back to its default so partial configuration stays safe.
+func NewWithLimits(configured Limits) *Limiter {
+	defaults := DefaultLimits()
+	pick := func(value, fallback int) int {
+		if value > 0 {
+			return value
+		}
+		return fallback
+	}
 	return &Limiter{
-		window:  time.Minute,
-		limits:  map[Class]int{Read: 120, Write: 20, Sensitive: 5},
+		window: time.Minute,
+		limits: map[Class]int{
+			Read:      pick(configured.Read, defaults.Read),
+			Write:     pick(configured.Write, defaults.Write),
+			Sensitive: pick(configured.Sensitive, defaults.Sensitive),
+		},
 		buckets: map[string]bucket{},
 		now:     time.Now,
 	}
