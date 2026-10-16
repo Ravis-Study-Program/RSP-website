@@ -13,6 +13,10 @@ use protected product features.
 | View approved active/alumni directory   |     Yes     |       Yes       |       Yes       |       Yes        |       Yes        |
 | Manage own global practice and mocks    |     Yes     |       Yes       |       Yes       |       Yes        |       Yes        |
 | View shared practice and mock feedback  |     Yes     |       Yes       |       Yes       |       Yes        |       Yes        |
+| Post and delete own Monday updates      |     Yes     |       No        |       No        |        No        |        No        |
+| Read students' Monday updates           |     Own     |  Assigned only  |   Own season    |    Any season    |    Any season    |
+| Mark a student's Monday update          |     No      |  Assigned only  |  Assigned only  |        No        |        No        |
+| Review all students' Monday updates     |     No      |       No        |   Own season    |    Any season    |    Any season    |
 | Change student role/remove student      |     No      |  Assigned only  |   Own season    |    Any season    |    Any season    |
 | Set an active student level             |     No      | Own open season | Own open season | Any open season  | Any open season  |
 | Manage enrollments and mentorships      |     No      |       No        | Own open season | Any open season  | Any open season  |
@@ -104,6 +108,28 @@ access is unavailable.
 - Active members and student alumni can read shared mock feedback. Former season
   staff retain access to mocks attributed to their season, independent of mentor
   assignment. Former members always retain their own received/conducted mocks.
+
+## Monday update authority
+
+A Monday update is one student's written record for a date range they choose. It
+records the season it was written in; the LeetCode attempts and mock interviews
+shown with it are always derived from its own dates when it is read, never copied
+into it. Several updates may cover the same week, and their ranges may overlap.
+
+Only an active student enrollment can post an update, and only its author can
+delete it. There is no editing and no draft state; deletion is the only change.
+
+A mark, with a comment, belongs to one (update, mentor) pair, so each of a
+student's mentors keeps their own verdict and can revise it later. Students never
+see marks or comments. A mentor may read and mark only the students they are
+assigned to in that season; a coordinator, director or System Admin may read every
+student enrolled in the season through the review list, including students with
+no update in the selected range.
+
+Reviewer counts include solved outcomes only (`independently_solved` and
+`solved_with_hints`) and count each attempt or mock at most once per student, even
+when that student's ranges overlap. Soft-deleted updates, attempts and mocks are
+never listed or counted. Week boundaries use `Australia/Adelaide`.
 
 See [Activity dates and seasons](activity-dates-and-seasons.md) for date boundaries,
 calendar-year filtering and migration behaviour.

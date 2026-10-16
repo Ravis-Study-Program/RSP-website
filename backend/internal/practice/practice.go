@@ -11,6 +11,10 @@ const (
 	NotSolved   Outcome = "not_solved"
 )
 
+// SolvedOutcomes are the attempt outcomes that count as solving a problem.
+// Not solved and unknown outcomes never count.
+func SolvedOutcomes() []Outcome { return []Outcome{Independent, WithHints} }
+
 // PracticeSettings describes the fixed programme time goals.
 type PracticeSettings struct {
 	GoalsEnabled  bool `json:"goalsEnabled"`

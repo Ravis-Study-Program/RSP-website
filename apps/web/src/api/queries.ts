@@ -31,6 +31,10 @@ import type {
   MockParticipantSummaryPage,
   MentorshipPage,
   Mentorship,
+  MondayUpdate,
+  MondayUpdateDifficultyCounts,
+  MondayUpdateReviewRow,
+  PersonSummary,
   ProblemPage,
   PracticeSettings,
   Participation,
@@ -46,6 +50,7 @@ import {
   attempts,
   demoUser,
   mockInterviews,
+  demoMondayUpdates,
   people,
   seasonWeeks,
   seasons,
@@ -273,6 +278,23 @@ export const seasonMentorshipsQueryKey = (seasonId?: string) =>
 export const enrollmentCandidatesQueryKey = (seasonId?: string) =>
   ['enrollment-candidates', seasonId] as const;
 
+export interface MondayUpdateFilters {
+  startDate: string;
+  endDate: string;
+  studentIds: string[];
+}
+
+export const mondayUpdatesQueryKey = (
+  seasonId: string | undefined,
+  filters: MondayUpdateFilters,
+) => ['monday-updates', seasonId, filters] as const;
+
+export const mondayUpdateReviewQueryKey = (
+  seasonId: string | undefined,
+  startDate: string,
+  endDate: string,
+) => ['monday-update-review', seasonId, startDate, endDate] as const;
+
 function demoWeekPage(seasonId: string): WeekPage {
   const season = seasons.find((season) => season.id === seasonId);
   if (!season) return page([]);
@@ -344,6 +366,113 @@ function demoMentorshipPage(seasonId: string): MentorshipPage {
   return page(items);
 }
 
+const dateRangesOverlap = (
+  startDate: string,
+  endDate: string,
+  rangeStart: string,
+  rangeEnd: string,
+) => startDate <= rangeEnd && endDate >= rangeStart;
+
+function uniqueById<T extends { id: string }>(items: T[]) {
+  return [...new Map(items.map((item) => [item.id, item])).values()];
+}
+
+function demoMondayUpdatePage(
+  seasonId: string,
+  filters: MondayUpdateFilters,
+): Page<MondayUpdate> {
+  if (!seasons.some((season) => season.id === seasonId)) return page([]);
+  return page(
+    demoMondayUpdates().filter(
+      (update) =>
+        update.seasonId === seasonId &&
+        dateRangesOverlap(
+          update.startDate,
+          update.endDate,
+          filters.startDate,
+          filters.endDate,
+        ) &&
+        (filters.studentIds.length === 0 ||
+          filters.studentIds.includes(update.student.id)),
+    ),
+  );
+}
+
+function demoMondayUpdateReview(
+  seasonId: string,
+  startDate: string,
+  endDate: string,
+): Page<MondayUpdateReviewRow> {
+  const students: PersonSummary[] = demoEnrollmentPage(seasonId).items.flatMap(
+    (enrollment) => {
+      const person = people.find((item) => item.id === enrollment.userId);
+      return enrollment.role === 'student' && person
+        ? [
+            {
+              id: person.id,
+              slug: person.slug,
+              name: person.name,
+              avatarUrl: person.avatarUrl,
+            },
+          ]
+        : [];
+    },
+  );
+  const allUpdates = demoMondayUpdates();
+  return page(
+    students.map((student): MondayUpdateReviewRow => {
+      const updates = allUpdates.filter(
+        (update) =>
+          update.student.id === student.id &&
+          dateRangesOverlap(
+            update.startDate,
+            update.endDate,
+            startDate,
+            endDate,
+          ),
+      );
+      // Per-student totals deduplicate activity across overlapping updates.
+      const attempts = uniqueById(
+        updates.flatMap((update) => update.activity.attempts),
+      ).filter(
+        (attempt) =>
+          attempt.outcome === 'independently_solved' ||
+          attempt.outcome === 'solved_with_hints',
+      );
+      const leetcodeCounts: MondayUpdateDifficultyCounts = {
+        easy: 0,
+        medium: 0,
+        hard: 0,
+      };
+      for (const attempt of attempts) {
+        const difficulty = attempt.difficulty.toLowerCase();
+        if (
+          difficulty === 'easy' ||
+          difficulty === 'medium' ||
+          difficulty === 'hard'
+        )
+          leetcodeCounts[difficulty] += 1;
+      }
+      return {
+        student,
+        leetcodeCounts,
+        mockCount: uniqueById(
+          updates.flatMap((update) => update.activity.mocks),
+        ).length,
+        updateCount: updates.length,
+        updates: updates.map((update) => ({
+          id: update.id,
+          startDate: update.startDate,
+          endDate: update.endDate,
+          contentHtml: update.contentHtml,
+          createdAt: update.createdAt,
+          marks: update.marks,
+        })),
+      };
+    }),
+  );
+}
+
 export function useSeasonWeeks(seasonId?: string) {
   return useQuery({
     queryKey: seasonWeeksQueryKey(seasonId),
@@ -409,6 +538,46 @@ export function useEnrollmentCandidates(seasonId?: string, enabled = true) {
       return fetchAllPages<EnrollmentCandidate>(
         `/seasons/${encodeURIComponent(seasonId)}/enrollment-candidates?limit=100`,
       );
+    },
+  });
+}
+
+export function useMondayUpdates(
+  enabled: boolean,
+  seasonId: string | undefined,
+  filters: MondayUpdateFilters,
+) {
+  return useQuery({
+    queryKey: mondayUpdatesQueryKey(seasonId, filters),
+    enabled: enabled && Boolean(seasonId),
+    queryFn: () => {
+      if (!seasonId) return page<MondayUpdate>([]);
+      return demoMode
+        ? wait(demoMondayUpdatePage(seasonId, filters))
+        : fetchAllPages<MondayUpdate>(
+            `/seasons/${encodeURIComponent(seasonId)}/monday-updates?limit=100&startDate=${encodeURIComponent(filters.startDate)}&endDate=${encodeURIComponent(filters.endDate)}${filters.studentIds
+              .map((studentId) => `&studentId=${encodeURIComponent(studentId)}`)
+              .join('')}`,
+          );
+    },
+  });
+}
+
+export function useMondayUpdateReview(
+  seasonId: string | undefined,
+  startDate: string,
+  endDate: string,
+) {
+  return useQuery({
+    queryKey: mondayUpdateReviewQueryKey(seasonId, startDate, endDate),
+    enabled: Boolean(seasonId),
+    queryFn: () => {
+      if (!seasonId) return page<MondayUpdateReviewRow>([]);
+      return demoMode
+        ? wait(demoMondayUpdateReview(seasonId, startDate, endDate))
+        : fetchAllPages<MondayUpdateReviewRow>(
+            `/seasons/${encodeURIComponent(seasonId)}/monday-update-review?limit=100&startDate=${encodeURIComponent(startDate)}&endDate=${encodeURIComponent(endDate)}`,
+          );
     },
   });
 }
