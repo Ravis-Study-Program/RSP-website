@@ -4,7 +4,8 @@ import {
   NativeSelect,
   NativeSelectOption,
 } from '@/components/ui/native-select';
-import { Button } from '@/components/ui/button';
+import { Button, buttonVariants } from '@/components/ui/button';
+import { Field, FieldLabel } from '@/components/ui/field';
 import { IconArrowRight, IconPlus, IconUsersGroup } from '@tabler/icons-react';
 import { useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
@@ -14,8 +15,11 @@ import type { Mentorship, MentorshipCreate } from '@/api/generated/models';
 import { demoMode, useSeasons, useSeasonPeople } from '@/api/queries';
 import { PageHeader, PersonIdentity, usePageTitle } from '@/components/Common';
 import { FormDialog } from '@/components/Dialogs';
-import { InlineNotice, PageSkeleton } from '@/components/StatusViews';
-import styles from '@/styles/App.module.css';
+import {
+  EmptyState,
+  InlineNotice,
+  PageSkeleton,
+} from '@/components/StatusViews';
 
 export function MentorTeamsPage() {
   usePageTitle('Mentor teams');
@@ -30,7 +34,7 @@ export function MentorTeamsPage() {
     query.data?.items.filter((person) => person.roles.includes('student')) ??
     [];
   return (
-    <div className={styles.page}>
+    <div className="mx-auto w-full max-w-[92rem]">
       <PageHeader
         eyebrow="Season operations"
         title="Mentor teams"
@@ -51,66 +55,91 @@ export function MentorTeamsPage() {
           student needs a mentor assignment.
         </InlineNotice>
       ) : null}
-      <div className={styles.cardGrid}>
+      <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,18rem),1fr))] gap-4">
         {mentors.map((mentor) => (
-          <article className={styles.card} key={mentor.id}>
-            <PersonIdentity person={mentor} seasonId={season?.id} privateView />
-            <div
-              className={`${styles.sectionHeader} ${styles.sectionHeaderSpaced}`}
-            >
-              <h2 className={styles.cardTitle}>Assigned students</h2>
-              <Badge variant="secondary" className={styles.badge}>
-                {
-                  students.filter(
-                    (student) => student.mentorshipMentorId === mentor.id,
-                  ).length
-                }
-              </Badge>
-            </div>
-            <ul className={styles.cleanList}>
-              {students
-                .filter((student) => student.mentorshipMentorId === mentor.id)
-                .map((student) => (
-                  <li className={styles.personRow} key={student.id}>
-                    <PersonIdentity person={student} seasonId={season?.id} />
-                    <Link
-                      to={`/people/${student.slug}?seasonId=${encodeURIComponent(season!.id)}`}
-                      aria-label={`Open ${student.name}`}
+          <article key={mentor.id}>
+            <Card className="gap-4 p-5">
+              <PersonIdentity
+                person={mentor}
+                seasonId={season?.id}
+                privateView
+              />
+              <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+                <h2 className="text-base font-semibold tracking-tight">
+                  Assigned students
+                </h2>
+                <Badge variant="secondary">
+                  {
+                    students.filter(
+                      (student) => student.mentorshipMentorId === mentor.id,
+                    ).length
+                  }
+                </Badge>
+              </div>
+              <ul className="m-0 grid list-none gap-3 p-0">
+                {students
+                  .filter((student) => student.mentorshipMentorId === mentor.id)
+                  .map((student) => (
+                    <li
+                      className="flex items-center justify-between gap-4 border-b border-border py-3 last:border-b-0"
+                      key={student.id}
                     >
-                      <IconArrowRight size={18} aria-hidden="true" />
-                    </Link>
-                  </li>
-                ))}
-            </ul>
+                      <PersonIdentity person={student} seasonId={season?.id} />
+                      <Link
+                        className={buttonVariants({
+                          variant: 'ghost',
+                          size: 'icon',
+                        })}
+                        to={`/people/${student.slug}?seasonId=${encodeURIComponent(season!.id)}`}
+                        aria-label={`Open ${student.name}`}
+                      >
+                        <IconArrowRight size={18} aria-hidden="true" />
+                      </Link>
+                    </li>
+                  ))}
+              </ul>
+            </Card>
           </article>
         ))}
       </div>
-      <section className={styles.section}>
-        <div className={styles.sectionHeader}>
-          <h2 className={styles.sectionTitle}>Unassigned students</h2>
+      <section className="mt-6">
+        <div className="mb-3 flex flex-wrap items-end justify-between gap-x-4 gap-y-1">
+          <h2 className="text-xl font-semibold tracking-tight">
+            Unassigned students
+          </h2>
         </div>
-        <Card className="gap-4 p-5">
-          <ul className={styles.cleanList}>
-            {students
-              .filter((student) => student.status === 'unassigned')
-              .map((student) => (
-                <li className={styles.personRow} key={student.id}>
-                  <PersonIdentity
-                    person={student}
-                    seasonId={season?.id}
-                    privateView
-                  />
-                  <MentorshipDialog
-                    seasonId={season?.id}
-                    mentors={mentors}
-                    students={students}
-                    initialStudentId={student.id}
-                    onCreated={() => void query.refetch()}
-                  />
-                </li>
-              ))}
-          </ul>
-        </Card>
+        {students.some((student) => student.status === 'unassigned') ? (
+          <Card className="gap-4 p-5">
+            <ul className="m-0 grid list-none gap-3 p-0">
+              {students
+                .filter((student) => student.status === 'unassigned')
+                .map((student) => (
+                  <li
+                    className="flex items-center justify-between gap-4 border-b border-border py-3 last:border-b-0"
+                    key={student.id}
+                  >
+                    <PersonIdentity
+                      person={student}
+                      seasonId={season?.id}
+                      privateView
+                    />
+                    <MentorshipDialog
+                      seasonId={season?.id}
+                      mentors={mentors}
+                      students={students}
+                      initialStudentId={student.id}
+                      onCreated={() => void query.refetch()}
+                    />
+                  </li>
+                ))}
+            </ul>
+          </Card>
+        ) : (
+          <EmptyState
+            title="All students assigned"
+            message="Every active student has a mentor team."
+          />
+        )}
       </section>
     </div>
   );
@@ -191,18 +220,20 @@ function MentorshipDialog({
         </>
       }
     >
-      <div className={styles.form}>
+      <div className="grid gap-4">
         <InlineNotice>
           Assignment validates season consistency and prevents duplicate active
           mentorships.
         </InlineNotice>
         {error ? (
-          <p className={styles.fieldError} role="alert">
+          <p className="text-sm text-destructive" role="alert">
             {error}
           </p>
         ) : null}
-        <div className={styles.field}>
-          <label htmlFor={`mentor-${initialStudentId || 'new'}`}>Mentor</label>
+        <Field>
+          <FieldLabel htmlFor={`mentor-${initialStudentId || 'new'}`}>
+            Mentor
+          </FieldLabel>
           <NativeSelect
             id={`mentor-${initialStudentId || 'new'}`}
             className="w-full"
@@ -216,11 +247,11 @@ function MentorshipDialog({
               </NativeSelectOption>
             ))}
           </NativeSelect>
-        </div>
-        <div className={styles.field}>
-          <label htmlFor={`student-${initialStudentId || 'new'}`}>
+        </Field>
+        <Field>
+          <FieldLabel htmlFor={`student-${initialStudentId || 'new'}`}>
             Student
-          </label>
+          </FieldLabel>
           <NativeSelect
             id={`student-${initialStudentId || 'new'}`}
             className="w-full"
@@ -237,8 +268,8 @@ function MentorshipDialog({
                 </NativeSelectOption>
               ))}
           </NativeSelect>
-        </div>
-        <div className={styles.dialogActions}>
+        </Field>
+        <div className="flex flex-wrap justify-end gap-2">
           <Button
             variant="outline"
             type="button"

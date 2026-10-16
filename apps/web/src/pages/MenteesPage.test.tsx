@@ -116,7 +116,9 @@ describe('mentor mentee filtering', () => {
     expect(screen.queryByText('Another Team')).not.toBeInTheDocument();
     expect(screen.queryByText('Unassigned Student')).not.toBeInTheDocument();
     expect(screen.queryByText('Completed Student')).not.toBeInTheDocument();
-    fireEvent.click(screen.getByLabelText('Include previous students'));
+    fireEvent.click(
+      screen.getByRole('checkbox', { name: 'Include previous students' }),
+    );
     expect(screen.getAllByText('Completed Student').length).toBeGreaterThan(0);
   });
 });

@@ -1,5 +1,5 @@
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
+import { buttonVariants } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 
 import {
@@ -23,8 +23,13 @@ import { useWorkspace } from '@/auth/WorkspaceContext';
 import { ActivityChart } from '@/components/ActivityChart';
 import { MetricCard, PersonIdentity, usePageTitle } from '@/components/Common';
 import { ErrorState, PageSkeleton } from '@/components/StatusViews';
-import styles from '@/styles/App.module.css';
 import { recentActivitySeries } from '@/utils';
+
+const pageClass = 'mx-auto w-full max-w-[92rem]';
+const sectionTitleClass = 'text-xl font-semibold tracking-tight';
+const sectionHeaderClass = 'mb-3 flex items-end justify-between gap-4';
+const listClass = 'm-0 list-none divide-y p-0';
+const listRowClass = 'flex items-center justify-between gap-4 py-3';
 
 export function DashboardPage() {
   usePageTitle('Dashboard');
@@ -97,7 +102,7 @@ export function DashboardPage() {
     return <PageSkeleton label="Loading dashboard" />;
   if (user.isError || seasons.isError || !user.data)
     return (
-      <div className={styles.page}>
+      <div className={pageClass}>
         <ErrorState
           onRetry={() => void Promise.all([user.refetch(), seasons.refetch()])}
         />
@@ -105,61 +110,62 @@ export function DashboardPage() {
     );
 
   return (
-    <div className={styles.page}>
-      <header className={styles.pageHeader}>
+    <div className={pageClass}>
+      <header className="mb-6 flex flex-col items-stretch justify-between gap-5 md:flex-row md:items-start">
         <div>
-          <h1 className={styles.pageTitle}>
+          <h1 className="text-2xl font-semibold tracking-tight md:text-3xl">
             Welcome, {user.data.name.split(' ')[0]}.
           </h1>
-          <p className={styles.lede}>{dashboardIntro(role)}</p>
+          <p className="mt-2 max-w-3xl text-base text-muted-foreground">
+            {dashboardIntro(role)}
+          </p>
         </div>
-        <div className={styles.headerActions}>
-          <Button
-            nativeButton={false}
-            role="link"
-            variant="default"
-            render={
-              <Link
-                to={
-                  role === 'coordinator'
-                    ? `/seasons/${currentSeason?.slug}/people`
-                    : '/practice'
-                }
-              />
+        <div className="flex flex-wrap items-center gap-2.5">
+          <Link
+            to={
+              role === 'coordinator'
+                ? `/seasons/${currentSeason?.slug}/people`
+                : '/practice'
             }
+            className={buttonVariants({ variant: 'default' })}
           >
             {role === 'coordinator'
               ? 'Review season roster'
               : 'Continue practice'}{' '}
             <IconArrowRight size={18} aria-hidden="true" />
-          </Button>
-          <Button
-            nativeButton={false}
-            role="link"
-            variant="outline"
-            render={<Link to="/mock-interviews" />}
+          </Link>
+          <Link
+            to="/mock-interviews"
+            className={buttonVariants({ variant: 'outline' })}
           >
             Mock interviews
-          </Button>
+          </Link>
         </div>
       </header>
 
-      <dl className={styles.contextBar} aria-label="Current workspace summary">
-        <div className={styles.contextItem}>
-          <dt>Workspace</dt>
-          <dd>{activeWorkspace?.label}</dd>
+      <dl
+        className="mb-6 flex flex-wrap gap-x-6 gap-y-1 text-sm"
+        aria-label="Current workspace summary"
+      >
+        <div className="flex gap-2">
+          <dt className="text-muted-foreground">Workspace</dt>
+          <dd className="font-semibold">{activeWorkspace?.label}</dd>
         </div>
-        <div className={styles.contextItem}>
-          <dt>Season</dt>
-          <dd>{currentSeason?.status === 'open' ? 'Open' : 'Graduate'}</dd>
+        <div className="flex gap-2">
+          <dt className="text-muted-foreground">Season</dt>
+          <dd className="font-semibold">
+            {currentSeason?.status === 'open' ? 'Open' : 'Graduate'}
+          </dd>
         </div>
-        <div className={styles.contextItem}>
-          <dt>Timezone</dt>
-          <dd>{user.data.timezone.split('/').at(-1)}</dd>
+        <div className="flex gap-2">
+          <dt className="text-muted-foreground">Timezone</dt>
+          <dd className="font-semibold">
+            {user.data.timezone.split('/').at(-1)}
+          </dd>
         </div>
       </dl>
 
-      <div className={styles.metricGrid}>
+      <div className="mt-4 grid grid-cols-3 gap-4 max-[56rem]:grid-cols-1">
         {role === 'coordinator' ||
         role === 'director' ||
         role === 'system_admin' ? (
@@ -231,13 +237,13 @@ export function DashboardPage() {
         )}
       </div>
 
-      <div className="mt-8 grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)]">
+      <div className="mt-8 grid items-stretch gap-6 lg:grid-cols-2">
         <section
-          className={styles.section}
+          className="mt-6 flex flex-col"
           aria-labelledby="dashboard-focus-title"
         >
-          <div className={styles.sectionHeader}>
-            <h2 id="dashboard-focus-title" className={styles.sectionTitle}>
+          <div className={sectionHeaderClass}>
+            <h2 id="dashboard-focus-title" className={sectionTitleClass}>
               {role === 'coordinator'
                 ? 'Operations needing attention'
                 : role === 'mentor'
@@ -246,98 +252,118 @@ export function DashboardPage() {
             </h2>
           </div>
           {role === 'coordinator' ? (
-            <Card>
+            <Card className="h-full">
               <CardContent>
-                <ul className={styles.cleanList}>
-                  <li className={styles.listRow}>
-                    <span>
+                <ul className={listClass}>
+                  <li className={listRowClass}>
+                    <span className="flex items-center gap-2">
                       <IconUsers size={18} aria-hidden="true" />{' '}
                       {unassigned.length
                         ? `${unassigned.length} ${unassigned.length === 1 ? 'student is' : 'students are'} unassigned`
                         : 'Every active student is assigned'}
                     </span>
-                    <Link to={`/seasons/${currentSeason?.slug}/mentor-teams`}>
+                    <Link
+                      to={`/seasons/${currentSeason?.slug}/mentor-teams`}
+                      className={buttonVariants({
+                        variant: 'link',
+                        size: 'sm',
+                      })}
+                    >
                       Mentor teams
                     </Link>
                   </li>
-                  <li className={styles.listRow}>
-                    <span>
+                  <li className={listRowClass}>
+                    <span className="flex items-center gap-2">
                       <IconClipboardCheck size={18} aria-hidden="true" />{' '}
                       {activeEnrollments.length} active{' '}
                       {activeEnrollments.length === 1
                         ? 'enrollment'
                         : 'enrollments'}
                     </span>
-                    <Link to="/admin/enrollments">Manage</Link>
+                    <Link
+                      to="/admin/enrollments"
+                      className={buttonVariants({
+                        variant: 'link',
+                        size: 'sm',
+                      })}
+                    >
+                      Manage
+                    </Link>
                   </li>
-                  <li className={styles.listRow}>
-                    <span>
+                  <li className={listRowClass}>
+                    <span className="flex items-center gap-2">
                       <IconCalendarEvent size={18} aria-hidden="true" />{' '}
                       {missingWeekResources
                         ? `${missingWeekResources} ${missingWeekResources === 1 ? 'week has' : 'weeks have'} no resource link`
                         : 'All scheduled weeks have resource links'}
                     </span>
-                    <Link to="/admin/weeks">Weeks</Link>
+                    <Link
+                      to="/admin/weeks"
+                      className={buttonVariants({
+                        variant: 'link',
+                        size: 'sm',
+                      })}
+                    >
+                      Weeks
+                    </Link>
                   </li>
                 </ul>
               </CardContent>
             </Card>
           ) : role === 'mentor' ? (
-            <Card>
+            <Card className="h-full">
               <CardContent>
                 {mentees.length ? (
-                  <ul className={styles.cleanList}>
+                  <ul className={listClass}>
                     {mentees.slice(0, 3).map((person) => (
-                      <li className={styles.personRow} key={person.id}>
+                      <li className={listRowClass} key={person.id}>
                         <PersonIdentity
                           person={person}
                           seasonId={currentSeason?.id}
                         />
-                        <Badge
-                          variant="secondary"
-                          className={styles.badgeNeutral}
-                        >
+                        <Badge variant="secondary">
                           {person.attempts ?? '—'} attempts
                         </Badge>
                       </li>
                     ))}
                   </ul>
                 ) : (
-                  <p className={styles.muted}>
+                  <p className="text-muted-foreground">
                     No active students are assigned to you in this season.
                   </p>
                 )}
               </CardContent>
             </Card>
           ) : (
-            <Card>
+            <Card className="h-full">
               <CardContent>
                 <p>
                   Review your recorded problem attempts, outcomes and practice
                   time.
                 </p>
-                <div className={styles.buttonRow}>
-                  <Button
-                    nativeButton={false}
-                    role="link"
-                    variant="default"
-                    render={<Link to="/practice" />}
+                <div className="mt-4 flex flex-wrap gap-2.5">
+                  <Link
+                    to="/practice"
+                    className={buttonVariants({ variant: 'default' })}
                   >
                     View practice history
-                  </Button>
+                  </Link>
                 </div>
               </CardContent>
             </Card>
           )}
         </section>
 
-        <section className={styles.section} aria-labelledby="activity-title">
-          <div className={styles.sectionHeader}>
-            <h2 id="activity-title" className={styles.sectionTitle}>
+        <section
+          className="mt-6 flex flex-col"
+          aria-labelledby="activity-title"
+        >
+          <div className={sectionHeaderClass}>
+            <h2 id="activity-title" className={sectionTitleClass}>
               Your recent activity
             </h2>
           </div>
-          <Card>
+          <Card className="h-full">
             <CardContent>
               <ActivityChart data={activity} />
             </CardContent>

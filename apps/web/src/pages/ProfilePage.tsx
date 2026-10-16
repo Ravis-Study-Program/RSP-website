@@ -1,9 +1,15 @@
 import { Badge } from '@/components/ui/badge';
-import { Card } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import {
   NativeSelect,
   NativeSelectOption,
 } from '@/components/ui/native-select';
+import {
+  Field,
+  FieldDescription,
+  FieldError,
+  FieldLabel,
+} from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -15,6 +21,7 @@ import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { z } from 'zod';
 
 import { adaptCurrentPerson, adaptCurrentUser } from '@/api/adapters';
+import type { CurrentUser } from '@/types';
 import { ApiError, apiRequest } from '@/api/client';
 import type { Me } from '@/api/generated/models';
 import {
@@ -37,13 +44,28 @@ import {
   InlineNotice,
   PageSkeleton,
 } from '@/components/StatusViews';
-import styles from '@/styles/App.module.css';
 import {
   formatDate,
   formatDateTime,
   initials,
   supportedTimezones,
 } from '@/utils';
+
+const pageClass = 'mx-auto w-full max-w-[92rem]';
+const sectionClass = 'mt-6';
+const sectionHeaderClass = 'mb-3 flex items-end justify-between gap-4';
+const sectionTitleClass = 'text-xl font-semibold tracking-tight';
+const formClass = 'flex flex-col gap-4';
+const inlineClass = 'flex flex-wrap items-center gap-2.5';
+const dialogActionsClass = 'mt-5 flex justify-end gap-2.5';
+const helperClass = 'text-sm text-muted-foreground';
+const badgeSuccessClass = 'bg-success-soft text-success';
+const badgeNeutralClass = 'bg-muted text-muted-foreground';
+
+function statusLabel(status: string | null | undefined) {
+  const text = (status ?? '').replace(/_/g, ' ');
+  return text.charAt(0).toUpperCase() + text.slice(1);
+}
 
 const profileSchema = z.object({
   name: z.string().trim().min(2, 'Enter your name.').max(120),
@@ -119,7 +141,7 @@ export function ProfilePage() {
     (showProgrammeDetails && seasons.isError)
   )
     return (
-      <div className={styles.page}>
+      <div className={pageClass}>
         <ErrorState
           onRetry={() =>
             void Promise.all([
@@ -133,7 +155,7 @@ export function ProfilePage() {
     );
   if (!person)
     return (
-      <div className={styles.page}>
+      <div className={pageClass}>
         <ErrorState
           title="Profile not found"
           message="This person may no longer be visible to your account."
@@ -143,7 +165,7 @@ export function ProfilePage() {
 
   if (seasonId && !seasons.isLoading && !selectedSeason)
     return (
-      <div className={styles.page}>
+      <div className={pageClass}>
         <ErrorState
           title="Season unavailable"
           message="This season does not exist or is not available to your account."
@@ -159,12 +181,16 @@ export function ProfilePage() {
     : person.roles;
   const displayedStatus = selectedParticipation?.state ?? person.status;
   return (
-    <div className={styles.page}>
-      <header className={styles.profileHeader}>
-        <span className={styles.avatar}>{initials(displayName)}</span>
+    <div className={pageClass}>
+      <header className="flex items-center gap-4 border-b pb-4">
+        <span className="inline-grid size-18 shrink-0 place-items-center rounded-full bg-primary text-xl font-semibold text-primary-foreground">
+          {initials(displayName)}
+        </span>
         <div>
-          <h1>{displayName}</h1>
-          <p>
+          <h1 className="text-2xl font-semibold tracking-tight md:text-3xl">
+            {displayName}
+          </h1>
+          <p className="text-muted-foreground">
             @{savedSlug ?? person.slug}
             {showProgrammeDetails
               ? ` · ${selectedSeason?.name ?? 'All time'}`
@@ -173,8 +199,8 @@ export function ProfilePage() {
         </div>
       </header>
       {showProgrammeDetails ? (
-        <div className={styles.field}>
-          <label htmlFor="profile-season">View activity</label>
+        <Field className="mt-4">
+          <FieldLabel htmlFor="profile-season">View activity</FieldLabel>
           <NativeSelect
             id="profile-season"
             className="w-full"
@@ -203,28 +229,29 @@ export function ProfilePage() {
                 </NativeSelectOption>
               ))}
           </NativeSelect>
-          <p className={styles.helper}>
+          <FieldDescription>
             {selectedSeason
               ? `Activity recorded in ${selectedSeason.name}`
               : 'Complete practice and mock history, including activity between seasons.'}
-          </p>
-        </div>
+          </FieldDescription>
+        </Field>
       ) : null}
-      <div className={styles.profileActions}>
+      <div className="mt-4 flex flex-wrap items-center justify-between gap-4">
         {showProgrammeDetails ? (
-          <div className={styles.inline}>
+          <div className={inlineClass}>
             {displayedRoles.map((role) => (
               <RoleBadge role={role} key={role} />
             ))}
-            <span
+            <Badge
+              variant="secondary"
               className={
                 displayedStatus === 'active'
-                  ? styles.badgeSuccess
-                  : styles.badgeNeutral
+                  ? badgeSuccessClass
+                  : badgeNeutralClass
               }
             >
-              {displayedStatus}
-            </span>
+              {statusLabel(displayedStatus)}
+            </Badge>
           </div>
         ) : null}
         {isSelf && user.data ? (
@@ -239,8 +266,8 @@ export function ProfilePage() {
         ) : null}
       </div>
       {isSelf ? (
-        <div className={styles.profileNotice}>
-          <InlineNotice tone="success">
+        <div className="mt-4">
+          <InlineNotice>
             <IconLock size={19} aria-hidden="true" /> Private account details
             below are only visible to you
             {showProgrammeDetails
@@ -250,7 +277,7 @@ export function ProfilePage() {
         </div>
       ) : null}
       {showProgrammeDetails ? (
-        <div className={styles.metricGrid}>
+        <div className="mt-4 grid grid-cols-3 gap-4 max-[56rem]:grid-cols-1">
           <MetricCard
             label="Practice attempts"
             value={summary.data?.attemptCount ?? '—'}
@@ -268,97 +295,108 @@ export function ProfilePage() {
           <MetricCard
             label="Last recorded activity"
             value={
-              summary.data?.lastActivityAt
-                ? formatDateTime(summary.data.lastActivityAt).split(',')[0]
-                : 'Not available'
+              summary.data?.lastActivityAt ? (
+                formatDateTime(summary.data.lastActivityAt).split(',')[0]
+              ) : (
+                <span className="text-sm font-normal text-muted-foreground">
+                  Not available
+                </span>
+              )
             }
             detail={selectedSeason?.name ?? 'All time'}
           />
         </div>
       ) : null}
       <div
-        className={`${styles.grid2} ${!showProgrammeDetails || !isSelf ? styles.profileBasicGrid : ''}`}
+        className={`mt-4 grid items-stretch gap-6 ${showProgrammeDetails && isSelf ? 'min-[56rem]:grid-cols-2' : ''}`}
       >
         {showProgrammeDetails ? (
-          <section className={styles.section}>
-            <div className={styles.sectionHeader}>
-              <h2 className={styles.sectionTitle}>Programme participation</h2>
+          <section className={sectionClass}>
+            <div className={sectionHeaderClass}>
+              <h2 className={sectionTitleClass}>Programme participation</h2>
             </div>
-            <Card className="gap-4 p-5">
-              {participation.isLoading ? (
-                <p role="status">Loading participation…</p>
-              ) : participation.isError ? (
-                <ErrorState
-                  title="Participation unavailable"
-                  onRetry={() => void participation.refetch()}
-                />
-              ) : (
-                <ol className={styles.timeline}>
-                  {(participation.data?.items ?? []).map((entry) => (
-                    <li key={entry.id} className={styles.timelineItem}>
-                      <span className={styles.timelineDot} aria-hidden="true" />
-                      <div className={styles.timelineContent}>
-                        <Link
-                          to={`${isSelf ? '/profile' : `/people/${person.slug}`}?seasonId=${encodeURIComponent(entry.seasonId)}`}
-                        >
-                          {entry.seasonName}
-                        </Link>
-                        <p>
-                          {formatDate(entry.startAt)} –{' '}
-                          {formatDate(entry.endAt)} · {entry.role} ·{' '}
-                          {entry.state}
-                        </p>
-                        {entry.lastStudentLevel !== 'not_applicable' ? (
-                          <p>
-                            Student level:{' '}
-                            {studentLevelLabel(entry.lastStudentLevel)}
+            <Card className="h-full">
+              <CardContent>
+                {participation.isLoading ? (
+                  <p role="status">Loading participation…</p>
+                ) : participation.isError ? (
+                  <ErrorState
+                    title="Participation unavailable"
+                    onRetry={() => void participation.refetch()}
+                  />
+                ) : (
+                  <ol className="relative grid gap-0">
+                    {(participation.data?.items ?? []).map((entry) => (
+                      <li key={entry.id} className="pb-4 last:pb-0">
+                        <div className="min-w-0">
+                          <Link
+                            to={`${isSelf ? '/profile' : `/people/${person.slug}`}?seasonId=${encodeURIComponent(entry.seasonId)}`}
+                          >
+                            {entry.seasonName}
+                          </Link>
+                          <p className="text-sm">
+                            {formatDate(entry.startAt)} –{' '}
+                            {formatDate(entry.endAt)} · {entry.role} ·{' '}
+                            {entry.state}
                           </p>
-                        ) : null}
-                        {entry.periods.map((period, index) => (
-                          <p className={styles.helper} key={index}>
-                            {period.role}: {formatDate(period.startedAt)} –{' '}
-                            {period.endedAt
-                              ? formatDate(period.endedAt)
-                              : 'Season end'}
-                          </p>
-                        ))}
-                      </div>
-                    </li>
-                  ))}
-                  {!participation.data?.items.length ? (
-                    <li>No recorded season participation.</li>
-                  ) : null}
-                </ol>
-              )}
+                          {entry.lastStudentLevel !== 'not_applicable' ? (
+                            <p className="text-sm">
+                              Student level:{' '}
+                              {studentLevelLabel(entry.lastStudentLevel)}
+                            </p>
+                          ) : null}
+                          {entry.periods.map((period, index) => (
+                            <p className={helperClass} key={index}>
+                              {period.role}: {formatDate(period.startedAt)} –{' '}
+                              {period.endedAt
+                                ? formatDate(period.endedAt)
+                                : 'Season end'}
+                            </p>
+                          ))}
+                        </div>
+                      </li>
+                    ))}
+                    {!participation.data?.items.length ? (
+                      <li>No recorded season participation.</li>
+                    ) : null}
+                  </ol>
+                )}
+              </CardContent>
             </Card>
           </section>
         ) : null}
         {isSelf ? (
-          <section className={styles.section}>
-            <div className={styles.sectionHeader}>
-              <h2 className={styles.sectionTitle}>Private account details</h2>
+          <section className={sectionClass}>
+            <div className={sectionHeaderClass}>
+              <h2 className={sectionTitleClass}>Private account details</h2>
             </div>
-            <Card className="gap-4 p-5">
-              <ul className={styles.cleanList}>
-                <li className={styles.listRow}>
-                  <span className={styles.inline}>
-                    <IconMail size={18} aria-hidden="true" /> Email
-                  </span>
-                  <strong>{user.data?.email}</strong>
-                </li>
-                <li className={styles.listRow}>
-                  <span className={styles.inline}>
-                    <IconWorld size={18} aria-hidden="true" /> Timezone
-                  </span>
-                  <strong>{user.data?.timezone}</strong>
-                </li>
-                <li className={styles.listRow}>
-                  <span>Email verification</span>
-                  <Badge variant="secondary" className={styles.badgeSuccess}>
-                    Verified
-                  </Badge>
-                </li>
-              </ul>
+            <Card className="h-full">
+              <CardContent>
+                <ul className="m-0 list-none divide-y p-0">
+                  <li className="flex items-center justify-between gap-4 py-3 first:pt-0 last:pb-0">
+                    <span className={inlineClass}>
+                      <IconMail size={18} aria-hidden="true" /> Email
+                    </span>
+                    <strong className="font-semibold">
+                      {user.data?.email}
+                    </strong>
+                  </li>
+                  <li className="flex items-center justify-between gap-4 py-3 first:pt-0 last:pb-0">
+                    <span className={inlineClass}>
+                      <IconWorld size={18} aria-hidden="true" /> Timezone
+                    </span>
+                    <strong className="font-semibold">
+                      {user.data?.timezone}
+                    </strong>
+                  </li>
+                  <li className="flex items-center justify-between gap-4 py-3 first:pt-0 last:pb-0">
+                    <span>Email verification</span>
+                    <Badge variant="secondary" className={badgeSuccessClass}>
+                      Verified
+                    </Badge>
+                  </li>
+                </ul>
+              </CardContent>
             </Card>
           </section>
         ) : null}
@@ -370,12 +408,14 @@ export function ProfilePage() {
         />
       ) : null}
       {showProgrammeDetails ? (
-        <ProfileActivity
-          person={person}
-          seasonId={seasonId}
-          tab={activityTab}
-          onTabChange={setActivityTab}
-        />
+        <div className="mt-6">
+          <ProfileActivity
+            person={person}
+            seasonId={seasonId}
+            tab={activityTab}
+            onTabChange={setActivityTab}
+          />
+        </div>
       ) : null}
     </div>
   );
@@ -386,7 +426,7 @@ function EditProfileDialog({
   showProgrammeDetails,
   onSaved,
 }: {
-  user: NonNullable<ReturnType<typeof useCurrentUser>['data']>;
+  user: CurrentUser;
   showProgrammeDetails: boolean;
   onSaved: (values: ProfileValues) => void;
 }) {
@@ -496,27 +536,23 @@ function EditProfileDialog({
         </>
       }
     >
-      <form className={styles.form} noValidate onSubmit={submit}>
+      <form className={formClass} noValidate onSubmit={submit}>
         {requestError ? (
-          <p className={styles.fieldError} role="alert">
-            {requestError}
-          </p>
+          <FieldError role="alert">{requestError}</FieldError>
         ) : null}
-        <div className={styles.field}>
-          <label htmlFor="profile-name">Name</label>
+        <Field>
+          <FieldLabel htmlFor="profile-name">Name</FieldLabel>
           <Input
             id="profile-name"
             aria-invalid={Boolean(errors.name)}
             {...register('name')}
           />
-          {errors.name ? (
-            <p className={styles.fieldError}>{errors.name.message}</p>
-          ) : null}
-        </div>
+          {errors.name ? <FieldError>{errors.name.message}</FieldError> : null}
+        </Field>
         {showProgrammeDetails ? (
-          <div className={styles.field}>
-            <label htmlFor="profile-slug">Profile slug</label>
-            <div className={styles.inline}>
+          <Field>
+            <FieldLabel htmlFor="profile-slug">Profile slug</FieldLabel>
+            <div className={inlineClass}>
               <Input
                 id="profile-slug"
                 autoCapitalize="none"
@@ -537,24 +573,20 @@ function EditProfileDialog({
               </Button>
             </div>
             {errors.slug ? (
-              <p className={styles.fieldError}>{errors.slug.message}</p>
+              <FieldError>{errors.slug.message}</FieldError>
             ) : suggestionError ? (
-              <p
-                id="profile-slug-suggestion-error"
-                className={styles.fieldError}
-                role="alert"
-              >
+              <FieldError id="profile-slug-suggestion-error" role="alert">
                 {suggestionError}
-              </p>
+              </FieldError>
             ) : (
-              <p className={styles.helper}>
+              <FieldDescription>
                 3–50 lowercase letters, numbers and hyphens.
-              </p>
+              </FieldDescription>
             )}
-          </div>
+          </Field>
         ) : null}
-        <div className={styles.field}>
-          <label htmlFor="profile-timezone">Timezone</label>
+        <Field>
+          <FieldLabel htmlFor="profile-timezone">Timezone</FieldLabel>
           <TimezoneSelect
             id="profile-timezone"
             name={timezoneField.name}
@@ -571,14 +603,14 @@ function EditProfileDialog({
             }
           />
           {errors.timezone ? (
-            <p className={styles.fieldError}>{errors.timezone.message}</p>
+            <FieldError>{errors.timezone.message}</FieldError>
           ) : (
-            <p className={styles.helper}>
+            <FieldDescription>
               Use an IANA timezone such as Australia/Adelaide.
-            </p>
+            </FieldDescription>
           )}
-        </div>
-        <div className={styles.dialogActions}>
+        </Field>
+        <div className={dialogActionsClass}>
           <Button
             variant="outline"
             type="button"

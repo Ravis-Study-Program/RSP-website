@@ -1,7 +1,5 @@
 import { useMemo } from 'react';
 
-import styles from '@/styles/App.module.css';
-
 const allowedElements = new Set([
   'P',
   'BR',
@@ -127,10 +125,10 @@ export function RichTextContent({
     [html],
   );
   if (!sanitized || sanitized === '<p></p>')
-    return <p className={styles.muted}>{empty}</p>;
+    return <p className="text-muted-foreground">{empty}</p>;
   return (
     <div
-      className={styles.richTextContent}
+      className="break-words [overflow-wrap:anywhere] leading-relaxed [&>:first-child]:mt-0 [&>:last-child]:mb-0 [&_a]:decoration-[0.11em] [&_a]:underline-offset-[0.16em] [&_mark]:bg-muted [&_mark]:text-inherit [&_[data-text-align=center]]:text-center [&_[data-text-align=right]]:text-right [&_[data-text-align=justify]]:text-justify"
       dangerouslySetInnerHTML={{ __html: sanitized }}
     />
   );

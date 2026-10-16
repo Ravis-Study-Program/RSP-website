@@ -53,7 +53,16 @@ import { ProblemSelect } from '@/components/ProblemSelect';
 import { ErrorState } from '@/components/StatusViews';
 import { RichTextEditor } from '@/components/RichTextEditor';
 import { RichTextContent } from '@/components/RichTextContent';
-import styles from '@/styles/App.module.css';
+import { cn } from '@/lib/utils';
+import { Checkbox } from '@/components/ui/checkbox';
+import {
+  Field,
+  FieldDescription,
+  FieldError,
+  FieldLabel,
+  FieldLegend,
+  FieldSet,
+} from '@/components/ui/field';
 import type { MockInterview, MockRound, Person, Season } from '@/types';
 import {
   calendarDateKey,
@@ -62,6 +71,13 @@ import {
   interviewPassed,
   zonedDateTimeToUtc,
 } from '@/utils';
+
+const badgeClass = 'rounded-sm font-semibold';
+const outcomeTone = {
+  success: 'border-transparent bg-success-soft text-success',
+  warning: 'border-transparent bg-warning-soft text-warning',
+  danger: 'border-transparent bg-destructive-soft text-destructive',
+};
 
 const mockSchema = z.object({
   intervieweeId: z.string().min(1, 'Choose an interviewee.'),
@@ -176,10 +192,10 @@ function RoundEditor({
       scores: scoresForType(apiType),
     });
   return (
-    <article className={styles.round}>
-      <div className={styles.roundHeader}>
+    <article className="py-4 first:pt-0 [&+&]:border-t [&+&]:border-border">
+      <div className="flex flex-wrap items-center justify-between gap-2.5">
         <strong>Round {index + 1}</strong>
-        <div className={styles.inline}>
+        <div className="flex flex-wrap items-center gap-2.5">
           <Button
             variant="ghost"
             size="icon"
@@ -207,9 +223,9 @@ function RoundEditor({
           ) : null}
         </div>
       </div>
-      <div className={styles.fieldGrid}>
-        <div className={styles.field}>
-          <label htmlFor={`round-type-${round.id}`}>Round type</label>
+      <div className="grid grid-cols-1 gap-3.5 min-[56rem]:grid-cols-2">
+        <Field>
+          <FieldLabel htmlFor={`round-type-${round.id}`}>Round type</FieldLabel>
           <NativeSelect
             id={`round-type-${round.id}`}
             className="w-full"
@@ -224,12 +240,12 @@ function RoundEditor({
               Behavioural
             </NativeSelectOption>
           </NativeSelect>
-        </div>
+        </Field>
         {round.apiType === 'leetcode' ? (
-          <div className={styles.field}>
-            <label htmlFor={`round-problem-${round.id}`}>
+          <Field>
+            <FieldLabel htmlFor={`round-problem-${round.id}`}>
               LeetCode problem
-            </label>
+            </FieldLabel>
             <ProblemSelect
               id={`round-problem-${round.id}`}
               problems={problems}
@@ -244,13 +260,13 @@ function RoundEditor({
                 });
               }}
             />
-          </div>
+          </Field>
         ) : null}
         {round.apiType === 'custom' ? (
-          <div className={styles.field}>
-            <label htmlFor={`round-link-${round.id}`}>
+          <Field>
+            <FieldLabel htmlFor={`round-link-${round.id}`}>
               Reference link (optional)
-            </label>
+            </FieldLabel>
             <Input
               id={`round-link-${round.id}`}
               type="url"
@@ -259,13 +275,13 @@ function RoundEditor({
                 onChange({ ...round, link: event.target.value || undefined })
               }
             />
-          </div>
+          </Field>
         ) : null}
         {Object.entries(round.scores).map(([criterion, score]) => (
-          <div className={styles.field} key={criterion}>
-            <label htmlFor={`round-score-${round.id}-${criterion}`}>
+          <Field key={criterion}>
+            <FieldLabel htmlFor={`round-score-${round.id}-${criterion}`}>
               {scoreLabel(criterion)} score (0–10)
-            </label>
+            </FieldLabel>
             <Input
               id={`round-score-${round.id}-${criterion}`}
               type="number"
@@ -286,7 +302,7 @@ function RoundEditor({
                 });
               }}
             />
-          </div>
+          </Field>
         ))}
       </div>
       <RichTextEditor
@@ -359,7 +375,7 @@ const columnsForSeason = (
         .filter((score): score is number => score !== null)
         .reduce((sum, score) => sum + score, 0),
     cell: ({ row }) => (
-      <span className={styles.score}>
+      <span className="font-semibold tabular-nums">
         {row.original.rounds.map((round) => round.score ?? '—').join(' · ')}/10
       </span>
     ),
@@ -369,28 +385,32 @@ const columnsForSeason = (
     header: 'Result',
     accessorFn: interviewPassed,
     cell: ({ row }) => (
-      <span
-        className={
+      <Badge
+        variant="outline"
+        className={cn(
+          badgeClass,
           interviewPassed(row.original)
-            ? styles.badgeSuccess
-            : styles.badgeDanger
-        }
+            ? outcomeTone.success
+            : outcomeTone.danger,
+        )}
       >
         {interviewPassed(row.original) ? 'Pass' : 'Needs work'}
-      </span>
+      </Badge>
     ),
   },
   {
     accessorKey: 'reviewStatus',
     header: 'Review',
     cell: ({ getValue }) => (
-      <span
-        className={
-          getValue() === 'reviewed' ? styles.badgeSuccess : styles.badgeWarning
-        }
+      <Badge
+        variant="outline"
+        className={cn(
+          badgeClass,
+          getValue() === 'reviewed' ? outcomeTone.success : outcomeTone.warning,
+        )}
       >
         {getValue() === 'reviewed' ? 'Reviewed' : 'Pending'}
-      </span>
+      </Badge>
     ),
   },
 ];
@@ -477,7 +497,7 @@ export function MockInterviewsPage() {
     (hasSelection && !seasonsQuery.isLoading && !season)
   )
     return (
-      <div className={styles.page}>
+      <div className="mx-auto w-full max-w-[92rem]">
         <ErrorState
           title="Season unavailable"
           message="The selected season could not be loaded."
@@ -487,7 +507,7 @@ export function MockInterviewsPage() {
     );
 
   return (
-    <div className={styles.page}>
+    <div className="mx-auto w-full max-w-[92rem]">
       <PageHeader
         eyebrow="Interview preparation"
         title="Mock interviews"
@@ -512,7 +532,11 @@ export function MockInterviewsPage() {
         filters={filters}
         onChange={setFilters}
       />
-      <Tabs value={mode} onValueChange={(value) => setMode(value as ViewMode)}>
+      <Tabs
+        className="mt-6"
+        value={mode}
+        onValueChange={(value) => setMode(value as ViewMode)}
+      >
         <TabsList aria-label="Mock interview view">
           <TabsTrigger value="received">Received</TabsTrigger>
           <TabsTrigger value="given">Given</TabsTrigger>
@@ -577,33 +601,37 @@ export function MockInterviewsPage() {
             defaultExpanded
             renderCard={(row) => (
               <div>
-                <div className={styles.inline}>
-                  <span
-                    className={
+                <div className="flex flex-wrap items-center gap-2.5">
+                  <Badge
+                    variant="outline"
+                    className={cn(
+                      badgeClass,
                       interviewPassed(row.original)
-                        ? styles.badgeSuccess
-                        : styles.badgeDanger
-                    }
+                        ? outcomeTone.success
+                        : outcomeTone.danger,
+                    )}
                   >
                     {interviewPassed(row.original) ? 'Pass' : 'Needs work'}
-                  </span>
-                  <span
-                    className={
+                  </Badge>
+                  <Badge
+                    variant="outline"
+                    className={cn(
+                      badgeClass,
                       row.original.reviewStatus === 'reviewed'
-                        ? styles.badgeSuccess
-                        : styles.badgeWarning
-                    }
+                        ? outcomeTone.success
+                        : outcomeTone.warning,
+                    )}
                   >
                     {row.original.reviewStatus}
-                  </span>
+                  </Badge>
                 </div>
-                <h3 className={`${styles.cardTitle} ${styles.cardTitleSpaced}`}>
+                <h2 className="mt-3 text-base font-semibold tracking-tight">
                   <PersonIdentity
                     person={row.original.interviewee}
                     seasonId={season?.id}
                   />
-                </h3>
-                <p className={styles.helper}>
+                </h2>
+                <p className="text-sm text-muted-foreground">
                   with {row.original.interviewer.name} ·{' '}
                   {formatDateTime(row.original.occurredAt)}
                 </p>
@@ -621,7 +649,7 @@ export function MockInterviewsPage() {
                   View details
                 </Button>
                 {row.getIsExpanded() ? (
-                  <div className={styles.expandedDetails}>
+                  <div className="mt-3">
                     <MockDetails
                       row={row}
                       currentUserId={user.data?.id}
@@ -675,25 +703,34 @@ function MockDetails({
   const canEditDetails = mock.interviewer.id === currentUserId;
   const canReview = mock.interviewee.id === currentUserId;
   return (
-    <div className={styles.grid2}>
+    <div className="grid grid-cols-1 gap-6 min-[56rem]:grid-cols-2">
       <div>
-        <h3 className={styles.cardTitle}>Rounds and scores</h3>
+        <h2 className="text-base font-semibold tracking-tight">
+          Rounds and scores
+        </h2>
         <RichTextContent
           html={mock.notes}
           empty="No overall interview notes."
         />
-        <div className={`${styles.rounds} ${styles.roundsSpaced}`}>
+        <div className="mt-3 grid">
           {mock.rounds.map((round) => (
-            <article className={styles.round} key={round.id}>
-              <div className={styles.roundHeader}>
+            <article
+              className="py-4 first:pt-0 [&+&]:border-t [&+&]:border-border"
+              key={round.id}
+            >
+              <div className="flex items-center justify-between gap-3">
                 <strong>{round.title}</strong>
                 <span
-                  className={`${styles.score} ${round.score === null ? '' : round.score >= 5 ? styles.pass : styles.fail}`}
+                  className={cn(
+                    'font-semibold tabular-nums',
+                    round.score !== null &&
+                      (round.score >= 5 ? 'text-success' : 'text-destructive'),
+                  )}
                 >
                   {round.score === null ? 'Not scored' : `${round.score}/10`}
                 </span>
               </div>
-              <Badge variant="secondary" className={styles.badgeNeutral}>
+              <Badge variant="secondary" className={badgeClass}>
                 {round.type}
               </Badge>
               <RichTextContent html={round.notes} />
@@ -702,12 +739,14 @@ function MockDetails({
         </div>
       </div>
       <div>
-        <h3 className={styles.cardTitle}>Interviewee review</h3>
+        <h2 className="text-base font-semibold tracking-tight">
+          Interviewee review
+        </h2>
         <RichTextContent
           html={mock.reviewComments}
           empty="A review has not been submitted."
         />
-        <div className={styles.buttonRow}>
+        <div className="flex flex-wrap items-center gap-2.5">
           {canReview ? (
             <RoundReviewDialog mock={mock} onChanged={onChanged} />
           ) : null}
@@ -848,18 +887,14 @@ function EditMockDialog({
       onOpenChange={requestOpenChange}
       trigger="Edit details"
     >
-      <div className={styles.form}>
-        {error ? (
-          <p className={styles.fieldError} role="alert">
-            {error}
-          </p>
-        ) : null}
-        <div className={styles.fieldGrid}>
+      <div className="grid gap-4">
+        {error ? <FieldError>{error}</FieldError> : null}
+        <div className="grid grid-cols-1 gap-3.5 min-[56rem]:grid-cols-2">
           <p>Recorded: {formatDateTime(mock.occurredAt)}</p>
-          <div className={styles.field}>
-            <label htmlFor={`edit-duration-${mock.id}`}>
+          <Field>
+            <FieldLabel htmlFor={`edit-duration-${mock.id}`}>
               Duration (minutes)
-            </label>
+            </FieldLabel>
             <Input
               id={`edit-duration-${mock.id}`}
               type="number"
@@ -869,7 +904,7 @@ function EditMockDialog({
                 setDurationMinutes(event.target.valueAsNumber)
               }
             />
-          </div>
+          </Field>
         </div>
         <RichTextEditor
           id={`edit-notes-${mock.id}`}
@@ -877,8 +912,8 @@ function EditMockDialog({
           value={notes}
           onChange={setNotes}
         />
-        <fieldset className={`${styles.form} ${styles.unstyledFieldset}`}>
-          <legend className={styles.legend}>Rounds and scores</legend>
+        <FieldSet>
+          <FieldLegend variant="label">Rounds and scores</FieldLegend>
           {rounds.map((round, roundIndex) => (
             <RoundEditor
               key={round.id}
@@ -911,7 +946,7 @@ function EditMockDialog({
               }
             />
           ))}
-          <div className={styles.buttonRow}>
+          <div className="flex flex-wrap items-center gap-2.5">
             {(['leetcode', 'custom', 'behavioural'] as const).map((type) => (
               <Button
                 variant="outline"
@@ -923,8 +958,8 @@ function EditMockDialog({
               </Button>
             ))}
           </div>
-        </fieldset>
-        <div className={styles.dialogActions}>
+        </FieldSet>
+        <div className="mt-5 flex justify-end gap-2.5">
           <Button
             variant="outline"
             type="button"
@@ -1026,14 +1061,10 @@ function RoundReviewDialog({
         mock.reviewStatus === 'reviewed' ? 'Edit my review' : 'Add my review'
       }
     >
-      <div className={styles.form}>
-        {error ? (
-          <p className={styles.fieldError} role="alert">
-            {error}
-          </p>
-        ) : null}
-        <div className={styles.field}>
-          <label htmlFor={`review-round-${mock.id}`}>Round</label>
+      <div className="grid gap-4">
+        {error ? <FieldError>{error}</FieldError> : null}
+        <Field>
+          <FieldLabel htmlFor={`review-round-${mock.id}`}>Round</FieldLabel>
           <NativeSelect
             id={`review-round-${mock.id}`}
             className="w-full"
@@ -1046,22 +1077,24 @@ function RoundReviewDialog({
               </NativeSelectOption>
             ))}
           </NativeSelect>
-        </div>
+        </Field>
         <RichTextEditor
           id={`review-comment-${mock.id}`}
           label="Comments"
           value={comment}
           onChange={setComment}
         />
-        <label className={styles.checkLabel}>
-          <input
-            type="checkbox"
+        <Field orientation="horizontal">
+          <Checkbox
+            id={`review-reviewed-${mock.id}`}
             checked={reviewed}
-            onChange={(event) => setReviewed(event.target.checked)}
-          />{' '}
-          Mark this round reviewed
-        </label>
-        <div className={styles.dialogActions}>
+            onCheckedChange={(checked) => setReviewed(checked)}
+          />
+          <FieldLabel htmlFor={`review-reviewed-${mock.id}`}>
+            Mark this round reviewed
+          </FieldLabel>
+        </Field>
+        <div className="mt-5 flex justify-end gap-2.5">
           <Button
             variant="outline"
             type="button"
@@ -1204,17 +1237,13 @@ function IdentityCorrectionDialog({
       onOpenChange={requestOpenChange}
       trigger="Correct identities"
     >
-      <div className={styles.form}>
-        {error ? (
-          <p className={styles.fieldError} role="alert">
-            {error}
-          </p>
-        ) : null}
-        <div className={styles.fieldGrid}>
-          <div className={styles.field}>
-            <label htmlFor={`correct-interviewer-${mock.id}`}>
+      <div className="grid gap-4">
+        {error ? <FieldError>{error}</FieldError> : null}
+        <div className="grid grid-cols-1 gap-3.5 min-[56rem]:grid-cols-2">
+          <Field>
+            <FieldLabel htmlFor={`correct-interviewer-${mock.id}`}>
               Interviewer
-            </label>
+            </FieldLabel>
             <NativeSelect
               id={`correct-interviewer-${mock.id}`}
               className="w-full"
@@ -1227,11 +1256,11 @@ function IdentityCorrectionDialog({
                 </NativeSelectOption>
               ))}
             </NativeSelect>
-          </div>
-          <div className={styles.field}>
-            <label htmlFor={`correct-interviewee-${mock.id}`}>
+          </Field>
+          <Field>
+            <FieldLabel htmlFor={`correct-interviewee-${mock.id}`}>
               Interviewee
-            </label>
+            </FieldLabel>
             <NativeSelect
               id={`correct-interviewee-${mock.id}`}
               className="w-full"
@@ -1244,18 +1273,20 @@ function IdentityCorrectionDialog({
                 </NativeSelectOption>
               ))}
             </NativeSelect>
-          </div>
+          </Field>
         </div>
-        <div className={styles.field}>
-          <label htmlFor={`correction-reason-${mock.id}`}>Audited reason</label>
+        <Field>
+          <FieldLabel htmlFor={`correction-reason-${mock.id}`}>
+            Audited reason
+          </FieldLabel>
           <Textarea
             id={`correction-reason-${mock.id}`}
             maxLength={2000}
             value={reason}
             onChange={(event) => setReason(event.target.value)}
           />
-        </div>
-        <div className={styles.dialogActions}>
+        </Field>
+        <div className="mt-5 flex justify-end gap-2.5">
           <Button
             variant="outline"
             type="button"
@@ -1461,9 +1492,9 @@ function NewMockDialog({
         </>
       }
     >
-      <form className={styles.form} noValidate onSubmit={onSubmit}>
-        <div className={styles.field}>
-          <label htmlFor="mock-interviewee">Interviewee</label>
+      <form className="grid gap-4" noValidate onSubmit={onSubmit}>
+        <Field>
+          <FieldLabel htmlFor="mock-interviewee">Interviewee</FieldLabel>
           <NativeSelect
             id="mock-interviewee"
             className="w-full"
@@ -1482,27 +1513,29 @@ function NewMockDialog({
               ))}
           </NativeSelect>
           {errors.intervieweeId ? (
-            <p className={styles.fieldError}>{errors.intervieweeId.message}</p>
+            <FieldError>{errors.intervieweeId.message}</FieldError>
           ) : null}
-        </div>
-        <div className={styles.fieldGrid}>
-          <div className={styles.field}>
-            <label htmlFor="mock-recording-time">Time (Adelaide)</label>
+        </Field>
+        <div className="grid grid-cols-1 gap-3.5 min-[56rem]:grid-cols-2">
+          <Field>
+            <FieldLabel htmlFor="mock-recording-time">
+              Time (Adelaide)
+            </FieldLabel>
             <Input
               id="mock-recording-time"
               type="time"
               {...register('occurredAt')}
             />
-            <p className={styles.helper}>
+            <FieldDescription>
               Today in Adelaide: {recordingDay}. Record mocks on the day they
               happen.
-            </p>
+            </FieldDescription>
             {errors.occurredAt ? (
-              <p className={styles.fieldError}>{errors.occurredAt.message}</p>
+              <FieldError>{errors.occurredAt.message}</FieldError>
             ) : null}
-          </div>
-          <div className={styles.field}>
-            <label htmlFor="mock-duration">Duration (minutes)</label>
+          </Field>
+          <Field>
+            <FieldLabel htmlFor="mock-duration">Duration (minutes)</FieldLabel>
             <Input
               id="mock-duration"
               type="number"
@@ -1510,19 +1543,15 @@ function NewMockDialog({
               max="240"
               {...register('durationMinutes', { valueAsNumber: true })}
             />
-          </div>
+          </Field>
         </div>
-        <fieldset className={`${styles.form} ${styles.unstyledFieldset}`}>
-          <legend className={styles.legend}>Interview rounds</legend>
-          <p className={styles.helper}>
+        <FieldSet>
+          <FieldLegend variant="label">Interview rounds</FieldLegend>
+          <FieldDescription>
             Add LeetCode, custom or behavioural rounds. LeetCode rounds capture
             all five scoring criteria.
-          </p>
-          {roundError ? (
-            <p className={styles.fieldError} role="alert">
-              {roundError}
-            </p>
-          ) : null}
+          </FieldDescription>
+          {roundError ? <FieldError>{roundError}</FieldError> : null}
           {rounds.map((round, roundIndex) => (
             <RoundEditor
               key={round.id}
@@ -1540,7 +1569,7 @@ function NewMockDialog({
               onMove={(direction) => moveRound(roundIndex, direction)}
             />
           ))}
-          <div className={styles.buttonRow}>
+          <div className="flex flex-wrap items-center gap-2.5">
             {(['leetcode', 'custom', 'behavioural'] as const).map((type) => (
               <Button
                 variant="outline"
@@ -1555,8 +1584,8 @@ function NewMockDialog({
               </Button>
             ))}
           </div>
-        </fieldset>
-        <div className={styles.dialogActions}>
+        </FieldSet>
+        <div className="mt-5 flex justify-end gap-2.5">
           <Button
             variant="outline"
             type="button"

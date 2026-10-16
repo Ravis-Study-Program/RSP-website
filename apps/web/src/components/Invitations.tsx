@@ -1,4 +1,5 @@
 import { Button } from '@/components/ui/button';
+import { Field, FieldLabel } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
 import {
   NativeSelect,
@@ -13,7 +14,9 @@ import { FormDialog } from '@/components/Dialogs';
 import { DataTable } from '@/components/DataTable';
 import type { Season } from '@/types';
 import { formatDateTime } from '@/utils';
-import styles from '@/styles/App.module.css';
+
+const formStack = 'grid gap-4';
+const notice = 'text-sm text-muted-foreground';
 
 export function Invitations({ season }: { season: Season }) {
   const client = useQueryClient();
@@ -99,9 +102,10 @@ export function Invitations({ season }: { season: Season }) {
   const actions = (invitation: Invitation) =>
     ['pending', 'expired'].includes(invitation.status) &&
     season.status === 'open' ? (
-      <div className={styles.inline}>
+      <div className="flex flex-wrap items-center gap-2.5">
         <Button
           variant="outline"
+          size="sm"
           type="submit"
           disabled={busy}
           onClick={() => void save(invitation, 'resend')}
@@ -109,7 +113,8 @@ export function Invitations({ season }: { season: Season }) {
           Resend
         </Button>
         <Button
-          variant="ghost"
+          variant="destructive"
+          size="sm"
           type="submit"
           disabled={busy}
           onClick={() => void save(invitation, 'cancel')}
@@ -119,9 +124,9 @@ export function Invitations({ season }: { season: Season }) {
       </div>
     ) : null;
   return (
-    <section className={styles.section} aria-label="Invitations">
-      <div className={styles.sectionHeader}>
-        <h2 className={styles.sectionTitle}>Invitations</h2>
+    <section className="mt-6" aria-label="Invitations">
+      <div className="mb-3 flex items-end justify-between gap-4">
+        <h2 className="text-xl font-semibold tracking-tight">Invitations</h2>
         <FormDialog
           open={open}
           onOpenChange={(next) => {
@@ -142,30 +147,33 @@ export function Invitations({ season }: { season: Season }) {
               e.preventDefault();
               void save();
             }}
-            className={styles.formStack}
+            className={formStack}
           >
-            <label className={styles.field}>
-              Name
+            <Field>
+              <FieldLabel htmlFor="invitation-name">Name</FieldLabel>
               <Input
+                id="invitation-name"
                 required
                 maxLength={100}
                 value={form.name}
                 onChange={(e) => setForm({ ...form, name: e.target.value })}
               />
-            </label>
-            <label className={styles.field}>
-              Email
+            </Field>
+            <Field>
+              <FieldLabel htmlFor="invitation-email">Email</FieldLabel>
               <Input
+                id="invitation-email"
                 type="email"
                 required
                 maxLength={254}
                 value={form.email}
                 onChange={(e) => setForm({ ...form, email: e.target.value })}
               />
-            </label>
-            <label className={styles.field}>
-              Role
+            </Field>
+            <Field>
+              <FieldLabel htmlFor="invitation-role">Role</FieldLabel>
               <NativeSelect
+                id="invitation-role"
                 className="w-full"
                 value={form.role}
                 onChange={(e) =>
@@ -181,20 +189,32 @@ export function Invitations({ season }: { season: Season }) {
                   Coordinator
                 </NativeSelectOption>
               </NativeSelect>
-            </label>
+            </Field>
             {form.role === 'coordinator' ? (
-              <p>Coordinator access becomes active after MFA is configured.</p>
+              <p className={notice}>
+                Coordinator access becomes active after MFA is configured.
+              </p>
             ) : null}
             {/* Gate on open: the dialog stays mounted through its close
                 animation, which would briefly duplicate the section status. */}
-            {message && open ? <p role="status">{message}</p> : null}
-            <Button type="submit" disabled={busy}>
-              {busy ? 'Sending…' : 'Send invitation'}
-            </Button>
+            {message && open ? (
+              <p role="status" className={notice}>
+                {message}
+              </p>
+            ) : null}
+            <div>
+              <Button type="submit" disabled={busy}>
+                {busy ? 'Sending…' : 'Send invitation'}
+              </Button>
+            </div>
           </form>
         </FormDialog>
       </div>
-      {message && !open ? <p role="status">{message}</p> : null}
+      {message && !open ? (
+        <p role="status" className={`${notice} mb-3`}>
+          {message}
+        </p>
+      ) : null}
       <DataTable
         ariaLabel="Season invitations"
         data={query.data?.items ?? []}
@@ -208,7 +228,7 @@ export function Invitations({ season }: { season: Season }) {
             cell: ({ row }) =>
               row.original.status === 'pending' && !row.original.sentAt
                 ? 'Pending · email not queued'
-                : row.original.status,
+                : statusLabel(row.original.status),
           },
           {
             accessorKey: 'expiresAt',
@@ -230,8 +250,8 @@ export function Invitations({ season }: { season: Season }) {
         renderCard={({ original: i }) => (
           <div>
             <strong>{i.name}</strong>
-            <p>
-              {i.email} · {i.role} · {i.status}
+            <p className={notice}>
+              {i.email} · {i.role} · {statusLabel(i.status)}
               {!i.sentAt && i.status === 'pending' ? ' · email not queued' : ''}
             </p>
             {actions(i)}
@@ -240,4 +260,9 @@ export function Invitations({ season }: { season: Season }) {
       />
     </section>
   );
+}
+
+function statusLabel(status: string) {
+  const text = status.replace(/_/g, ' ');
+  return text.charAt(0).toUpperCase() + text.slice(1);
 }

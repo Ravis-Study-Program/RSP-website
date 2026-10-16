@@ -40,6 +40,7 @@ export function DeleteEmptySeason({ season }: { season: Season }) {
     <NamedConfirmation
       name={season.name}
       actionLabel="Delete empty season"
+      triggerSize="sm"
       description="Only a season with no enrollment history, recorded activity or pending invitations can be deleted. Its weeks will also disappear from the website."
       onConfirm={remove}
     />

@@ -16,15 +16,24 @@ import {
   DialogDescription,
   DialogClose,
 } from '@/components/ui/dialog';
+import { Field, FieldError, FieldLabel } from '@/components/ui/field';
 import { IconTrash, IconX } from '@tabler/icons-react';
-import { useId, useState, type PropsWithChildren, type ReactNode } from 'react';
+import {
+  useId,
+  useState,
+  type ComponentProps,
+  type PropsWithChildren,
+  type ReactNode,
+} from 'react';
 
-import styles from '@/styles/App.module.css';
+type ButtonProps = ComponentProps<typeof Button>;
 
 export function FormDialog({
   title,
   description,
   trigger,
+  triggerVariant,
+  triggerSize,
   children,
   open,
   onOpenChange,
@@ -32,17 +41,23 @@ export function FormDialog({
   title: string;
   description: string;
   trigger?: ReactNode;
+  triggerVariant?: ButtonProps['variant'];
+  triggerSize?: ButtonProps['size'];
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
 }>) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       {trigger ? (
-        <DialogTrigger render={<Button />}>{trigger}</DialogTrigger>
+        <DialogTrigger
+          render={<Button variant={triggerVariant} size={triggerSize} />}
+        >
+          {trigger}
+        </DialogTrigger>
       ) : null}
 
       <DialogContent showCloseButton={false}>
-        <div className={styles.dialogHeader}>
+        <div className="mb-4 flex items-start justify-between gap-4">
           <div>
             <DialogTitle>{title}</DialogTitle>
             <DialogDescription>{description}</DialogDescription>
@@ -65,11 +80,13 @@ export function NamedConfirmation({
   actionLabel,
   description,
   onConfirm,
+  triggerSize,
 }: {
   name: string;
   actionLabel: string;
   description: string;
   onConfirm: () => void | Promise<void>;
+  triggerSize?: ButtonProps['size'];
 }) {
   const [value, setValue] = useState('');
   const [open, setOpen] = useState(false);
@@ -105,7 +122,11 @@ export function NamedConfirmation({
         }
       }}
     >
-      <AlertDialogTrigger render={<Button variant="destructive" />}>
+      <AlertDialogTrigger
+        render={
+          <Button variant="destructive" size={triggerSize} className="w-fit" />
+        }
+      >
         <IconTrash size={17} aria-hidden="true" /> {actionLabel}
       </AlertDialogTrigger>
 
@@ -114,29 +135,20 @@ export function NamedConfirmation({
           {actionLabel} {name}?
         </AlertDialogTitle>
         <AlertDialogDescription>{description}</AlertDialogDescription>
-        <div className={`${styles.field} ${styles.fieldSpaced}`}>
-          <label htmlFor={confirmationId}>
+        <Field className="mt-4">
+          <FieldLabel htmlFor={confirmationId}>
             Type <strong>{name}</strong> to confirm
-          </label>
+          </FieldLabel>
           <Input
             id={confirmationId}
             value={value}
             autoComplete="off"
             onChange={(event) => setValue(event.target.value)}
           />
-        </div>
-        {error ? (
-          <p className={styles.fieldError} role="alert">
-            {error}
-          </p>
-        ) : null}
-        <div className={styles.dialogActions}>
-          <AlertDialogCancel
-            className={styles.buttonSecondary}
-            disabled={pending}
-          >
-            Cancel
-          </AlertDialogCancel>
+        </Field>
+        {error ? <FieldError>{error}</FieldError> : null}
+        <div className="mt-5 flex justify-end gap-2.5">
+          <AlertDialogCancel disabled={pending}>Cancel</AlertDialogCancel>
           <Button
             variant="destructive"
             type="button"
@@ -164,7 +176,7 @@ export function DirtyFormGuard({
           Your edits have not been saved. You can stay and finish, or discard
           them and leave.
         </AlertDialogDescription>
-        <div className={styles.dialogActions}>
+        <div className="mt-5 flex justify-end gap-2.5">
           <Button
             variant="outline"
             type="button"

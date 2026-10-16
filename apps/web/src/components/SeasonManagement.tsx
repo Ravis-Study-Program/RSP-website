@@ -1,5 +1,7 @@
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
+import { Field, FieldError, FieldLabel } from '@/components/ui/field';
 import { Textarea } from '@/components/ui/textarea';
 import { zodResolver } from '@hookform/resolvers/zod';
 import {
@@ -25,9 +27,11 @@ import type {
 import { demoMode, seasonsOptions } from '@/api/queries';
 import { AppDatePicker } from '@/components/AppDatePicker';
 import { FormDialog } from '@/components/Dialogs';
-import styles from '@/styles/App.module.css';
 import type { Page, Season } from '@/types';
 import { formatDateTimeInput, zonedDateTimeToUtc } from '@/utils';
+
+const formStack = 'grid gap-4';
+const dialogActions = 'mt-5 flex justify-end gap-2.5';
 
 const optionalHttpsUrl = z
   .string()
@@ -203,6 +207,8 @@ export function SeasonEditorDialog({
         }
         setOpen(next);
       }}
+      triggerVariant={season ? 'outline' : undefined}
+      triggerSize={season ? 'sm' : undefined}
       trigger={
         trigger ??
         (season ? (
@@ -217,11 +223,11 @@ export function SeasonEditorDialog({
       }
     >
       <form
-        className={styles.form}
+        className={formStack}
         onSubmit={(event) => void save(event)}
         noValidate
       >
-        <div className={styles.fieldGrid}>
+        <div className="grid gap-4 sm:grid-cols-2">
           <FormField
             id="season-name"
             label="Name"
@@ -308,11 +314,13 @@ export function SeasonEditorDialog({
           </FormField>
         </div>
         {requestError ? (
-          <p className={styles.fieldError} role="alert">
-            {requestError}
-          </p>
+          <Alert variant="destructive">
+            <AlertDescription className="text-destructive">
+              {requestError}
+            </AlertDescription>
+          </Alert>
         ) : null}
-        <div className={styles.dialogActions}>
+        <div className={dialogActions}>
           <Button type="submit" disabled={form.formState.isSubmitting}>
             {form.formState.isSubmitting
               ? 'Saving…'
@@ -405,17 +413,19 @@ export function SeasonResourcesDialog({ season }: { season: Season }) {
       description="Coordinators can update only this resource link; season dates and identity remain Director-managed."
       open={open}
       onOpenChange={requestOpenChange}
+      triggerVariant="outline"
+      triggerSize="sm"
       trigger={
         <>
           <IconLink size={17} aria-hidden="true" /> Edit resources
         </>
       }
     >
-      <div className={styles.form}>
-        <div className={styles.field}>
-          <label htmlFor={`season-resources-only-${season.id}`}>
+      <div className={formStack}>
+        <Field>
+          <FieldLabel htmlFor={`season-resources-only-${season.id}`}>
             Season resources URL
-          </label>
+          </FieldLabel>
           <Input
             id={`season-resources-only-${season.id}`}
             type="url"
@@ -424,13 +434,15 @@ export function SeasonResourcesDialog({ season }: { season: Season }) {
             onChange={(event) => setResourcesUrl(event.target.value)}
             aria-invalid={Boolean(error)}
           />
-        </div>
+        </Field>
         {error ? (
-          <p className={styles.fieldError} role="alert">
-            {error}
-          </p>
+          <Alert variant="destructive">
+            <AlertDescription className="text-destructive">
+              {error}
+            </AlertDescription>
+          </Alert>
         ) : null}
-        <div className={styles.dialogActions}>
+        <div className={dialogActions}>
           <Button
             variant="outline"
             type="button"
@@ -463,15 +475,11 @@ function FormField({
   children: ReactNode;
 }) {
   return (
-    <div className={styles.field}>
-      <label htmlFor={id}>{label}</label>
+    <Field>
+      <FieldLabel htmlFor={id}>{label}</FieldLabel>
       {children}
-      {error ? (
-        <p className={styles.fieldError} role="alert">
-          {error}
-        </p>
-      ) : null}
-    </div>
+      <FieldError>{error}</FieldError>
+    </Field>
   );
 }
 
@@ -562,42 +570,45 @@ export function SeasonLifecycleDialog({
       }
       open={open}
       onOpenChange={requestOpenChange}
+      triggerVariant={action === 'close' ? 'destructive' : 'outline'}
+      triggerSize="sm"
       trigger={
         <>
           <Icon size={17} aria-hidden="true" /> {label}
         </>
       }
     >
-      <div className={styles.form}>
-        <div className={styles.field}>
-          <label htmlFor={`season-${action}-reason`}>Reason</label>
+      <div className={formStack}>
+        <Field>
+          <FieldLabel htmlFor={`season-${action}-reason`}>Reason</FieldLabel>
           <Textarea
             id={`season-${action}-reason`}
             required
             value={reason}
             onChange={(event) => setReason(event.target.value)}
           />
-        </div>
-        <div className={styles.field}>
-          <label htmlFor={`season-${action}-confirm`}>
+        </Field>
+        <Field>
+          <FieldLabel htmlFor={`season-${action}-confirm`}>
             Type <strong>{season.name}</strong> to confirm
-          </label>
+          </FieldLabel>
           <Input
             id={`season-${action}-confirm`}
             autoComplete="off"
             value={confirmation}
             onChange={(event) => setConfirmation(event.target.value)}
           />
-        </div>
+        </Field>
         {error ? (
-          <p className={styles.fieldError} role="alert">
-            {error}
-          </p>
+          <Alert variant="destructive">
+            <AlertDescription className="text-destructive">
+              {error}
+            </AlertDescription>
+          </Alert>
         ) : null}
-        <div className={styles.dialogActions}>
+        <div className={dialogActions}>
           <Button
-            variant="destructive"
-            className={action === 'close' ? styles.buttonDanger : styles.button}
+            variant={action === 'close' ? 'destructive' : 'default'}
             type="button"
             disabled={
               pending ||

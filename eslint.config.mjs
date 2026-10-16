@@ -98,6 +98,11 @@ export default tseslint.config(
             'sanitizeRichTextForDisplay',
             'usePageTitle',
             'useWorkspace',
+            'useCurrentPageTitle',
+            // shadcn/ui primitives export their cva variant helpers.
+            'buttonVariants',
+            'badgeVariants',
+            'tabsListVariants',
           ],
         },
       ],

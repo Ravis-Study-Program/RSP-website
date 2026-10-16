@@ -2,9 +2,10 @@ import {
   NativeSelect,
   NativeSelectOption,
 } from '@/components/ui/native-select';
+import { useId } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import type { Season } from '@/types';
-import styles from '@/styles/App.module.css';
+import { Field, FieldLabel } from '@/components/ui/field';
 
 export function ActivityPeriodFilter({
   section,
@@ -18,10 +19,12 @@ export function ActivityPeriodFilter({
   const { slug } = useParams();
   const navigate = useNavigate();
   const [params] = useSearchParams();
+  const selectId = useId();
   return (
-    <label className={styles.field}>
-      View activity
+    <Field>
+      <FieldLabel htmlFor={selectId}>View activity</FieldLabel>
       <NativeSelect
+        id={selectId}
         className="w-full"
         value={season?.id ?? ''}
         onChange={(event) => {
@@ -50,6 +53,6 @@ export function ActivityPeriodFilter({
           </NativeSelectOption>
         ))}
       </NativeSelect>
-    </label>
+    </Field>
   );
 }

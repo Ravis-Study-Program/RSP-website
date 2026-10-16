@@ -13,7 +13,11 @@ test('practice charts follow filters and the picker accepts keyboard search', as
   await expect(
     page.getByRole('heading', { name: 'Time by difficulty' }),
   ).toBeVisible();
-  await page.getByLabel('Show practice goals (20 / 35 / 50 minutes)').uncheck();
+  await page
+    .getByRole('checkbox', {
+      name: 'Show practice goals (20 / 35 / 50 minutes)',
+    })
+    .uncheck();
   await page
     .getByLabel('Search problem attempts')
     .fill('no matching question xyz');
@@ -183,7 +187,7 @@ test('removing a mentor keeps their season record visible', async ({
     .getByLabel('Type Noah Williams to confirm')
     .fill('Noah Williams');
   await dialog.getByRole('button', { name: 'Remove member' }).click();
-  await expect(row).toContainText('withdrawn');
+  await expect(row).toContainText(/withdrawn/i);
   await expect(
     row.getByRole('button', { name: 'Remove', exact: true }),
   ).toHaveCount(0);

@@ -22,7 +22,10 @@ import {
   Popover,
 } from 'react-aria-components';
 
-import styles from '@/styles/App.module.css';
+import { FieldError } from '@/components/ui/field';
+
+const iconButtonClass =
+  'inline-flex size-7 items-center justify-center rounded-md text-muted-foreground outline-none hover:bg-muted hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 disabled:opacity-50';
 
 export function AppDatePicker({
   label,
@@ -44,59 +47,65 @@ export function AppDatePicker({
     : null;
   return (
     <DatePicker
-      className={styles.field}
+      className="flex w-full flex-col gap-1.5"
       value={dateValue}
       onChange={(date) => onChange(date?.toString() ?? '')}
       isInvalid={Boolean(error)}
       granularity={granularity}
       hourCycle={24}
     >
-      <Label className={styles.fieldLabel}>{label}</Label>
-      <Group className={styles.dateGroup}>
-        <DateInput className={styles.dateInput}>
+      <Label className="text-sm font-medium">{label}</Label>
+      <Group className="flex h-9 items-center gap-0.5 rounded-lg border border-input bg-transparent px-1 focus-within:border-ring focus-within:ring-3 focus-within:ring-ring/50 data-invalid:border-destructive">
+        <DateInput className="flex min-w-0 flex-1 px-1.5">
           {(segment) => (
-            <DateSegment className={styles.dateSegment} segment={segment} />
+            <DateSegment
+              className="rounded-sm px-px outline-none data-focused:bg-primary data-focused:text-primary-foreground"
+              segment={segment}
+            />
           )}
         </DateInput>
         <Button
-          className={styles.iconButton}
+          className={iconButtonClass}
           aria-label={`Choose ${label.toLowerCase()}`}
         >
           <IconCalendar size={18} aria-hidden="true" />
         </Button>
       </Group>
-      {error ? (
-        <p className={styles.fieldError} role="alert">
-          {error}
-        </p>
-      ) : null}
-      <Popover className={styles.datePopover}>
+      {error ? <FieldError>{error}</FieldError> : null}
+      <Popover className="z-100 rounded-lg border border-border bg-popover p-3 text-popover-foreground shadow-md">
         <Dialog>
           <Calendar>
-            <div className={styles.calendarHeader}>
+            <div className="mb-2 flex items-center justify-between gap-2">
               <Button
                 slot="previous"
-                className={styles.iconButton}
+                className={iconButtonClass}
                 aria-label="Previous month"
               >
                 <IconChevronLeft size={18} aria-hidden="true" />
               </Button>
-              <Heading className={styles.calendarHeading} />
+              <Heading className="text-sm font-semibold" />
               <Button
                 slot="next"
-                className={styles.iconButton}
+                className={iconButtonClass}
                 aria-label="Next month"
               >
                 <IconChevronRight size={18} aria-hidden="true" />
               </Button>
             </div>
-            <CalendarGrid className={styles.calendarGrid}>
+            <CalendarGrid className="w-full border-collapse [&_td]:p-0.5 [&_th]:p-0.5">
               <CalendarGridHeader>
-                {(day) => <CalendarHeaderCell>{day}</CalendarHeaderCell>}
+                {(day) => (
+                  <CalendarHeaderCell className="text-xs font-medium text-muted-foreground">
+                    {day}
+                  </CalendarHeaderCell>
+                )}
               </CalendarGridHeader>
               <CalendarGridBody>
                 {(date) => (
-                  <CalendarCell className={styles.calendarCell} date={date} />
+                  <CalendarCell
+                    className="grid size-9 cursor-default place-items-center rounded-md text-sm outline-none data-disabled:text-muted-foreground/50 data-focus-visible:ring-3 data-focus-visible:ring-ring/50 data-hovered:bg-muted data-outside-month:text-muted-foreground data-selected:bg-primary data-selected:text-primary-foreground data-unavailable:line-through"
+                    date={date}
+                  />
                 )}
               </CalendarGridBody>
             </CalendarGrid>

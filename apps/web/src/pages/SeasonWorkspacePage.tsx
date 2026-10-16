@@ -1,6 +1,10 @@
-import { Card } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { buttonVariants } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
 import {
+  IconArrowRight,
   IconCalendarEvent,
+  IconExternalLink,
   IconLock,
   IconNotebook,
   IconUsers,
@@ -30,8 +34,21 @@ import {
   InlineNotice,
   PageSkeleton,
 } from '@/components/StatusViews';
-import styles from '@/styles/App.module.css';
 import { formatDate } from '@/utils';
+
+const pageClass = 'mx-auto w-full max-w-[92rem]';
+const sectionClass = 'mt-6';
+const sectionHeaderClass = 'mb-3 flex items-end justify-between gap-4';
+const sectionTitleClass = 'text-xl font-semibold tracking-tight';
+const inlineClass = 'flex flex-wrap items-center gap-2.5';
+const helperClass = 'text-sm text-muted-foreground';
+const statusBadgeClass = 'h-5 rounded-4xl px-2 text-xs font-medium';
+const badgeSuccessClass = 'bg-success-soft text-success';
+const badgeNeutralClass = 'bg-muted text-muted-foreground';
+const metricGridClass =
+  'mt-4 grid grid-cols-2 gap-3 min-[56rem]:grid-cols-3 min-[56rem]:gap-4';
+const resourceLinkClass =
+  'flex min-h-7 items-center justify-between gap-4 py-1 font-medium text-foreground hover:underline';
 
 export function SeasonWorkspacePage() {
   const { slug } = useParams();
@@ -47,7 +64,7 @@ export function SeasonWorkspacePage() {
     return <PageSkeleton label="Loading season" />;
   if (query.isError || user.isError)
     return (
-      <div className={styles.page}>
+      <div className={pageClass}>
         <ErrorState
           onRetry={() => void Promise.all([query.refetch(), user.refetch()])}
         />
@@ -55,7 +72,7 @@ export function SeasonWorkspacePage() {
     );
   if (!season)
     return (
-      <div className={styles.page}>
+      <div className={pageClass}>
         <ErrorState
           title="Season not found"
           message="This season may have moved or you may not have access."
@@ -107,7 +124,7 @@ export function SeasonWorkspacePage() {
     ) ?? orderedWeeks.find((week) => new Date(week.startAt).getTime() > now);
 
   return (
-    <div className={styles.page}>
+    <div className={pageClass}>
       <PageHeader
         eyebrow={
           season.status === 'open' ? 'Active season' : 'Programme history'
@@ -115,16 +132,15 @@ export function SeasonWorkspacePage() {
         title={season.name}
         description={season.summary}
         actions={
-          <div className={styles.inline}>
-            <span
-              className={
-                season.status === 'open'
-                  ? styles.badgeSuccess
-                  : styles.badgeNeutral
-              }
+          <div className={inlineClass}>
+            <Badge
+              variant="secondary"
+              className={`${statusBadgeClass} ${
+                season.status === 'open' ? badgeSuccessClass : badgeNeutralClass
+              }`}
             >
               {season.status === 'open' ? 'Open' : 'Closed'}
-            </span>
+            </Badge>
             {canEditDefinition ? <SeasonEditorDialog season={season} /> : null}
             {canEditResources ? (
               <SeasonResourcesDialog season={season} />
@@ -139,12 +155,14 @@ export function SeasonWorkspacePage() {
         }
       />
       {season.status === 'closed' ? (
-        <InlineNotice tone="warning">
-          <IconLock size={19} aria-hidden="true" /> This season is read-only.
-          You can still create global practice attempts and mock interviews.
-        </InlineNotice>
+        <div className="mt-4">
+          <InlineNotice tone="warning">
+            <IconLock size={19} aria-hidden="true" /> This season is read-only.
+            You can still create global practice attempts and mock interviews.
+          </InlineNotice>
+        </div>
       ) : null}
-      <div className={styles.metricGrid}>
+      <div className={metricGridClass}>
         <MetricCard
           label="Members"
           value={enrollments.data?.totalCount ?? '—'}
@@ -165,7 +183,7 @@ export function SeasonWorkspacePage() {
           }
         />
       </div>
-      <div className={styles.metricGrid}>
+      <div className={metricGridClass}>
         <MetricCard
           label="Practice attempts"
           value={activity.data?.attemptCount ?? '—'}
@@ -192,112 +210,144 @@ export function SeasonWorkspacePage() {
           onRetry={() => void activity.refetch()}
         />
       ) : null}
-      <div className={styles.grid2}>
-        <section className={styles.section} aria-labelledby="schedule-title">
-          <div className={styles.sectionHeader}>
-            <h2 id="schedule-title" className={styles.sectionTitle}>
+      <div className="mt-4 grid items-start gap-6 min-[56rem]:grid-cols-2">
+        <section className={sectionClass} aria-labelledby="schedule-title">
+          <div className="mb-3 flex items-center justify-between gap-4">
+            <h2 id="schedule-title" className={sectionTitleClass}>
               Programme schedule
             </h2>
-            <Link to={`/seasons/${season.slug}/practice`}>Open practice</Link>
+            <Link
+              to={`/seasons/${season.slug}/practice`}
+              className={buttonVariants({ variant: 'outline', size: 'sm' })}
+            >
+              Open practice
+            </Link>
           </div>
-          <Card className="gap-4 p-5">
-            {weeks.isLoading ? (
-              <p role="status">Loading programme weeks…</p>
-            ) : weeks.isError ? (
-              <ErrorState
-                title="Schedule unavailable"
-                message="The programme schedule could not be loaded."
-                onRetry={() => void weeks.refetch()}
-              />
-            ) : orderedWeeks.length === 0 ? (
-              <p className={styles.muted}>
-                No weeks have been scheduled for this season.
-              </p>
-            ) : (
-              <ol className={styles.timeline}>
-                {orderedWeeks.map((week) => (
-                  <li className={styles.timelineItem} key={week.id}>
-                    <span className={styles.timelineDot} aria-hidden="true" />
-                    <div className={styles.timelineContent}>
-                      <h3>Week {week.number}</h3>
-                      <p>
-                        {formatDate(week.startAt)} – {formatDate(week.endAt)}
-                      </p>
-                      {week.resourceUrl ? (
-                        <ExternalLink href={week.resourceUrl}>
-                          Open week resources
-                        </ExternalLink>
-                      ) : (
-                        <span className={styles.helper}>No resource link</span>
-                      )}
-                    </div>
-                  </li>
-                ))}
-              </ol>
-            )}
+          <Card>
+            <CardContent>
+              {weeks.isLoading ? (
+                <p role="status">Loading programme weeks…</p>
+              ) : weeks.isError ? (
+                <ErrorState
+                  title="Schedule unavailable"
+                  message="The programme schedule could not be loaded."
+                  onRetry={() => void weeks.refetch()}
+                />
+              ) : orderedWeeks.length === 0 ? (
+                <p className={helperClass}>
+                  No weeks have been scheduled for this season.
+                </p>
+              ) : (
+                <ol className="m-0 grid list-none gap-0 p-0">
+                  {orderedWeeks.map((week) => (
+                    <li
+                      className="relative grid grid-cols-[2.2rem_1fr] gap-3 pb-4 last:pb-0 before:absolute before:top-4 before:bottom-[-0.2rem] before:left-[0.45rem] before:w-0.5 before:bg-border before:content-[''] last:before:hidden"
+                      key={week.id}
+                    >
+                      <span
+                        className="z-10 mt-1 size-3.5 rounded-sm bg-primary"
+                        aria-hidden="true"
+                      />
+                      <div className="min-w-0">
+                        <h3 className="text-base font-semibold">
+                          Week {week.number}
+                        </h3>
+                        <p className="text-sm">
+                          {formatDate(week.startAt)} – {formatDate(week.endAt)}
+                        </p>
+                        {week.resourceUrl ? (
+                          <ExternalLink href={week.resourceUrl}>
+                            Open week resources
+                          </ExternalLink>
+                        ) : (
+                          <span className={helperClass}>No resource link</span>
+                        )}
+                      </div>
+                    </li>
+                  ))}
+                </ol>
+              )}
+            </CardContent>
           </Card>
         </section>
         <section
-          className={styles.section}
+          className={sectionClass}
           aria-labelledby="season-actions-title"
         >
-          <div className={styles.sectionHeader}>
-            <h2 id="season-actions-title" className={styles.sectionTitle}>
+          <div className={sectionHeaderClass}>
+            <h2 id="season-actions-title" className={sectionTitleClass}>
               Workspace
             </h2>
           </div>
-          <Card className="gap-4 p-5">
-            <ul className={styles.resourceList}>
-              <li>
-                <Link
-                  className={styles.resourceLink}
-                  to={`/seasons/${season.slug}/people`}
-                >
-                  <span>
-                    <IconUsers size={18} aria-hidden="true" /> People directory
-                  </span>
-                  <span aria-hidden="true">→</span>
-                </Link>
-              </li>
-              <li>
-                <Link
-                  className={styles.resourceLink}
-                  to={`/seasons/${season.slug}/mock-interviews`}
-                >
-                  <span>
-                    <IconCalendarEvent size={18} aria-hidden="true" /> Mock
-                    interviews
-                  </span>
-                  <span aria-hidden="true">→</span>
-                </Link>
-              </li>
-              {isGlobalManager ? (
+          <Card>
+            <CardContent>
+              <ul className="m-0 list-none divide-y p-0">
                 <li>
                   <Link
-                    className={styles.resourceLink}
-                    to={`/seasons/${season.slug}/monday-updates`}
+                    className={resourceLinkClass}
+                    to={`/seasons/${season.slug}/people`}
                   >
-                    <span>
-                      <IconNotebook size={18} aria-hidden="true" /> Monday
-                      updates
+                    <span className={inlineClass}>
+                      <IconUsers size={18} aria-hidden="true" /> People
+                      directory
                     </span>
-                    <span aria-hidden="true">→</span>
+                    <IconArrowRight size={17} aria-hidden="true" />
                   </Link>
                 </li>
-              ) : null}
-              {season.resourcesUrl ? (
                 <li>
-                  <ExternalLink href={season.resourcesUrl}>
-                    Season resources
-                  </ExternalLink>
+                  <Link
+                    className={resourceLinkClass}
+                    to={`/seasons/${season.slug}/mock-interviews`}
+                  >
+                    <span className={inlineClass}>
+                      <IconCalendarEvent size={18} aria-hidden="true" /> Mock
+                      interviews
+                    </span>
+                    <IconArrowRight size={17} aria-hidden="true" />
+                  </Link>
                 </li>
-              ) : null}
-              <li>
-                <ExternalLink href="https://leetcode.com/problemset/">
-                  LeetCode problem catalogue
-                </ExternalLink>
-              </li>
-            </ul>
+                {isGlobalManager ? (
+                  <li>
+                    <Link
+                      className={resourceLinkClass}
+                      to={`/seasons/${season.slug}/monday-updates`}
+                    >
+                      <span className={inlineClass}>
+                        <IconNotebook size={18} aria-hidden="true" /> Monday
+                        updates
+                      </span>
+                      <IconArrowRight size={17} aria-hidden="true" />
+                    </Link>
+                  </li>
+                ) : null}
+                {season.resourcesUrl ? (
+                  <li>
+                    <a
+                      className={resourceLinkClass}
+                      href={season.resourcesUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      <span className={inlineClass}>Season resources</span>
+                      <IconExternalLink size={17} aria-hidden="true" />
+                    </a>
+                  </li>
+                ) : null}
+                <li>
+                  <a
+                    className={resourceLinkClass}
+                    href="https://leetcode.com/problemset/"
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    <span className={inlineClass}>
+                      LeetCode problem catalogue
+                    </span>
+                    <IconExternalLink size={17} aria-hidden="true" />
+                  </a>
+                </li>
+              </ul>
+            </CardContent>
           </Card>
         </section>
       </div>

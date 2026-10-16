@@ -3,6 +3,7 @@ import {
   NativeSelectOption,
 } from '@/components/ui/native-select';
 import { Button } from '@/components/ui/button';
+import { Field, FieldLabel } from '@/components/ui/field';
 import { IconArrowUp } from '@tabler/icons-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useId, useState } from 'react';
@@ -12,7 +13,6 @@ import type { Enrollment, StudentLevelUpdate } from '@/api/generated/models';
 import { demoMode } from '@/api/queries';
 import { FormDialog } from '@/components/Dialogs';
 import { studentLevels } from '@/studentLevels';
-import styles from '@/styles/App.module.css';
 import type { Page, Person } from '@/types';
 
 export function StudentLevelDialog({
@@ -75,6 +75,8 @@ export function StudentLevelDialog({
   };
   return (
     <FormDialog
+      triggerVariant="outline"
+      triggerSize="sm"
       title={`Set ${person.name}'s level`}
       description="Choose this student's level for the season."
       trigger={
@@ -97,12 +99,12 @@ export function StudentLevelDialog({
       }}
     >
       {error ? (
-        <p className={styles.fieldError} role="alert">
+        <p className="text-sm text-destructive" role="alert">
           {error}
         </p>
       ) : null}
-      <div className={styles.field}>
-        <label htmlFor={fieldId}>Student level</label>
+      <Field>
+        <FieldLabel htmlFor={fieldId}>Student level</FieldLabel>
         <NativeSelect
           id={fieldId}
           className="w-full"
@@ -118,8 +120,8 @@ export function StudentLevelDialog({
             </NativeSelectOption>
           ))}
         </NativeSelect>
-      </div>
-      <div className={styles.dialogFooter}>
+      </Field>
+      <div className="flex flex-wrap justify-end gap-2">
         <Button
           type="button"
           disabled={

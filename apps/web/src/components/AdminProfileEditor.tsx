@@ -1,11 +1,15 @@
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
+import { Field, FieldDescription, FieldLabel } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
 import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiRequest } from '@/api/client';
 import { demoMode } from '@/api/queries';
 import type { AdminProfile, UserPrivate } from '@/api/generated/models';
-import styles from '@/styles/App.module.css';
+
+const notice = 'text-sm text-muted-foreground';
+const formStack = 'grid gap-4';
 
 export function AdminProfileEditor({
   user,
@@ -28,15 +32,27 @@ export function AdminProfileEditor({
           } satisfies AdminProfile)
         : apiRequest<AdminProfile>(`/admin/users/${user.id}/profile`),
   });
-  if (query.isLoading) return <p role="status">Loading profile details…</p>;
+  if (query.isLoading)
+    return (
+      <p role="status" className={notice}>
+        Loading profile details…
+      </p>
+    );
   if (!query.data)
     return (
-      <p role="alert">
-        Profile details could not be loaded.{' '}
-        <Button type="submit" onClick={() => void query.refetch()}>
-          Retry
-        </Button>
-      </p>
+      <Alert variant="destructive">
+        <AlertDescription className="flex flex-wrap items-center gap-3 text-destructive">
+          Profile details could not be loaded.
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => void query.refetch()}
+          >
+            Retry
+          </Button>
+        </AlertDescription>
+      </Alert>
     );
   return <ProfileForm key={user.id} profile={query.data} onSaved={onSaved} />;
 }
@@ -105,82 +121,107 @@ function ProfileForm({
     }
   }
   return (
-    <section aria-label="Edit profile and contact details">
-      <h3>Profile and contact details</h3>
+    <section
+      aria-label="Edit profile and contact details"
+      className="grid gap-6"
+    >
+      <h3 className="text-base font-semibold">Profile and contact details</h3>
       <form
-        className={styles.formStack}
+        className={formStack}
         onSubmit={(e) => {
           e.preventDefault();
           void save(false);
         }}
       >
-        <label className={styles.field}>
-          Name
+        <Field>
+          <FieldLabel htmlFor="admin-profile-name">Name</FieldLabel>
           <Input
+            id="admin-profile-name"
             value={form.name}
             required
             maxLength={100}
             onChange={(e) => setForm({ ...form, name: e.target.value })}
           />
-        </label>
-        <label className={styles.field}>
-          Profile slug
+        </Field>
+        <Field>
+          <FieldLabel htmlFor="admin-profile-slug">Profile slug</FieldLabel>
           <Input
+            id="admin-profile-slug"
             value={form.slug}
             required
             minLength={3}
             maxLength={50}
             onChange={(e) => setForm({ ...form, slug: e.target.value })}
           />
-        </label>
-        <label className={styles.field}>
-          Avatar URL
+        </Field>
+        <Field>
+          <FieldLabel htmlFor="admin-profile-avatar">Avatar URL</FieldLabel>
           <Input
+            id="admin-profile-avatar"
             type="url"
             value={form.avatarUrl ?? ''}
             placeholder="https://…"
             onChange={(e) => setForm({ ...form, avatarUrl: e.target.value })}
           />
-        </label>
-        <label className={styles.field}>
-          Discord
+        </Field>
+        <Field>
+          <FieldLabel htmlFor="admin-profile-discord">Discord</FieldLabel>
           <Input
+            id="admin-profile-discord"
             value={form.discordId ?? ''}
             maxLength={100}
             onChange={(e) => setForm({ ...form, discordId: e.target.value })}
           />
-        </label>
-        <Button type="submit" disabled={pending}>
-          Save profile
-        </Button>
+        </Field>
+        <div>
+          <Button type="submit" disabled={pending}>
+            Save profile
+          </Button>
+        </div>
       </form>
       <form
-        className={styles.formStack}
+        className={`${formStack} border-t pt-6`}
         onSubmit={(e) => {
           e.preventDefault();
           void save(true);
         }}
       >
-        <p>Current email: {profile.email}</p>
-        <label className={styles.field}>
-          New email address
+        <p className={notice}>Current email: {profile.email}</p>
+        <Field>
+          <FieldLabel htmlFor="admin-profile-new-email">
+            New email address
+          </FieldLabel>
           <Input
+            id="admin-profile-new-email"
             type="email"
             required
             value={email}
+            aria-describedby="admin-profile-new-email-help"
             onChange={(e) => setEmail(e.target.value)}
           />
-        </label>
-        <p className={styles.helper}>
-          The recipient must verify the new address before their sign-in email
-          changes.
-        </p>
-        <Button variant="outline" type="submit" disabled={pending}>
-          Send email verification
-        </Button>
+          <FieldDescription id="admin-profile-new-email-help">
+            The recipient must verify the new address before their sign-in email
+            changes.
+          </FieldDescription>
+        </Field>
+        <div>
+          <Button variant="outline" type="submit" disabled={pending}>
+            Send email verification
+          </Button>
+        </div>
       </form>
-      {error ? <p role="alert">{error}</p> : null}
-      {message ? <p role="status">{message}</p> : null}
+      {error ? (
+        <Alert variant="destructive">
+          <AlertDescription className="text-destructive">
+            {error}
+          </AlertDescription>
+        </Alert>
+      ) : null}
+      {message ? (
+        <p role="status" className={notice}>
+          {message}
+        </p>
+      ) : null}
     </section>
   );
 }

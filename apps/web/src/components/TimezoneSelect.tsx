@@ -7,7 +7,7 @@ import {
   type FocusEventHandler,
 } from 'react';
 
-import styles from '@/styles/App.module.css';
+import { cn } from '@/lib/utils';
 import { formatTimezoneOption } from '@/utils';
 
 export function TimezoneSelect({
@@ -106,7 +106,7 @@ export function TimezoneSelect({
   };
 
   return (
-    <div ref={rootRef} className={styles.timezoneSelect}>
+    <div ref={rootRef} className="relative">
       <Input
         ref={setRefs}
         id={id}
@@ -141,7 +141,7 @@ export function TimezoneSelect({
       {open ? (
         <div
           id={`${id}-options`}
-          className={styles.timezoneMenu}
+          className="absolute inset-x-0 top-[calc(100%+0.35rem)] z-20 max-h-64 overflow-y-auto rounded-lg border border-border bg-popover p-1 shadow-md"
           role="listbox"
           aria-label="Timezone options"
         >
@@ -149,7 +149,10 @@ export function TimezoneSelect({
             filteredOptions.map((timezone, index) => (
               <div
                 id={`${id}-option-${index}`}
-                className={`${styles.timezoneOption} ${index === highlightedIndex ? styles.timezoneOptionActive : ''}`}
+                className={cn(
+                  'cursor-pointer rounded-sm px-2.5 py-2 text-sm',
+                  index === highlightedIndex && 'bg-muted',
+                )}
                 key={timezone}
                 role="option"
                 tabIndex={-1}
@@ -168,7 +171,9 @@ export function TimezoneSelect({
               </div>
             ))
           ) : (
-            <p className={styles.timezoneEmpty}>No matching timezones.</p>
+            <p className="m-0 px-2.5 py-2 text-sm text-muted-foreground">
+              No matching timezones.
+            </p>
           )}
         </div>
       ) : null}

@@ -1,5 +1,6 @@
-import { Button } from '@/components/ui/button';
-import { IconArrowRight, IconCalendarEvent } from '@tabler/icons-react';
+import { Badge } from '@/components/ui/badge';
+import { buttonVariants } from '@/components/ui/button';
+import { IconArrowRight } from '@tabler/icons-react';
 import type { ColumnDef } from '@tanstack/react-table';
 import { Link } from 'react-router-dom';
 
@@ -7,9 +8,15 @@ import { useCurrentUser, useSeasons } from '@/api/queries';
 import { PageHeader, usePageTitle } from '@/components/Common';
 import { DataTable, HighlightText } from '@/components/DataTable';
 import { SeasonEditorDialog } from '@/components/SeasonManagement';
-import styles from '@/styles/App.module.css';
 import type { Season } from '@/types';
 import { formatDate } from '@/utils';
+
+const pageClass = 'mx-auto w-full max-w-[92rem]';
+const inlineClass = 'flex flex-wrap items-center gap-2.5';
+const helperClass = 'text-sm text-muted-foreground';
+const statusBadgeClass = 'h-5 rounded-4xl px-2 text-xs font-medium';
+const badgeSuccessClass = 'bg-success-soft text-success';
+const badgeNeutralClass = 'bg-muted text-muted-foreground';
 
 export function SeasonsPage() {
   usePageTitle('Seasons');
@@ -48,7 +55,7 @@ export function SeasonsPage() {
               <HighlightText text={row.original.name} />
             </strong>
           </Link>
-          <div className={styles.helper}>{row.original.summary}</div>
+          <div className={helperClass}>{row.original.summary}</div>
         </div>
       ),
     },
@@ -56,13 +63,14 @@ export function SeasonsPage() {
       accessorKey: 'status',
       header: 'Status',
       cell: ({ getValue }) => (
-        <span
-          className={
-            getValue() === 'open' ? styles.badgeSuccess : styles.badgeNeutral
-          }
+        <Badge
+          variant="secondary"
+          className={`${statusBadgeClass} ${
+            getValue() === 'open' ? badgeSuccessClass : badgeNeutralClass
+          }`}
         >
           {getValue() === 'open' ? 'Open' : 'Closed'}
-        </span>
+        </Badge>
       ),
     },
     {
@@ -87,22 +95,20 @@ export function SeasonsPage() {
       enableSorting: false,
       enableHiding: false,
       cell: ({ row }) => (
-        <div className={styles.inline}>
+        <div className={inlineClass}>
           {canCreate ? <SeasonEditorDialog season={row.original} /> : null}
-          <Button
-            nativeButton={false}
-            role="link"
-            variant="ghost"
-            render={<Link to={`/seasons/${row.original.slug}`} />}
+          <Link
+            to={`/seasons/${row.original.slug}`}
+            className={buttonVariants({ variant: 'outline', size: 'sm' })}
           >
             Open <IconArrowRight size={17} aria-hidden="true" />
-          </Button>
+          </Link>
         </div>
       ),
     },
   ];
   return (
-    <div className={styles.page}>
+    <div className={pageClass}>
       <PageHeader
         eyebrow="Programme"
         title="Seasons"
@@ -121,34 +127,33 @@ export function SeasonsPage() {
         getRowId={(season) => season.id}
         renderCard={(row) => (
           <div>
-            <div className={styles.inline}>
-              <IconCalendarEvent size={18} aria-hidden="true" />
-              <span
-                className={
+            <div className={inlineClass}>
+              <Badge
+                variant="secondary"
+                className={`${statusBadgeClass} ${
                   row.original.status === 'open'
-                    ? styles.badgeSuccess
-                    : styles.badgeNeutral
-                }
+                    ? badgeSuccessClass
+                    : badgeNeutralClass
+                }`}
               >
-                {row.original.status}
-              </span>
+                {row.original.status.charAt(0).toUpperCase() +
+                  row.original.status.slice(1)}
+              </Badge>
             </div>
-            <h2 className={`${styles.cardTitle} ${styles.cardTitleSpaced}`}>
+            <h2 className="mt-2.5 text-base font-semibold">
               <HighlightText text={row.original.name} />
             </h2>
-            <p className={styles.helper}>
+            <p className={helperClass}>
               {formatDate(row.original.startsAt)} –{' '}
               {formatDate(row.original.endsAt)}
             </p>
             <p>{row.original.summary}</p>
-            <Button
-              nativeButton={false}
-              role="link"
-              variant="outline"
-              render={<Link to={`/seasons/${row.original.slug}`} />}
+            <Link
+              to={`/seasons/${row.original.slug}`}
+              className={buttonVariants({ variant: 'outline', size: 'sm' })}
             >
-              Open season
-            </Button>
+              Open <IconArrowRight size={17} aria-hidden="true" />
+            </Link>
           </div>
         )}
       />

@@ -2,7 +2,6 @@ import { Combobox } from '@base-ui/react/combobox';
 import type { Ref } from 'react';
 import type { LeetcodeProblem } from '@/api/generated/models';
 import { displayDifficulty } from '@/api/adapters';
-import styles from '@/styles/App.module.css';
 
 const label = (problem: LeetcodeProblem) =>
   `${problem.number}. ${problem.title} · ${displayDifficulty(problem.difficulty)}`;
@@ -58,18 +57,18 @@ export function ProblemSelect({
       <Combobox.Portal>
         <Combobox.Positioner
           sideOffset={4}
-          className={styles.problemPositioner}
+          className="z-100 w-(--anchor-width) max-w-[calc(100vw-2rem)]"
         >
-          <Combobox.Popup className={styles.problemPopup}>
-            <Combobox.Empty className={styles.timezoneEmpty}>
+          <Combobox.Popup className="rounded-lg border border-border bg-popover text-popover-foreground shadow-md outline-none">
+            <Combobox.Empty className="m-0 px-2.5 py-2 text-sm text-muted-foreground">
               No matching questions.
             </Combobox.Empty>
-            <Combobox.List className={styles.problemList}>
+            <Combobox.List className="max-h-[min(18.75rem,var(--available-height))] overflow-auto p-1">
               {(problem: LeetcodeProblem) => (
                 <Combobox.Item
                   key={problem.id}
                   value={problem}
-                  className={styles.problemOption}
+                  className="cursor-pointer rounded-md px-3 py-2.5 text-sm [overflow-wrap:anywhere] data-highlighted:bg-muted"
                 >
                   {label(problem)}
                 </Combobox.Item>
