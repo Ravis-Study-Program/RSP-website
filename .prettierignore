@@ -13,3 +13,6 @@ apps/web/src/api/generated/
 
 # Preserve the imported legacy backlog byte-for-byte for provenance checks.
 docs/product-backlog.md
+
+# Vendored Impeccable skill; owned by `npx impeccable update`.
+.agents/skills/

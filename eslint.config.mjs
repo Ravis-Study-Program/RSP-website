@@ -18,6 +18,7 @@ export default tseslint.config(
       '**/test-results*/**',
       '**/playwright-report*/**',
       'apps/web/src/api/generated/**',
+      '.agents/**',
     ],
   },
   {

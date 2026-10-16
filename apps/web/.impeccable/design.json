@@ -1,0 +1,302 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-10-17T00:00:00Z",
+  "title": "Design System: RSP Workspace",
+  "extensions": {
+    "colorMeta": {
+      "ink": {
+        "role": "primary",
+        "displayName": "Ledger Ink",
+        "canonical": "#171717",
+        "tonalRamp": [
+          "#0a0a0a",
+          "#171717",
+          "#262626",
+          "#404040",
+          "#525252",
+          "#737373",
+          "#a3a3a3",
+          "#d4d4d4"
+        ]
+      },
+      "paper": {
+        "role": "neutral",
+        "displayName": "Paper",
+        "canonical": "#ffffff"
+      },
+      "paper-on-ink": {
+        "role": "neutral",
+        "displayName": "Paper on Ink",
+        "canonical": "#fafafa"
+      },
+      "wash": {
+        "role": "neutral",
+        "displayName": "Wash",
+        "canonical": "#f5f5f5"
+      },
+      "graphite": {
+        "role": "neutral",
+        "displayName": "Graphite",
+        "canonical": "#666666"
+      },
+      "hairline": {
+        "role": "neutral",
+        "displayName": "Hairline",
+        "canonical": "#e5e5e5"
+      },
+      "pencil": {
+        "role": "neutral",
+        "displayName": "Pencil",
+        "canonical": "#a3a3a3"
+      },
+      "sidebar-paper": {
+        "role": "neutral",
+        "displayName": "Sidebar Paper",
+        "canonical": "#fafafa"
+      },
+      "sidebar-hover": {
+        "role": "neutral",
+        "displayName": "Sidebar Hover",
+        "canonical": "#eeeeee"
+      },
+      "ledger-red": {
+        "role": "status",
+        "displayName": "Ledger Red",
+        "canonical": "#b42335",
+        "tonalRamp": [
+          "#3d0c12",
+          "#6b1520",
+          "#b42335",
+          "#d0485a",
+          "#e57b88",
+          "#f2aeb6",
+          "#fad6da",
+          "#fef0f1"
+        ]
+      },
+      "ledger-red-soft": {
+        "role": "status",
+        "displayName": "Red Wash",
+        "canonical": "#fef0f1"
+      },
+      "ledger-green": {
+        "role": "status",
+        "displayName": "Ledger Green",
+        "canonical": "#167047",
+        "tonalRamp": [
+          "#08261a",
+          "#0f4a2f",
+          "#167047",
+          "#24945f",
+          "#4fb983",
+          "#86d9a6",
+          "#c3edd2",
+          "#edf8f1"
+        ]
+      },
+      "ledger-green-soft": {
+        "role": "status",
+        "displayName": "Green Wash",
+        "canonical": "#edf8f1"
+      },
+      "ledger-amber": {
+        "role": "status",
+        "displayName": "Ledger Amber",
+        "canonical": "#865b0b",
+        "tonalRamp": [
+          "#2e1f04",
+          "#5a3d07",
+          "#865b0b",
+          "#b07c17",
+          "#d4a243",
+          "#efc87c",
+          "#f9e3b8",
+          "#fff7e6"
+        ]
+      },
+      "ledger-amber-soft": {
+        "role": "status",
+        "displayName": "Amber Wash",
+        "canonical": "#fff7e6"
+      },
+      "night-paper": {
+        "role": "neutral",
+        "displayName": "Night Paper",
+        "canonical": "#171717"
+      },
+      "night-card": {
+        "role": "neutral",
+        "displayName": "Night Card",
+        "canonical": "#202020"
+      },
+      "night-wash": {
+        "role": "neutral",
+        "displayName": "Night Wash",
+        "canonical": "#292929"
+      },
+      "night-hairline": {
+        "role": "neutral",
+        "displayName": "Night Hairline",
+        "canonical": "#383838"
+      }
+    },
+    "typographyMeta": {
+      "headline": { "displayName": "Headline", "purpose": "Page titles." },
+      "title": {
+        "displayName": "Title",
+        "purpose": "Card titles and section headings."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "Base reading text; mobile form values."
+      },
+      "body-compact": {
+        "displayName": "Body Compact",
+        "purpose": "Dominant UI size: buttons, inputs (md+), tables, tabs."
+      },
+      "label": {
+        "displayName": "Label",
+        "purpose": "Sentence-case eyebrows, badges, small meta."
+      },
+      "mono": { "displayName": "Mono", "purpose": "Code-like values only." }
+    },
+    "shadows": [
+      {
+        "name": "float",
+        "value": "0 8px 24px rgb(0 0 0 / 0.18)",
+        "purpose": "Popovers, comboboxes, date-picker calendar, timezone lists."
+      },
+      {
+        "name": "dialog",
+        "value": "0 12px 32px rgb(0 0 0 / 0.22)",
+        "purpose": "Modal dialogs."
+      }
+    ],
+    "motion": [
+      {
+        "name": "switch-thumb",
+        "value": "transform 140ms ease",
+        "purpose": "Switch thumb travel."
+      },
+      {
+        "name": "press",
+        "value": "translateY(1px)",
+        "purpose": "Button active nudge."
+      },
+      {
+        "name": "reduced-motion",
+        "value": "0.01ms",
+        "purpose": "All transitions/animations collapse under prefers-reduced-motion."
+      }
+    ],
+    "breakpoints": [
+      { "name": "md", "value": "48rem" },
+      { "name": "mobile-shell", "value": "56rem" },
+      { "name": "grid-two-col", "value": "70rem" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Default action; ink fill.",
+      "html": "<button class=\"ds-btn-primary\">Record practice</button>",
+      "css": ".ds-btn-primary { display: inline-flex; align-items: center; height: 36px; padding: 0 10px; border: 1px solid transparent; border-radius: 10px; background: var(--primary, #171717); color: var(--primary-foreground, #fafafa); font: 500 14px/1 'Source Sans 3', sans-serif; cursor: pointer; transition: box-shadow .15s, transform .15s, background .15s; } .ds-btn-primary:hover { background: color-mix(in srgb, var(--primary, #171717) 80%, transparent); } .ds-btn-primary:focus-visible { outline: none; box-shadow: 0 0 0 3px color-mix(in srgb, var(--ring, #a3a3a3) 50%, transparent); } .ds-btn-primary:active { transform: translateY(1px); }"
+    },
+    {
+      "name": "Outline Button",
+      "kind": "button",
+      "refersTo": "button-outline",
+      "description": "Secondary action on paper with hairline border.",
+      "html": "<button class=\"ds-btn-outline\">Filter</button>",
+      "css": ".ds-btn-outline { display: inline-flex; align-items: center; height: 36px; padding: 0 10px; border: 1px solid var(--border, #e5e5e5); border-radius: 10px; background: var(--background, #fff); color: var(--foreground, #171717); font: 500 14px/1 'Source Sans 3', sans-serif; cursor: pointer; } .ds-btn-outline:hover { background: var(--muted, #f5f5f5); } .ds-btn-outline:focus-visible { outline: none; border-color: var(--ring, #a3a3a3); box-shadow: 0 0 0 3px color-mix(in srgb, var(--ring, #a3a3a3) 50%, transparent); } .ds-btn-outline:active { transform: translateY(1px); }"
+    },
+    {
+      "name": "Destructive Button",
+      "kind": "button",
+      "refersTo": "button-destructive",
+      "description": "Red-on-wash tint for destructive actions.",
+      "html": "<button class=\"ds-btn-destructive\">Delete update</button>",
+      "css": ".ds-btn-destructive { display: inline-flex; align-items: center; height: 36px; padding: 0 10px; border: 1px solid transparent; border-radius: 10px; background: color-mix(in srgb, var(--destructive, #b42335) 10%, transparent); color: var(--destructive, #b42335); font: 500 14px/1 'Source Sans 3', sans-serif; cursor: pointer; } .ds-btn-destructive:hover { background: color-mix(in srgb, var(--destructive, #b42335) 20%, transparent); } .ds-btn-destructive:focus-visible { outline: none; box-shadow: 0 0 0 3px color-mix(in srgb, var(--destructive, #b42335) 20%, transparent); }"
+    },
+    {
+      "name": "Text Input",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "Hairline field with pencil focus ring.",
+      "html": "<input class=\"ds-input\" placeholder=\"Problem name\" />",
+      "css": ".ds-input { height: 36px; width: 260px; padding: 4px 10px; border: 1px solid var(--border, #e5e5e5); border-radius: 10px; background: transparent; color: var(--foreground, #171717); font: 400 14px/1.4 'Source Sans 3', sans-serif; outline: none; transition: box-shadow .15s; } .ds-input::placeholder { color: var(--muted-foreground, #666); } .ds-input:focus-visible { border-color: var(--ring, #a3a3a3); box-shadow: 0 0 0 3px color-mix(in srgb, var(--ring, #a3a3a3) 50%, transparent); }"
+    },
+    {
+      "name": "Card",
+      "kind": "card",
+      "refersTo": "card",
+      "description": "Flat paper surface with 10% ink ring.",
+      "html": "<div class=\"ds-card\"><div class=\"ds-card-title\">This week</div><div class=\"ds-card-desc\">4 practice attempts · 1 mock interview</div></div>",
+      "css": ".ds-card { display: flex; flex-direction: column; gap: 4px; width: 280px; padding: 16px; border-radius: 14px; background: var(--card, #fff); color: var(--foreground, #171717); box-shadow: 0 0 0 1px color-mix(in srgb, var(--foreground, #171717) 10%, transparent); font: 400 14px/1.43 'Source Sans 3', sans-serif; } .ds-card-title { font-size: 16px; font-weight: 500; line-height: 1.375; } .ds-card-desc { color: var(--muted-foreground, #666); }"
+    },
+    {
+      "name": "Badge",
+      "kind": "chip",
+      "refersTo": "badge",
+      "description": "20px pill; ink, outline or status-tinted.",
+      "html": "<span class=\"ds-badge\">Mentor</span> <span class=\"ds-badge ds-badge-success\">Marked</span> <span class=\"ds-badge ds-badge-warning\">Read-only</span>",
+      "css": ".ds-badge { display: inline-flex; align-items: center; height: 20px; padding: 2px 8px; border-radius: 9999px; background: var(--primary, #171717); color: var(--primary-foreground, #fafafa); font: 500 12px/1 'Source Sans 3', sans-serif; } .ds-badge-success { background: var(--success-soft, #edf8f1); color: var(--success, #167047); } .ds-badge-warning { background: var(--warning-soft, #fff7e6); color: var(--warning, #865b0b); }"
+    },
+    {
+      "name": "Sidebar Nav",
+      "kind": "nav",
+      "refersTo": "nav-link",
+      "description": "44px graphite links; active darkens to ink on hover step.",
+      "html": "<nav class=\"ds-nav\"><a class=\"ds-nav-link ds-nav-active\" href=\"#\">Dashboard</a><a class=\"ds-nav-link\" href=\"#\">Practice</a><a class=\"ds-nav-link\" href=\"#\">Mock interviews</a><a class=\"ds-nav-link\" href=\"#\">Monday updates</a></nav>",
+      "css": ".ds-nav { display: grid; gap: 3px; width: 220px; padding: 12px; background: var(--sidebar-bg, #fafafa); } .ds-nav-link { display: flex; align-items: center; min-height: 44px; padding: 0.58rem 0.7rem; border-radius: 6px; color: var(--sidebar-muted, #666); font: 550 15px/1.2 'Source Sans 3', sans-serif; text-decoration: none; } .ds-nav-link:hover, .ds-nav-active { color: var(--sidebar-text, #171717); background: var(--sidebar-hover, #eee); } .ds-nav-link:focus-visible { outline: 3px solid var(--ring, #a3a3a3); outline-offset: 3px; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Study Ledger",
+    "overview": "RSP Workspace is a ledger: a quiet, trustworthy place where a season of practice, mock interviews and Monday updates gets written down and read back. Ink sits on paper. Near-black on white, with an equally restrained dark mode, and almost nothing else. Members' records are the content. The interface is the ruled page under them.\n\nThe mood is calm, precise and restrained. Density is that of a working tool: compact 14px controls, tables, filters and short summaries, never sprawling marketing composition. Hierarchy comes from weight, size and spacing, not colour. Colour carries meaning only for status: success, warning, danger.\n\nComponents should feel exact and unassuming. They are shadcn/ui primitives on Base UI, with gently rounded corners, hairline borders and immediate, motion-light feedback.",
+    "keyCharacteristics": [
+      "Monochrome ink-on-paper palette with a mirrored dark mode (`data-theme=\"dark\"`).",
+      "One typeface, Source Sans 3, at weights 400–700; tight negative tracking on page titles.",
+      "Flat surfaces defined by 1px hairlines and rings. Shadows exist only on floating layers.",
+      "Fixed left sidebar on desktop. Below 56rem it collapses to a mobile header and mobile navigation.",
+      "Status colour (green, amber, red) always pairs with a soft tinted wash and text, and is never decorative."
+    ],
+    "rules": [
+      {
+        "name": "The Ink-Only Accent Rule",
+        "body": "There is no brand hue. Primary emphasis is ink, and any non-neutral colour on screen must answer \"what status is this?\"",
+        "section": "colors"
+      },
+      {
+        "name": "The Paired Wash Rule",
+        "body": "Status colour always appears as a text/icon colour on its own soft wash, so meaning survives in both themes and in forced-colors mode.",
+        "section": "colors"
+      },
+      {
+        "name": "The Sentence-Case Eyebrow Rule",
+        "body": "Eyebrows and labels are sentence case with normal tracking. Uppercase letter-spaced labels are not part of this system.",
+        "section": "typography"
+      },
+      {
+        "name": "The Flat Ledger Rule",
+        "body": "Nothing resting on the page casts a shadow. A shadow means \"this is floating and will go away\": menus, popovers, dialogs.",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "**Do** take emphasis from ink fill, weight (500–700) and size before reaching for colour.",
+      "**Do** use the tokens in `src/styles/tokens.css` (`--primary`, `--muted`, `--border`, `--success`/`--success-soft` and so on) so both themes stay in sync.",
+      "**Do** pair every status colour with its soft wash, and keep `forced-colors` and `prefers-reduced-motion` behaviour intact.",
+      "**Do** keep focus visible: 3px ring or outline, offset 3px.",
+      "**Do** keep controls compact (36px default) while nav targets stay at 44px or more."
+    ],
+    "donts": [
+      "**Don't** introduce a brand hue, gradients, or decorative colour. Colour means status.",
+      "**Don't** put shadows on cards, tables or other resting surfaces. Only floating layers get shadows.",
+      "**Don't** add a second typeface or uppercase letter-spaced eyebrows.",
+      "**Don't** use solid red blocks for destructive actions. Use the red-on-wash tint."
+    ]
+  }
+}
