@@ -50,7 +50,7 @@ import {
   attempts,
   demoUser,
   mockInterviews,
-  mondayUpdates,
+  demoMondayUpdates,
   people,
   seasonWeeks,
   seasons,
@@ -383,7 +383,7 @@ function demoMondayUpdatePage(
 ): Page<MondayUpdate> {
   if (!seasons.some((season) => season.id === seasonId)) return page([]);
   return page(
-    mondayUpdates.filter(
+    demoMondayUpdates().filter(
       (update) =>
         update.seasonId === seasonId &&
         dateRangesOverlap(
@@ -418,9 +418,10 @@ function demoMondayUpdateReview(
         : [];
     },
   );
+  const allUpdates = demoMondayUpdates();
   return page(
     students.map((student): MondayUpdateReviewRow => {
-      const updates = mondayUpdates.filter(
+      const updates = allUpdates.filter(
         (update) =>
           update.student.id === student.id &&
           dateRangesOverlap(
