@@ -1,3 +1,4 @@
+import { chooseOption, expectSelected } from './select';
 import { expect, test } from '@playwright/test';
 
 test('practice charts follow filters and the picker accepts keyboard search', async ({
@@ -42,10 +43,10 @@ test('profiles switch between seasons and all time with readable activity', asyn
   page,
 }, testInfo) => {
   await page.goto('/people/amelia-chen?seasonId=season_2026_s2');
-  await expect(page.getByLabel('View activity')).toHaveValue('season_2026_s2');
-  await page.getByLabel('View activity').selectOption('season_2026_s1');
+  await expectSelected(page, 'View activity', 'Summer 2025/26');
+  await chooseOption(page, 'View activity', 'Summer 2024/25');
   await expect(page).toHaveURL(/seasonId=season_2026_s1/);
-  await page.getByLabel('View activity').selectOption('');
+  await chooseOption(page, 'View activity', 'All time');
   await expect(page).not.toHaveURL(/seasonId=/);
   await expect(
     page.getByRole('heading', { name: 'Programme participation' }),
@@ -163,7 +164,7 @@ test('administrators can correct the person attached to an enrollment', async ({
     .click();
   const dialog = page.getByRole('dialog', { name: /Correct enrollment for/ });
   await expect(dialog.getByLabel('Correct person')).toBeEnabled();
-  await dialog.getByLabel('Correct person').selectOption({ index: 1 });
+  await chooseOption(dialog, 'Correct person', 'Priya Singh (priya-singh)');
   await dialog.getByRole('button', { name: 'Save correction' }).click();
   await expect(dialog).not.toBeVisible();
 });

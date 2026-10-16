@@ -1,9 +1,13 @@
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import {
-  NativeSelect,
-  NativeSelectOption,
-} from '@/components/ui/native-select';
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { Field, FieldLabel } from '@/components/ui/field';
 import { IconArrowRight, IconPlus, IconUsersGroup } from '@tabler/icons-react';
@@ -207,6 +211,16 @@ function MentorshipDialog({
       setPending(false);
     }
   };
+  const mentorItems = [
+    { label: 'Choose a mentor', value: '' },
+    ...mentors.map((mentor) => ({ label: mentor.name, value: mentor.id })),
+  ];
+  const studentItems = [
+    { label: 'Choose a student', value: '' },
+    ...students
+      .filter((student) => student.status === 'unassigned')
+      .map((student) => ({ label: student.name, value: student.id })),
+  ];
   return (
     <FormDialog
       title="Create mentorship"
@@ -234,40 +248,54 @@ function MentorshipDialog({
           <FieldLabel htmlFor={`mentor-${initialStudentId || 'new'}`}>
             Mentor
           </FieldLabel>
-          <NativeSelect
-            id={`mentor-${initialStudentId || 'new'}`}
-            className="w-full"
+          <Select
+            items={mentorItems}
             value={mentorId}
-            onChange={(event) => setMentorId(event.target.value)}
+            onValueChange={(value) => setMentorId(value ?? '')}
           >
-            <NativeSelectOption value="">Choose a mentor</NativeSelectOption>
-            {mentors.map((mentor) => (
-              <NativeSelectOption key={mentor.id} value={mentor.id}>
-                {mentor.name}
-              </NativeSelectOption>
-            ))}
-          </NativeSelect>
+            <SelectTrigger
+              id={`mentor-${initialStudentId || 'new'}`}
+              className="w-full"
+            >
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectGroup>
+                {mentorItems.map((item) => (
+                  <SelectItem key={item.value} value={item.value}>
+                    {item.label}
+                  </SelectItem>
+                ))}
+              </SelectGroup>
+            </SelectContent>
+          </Select>
         </Field>
         <Field>
           <FieldLabel htmlFor={`student-${initialStudentId || 'new'}`}>
             Student
           </FieldLabel>
-          <NativeSelect
-            id={`student-${initialStudentId || 'new'}`}
-            className="w-full"
+          <Select
+            items={studentItems}
             value={studentId}
             disabled={Boolean(initialStudentId)}
-            onChange={(event) => setStudentId(event.target.value)}
+            onValueChange={(value) => setStudentId(value ?? '')}
           >
-            <NativeSelectOption value="">Choose a student</NativeSelectOption>
-            {students
-              .filter((student) => student.status === 'unassigned')
-              .map((student) => (
-                <NativeSelectOption key={student.id} value={student.id}>
-                  {student.name}
-                </NativeSelectOption>
-              ))}
-          </NativeSelect>
+            <SelectTrigger
+              id={`student-${initialStudentId || 'new'}`}
+              className="w-full"
+            >
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectGroup>
+                {studentItems.map((item) => (
+                  <SelectItem key={item.value} value={item.value}>
+                    {item.label}
+                  </SelectItem>
+                ))}
+              </SelectGroup>
+            </SelectContent>
+          </Select>
         </Field>
         <div className="flex flex-wrap justify-end gap-2">
           <Button

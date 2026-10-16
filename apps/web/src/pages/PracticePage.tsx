@@ -1,9 +1,13 @@
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
-  NativeSelect,
-  NativeSelectOption,
-} from '@/components/ui/native-select';
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { useActivityFilters, filterPractice } from '@/activityFilters';
 import { ProblemSuggestion } from '@/components/ProblemSuggestion';
@@ -463,6 +467,15 @@ export function PracticePage() {
   );
 }
 
+const outcomeItems: {
+  label: string;
+  value: AttemptFormValues['outcome'];
+}[] = [
+  { label: 'Independently solved', value: 'independently_solved' },
+  { label: 'Solved with hints', value: 'solved_with_hints' },
+  { label: 'Not solved', value: 'not_solved' },
+];
+
 function AttemptDialog({
   attempt,
   problems,
@@ -627,21 +640,33 @@ function AttemptDialog({
           <div className="grid grid-cols-1 gap-3.5 min-[56rem]:grid-cols-2">
             <Field>
               <FieldLabel htmlFor="attempt-outcome">Outcome</FieldLabel>
-              <NativeSelect
-                id="attempt-outcome"
-                className="w-full"
-                {...register('outcome')}
-              >
-                <NativeSelectOption value="independently_solved">
-                  Independently solved
-                </NativeSelectOption>
-                <NativeSelectOption value="solved_with_hints">
-                  Solved with hints
-                </NativeSelectOption>
-                <NativeSelectOption value="not_solved">
-                  Not solved
-                </NativeSelectOption>
-              </NativeSelect>
+              <Controller
+                name="outcome"
+                control={control}
+                render={({ field }) => (
+                  <Select
+                    items={outcomeItems}
+                    name={field.name}
+                    value={field.value}
+                    onValueChange={(value) => {
+                      if (value) field.onChange(value);
+                    }}
+                  >
+                    <SelectTrigger id="attempt-outcome" className="w-full">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectGroup>
+                        {outcomeItems.map((item) => (
+                          <SelectItem key={item.value} value={item.value}>
+                            {item.label}
+                          </SelectItem>
+                        ))}
+                      </SelectGroup>
+                    </SelectContent>
+                  </Select>
+                )}
+              />
             </Field>
             <Field>
               <FieldLabel htmlFor="attempt-confidence">

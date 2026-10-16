@@ -1,9 +1,13 @@
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import {
-  NativeSelect,
-  NativeSelectOption,
-} from '@/components/ui/native-select';
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import {
   Field,
   FieldDescription,
@@ -180,6 +184,18 @@ export function ProfilePage() {
     ? [selectedParticipation.role]
     : person.roles;
   const displayedStatus = selectedParticipation?.state ?? person.status;
+  const seasonItems = [
+    { label: 'All time', value: '' },
+    ...(seasons.data?.items ?? [])
+      .filter(
+        (season) =>
+          season.id === seasonId ||
+          participation.data?.items.some(
+            (entry) => entry.seasonId === season.id,
+          ),
+      )
+      .map((season) => ({ label: season.name, value: season.id })),
+  ];
   return (
     <div className={pageClass}>
       <header className="flex items-center gap-4 border-b pb-4">
@@ -201,34 +217,31 @@ export function ProfilePage() {
       {showProgrammeDetails ? (
         <Field className="mt-4">
           <FieldLabel htmlFor="profile-season">View activity</FieldLabel>
-          <NativeSelect
-            id="profile-season"
-            className="w-full"
+          <Select
+            items={seasonItems}
             value={seasonId ?? ''}
-            onChange={(event) => {
+            onValueChange={(value) => {
               const next = new URLSearchParams(searchParams);
               next.delete('weekId');
               next.delete('year');
-              if (event.target.value) next.set('seasonId', event.target.value);
+              if (value) next.set('seasonId', value);
               else next.delete('seasonId');
               setSearchParams(next);
             }}
           >
-            <NativeSelectOption value="">All time</NativeSelectOption>
-            {(seasons.data?.items ?? [])
-              .filter(
-                (season) =>
-                  season.id === seasonId ||
-                  participation.data?.items.some(
-                    (entry) => entry.seasonId === season.id,
-                  ),
-              )
-              .map((season) => (
-                <NativeSelectOption key={season.id} value={season.id}>
-                  {season.name}
-                </NativeSelectOption>
-              ))}
-          </NativeSelect>
+            <SelectTrigger id="profile-season" className="w-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectGroup>
+                {seasonItems.map((item) => (
+                  <SelectItem key={item.value} value={item.value}>
+                    {item.label}
+                  </SelectItem>
+                ))}
+              </SelectGroup>
+            </SelectContent>
+          </Select>
           <FieldDescription>
             {selectedSeason
               ? `Activity recorded in ${selectedSeason.name}`

@@ -1,8 +1,12 @@
 import { Button, buttonVariants } from '@/components/ui/button';
 import {
-  NativeSelect,
-  NativeSelectOption,
-} from '@/components/ui/native-select';
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import {
   Sheet,
   SheetContent,
@@ -220,6 +224,10 @@ export function AppShell() {
 
   const workspaceSelect = (className: string, showLabel: boolean) => {
     if (!workspaces.length) return null;
+    const workspaceItems = workspaces.map((workspace) => ({
+      label: workspace.label,
+      value: workspace.id,
+    }));
     return (
       <div className={showLabel ? 'mt-6 mb-4 grid gap-1.5' : 'min-w-0 flex-1'}>
         {showLabel ? (
@@ -234,21 +242,30 @@ export function AppShell() {
             Workspace
           </label>
         )}
-        <NativeSelect
-          id={showLabel ? 'workspace-select' : 'workspace-select-mobile'}
-          className={cn(
-            'border-sidebar-border bg-sidebar text-sidebar-foreground',
-            className,
-          )}
+        <Select
+          items={workspaceItems}
           value={activeWorkspace?.id ?? ''}
-          onChange={(event) => setActiveWorkspaceId(event.target.value)}
+          onValueChange={(value) => setActiveWorkspaceId(value ?? '')}
         >
-          {workspaces.map((workspace) => (
-            <NativeSelectOption key={workspace.id} value={workspace.id}>
-              {workspace.label}
-            </NativeSelectOption>
-          ))}
-        </NativeSelect>
+          <SelectTrigger
+            id={showLabel ? 'workspace-select' : 'workspace-select-mobile'}
+            className={cn(
+              'border-sidebar-border bg-sidebar text-sidebar-foreground',
+              className,
+            )}
+          >
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectGroup>
+              {workspaceItems.map((item) => (
+                <SelectItem key={item.value} value={item.value}>
+                  {item.label}
+                </SelectItem>
+              ))}
+            </SelectGroup>
+          </SelectContent>
+        </Select>
       </div>
     );
   };

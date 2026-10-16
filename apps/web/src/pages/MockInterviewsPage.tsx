@@ -1,9 +1,13 @@
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
-  NativeSelect,
-  NativeSelectOption,
-} from '@/components/ui/native-select';
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { useActivityFilters, filterMocks } from '@/activityFilters';
@@ -24,7 +28,7 @@ import {
 import type { ColumnDef, Row } from '@tanstack/react-table';
 import type { Resolver } from 'react-hook-form';
 import { useMemo, useState } from 'react';
-import { useForm } from 'react-hook-form';
+import { Controller, useForm } from 'react-hook-form';
 import { useBeforeUnload } from 'react-router-dom';
 import { z } from 'zod';
 
@@ -158,6 +162,12 @@ function interviewContext(
   };
 }
 
+const roundTypeItems: { label: string; value: MockRound['apiType'] }[] = [
+  { label: 'LeetCode', value: 'leetcode' },
+  { label: 'Custom', value: 'custom' },
+  { label: 'Behavioural', value: 'behavioural' },
+];
+
 function RoundEditor({
   round,
   index,
@@ -226,20 +236,26 @@ function RoundEditor({
       <div className="grid grid-cols-1 gap-3.5 min-[56rem]:grid-cols-2">
         <Field>
           <FieldLabel htmlFor={`round-type-${round.id}`}>Round type</FieldLabel>
-          <NativeSelect
-            id={`round-type-${round.id}`}
-            className="w-full"
+          <Select
+            items={roundTypeItems}
             value={round.apiType}
-            onChange={(event) =>
-              changeType(event.target.value as MockRound['apiType'])
-            }
+            onValueChange={(value) => {
+              if (value) changeType(value as MockRound['apiType']);
+            }}
           >
-            <NativeSelectOption value="leetcode">LeetCode</NativeSelectOption>
-            <NativeSelectOption value="custom">Custom</NativeSelectOption>
-            <NativeSelectOption value="behavioural">
-              Behavioural
-            </NativeSelectOption>
-          </NativeSelect>
+            <SelectTrigger id={`round-type-${round.id}`} className="w-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectGroup>
+                {roundTypeItems.map((item) => (
+                  <SelectItem key={item.value} value={item.value}>
+                    {item.label}
+                  </SelectItem>
+                ))}
+              </SelectGroup>
+            </SelectContent>
+          </Select>
         </Field>
         {round.apiType === 'leetcode' ? (
           <Field>
@@ -1065,18 +1081,29 @@ function RoundReviewDialog({
         {error ? <FieldError>{error}</FieldError> : null}
         <Field>
           <FieldLabel htmlFor={`review-round-${mock.id}`}>Round</FieldLabel>
-          <NativeSelect
-            id={`review-round-${mock.id}`}
-            className="w-full"
+          <Select
+            items={mock.rounds.map((round) => ({
+              label: round.title,
+              value: round.id,
+            }))}
             value={roundId}
-            onChange={(event) => chooseRound(event.target.value)}
+            onValueChange={(value) => {
+              if (value) chooseRound(value);
+            }}
           >
-            {mock.rounds.map((round) => (
-              <NativeSelectOption key={round.id} value={round.id}>
-                {round.title}
-              </NativeSelectOption>
-            ))}
-          </NativeSelect>
+            <SelectTrigger id={`review-round-${mock.id}`} className="w-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectGroup>
+                {mock.rounds.map((round) => (
+                  <SelectItem key={round.id} value={round.id}>
+                    {round.title}
+                  </SelectItem>
+                ))}
+              </SelectGroup>
+            </SelectContent>
+          </Select>
         </Field>
         <RichTextEditor
           id={`review-comment-${mock.id}`}
@@ -1244,35 +1271,59 @@ function IdentityCorrectionDialog({
             <FieldLabel htmlFor={`correct-interviewer-${mock.id}`}>
               Interviewer
             </FieldLabel>
-            <NativeSelect
-              id={`correct-interviewer-${mock.id}`}
-              className="w-full"
+            <Select
+              items={candidates.map((person) => ({
+                label: person.name,
+                value: person.id,
+              }))}
               value={interviewerId}
-              onChange={(event) => setInterviewerId(event.target.value)}
+              onValueChange={(value) => setInterviewerId(value ?? '')}
             >
-              {candidates.map((person) => (
-                <NativeSelectOption value={person.id} key={person.id}>
-                  {person.name}
-                </NativeSelectOption>
-              ))}
-            </NativeSelect>
+              <SelectTrigger
+                id={`correct-interviewer-${mock.id}`}
+                className="w-full"
+              >
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectGroup>
+                  {candidates.map((person) => (
+                    <SelectItem key={person.id} value={person.id}>
+                      {person.name}
+                    </SelectItem>
+                  ))}
+                </SelectGroup>
+              </SelectContent>
+            </Select>
           </Field>
           <Field>
             <FieldLabel htmlFor={`correct-interviewee-${mock.id}`}>
               Interviewee
             </FieldLabel>
-            <NativeSelect
-              id={`correct-interviewee-${mock.id}`}
-              className="w-full"
+            <Select
+              items={candidates.map((person) => ({
+                label: person.name,
+                value: person.id,
+              }))}
               value={intervieweeId}
-              onChange={(event) => setIntervieweeId(event.target.value)}
+              onValueChange={(value) => setIntervieweeId(value ?? '')}
             >
-              {candidates.map((person) => (
-                <NativeSelectOption value={person.id} key={person.id}>
-                  {person.name}
-                </NativeSelectOption>
-              ))}
-            </NativeSelect>
+              <SelectTrigger
+                id={`correct-interviewee-${mock.id}`}
+                className="w-full"
+              >
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectGroup>
+                  {candidates.map((person) => (
+                    <SelectItem key={person.id} value={person.id}>
+                      {person.name}
+                    </SelectItem>
+                  ))}
+                </SelectGroup>
+              </SelectContent>
+            </Select>
           </Field>
         </div>
         <Field>
@@ -1327,6 +1378,7 @@ function NewMockDialog({
   const [roundError, setRoundError] = useState('');
   const [roundsDirty, setRoundsDirty] = useState(false);
   const {
+    control,
     register,
     handleSubmit,
     reset,
@@ -1495,23 +1547,47 @@ function NewMockDialog({
       <form className="grid gap-4" noValidate onSubmit={onSubmit}>
         <Field>
           <FieldLabel htmlFor="mock-interviewee">Interviewee</FieldLabel>
-          <NativeSelect
-            id="mock-interviewee"
-            className="w-full"
-            {...register('intervieweeId')}
-          >
-            <NativeSelectOption value="">
-              Choose an eligible participant
-            </NativeSelectOption>
-            {people
-              .filter((person) => person.id !== interviewer?.id)
-              .map((person) => (
-                <NativeSelectOption key={person.id} value={person.id}>
-                  {person.name}
-                  {person.roles.length ? ` · ${person.roles.join(', ')}` : ''}
-                </NativeSelectOption>
-              ))}
-          </NativeSelect>
+          <Controller
+            name="intervieweeId"
+            control={control}
+            render={({ field }) => (
+              <Select
+                items={[
+                  { label: 'Choose an eligible participant', value: '' },
+                  ...people
+                    .filter((person) => person.id !== interviewer?.id)
+                    .map((person) => ({
+                      label: `${person.name}${person.roles.length ? ` · ${person.roles.join(', ')}` : ''}`,
+                      value: person.id,
+                    })),
+                ]}
+                name={field.name}
+                value={field.value}
+                onValueChange={(value) => field.onChange(value ?? '')}
+              >
+                <SelectTrigger id="mock-interviewee" className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectGroup>
+                    <SelectItem value="">
+                      Choose an eligible participant
+                    </SelectItem>
+                    {people
+                      .filter((person) => person.id !== interviewer?.id)
+                      .map((person) => (
+                        <SelectItem key={person.id} value={person.id}>
+                          {person.name}
+                          {person.roles.length
+                            ? ` · ${person.roles.join(', ')}`
+                            : ''}
+                        </SelectItem>
+                      ))}
+                  </SelectGroup>
+                </SelectContent>
+              </Select>
+            )}
+          />
           {errors.intervieweeId ? (
             <FieldError>{errors.intervieweeId.message}</FieldError>
           ) : null}

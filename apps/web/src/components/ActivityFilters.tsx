@@ -8,9 +8,13 @@ import {
   PopoverTrigger,
 } from '@/components/ui/popover';
 import {
-  NativeSelect,
-  NativeSelectOption,
-} from '@/components/ui/native-select';
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { IconChevronDown } from '@tabler/icons-react';
 import { useState } from 'react';
 import { useLeetcodeProblems, useSeasonWeeks } from '@/api/queries';
@@ -150,6 +154,12 @@ export function PracticeFilters({
   );
 }
 
+const resultItems = [
+  { label: 'All results', value: '' },
+  { label: 'Pass', value: 'true' },
+  { label: 'Needs work', value: 'false' },
+];
+
 export function MockFilters({
   seasonId,
   people,
@@ -168,15 +178,24 @@ export function MockFilters({
     >
       <label className="grid gap-2 text-sm font-medium">
         Result
-        <NativeSelect
-          className="min-w-40"
+        <Select
+          items={resultItems}
           value={filters.passed}
-          onChange={(e) => onChange({ passed: e.target.value })}
+          onValueChange={(value) => onChange({ passed: value ?? '' })}
         >
-          <NativeSelectOption value="">All results</NativeSelectOption>
-          <NativeSelectOption value="true">Pass</NativeSelectOption>
-          <NativeSelectOption value="false">Needs work</NativeSelectOption>
-        </NativeSelect>
+          <SelectTrigger aria-label="Result" className="min-w-40">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectGroup>
+              {resultItems.map((item) => (
+                <SelectItem key={item.value} value={item.value}>
+                  {item.label}
+                </SelectItem>
+              ))}
+            </SelectGroup>
+          </SelectContent>
+        </Select>
       </label>
       <Choices
         label="Interviewers"

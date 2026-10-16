@@ -1,5 +1,6 @@
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Page } from '@playwright/test';
+import { chooseOption } from './select';
 
 async function selectDemoRole(page: Page, role: string) {
   await page.addInitScript((selectedRole) => {
@@ -235,9 +236,7 @@ test('completed staff can review their season and keep personal practice without
   await expect(
     navigation.getByRole('link', { name: 'My students' }),
   ).toBeVisible();
-  await page
-    .getByRole('combobox', { name: 'Workspace', exact: true })
-    .selectOption({ label: 'Former member workspace' });
+  await chooseOption(page, 'Workspace', 'Former member workspace');
   await expect(
     navigation.getByRole('link', { name: 'Practice' }),
   ).toBeVisible();
@@ -399,11 +398,13 @@ test('coordinator can enroll a verified nonmember without granting coordinator',
   await page.goto('/admin/enrollments');
   await page.getByRole('button', { name: 'Add member' }).click();
   const dialog = page.getByRole('dialog', { name: 'Add season member' });
-  await expect(dialog.getByLabel('Account')).toContainText('Priya Singh');
-  await expect(
-    dialog.getByLabel('Season role').locator('option[value="coordinator"]'),
-  ).toHaveCount(0);
-  await dialog.getByLabel('Account').selectOption('person_candidate');
+  await dialog.getByRole('combobox', { name: 'Season role' }).click();
+  await expect(page.getByRole('option', { name: 'Student' })).toBeVisible();
+  await expect(page.getByRole('option', { name: 'Coordinator' })).toHaveCount(
+    0,
+  );
+  await page.getByRole('option', { name: 'Student' }).click();
+  await chooseOption(dialog, 'Account', 'Priya Singh · @priya-singh');
   page.once('dialog', async (confirmation) => confirmation.dismiss());
   await page.keyboard.press('Escape');
   await expect(dialog).toBeVisible();
@@ -443,7 +444,7 @@ test('coordinator edits only season resources and mentorship forms protect dirty
   await page.goto('/admin/mentorships');
   await page.getByRole('button', { name: 'Create mentorship' }).click();
   const mentorship = page.getByRole('dialog', { name: 'Create mentorship' });
-  await mentorship.getByLabel('Mentor').selectOption('person_noah');
+  await chooseOption(mentorship, 'Mentor', 'Noah Williams');
   page.once('dialog', async (confirmation) => confirmation.dismiss());
   await page.keyboard.press('Escape');
   await expect(mentorship).toBeVisible();
@@ -611,7 +612,7 @@ test('mock interview create, round edit and named deletion work', async ({
   await page.goto('/mock-interviews');
   await page.getByRole('button', { name: 'New interview' }).click();
   const create = page.getByRole('dialog', { name: 'Record mock interview' });
-  await create.getByLabel('Interviewee').selectOption('person_amelia');
+  await chooseOption(create, 'Interviewee', 'Amelia Chen · student');
   await create.getByRole('button', { name: 'Add LeetCode round' }).click();
   await create.getByLabel('LeetCode problem').fill('Two Sum');
   await page.getByRole('option').filter({ hasText: 'Two Sum' }).first().click();

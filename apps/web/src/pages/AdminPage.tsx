@@ -7,9 +7,13 @@ import {
 } from '@/components/ui/card';
 import { Button, buttonVariants } from '@/components/ui/button';
 import {
-  NativeSelect,
-  NativeSelectOption,
-} from '@/components/ui/native-select';
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { Field, FieldError, FieldLabel } from '@/components/ui/field';
@@ -332,6 +336,12 @@ export function AdminResourcePage({
   const manageableSeasons = (seasons.data?.items ?? []).filter(
     (season) => globallyManaged || activeCoordinatorSeasonIds.has(season.id),
   );
+  const seasonItems = manageableSeasons.length
+    ? manageableSeasons.map((season) => ({
+        label: `${season.name} · ${statusLabel(season.status)}`,
+        value: season.slug,
+      }))
+    : [{ label: 'No manageable season', value: '' }];
   const selectedSeason =
     manageableSeasons.find((season) => season.id === selectedSeasonId) ??
     manageableSeasons.find((season) => season.status === 'open') ??
@@ -570,30 +580,30 @@ export function AdminResourcePage({
         <div className="rounded-lg border border-border bg-card p-4">
           <Field>
             <FieldLabel htmlFor={`admin-${resource}-season`}>Season</FieldLabel>
-            <NativeSelect
-              id={`admin-${resource}-season`}
-              className="w-full"
+            <Select
+              items={seasonItems}
               value={selectedSeason?.slug ?? ''}
               disabled={!manageableSeasons.length}
-              onChange={(event) => {
+              onValueChange={(value) => {
                 const season = manageableSeasons.find(
-                  (item) => item.slug === event.target.value,
+                  (item) => item.slug === value,
                 );
                 setSelectedSeasonId(season?.id ?? '');
               }}
             >
-              {manageableSeasons.length ? (
-                manageableSeasons.map((season) => (
-                  <NativeSelectOption value={season.slug} key={season.id}>
-                    {season.name} · {statusLabel(season.status)}
-                  </NativeSelectOption>
-                ))
-              ) : (
-                <NativeSelectOption value="">
-                  No manageable season
-                </NativeSelectOption>
-              )}
-            </NativeSelect>
+              <SelectTrigger id={`admin-${resource}-season`} className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectGroup>
+                  {seasonItems.map((item) => (
+                    <SelectItem key={item.value} value={item.value}>
+                      {item.label}
+                    </SelectItem>
+                  ))}
+                </SelectGroup>
+              </SelectContent>
+            </Select>
           </Field>
         </div>
       ) : null}
@@ -874,6 +884,10 @@ function UserAdministrationDialog({
   const availableRoles = (['director', 'system_admin'] as const).filter(
     (role) => !assignedRoles.has(role),
   );
+  const grantRoleItems = availableRoles.map((role) => ({
+    label: roleLabel(role),
+    value: role,
+  }));
 
   return (
     <FormDialog
@@ -1052,24 +1066,33 @@ function UserAdministrationDialog({
                       <FieldLabel htmlFor={`grant-role-${person.id}`}>
                         Grant role
                       </FieldLabel>
-                      <NativeSelect
-                        id={`grant-role-${person.id}`}
-                        className="w-full"
+                      <Select
+                        items={grantRoleItems}
                         value={
                           availableRoles.includes(grantRole)
                             ? grantRole
                             : availableRoles[0]
                         }
-                        onChange={(event) =>
-                          setGrantRole(event.target.value as GlobalRole)
-                        }
+                        onValueChange={(value) => {
+                          if (value) setGrantRole(value as GlobalRole);
+                        }}
                       >
-                        {availableRoles.map((role) => (
-                          <NativeSelectOption value={role} key={role}>
-                            {roleLabel(role)}
-                          </NativeSelectOption>
-                        ))}
-                      </NativeSelect>
+                        <SelectTrigger
+                          id={`grant-role-${person.id}`}
+                          className="w-full"
+                        >
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectGroup>
+                            {grantRoleItems.map((item) => (
+                              <SelectItem key={item.value} value={item.value}>
+                                {item.label}
+                              </SelectItem>
+                            ))}
+                          </SelectGroup>
+                        </SelectContent>
+                      </Select>
                     </Field>
                     <Button
                       type="button"
@@ -1392,6 +1415,34 @@ export function EnrollmentDialog({
     userId !== (enrollment?.userId ?? '') ||
     role !== (enrollment?.role ?? 'student') ||
     studentLevel !== (enrollment?.studentLevel ?? 'not_applicable');
+  const studentLevelItems = [
+    { label: 'Novice', value: 'novice' },
+    { label: 'Beginner', value: 'beginner' },
+    { label: 'Intermediate', value: 'intermediate' },
+    { label: 'Advance', value: 'advanced' },
+    { label: 'Not applicable', value: 'not_applicable' },
+  ];
+  const accountItems = [
+    {
+      label: accountsLoading
+        ? 'Loading verified accounts…'
+        : accounts.length
+          ? 'Choose an account'
+          : 'No eligible verified accounts',
+      value: '',
+    },
+    ...accounts.map((person) => ({
+      label: `${person.name} · @${person.slug}`,
+      value: person.id,
+    })),
+  ];
+  const enrollmentRoleItems = [
+    ...(!enrollment && allowCoordinator
+      ? [{ label: 'Coordinator', value: 'coordinator' }]
+      : []),
+    { label: 'Mentor', value: 'mentor' },
+    { label: 'Student', value: 'student' },
+  ];
   const requestOpenChange = (next: boolean) => {
     if (
       !next &&
@@ -1552,69 +1603,85 @@ export function EnrollmentDialog({
           <FieldLabel htmlFor={`enrollment-user-${enrollment?.id ?? 'new'}`}>
             Account
           </FieldLabel>
-          <NativeSelect
-            id={`enrollment-user-${enrollment?.id ?? 'new'}`}
-            className="w-full"
+          <Select
+            items={accountItems}
             disabled={Boolean(enrollment) || accountsLoading || accountsError}
             value={userId}
-            onChange={(event) => setUserId(event.target.value)}
+            onValueChange={(value) => setUserId(value ?? '')}
           >
-            <NativeSelectOption value="">
-              {accountsLoading
-                ? 'Loading verified accounts…'
-                : accounts.length
-                  ? 'Choose an account'
-                  : 'No eligible verified accounts'}
-            </NativeSelectOption>
-            {accounts.map((person) => (
-              <NativeSelectOption value={person.id} key={person.id}>
-                {person.name} · @{person.slug}
-              </NativeSelectOption>
-            ))}
-          </NativeSelect>
+            <SelectTrigger
+              id={`enrollment-user-${enrollment?.id ?? 'new'}`}
+              className="w-full"
+            >
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectGroup>
+                {accountItems.map((item) => (
+                  <SelectItem key={item.value} value={item.value}>
+                    {item.label}
+                  </SelectItem>
+                ))}
+              </SelectGroup>
+            </SelectContent>
+          </Select>
         </Field>
         <Field>
           <FieldLabel htmlFor={`enrollment-role-${enrollment?.id ?? 'new'}`}>
             Season role
           </FieldLabel>
-          <NativeSelect
-            id={`enrollment-role-${enrollment?.id ?? 'new'}`}
-            className="w-full"
+          <Select
+            items={enrollmentRoleItems}
             value={role}
-            onChange={(event) => setRole(event.target.value as SeasonRole)}
+            onValueChange={(value) => {
+              if (value) setRole(value as SeasonRole);
+            }}
           >
-            {!enrollment && allowCoordinator ? (
-              <NativeSelectOption value="coordinator">
-                Coordinator
-              </NativeSelectOption>
-            ) : null}
-            <NativeSelectOption value="mentor">Mentor</NativeSelectOption>
-            <NativeSelectOption value="student">Student</NativeSelectOption>
-          </NativeSelect>
+            <SelectTrigger
+              id={`enrollment-role-${enrollment?.id ?? 'new'}`}
+              className="w-full"
+            >
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectGroup>
+                {enrollmentRoleItems.map((item) => (
+                  <SelectItem key={item.value} value={item.value}>
+                    {item.label}
+                  </SelectItem>
+                ))}
+              </SelectGroup>
+            </SelectContent>
+          </Select>
         </Field>
         {enrollment && role === 'student' ? (
           <Field>
             <FieldLabel htmlFor={`enrollment-level-${enrollment.id}`}>
               Student level
             </FieldLabel>
-            <NativeSelect
-              id={`enrollment-level-${enrollment.id}`}
-              className="w-full"
+            <Select
+              items={studentLevelItems}
               value={studentLevel}
-              onChange={(event) =>
-                setStudentLevel(event.target.value as typeof studentLevel)
-              }
+              onValueChange={(value) => {
+                if (value) setStudentLevel(value as typeof studentLevel);
+              }}
             >
-              <NativeSelectOption value="novice">Novice</NativeSelectOption>
-              <NativeSelectOption value="beginner">Beginner</NativeSelectOption>
-              <NativeSelectOption value="intermediate">
-                Intermediate
-              </NativeSelectOption>
-              <NativeSelectOption value="advanced">Advance</NativeSelectOption>
-              <NativeSelectOption value="not_applicable">
-                Not applicable
-              </NativeSelectOption>
-            </NativeSelect>
+              <SelectTrigger
+                id={`enrollment-level-${enrollment.id}`}
+                className="w-full"
+              >
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectGroup>
+                  {studentLevelItems.map((item) => (
+                    <SelectItem key={item.value} value={item.value}>
+                      {item.label}
+                    </SelectItem>
+                  ))}
+                </SelectGroup>
+              </SelectContent>
+            </Select>
           </Field>
         ) : null}
         <div className="flex flex-wrap justify-end gap-2">
@@ -1756,6 +1823,14 @@ function MentorshipDialog({
   const queryClient = useQueryClient();
   const mentors = people.filter((person) => person.roles.includes('mentor'));
   const students = people.filter((person) => person.roles.includes('student'));
+  const mentorItems = [
+    { label: 'Choose a mentor', value: '' },
+    ...mentors.map((person) => ({ label: person.name, value: person.id })),
+  ];
+  const studentItems = [
+    { label: 'Choose a student', value: '' },
+    ...students.map((person) => ({ label: person.name, value: person.id })),
+  ];
   const [open, setOpen] = useState(false);
   const [mentorUserId, setMentorUserId] = useState(
     mentorship?.mentorUserId ?? '',
@@ -1879,37 +1954,53 @@ function MentorshipDialog({
           <FieldLabel htmlFor={`admin-mentor-${mentorship?.id ?? 'new'}`}>
             Mentor
           </FieldLabel>
-          <NativeSelect
-            id={`admin-mentor-${mentorship?.id ?? 'new'}`}
-            className="w-full"
+          <Select
+            items={mentorItems}
             value={mentorUserId}
-            onChange={(event) => setMentorUserId(event.target.value)}
+            onValueChange={(value) => setMentorUserId(value ?? '')}
           >
-            <NativeSelectOption value="">Choose a mentor</NativeSelectOption>
-            {mentors.map((person) => (
-              <NativeSelectOption value={person.id} key={person.id}>
-                {person.name}
-              </NativeSelectOption>
-            ))}
-          </NativeSelect>
+            <SelectTrigger
+              id={`admin-mentor-${mentorship?.id ?? 'new'}`}
+              className="w-full"
+            >
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectGroup>
+                {mentorItems.map((item) => (
+                  <SelectItem key={item.value} value={item.value}>
+                    {item.label}
+                  </SelectItem>
+                ))}
+              </SelectGroup>
+            </SelectContent>
+          </Select>
         </Field>
         <Field>
           <FieldLabel htmlFor={`admin-student-${mentorship?.id ?? 'new'}`}>
             Student
           </FieldLabel>
-          <NativeSelect
-            id={`admin-student-${mentorship?.id ?? 'new'}`}
-            className="w-full"
+          <Select
+            items={studentItems}
             value={studentUserId}
-            onChange={(event) => setStudentUserId(event.target.value)}
+            onValueChange={(value) => setStudentUserId(value ?? '')}
           >
-            <NativeSelectOption value="">Choose a student</NativeSelectOption>
-            {students.map((person) => (
-              <NativeSelectOption value={person.id} key={person.id}>
-                {person.name}
-              </NativeSelectOption>
-            ))}
-          </NativeSelect>
+            <SelectTrigger
+              id={`admin-student-${mentorship?.id ?? 'new'}`}
+              className="w-full"
+            >
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectGroup>
+                {studentItems.map((item) => (
+                  <SelectItem key={item.value} value={item.value}>
+                    {item.label}
+                  </SelectItem>
+                ))}
+              </SelectGroup>
+            </SelectContent>
+          </Select>
         </Field>
         <div className="flex flex-wrap justify-end gap-2">
           <Button

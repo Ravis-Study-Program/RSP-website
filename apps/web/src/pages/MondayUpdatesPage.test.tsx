@@ -6,6 +6,7 @@ import {
   waitFor,
   within,
 } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 
 import { defaultMondayUpdateRange } from '@/activityDates';
@@ -382,6 +383,7 @@ describe('mentor Monday updates', () => {
       }),
     );
 
+    const user = userEvent.setup();
     renderPage();
 
     // Every mentee is selected by default, and nobody else is.
@@ -406,21 +408,24 @@ describe('mentor Monday updates', () => {
 
     const firstLabel = `${formatDate(first.startDate)} – ${formatDate(first.endDate)}`;
     const secondLabel = `${formatDate(second.startDate)} – ${formatDate(second.endDate)}`;
-    expect(screen.getByLabelText(`Mark for ${firstLabel}`)).toHaveValue(
-      'on_track',
-    );
+    expect(
+      screen.getByRole('combobox', { name: `Mark for ${firstLabel}` }),
+    ).toHaveTextContent('On track');
     expect(screen.getByLabelText(`Comment for ${firstLabel}`)).toHaveValue(
       '<p>Good week.</p>',
     );
-    expect(screen.getByLabelText(`Mark for ${secondLabel}`)).toHaveValue('');
+    expect(
+      screen.getByRole('combobox', { name: `Mark for ${secondLabel}` }),
+    ).toHaveTextContent('No mark yet');
     const saveButtons = screen.getAllByRole('button', { name: 'Save mark' });
     expect(saveButtons).toHaveLength(2);
     expect(saveButtons[1]).toBeDisabled();
 
     // An existing mark can be replaced.
-    fireEvent.change(screen.getByLabelText(`Mark for ${firstLabel}`), {
-      target: { value: 'at_risk' },
-    });
+    await user.click(
+      screen.getByRole('combobox', { name: `Mark for ${firstLabel}` }),
+    );
+    await user.click(await screen.findByRole('option', { name: 'At risk' }));
     fireEvent.change(screen.getByLabelText(`Comment for ${firstLabel}`), {
       target: { value: '<p>Needs a check-in.</p>' },
     });

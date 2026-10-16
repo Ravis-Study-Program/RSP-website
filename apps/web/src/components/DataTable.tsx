@@ -4,9 +4,13 @@ import { Field, FieldLabel } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
-  NativeSelect,
-  NativeSelectOption,
-} from '@/components/ui/native-select';
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import {
   Popover,
   PopoverContent,
@@ -95,6 +99,10 @@ const toolbarClass =
   'flex flex-wrap items-center justify-between gap-3 border-b p-3 max-[56rem]:flex-col max-[56rem]:items-stretch';
 const paginationClass =
   'flex flex-wrap items-center justify-between gap-3 border-t p-3 max-[56rem]:flex-col max-[56rem]:items-stretch';
+const pageSizeItems = [10, 25, 50, 100].map((value) => ({
+  label: String(value),
+  value,
+}));
 
 export function DataTable<TData>({
   ariaLabel,
@@ -450,21 +458,29 @@ export function DataTable<TData>({
             <div className={paginationClass}>
               <Label className="gap-2">
                 <span className="text-xs font-semibold">Rows per page</span>
-                <NativeSelect
-                  className="w-20"
+                <Select
+                  items={pageSizeItems}
                   value={table.getState().pagination.pageSize}
-                  onChange={(event) => {
-                    const value = Number(event.target.value);
-                    table.setPageSize(value);
-                    localStorage.setItem('rsp-table-page-size', String(value));
+                  onValueChange={(value) => {
+                    if (value == null) return;
+                    const next = Number(value);
+                    table.setPageSize(next);
+                    localStorage.setItem('rsp-table-page-size', String(next));
                   }}
                 >
-                  {[10, 25, 50, 100].map((value) => (
-                    <NativeSelectOption key={value} value={value}>
-                      {value}
-                    </NativeSelectOption>
-                  ))}
-                </NativeSelect>
+                  <SelectTrigger aria-label="Rows per page" className="w-20">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectGroup>
+                      {pageSizeItems.map((item) => (
+                        <SelectItem key={item.value} value={item.value}>
+                          {item.label}
+                        </SelectItem>
+                      ))}
+                    </SelectGroup>
+                  </SelectContent>
+                </Select>
               </Label>
               <span className="text-sm text-muted-foreground">
                 Page {table.getState().pagination.pageIndex + 1} of{' '}

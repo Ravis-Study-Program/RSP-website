@@ -10,9 +10,13 @@ import {
   FieldSet,
 } from '@/components/ui/field';
 import {
-  NativeSelect,
-  NativeSelectOption,
-} from '@/components/ui/native-select';
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { useQueryClient, type QueryClient } from '@tanstack/react-query';
 import type { ColumnDef } from '@tanstack/react-table';
 import { IconChevronDown, IconChevronUp } from '@tabler/icons-react';
@@ -88,6 +92,11 @@ const formClass = 'grid gap-4';
 const cardClass = 'gap-4 p-5';
 
 const rangeErrorText = 'The end date must not be before the start date.';
+
+const markSelectItems: { label: string; value: MondayUpdateMark | '' }[] = [
+  { label: 'No mark yet', value: '' },
+  ...markOptions,
+];
 
 function markLabel(mark: MondayUpdateMark) {
   return markOptions.find((option) => option.value === mark)?.label ?? mark;
@@ -729,21 +738,26 @@ function MentorUpdateCard({
             <FieldLabel htmlFor={`monday-mark-${update.id}`}>
               Mark for {label}
             </FieldLabel>
-            <NativeSelect
-              id={`monday-mark-${update.id}`}
-              className="w-full"
+            <Select
+              items={markSelectItems}
               value={mark}
-              onChange={(event) =>
-                setMark(event.target.value as MondayUpdateMark | '')
+              onValueChange={(value) =>
+                setMark((value ?? '') as MondayUpdateMark | '')
               }
             >
-              <NativeSelectOption value="">No mark yet</NativeSelectOption>
-              {markOptions.map((option) => (
-                <NativeSelectOption key={option.value} value={option.value}>
-                  {option.label}
-                </NativeSelectOption>
-              ))}
-            </NativeSelect>
+              <SelectTrigger id={`monday-mark-${update.id}`} className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectGroup>
+                  {markSelectItems.map((item) => (
+                    <SelectItem key={item.value} value={item.value}>
+                      {item.label}
+                    </SelectItem>
+                  ))}
+                </SelectGroup>
+              </SelectContent>
+            </Select>
           </Field>
         </div>
         <RichTextEditor

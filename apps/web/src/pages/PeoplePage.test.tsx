@@ -166,14 +166,16 @@ describe('season people directory', () => {
       items: [member('student')],
     });
     await user.click(screen.getByRole('button', { name: 'Set level' }));
-    expect(screen.getByLabelText('Student level')).toHaveValue('beginner');
     expect(
-      screen.getAllByRole('option').map((option) => option.textContent),
+      screen.getByRole('combobox', { name: 'Student level' }),
+    ).toHaveTextContent('Beginner');
+    await user.click(screen.getByRole('combobox', { name: 'Student level' }));
+    expect(
+      (await screen.findAllByRole('option')).map(
+        (option) => option.textContent,
+      ),
     ).toEqual(['Novice', 'Beginner', 'Intermediate', 'Advance']);
-    await user.selectOptions(
-      screen.getByLabelText('Student level'),
-      'advanced',
-    );
+    await user.click(await screen.findByRole('option', { name: 'Advance' }));
     await user.click(screen.getByRole('button', { name: 'Save level' }));
     expect(apiRequest).toHaveBeenCalledWith(
       '/seasons/season-1/members/enrollment-student/student-level',
@@ -199,9 +201,9 @@ describe('season people directory', () => {
       items: [member('student')],
     });
     await user.click(screen.getByRole('button', { name: 'Set level' }));
-    await user.selectOptions(
-      screen.getByLabelText('Student level'),
-      'intermediate',
+    await user.click(screen.getByRole('combobox', { name: 'Student level' }));
+    await user.click(
+      await screen.findByRole('option', { name: 'Intermediate' }),
     );
     await user.click(screen.getByRole('button', { name: 'Save level' }));
     expect(await screen.findByRole('alert')).toHaveTextContent(

@@ -1,7 +1,11 @@
 import {
-  NativeSelect,
-  NativeSelectOption,
-} from '@/components/ui/native-select';
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Field, FieldLabel } from '@/components/ui/field';
@@ -35,6 +39,15 @@ export function EnrollmentCorrection({
   const candidates = useEnrollmentCandidates(seasonId, open);
   const dirty =
     userId !== enrollment.userId || seasonId !== enrollment.seasonId;
+  const seasonItems = seasons
+    .filter((s) => s.status === 'open')
+    .map((s) => ({ label: s.name, value: s.id }));
+  const personItems = [
+    { label: name, value: enrollment.userId },
+    ...(candidates.data?.items
+      .filter((p) => p.id !== enrollment.userId)
+      .map((p) => ({ label: `${p.name} (${p.slug})`, value: p.id })) ?? []),
+  ];
   async function save() {
     setPending(true);
     setError('');
@@ -125,43 +138,48 @@ export function EnrollmentCorrection({
           <FieldLabel htmlFor="enrollment-correction-season">
             Correct season
           </FieldLabel>
-          <NativeSelect
-            id="enrollment-correction-season"
-            className="w-full"
+          <Select
+            items={seasonItems}
             value={seasonId}
-            onChange={(e) => setSeasonId(e.target.value)}
+            onValueChange={(value) => setSeasonId(value ?? '')}
           >
-            {seasons
-              .filter((s) => s.status === 'open')
-              .map((s) => (
-                <NativeSelectOption value={s.id} key={s.id}>
-                  {s.name}
-                </NativeSelectOption>
-              ))}
-          </NativeSelect>
+            <SelectTrigger id="enrollment-correction-season" className="w-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectGroup>
+                {seasonItems.map((item) => (
+                  <SelectItem key={item.value} value={item.value}>
+                    {item.label}
+                  </SelectItem>
+                ))}
+              </SelectGroup>
+            </SelectContent>
+          </Select>
         </Field>
         <Field>
           <FieldLabel htmlFor="enrollment-correction-person">
             Correct person
           </FieldLabel>
-          <NativeSelect
-            id="enrollment-correction-person"
-            className="w-full"
+          <Select
+            items={personItems}
             value={userId}
-            onChange={(e) => setUserId(e.target.value)}
+            onValueChange={(value) => setUserId(value ?? '')}
             disabled={candidates.isLoading}
           >
-            <NativeSelectOption value={enrollment.userId}>
-              {name}
-            </NativeSelectOption>
-            {candidates.data?.items
-              .filter((p) => p.id !== enrollment.userId)
-              .map((p) => (
-                <NativeSelectOption key={p.id} value={p.id}>
-                  {p.name} ({p.slug})
-                </NativeSelectOption>
-              ))}
-          </NativeSelect>
+            <SelectTrigger id="enrollment-correction-person" className="w-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectGroup>
+                {personItems.map((item) => (
+                  <SelectItem key={item.value} value={item.value}>
+                    {item.label}
+                  </SelectItem>
+                ))}
+              </SelectGroup>
+            </SelectContent>
+          </Select>
         </Field>
         {candidates.isError ? (
           <Alert variant="destructive">

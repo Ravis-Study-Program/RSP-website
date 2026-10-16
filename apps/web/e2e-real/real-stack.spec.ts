@@ -1,3 +1,4 @@
+import { chooseOption, expectSelected } from '../e2e/select';
 import { createHmac } from 'node:crypto';
 
 import { expect, test, type Page } from '@playwright/test';
@@ -142,9 +143,9 @@ test('coordinator MFA session creates, edits, and deletes an open-season week', 
   await expect(
     page.getByRole('heading', { name: 'Weeks', exact: true }),
   ).toBeVisible();
-  await expect(page.getByLabel('Season')).toHaveValue('dev-season');
+  await expectSelected(page, 'Season', 'Development Season · Open');
   await expect(page.getByLabel('Season')).toContainText(
-    'Development Season · open',
+    'Development Season · Open',
   );
 
   await page.getByRole('button', { name: 'Create week' }).click();
@@ -301,7 +302,7 @@ test('an invited new member verifies their email and joins the season', async ({
   await page.waitForTimeout(60_000);
   await signIn(page, 'DIRECTOR');
   await page.goto('/admin/enrollments');
-  await page.getByLabel('Season', { exact: true }).selectOption('dev-season');
+  await chooseOption(page, 'Season', 'Development Season · Open');
   await page.getByRole('button', { name: 'Invite a member' }).click();
   const invite = page.getByRole('dialog', { name: 'Invite a member' });
   await invite.getByLabel('Name', { exact: true }).fill('Invited E2E Member');

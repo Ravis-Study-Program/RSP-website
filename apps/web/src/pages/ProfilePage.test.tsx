@@ -139,11 +139,11 @@ describe('profile slug suggestion', () => {
       </QueryClientProvider>,
     );
 
-    expect(screen.getByLabelText('View activity')).toHaveValue('');
-    await user.selectOptions(
-      screen.getByLabelText('View activity'),
-      'season-1',
-    );
+    expect(
+      screen.getByRole('combobox', { name: 'View activity' }),
+    ).toHaveTextContent('All time');
+    await user.click(screen.getByRole('combobox', { name: 'View activity' }));
+    await user.click(await screen.findByRole('option', { name: 'Season One' }));
     expect(useActivitySummary).toHaveBeenLastCalledWith('user-1', 'season-1');
     expect(useUserAttempts).toHaveBeenLastCalledWith(
       'user-1',
@@ -156,7 +156,8 @@ describe('profile slug suggestion', () => {
       'season-1',
       'user-1',
     );
-    await user.selectOptions(screen.getByLabelText('View activity'), '');
+    await user.click(screen.getByRole('combobox', { name: 'View activity' }));
+    await user.click(await screen.findByRole('option', { name: 'All time' }));
     expect(useActivitySummary).toHaveBeenLastCalledWith('user-1', undefined);
     await user.click(screen.getByRole('button', { name: /edit profile/i }));
     await user.click(screen.getByRole('button', { name: 'Suggest' }));

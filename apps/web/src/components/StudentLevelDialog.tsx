@@ -1,7 +1,11 @@
 import {
-  NativeSelect,
-  NativeSelectOption,
-} from '@/components/ui/native-select';
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import { Field, FieldLabel } from '@/components/ui/field';
 import { IconArrowUp } from '@tabler/icons-react';
@@ -26,6 +30,10 @@ export function StudentLevelDialog({
 }) {
   const queryClient = useQueryClient();
   const fieldId = useId();
+  const levelItems = Object.entries(studentLevels).map(([value, label]) => ({
+    label,
+    value,
+  }));
   const [open, setOpen] = useState(false);
   const [level, setLevel] = useState<keyof typeof studentLevels>('novice');
   const [pending, setPending] = useState(false);
@@ -105,21 +113,27 @@ export function StudentLevelDialog({
       ) : null}
       <Field>
         <FieldLabel htmlFor={fieldId}>Student level</FieldLabel>
-        <NativeSelect
-          id={fieldId}
-          className="w-full"
+        <Select
+          items={levelItems}
           value={level}
           disabled={pending}
-          onChange={(event) =>
-            setLevel(event.target.value as keyof typeof studentLevels)
-          }
+          onValueChange={(value) => {
+            if (value) setLevel(value as keyof typeof studentLevels);
+          }}
         >
-          {Object.entries(studentLevels).map(([value, label]) => (
-            <NativeSelectOption key={value} value={value}>
-              {label}
-            </NativeSelectOption>
-          ))}
-        </NativeSelect>
+          <SelectTrigger id={fieldId} className="w-full">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectGroup>
+              {levelItems.map((item) => (
+                <SelectItem key={item.value} value={item.value}>
+                  {item.label}
+                </SelectItem>
+              ))}
+            </SelectGroup>
+          </SelectContent>
+        </Select>
       </Field>
       <div className="flex flex-wrap justify-end gap-2">
         <Button

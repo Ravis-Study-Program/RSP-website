@@ -2,9 +2,13 @@ import { Button } from '@/components/ui/button';
 import { Field, FieldLabel } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
 import {
-  NativeSelect,
-  NativeSelectOption,
-} from '@/components/ui/native-select';
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiRequest } from '@/api/client';
@@ -17,6 +21,11 @@ import { formatDateTime } from '@/utils';
 
 const formStack = 'grid gap-4';
 const notice = 'text-sm text-muted-foreground';
+const invitationRoleItems = [
+  { label: 'Student', value: 'student' },
+  { label: 'Mentor', value: 'mentor' },
+  { label: 'Coordinator', value: 'coordinator' },
+];
 
 export function Invitations({ season }: { season: Season }) {
   const client = useQueryClient();
@@ -172,23 +181,30 @@ export function Invitations({ season }: { season: Season }) {
             </Field>
             <Field>
               <FieldLabel htmlFor="invitation-role">Role</FieldLabel>
-              <NativeSelect
-                id="invitation-role"
-                className="w-full"
+              <Select
+                items={invitationRoleItems}
                 value={form.role}
-                onChange={(e) =>
-                  setForm({
-                    ...form,
-                    role: e.target.value as InvitationCreate['role'],
-                  })
-                }
+                onValueChange={(value) => {
+                  if (value)
+                    setForm({
+                      ...form,
+                      role: value as InvitationCreate['role'],
+                    });
+                }}
               >
-                <NativeSelectOption value="student">Student</NativeSelectOption>
-                <NativeSelectOption value="mentor">Mentor</NativeSelectOption>
-                <NativeSelectOption value="coordinator">
-                  Coordinator
-                </NativeSelectOption>
-              </NativeSelect>
+                <SelectTrigger id="invitation-role" className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectGroup>
+                    {invitationRoleItems.map((item) => (
+                      <SelectItem key={item.value} value={item.value}>
+                        {item.label}
+                      </SelectItem>
+                    ))}
+                  </SelectGroup>
+                </SelectContent>
+              </Select>
             </Field>
             {form.role === 'coordinator' ? (
               <p className={notice}>
