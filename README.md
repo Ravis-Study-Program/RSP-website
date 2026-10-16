@@ -88,3 +88,6 @@ component generation; run `pnpm dlx shadcn@latest add <component>` from
 with Tailwind theme mappings in `src/styles/global.css`. Pages and components
 style with Tailwind utilities only; there are no CSS modules.
 The segmented date picker retains React Aria for timezone-aware date/time entry.
+To live edit any part of the frontend with your own coding agent, run
+`/skill:impeccable live` (omp) or `/impeccable live` (Claude Code); see
+[frontend design workflow](docs/frontend-design-workflow.md).
