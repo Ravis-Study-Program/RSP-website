@@ -958,13 +958,6 @@
     text-align: center;
   }
 
-  .authCard {
-    width: min(100%, 36rem);
-    padding: 1.5rem 0;
-    background: transparent;
-    border: 0;
-  }
-
   .statusContent {
     max-width: 34rem;
   }
@@ -1132,33 +1125,6 @@
     height: 1px;
     content: '';
     background: var(--border);
-  }
-
-  .authMode {
-    display: flex;
-    gap: 1.25rem;
-    overflow-x: auto;
-    border-bottom: 1px solid var(--border);
-  }
-
-  .authTab {
-    min-height: 2.75rem;
-    padding: 0.45rem 0;
-    color: var(--text-muted);
-    background: transparent;
-    border: 0;
-    border-bottom: 3px solid transparent;
-    font-weight: 600;
-    white-space: nowrap;
-  }
-
-  .authTab:hover {
-    color: var(--text);
-  }
-
-  .authTab[aria-selected='true'] {
-    color: var(--accent-strong);
-    border-bottom-color: var(--accent);
   }
 
   .editor {

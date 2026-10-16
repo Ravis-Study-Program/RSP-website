@@ -1,3 +1,10 @@
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardDescription,
+} from '@/components/ui/card';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -41,19 +48,15 @@ function StateLayout({
   title,
   message,
   children,
-  variant = 'default',
 }: {
   icon: React.ReactNode;
   title: string;
   message: string;
   children?: React.ReactNode;
-  variant?: 'default' | 'auth';
 }) {
   return (
     <div className={styles.page}>
-      <section
-        className={`${styles.statusCard} ${variant === 'auth' ? styles.authCard : ''}`}
-      >
+      <section className={styles.statusCard}>
         <div className={styles.statusContent}>
           {icon}
           <h1>{title}</h1>
@@ -88,6 +91,7 @@ export function SignInPage() {
     register,
     handleSubmit,
     setError,
+    clearErrors,
     formState: { errors, isSubmitting },
   } = useForm<Values>({
     resolver: zodResolver(schema as never) as Resolver<Values>,
@@ -169,145 +173,187 @@ export function SignInPage() {
   };
 
   return (
-    <StateLayout
-      icon={<img src="/assets/rsp-logo.png" alt="RSP" width="72" height="72" />}
-      title="Welcome to RSP"
-      message="Sign in with Google or your verified email and password to continue."
-      variant="auth"
-    >
-      <div className={`${styles.form} ${styles.stateForm}`}>
-        {searchParams.get('verified') === 'true' ? (
-          <p className={styles.inlineNotice}>
-            Email verified. Sign in to continue.
-          </p>
-        ) : null}
-        {searchParams.get('securityChanged') === 'true' ? (
-          <p className={styles.inlineNotice}>
-            Your security settings were updated and all sessions were revoked.
-            Sign in again to continue.
-          </p>
-        ) : null}
-        {searchParams.get('reset') === 'true' ? (
-          <p className={styles.inlineNotice}>
-            Password reset complete. Sign in with your new password.
-          </p>
-        ) : null}
-        {searchParams.get('passwordConnected') === 'true' ? (
-          <p className={styles.inlineNotice}>
-            Password sign-in was connected. Sign in again to continue.
-          </p>
-        ) : null}
-        {requestError ? (
-          <p className={styles.fieldError} role="alert">
-            {requestError}
-          </p>
-        ) : null}
-        {resetMessage ? <p role="status">{resetMessage}</p> : null}
-        <Button
-          variant="outline"
-          type="button"
-          disabled={googlePending}
-          onClick={() => void google()}
-        >
-          {googlePending ? 'Opening Google…' : 'Continue with Google'}
-        </Button>
-        <div className={styles.authDivider} aria-hidden="true">
-          <span>or</span>
+    <main className="flex min-h-svh items-center justify-center bg-muted/40 px-4 py-10 sm:py-16">
+      <div className="w-full max-w-sm">
+        <div className="mb-6 flex items-center justify-center gap-3">
+          <img src="/assets/rsp-logo.png" alt="" className="size-9" />
+          <span className="text-base font-semibold">Ravi’s Study Program</span>
         </div>
-        <div
-          className={styles.authMode}
-          role="tablist"
-          aria-label="Email account action"
-        >
-          <Button
-            className={styles.authTab}
-            type="button"
-            role="tab"
-            aria-selected={mode === 'sign-in'}
-            aria-controls="email-auth-form"
-            onClick={() => setMode('sign-in')}
-          >
-            Sign in
-          </Button>
-          <Button
-            className={styles.authTab}
-            type="button"
-            role="tab"
-            aria-selected={mode === 'sign-up'}
-            aria-controls="email-auth-form"
-            onClick={() => setMode('sign-up')}
-          >
-            Create account
-          </Button>
-        </div>
-        <form
-          id="email-auth-form"
-          className={styles.form}
-          noValidate
-          onSubmit={submit}
-        >
-          {mode === 'sign-up' ? (
-            <div className={styles.field}>
-              <label htmlFor="auth-name">Name</label>
-              <Input
-                id="auth-name"
-                autoComplete="name"
-                aria-invalid={Boolean(errors.name)}
-                {...register('name')}
-              />
-              {errors.name ? (
-                <p className={styles.fieldError}>{errors.name.message}</p>
-              ) : null}
-            </div>
-          ) : null}
-          <div className={styles.field}>
-            <label htmlFor="auth-email">Email</label>
-            <Input
-              id="auth-email"
-              type="email"
-              autoComplete="email"
-              aria-invalid={Boolean(errors.email)}
-              {...register('email')}
-            />
-            {errors.email ? (
-              <p className={styles.fieldError}>{errors.email.message}</p>
-            ) : null}
-          </div>
-          <div className={styles.field}>
-            <label htmlFor="auth-password">Password</label>
-            <Input
-              id="auth-password"
-              type="password"
-              autoComplete={
-                mode === 'sign-up' ? 'new-password' : 'current-password'
-              }
-              aria-invalid={Boolean(errors.password)}
-              {...register('password')}
-            />
-            {errors.password ? (
-              <p className={styles.fieldError}>{errors.password.message}</p>
-            ) : null}
-          </div>
-          <Button type="submit" disabled={isSubmitting}>
-            {isSubmitting
-              ? 'Please wait…'
-              : mode === 'sign-up'
-                ? 'Create account'
-                : 'Sign in with email'}
-          </Button>
-          {mode === 'sign-in' ? (
-            <Button
-              variant="ghost"
-              type="button"
-              disabled={resetPending}
-              onClick={() => void forgotPassword()}
+        <Card className="gap-6 py-6">
+          <CardHeader className="gap-2 px-6 text-center">
+            <h1 className="text-2xl font-semibold tracking-tight">
+              {mode === 'sign-in' ? 'Welcome to RSP' : 'Create your account'}
+            </h1>
+            <CardDescription>
+              {mode === 'sign-in'
+                ? 'Sign in to your study workspace.'
+                : 'Get started with Google or your email.'}
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="px-6">
+            <Tabs
+              value={mode}
+              onValueChange={(value) => {
+                setMode(value as 'sign-in' | 'sign-up');
+                clearErrors();
+                setRequestError('');
+                setResetMessage('');
+              }}
+              className="gap-6"
             >
-              {resetPending ? 'Requesting…' : 'Forgot password?'}
-            </Button>
-          ) : null}
-        </form>
+              <TabsList aria-label="Email account action" className="w-full">
+                <TabsTrigger
+                  value="sign-in"
+                  disabled={isSubmitting || googlePending}
+                >
+                  Sign in
+                </TabsTrigger>
+                <TabsTrigger
+                  value="sign-up"
+                  disabled={isSubmitting || googlePending}
+                >
+                  Create account
+                </TabsTrigger>
+              </TabsList>
+              <TabsContent value={mode} className="space-y-5">
+                {searchParams.get('verified') === 'true' ? (
+                  <p className={styles.inlineNotice}>
+                    Email verified. Sign in to continue.
+                  </p>
+                ) : null}
+                {searchParams.get('securityChanged') === 'true' ? (
+                  <p className={styles.inlineNotice}>
+                    Your security settings were updated and all sessions were
+                    revoked. Sign in again to continue.
+                  </p>
+                ) : null}
+                {searchParams.get('reset') === 'true' ? (
+                  <p className={styles.inlineNotice}>
+                    Password reset complete. Sign in with your new password.
+                  </p>
+                ) : null}
+                {searchParams.get('passwordConnected') === 'true' ? (
+                  <p className={styles.inlineNotice}>
+                    Password sign-in was connected. Sign in again to continue.
+                  </p>
+                ) : null}
+                {requestError ? (
+                  <p className={styles.fieldError} role="alert">
+                    {requestError}
+                  </p>
+                ) : null}
+                {resetMessage ? <p role="status">{resetMessage}</p> : null}
+                <Button
+                  variant="outline"
+                  type="button"
+                  className="w-full"
+                  disabled={googlePending || isSubmitting}
+                  onClick={() => void google()}
+                >
+                  {googlePending ? 'Opening Google…' : 'Continue with Google'}
+                </Button>
+                <div className={styles.authDivider} aria-hidden="true">
+                  <span>or</span>
+                </div>
+                <form
+                  id="email-auth-form"
+                  className={styles.form}
+                  noValidate
+                  onSubmit={submit}
+                >
+                  {mode === 'sign-up' ? (
+                    <div className={styles.field}>
+                      <label htmlFor="auth-name">Name</label>
+                      <Input
+                        id="auth-name"
+                        autoComplete="name"
+                        aria-invalid={Boolean(errors.name)}
+                        {...register('name')}
+                      />
+                      {errors.name ? (
+                        <p className={styles.fieldError}>
+                          {errors.name.message}
+                        </p>
+                      ) : null}
+                    </div>
+                  ) : null}
+                  <div className={styles.field}>
+                    <label htmlFor="auth-email">Email</label>
+                    <Input
+                      id="auth-email"
+                      type="email"
+                      autoComplete="email"
+                      aria-invalid={Boolean(errors.email)}
+                      {...register('email')}
+                    />
+                    {errors.email ? (
+                      <p className={styles.fieldError}>
+                        {errors.email.message}
+                      </p>
+                    ) : null}
+                  </div>
+                  <div className={styles.field}>
+                    <label htmlFor="auth-password">Password</label>
+                    <Input
+                      id="auth-password"
+                      type="password"
+                      autoComplete={
+                        mode === 'sign-up' ? 'new-password' : 'current-password'
+                      }
+                      aria-invalid={Boolean(errors.password)}
+                      aria-describedby={
+                        errors.password
+                          ? 'auth-password-error'
+                          : mode === 'sign-up'
+                            ? 'auth-password-hint'
+                            : undefined
+                      }
+                      {...register('password')}
+                    />
+                    {mode === 'sign-up' ? (
+                      <p
+                        id="auth-password-hint"
+                        className="text-xs text-muted-foreground"
+                      >
+                        Use at least 12 characters.
+                      </p>
+                    ) : null}
+                    {errors.password ? (
+                      <p id="auth-password-error" className={styles.fieldError}>
+                        {errors.password.message}
+                      </p>
+                    ) : null}
+                  </div>
+                  <Button
+                    className="w-full"
+                    type="submit"
+                    disabled={isSubmitting || googlePending}
+                  >
+                    {isSubmitting
+                      ? mode === 'sign-up'
+                        ? 'Creating account…'
+                        : 'Signing in…'
+                      : mode === 'sign-up'
+                        ? 'Create account'
+                        : 'Sign in with email'}
+                  </Button>
+                  {mode === 'sign-in' ? (
+                    <Button
+                      variant="ghost"
+                      type="button"
+                      disabled={resetPending}
+                      onClick={() => void forgotPassword()}
+                    >
+                      {resetPending ? 'Requesting…' : 'Forgot password?'}
+                    </Button>
+                  ) : null}
+                </form>
+              </TabsContent>
+            </Tabs>
+          </CardContent>
+        </Card>
       </div>
-    </StateLayout>
+    </main>
   );
 }
 
