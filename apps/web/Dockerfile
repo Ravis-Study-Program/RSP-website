@@ -23,7 +23,7 @@ COPY apps/web apps/web
 COPY api/openapi.yaml api/openapi.yaml
 RUN pnpm --filter @rsp/web build
 
-FROM golang:1.26.6-alpine3.24 AS caddy-build
+FROM golang:1.26.9-alpine3.24 AS caddy-build
 
 ARG CADDY_VERSION=2.11.4
 ARG XCADDY_VERSION=v0.4.5
