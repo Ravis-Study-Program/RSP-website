@@ -82,9 +82,9 @@ test('student creates, edits, and deletes a Go-backed practice attempt', async (
   page,
 }) => {
   await signIn(page, 'STUDENT');
-  await page.goto('/practice');
+  await page.goto('/leetcode');
   await expect(
-    page.getByRole('heading', { name: 'Problem practice' }),
+    page.getByRole('heading', { name: 'LeetCode practice' }),
   ).toBeVisible();
   await page.getByRole('button', { name: 'Log attempt' }).click();
   const create = page.getByRole('dialog', { name: 'Log problem attempt' });

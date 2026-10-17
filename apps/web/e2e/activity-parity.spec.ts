@@ -4,9 +4,9 @@ import { expect, test } from '@playwright/test';
 test('practice charts follow filters and the picker accepts keyboard search', async ({
   page,
 }, testInfo) => {
-  await page.goto('/practice');
+  await page.goto('/leetcode');
   await expect(
-    page.getByRole('heading', { name: 'Problem practice' }),
+    page.getByRole('heading', { name: 'LeetCode practice' }),
   ).toBeVisible();
   await expect(
     page.getByRole('heading', { name: 'Difficulty breakdown' }),
@@ -64,7 +64,7 @@ test('profiles switch between seasons and all time with readable activity', asyn
 test('suggesting a question leaves practice counts unchanged', async ({
   page,
 }, testInfo) => {
-  await page.goto('/practice');
+  await page.goto('/leetcode');
   const count = page.getByText(/\d+ recorded$/);
   await expect(count).toBeVisible();
   await expect(

@@ -128,10 +128,10 @@ export function ProfileActivity({
       onValueChange={(value) => onTabChange(String(value))}
     >
       <TabsList aria-label="Profile activity">
-        <TabsTrigger value="practice">Practice</TabsTrigger>
+        <TabsTrigger value="leetcode">LeetCode</TabsTrigger>
         <TabsTrigger value="mocks">Mock interviews</TabsTrigger>
       </TabsList>
-      <TabsContent value="practice">
+      <TabsContent value="leetcode">
         <PracticeFilters
           seasonId={seasonId}
           filters={filters}

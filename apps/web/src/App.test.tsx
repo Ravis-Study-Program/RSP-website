@@ -46,17 +46,17 @@ describe('application routes', () => {
     window.localStorage.removeItem('rsp-demo-role');
   });
 
-  it('redirects the old leetcode route to practice', async () => {
-    const router = renderRoute('/leetcode');
+  it('redirects the old practice route to leetcode', async () => {
+    const router = renderRoute('/practice');
     expect(
       await screen.findByRole(
         'heading',
-        { name: 'Problem practice' },
+        { name: 'LeetCode practice' },
         routeTimeout,
       ),
     ).toBeInTheDocument();
     await waitFor(
-      () => expect(router.state.location.pathname).toBe('/practice'),
+      () => expect(router.state.location.pathname).toBe('/leetcode'),
       routeTimeout,
     );
   });

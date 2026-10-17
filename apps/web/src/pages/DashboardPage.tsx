@@ -125,13 +125,13 @@ export function DashboardPage() {
             to={
               role === 'coordinator'
                 ? `/seasons/${currentSeason?.slug}/people`
-                : '/practice'
+                : '/leetcode'
             }
             className={buttonVariants({ variant: 'default' })}
           >
             {role === 'coordinator'
               ? 'Review season roster'
-              : 'Continue practice'}{' '}
+              : 'Continue LeetCode'}{' '}
             <IconArrowRight size={18} aria-hidden="true" />
           </Link>
           <Link
@@ -343,10 +343,10 @@ export function DashboardPage() {
                 </p>
                 <div className="mt-4 flex flex-wrap gap-2.5">
                   <Link
-                    to="/practice"
+                    to="/leetcode"
                     className={buttonVariants({ variant: 'default' })}
                   >
-                    View practice history
+                    View LeetCode history
                   </Link>
                 </div>
               </CardContent>

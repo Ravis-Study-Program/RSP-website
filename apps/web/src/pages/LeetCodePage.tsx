@@ -185,8 +185,8 @@ const baseColumns: ColumnDef<Attempt, any>[] = [
   },
 ];
 
-export function PracticePage() {
-  usePageTitle('Practice');
+export function LeetCodePage() {
+  usePageTitle('LeetCode');
   const { seasons, season, hasSelection } = useActivitySeason();
   const [filters, setFilters] = useActivityFilters(season?.id);
   const attemptsQuery = useAttempts(
@@ -329,8 +329,8 @@ export function PracticePage() {
   return (
     <div className="mx-auto w-full max-w-[92rem]">
       <PageHeader
-        eyebrow="Practice"
-        title="Problem practice"
+        eyebrow="LeetCode"
+        title="LeetCode practice"
         description="Record what happened, not just whether a problem was completed. Track outcomes, confidence and time across your practice history."
         actions={
           <AttemptDialog
@@ -369,7 +369,7 @@ export function PracticePage() {
           </span>
         </div>
         <ActivityPeriodFilter
-          section="practice"
+          section="leetcode"
           season={season}
           seasons={seasons.data?.items ?? []}
         />
