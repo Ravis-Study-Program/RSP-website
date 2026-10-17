@@ -31,10 +31,7 @@ import { calendarDateKey, formatDateTime } from '@/utils';
 
 /** A row's latest-mark cell: a status, or the mentee's latest update. */
 type MenteeMark =
-  | 'not-mentee'
-  | 'loading'
-  | 'error'
-  | { latest: LatestMark | undefined };
+  'not-mentee' | 'loading' | 'error' | { latest: LatestMark | undefined };
 
 const menteeMarkText = {
   'not-mentee': '—',
@@ -64,12 +61,12 @@ export function MenteesPage() {
   const [removed, setRemoved] = useState<string[]>([]);
   const canManageEveryStudent = Boolean(
     currentUser.data?.globalRoles.length ||
-      currentUser.data?.seasonRoles.some(
-        (membership) =>
-          membership.seasonId === season?.id &&
-          membership.role === 'coordinator' &&
-          (membership.state === 'active' || membership.state === 'completed'),
-      ),
+    currentUser.data?.seasonRoles.some(
+      (membership) =>
+        membership.seasonId === season?.id &&
+        membership.role === 'coordinator' &&
+        (membership.state === 'active' || membership.state === 'completed'),
+    ),
   );
   const canChangeLevel = canSetStudentLevel(currentUser.data, season);
   const mentees = useMemo(

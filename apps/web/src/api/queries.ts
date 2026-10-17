@@ -638,8 +638,8 @@ export function useAttempts(
                   !seasonId ||
                   Boolean(
                     season &&
-                      item.attemptedAt >= season.startsAt &&
-                      item.attemptedAt <= season.endsAt,
+                    item.attemptedAt >= season.startsAt &&
+                    item.attemptedAt <= season.endsAt,
                   )
                 );
               })
@@ -771,8 +771,8 @@ export function useUserAttempts(
                   !seasonId ||
                   Boolean(
                     season &&
-                      attempt.attemptedAt >= season.startsAt &&
-                      attempt.attemptedAt <= season.endsAt,
+                    attempt.attemptedAt >= season.startsAt &&
+                    attempt.attemptedAt <= season.endsAt,
                   )
                 );
               })
@@ -926,8 +926,8 @@ export function useMockInterviews(
                   (!seasonId ||
                     Boolean(
                       season &&
-                        item.occurredAt >= season.startsAt &&
-                        item.occurredAt <= season.endsAt,
+                      item.occurredAt >= season.startsAt &&
+                      item.occurredAt <= season.endsAt,
                     ))
                 );
               })
