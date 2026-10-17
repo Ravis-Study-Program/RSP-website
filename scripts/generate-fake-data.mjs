@@ -367,6 +367,8 @@ if (!(await fakeFixtureExists())) {
   ]);
 }
 
+await run('go', ['run', './backend/cmd/rspctl', 'seed-monday-updates']);
+
 console.log('\nFake local accounts');
 for (const user of users) {
   console.log(`  ${user.role}: ${user.email} / ${user.password}`);

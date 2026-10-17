@@ -9,6 +9,7 @@ import (
 	"net/mail"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/magedmg/RSP-website/backend/internal/dal"
 )
@@ -22,7 +23,7 @@ func main() {
 
 func run(ctx context.Context, args []string) error {
 	if len(args) == 0 {
-		return errors.New("usage: rspctl seed|bootstrap-admin")
+		return errors.New("usage: rspctl seed|seed-monday-updates|bootstrap-admin")
 	}
 
 	dsn := os.Getenv("DATABASE_URL")
@@ -47,6 +48,18 @@ func run(ctx context.Context, args []string) error {
 			return err
 		}
 		return repository.Seed(ctx, options)
+	case "seed-monday-updates":
+		appEnv := strings.ToLower(strings.TrimSpace(os.Getenv("APP_ENV")))
+		if appEnv != "development" && appEnv != "test" {
+			return errors.New("seed-monday-updates is allowed only when APP_ENV=development or APP_ENV=test")
+		}
+		result, err := repository.SeedMondayUpdates(ctx, time.Now())
+		if err != nil {
+			return err
+		}
+		status := map[bool]string{true: "created", false: "already present"}
+		fmt.Printf("Monday update cohort: %s. LeetCode and mock activity: %s.\n", status[result.Cohort], status[result.Activity])
+		return nil
 	case "bootstrap-admin":
 		set := flag.NewFlagSet("bootstrap-admin", flag.ContinueOnError)
 		subject := set.String("auth-subject", "", "Better Auth user id")
@@ -56,7 +69,7 @@ func run(ctx context.Context, args []string) error {
 		}
 		return repository.BootstrapAdmin(ctx, *subject, *email)
 	default:
-		return errors.New("usage: rspctl seed|bootstrap-admin")
+		return errors.New("usage: rspctl seed|seed-monday-updates|bootstrap-admin")
 	}
 }
 
