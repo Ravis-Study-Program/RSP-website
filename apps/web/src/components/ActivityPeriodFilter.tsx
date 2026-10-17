@@ -16,7 +16,7 @@ export function ActivityPeriodFilter({
   season,
   seasons,
 }: {
-  section: 'practice' | 'mock-interviews';
+  section: 'leetcode' | 'mock-interviews';
   season?: Season;
   seasons: Season[];
 }) {

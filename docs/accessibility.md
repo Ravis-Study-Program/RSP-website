@@ -56,7 +56,7 @@ reading-order and command-dialog subset exercised here:
   accessible names and reading order.
 - VoiceOver's read-all command moved its visible cursor to the named `RSP home`
   link on the Coordinator dashboard; the Student dashboard exposed the
-  role-specific Season, Practice, Mock interviews and People navigation.
+  role-specific Season, LeetCode, Mock interviews and People navigation.
 - Keyboard Tab exposed `Skip to main content` first and activation moved focus
   into the main region.
 - The `Quick navigation` dialog exposed a heading, description, named close

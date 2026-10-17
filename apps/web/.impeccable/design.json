@@ -249,7 +249,7 @@
       "kind": "nav",
       "refersTo": "nav-link",
       "description": "44px graphite links; active darkens to ink on hover step.",
-      "html": "<nav class=\"ds-nav\"><a class=\"ds-nav-link ds-nav-active\" href=\"#\">Dashboard</a><a class=\"ds-nav-link\" href=\"#\">Practice</a><a class=\"ds-nav-link\" href=\"#\">Mock interviews</a><a class=\"ds-nav-link\" href=\"#\">Monday updates</a></nav>",
+      "html": "<nav class=\"ds-nav\"><a class=\"ds-nav-link ds-nav-active\" href=\"#\">Dashboard</a><a class=\"ds-nav-link\" href=\"#\">LeetCode</a><a class=\"ds-nav-link\" href=\"#\">Mock interviews</a><a class=\"ds-nav-link\" href=\"#\">Monday updates</a></nav>",
       "css": ".ds-nav { display: grid; gap: 3px; width: 220px; padding: 12px; background: var(--sidebar-bg, #fafafa); } .ds-nav-link { display: flex; align-items: center; min-height: 44px; padding: 0.58rem 0.7rem; border-radius: 6px; color: var(--sidebar-muted, #666); font: 550 15px/1.2 'Source Sans 3', sans-serif; text-decoration: none; } .ds-nav-link:hover, .ds-nav-active { color: var(--sidebar-text, #171717); background: var(--sidebar-hover, #eee); } .ds-nav-link:focus-visible { outline: 3px solid var(--ring, #a3a3a3); outline-offset: 3px; }"
     }
   ],

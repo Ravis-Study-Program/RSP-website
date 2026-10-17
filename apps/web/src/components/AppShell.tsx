@@ -77,7 +77,7 @@ function itemsFor(role: string | undefined, seasonSlug?: string): NavItem[] {
     return [
       { label: 'Dashboard', to: '/dashboard', icon: IconDashboard },
       { label: 'Season', to: seasonBase, icon: IconSchool, end: true },
-      { label: 'Practice', to: `${seasonBase}/practice`, icon: IconBriefcase },
+      { label: 'LeetCode', to: `${seasonBase}/leetcode`, icon: IconBriefcase },
       {
         label: 'Mock interviews',
         to: `${seasonBase}/mock-interviews`,
@@ -141,21 +141,21 @@ function itemsFor(role: string | undefined, seasonSlug?: string): NavItem[] {
       { label: 'Dashboard', to: '/dashboard', icon: IconDashboard },
       { label: 'Seasons', to: '/seasons', icon: IconCalendarEvent },
       { label: 'People', to: '/graduates', icon: IconUsers },
-      { label: 'Practice', to: '/practice', icon: IconBriefcase },
+      { label: 'LeetCode', to: '/leetcode', icon: IconBriefcase },
       { label: 'Administration', to: '/admin', icon: IconAdjustments },
     ];
   }
   if (role === 'graduate')
     return [
       { label: 'Dashboard', to: '/dashboard', icon: IconDashboard },
-      { label: 'Practice', to: '/practice', icon: IconBriefcase },
+      { label: 'LeetCode', to: '/leetcode', icon: IconBriefcase },
       { label: 'Mock interviews', to: '/mock-interviews', icon: IconMessage2 },
       { label: 'Directory', to: '/graduates', icon: IconUsers },
     ];
   if (role === 'former_member')
     return [
       { label: 'Dashboard', to: '/dashboard', icon: IconDashboard },
-      { label: 'Practice', to: '/practice', icon: IconBriefcase },
+      { label: 'LeetCode', to: '/leetcode', icon: IconBriefcase },
       { label: 'Mock interviews', to: '/mock-interviews', icon: IconMessage2 },
     ];
   return [{ label: 'Profile', to: '/profile', icon: IconUsers }];

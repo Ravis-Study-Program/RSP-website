@@ -217,10 +217,10 @@ export function SeasonWorkspacePage() {
               Programme schedule
             </h2>
             <Link
-              to={`/seasons/${season.slug}/practice`}
+              to={`/seasons/${season.slug}/leetcode`}
               className={buttonVariants({ variant: 'outline', size: 'sm' })}
             >
-              Open practice
+              Open LeetCode
             </Link>
           </div>
           <Card>

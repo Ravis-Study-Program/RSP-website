@@ -135,7 +135,7 @@ export function WorkspaceProvider({ children }: PropsWithChildren) {
           setSelectedId(id);
           const chosen = workspaces.find((item) => item.id === id);
           const section = location.pathname.match(
-            /^\/seasons\/[^/]+\/(people|practice|mock-interviews|mentees)$/,
+            /^\/seasons\/[^/]+\/(people|leetcode|mock-interviews|mentees)$/,
           )?.[1];
           navigate(
             chosen?.seasonSlug

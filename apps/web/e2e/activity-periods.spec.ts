@@ -15,7 +15,7 @@ async function toggleWeek(page: Page, week: number, checked: boolean) {
 test('practice uses season or all time and clears weeks when changing periods @compat', async ({
   page,
 }, testInfo) => {
-  await page.goto('/seasons/summer-2025-26/practice');
+  await page.goto('/seasons/summer-2025-26/leetcode');
   await expectSelected(page, 'View activity', 'Summer 2025/26');
   await expect(page.getByLabel('Year (Adelaide time)')).toHaveCount(0);
   await page.getByText('Season weeks: All', { exact: true }).click();
@@ -32,7 +32,7 @@ test('practice uses season or all time and clears weeks when changing periods @c
   await toggleWeek(page, 2, true);
   await expect(anagram).toBeVisible();
   await chooseOption(page, 'View activity', 'Summer 2024/25');
-  await expect(page).toHaveURL(/\/seasons\/summer-2024-25\/practice$/);
+  await expect(page).toHaveURL(/\/seasons\/summer-2024-25\/leetcode$/);
   await expect(
     page.getByText('Season weeks: All', { exact: true }),
   ).toBeVisible();
@@ -51,7 +51,7 @@ test('practice uses season or all time and clears weeks when changing periods @c
     fullPage: true,
   });
   await chooseOption(page, 'View activity', 'All time');
-  await expect(page).toHaveURL(/\/practice$/);
+  await expect(page).toHaveURL(/\/leetcode$/);
   await expect(page.getByText(/^Season weeks/)).toHaveCount(0);
   await expect(
     page
@@ -60,7 +60,7 @@ test('practice uses season or all time and clears weeks when changing periods @c
   ).toBeVisible();
 
   // Old saved URLs must not silently narrow the All time view.
-  await page.goto('/practice?year=1900&weekId=week_season_2026_s2_3');
+  await page.goto('/leetcode?year=1900&weekId=week_season_2026_s2_3');
   await expectSelected(page, 'View activity', 'All time');
   await expect(anagram).toBeVisible();
   await expect(page.getByText(/^Season weeks/)).toHaveCount(0);

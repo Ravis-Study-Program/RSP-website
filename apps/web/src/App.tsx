@@ -109,7 +109,7 @@ function ProtectedShell() {
   const formerMemberRoutes = [
     '/',
     '/dashboard',
-    '/practice',
+    '/leetcode',
     '/mock-interviews',
     '/profile',
     '/settings',
@@ -173,7 +173,7 @@ function RequireSystemAdmin() {
 function LegacySeasonRedirect({
   destination,
 }: {
-  destination: '' | 'people' | 'practice' | 'mentor-teams';
+  destination: '' | 'people' | 'leetcode' | 'mentor-teams';
 }) {
   const { slug } = useParams();
   return (
@@ -254,9 +254,9 @@ export const routeObjects: RouteObject[] = [
         }),
       },
       {
-        path: '/seasons/:slug/practice',
+        path: '/seasons/:slug/leetcode',
         lazy: async () => ({
-          Component: (await import('@/pages/PracticePage')).PracticePage,
+          Component: (await import('@/pages/LeetCodePage')).LeetCodePage,
         }),
       },
       {
@@ -292,9 +292,9 @@ export const routeObjects: RouteObject[] = [
         }),
       },
       {
-        path: '/practice',
+        path: '/leetcode',
         lazy: async () => ({
-          Component: (await import('@/pages/PracticePage')).PracticePage,
+          Component: (await import('@/pages/LeetCodePage')).LeetCodePage,
         }),
       },
       {
@@ -387,7 +387,7 @@ export const routeObjects: RouteObject[] = [
       { path: '/overview', element: <Navigate to="/dashboard" replace /> },
       { path: '/users', element: <Navigate to="/graduates" replace /> },
       { path: '/mentors', element: <Navigate to="/graduates" replace /> },
-      { path: '/leetcode', element: <Navigate to="/practice" replace /> },
+      { path: '/practice', element: <Navigate to="/leetcode" replace /> },
       {
         path: '/admin/season-weeks',
         element: <Navigate to="/admin/weeks" replace />,
@@ -401,8 +401,8 @@ export const routeObjects: RouteObject[] = [
         element: <LegacySeasonRedirect destination="people" />,
       },
       {
-        path: '/seasons/:slug/leetcode',
-        element: <LegacySeasonRedirect destination="practice" />,
+        path: '/seasons/:slug/practice',
+        element: <LegacySeasonRedirect destination="leetcode" />,
       },
       {
         path: '/seasons/:slug/mentors',

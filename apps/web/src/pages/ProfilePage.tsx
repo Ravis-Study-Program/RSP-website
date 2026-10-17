@@ -130,7 +130,7 @@ export function ProfilePage() {
   const showProgrammeDetails = !isSelf || hasProgrammeAccess;
   const [savedName, setSavedName] = useState<string | null>(null);
   const [savedSlug, setSavedSlug] = useState<string | null>(null);
-  const [activityTab, setActivityTab] = useState('practice');
+  const [activityTab, setActivityTab] = useState('leetcode');
   usePageTitle(person?.name ?? 'Profile');
 
   if (

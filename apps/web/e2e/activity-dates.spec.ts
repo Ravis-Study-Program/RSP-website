@@ -59,9 +59,9 @@ test('former students can record mocks today in Adelaide and filter their person
       .filter({ visible: true })
       .first(),
   ).toBeVisible();
-  await page.goto('/practice');
+  await page.goto('/leetcode');
   await expect(
-    page.getByRole('heading', { name: 'Problem practice', exact: true }),
+    page.getByRole('heading', { name: 'LeetCode practice', exact: true }),
   ).toBeVisible();
   await chooseOption(page, 'View activity', 'Summer 2024/25');
   await expect(

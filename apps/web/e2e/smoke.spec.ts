@@ -77,10 +77,10 @@ test('desktop workspace navigation and canonical routes', async ({
 test('old practice route redirects without losing the app shell', async ({
   page,
 }) => {
-  await page.goto('/leetcode');
-  await expect(page).toHaveURL(/\/practice$/);
+  await page.goto('/practice');
+  await expect(page).toHaveURL(/\/leetcode$/);
   await expect(
-    page.getByRole('heading', { name: 'Problem practice' }),
+    page.getByRole('heading', { name: 'LeetCode practice' }),
   ).toBeVisible();
   await expect(
     page.locator('#workspace-select:visible, #workspace-select-mobile:visible'),
@@ -89,9 +89,9 @@ test('old practice route redirects without losing the app shell', async ({
 
 test('mobile tables use readable cards', async ({ page }, testInfo) => {
   test.skip(!testInfo.project.name.includes('mobile'), 'Mobile-only assertion');
-  await page.goto('/practice');
+  await page.goto('/leetcode');
   await expect(
-    page.getByRole('heading', { name: 'Problem practice' }),
+    page.getByRole('heading', { name: 'LeetCode practice' }),
   ).toBeVisible();
   await expect(
     page
@@ -136,7 +136,7 @@ test('320px and 200%-equivalent reflow keep primary actions reachable and reduce
     await selectDemoRole(page, 'student');
     await page.goto('/dashboard');
     await expect(page.getByRole('heading', { name: /Welcome/i })).toBeVisible();
-    await expectReflowWithoutUnreachableAction(page, 'Continue practice');
+    await expectReflowWithoutUnreachableAction(page, 'Continue LeetCode');
     await context.close();
   }
 
@@ -149,7 +149,7 @@ test('320px and 200%-equivalent reflow keep primary actions reachable and reduce
   await reducedMotionPage.goto('/dashboard');
   const primaryAction = reducedMotionPage
     .getByRole('main')
-    .getByRole('link', { name: 'Continue practice' });
+    .getByRole('link', { name: 'Continue LeetCode' });
   await expect(primaryAction).toBeVisible();
   const motion = await primaryAction.evaluate((element) => ({
     mediaMatches: window.matchMedia('(prefers-reduced-motion: reduce)').matches,
@@ -238,7 +238,7 @@ test('completed staff can review their season and keep personal practice without
   ).toBeVisible();
   await chooseOption(page, 'Workspace', 'Former member workspace');
   await expect(
-    navigation.getByRole('link', { name: 'Practice' }),
+    navigation.getByRole('link', { name: 'LeetCode' }),
   ).toBeVisible();
   await expect(
     navigation.getByRole('link', { name: 'Mock interviews' }),
@@ -289,7 +289,7 @@ test('signed-out, unverified, unavailable, nonmember, forbidden and not-found st
   const nonmemberContext = await browser.newContext();
   const nonmemberPage = await nonmemberContext.newPage();
   await selectDemoRole(nonmemberPage, 'nonmember');
-  await nonmemberPage.goto('/practice');
+  await nonmemberPage.goto('/leetcode');
   await expect(nonmemberPage).toHaveURL(/\/profile$/);
   await expect(
     nonmemberPage.getByRole('heading', { name: 'Avery Example' }),
@@ -514,7 +514,7 @@ test('attempt create, edit, delete and dirty-close confirmation work', async ({
 }, testInfo) => {
   test.skip(testInfo.project.name.includes('mobile'), 'Desktop CRUD coverage');
   await selectDemoRole(page, 'student');
-  await page.goto('/practice');
+  await page.goto('/leetcode');
   await page.getByRole('button', { name: 'Log attempt' }).click();
   const dialog = page.getByRole('dialog', { name: 'Log problem attempt' });
   await dialog.getByLabel('Problem').fill('Two Sum');

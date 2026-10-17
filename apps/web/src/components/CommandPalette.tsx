@@ -46,9 +46,9 @@ export function CommandPalette() {
               to: seasonBase,
             },
             {
-              label: 'Practice',
+              label: 'LeetCode',
               description: 'Problem attempt history',
-              to: `${seasonBase}/practice`,
+              to: `${seasonBase}/leetcode`,
             },
             {
               label: 'Mock interviews',
@@ -120,9 +120,9 @@ export function CommandPalette() {
                     to: '/graduates',
                   },
                   {
-                    label: 'Practice',
+                    label: 'LeetCode',
                     description: 'Problem attempt history',
-                    to: '/practice',
+                    to: '/leetcode',
                   },
                   {
                     label: 'Administration',
@@ -133,9 +133,9 @@ export function CommandPalette() {
               : role === 'graduate'
                 ? [
                     {
-                      label: 'Practice',
+                      label: 'LeetCode',
                       description: 'Problem attempt history',
-                      to: '/practice',
+                      to: '/leetcode',
                     },
                     {
                       label: 'Mock interviews',
@@ -151,9 +151,9 @@ export function CommandPalette() {
                 : role === 'former_member'
                   ? [
                       {
-                        label: 'Practice',
+                        label: 'LeetCode',
                         description: 'Global practice history',
-                        to: '/practice',
+                        to: '/leetcode',
                       },
                       {
                         label: 'Mock interviews',
