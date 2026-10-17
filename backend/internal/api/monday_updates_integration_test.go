@@ -107,7 +107,7 @@ func createMondayUpdateFor(t *testing.T, fixture postgresFixture, actor, content
 func createMondayUpdateRange(t *testing.T, fixture postgresFixture, actor, startDate, endDate, content string) programme.MondayUpdateRecord {
 	t.Helper()
 	response := testRequest(t, fixture.handler, http.MethodPost, mondayUpdatesPath(), actor,
-		`{"startDate":"`+startDate+`","endDate":"`+endDate+`","contentHtml":"`+content+`"}`)
+		`{"startDate":"`+startDate+`","endDate":"`+endDate+`","contentHtml":"`+content+`","hours":12.5}`)
 	if response.Code != http.StatusCreated {
 		t.Fatalf("create status=%d body=%s", response.Code, response.Body)
 	}
@@ -143,6 +143,9 @@ func TestMondayUpdateStudentScopeHidesMarks(t *testing.T) {
 	}
 	if own.Marks == nil || len(own.Marks) != 0 || own.Activity.Attempts == nil || own.Activity.Mocks == nil {
 		t.Fatalf("created=%+v", own)
+	}
+	if own.Hours != 12.5 {
+		t.Fatalf("hours=%v", own.Hours)
 	}
 	mentee := createMondayUpdateFor(t, fixture, "cohort", "<p>Cohort week</p>")
 
@@ -362,6 +365,26 @@ func TestMondayUpdateValidationAndEnrollment(t *testing.T) {
 			message: "contentHtml is required", status: http.StatusBadRequest,
 		},
 		{
+			name: "missing hours", actor: "student", method: http.MethodPost, path: mondayUpdatesPath(),
+			body:    `{"startDate":"` + mondayTestDate(0) + `","endDate":"` + mondayTestDate(0) + `","contentHtml":"<p>x</p>"}`,
+			message: "hours is required", status: http.StatusBadRequest,
+		},
+		{
+			name: "hours above a week", actor: "student", method: http.MethodPost, path: mondayUpdatesPath(),
+			body:    `{"startDate":"` + mondayTestDate(0) + `","endDate":"` + mondayTestDate(0) + `","contentHtml":"<p>x</p>","hours":168.5}`,
+			message: "hours must be between 0 and 168 in steps of 0.5", status: http.StatusBadRequest,
+		},
+		{
+			name: "negative hours", actor: "student", method: http.MethodPost, path: mondayUpdatesPath(),
+			body:    `{"startDate":"` + mondayTestDate(0) + `","endDate":"` + mondayTestDate(0) + `","contentHtml":"<p>x</p>","hours":-0.5}`,
+			message: "hours must be between 0 and 168 in steps of 0.5", status: http.StatusBadRequest,
+		},
+		{
+			name: "hours off the half-hour step", actor: "student", method: http.MethodPost, path: mondayUpdatesPath(),
+			body:    `{"startDate":"` + mondayTestDate(0) + `","endDate":"` + mondayTestDate(0) + `","contentHtml":"<p>x</p>","hours":7.3}`,
+			message: "hours must be between 0 and 168 in steps of 0.5", status: http.StatusBadRequest,
+		},
+		{
 			name: "unknown field", actor: "student", method: http.MethodPost, path: mondayUpdatesPath(),
 			body:    `{"startDate":"` + mondayTestDate(0) + `","endDate":"` + mondayTestDate(0) + `","contentHtml":"<p>x</p>","studentId":"` + studentID + `"}`,
 			message: `json: unknown field "studentId"`, status: http.StatusBadRequest,
@@ -413,7 +436,7 @@ func TestMondayUpdateValidationAndEnrollment(t *testing.T) {
 
 func TestMondayUpdateRequiresActiveStudentEnrollment(t *testing.T) {
 	fixture := newMondayUpdateFixture(t)
-	body := `{"startDate":"` + mondayTestDate(0) + `","endDate":"` + mondayTestDate(0) + `","contentHtml":"<p>x</p>"}`
+	body := `{"startDate":"` + mondayTestDate(0) + `","endDate":"` + mondayTestDate(0) + `","contentHtml":"<p>x</p>","hours":30}`
 	for _, state := range []authz.EnrollmentState{authz.Completed, authz.Withdrawn} {
 		handler := mondayUpdateHandler(fixture.db, map[string]authz.Actor{
 			"student": mondayActor(studentID, authz.Enrollment{SeasonID: seasonID, Role: authz.Student, State: state}),

@@ -153,6 +153,7 @@ function mondayUpdate(
     startDate: range.startDate,
     endDate: range.endDate,
     contentHtml: `<p>Update ${id}</p>`,
+    hours: 30,
     createdAt: '2026-10-05T02:00:00Z',
     marks: [],
     activity: {
@@ -289,6 +290,17 @@ describe('student Monday updates', () => {
     fireEvent.change(screen.getByLabelText('Your update'), {
       target: { value: '<p>Intervals are clearer now.</p>' },
     });
+    // Hours default to 30; an off-step value is blocked before any request.
+    const hoursInput = screen.getByLabelText('Hours worked');
+    expect(hoursInput).toHaveValue(30);
+    fireEvent.change(hoursInput, { target: { value: '7.3' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Post update' }));
+    expect(
+      screen.getByText('Enter hours between 0 and 168 in steps of 0.5.'),
+    ).toBeInTheDocument();
+    expect(apiRequest).not.toHaveBeenCalled();
+
+    fireEvent.change(hoursInput, { target: { value: '12.5' } });
     fireEvent.click(screen.getByRole('button', { name: 'Post update' }));
 
     await waitFor(() => expect(apiRequest).toHaveBeenCalledTimes(1));
@@ -300,6 +312,7 @@ describe('student Monday updates', () => {
           startDate: range.startDate,
           endDate: range.endDate,
           contentHtml: '<p>Intervals are clearer now.</p>',
+          hours: 12.5,
         }),
       },
     );
@@ -474,6 +487,7 @@ describe('reviewer Monday updates', () => {
             startDate: range.startDate,
             endDate: range.endDate,
             contentHtml: '<p>Finished the hash map pattern.</p>',
+            hours: 30,
             createdAt: '2026-10-05T02:00:00Z',
             marks: [
               markRecord(

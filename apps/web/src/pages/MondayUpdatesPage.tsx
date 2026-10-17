@@ -5,10 +5,12 @@ import { Checkbox } from '@/components/ui/checkbox';
 import {
   Field,
   FieldDescription,
+  FieldError,
   FieldLabel,
   FieldLegend,
   FieldSet,
 } from '@/components/ui/field';
+import { Input } from '@/components/ui/input';
 import {
   Select,
   SelectContent,
@@ -92,6 +94,19 @@ const formClass = 'grid gap-4';
 const cardClass = 'gap-4 p-5';
 
 const rangeErrorText = 'The end date must not be before the start date.';
+const defaultHours = '30';
+
+/** Hours are 0–168 in half-hour steps; returns null when the input is invalid. */
+function parseHours(value: string): number | null {
+  if (value.trim() === '') return null;
+  const hours = Number(value);
+  if (!Number.isFinite(hours) || hours < 0 || hours > 168) return null;
+  return Number.isInteger(hours * 2) ? hours : null;
+}
+
+function hoursLabel(hours: number) {
+  return `${hours} ${hours === 1 ? 'hour' : 'hours'}`;
+}
 
 const markSelectItems: { label: string; value: MondayUpdateMark | '' }[] = [
   { label: 'No mark yet', value: '' },
@@ -483,18 +498,20 @@ function StudentUpdateForm({
 }) {
   const queryClient = useQueryClient();
   const [content, setContent] = useState('');
+  const [hoursInput, setHoursInput] = useState(defaultHours);
   const [pending, setPending] = useState(false);
   const [attempted, setAttempted] = useState(false);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
   const contentEmpty = !hasContent(content);
+  const hours = parseHours(hoursInput);
 
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setAttempted(true);
     setError('');
     setMessage('');
-    if (rangeReversed(range) || contentEmpty) return;
+    if (rangeReversed(range) || contentEmpty || hours === null) return;
     setPending(true);
     try {
       if (!demoMode)
@@ -506,10 +523,12 @@ function StudentUpdateForm({
               startDate: range.startDate,
               endDate: range.endDate,
               contentHtml: content,
+              hours,
             } satisfies MondayUpdateMutation),
           },
         );
       setContent('');
+      setHoursInput(defaultHours);
       setAttempted(false);
       setMessage('Your update was posted.');
       await invalidateMondayUpdates(queryClient);
@@ -556,6 +575,26 @@ function StudentUpdateForm({
               : undefined
           }
         />
+        <Field className="max-w-48">
+          <FieldLabel htmlFor="monday-update-hours">Hours worked</FieldLabel>
+          <Input
+            id="monday-update-hours"
+            type="number"
+            inputMode="decimal"
+            min="0"
+            max="168"
+            step="0.5"
+            required
+            value={hoursInput}
+            onChange={(event) => setHoursInput(event.target.value)}
+            aria-invalid={attempted && hours === null}
+          />
+          {attempted && hours === null ? (
+            <FieldError>
+              Enter hours between 0 and 168 in steps of 0.5.
+            </FieldError>
+          ) : null}
+        </Field>
         <div className={rowClass}>
           <Button type="submit" disabled={pending}>
             {pending ? 'Posting…' : 'Post update'}
@@ -824,7 +863,7 @@ function ReviewUpdateList({
             {updateRangeLabel(update)}
             <span className={mutedClass}>
               {' '}
-              · {formatDateTime(update.createdAt)}
+              · {hoursLabel(update.hours)} · {formatDateTime(update.createdAt)}
             </span>
           </h3>
           <RichTextContent

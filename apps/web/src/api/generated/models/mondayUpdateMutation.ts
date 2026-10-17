@@ -13,4 +13,10 @@ export interface MondayUpdateMutation {
   endDate: string;
   /** @maxLength 20000 */
   contentHtml: string;
+  /**
+   * Hours of work the student reports for the update's date range.
+   * @minimum 0
+   * @maximum 168
+   */
+  hours: number;
 }

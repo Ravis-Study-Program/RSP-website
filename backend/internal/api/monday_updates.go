@@ -100,9 +100,10 @@ func (a *API) listMondayUpdates(w http.ResponseWriter, r *http.Request) {
 }
 
 type createMondayUpdateRequest struct {
-	StartDate   string `json:"startDate"`
-	EndDate     string `json:"endDate"`
-	ContentHTML string `json:"contentHtml"`
+	StartDate   string   `json:"startDate"`
+	EndDate     string   `json:"endDate"`
+	ContentHTML string   `json:"contentHtml"`
+	Hours       *float64 `json:"hours"`
 }
 
 func (a *API) createMondayUpdate(w http.ResponseWriter, r *http.Request) {
@@ -127,6 +128,14 @@ func (a *API) createMondayUpdate(w http.ResponseWriter, r *http.Request) {
 		writeErrorResponse(w, http.StatusBadRequest, "contentHtml is required")
 		return
 	}
+	if request.Hours == nil {
+		writeErrorResponse(w, http.StatusBadRequest, "hours is required")
+		return
+	}
+	if err := programme.ValidateMondayUpdateHours(*request.Hours); err != nil {
+		writeErrorResponse(w, http.StatusBadRequest, err.Error())
+		return
+	}
 
 	created, err := a.db.CreateMondayUpdate(r.Context(), programme.MondayUpdateRecord{
 		ID:          id.New(),
@@ -135,6 +144,7 @@ func (a *API) createMondayUpdate(w http.ResponseWriter, r *http.Request) {
 		StartDate:   request.StartDate,
 		EndDate:     request.EndDate,
 		ContentHTML: content,
+		Hours:       *request.Hours,
 	}, actor.UserID)
 	if err != nil {
 		a.writeStoreErrorResponse(w, err)

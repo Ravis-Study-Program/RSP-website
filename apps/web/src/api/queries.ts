@@ -465,6 +465,7 @@ function demoMondayUpdateReview(
           startDate: update.startDate,
           endDate: update.endDate,
           contentHtml: update.contentHtml,
+          hours: update.hours,
           createdAt: update.createdAt,
           marks: update.marks,
         })),

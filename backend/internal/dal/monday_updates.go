@@ -11,7 +11,7 @@ import (
 )
 
 // mondayUpdateColumns selects one update with the student's public profile.
-const mondayUpdateColumns = `u.id,u.season_id,u.student_user_id,s.slug,s.display_name,s.avatar_url,u.start_date::text,u.end_date::text,u.content_html,u.created_at`
+const mondayUpdateColumns = `u.id,u.season_id,u.student_user_id,s.slug,s.display_name,s.avatar_url,u.start_date::text,u.end_date::text,u.content_html,u.hours::float8,u.created_at`
 
 // mondayUpdateMarkColumns selects one mark with the mentor's public profile.
 const mondayUpdateMarkColumns = `k.id,k.mentor_user_id,m.slug,m.display_name,m.avatar_url,k.mark::text,COALESCE(k.comment_html,''),k.updated_at`
@@ -42,7 +42,7 @@ const mondayUpdateMockRange = `JOIN app.mock_interviews m ON m.interviewee_user_
 func scanMondayUpdate(row pgx.Row) (programme.MondayUpdateRecord, error) {
 	var v programme.MondayUpdateRecord
 	err := row.Scan(&v.ID, &v.SeasonID, &v.Student.ID, &v.Student.Slug, &v.Student.Name, &v.Student.AvatarURL,
-		&v.StartDate, &v.EndDate, &v.ContentHTML, &v.CreatedAt)
+		&v.StartDate, &v.EndDate, &v.ContentHTML, &v.Hours, &v.CreatedAt)
 	return v, noRows(err)
 }
 
@@ -275,8 +275,8 @@ func (p *Store) CreateMondayUpdate(ctx context.Context, v programme.MondayUpdate
 	}
 
 	defer tx.Rollback(context.Background())
-	if _, err := tx.Exec(ctx, `INSERT INTO app.monday_updates(id,season_id,student_user_id,start_date,end_date,content_html)
-		VALUES($1,$2,$3,$4::date,$5::date,$6)`, v.ID, v.SeasonID, v.Student.ID, v.StartDate, v.EndDate, v.ContentHTML); err != nil {
+	if _, err := tx.Exec(ctx, `INSERT INTO app.monday_updates(id,season_id,student_user_id,start_date,end_date,content_html,hours)
+		VALUES($1,$2,$3,$4::date,$5::date,$6,$7)`, v.ID, v.SeasonID, v.Student.ID, v.StartDate, v.EndDate, v.ContentHTML, v.Hours); err != nil {
 		return v, mapDatabaseError(err)
 	}
 	if err := appendAuditTx(ctx, tx, newAudit(actorID, "monday_update.created", "monday_update", v.ID, nil, time.Now())); err != nil {
@@ -423,7 +423,7 @@ func (p *Store) ListMondayUpdateReview(ctx context.Context, q MondayUpdateReview
 // range, marks included, and returns the loaded update ids.
 func (p *Store) loadMondayUpdateReviewUpdates(ctx context.Context, q MondayUpdateReviewQuery, studentIDs []string, byStudent map[string]*programme.MondayUpdateReviewRow) ([]string, error) {
 	args := pgx.NamedArgs{"seasonID": q.SeasonID, "startDate": q.StartDate, "endDate": q.EndDate, "studentIDs": studentIDs}
-	rows, err := p.pool.Query(ctx, `SELECT u.student_user_id,u.id,u.start_date::text,u.end_date::text,u.content_html,u.created_at
+	rows, err := p.pool.Query(ctx, `SELECT u.student_user_id,u.id,u.start_date::text,u.end_date::text,u.content_html,u.hours::float8,u.created_at
 		FROM app.monday_updates u
 		WHERE u.season_id=@seasonID AND u.deleted_at IS NULL
 		  AND u.start_date <= @endDate::date AND u.end_date >= @startDate::date
@@ -438,7 +438,7 @@ func (p *Store) loadMondayUpdateReviewUpdates(ctx context.Context, q MondayUpdat
 	for rows.Next() {
 		var studentID string
 		var update programme.MondayUpdateReviewUpdate
-		if err := rows.Scan(&studentID, &update.ID, &update.StartDate, &update.EndDate, &update.ContentHTML, &update.CreatedAt); err != nil {
+		if err := rows.Scan(&studentID, &update.ID, &update.StartDate, &update.EndDate, &update.ContentHTML, &update.Hours, &update.CreatedAt); err != nil {
 			return nil, err
 		}
 		update.Marks = []programme.MondayUpdateMarkRecord{}
