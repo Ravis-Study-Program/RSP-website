@@ -1,14 +1,28 @@
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Label } from '@/components/ui/label';
 import {
-  NativeSelect,
-  NativeSelectOption,
-} from '@/components/ui/native-select';
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { IconChevronDown } from '@tabler/icons-react';
 import { useState } from 'react';
 import { useLeetcodeProblems, useSeasonWeeks } from '@/api/queries';
 import { emptyActivityFilters, type ActivityFilters } from '@/activityFilters';
 import type { Person } from '@/types';
-import styles from '@/styles/App.module.css';
+
+const clearFilterClass =
+  'justify-start px-0 max-[56rem]:basis-full max-[56rem]:self-start';
 
 function Choices({
   label,
@@ -23,41 +37,64 @@ function Choices({
 }) {
   const [search, setSearch] = useState('');
   return (
-    <details className={styles.filterChoices}>
-      <summary>
+    <Popover>
+      <PopoverTrigger
+        render={
+          <Button
+            variant="outline"
+            className="h-9 min-w-40 justify-between font-normal"
+          />
+        }
+      >
         {label}
         {selected.length ? ` (${selected.length})` : ': All'}
-      </summary>
-      {options.length > 8 ? (
-        <Input
-          aria-label={`Search ${label.toLowerCase()}`}
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
+        <IconChevronDown
+          size={16}
+          aria-hidden="true"
+          className="text-muted-foreground"
         />
-      ) : null}
-      <fieldset className={styles.filterOptions}>
-        <legend className={styles.visuallyHidden}>{label}</legend>
-        {options
-          .filter((o) => o.label.toLowerCase().includes(search.toLowerCase()))
-          .map((option) => (
-            <label className={styles.inline} key={option.value}>
-              <input
-                type="checkbox"
-                checked={selected.includes(option.value)}
-                onChange={(e) =>
-                  onChange(
-                    e.target.checked
-                      ? [...selected, option.value]
-                      : selected.filter((v) => v !== option.value),
-                  )
-                }
-              />
-              {option.label}
-            </label>
-          ))}
-        {!options.length ? <span>No options in this view.</span> : null}
-      </fieldset>
-    </details>
+      </PopoverTrigger>
+      <PopoverContent
+        align="start"
+        className="w-max min-w-40 max-w-[min(20rem,calc(100vw-2rem))] p-2"
+      >
+        {options.length > 8 ? (
+          <Input
+            aria-label={`Search ${label.toLowerCase()}`}
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+        ) : null}
+        <fieldset className="grid max-h-60 gap-1 overflow-auto">
+          <legend className="sr-only">{label}</legend>
+          {options
+            .filter((o) => o.label.toLowerCase().includes(search.toLowerCase()))
+            .map((option) => (
+              <Label
+                className="min-h-9 rounded-md px-2 font-normal hover:bg-muted"
+                key={option.value}
+              >
+                <Checkbox
+                  checked={selected.includes(option.value)}
+                  onCheckedChange={(checked) =>
+                    onChange(
+                      checked
+                        ? [...selected, option.value]
+                        : selected.filter((v) => v !== option.value),
+                    )
+                  }
+                />
+                {option.label}
+              </Label>
+            ))}
+          {!options.length ? (
+            <p className="px-2 py-1.5 text-sm text-muted-foreground">
+              No options in this view.
+            </p>
+          ) : null}
+        </fieldset>
+      </PopoverContent>
+    </Popover>
   );
 }
 
@@ -75,7 +112,10 @@ export function PracticeFilters({
     ...new Set((problems.data?.items ?? []).flatMap((p) => p.categories)),
   ].sort();
   return (
-    <div className={styles.activityFilters} aria-label="Practice filters">
+    <div
+      className="my-3 flex flex-wrap items-end gap-3"
+      aria-label="Practice filters"
+    >
       <Choices
         label="Difficulty"
         options={['Easy', 'Medium', 'Hard'].map((label) => ({
@@ -98,7 +138,9 @@ export function PracticeFilters({
       />
       <Button
         variant="ghost"
+        size="sm"
         type="button"
+        className={clearFilterClass}
         onClick={() =>
           onChange({ difficulties: [], categories: [], weeks: [] })
         }
@@ -112,6 +154,12 @@ export function PracticeFilters({
   );
 }
 
+const resultItems = [
+  { label: 'All results', value: '' },
+  { label: 'Pass', value: 'true' },
+  { label: 'Needs work', value: 'false' },
+];
+
 export function MockFilters({
   seasonId,
   people,
@@ -124,18 +172,30 @@ export function MockFilters({
   onChange: (change: Partial<ActivityFilters>) => void;
 }) {
   return (
-    <div className={styles.activityFilters} aria-label="Mock filters">
-      <label>
-        Result{' '}
-        <NativeSelect
-          className="w-full"
+    <div
+      className="my-3 flex flex-wrap items-end gap-3"
+      aria-label="Mock filters"
+    >
+      <label className="grid gap-2 text-sm font-medium">
+        Result
+        <Select
+          items={resultItems}
           value={filters.passed}
-          onChange={(e) => onChange({ passed: e.target.value })}
+          onValueChange={(value) => onChange({ passed: value ?? '' })}
         >
-          <NativeSelectOption value="">All results</NativeSelectOption>
-          <NativeSelectOption value="true">Pass</NativeSelectOption>
-          <NativeSelectOption value="false">Needs work</NativeSelectOption>
-        </NativeSelect>
+          <SelectTrigger aria-label="Result" className="min-w-40">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectGroup>
+              {resultItems.map((item) => (
+                <SelectItem key={item.value} value={item.value}>
+                  {item.label}
+                </SelectItem>
+              ))}
+            </SelectGroup>
+          </SelectContent>
+        </Select>
       </label>
       <Choices
         label="Interviewers"
@@ -150,7 +210,9 @@ export function MockFilters({
       />
       <Button
         variant="ghost"
+        size="sm"
         type="button"
+        className={clearFilterClass}
         onClick={() =>
           onChange({
             passed: emptyActivityFilters.passed,

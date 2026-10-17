@@ -88,3 +88,14 @@ if (!window.PointerEvent) {
     value: PointerEventStub,
   });
 }
+
+// Base UI Select relies on these browser APIs, which jsdom does not implement.
+if (!Element.prototype.scrollIntoView) {
+  Element.prototype.scrollIntoView = () => {};
+}
+if (!Element.prototype.hasPointerCapture) {
+  Element.prototype.hasPointerCapture = () => false;
+}
+if (!Element.prototype.releasePointerCapture) {
+  Element.prototype.releasePointerCapture = () => {};
+}

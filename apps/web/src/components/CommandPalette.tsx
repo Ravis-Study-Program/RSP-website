@@ -13,7 +13,6 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 
 import { useWorkspace } from '@/auth/WorkspaceContext';
-import styles from '@/styles/App.module.css';
 
 const accountCommands = [
   {
@@ -206,7 +205,10 @@ export function CommandPalette() {
       <DialogTrigger
         aria-label="Search pages"
         render={
-          <Button variant="outline" className="gap-2 text-muted-foreground" />
+          <Button
+            variant="ghost"
+            className="gap-2 text-muted-foreground max-sm:size-10 max-sm:px-0 sm:border-border sm:bg-background"
+          />
         }
       >
         <IconSearch size={16} aria-hidden="true" />
@@ -216,7 +218,7 @@ export function CommandPalette() {
         </kbd>
       </DialogTrigger>
       <DialogContent showCloseButton={false} initialFocus={searchInputRef}>
-        <div className={styles.dialogHeader}>
+        <div className="mb-4 flex items-start justify-between gap-4">
           <div>
             <DialogTitle>Quick navigation</DialogTitle>
             <DialogDescription>
@@ -224,15 +226,19 @@ export function CommandPalette() {
             </DialogDescription>
           </div>
           <DialogClose
-            className={styles.iconButton}
+            render={<Button variant="ghost" size="icon" />}
             aria-label="Close quick navigation"
           >
             <IconX size={18} aria-hidden="true" />
           </DialogClose>
         </div>
-        <div className={`${styles.searchWrap} ${styles.stateForm}`}>
-          <IconSearch size={18} aria-hidden="true" />
-          <label className={styles.visuallyHidden} htmlFor="command-search">
+        <div className="relative mx-auto w-full">
+          <IconSearch
+            size={18}
+            aria-hidden="true"
+            className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-muted-foreground"
+          />
+          <label className="sr-only" htmlFor="command-search">
             Search pages
           </label>
           <Input
@@ -246,7 +252,7 @@ export function CommandPalette() {
           />
         </div>
         <nav aria-label="Quick navigation results" className="-mx-1">
-          <ul className={styles.cleanList}>
+          <ul className="m-0 grid list-none gap-1 p-0">
             {filtered.map((command) => (
               <li key={command.to}>
                 <Link
@@ -265,7 +271,9 @@ export function CommandPalette() {
             ))}
           </ul>
           {!filtered.length ? (
-            <p className={styles.muted}>No matching pages.</p>
+            <p className="py-3 text-sm text-muted-foreground">
+              No matching pages.
+            </p>
           ) : null}
         </nav>
       </DialogContent>

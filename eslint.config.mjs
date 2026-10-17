@@ -18,6 +18,7 @@ export default tseslint.config(
       '**/test-results*/**',
       '**/playwright-report*/**',
       'apps/web/src/api/generated/**',
+      '.agents/**',
     ],
   },
   {
@@ -78,7 +79,7 @@ export default tseslint.config(
       ...reactHooks.configs.flat.recommended.rules,
       'jsx-a11y/label-has-associated-control': [
         'error',
-        { controlComponents: ['Input', 'NativeSelect', 'Textarea'] },
+        { controlComponents: ['Input', 'SelectTrigger', 'Textarea'] },
       ],
       // TanStack Table deliberately uses a heterogeneous value type here.
       '@typescript-eslint/no-explicit-any': 'off',
@@ -97,6 +98,11 @@ export default tseslint.config(
             'sanitizeRichTextForDisplay',
             'usePageTitle',
             'useWorkspace',
+            'useCurrentPageTitle',
+            // shadcn/ui primitives export their cva variant helpers.
+            'buttonVariants',
+            'badgeVariants',
+            'tabsListVariants',
           ],
         },
       ],

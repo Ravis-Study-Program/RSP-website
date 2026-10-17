@@ -1,5 +1,5 @@
 import { Card } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
+import { Button, buttonVariants } from '@/components/ui/button';
 import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate } from 'react-router-dom';
@@ -8,7 +8,6 @@ import { useCurrentUser } from '@/api/queries';
 import { getBrowserAuthSession, signOut } from '@/api/authClient';
 import type { Enrollment, Invitation } from '@/api/generated/models';
 import { PageHeader, usePageTitle } from '@/components/Common';
-import styles from '@/styles/App.module.css';
 
 export const pendingInvitationKey = 'rsp-pending-invitation';
 export function InvitationAcceptPage() {
@@ -72,7 +71,7 @@ export function InvitationAcceptPage() {
     }
   }
   return (
-    <main className={styles.page}>
+    <main className="mx-auto grid w-full max-w-[92rem] content-start gap-4">
       <PageHeader
         eyebrow="RSP"
         title="Accept your invitation"
@@ -82,17 +81,19 @@ export function InvitationAcceptPage() {
         <p>Open the invitation link from your email.</p>
       ) : accepted ? (
         <Card className="gap-4 p-5">
-          <h2>You have joined {preview.data?.seasonName ?? 'the season'}.</h2>
+          <h2 className="text-xl font-semibold tracking-tight">
+            You have joined {preview.data?.seasonName ?? 'the season'}.
+          </h2>
           {accepted.assignmentState === 'pending_mfa' ? (
             <p>Set up MFA in Settings to activate your coordinator access.</p>
           ) : null}
           <Link
-            className={styles.buttonPrimary}
             to={
               accepted.assignmentState === 'pending_mfa'
                 ? '/settings'
                 : `/seasons/${preview.data?.seasonSlug}`
             }
+            className={buttonVariants({ variant: 'default' })}
           >
             Continue
           </Link>
@@ -105,34 +106,46 @@ export function InvitationAcceptPage() {
             Sign in or create an account with the invited email address. Your
             invitation will be waiting when you return.
           </p>
-          <Link className={styles.buttonPrimary} to="/sign-in">
+          <Link
+            to="/sign-in"
+            className={buttonVariants({ variant: 'default' })}
+          >
             Sign in or create an account
           </Link>
         </Card>
       ) : !verified ? (
         <Card className="gap-4 p-5">
           <p>Verify your email address before accepting.</p>
-          <Link className={styles.buttonPrimary} to="/verify-email">
+          <Link
+            to="/verify-email"
+            className={buttonVariants({ variant: 'default' })}
+          >
             Verify email
           </Link>
         </Card>
       ) : preview.isLoading ? (
         <p role="status">Checking the invitation…</p>
       ) : preview.isError ? (
-        <p role="alert">
+        <p role="alert" className="text-sm text-destructive">
           {preview.error.message} Check that you are signed in with the email
           address that received the invitation.
         </p>
       ) : preview.data ? (
         <Card className="gap-4 p-5">
-          <h2>{preview.data.seasonName}</h2>
+          <h2 className="text-xl font-semibold tracking-tight">
+            {preview.data.seasonName}
+          </h2>
           <p>
             {preview.data.email} has been invited as a {preview.data.role}.
           </p>
           <Button type="submit" disabled={busy} onClick={() => void accept()}>
             {busy ? 'Joining…' : 'Accept invitation'}
           </Button>
-          {error ? <p role="alert">{error}</p> : null}
+          {error ? (
+            <p role="alert" className="text-sm text-destructive">
+              {error}
+            </p>
+          ) : null}
         </Card>
       ) : null}
       {session.data?.user && !accepted ? (

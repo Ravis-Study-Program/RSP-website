@@ -1,3 +1,4 @@
+import { chooseOption } from './select';
 import { expect, test } from '@playwright/test';
 
 test('former students can record mocks today in Adelaide and filter their personal history', async ({
@@ -19,7 +20,7 @@ test('former students can record mocks today in Adelaide and filter their person
     'id',
     /^round-type-[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/,
   );
-  await create.getByLabel('Interviewee').selectOption('person_amelia');
+  await chooseOption(create, 'Interviewee', 'Amelia Chen · student');
   await create.getByLabel('Time (Adelaide)').fill('23:00');
   await create.getByRole('button', { name: 'Save interview' }).click();
   await expect(create.getByText(/Future times are not allowed/)).toBeVisible();
@@ -45,12 +46,12 @@ test('former students can record mocks today in Adelaide and filter their person
   await edit.getByLabel('Duration (minutes)').fill('65');
   await edit.getByRole('button', { name: 'Save interview' }).click();
   await expect(edit).toBeHidden();
-  await page.getByLabel('View activity').selectOption('season_2026_s1');
+  await chooseOption(page, 'View activity', 'Summer 2024/25');
   await expect(page).toHaveURL(/\/mock-interviews\?seasonId=season_2026_s1/);
   await expect(page.getByRole('button', { name: 'Edit details' })).toHaveCount(
     0,
   );
-  await page.getByLabel('View activity').selectOption('');
+  await chooseOption(page, 'View activity', 'All time');
   await expect(page).not.toHaveURL(/seasonId=/);
   await expect(
     page
@@ -62,11 +63,11 @@ test('former students can record mocks today in Adelaide and filter their person
   await expect(
     page.getByRole('heading', { name: 'Problem practice', exact: true }),
   ).toBeVisible();
-  await page.getByLabel('View activity').selectOption('season_2026_s1');
+  await chooseOption(page, 'View activity', 'Summer 2024/25');
   await expect(
     page.getByText('Binary Tree Level Order Traversal', { exact: true }),
   ).toHaveCount(0);
-  await page.getByLabel('View activity').selectOption('');
+  await chooseOption(page, 'View activity', 'All time');
   await expect(
     page
       .getByText('Binary Tree Level Order Traversal', { exact: true })

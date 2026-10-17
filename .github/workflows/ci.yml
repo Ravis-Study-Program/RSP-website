@@ -70,6 +70,19 @@ jobs:
       - name: Validate Compose
         run: docker compose config --quiet
 
+  impeccable:
+    name: Impeccable design detector
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      # Uses the project-scoped skill launcher (pinned by skills-lock.json); it
+      # downloads its self-contained binary on first run. Exit 2 = primary
+      # findings, 1 = scan failure; advisory findings never fail the job.
+      - name: Scan web UI against DESIGN.md
+        working-directory: apps/web
+        run: ../../.agents/skills/impeccable/scripts/impeccable detect src
+
   unit:
     name: Unit and race tests
     runs-on: ubuntu-latest

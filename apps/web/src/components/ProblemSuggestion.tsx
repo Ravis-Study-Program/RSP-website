@@ -1,4 +1,3 @@
-import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useState } from 'react';
 import { ApiError, apiRequest } from '@/api/client';
@@ -9,7 +8,6 @@ import {
   emptyActivityFilters,
   type ActivityFilters,
 } from '@/activityFilters';
-import styles from '@/styles/App.module.css';
 
 export function ProblemSuggestion({ filters }: { filters: ActivityFilters }) {
   const catalog = useLeetcodeProblems();
@@ -57,25 +55,27 @@ export function ProblemSuggestion({ filters }: { filters: ActivityFilters }) {
     }
   }
   return (
-    <Card className="gap-4 p-5">
-      <div className={styles.inline}>
-        <Button
-          variant="outline"
-          type="button"
-          disabled={
-            pending || (demoMode && (catalog.isLoading || history.isLoading))
-          }
-          onClick={() => void suggest()}
-        >
-          {pending ? 'Finding a question…' : 'Suggest a question'}
-        </Button>
-        <span className={styles.helper}>
-          Uses the selected difficulty and topics and excludes your previous
-          attempts from every season.
-        </span>
-      </div>
-      {error ? <p role="alert">{error}</p> : null}
-      <div aria-live="polite">
+    <div className="mb-4 flex flex-wrap items-center gap-3">
+      <Button
+        variant="outline"
+        type="button"
+        disabled={
+          pending || (demoMode && (catalog.isLoading || history.isLoading))
+        }
+        onClick={() => void suggest()}
+      >
+        {pending ? 'Finding a question…' : 'Suggest a question'}
+      </Button>
+      <span className="min-w-0 text-sm text-muted-foreground">
+        Uses the selected difficulty and topics and excludes your previous
+        attempts from every season.
+      </span>
+      {error ? (
+        <p role="alert" className="basis-full text-sm text-destructive">
+          {error}
+        </p>
+      ) : null}
+      <div aria-live="polite" className="basis-full">
         {suggestion === null ? (
           <p>
             No unattempted questions match. Try another difficulty or topic.
@@ -90,6 +90,6 @@ export function ProblemSuggestion({ filters }: { filters: ActivityFilters }) {
           </p>
         ) : null}
       </div>
-    </Card>
+    </div>
   );
 }

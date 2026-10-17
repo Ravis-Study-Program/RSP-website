@@ -188,6 +188,8 @@ services:
     volumes:
       - ./apps/web/src:/workspace/apps/web/src
       - ./apps/web/public:/workspace/apps/web/public
+      # Dev-only: lets Impeccable live mode inject its picker script.
+      - ./apps/web/index.html:/workspace/apps/web/index.html
       - ./api/openapi.yaml:/workspace/api/openapi.yaml:ro
     depends_on:
       auth:

@@ -9,7 +9,7 @@ import {
   YAxis,
 } from 'recharts';
 
-import styles from '@/styles/App.module.css';
+import { legendLabel } from '@/lib/chartLegend';
 
 export function ActivityChart({
   data,
@@ -26,14 +26,28 @@ export function ActivityChart({
         : current,
     null,
   );
+  const hasActivity = attempts + interviews > 0;
+  const summary = (
+    <p className="mt-3 text-sm text-muted-foreground">
+      Activity summary: {attempts} practice attempts and {interviews} mock
+      interviews across {data.length} periods.
+      {busiest && busiest.attempts + busiest.interviews > 0
+        ? ` ${busiest.week} had the highest recorded activity.`
+        : ' No activity was recorded in this period.'}
+    </p>
+  );
+  if (!hasActivity) return summary;
   return (
-    <div>
-      <div className={styles.chartWrap} aria-hidden="true">
+    <div className="min-w-0">
+      <div
+        className="mt-3 h-72 w-full min-w-0 max-[56rem]:h-56"
+        aria-hidden="true"
+      >
         <ResponsiveContainer width="100%" height="100%">
           <AreaChart
             accessibilityLayer={false}
             data={data}
-            margin={{ top: 10, right: 12, left: -20, bottom: 0 }}
+            margin={{ top: 10, right: 16, left: 0, bottom: 0 }}
           >
             <CartesianGrid
               stroke="var(--border)"
@@ -45,6 +59,8 @@ export function ActivityChart({
               stroke="var(--text-muted)"
               tickLine={false}
               axisLine={false}
+              interval="preserveStartEnd"
+              padding={{ left: 8, right: 8 }}
             />
             <YAxis
               allowDecimals={false}
@@ -56,11 +72,11 @@ export function ActivityChart({
               contentStyle={{
                 background: 'var(--surface-raised)',
                 border: '1px solid var(--border)',
-                borderRadius: '2px',
+                borderRadius: 'var(--radius-md)',
                 color: 'var(--text)',
               }}
             />
-            <Legend />
+            <Legend formatter={legendLabel} />
             <Area
               isAnimationActive={false}
               type="monotone"
@@ -82,13 +98,7 @@ export function ActivityChart({
           </AreaChart>
         </ResponsiveContainer>
       </div>
-      <p className={styles.chartSummary}>
-        Activity summary: {attempts} practice attempts and {interviews} mock
-        interviews across {data.length} periods.
-        {busiest && busiest.attempts + busiest.interviews > 0
-          ? ` ${busiest.week} had the highest recorded activity.`
-          : ' No activity was recorded in this period.'}
-      </p>
+      {summary}
     </div>
   );
 }

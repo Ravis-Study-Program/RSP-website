@@ -1,5 +1,13 @@
-import { Card } from '@/components/ui/card';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Card, CardContent } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import {
+  Field,
+  FieldDescription,
+  FieldError,
+  FieldLabel,
+} from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { IconAlertTriangle, IconCheck } from '@tabler/icons-react';
@@ -35,8 +43,21 @@ import {
   InlineNotice,
   PageSkeleton,
 } from '@/components/StatusViews';
-import styles from '@/styles/App.module.css';
 import { difficultyGoal, supportedTimezones } from '@/utils';
+
+const pageClass = 'mx-auto w-full max-w-[92rem]';
+const sectionClass = 'mt-6 flex flex-col';
+const sectionHeaderClass = 'mb-3 flex items-end justify-between gap-4';
+const sectionTitleClass = 'text-xl font-semibold tracking-tight';
+const listClass = 'm-0 grid list-none gap-3 p-0';
+const formClass = 'flex flex-col gap-4';
+const dialogActionsClass = 'mt-5 flex justify-end gap-2.5';
+const rowListClass = 'divide-y';
+const rowClass =
+  'flex items-center justify-between gap-4 py-3 first:pt-0 last:pb-0';
+const rowTextClass = 'block text-sm text-muted-foreground';
+const badgeSuccessClass = 'bg-success-soft text-success';
+const badgeWarningClass = 'bg-warning-soft text-warning';
 
 export function SettingsPage() {
   usePageTitle('Settings');
@@ -80,7 +101,7 @@ export function SettingsPage() {
   if (user.isLoading) return <PageSkeleton label="Loading settings" />;
   if (user.isError || !user.data) {
     return (
-      <div className={styles.page}>
+      <div className={pageClass}>
         <ErrorState
           title="Settings unavailable"
           message="Your settings could not be loaded. No changes have been made."
@@ -157,7 +178,7 @@ export function SettingsPage() {
   };
 
   return (
-    <div className={styles.page}>
+    <div className={pageClass}>
       <DirtyFormGuard blocker={blocker} />
       <PageHeader
         eyebrow="Account"
@@ -189,178 +210,195 @@ export function SettingsPage() {
       {securityMessage ? (
         <InlineNotice tone="warning">{securityMessage}</InlineNotice>
       ) : null}
-      <div className={styles.grid2}>
-        <section className={styles.section} aria-labelledby="preferences-title">
-          <div className={styles.sectionHeader}>
-            <h2 id="preferences-title" className={styles.sectionTitle}>
+      <div className="grid gap-6 min-[56rem]:grid-cols-2">
+        <section className={sectionClass} aria-labelledby="preferences-title">
+          <div className={sectionHeaderClass}>
+            <h2 id="preferences-title" className={sectionTitleClass}>
               Display and time
             </h2>
           </div>
-          <Card className="gap-4 p-5">
-            <div className={styles.field}>
-              <label htmlFor="timezone">Timezone</label>
-              <TimezoneSelect
-                id="timezone"
-                options={timezoneOptions}
-                value={timezone}
-                invalid={!timezoneValid}
-                describedBy={
-                  !timezoneValid ? 'timezone-error' : 'timezone-help'
-                }
-                getOptionLabel={(zone) =>
-                  zone === browserTimezone ? `${zone} (browser detected)` : zone
-                }
-                onChange={(nextTimezone) => {
-                  setTimezone(nextTimezone);
-                  setSaved(false);
-                }}
-              />
-              <p id="timezone-help" className={styles.helper}>
-                Use an IANA timezone such as Australia/Adelaide. Stored
-                timestamps remain UTC.
-              </p>
-              {!timezoneValid ? (
-                <p id="timezone-error" className={styles.fieldError}>
-                  Enter a valid IANA timezone.
-                </p>
-              ) : null}
-            </div>
+          <Card className="h-full">
+            <CardContent>
+              <Field>
+                <FieldLabel htmlFor="timezone">Timezone</FieldLabel>
+                <TimezoneSelect
+                  id="timezone"
+                  options={timezoneOptions}
+                  value={timezone}
+                  invalid={!timezoneValid}
+                  describedBy={
+                    !timezoneValid ? 'timezone-error' : 'timezone-help'
+                  }
+                  getOptionLabel={(zone) =>
+                    zone === browserTimezone
+                      ? `${zone} (browser detected)`
+                      : zone
+                  }
+                  onChange={(nextTimezone) => {
+                    setTimezone(nextTimezone);
+                    setSaved(false);
+                  }}
+                />
+                <FieldDescription id="timezone-help">
+                  Use an IANA timezone such as Australia/Adelaide. Stored
+                  timestamps remain UTC.
+                </FieldDescription>
+                {!timezoneValid ? (
+                  <FieldError id="timezone-error">
+                    Enter a valid IANA timezone.
+                  </FieldError>
+                ) : null}
+              </Field>
+            </CardContent>
           </Card>
         </section>
-        <section className={styles.section} aria-labelledby="goals-title">
-          <div className={styles.sectionHeader}>
-            <h2 id="goals-title" className={styles.sectionTitle}>
+        <section className={sectionClass} aria-labelledby="goals-title">
+          <div className={sectionHeaderClass}>
+            <h2 id="goals-title" className={sectionTitleClass}>
               Practice goals
             </h2>
           </div>
           <PracticePreferencesPanel />
         </section>
       </div>
-      <section className={styles.section} aria-labelledby="security-title">
-        <div className={styles.sectionHeader}>
-          <h2 id="security-title" className={styles.sectionTitle}>
+      <section className={sectionClass} aria-labelledby="security-title">
+        <div className={sectionHeaderClass}>
+          <h2 id="security-title" className={sectionTitleClass}>
             Security
           </h2>
         </div>
-        <Card className="gap-4 p-5">
-          <div className={styles.listRow}>
-            <span className={styles.personIdentity}>
-              <span className={styles.personIdentityText}>
-                <strong>Two-factor authentication</strong>
-                <span>Required for privileged programme roles</span>
+        <Card>
+          <CardContent className={rowListClass}>
+            <div className={rowClass}>
+              <span className="grid min-w-0 flex-1">
+                <span className="flex flex-wrap items-center gap-2">
+                  <strong className="font-semibold">
+                    Two-factor authentication
+                  </strong>
+                  <Badge
+                    variant="outline"
+                    className={
+                      user.data?.mfaVerified
+                        ? badgeSuccessClass
+                        : badgeWarningClass
+                    }
+                  >
+                    {user.data?.mfaVerified
+                      ? 'Verified this session'
+                      : 'Step-up required'}
+                  </Badge>
+                </span>
+                <span className={rowTextClass}>
+                  Required for privileged programme roles
+                </span>
               </span>
-            </span>
-            <span
-              className={
-                user.data?.mfaVerified
-                  ? styles.badgeSuccess
-                  : styles.badgeWarning
-              }
-            >
-              {user.data?.mfaVerified
-                ? 'Verified this session'
-                : 'Step-up required'}
-            </span>
-            <MfaSetupDialog onComplete={finishSecurityChange} />
-          </div>
-          <div className={styles.listRow}>
-            <span className={styles.personIdentity}>
-              <span className={styles.personIdentityText}>
-                <strong>Backup codes</strong>
-                <span>Single-use codes for account recovery</span>
+              <MfaSetupDialog onComplete={finishSecurityChange} />
+            </div>
+            <div className={rowClass}>
+              <span className="flex min-w-0 items-center gap-2.5">
+                <span className="grid min-w-0">
+                  <strong className="font-semibold">Backup codes</strong>
+                  <span className={rowTextClass}>
+                    Single-use codes for account recovery
+                  </span>
+                </span>
               </span>
-            </span>
-            <BackupCodesDialog onComplete={finishSecurityChange} />
-          </div>
-          <div className={styles.listRow}>
-            <span>Connected sign-in methods</span>
-            <Button
-              variant="outline"
-              type="button"
-              onClick={() =>
-                void linkGoogleAccount().catch((error: unknown) =>
-                  setSecurityMessage(
-                    error instanceof Error
-                      ? error.message
-                      : 'Unable to connect Google.',
-                  ),
-                )
-              }
-            >
-              Connect Google
-            </Button>
-          </div>
-          <div className={styles.listRow}>
-            <span>
-              <strong>Password sign-in method</strong>
-              <span className={`${styles.helper} ${styles.helperBlock}`}>
-                For Google-only accounts. Connecting requires a fresh session
-                and signs you out.
+              <BackupCodesDialog onComplete={finishSecurityChange} />
+            </div>
+            <div className={rowClass}>
+              <span>Connected sign-in methods</span>
+              <Button
+                variant="outline"
+                size="sm"
+                type="button"
+                onClick={() =>
+                  void linkGoogleAccount().catch((error: unknown) =>
+                    setSecurityMessage(
+                      error instanceof Error
+                        ? error.message
+                        : 'Unable to connect Google.',
+                    ),
+                  )
+                }
+              >
+                Connect Google
+              </Button>
+            </div>
+            <div className={rowClass}>
+              <span>
+                <strong className="font-semibold">
+                  Password sign-in method
+                </strong>
+                <span className={rowTextClass}>
+                  For Google-only accounts. Connecting requires a fresh session
+                  and signs you out.
+                </span>
               </span>
-            </span>
-            <ConnectPasswordDialog
-              onConnected={() => {
-                queryClient.clear();
-                navigate('/sign-in?passwordConnected=true', { replace: true });
-              }}
-            />
-          </div>
-          <div className={styles.listRow}>
-            <span>
-              <strong>Account email</strong>
-              <span className={`${styles.helper} ${styles.helperBlock}`}>
-                {user.data.email}
+              <ConnectPasswordDialog
+                onConnected={() => {
+                  queryClient.clear();
+                  navigate('/sign-in?passwordConnected=true', {
+                    replace: true,
+                  });
+                }}
+              />
+            </div>
+            <div className={rowClass}>
+              <span>
+                <strong className="font-semibold">Account email</strong>
+                <span className={rowTextClass}>{user.data.email}</span>
               </span>
-            </span>
-            <ChangeEmailDialog onRequested={finishSecurityChange} />
-          </div>
-          <div className={styles.listRow}>
-            <span>
-              <strong>Password</strong>
-              <span className={`${styles.helper} ${styles.helperBlock}`}>
-                Changing it revokes every session, including this one.
+              <ChangeEmailDialog onRequested={finishSecurityChange} />
+            </div>
+            <div className={rowClass}>
+              <span>
+                <strong className="font-semibold">Password</strong>
+                <span className={rowTextClass}>
+                  Changing it revokes every session, including this one.
+                </span>
               </span>
-            </span>
-            <ChangePasswordDialog onChanged={finishSecurityChange} />
-          </div>
-          <div className={styles.listRow}>
-            <span>
-              <strong>Current session</strong>
-              <span className={`${styles.helper} ${styles.helperBlock}`}>
-                End this browser session securely.
+              <ChangePasswordDialog onChanged={finishSecurityChange} />
+            </div>
+            <div className={rowClass}>
+              <span>
+                <strong className="font-semibold">Current session</strong>
+                <span className={rowTextClass}>
+                  End this browser session securely.
+                </span>
               </span>
-            </span>
-            <Button
-              variant="outline"
-              type="button"
-              onClick={() => void endSession()}
-            >
-              Sign out
-            </Button>
-          </div>
+              <Button
+                variant="outline"
+                size="sm"
+                type="button"
+                onClick={() => void endSession()}
+              >
+                Sign out
+              </Button>
+            </div>
+          </CardContent>
         </Card>
       </section>
-      <section className={styles.section} aria-labelledby="danger-title">
-        <div className={styles.sectionHeader}>
-          <h2 id="danger-title" className={styles.sectionTitle}>
+      <section className={sectionClass} aria-labelledby="danger-title">
+        <div className={sectionHeaderClass}>
+          <h2 id="danger-title" className={sectionTitleClass}>
             Account deletion
           </h2>
         </div>
-        <Card className="gap-4 p-5">
-          <InlineNotice tone="warning">
-            <IconAlertTriangle size={19} aria-hidden="true" /> Requesting
-            deletion revokes all sessions immediately. A verified recovery link
-            can cancel the request during the 30-day grace period.
-          </InlineNotice>
-          <div className={styles.sectionHeaderSpaced}>
-            <NamedConfirmation
-              name="DELETE MY ACCOUNT"
-              actionLabel="Request account deletion"
-              description="After 30 days, credentials and profile contact details are removed or pseudonymised. Historical programme records remain under an opaque ID."
-              onConfirm={() => void deleteAccount()}
-            />
-          </div>
-        </Card>
+        <Alert variant="destructive">
+          <IconAlertTriangle size={19} aria-hidden="true" />
+          <AlertDescription>
+            Requesting deletion revokes all sessions immediately. A verified
+            recovery link can cancel the request during the 30-day grace period.
+          </AlertDescription>
+        </Alert>
+        <div className="mt-3 w-fit">
+          <NamedConfirmation
+            name="DELETE MY ACCOUNT"
+            actionLabel="Request account deletion"
+            description="After 30 days, credentials and profile contact details are removed or pseudonymised. Historical programme records remain under an opaque ID."
+            onConfirm={() => void deleteAccount()}
+          />
+        </div>
       </section>
     </div>
   );
@@ -368,18 +406,22 @@ export function SettingsPage() {
 
 export function PracticePreferencesPanel() {
   return (
-    <Card className="gap-4 p-5">
-      <p className={styles.helper}>
-        Time goals are fixed for everyone and apply automatically.
-      </p>
-      <dl className={styles.fieldGrid}>
-        {(['Easy', 'Medium', 'Hard'] as const).map((difficulty) => (
-          <div key={difficulty}>
-            <dt>{difficulty}</dt>
-            <dd>{difficultyGoal(difficulty)} minutes</dd>
-          </div>
-        ))}
-      </dl>
+    <Card className="h-full">
+      <CardContent className={formClass}>
+        <p className="text-muted-foreground">
+          Time goals are fixed for everyone and apply automatically.
+        </p>
+        <dl className="grid grid-cols-2 gap-3.5 max-[56rem]:grid-cols-1">
+          {(['Easy', 'Medium', 'Hard'] as const).map((difficulty) => (
+            <div key={difficulty}>
+              <dt className="text-sm font-semibold">{difficulty}</dt>
+              <dd className="text-sm text-muted-foreground">
+                {difficultyGoal(difficulty)} minutes
+              </dd>
+            </div>
+          ))}
+        </dl>
+      </CardContent>
     </Card>
   );
 }
@@ -388,7 +430,7 @@ function BackupCodeList({ codes }: { codes: string[] }) {
   return (
     <div>
       <p>Store these codes somewhere private. They will not be shown again.</p>
-      <ul className={styles.cleanList}>
+      <ul className={listClass}>
         {codes.map((code) => (
           <li key={code}>
             <code>{code}</code>
@@ -448,18 +490,16 @@ function MfaSetupDialog({ onComplete }: { onComplete: () => void }) {
       description="Reauthenticate, add the TOTP URI to your authenticator, then verify a code."
       open={open}
       onOpenChange={setOpen}
+      triggerVariant="outline"
+      triggerSize="sm"
       trigger="Set up"
     >
-      <div className={styles.form}>
-        {error ? (
-          <p className={styles.fieldError} role="alert">
-            {error}
-          </p>
-        ) : null}
+      <div className={formClass}>
+        {error ? <FieldError role="alert">{error}</FieldError> : null}
         {!totpURI ? (
           <>
-            <div className={styles.field}>
-              <label htmlFor="mfa-password">Current password</label>
+            <Field>
+              <FieldLabel htmlFor="mfa-password">Current password</FieldLabel>
               <Input
                 id="mfa-password"
                 type="password"
@@ -467,11 +507,11 @@ function MfaSetupDialog({ onComplete }: { onComplete: () => void }) {
                 value={password}
                 onChange={(event) => setPassword(event.target.value)}
               />
-              <p className={styles.helper}>
+              <FieldDescription>
                 Google-only accounts must connect a password sign-in method
                 before setting up TOTP.
-              </p>
-            </div>
+              </FieldDescription>
+            </Field>
             <Button
               type="button"
               disabled={pending || password.length < 12}
@@ -482,13 +522,13 @@ function MfaSetupDialog({ onComplete }: { onComplete: () => void }) {
           </>
         ) : (
           <>
-            <div className={styles.field}>
-              <label htmlFor="mfa-uri">Authenticator setup URI</label>
+            <Field>
+              <FieldLabel htmlFor="mfa-uri">Authenticator setup URI</FieldLabel>
               <Textarea id="mfa-uri" readOnly value={totpURI} />
-            </div>
+            </Field>
             <BackupCodeList codes={backupCodes} />
-            <div className={styles.field}>
-              <label htmlFor="mfa-code">Authenticator code</label>
+            <Field>
+              <FieldLabel htmlFor="mfa-code">Authenticator code</FieldLabel>
               <Input
                 id="mfa-code"
                 inputMode="numeric"
@@ -496,7 +536,7 @@ function MfaSetupDialog({ onComplete }: { onComplete: () => void }) {
                 value={code}
                 onChange={(event) => setCode(event.target.value)}
               />
-            </div>
+            </Field>
             <Button
               type="button"
               disabled={pending || code.length < 6}
@@ -539,29 +579,29 @@ function BackupCodesDialog({ onComplete }: { onComplete: () => void }) {
       description="This invalidates every existing backup code and requires a fresh sign-in."
       open={open}
       onOpenChange={setOpen}
+      triggerVariant="outline"
+      triggerSize="sm"
       trigger="Regenerate"
     >
-      <div className={styles.form}>
-        {error ? (
-          <p className={styles.fieldError} role="alert">
-            {error}
-          </p>
-        ) : null}
+      <div className={formClass}>
+        {error ? <FieldError role="alert">{error}</FieldError> : null}
         {codes.length > 0 ? (
           <>
             <BackupCodeList codes={codes} />
-            <p className={styles.helper}>
+            <FieldDescription>
               All sessions have been revoked. Confirm only after storing the
               codes.
-            </p>
+            </FieldDescription>
             <Button type="button" onClick={onComplete}>
               I stored the codes — sign in again
             </Button>
           </>
         ) : (
           <>
-            <div className={styles.field}>
-              <label htmlFor="backup-password">Current password</label>
+            <Field>
+              <FieldLabel htmlFor="backup-password">
+                Current password
+              </FieldLabel>
               <Input
                 id="backup-password"
                 type="password"
@@ -569,7 +609,7 @@ function BackupCodesDialog({ onComplete }: { onComplete: () => void }) {
                 value={password}
                 onChange={(event) => setPassword(event.target.value)}
               />
-            </div>
+            </Field>
             <Button
               type="button"
               disabled={pending || password.length < 12}
@@ -615,16 +655,14 @@ function ChangeEmailDialog({ onRequested }: { onRequested: () => void }) {
       description="This security-sensitive action requires a fresh session. Your new address must be verified."
       open={open}
       onOpenChange={setOpen}
+      triggerVariant="outline"
+      triggerSize="sm"
       trigger="Change email"
     >
-      <div className={styles.form}>
-        {error ? (
-          <p className={styles.fieldError} role="alert">
-            {error}
-          </p>
-        ) : null}
-        <div className={styles.field}>
-          <label htmlFor="new-account-email">New email</label>
+      <div className={formClass}>
+        {error ? <FieldError role="alert">{error}</FieldError> : null}
+        <Field>
+          <FieldLabel htmlFor="new-account-email">New email</FieldLabel>
           <Input
             id="new-account-email"
             type="email"
@@ -632,8 +670,8 @@ function ChangeEmailDialog({ onRequested }: { onRequested: () => void }) {
             value={email}
             onChange={(event) => setEmail(event.target.value)}
           />
-        </div>
-        <div className={styles.dialogActions}>
+        </Field>
+        <div className={dialogActionsClass}>
           <Button
             type="button"
             disabled={pending}
@@ -684,16 +722,16 @@ function ChangePasswordDialog({ onChanged }: { onChanged: () => void }) {
       description="Confirm your current password. Every session, including this one, is revoked after the change."
       open={open}
       onOpenChange={setOpen}
+      triggerVariant="outline"
+      triggerSize="sm"
       trigger="Change password"
     >
-      <div className={styles.form}>
-        {error ? (
-          <p className={styles.fieldError} role="alert">
-            {error}
-          </p>
-        ) : null}
-        <div className={styles.field}>
-          <label htmlFor="current-account-password">Current password</label>
+      <div className={formClass}>
+        {error ? <FieldError role="alert">{error}</FieldError> : null}
+        <Field>
+          <FieldLabel htmlFor="current-account-password">
+            Current password
+          </FieldLabel>
           <Input
             id="current-account-password"
             type="password"
@@ -701,9 +739,9 @@ function ChangePasswordDialog({ onChanged }: { onChanged: () => void }) {
             value={currentPassword}
             onChange={(event) => setCurrentPassword(event.target.value)}
           />
-        </div>
-        <div className={styles.field}>
-          <label htmlFor="new-account-password">New password</label>
+        </Field>
+        <Field>
+          <FieldLabel htmlFor="new-account-password">New password</FieldLabel>
           <Input
             id="new-account-password"
             type="password"
@@ -711,9 +749,11 @@ function ChangePasswordDialog({ onChanged }: { onChanged: () => void }) {
             value={newPassword}
             onChange={(event) => setNewPassword(event.target.value)}
           />
-        </div>
-        <div className={styles.field}>
-          <label htmlFor="confirm-account-password">Confirm new password</label>
+        </Field>
+        <Field>
+          <FieldLabel htmlFor="confirm-account-password">
+            Confirm new password
+          </FieldLabel>
           <Input
             id="confirm-account-password"
             type="password"
@@ -721,8 +761,8 @@ function ChangePasswordDialog({ onChanged }: { onChanged: () => void }) {
             value={confirmation}
             onChange={(event) => setConfirmation(event.target.value)}
           />
-        </div>
-        <div className={styles.dialogActions}>
+        </Field>
+        <div className={dialogActionsClass}>
           <Button
             type="button"
             disabled={pending}
@@ -767,16 +807,14 @@ function ConnectPasswordDialog({ onConnected }: { onConnected: () => void }) {
       description="Use this only if you currently sign in with Google. All sessions are revoked after the method is connected."
       open={open}
       onOpenChange={setOpen}
+      triggerVariant="outline"
+      triggerSize="sm"
       trigger="Connect password"
     >
-      <div className={styles.form}>
-        {error ? (
-          <p className={styles.fieldError} role="alert">
-            {error}
-          </p>
-        ) : null}
-        <div className={styles.field}>
-          <label htmlFor="connect-password">New password</label>
+      <div className={formClass}>
+        {error ? <FieldError role="alert">{error}</FieldError> : null}
+        <Field>
+          <FieldLabel htmlFor="connect-password">New password</FieldLabel>
           <Input
             id="connect-password"
             type="password"
@@ -784,11 +822,11 @@ function ConnectPasswordDialog({ onConnected }: { onConnected: () => void }) {
             value={password}
             onChange={(event) => setPassword(event.target.value)}
           />
-        </div>
-        <div className={styles.field}>
-          <label htmlFor="connect-password-confirmation">
+        </Field>
+        <Field>
+          <FieldLabel htmlFor="connect-password-confirmation">
             Confirm new password
-          </label>
+          </FieldLabel>
           <Input
             id="connect-password-confirmation"
             type="password"
@@ -796,8 +834,8 @@ function ConnectPasswordDialog({ onConnected }: { onConnected: () => void }) {
             value={confirmation}
             onChange={(event) => setConfirmation(event.target.value)}
           />
-        </div>
-        <div className={styles.dialogActions}>
+        </Field>
+        <div className={dialogActionsClass}>
           <Button
             type="button"
             disabled={pending}

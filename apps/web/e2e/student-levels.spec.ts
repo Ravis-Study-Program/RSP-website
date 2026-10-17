@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { expectSelected } from './select';
 
 test('season mentors can set student levels and see fixed practice goals', async ({
   page,
@@ -11,14 +12,15 @@ test('season mentors can set student levels and see fixed practice goals', async
   await expect(page.getByRole('heading', { name: 'People' })).toBeVisible();
   await page.getByRole('button', { name: 'Set level' }).first().click();
   const dialog = page.getByRole('dialog');
-  await expect(dialog.getByLabel('Student level')).toHaveValue('beginner');
-  await expect(dialog.getByRole('option')).toHaveText([
+  await expectSelected(dialog, 'Student level', 'Beginner');
+  await dialog.getByRole('combobox', { name: 'Student level' }).click();
+  await expect(page.getByRole('option')).toHaveText([
     'Novice',
     'Beginner',
     'Intermediate',
     'Advance',
   ]);
-  await dialog.getByLabel('Student level').selectOption('advanced');
+  await page.getByRole('option', { name: 'Advance', exact: true }).click();
   await dialog.getByRole('button', { name: 'Save level' }).click();
   await expect(dialog).toBeHidden();
   await expect(

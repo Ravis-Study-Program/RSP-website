@@ -1,6 +1,9 @@
+import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Field, FieldLabel } from '@/components/ui/field';
 import { IconUserMinus } from '@tabler/icons-react';
 import type { ColumnDef } from '@tanstack/react-table';
 import { useMemo, useState } from 'react';
@@ -19,7 +22,6 @@ import { DataTable } from '@/components/DataTable';
 import { StudentLevelDialog } from '@/components/StudentLevelDialog';
 import { canSetStudentLevel, studentLevelLabel } from '@/studentLevels';
 import { FormDialog } from '@/components/Dialogs';
-import styles from '@/styles/App.module.css';
 import type { Person } from '@/types';
 import { formatDateTime } from '@/utils';
 
@@ -106,7 +108,7 @@ export function MenteesPage() {
         enableSorting: false,
         enableHiding: false,
         cell: ({ row }) => (
-          <div className={styles.inline}>
+          <div className="flex flex-wrap items-center gap-2">
             {canChangeLevel &&
             season &&
             row.original.enrollmentState === 'active' ? (
@@ -141,7 +143,7 @@ export function MenteesPage() {
   );
 
   return (
-    <div className={styles.page}>
+    <div className="mx-auto w-full max-w-[92rem]">
       <PageHeader
         eyebrow="Mentoring"
         title={canManageEveryStudent ? 'All students' : 'My students'}
@@ -151,15 +153,17 @@ export function MenteesPage() {
             : 'Review students assigned to you. Open People to browse every member in this season.'
         }
       />
-      <label className={styles.inline}>
-        <input
-          type="checkbox"
+      <div className="mt-2 mb-4 flex min-h-6 items-center gap-2">
+        <Checkbox
+          id="include-previous-students"
           checked={showPrevious}
           disabled={season?.status === 'closed'}
-          onChange={(event) => setIncludePrevious(event.target.checked)}
-        />{' '}
-        Include previous students
-      </label>
+          onCheckedChange={(checked) => setIncludePrevious(checked)}
+        />
+        <Label htmlFor="include-previous-students" className="font-normal">
+          Include previous students
+        </Label>
+      </div>
       <DataTable
         ariaLabel={canManageEveryStudent ? 'All students' : 'Assigned students'}
         data={mentees}
@@ -187,7 +191,7 @@ export function MenteesPage() {
               {row.original.attempts ?? '—'} attempts ·{' '}
               {row.original.interviews ?? '—'} interviews
             </p>
-            <div className={styles.buttonRow}>
+            <div className="flex flex-wrap items-center gap-2">
               {canChangeLevel &&
               season &&
               row.original.enrollmentState === 'active' ? (
@@ -261,6 +265,8 @@ function RemovalDialog({
   };
   return (
     <FormDialog
+      triggerVariant="destructive"
+      triggerSize="sm"
       title={`Remove ${person.name}?`}
       description="Removal immediately revokes season resources and directory access. The reason and actor are stored in an immutable audit event."
       trigger={
@@ -269,31 +275,31 @@ function RemovalDialog({
         </>
       }
     >
-      <div className={styles.field}>
-        <label htmlFor={`reason-${person.id}`}>Removal reason</label>
+      <Field>
+        <FieldLabel htmlFor={`reason-${person.id}`}>Removal reason</FieldLabel>
         <Textarea
           id={`reason-${person.id}`}
           required
           value={reason}
           onChange={(event) => setReason(event.target.value)}
         />
-      </div>
-      <div className={styles.field}>
-        <label htmlFor={`name-${person.id}`}>
+      </Field>
+      <Field>
+        <FieldLabel htmlFor={`name-${person.id}`}>
           Type <strong>{person.name}</strong> to confirm
-        </label>
+        </FieldLabel>
         <Input
           id={`name-${person.id}`}
           value={confirmation}
           onChange={(event) => setConfirmation(event.target.value)}
         />
-      </div>
+      </Field>
       {error ? (
-        <p className={styles.fieldError} role="alert">
+        <p className="text-sm text-destructive" role="alert">
           {error}
         </p>
       ) : null}
-      <div className={styles.dialogActions}>
+      <div className="flex flex-wrap justify-end gap-2">
         <Button
           variant="destructive"
           type="button"

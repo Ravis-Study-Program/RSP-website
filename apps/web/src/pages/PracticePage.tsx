@@ -1,9 +1,13 @@
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
-  NativeSelect,
-  NativeSelectOption,
-} from '@/components/ui/native-select';
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { useActivityFilters, filterPractice } from '@/activityFilters';
 import { ProblemSuggestion } from '@/components/ProblemSuggestion';
@@ -41,7 +45,8 @@ import { ProblemSelect } from '@/components/ProblemSelect';
 import { RichTextEditor } from '@/components/RichTextEditor';
 import { RichTextContent } from '@/components/RichTextContent';
 import { ErrorState, InlineNotice } from '@/components/StatusViews';
-import styles from '@/styles/App.module.css';
+import { cn } from '@/lib/utils';
+import { Field, FieldError, FieldLabel } from '@/components/ui/field';
 import type { Attempt } from '@/types';
 import {
   calendarDateKey,
@@ -50,6 +55,13 @@ import {
   outcomeLabel,
   zonedDateTimeToUtc,
 } from '@/utils';
+
+const badgeClass = 'rounded-sm font-semibold';
+const outcomeTone = {
+  success: 'border-transparent bg-success-soft text-success',
+  warning: 'border-transparent bg-warning-soft text-warning',
+  danger: 'border-transparent bg-destructive-soft text-destructive',
+};
 
 const attemptSchema = z.object({
   problemId: z.string().min(1, 'Choose a problem.'),
@@ -106,7 +118,7 @@ const baseColumns: ColumnDef<Attempt, any>[] = [
             <HighlightText text={row.original.problem} />
           )}
         </strong>
-        <div className={styles.helper}>
+        <div className="text-sm text-muted-foreground">
           <HighlightText
             text={row.original.category ?? 'Category unavailable'}
           />
@@ -118,7 +130,7 @@ const baseColumns: ColumnDef<Attempt, any>[] = [
     accessorKey: 'difficulty',
     header: 'Difficulty',
     cell: ({ getValue }) => (
-      <Badge variant="secondary" className={styles.badge}>
+      <Badge variant="secondary" className={badgeClass}>
         {getValue()}
       </Badge>
     ),
@@ -127,17 +139,19 @@ const baseColumns: ColumnDef<Attempt, any>[] = [
     accessorKey: 'outcome',
     header: 'Outcome',
     cell: ({ getValue }) => (
-      <span
-        className={
+      <Badge
+        variant="outline"
+        className={cn(
+          badgeClass,
           getValue() === 'independently_solved'
-            ? styles.badgeSuccess
+            ? outcomeTone.success
             : getValue() === 'not_solved'
-              ? styles.badgeDanger
-              : styles.badgeWarning
-        }
+              ? outcomeTone.danger
+              : outcomeTone.warning,
+        )}
       >
         {outcomeLabel(getValue())}
-      </span>
+      </Badge>
     ),
   },
   {
@@ -154,7 +168,7 @@ const baseColumns: ColumnDef<Attempt, any>[] = [
           className={
             row.original.difficulty &&
             row.original.minutes > difficultyGoal(row.original.difficulty)
-              ? styles.badgeWarning
+              ? 'font-semibold text-warning'
               : undefined
           }
         >
@@ -265,7 +279,7 @@ export function PracticePage() {
       enableSorting: false,
       enableHiding: false,
       cell: ({ row }) => (
-        <div className={styles.inline}>
+        <div className="flex flex-wrap items-center gap-2.5">
           <Button
             variant="ghost"
             type="button"
@@ -303,7 +317,7 @@ export function PracticePage() {
 
   if (seasons.isError || (hasSelection && !seasons.isLoading && !season))
     return (
-      <div className={styles.page}>
+      <div className="mx-auto w-full max-w-[92rem]">
         <ErrorState
           title="Season unavailable"
           message="The selected season could not be loaded."
@@ -313,7 +327,7 @@ export function PracticePage() {
     );
 
   return (
-    <div className={styles.page}>
+    <div className="mx-auto w-full max-w-[92rem]">
       <PageHeader
         eyebrow="Practice"
         title="Problem practice"
@@ -342,12 +356,15 @@ export function PracticePage() {
         </InlineNotice>
       ) : null}
 
-      <section className={styles.section} aria-labelledby="attempts-title">
-        <div className={styles.sectionHeader}>
-          <h2 id="attempts-title" className={styles.sectionTitle}>
+      <section className="mt-6" aria-labelledby="attempts-title">
+        <div className="mb-3 flex items-end justify-between gap-4">
+          <h2
+            id="attempts-title"
+            className="text-xl font-semibold tracking-tight"
+          >
             Attempt history
           </h2>
-          <span className={styles.muted}>
+          <span className="text-sm text-muted-foreground">
             {visibleAttempts.length} recorded
           </span>
         </div>
@@ -382,23 +399,25 @@ export function PracticePage() {
           )}
           renderCard={(row) => (
             <div>
-              <div className={styles.inline}>
-                <Badge variant="secondary" className={styles.badge}>
+              <div className="flex flex-wrap items-center gap-2.5">
+                <Badge variant="secondary" className={badgeClass}>
                   {row.original.difficulty}
                 </Badge>
-                <span
-                  className={
+                <Badge
+                  variant="outline"
+                  className={cn(
+                    badgeClass,
                     row.original.outcome === 'independently_solved'
-                      ? styles.badgeSuccess
+                      ? outcomeTone.success
                       : row.original.outcome === 'not_solved'
-                        ? styles.badgeDanger
-                        : styles.badgeWarning
-                  }
+                        ? outcomeTone.danger
+                        : outcomeTone.warning,
+                  )}
                 >
                   {outcomeLabel(row.original.outcome)}
-                </span>
+                </Badge>
               </div>
-              <h3 className={`${styles.cardTitle} ${styles.cardTitleSpaced}`}>
+              <h3 className="mt-3 text-base font-semibold tracking-tight">
                 <a
                   href={row.original.problemUrl}
                   target="_blank"
@@ -407,7 +426,7 @@ export function PracticePage() {
                   <HighlightText text={row.original.problem} />
                 </a>
               </h3>
-              <p className={styles.helper}>
+              <p className="text-sm text-muted-foreground">
                 {row.original.category} · {formatDate(row.original.attemptedAt)}
               </p>
               <p>
@@ -420,7 +439,7 @@ export function PracticePage() {
                   : 'confidence not recorded'}
               </p>
               <RichTextContent html={row.original.notes} />
-              <div className={styles.buttonRow}>
+              <div className="flex flex-wrap items-center gap-2.5">
                 <AttemptDialog
                   attempt={row.original}
                   problems={problemsQuery.data?.items ?? []}
@@ -447,6 +466,15 @@ export function PracticePage() {
     </div>
   );
 }
+
+const outcomeItems: {
+  label: string;
+  value: AttemptFormValues['outcome'];
+}[] = [
+  { label: 'Independently solved', value: 'independently_solved' },
+  { label: 'Solved with hints', value: 'solved_with_hints' },
+  { label: 'Not solved', value: 'not_solved' },
+];
 
 function AttemptDialog({
   attempt,
@@ -575,14 +603,14 @@ function AttemptDialog({
           )
         }
       >
-        <form className={styles.form} onSubmit={onSubmit} noValidate>
+        <form className="grid gap-4" onSubmit={onSubmit} noValidate>
           {requestError ? (
             <InlineNotice tone="warning">
               <span role="alert">{requestError}</span>
             </InlineNotice>
           ) : null}
-          <div className={styles.field}>
-            <label htmlFor="attempt-problem">Problem</label>
+          <Field>
+            <FieldLabel htmlFor="attempt-problem">Problem</FieldLabel>
             <Controller
               name="problemId"
               control={control}
@@ -604,34 +632,46 @@ function AttemptDialog({
               )}
             />
             {errors.problemId ? (
-              <p id="attempt-problem-error" className={styles.fieldError}>
+              <FieldError id="attempt-problem-error">
                 {errors.problemId.message}
-              </p>
+              </FieldError>
             ) : null}
-          </div>
-          <div className={styles.fieldGrid}>
-            <div className={styles.field}>
-              <label htmlFor="attempt-outcome">Outcome</label>
-              <NativeSelect
-                id="attempt-outcome"
-                className="w-full"
-                {...register('outcome')}
-              >
-                <NativeSelectOption value="independently_solved">
-                  Independently solved
-                </NativeSelectOption>
-                <NativeSelectOption value="solved_with_hints">
-                  Solved with hints
-                </NativeSelectOption>
-                <NativeSelectOption value="not_solved">
-                  Not solved
-                </NativeSelectOption>
-              </NativeSelect>
-            </div>
-            <div className={styles.field}>
-              <label htmlFor="attempt-confidence">
+          </Field>
+          <div className="grid grid-cols-1 gap-3.5 min-[56rem]:grid-cols-2">
+            <Field>
+              <FieldLabel htmlFor="attempt-outcome">Outcome</FieldLabel>
+              <Controller
+                name="outcome"
+                control={control}
+                render={({ field }) => (
+                  <Select
+                    items={outcomeItems}
+                    name={field.name}
+                    value={field.value}
+                    onValueChange={(value) => {
+                      if (value) field.onChange(value);
+                    }}
+                  >
+                    <SelectTrigger id="attempt-outcome" className="w-full">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectGroup>
+                        {outcomeItems.map((item) => (
+                          <SelectItem key={item.value} value={item.value}>
+                            {item.label}
+                          </SelectItem>
+                        ))}
+                      </SelectGroup>
+                    </SelectContent>
+                  </Select>
+                )}
+              />
+            </Field>
+            <Field>
+              <FieldLabel htmlFor="attempt-confidence">
                 Confidence (optional, 1–5)
-              </label>
+              </FieldLabel>
               <Input
                 id="attempt-confidence"
                 type="number"
@@ -645,13 +685,15 @@ function AttemptDialog({
                 {...register('confidence')}
               />
               {errors.confidence ? (
-                <p id="attempt-confidence-error" className={styles.fieldError}>
+                <FieldError id="attempt-confidence-error">
                   {errors.confidence.message}
-                </p>
+                </FieldError>
               ) : null}
-            </div>
-            <div className={styles.field}>
-              <label htmlFor="attempt-minutes">Time taken (minutes)</label>
+            </Field>
+            <Field>
+              <FieldLabel htmlFor="attempt-minutes">
+                Time taken (minutes)
+              </FieldLabel>
               <Input
                 id="attempt-minutes"
                 type="number"
@@ -661,9 +703,9 @@ function AttemptDialog({
                 {...register('minutes', { valueAsNumber: true })}
               />
               {errors.minutes ? (
-                <p className={styles.fieldError}>{errors.minutes.message}</p>
+                <FieldError>{errors.minutes.message}</FieldError>
               ) : null}
-            </div>
+            </Field>
             <Controller
               control={control}
               name="attemptedAt"
@@ -690,7 +732,7 @@ function AttemptDialog({
               />
             )}
           />
-          <div className={styles.dialogActions}>
+          <div className="mt-5 flex justify-end gap-2.5">
             <Button
               variant="outline"
               type="button"
@@ -708,7 +750,7 @@ function AttemptDialog({
           </div>
         </form>
       </FormDialog>
-      <span className={styles.visuallyHidden} role="status">
+      <span className="sr-only" role="status">
         {announcement}
       </span>
     </>

@@ -1,10 +1,15 @@
 import {
-  NativeSelect,
-  NativeSelectOption,
-} from '@/components/ui/native-select';
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { useId } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import type { Season } from '@/types';
-import styles from '@/styles/App.module.css';
+import { Field, FieldLabel } from '@/components/ui/field';
 
 export function ActivityPeriodFilter({
   section,
@@ -18,16 +23,19 @@ export function ActivityPeriodFilter({
   const { slug } = useParams();
   const navigate = useNavigate();
   const [params] = useSearchParams();
+  const selectId = useId();
+  const seasonItems = [
+    { label: 'All time', value: '' },
+    ...seasons.map((item) => ({ label: item.name, value: item.id })),
+  ];
   return (
-    <label className={styles.field}>
-      View activity
-      <NativeSelect
-        className="w-full"
+    <Field>
+      <FieldLabel htmlFor={selectId}>View activity</FieldLabel>
+      <Select
+        items={seasonItems}
         value={season?.id ?? ''}
-        onChange={(event) => {
-          const selected = seasons.find(
-            (item) => item.id === event.target.value,
-          );
+        onValueChange={(value) => {
+          const selected = seasons.find((item) => item.id === (value ?? ''));
           const next = new URLSearchParams(params);
           next.delete('year');
           next.delete('weekId');
@@ -43,13 +51,19 @@ export function ActivityPeriodFilter({
           });
         }}
       >
-        <NativeSelectOption value="">All time</NativeSelectOption>
-        {seasons.map((item) => (
-          <NativeSelectOption key={item.id} value={item.id}>
-            {item.name}
-          </NativeSelectOption>
-        ))}
-      </NativeSelect>
-    </label>
+        <SelectTrigger id={selectId} className="w-full">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectGroup>
+            {seasonItems.map((item) => (
+              <SelectItem key={item.value} value={item.value}>
+                {item.label}
+              </SelectItem>
+            ))}
+          </SelectGroup>
+        </SelectContent>
+      </Select>
+    </Field>
   );
 }

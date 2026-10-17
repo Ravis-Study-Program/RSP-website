@@ -1,3 +1,5 @@
+import { buttonVariants } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { IconMail } from '@tabler/icons-react';
 import type { ColumnDef } from '@tanstack/react-table';
 import { useMemo } from 'react';
@@ -21,9 +23,23 @@ import { DataTable } from '@/components/DataTable';
 import { StudentLevelDialog } from '@/components/StudentLevelDialog';
 import { canSetStudentLevel, studentLevelLabel } from '@/studentLevels';
 import { EnrollmentDialog } from '@/pages/AdminPage';
-import styles from '@/styles/App.module.css';
 import type { Person } from '@/types';
 import { formatDateTime } from '@/utils';
+
+const pageClass = 'mx-auto w-full max-w-[92rem]';
+const inlineClass = 'flex flex-wrap items-center gap-2.5';
+const helperClass = 'text-sm text-muted-foreground';
+const badgeSuccessClass = 'bg-success-soft text-success';
+const badgeWarningClass = 'bg-warning-soft text-warning';
+const badgeNeutralClass = 'bg-muted text-muted-foreground';
+const statusBadgeClass = 'h-5 rounded-4xl px-2 text-xs font-medium';
+const personCellClass =
+  'min-w-48 whitespace-normal [&_a]:whitespace-normal [&_span]:whitespace-normal';
+
+function statusLabel(status: string | null | undefined) {
+  const text = (status ?? '').replace(/_/g, ' ');
+  return text.charAt(0).toUpperCase() + text.slice(1);
+}
 
 export function PeoplePage() {
   const location = useLocation();
@@ -62,11 +78,13 @@ export function PeoplePage() {
         accessorKey: 'name',
         header: 'Person',
         cell: ({ row }) => (
-          <PersonIdentity
-            seasonId={season?.id}
-            person={row.original}
-            privateView={privateView}
-          />
+          <div className={personCellClass}>
+            <PersonIdentity
+              seasonId={season?.id}
+              person={row.original}
+              privateView={privateView}
+            />
+          </div>
         ),
       },
       {
@@ -74,7 +92,7 @@ export function PeoplePage() {
         header: 'Roles',
         accessorFn: (person) => person.roles.join(' '),
         cell: ({ row }) => (
-          <div className={styles.inline}>
+          <div className={inlineClass}>
             {row.original.roles.map((role) => (
               <RoleBadge key={role} role={role} />
             ))}
@@ -89,38 +107,51 @@ export function PeoplePage() {
               header: 'Level',
               accessorFn: (person: Person) =>
                 studentLevelLabel(person.studentLevel),
-              cell: ({ row }: { row: { original: Person } }) => (
-                <div className={styles.inline}>
-                  <span>{studentLevelLabel(row.original.studentLevel)}</span>
-                  {canChangeLevel &&
-                  row.original.enrollmentState === 'active' &&
-                  row.original.seasonRole === 'student' ? (
-                    <StudentLevelDialog
-                      seasonId={season.id}
-                      person={row.original}
-                      onChanged={() => void query.refetch()}
-                    />
-                  ) : null}
-                </div>
-              ),
+              cell: ({ row }: { row: { original: Person } }) =>
+                studentLevelLabel(row.original.studentLevel),
             },
+            ...(canChangeLevel &&
+            data.some(
+              (person) =>
+                person.enrollmentState === 'active' &&
+                person.seasonRole === 'student',
+            )
+              ? [
+                  {
+                    id: 'levelActions',
+                    header: 'Actions',
+                    enableSorting: false,
+                    cell: ({ row }: { row: { original: Person } }) =>
+                      season &&
+                      row.original.enrollmentState === 'active' &&
+                      row.original.seasonRole === 'student' ? (
+                        <StudentLevelDialog
+                          seasonId={season.id}
+                          person={row.original}
+                          onChanged={() => void query.refetch()}
+                        />
+                      ) : null,
+                  },
+                ]
+              : []),
           ]
         : []),
       {
         accessorKey: 'status',
         header: 'Status',
         cell: ({ getValue }) => (
-          <span
-            className={
+          <Badge
+            variant="secondary"
+            className={`${statusBadgeClass} ${
               getValue() === 'active'
-                ? styles.badgeSuccess
+                ? badgeSuccessClass
                 : getValue() === 'unassigned'
-                  ? styles.badgeWarning
-                  : styles.badgeNeutral
-            }
+                  ? badgeWarningClass
+                  : badgeNeutralClass
+            }`}
           >
-            {getValue()}
-          </span>
+            {statusLabel(getValue())}
+          </Badge>
         ),
       },
       { accessorKey: 'attempts', header: 'Attempts' },
@@ -131,11 +162,11 @@ export function PeoplePage() {
         cell: ({ getValue }) => (getValue() ? formatDateTime(getValue()) : '—'),
       },
     ],
-    [privateView, season, canChangeLevel, query],
+    [privateView, season, canChangeLevel, data, query],
   );
 
   return (
-    <div className={styles.page}>
+    <div className={pageClass}>
       <PageHeader
         eyebrow={graduatesOnly ? 'Alumni directory' : 'Season community'}
         title={graduatesOnly ? 'Graduates' : 'People'}
@@ -178,48 +209,51 @@ export function PeoplePage() {
               person={row.original}
               privateView={privateView}
             />
-            <div className={`${styles.inline} ${styles.inlineSpaced}`}>
+            <div className={`${inlineClass} mt-2.5`}>
               {row.original.roles.map((role) => (
                 <RoleBadge key={role} role={role} />
               ))}
-              <span
-                className={
+              <Badge
+                variant="secondary"
+                className={`${statusBadgeClass} ${
                   row.original.status === 'active'
-                    ? styles.badgeSuccess
+                    ? badgeSuccessClass
                     : row.original.status === 'unassigned'
-                      ? styles.badgeWarning
-                      : styles.badgeNeutral
-                }
+                      ? badgeWarningClass
+                      : badgeNeutralClass
+                }`}
               >
-                {row.original.status}
-              </span>
+                {statusLabel(row.original.status)}
+              </Badge>
             </div>
             <p>{row.original.season}</p>
             {season && row.original.seasonRole === 'student' ? (
               <p>Level: {studentLevelLabel(row.original.studentLevel)}</p>
             ) : null}
-            {canChangeLevel &&
-            season &&
-            row.original.enrollmentState === 'active' &&
-            row.original.seasonRole === 'student' ? (
-              <StudentLevelDialog
-                seasonId={season.id}
-                person={row.original}
-                onChanged={() => void query.refetch()}
-              />
-            ) : null}
-            <p className={styles.helper}>
+            <p className={helperClass}>
               {row.original.attempts} attempts · {row.original.interviews}{' '}
               interviews
             </p>
-            {privateView && row.original.email ? (
-              <a
-                className={styles.buttonSecondary}
-                href={`mailto:${row.original.email}`}
-              >
-                <IconMail size={17} aria-hidden="true" /> Email
-              </a>
-            ) : null}
+            <div className={`${inlineClass} mt-2.5 justify-end`}>
+              {canChangeLevel &&
+              season &&
+              row.original.enrollmentState === 'active' &&
+              row.original.seasonRole === 'student' ? (
+                <StudentLevelDialog
+                  seasonId={season.id}
+                  person={row.original}
+                  onChanged={() => void query.refetch()}
+                />
+              ) : null}
+              {privateView && row.original.email ? (
+                <a
+                  href={`mailto:${row.original.email}`}
+                  className={buttonVariants({ variant: 'outline', size: 'sm' })}
+                >
+                  <IconMail size={17} aria-hidden="true" /> Email
+                </a>
+              ) : null}
+            </div>
           </div>
         )}
       />

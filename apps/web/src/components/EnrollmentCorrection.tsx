@@ -1,8 +1,14 @@
 import {
-  NativeSelect,
-  NativeSelectOption,
-} from '@/components/ui/native-select';
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
+import { Field, FieldLabel } from '@/components/ui/field';
 import { useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { apiRequest } from '@/api/client';
@@ -14,7 +20,6 @@ import {
 import type { Enrollment, EnrollmentPage } from '@/api/generated/models';
 import { FormDialog } from '@/components/Dialogs';
 import type { Season } from '@/types';
-import styles from '@/styles/App.module.css';
 
 export function EnrollmentCorrection({
   enrollment,
@@ -34,6 +39,15 @@ export function EnrollmentCorrection({
   const candidates = useEnrollmentCandidates(seasonId, open);
   const dirty =
     userId !== enrollment.userId || seasonId !== enrollment.seasonId;
+  const seasonItems = seasons
+    .filter((s) => s.status === 'open')
+    .map((s) => ({ label: s.name, value: s.id }));
+  const personItems = [
+    { label: name, value: enrollment.userId },
+    ...(candidates.data?.items
+      .filter((p) => p.id !== enrollment.userId)
+      .map((p) => ({ label: `${p.name} (${p.slug})`, value: p.id })) ?? []),
+  ];
   async function save() {
     setPending(true);
     setError('');
@@ -94,6 +108,8 @@ export function EnrollmentCorrection({
       title={`Correct enrollment for ${name}`}
       description="Choose the correct person and season. Participation dates are retained and affected mentor assignments are cleared. Recorded practice and mocks stay with their original owners."
       trigger="Correct person or season"
+      triggerVariant="outline"
+      triggerSize="sm"
       open={open}
       onOpenChange={(next) => {
         if (pending) return;
@@ -112,65 +128,91 @@ export function EnrollmentCorrection({
       }}
     >
       <form
-        className={styles.formStack}
+        className="grid gap-4"
         onSubmit={(e) => {
           e.preventDefault();
           void save();
         }}
       >
-        <label className={styles.field}>
-          Correct season
-          <NativeSelect
-            className="w-full"
+        <Field>
+          <FieldLabel htmlFor="enrollment-correction-season">
+            Correct season
+          </FieldLabel>
+          <Select
+            items={seasonItems}
             value={seasonId}
-            onChange={(e) => setSeasonId(e.target.value)}
+            onValueChange={(value) => setSeasonId(value ?? '')}
           >
-            {seasons
-              .filter((s) => s.status === 'open')
-              .map((s) => (
-                <NativeSelectOption value={s.id} key={s.id}>
-                  {s.name}
-                </NativeSelectOption>
-              ))}
-          </NativeSelect>
-        </label>
-        <label className={styles.field}>
-          Correct person
-          <NativeSelect
-            className="w-full"
+            <SelectTrigger id="enrollment-correction-season" className="w-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectGroup>
+                {seasonItems.map((item) => (
+                  <SelectItem key={item.value} value={item.value}>
+                    {item.label}
+                  </SelectItem>
+                ))}
+              </SelectGroup>
+            </SelectContent>
+          </Select>
+        </Field>
+        <Field>
+          <FieldLabel htmlFor="enrollment-correction-person">
+            Correct person
+          </FieldLabel>
+          <Select
+            items={personItems}
             value={userId}
-            onChange={(e) => setUserId(e.target.value)}
+            onValueChange={(value) => setUserId(value ?? '')}
             disabled={candidates.isLoading}
           >
-            <NativeSelectOption value={enrollment.userId}>
-              {name}
-            </NativeSelectOption>
-            {candidates.data?.items
-              .filter((p) => p.id !== enrollment.userId)
-              .map((p) => (
-                <NativeSelectOption key={p.id} value={p.id}>
-                  {p.name} ({p.slug})
-                </NativeSelectOption>
-              ))}
-          </NativeSelect>
-        </label>
+            <SelectTrigger id="enrollment-correction-person" className="w-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectGroup>
+                {personItems.map((item) => (
+                  <SelectItem key={item.value} value={item.value}>
+                    {item.label}
+                  </SelectItem>
+                ))}
+              </SelectGroup>
+            </SelectContent>
+          </Select>
+        </Field>
         {candidates.isError ? (
-          <p role="alert">
-            People could not be loaded.{' '}
-            <Button type="button" onClick={() => void candidates.refetch()}>
-              Retry
-            </Button>
-          </p>
+          <Alert variant="destructive">
+            <AlertDescription className="flex flex-wrap items-center gap-3 text-destructive">
+              People could not be loaded.
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => void candidates.refetch()}
+              >
+                Retry
+              </Button>
+            </AlertDescription>
+          </Alert>
         ) : null}
-        {error ? <p role="alert">{error}</p> : null}
-        <Button
-          type="submit"
-          disabled={
-            pending || !dirty || candidates.isLoading || candidates.isError
-          }
-        >
-          {pending ? 'Correcting…' : 'Save correction'}
-        </Button>
+        {error ? (
+          <Alert variant="destructive">
+            <AlertDescription className="text-destructive">
+              {error}
+            </AlertDescription>
+          </Alert>
+        ) : null}
+        <div>
+          <Button
+            type="submit"
+            disabled={
+              pending || !dirty || candidates.isLoading || candidates.isError
+            }
+          >
+            {pending ? 'Correcting…' : 'Save correction'}
+          </Button>
+        </div>
       </form>
     </FormDialog>
   );

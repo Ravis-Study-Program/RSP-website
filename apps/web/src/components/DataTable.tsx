@@ -1,5 +1,22 @@
-import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Field, FieldLabel } from '@/components/ui/field';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
+import { Skeleton } from '@/components/ui/skeleton';
 import {
   Table,
   TableHeader,
@@ -8,10 +25,6 @@ import {
   TableBody,
   TableCell,
 } from '@/components/ui/table';
-import {
-  NativeSelect,
-  NativeSelectOption,
-} from '@/components/ui/native-select';
 import {
   type ColumnDef,
   type ColumnFiltersState,
@@ -46,7 +59,8 @@ import {
 } from 'react';
 
 import { EmptyState, ErrorState } from '@/components/StatusViews';
-import styles from '@/styles/App.module.css';
+import { cn } from '@/lib/utils';
+import { useMediaQuery } from '@/lib/useMediaQuery';
 
 const SearchHighlightContext = createContext('');
 
@@ -81,6 +95,15 @@ export interface DataTableProps<TData> {
   renderSummary?: (rows: TData[]) => ReactNode;
 }
 
+const toolbarClass =
+  'flex flex-wrap items-center justify-between gap-3 border-b p-3 max-[56rem]:flex-col max-[56rem]:items-stretch';
+const paginationClass =
+  'flex flex-wrap items-center justify-between gap-3 border-t p-3 max-[56rem]:flex-col max-[56rem]:items-stretch';
+const pageSizeItems = [10, 25, 50, 100].map((value) => ({
+  label: String(value),
+  value,
+}));
+
 export function DataTable<TData>({
   ariaLabel,
   data,
@@ -112,6 +135,7 @@ export function DataTable<TData>({
     ? storedPageSize
     : 10;
 
+  const compact = useMediaQuery('(max-width: 56rem)');
   const table = useReactTable({
     data,
     columns,
@@ -154,13 +178,16 @@ export function DataTable<TData>({
 
   if (loading) {
     return (
-      <div className={styles.tableShell} aria-busy="true">
-        <div className={styles.tableToolbar}>
-          <span className={`${styles.skeleton} ${styles.tableSkeletonSearch}`}>
+      <div
+        className="overflow-hidden rounded-lg border bg-card"
+        aria-busy="true"
+      >
+        <div className={toolbarClass}>
+          <Skeleton className="h-9 w-full max-w-96 text-transparent">
             Loading
-          </span>
+          </Skeleton>
         </div>
-        <div className={styles.tableState}>
+        <div className="grid min-h-60 place-items-center p-8 text-center">
           <span role="status">Loading {ariaLabel.toLowerCase()}…</span>
         </div>
       </div>
@@ -169,39 +196,53 @@ export function DataTable<TData>({
 
   if (error)
     return (
-      <div className={styles.tableShell}>
+      <div className="overflow-hidden rounded-lg border bg-card">
         <ErrorState onRetry={onRetry} />
       </div>
     );
 
   const filteredRows = table.getFilteredRowModel().rows;
   const pageRows = table.getRowModel().rows;
+  const filterableColumns = table
+    .getAllLeafColumns()
+    .filter(
+      (column) =>
+        column.getCanFilter() &&
+        typeof table
+          .getPreFilteredRowModel()
+          .flatRows[0]?.getValue(column.id) === 'string',
+    );
 
   return (
     <SearchHighlightContext.Provider value={globalFilter}>
       <section
-        className={`${styles.tableShell} ${dense ? styles.compactTable : ''} ${fullscreen ? styles.tableShellFullscreen : ''}`}
+        className={cn(
+          'overflow-hidden rounded-lg border bg-card',
+          dense && '[&_tbody_td]:py-2 [&_thead_th]:h-9 [&_tbody_td]:text-sm',
+          fullscreen && 'fixed inset-0 z-60 overflow-auto rounded-none',
+        )}
         aria-label={ariaLabel}
       >
-        <div className={styles.tableToolbar}>
-          <div className={styles.searchWrap}>
-            <IconSearch size={18} aria-hidden="true" />
-            <label
-              className={styles.visuallyHidden}
-              htmlFor={`${ariaLabel}-search`}
-            >
+        <div className={toolbarClass}>
+          <div className="relative w-full max-w-96">
+            <IconSearch
+              className="pointer-events-none absolute top-1/2 left-2.5 -translate-y-1/2 text-muted-foreground"
+              size={18}
+              aria-hidden="true"
+            />
+            <label className="sr-only" htmlFor={`${ariaLabel}-search`}>
               Search {ariaLabel.toLowerCase()}
             </label>
             <Input
               id={`${ariaLabel}-search`}
-              className="pl-9"
+              className="h-9 pl-9"
               type="search"
               placeholder={searchPlaceholder}
               value={globalFilter}
               onChange={(event) => setGlobalFilter(event.target.value)}
             />
           </div>
-          <div className={styles.toolbarActions}>
+          <div className="flex flex-wrap items-center gap-2 max-[56rem]:justify-between">
             <Button
               variant="ghost"
               type="button"
@@ -209,69 +250,78 @@ export function DataTable<TData>({
             >
               {dense ? 'Comfortable rows' : 'Compact rows'}
             </Button>
-            <details className={styles.columnMenu}>
-              <summary
-                className={styles.iconButton}
-                aria-label="Choose visible columns"
+            <Popover>
+              <PopoverTrigger
+                render={
+                  <Button
+                    variant="outline"
+                    size="icon-lg"
+                    aria-label="Choose visible columns"
+                  />
+                }
               >
                 <IconColumns size={19} aria-hidden="true" />
-              </summary>
-              <div className={styles.columnMenuPanel}>
-                {table
-                  .getAllLeafColumns()
-                  .filter((column) => column.getCanHide())
-                  .map((column) => (
-                    <label className={styles.checkLabel} key={column.id}>
-                      <input
-                        type="checkbox"
-                        checked={column.getIsVisible()}
-                        onChange={column.getToggleVisibilityHandler()}
-                      />
-                      {typeof column.columnDef.header === 'string'
-                        ? column.columnDef.header
-                        : column.id}
-                    </label>
-                  ))}
-              </div>
-            </details>
-            <details className={styles.columnMenu}>
-              <summary className={styles.buttonQuiet}>
-                <IconFilter size={18} aria-hidden="true" /> Filters
-                {columnFilters.length ? ` (${columnFilters.length})` : ''}
-              </summary>
-              <div className={styles.columnMenuPanel}>
-                {table
-                  .getAllLeafColumns()
-                  .filter(
-                    (column) =>
-                      column.getCanFilter() &&
-                      typeof table
-                        .getPreFilteredRowModel()
-                        .flatRows[0]?.getValue(column.id) === 'string',
-                  )
-                  .map((column) => {
-                    const label =
-                      typeof column.columnDef.header === 'string'
-                        ? column.columnDef.header
-                        : column.id;
-                    return (
-                      <label className={styles.field} key={column.id}>
-                        <span>{label}</span>
-                        <Input
-                          value={
-                            (column.getFilterValue() as string | undefined) ??
-                            ''
+              </PopoverTrigger>
+              <PopoverContent align="end" className="w-56 p-2">
+                <div className="grid gap-1">
+                  {table
+                    .getAllLeafColumns()
+                    .filter((column) => column.getCanHide())
+                    .map((column) => (
+                      <Label
+                        className="min-h-9 rounded-md px-2 font-normal hover:bg-muted"
+                        key={column.id}
+                      >
+                        <Checkbox
+                          checked={column.getIsVisible()}
+                          onCheckedChange={(checked) =>
+                            column.toggleVisibility(Boolean(checked))
                           }
-                          onChange={(event) =>
-                            column.setFilterValue(
-                              event.target.value || undefined,
-                            )
-                          }
-                          placeholder={`Filter ${label.toLowerCase()}`}
                         />
-                      </label>
-                    );
-                  })}
+                        {typeof column.columnDef.header === 'string'
+                          ? column.columnDef.header
+                          : column.id}
+                      </Label>
+                    ))}
+                </div>
+              </PopoverContent>
+            </Popover>
+            <Popover>
+              <PopoverTrigger
+                render={
+                  <Button variant="outline" className="h-9" type="button" />
+                }
+              >
+                <IconFilter size={18} aria-hidden="true" />
+                Filters
+                {columnFilters.length ? ` (${columnFilters.length})` : ''}
+              </PopoverTrigger>
+              <PopoverContent align="end" className="grid w-72 gap-3 p-3">
+                {filterableColumns.map((column) => {
+                  const label =
+                    typeof column.columnDef.header === 'string'
+                      ? column.columnDef.header
+                      : column.id;
+                  const inputId = `${ariaLabel}-filter-${column.id}`.replace(
+                    /\s+/g,
+                    '-',
+                  );
+                  return (
+                    <Field key={column.id}>
+                      <FieldLabel htmlFor={inputId}>{label}</FieldLabel>
+                      <Input
+                        id={inputId}
+                        value={
+                          (column.getFilterValue() as string | undefined) ?? ''
+                        }
+                        onChange={(event) =>
+                          column.setFilterValue(event.target.value || undefined)
+                        }
+                        placeholder={`Filter ${label.toLowerCase()}`}
+                      />
+                    </Field>
+                  );
+                })}
                 {columnFilters.length ? (
                   <Button
                     variant="outline"
@@ -281,11 +331,11 @@ export function DataTable<TData>({
                     Clear column filters
                   </Button>
                 ) : null}
-              </div>
-            </details>
+              </PopoverContent>
+            </Popover>
             <Button
               variant="ghost"
-              size="icon"
+              size="icon-lg"
               type="button"
               onClick={() => setFullscreen((value) => !value)}
               aria-label={
@@ -300,7 +350,7 @@ export function DataTable<TData>({
             </Button>
           </div>
         </div>
-        <div className={styles.visuallyHidden} aria-live="polite">
+        <div className="sr-only" aria-live="polite">
           {filteredRows.length} results
         </div>
         {!data.length || !filteredRows.length ? (
@@ -331,99 +381,115 @@ export function DataTable<TData>({
           />
         ) : (
           <>
-            <div className={styles.desktopTable}>
-              <Table className={styles.dataTable}>
-                <caption className={styles.visuallyHidden}>
-                  {ariaLabel}. Sortable and filterable data table.
-                </caption>
-                <TableHeader>
-                  {table.getHeaderGroups().map((headerGroup) => (
-                    <TableRow key={headerGroup.id}>
-                      {headerGroup.headers.map((header) => (
-                        <TableHead
-                          key={header.id}
-                          scope="col"
-                          aria-sort={
-                            header.column.getIsSorted() === 'asc'
-                              ? 'ascending'
-                              : header.column.getIsSorted() === 'desc'
-                                ? 'descending'
-                                : 'none'
-                          }
-                        >
-                          {header.isPlaceholder ? null : header.column.getCanSort() ? (
-                            <Button
-                              variant="ghost"
-                              className="h-auto justify-start p-0 hover:bg-transparent"
-                              type="button"
-                              onClick={header.column.getToggleSortingHandler()}
-                            >
-                              {flexRender(
+            {compact ? null : (
+              <div className="overflow-x-auto">
+                <Table>
+                  <caption className="sr-only">
+                    {ariaLabel}. Sortable and filterable data table.
+                  </caption>
+                  <TableHeader>
+                    {table.getHeaderGroups().map((headerGroup) => (
+                      <TableRow key={headerGroup.id}>
+                        {headerGroup.headers.map((header) => (
+                          <TableHead
+                            key={header.id}
+                            scope="col"
+                            className="px-3.5 text-xs font-semibold text-muted-foreground"
+                            aria-sort={
+                              header.column.getIsSorted() === 'asc'
+                                ? 'ascending'
+                                : header.column.getIsSorted() === 'desc'
+                                  ? 'descending'
+                                  : 'none'
+                            }
+                          >
+                            {header.isPlaceholder ? null : header.column.getCanSort() ? (
+                              <Button
+                                variant="ghost"
+                                className="h-auto justify-start p-0 text-xs font-semibold hover:bg-transparent"
+                                type="button"
+                                onClick={header.column.getToggleSortingHandler()}
+                              >
+                                {flexRender(
+                                  header.column.columnDef.header,
+                                  header.getContext(),
+                                )}
+                                {header.column.getIsSorted() === 'asc' ? (
+                                  <IconChevronUp size={15} aria-hidden="true" />
+                                ) : header.column.getIsSorted() === 'desc' ? (
+                                  <IconChevronDown
+                                    size={15}
+                                    aria-hidden="true"
+                                  />
+                                ) : null}
+                              </Button>
+                            ) : (
+                              flexRender(
                                 header.column.columnDef.header,
                                 header.getContext(),
-                              )}
-                              {header.column.getIsSorted() === 'asc' ? (
-                                <IconChevronUp size={15} aria-hidden="true" />
-                              ) : header.column.getIsSorted() === 'desc' ? (
-                                <IconChevronDown size={15} aria-hidden="true" />
-                              ) : null}
-                            </Button>
-                          ) : (
-                            flexRender(
-                              header.column.columnDef.header,
-                              header.getContext(),
-                            )
-                          )}
-                        </TableHead>
-                      ))}
-                    </TableRow>
-                  ))}
-                </TableHeader>
-                <TableBody>
-                  {pageRows.map((row) => (
-                    <DataTableRecord
-                      key={row.id}
-                      row={row}
-                      renderExpanded={renderExpanded}
-                    />
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-            <div className={styles.mobileCards}>
-              {pageRows.map((row) => (
-                <article className={styles.mobileCard} key={row.id}>
-                  {renderCard(row)}
-                </article>
-              ))}
-            </div>
-            <div className={styles.tablePagination}>
-              <label className={styles.inline}>
-                <span className={styles.metricLabel}>Rows per page</span>
-                <NativeSelect
-                  className="w-full"
+                              )
+                            )}
+                          </TableHead>
+                        ))}
+                      </TableRow>
+                    ))}
+                  </TableHeader>
+                  <TableBody>
+                    {pageRows.map((row) => (
+                      <DataTableRecord
+                        key={row.id}
+                        row={row}
+                        renderExpanded={renderExpanded}
+                      />
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
+            {compact ? (
+              <div className="divide-y px-4">
+                {pageRows.map((row) => (
+                  <article className="py-4" key={row.id}>
+                    {renderCard(row)}
+                  </article>
+                ))}
+              </div>
+            ) : null}
+            <div className={paginationClass}>
+              <Label className="gap-2">
+                <span className="text-xs font-semibold">Rows per page</span>
+                <Select
+                  items={pageSizeItems}
                   value={table.getState().pagination.pageSize}
-                  onChange={(event) => {
-                    const value = Number(event.target.value);
-                    table.setPageSize(value);
-                    localStorage.setItem('rsp-table-page-size', String(value));
+                  onValueChange={(value) => {
+                    if (value == null) return;
+                    const next = Number(value);
+                    table.setPageSize(next);
+                    localStorage.setItem('rsp-table-page-size', String(next));
                   }}
                 >
-                  {[10, 25, 50, 100].map((value) => (
-                    <NativeSelectOption key={value} value={value}>
-                      {value}
-                    </NativeSelectOption>
-                  ))}
-                </NativeSelect>
-              </label>
-              <span className={styles.muted}>
+                  <SelectTrigger aria-label="Rows per page" className="w-20">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectGroup>
+                      {pageSizeItems.map((item) => (
+                        <SelectItem key={item.value} value={item.value}>
+                          {item.label}
+                        </SelectItem>
+                      ))}
+                    </SelectGroup>
+                  </SelectContent>
+                </Select>
+              </Label>
+              <span className="text-sm text-muted-foreground">
                 Page {table.getState().pagination.pageIndex + 1} of{' '}
                 {Math.max(table.getPageCount(), 1)}
               </span>
-              <div className={styles.paginationControls}>
+              <div className="flex items-center gap-1">
                 <Button
                   variant="ghost"
-                  size="icon"
+                  size="icon-lg"
                   type="button"
                   disabled={!table.getCanPreviousPage()}
                   onClick={() => table.previousPage()}
@@ -433,7 +499,7 @@ export function DataTable<TData>({
                 </Button>
                 <Button
                   variant="ghost"
-                  size="icon"
+                  size="icon-lg"
                   type="button"
                   disabled={!table.getCanNextPage()}
                   onClick={() => table.nextPage()}
@@ -462,14 +528,17 @@ function DataTableRecord<TData>({
     <>
       <TableRow>
         {row.getVisibleCells().map((cell) => (
-          <TableCell key={cell.id}>
+          <TableCell className="px-3.5 py-3" key={cell.id}>
             {flexRender(cell.column.columnDef.cell, cell.getContext())}
           </TableCell>
         ))}
       </TableRow>
       {row.getIsExpanded() && renderExpanded ? (
-        <TableRow className={styles.expandedRow}>
-          <TableCell colSpan={row.getVisibleCells().length}>
+        <TableRow className="hover:bg-transparent">
+          <TableCell
+            className="whitespace-normal bg-muted/50 px-4 py-4"
+            colSpan={row.getVisibleCells().length}
+          >
             {renderExpanded(row)}
           </TableCell>
         </TableRow>

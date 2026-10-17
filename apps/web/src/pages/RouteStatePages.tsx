@@ -5,7 +5,7 @@ import {
   CardDescription,
 } from '@/components/ui/card';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import { Button } from '@/components/ui/button';
+import { Button, buttonVariants } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
   IconAlertTriangle,
@@ -41,7 +41,9 @@ import {
   verifyTwoFactor,
 } from '@/api/authClient';
 import { usePageTitle } from '@/components/Common';
-import styles from '@/styles/App.module.css';
+import { InlineNotice } from '@/components/StatusViews';
+import { FieldError, FieldLabel } from '@/components/ui/field';
+import { Separator } from '@/components/ui/separator';
 
 function StateLayout({
   icon,
@@ -55,13 +57,15 @@ function StateLayout({
   children?: React.ReactNode;
 }) {
   return (
-    <div className={styles.page}>
-      <section className={styles.statusCard}>
-        <div className={styles.statusContent}>
-          {icon}
-          <h1>{title}</h1>
-          <p>{message}</p>
-          <div className={`${styles.buttonRow} ${styles.stateActions}`}>
+    <div className="mx-auto w-full max-w-[92rem]">
+      <section className="mx-auto mt-16 flex min-h-72 w-full max-w-[42rem] flex-col items-center justify-center rounded-xl border border-border bg-card p-6 text-center">
+        <div className="grid max-w-[34rem] justify-items-center gap-2">
+          <div className="text-muted-foreground">{icon}</div>
+          <h1 className="text-2xl font-semibold tracking-tight md:text-3xl">
+            {title}
+          </h1>
+          <p className="text-base text-muted-foreground">{message}</p>
+          <div className="flex w-full flex-wrap items-center justify-center gap-2.5">
             {children}
           </div>
         </div>
@@ -217,32 +221,32 @@ export function SignInPage() {
               </TabsList>
               <TabsContent value={mode} className="space-y-5">
                 {searchParams.get('verified') === 'true' ? (
-                  <p className={styles.inlineNotice}>
+                  <InlineNotice>
                     Email verified. Sign in to continue.
-                  </p>
+                  </InlineNotice>
                 ) : null}
                 {searchParams.get('securityChanged') === 'true' ? (
-                  <p className={styles.inlineNotice}>
+                  <InlineNotice>
                     Your security settings were updated and all sessions were
                     revoked. Sign in again to continue.
-                  </p>
+                  </InlineNotice>
                 ) : null}
                 {searchParams.get('reset') === 'true' ? (
-                  <p className={styles.inlineNotice}>
+                  <InlineNotice>
                     Password reset complete. Sign in with your new password.
-                  </p>
+                  </InlineNotice>
                 ) : null}
                 {searchParams.get('passwordConnected') === 'true' ? (
-                  <p className={styles.inlineNotice}>
+                  <InlineNotice>
                     Password sign-in was connected. Sign in again to continue.
+                  </InlineNotice>
+                ) : null}
+                {requestError ? <FieldError>{requestError}</FieldError> : null}
+                {resetMessage ? (
+                  <p className="text-sm text-muted-foreground" role="status">
+                    {resetMessage}
                   </p>
                 ) : null}
-                {requestError ? (
-                  <p className={styles.fieldError} role="alert">
-                    {requestError}
-                  </p>
-                ) : null}
-                {resetMessage ? <p role="status">{resetMessage}</p> : null}
                 <Button
                   variant="outline"
                   type="button"
@@ -252,18 +256,23 @@ export function SignInPage() {
                 >
                   {googlePending ? 'Opening Google…' : 'Continue with Google'}
                 </Button>
-                <div className={styles.authDivider} aria-hidden="true">
+                <div
+                  className="flex items-center gap-3 text-xs text-muted-foreground"
+                  aria-hidden="true"
+                >
+                  <Separator className="flex-1" />
                   <span>or</span>
+                  <Separator className="flex-1" />
                 </div>
                 <form
                   id="email-auth-form"
-                  className={styles.form}
+                  className="grid gap-4"
                   noValidate
                   onSubmit={submit}
                 >
                   {mode === 'sign-up' ? (
-                    <div className={styles.field}>
-                      <label htmlFor="auth-name">Name</label>
+                    <div className="grid gap-2">
+                      <FieldLabel htmlFor="auth-name">Name</FieldLabel>
                       <Input
                         id="auth-name"
                         autoComplete="name"
@@ -271,14 +280,12 @@ export function SignInPage() {
                         {...register('name')}
                       />
                       {errors.name ? (
-                        <p className={styles.fieldError}>
-                          {errors.name.message}
-                        </p>
+                        <FieldError>{errors.name.message}</FieldError>
                       ) : null}
                     </div>
                   ) : null}
-                  <div className={styles.field}>
-                    <label htmlFor="auth-email">Email</label>
+                  <div className="grid gap-2">
+                    <FieldLabel htmlFor="auth-email">Email</FieldLabel>
                     <Input
                       id="auth-email"
                       type="email"
@@ -287,13 +294,11 @@ export function SignInPage() {
                       {...register('email')}
                     />
                     {errors.email ? (
-                      <p className={styles.fieldError}>
-                        {errors.email.message}
-                      </p>
+                      <FieldError>{errors.email.message}</FieldError>
                     ) : null}
                   </div>
-                  <div className={styles.field}>
-                    <label htmlFor="auth-password">Password</label>
+                  <div className="grid gap-2">
+                    <FieldLabel htmlFor="auth-password">Password</FieldLabel>
                     <Input
                       id="auth-password"
                       type="password"
@@ -319,9 +324,9 @@ export function SignInPage() {
                       </p>
                     ) : null}
                     {errors.password ? (
-                      <p id="auth-password-error" className={styles.fieldError}>
+                      <FieldError id="auth-password-error">
                         {errors.password.message}
-                      </p>
+                      </FieldError>
                     ) : null}
                   </div>
                   <Button
@@ -396,16 +401,12 @@ export function ResetPasswordPage() {
       message="Reset links are single-use. Completing this change revokes existing sessions."
     >
       <form
-        className={`${styles.form} ${styles.stateForm}`}
+        className="grid w-full gap-4 text-left"
         onSubmit={(event) => void submit(event)}
       >
-        {error ? (
-          <p className={styles.fieldError} role="alert">
-            {error}
-          </p>
-        ) : null}
-        <div className={styles.field}>
-          <label htmlFor="reset-password">New password</label>
+        {error ? <FieldError>{error}</FieldError> : null}
+        <div className="grid gap-2">
+          <FieldLabel htmlFor="reset-password">New password</FieldLabel>
           <Input
             id="reset-password"
             type="password"
@@ -414,10 +415,10 @@ export function ResetPasswordPage() {
             onChange={(event) => setPassword(event.target.value)}
           />
         </div>
-        <div className={styles.field}>
-          <label htmlFor="reset-password-confirmation">
+        <div className="grid gap-2">
+          <FieldLabel htmlFor="reset-password-confirmation">
             Confirm new password
-          </label>
+          </FieldLabel>
           <Input
             id="reset-password-confirmation"
             type="password"
@@ -429,14 +430,9 @@ export function ResetPasswordPage() {
         <Button type="submit" disabled={pending}>
           {pending ? 'Resetting…' : 'Reset password'}
         </Button>
-        <Button
-          nativeButton={false}
-          role="link"
-          variant="outline"
-          render={<Link to="/sign-in" />}
-        >
+        <Link to="/sign-in" className={buttonVariants({ variant: 'outline' })}>
           Back to sign in
-        </Button>
+        </Link>
       </form>
     </StateLayout>
   );
@@ -479,10 +475,14 @@ export function VerifyEmailPage() {
       title="Check your email"
       message="Protected programme access begins after your email address is verified."
     >
-      <div className={`${styles.form} ${styles.stateForm}`}>
-        {status ? <p role="status">{status}</p> : null}
-        <div className={styles.field}>
-          <label htmlFor="verification-email">Email</label>
+      <div className="grid w-full gap-4 text-left">
+        {status ? (
+          <p className="text-sm text-muted-foreground" role="status">
+            {status}
+          </p>
+        ) : null}
+        <div className="grid gap-2">
+          <FieldLabel htmlFor="verification-email">Email</FieldLabel>
           <Input
             id="verification-email"
             type="email"
@@ -536,18 +536,14 @@ export function TwoFactorPage() {
       message="Enter a current authenticator code or one of your single-use backup codes."
     >
       <form
-        className={`${styles.form} ${styles.stateForm}`}
+        className="grid w-full gap-4 text-left"
         onSubmit={(event) => void submit(event)}
       >
-        {error ? (
-          <p className={styles.fieldError} role="alert">
-            {error}
-          </p>
-        ) : null}
-        <div className={styles.field}>
-          <label htmlFor="two-factor-code">
+        {error ? <FieldError>{error}</FieldError> : null}
+        <div className="grid gap-2">
+          <FieldLabel htmlFor="two-factor-code">
             {method === 'totp' ? 'Authenticator code' : 'Backup code'}
-          </label>
+          </FieldLabel>
           <Input
             id="two-factor-code"
             value={code}
@@ -585,14 +581,9 @@ export function ForbiddenPage() {
       title="You do not have access"
       message="This workspace or action is outside your current programme role."
     >
-      <Button
-        nativeButton={false}
-        role="link"
-        variant="default"
-        render={<Link to="/dashboard" />}
-      >
+      <Link to="/dashboard" className={buttonVariants({ variant: 'default' })}>
         Back to dashboard
-      </Button>
+      </Link>
     </StateLayout>
   );
 }
@@ -613,14 +604,9 @@ export function AccountUnavailablePage() {
       title="Account unavailable"
       message={message}
     >
-      <Button
-        nativeButton={false}
-        role="link"
-        variant="outline"
-        render={<Link to="/sign-in" />}
-      >
+      <Link to="/sign-in" className={buttonVariants({ variant: 'outline' })}>
         Return to sign in
-      </Button>
+      </Link>
     </StateLayout>
   );
 }
@@ -633,14 +619,9 @@ export function NotFoundPage() {
       title="Page not found"
       message="The link may be outdated, or this page may have moved."
     >
-      <Button
-        nativeButton={false}
-        role="link"
-        variant="default"
-        render={<Link to="/dashboard" />}
-      >
+      <Link to="/dashboard" className={buttonVariants({ variant: 'default' })}>
         Go to dashboard
-      </Button>
+      </Link>
     </StateLayout>
   );
 }
@@ -662,14 +643,9 @@ export function RouteErrorPage() {
       <Button type="button" onClick={() => window.location.reload()}>
         <IconRefresh size={18} aria-hidden="true" /> Reload page
       </Button>
-      <Button
-        nativeButton={false}
-        role="link"
-        variant="outline"
-        render={<Link to="/dashboard" />}
-      >
+      <Link to="/dashboard" className={buttonVariants({ variant: 'outline' })}>
         Dashboard
-      </Button>
+      </Link>
     </StateLayout>
   );
 }

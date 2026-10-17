@@ -28,7 +28,9 @@ describe('application routes', () => {
     expect(
       screen.getByRole('navigation', { name: /primary/i }),
     ).toBeInTheDocument();
-    expect(screen.getAllByLabelText('Workspace')[0]).toHaveValue('director');
+    expect(
+      screen.getAllByRole('combobox', { name: 'Workspace' })[0],
+    ).toHaveTextContent('Director workspace');
   });
 
   it('redirects former members from the site root to the dashboard', async () => {

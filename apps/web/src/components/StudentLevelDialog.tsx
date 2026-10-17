@@ -1,8 +1,13 @@
 import {
-  NativeSelect,
-  NativeSelectOption,
-} from '@/components/ui/native-select';
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
+import { Field, FieldLabel } from '@/components/ui/field';
 import { IconArrowUp } from '@tabler/icons-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useId, useState } from 'react';
@@ -12,7 +17,6 @@ import type { Enrollment, StudentLevelUpdate } from '@/api/generated/models';
 import { demoMode } from '@/api/queries';
 import { FormDialog } from '@/components/Dialogs';
 import { studentLevels } from '@/studentLevels';
-import styles from '@/styles/App.module.css';
 import type { Page, Person } from '@/types';
 
 export function StudentLevelDialog({
@@ -26,6 +30,10 @@ export function StudentLevelDialog({
 }) {
   const queryClient = useQueryClient();
   const fieldId = useId();
+  const levelItems = Object.entries(studentLevels).map(([value, label]) => ({
+    label,
+    value,
+  }));
   const [open, setOpen] = useState(false);
   const [level, setLevel] = useState<keyof typeof studentLevels>('novice');
   const [pending, setPending] = useState(false);
@@ -75,6 +83,8 @@ export function StudentLevelDialog({
   };
   return (
     <FormDialog
+      triggerVariant="outline"
+      triggerSize="sm"
       title={`Set ${person.name}'s level`}
       description="Choose this student's level for the season."
       trigger={
@@ -97,29 +107,35 @@ export function StudentLevelDialog({
       }}
     >
       {error ? (
-        <p className={styles.fieldError} role="alert">
+        <p className="text-sm text-destructive" role="alert">
           {error}
         </p>
       ) : null}
-      <div className={styles.field}>
-        <label htmlFor={fieldId}>Student level</label>
-        <NativeSelect
-          id={fieldId}
-          className="w-full"
+      <Field>
+        <FieldLabel htmlFor={fieldId}>Student level</FieldLabel>
+        <Select
+          items={levelItems}
           value={level}
           disabled={pending}
-          onChange={(event) =>
-            setLevel(event.target.value as keyof typeof studentLevels)
-          }
+          onValueChange={(value) => {
+            if (value) setLevel(value as keyof typeof studentLevels);
+          }}
         >
-          {Object.entries(studentLevels).map(([value, label]) => (
-            <NativeSelectOption key={value} value={value}>
-              {label}
-            </NativeSelectOption>
-          ))}
-        </NativeSelect>
-      </div>
-      <div className={styles.dialogFooter}>
+          <SelectTrigger id={fieldId} className="w-full">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectGroup>
+              {levelItems.map((item) => (
+                <SelectItem key={item.value} value={item.value}>
+                  {item.label}
+                </SelectItem>
+              ))}
+            </SelectGroup>
+          </SelectContent>
+        </Select>
+      </Field>
+      <div className="flex flex-wrap justify-end gap-2">
         <Button
           type="button"
           disabled={

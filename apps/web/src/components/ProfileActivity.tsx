@@ -122,7 +122,11 @@ export function ProfileActivity({
     },
   ];
   return (
-    <Tabs value={tab} onValueChange={(value) => onTabChange(String(value))}>
+    <Tabs
+      className="mt-6"
+      value={tab}
+      onValueChange={(value) => onTabChange(String(value))}
+    >
       <TabsList aria-label="Profile activity">
         <TabsTrigger value="practice">Practice</TabsTrigger>
         <TabsTrigger value="mocks">Mock interviews</TabsTrigger>

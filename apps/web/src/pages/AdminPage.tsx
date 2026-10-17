@@ -1,12 +1,22 @@
 import { Badge } from '@/components/ui/badge';
-import { Card } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
 import {
-  NativeSelect,
-  NativeSelectOption,
-} from '@/components/ui/native-select';
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+} from '@/components/ui/card';
+import { Button, buttonVariants } from '@/components/ui/button';
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
+import { Field, FieldError, FieldLabel } from '@/components/ui/field';
 import {
   IconCalendarEvent,
   IconChecklist,
@@ -75,9 +85,19 @@ import {
   SeasonLifecycleDialog,
 } from '@/components/SeasonManagement';
 import { InlineNotice } from '@/components/StatusViews';
-import styles from '@/styles/App.module.css';
 import type { Page as ViewPage, Person, SeasonRole } from '@/types';
 import { formatDate, formatDateTimeInput, zonedDateTimeToUtc } from '@/utils';
+
+const statusTone = {
+  success: 'bg-success-soft text-success',
+  warning: 'bg-warning-soft text-warning',
+  neutral: 'border-border bg-muted text-muted-foreground',
+} as const;
+
+function statusLabel(status: string) {
+  const text = status.replace(/_/g, ' ');
+  return text.charAt(0).toUpperCase() + text.slice(1);
+}
 
 const adminResources = [
   {
@@ -136,8 +156,13 @@ export function AdminPage() {
       setSyncPending(false);
     }
   };
+  const visibleResources = adminResources.filter(
+    (resource) =>
+      resource.slug !== 'users' ||
+      currentUser.data?.globalRoles.includes('system_admin'),
+  );
   return (
-    <div className={styles.page}>
+    <div className="flex flex-col gap-6">
       <PageHeader
         eyebrow="Audited operations"
         title="Administration"
@@ -147,7 +172,7 @@ export function AdminPage() {
         <IconShieldLock size={19} aria-hidden="true" /> Your privileged session
         has recent MFA. Identity and lifecycle operations are always audited.
       </InlineNotice>
-      <div className={styles.metricGrid}>
+      <div className="grid gap-4 sm:grid-cols-3">
         <MetricCard
           label="Seasons"
           value={seasons.data?.totalCount ?? '—'}
@@ -158,58 +183,64 @@ export function AdminPage() {
           value={people.data?.totalCount ?? '—'}
           detail="Active members and alumni"
         />
-        <MetricCard
-          label="Pending operations"
-          value="—"
-          detail="No aggregate endpoint is available"
-        />
+        <Card>
+          <CardHeader>
+            <CardDescription>Pending operations</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm text-muted-foreground">
+              Pending operation counts are not available yet.
+            </p>
+          </CardContent>
+        </Card>
       </div>
-      <div className={styles.cardGrid}>
-        {adminResources
-          .filter(
-            (resource) =>
-              resource.slug !== 'users' ||
-              currentUser.data?.globalRoles.includes('system_admin'),
-          )
-          .map((resource) => {
-            const Icon = resource.icon;
-            return (
-              <article className={styles.card} key={resource.slug}>
-                <span className={styles.avatar}>
-                  <Icon size={20} aria-hidden="true" />
-                </span>
-                <h2 className={`${styles.cardTitle} ${styles.cardTitleSpaced}`}>
-                  {resource.title}
-                </h2>
-                <p className={styles.muted}>{resource.description}</p>
-                <Button
-                  nativeButton={false}
-                  role="link"
-                  variant="outline"
-                  render={<Link to={`/admin/${resource.slug}`} />}
+      <div className="grid gap-4 md:grid-cols-2">
+        {visibleResources.map((resource, index) => {
+          const Icon = resource.icon;
+          const spansRow =
+            visibleResources.length % 2 === 1 &&
+            index === visibleResources.length - 1;
+          return (
+            <article
+              className={`flex flex-col items-start gap-3 rounded-lg border border-border bg-card p-5${spansRow ? ' md:col-span-2' : ''}`}
+              key={resource.slug}
+            >
+              <span className="inline-flex size-9 items-center justify-center rounded-full bg-primary text-primary-foreground">
+                <Icon size={20} aria-hidden="true" />
+              </span>
+              <h2 className="text-base font-semibold">{resource.title}</h2>
+              <p className="text-sm text-muted-foreground">
+                {resource.description}
+              </p>
+              <div className="mt-4">
+                <Link
+                  to={`/admin/${resource.slug}`}
+                  className={buttonVariants({ variant: 'outline', size: 'sm' })}
                 >
                   Manage {resource.title.toLowerCase()}
-                </Button>
-              </article>
-            );
-          })}
+                </Link>
+              </div>
+            </article>
+          );
+        })}
       </div>
-      <section className={styles.section}>
-        <div className={styles.sectionHeader}>
-          <h2 className={styles.sectionTitle}>Technical operations</h2>
+      <section className="flex flex-col gap-3">
+        <div className="flex items-center justify-between gap-3">
+          <h2 className="text-lg font-semibold">Technical operations</h2>
         </div>
         <Card className="gap-4 p-5">
           {syncStatus ? <p role="status">{syncStatus}</p> : null}
-          <div className={styles.listRow}>
+          <div className="flex flex-wrap items-center justify-between gap-3">
             <span>
               <strong>LeetCode catalogue sync</strong>
-              <span className={`${styles.helper} ${styles.helperBlock}`}>
+              <span className="block text-sm text-muted-foreground">
                 Queues an audited worker sync; the regular schedule remains
                 Sunday 03:00 UTC.
               </span>
             </span>
             <Button
               variant="outline"
+              size="sm"
               type="button"
               disabled={syncPending}
               onClick={() => void sync()}
@@ -217,17 +248,9 @@ export function AdminPage() {
               {syncPending ? 'Queueing…' : 'Run audited sync'}
             </Button>
           </div>
-          <div className={styles.listRow}>
-            <span>
-              <strong>Audit export</strong>
-              <span className={`${styles.helper} ${styles.helperBlock}`}>
-                The API does not yet expose an audit-query endpoint.
-              </span>
-            </span>
-            <Badge variant="secondary" className={styles.badgeNeutral}>
-              Unavailable
-            </Badge>
-          </div>
+          <p className="text-sm text-muted-foreground">
+            Audit export is not available yet.
+          </p>
         </Card>
       </section>
     </div>
@@ -243,6 +266,14 @@ interface AdminRow {
   actions?: ReactNode;
 }
 
+function statusToneFor(status: string) {
+  return status === 'active' || status === 'open'
+    ? statusTone.success
+    : status === 'pending' || status === 'unassigned'
+      ? statusTone.warning
+      : statusTone.neutral;
+}
+
 const columns: ColumnDef<AdminRow, any>[] = [
   {
     accessorKey: 'primary',
@@ -250,7 +281,9 @@ const columns: ColumnDef<AdminRow, any>[] = [
     cell: ({ row }) => (
       <div>
         <strong>{row.original.primary}</strong>
-        <div className={styles.helper}>{row.original.secondary}</div>
+        <div className="text-sm text-muted-foreground">
+          {row.original.secondary}
+        </div>
       </div>
     ),
   },
@@ -258,17 +291,9 @@ const columns: ColumnDef<AdminRow, any>[] = [
     accessorKey: 'status',
     header: 'Status',
     cell: ({ getValue }) => (
-      <span
-        className={
-          getValue() === 'active' || getValue() === 'open'
-            ? styles.badgeSuccess
-            : getValue() === 'pending' || getValue() === 'unassigned'
-              ? styles.badgeWarning
-              : styles.badgeNeutral
-        }
-      >
-        {getValue()}
-      </span>
+      <Badge variant="outline" className={statusToneFor(getValue())}>
+        {statusLabel(getValue())}
+      </Badge>
     ),
   },
   { accessorKey: 'detail', header: 'Details' },
@@ -311,6 +336,12 @@ export function AdminResourcePage({
   const manageableSeasons = (seasons.data?.items ?? []).filter(
     (season) => globallyManaged || activeCoordinatorSeasonIds.has(season.id),
   );
+  const seasonItems = manageableSeasons.length
+    ? manageableSeasons.map((season) => ({
+        label: `${season.name} · ${statusLabel(season.status)}`,
+        value: season.slug,
+      }))
+    : [{ label: 'No manageable season', value: '' }];
   const selectedSeason =
     manageableSeasons.find((season) => season.id === selectedSeasonId) ??
     manageableSeasons.find((season) => season.status === 'open') ??
@@ -373,7 +404,7 @@ export function AdminResourcePage({
           status: season.status,
           detail: `${formatDate(season.startsAt)} – ${formatDate(season.endsAt)}`,
           actions: (
-            <div className={styles.inline}>
+            <div className="flex flex-wrap justify-end gap-2">
               <SeasonEditorDialog season={season} />
               <DeleteEmptySeason season={season} />
               {season.status === 'open' ? (
@@ -397,7 +428,7 @@ export function AdminResourcePage({
                   : 'active',
             detail: `${formatDate(week.startAt)} – ${formatDate(week.endAt)}`,
             actions: selectedSeason ? (
-              <div className={styles.inline}>
+              <div className="flex flex-wrap items-center justify-end gap-2">
                 <WeekDialog seasonId={selectedSeason.id} week={week} />
                 <DeleteWeekButton seasonId={selectedSeason.id} week={week} />
               </div>
@@ -411,15 +442,16 @@ export function AdminResourcePage({
               status: account.accountState,
               detail: person.roles.join(', ') || 'Registered nonmember',
               actions: (
-                <div className={styles.inline}>
-                  <Button
-                    nativeButton={false}
-                    role="link"
-                    variant="ghost"
-                    render={<Link to={`/people/${account.slug}`} />}
+                <div className="flex flex-wrap items-center justify-end gap-2">
+                  <Link
+                    to={`/people/${account.slug}`}
+                    className={buttonVariants({
+                      variant: 'outline',
+                      size: 'sm',
+                    })}
                   >
                     Open profile
-                  </Button>
+                  </Link>
                   <UserAdministrationDialog
                     person={person}
                     currentUserId={currentUser.data?.id}
@@ -442,7 +474,7 @@ export function AdminResourcePage({
                 detail: `${enrollment.role}${enrollment.role === 'student' ? ` · ${enrollment.studentLevel.replace('_', ' ')}` : ''}${enrollment.assignmentState === 'pending_mfa' ? ' · pending MFA' : ''}`,
                 actions:
                   selectedSeason?.status === 'open' ? (
-                    <div className={styles.inline}>
+                    <div className="flex flex-wrap items-center justify-end gap-2">
                       <EnrollmentCorrection
                         enrollment={enrollment}
                         seasons={manageableSeasons}
@@ -480,7 +512,7 @@ export function AdminResourcePage({
                 status: 'active',
                 detail: `Mentored by ${peopleById.get(mentorship.mentorUserId)?.name ?? mentorship.mentorUserId}`,
                 actions: selectedSeason ? (
-                  <div className={styles.inline}>
+                  <div className="flex flex-wrap items-center justify-end gap-2">
                     <MentorshipDialog
                       seasonId={selectedSeason.id}
                       people={people.data?.items ?? []}
@@ -537,7 +569,7 @@ export function AdminResourcePage({
     ) : undefined;
 
   return (
-    <div className={styles.page}>
+    <div className="flex flex-col gap-6">
       <PageHeader
         eyebrow="Administration"
         title={config.title}
@@ -545,34 +577,34 @@ export function AdminResourcePage({
         actions={createAction}
       />
       {resource !== 'seasons' && resource !== 'users' ? (
-        <div className={`${styles.panel} ${styles.panelSpaced}`}>
-          <div className={styles.field}>
-            <label htmlFor={`admin-${resource}-season`}>Season</label>
-            <NativeSelect
-              id={`admin-${resource}-season`}
-              className="w-full"
+        <div className="rounded-lg border border-border bg-card p-4">
+          <Field>
+            <FieldLabel htmlFor={`admin-${resource}-season`}>Season</FieldLabel>
+            <Select
+              items={seasonItems}
               value={selectedSeason?.slug ?? ''}
               disabled={!manageableSeasons.length}
-              onChange={(event) => {
+              onValueChange={(value) => {
                 const season = manageableSeasons.find(
-                  (item) => item.slug === event.target.value,
+                  (item) => item.slug === value,
                 );
                 setSelectedSeasonId(season?.id ?? '');
               }}
             >
-              {manageableSeasons.length ? (
-                manageableSeasons.map((season) => (
-                  <NativeSelectOption value={season.slug} key={season.id}>
-                    {season.name} · {season.status}
-                  </NativeSelectOption>
-                ))
-              ) : (
-                <NativeSelectOption value="">
-                  No manageable season
-                </NativeSelectOption>
-              )}
-            </NativeSelect>
-          </div>
+              <SelectTrigger id={`admin-${resource}-season`} className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectGroup>
+                  {seasonItems.map((item) => (
+                    <SelectItem key={item.value} value={item.value}>
+                      {item.label}
+                    </SelectItem>
+                  ))}
+                </SelectGroup>
+              </SelectContent>
+            </Select>
+          </Field>
         </div>
       ) : null}
       {resource === 'enrollments' && selectedSeason ? (
@@ -598,26 +630,24 @@ export function AdminResourcePage({
         emptyMessage="Create the first record when the programme is ready."
         getRowId={(row) => row.id}
         renderCard={(row) => (
-          <div>
-            <div className={styles.inline}>
-              <span
-                className={
-                  row.original.status === 'active' ||
-                  row.original.status === 'open'
-                    ? styles.badgeSuccess
-                    : styles.badgeNeutral
-                }
+          <div className="flex flex-col gap-2">
+            <div className="flex items-center gap-2">
+              <Badge
+                variant="outline"
+                className={statusToneFor(row.original.status)}
               >
-                {row.original.status}
-              </span>
+                {statusLabel(row.original.status)}
+              </Badge>
             </div>
-            <h2 className={`${styles.cardTitle} ${styles.cardTitleSpaced}`}>
-              {row.original.primary}
-            </h2>
-            <p className={styles.helper}>{row.original.secondary}</p>
+            <h2 className="text-base font-semibold">{row.original.primary}</h2>
+            <p className="text-sm text-muted-foreground">
+              {row.original.secondary}
+            </p>
             <p>{row.original.detail}</p>
             {row.original.actions ? (
-              <div className={styles.buttonRow}>{row.original.actions}</div>
+              <div className="flex flex-wrap justify-end gap-2">
+                {row.original.actions}
+              </div>
             ) : null}
           </div>
         )}
@@ -854,6 +884,10 @@ function UserAdministrationDialog({
   const availableRoles = (['director', 'system_admin'] as const).filter(
     (role) => !assignedRoles.has(role),
   );
+  const grantRoleItems = availableRoles.map((role) => ({
+    label: roleLabel(role),
+    value: role,
+  }));
 
   return (
     <FormDialog
@@ -861,21 +895,19 @@ function UserAdministrationDialog({
       description="System Admin actions require recent MFA and create immutable audit records."
       open={open}
       onOpenChange={onOpenChange}
+      triggerVariant="outline"
+      triggerSize="sm"
       trigger={
         <>
           <IconShieldLock size={17} aria-hidden="true" /> Manage account
         </>
       }
     >
-      <div className={styles.form}>
+      <div className="flex flex-col gap-4">
         {loading ? <p role="status">Loading private account details…</p> : null}
-        {error ? (
-          <p className={styles.fieldError} role="alert">
-            {error}
-          </p>
-        ) : null}
+        {error ? <FieldError>{error}</FieldError> : null}
         {message ? (
-          <p className={styles.inlineNotice} role="status">
+          <p role="status" className="text-sm text-muted-foreground">
             {message}
           </p>
         ) : null}
@@ -890,41 +922,45 @@ function UserAdministrationDialog({
               user={user}
               onSaved={(updated) => setUser({ ...user, ...updated })}
             />
-            <section aria-labelledby={`account-state-${person.id}`}>
+            <section
+              aria-labelledby={`account-state-${person.id}`}
+              className="flex flex-col gap-4"
+            >
               <h3
                 id={`account-state-${person.id}`}
-                className={styles.cardTitle}
+                className="text-base font-semibold"
               >
                 Account lifecycle
               </h3>
-              <p className={styles.helper}>
+              <p className="text-sm text-muted-foreground">
                 {user.email} ·{' '}
-                <span
+                <Badge
+                  variant="outline"
                   className={
                     user.accountState === 'active'
-                      ? styles.badgeSuccess
-                      : styles.badgeWarning
+                      ? statusTone.success
+                      : statusTone.warning
                   }
                 >
-                  {user.accountState.replace('_', ' ')}
-                </span>{' '}
+                  {statusLabel(user.accountState)}
+                </Badge>{' '}
               </p>
-              <div className={styles.field}>
-                <label htmlFor={`account-reason-${person.id}`}>
+              <Field>
+                <FieldLabel htmlFor={`account-reason-${person.id}`}>
                   Audited reason
-                </label>
+                </FieldLabel>
                 <Textarea
                   id={`account-reason-${person.id}`}
                   maxLength={500}
                   value={accountReason}
                   onChange={(event) => setAccountReason(event.target.value)}
                 />
-              </div>
+              </Field>
               {user.accountState !== 'suspended' ? (
-                <div className={styles.field}>
-                  <label htmlFor={`account-confirm-${person.id}`}>
+                <Field>
+                  <FieldLabel htmlFor={`account-confirm-${person.id}`}>
                     Type <strong>{person.name}</strong> to confirm suspension
-                  </label>
+                  </FieldLabel>
                   <Input
                     id={`account-confirm-${person.id}`}
                     value={accountConfirmation}
@@ -932,51 +968,59 @@ function UserAdministrationDialog({
                       setAccountConfirmation(event.target.value)
                     }
                   />
-                </div>
+                </Field>
               ) : null}
-              <Button
-                variant="destructive"
-                className={
-                  user.accountState === 'suspended'
-                    ? styles.buttonSecondary
-                    : styles.buttonDanger
-                }
-                type="button"
-                disabled={
-                  Boolean(pending) ||
-                  !accountReason.trim() ||
-                  (user.accountState !== 'suspended' &&
-                    (accountConfirmation !== person.name ||
-                      person.id === currentUserId))
-                }
-                onClick={() => void changeAccountState()}
-              >
-                {pending === 'account'
-                  ? 'Applying…'
-                  : user.accountState === 'suspended'
-                    ? 'Reactivate account'
-                    : 'Suspend account'}
-              </Button>
+              <div>
+                <Button
+                  variant={
+                    user.accountState === 'suspended'
+                      ? 'outline'
+                      : 'destructive'
+                  }
+                  type="button"
+                  disabled={
+                    Boolean(pending) ||
+                    !accountReason.trim() ||
+                    (user.accountState !== 'suspended' &&
+                      (accountConfirmation !== person.name ||
+                        person.id === currentUserId))
+                  }
+                  onClick={() => void changeAccountState()}
+                >
+                  {pending === 'account'
+                    ? 'Applying…'
+                    : user.accountState === 'suspended'
+                      ? 'Reactivate account'
+                      : 'Suspend account'}
+                </Button>
+              </div>
               {person.id === currentUserId &&
               user.accountState !== 'suspended' ? (
-                <p className={styles.helper}>
+                <p className="text-sm text-muted-foreground">
                   You cannot suspend your own System Admin account.
                 </p>
               ) : null}
             </section>
-            <section aria-labelledby={`global-roles-${person.id}`}>
-              <h3 id={`global-roles-${person.id}`} className={styles.cardTitle}>
+            <section
+              aria-labelledby={`global-roles-${person.id}`}
+              className="flex flex-col gap-4"
+            >
+              <h3
+                id={`global-roles-${person.id}`}
+                className="text-base font-semibold"
+              >
                 Global roles
               </h3>
               {assignments.length ? (
-                <ul className={styles.cleanList}>
+                <ul className="m-0 flex list-none flex-col p-0">
                   {assignments.map((assignment) => (
-                    <li className={styles.listRow} key={assignment.id}>
+                    <li
+                      className="flex flex-wrap items-center justify-between gap-3 border-b border-border py-3 last:border-b-0"
+                      key={assignment.id}
+                    >
                       <span>
                         <strong>{roleLabel(assignment.role)}</strong>
-                        <span
-                          className={`${styles.helper} ${styles.helperBlock}`}
-                        >
+                        <span className="block text-sm text-muted-foreground">
                           {assignment.state.replace('_', ' ')}
                         </span>
                       </span>
@@ -1000,43 +1044,56 @@ function UserAdministrationDialog({
                   ))}
                 </ul>
               ) : (
-                <p className={styles.muted}>No global roles assigned.</p>
+                <p className="text-sm text-muted-foreground">
+                  No global roles assigned.
+                </p>
               )}
               {availableRoles.length ? (
                 <>
-                  <div className={styles.field}>
-                    <label htmlFor={`grant-reason-${person.id}`}>
+                  <Field>
+                    <FieldLabel htmlFor={`grant-reason-${person.id}`}>
                       Reason for role grant
-                    </label>
+                    </FieldLabel>
                     <Textarea
                       id={`grant-reason-${person.id}`}
                       maxLength={500}
                       value={grantReason}
                       onChange={(event) => setGrantReason(event.target.value)}
                     />
-                  </div>
-                  <div className={styles.inline}>
-                    <label htmlFor={`grant-role-${person.id}`}>
-                      Grant role
-                    </label>
-                    <NativeSelect
-                      id={`grant-role-${person.id}`}
-                      className="w-full"
-                      value={
-                        availableRoles.includes(grantRole)
-                          ? grantRole
-                          : availableRoles[0]
-                      }
-                      onChange={(event) =>
-                        setGrantRole(event.target.value as GlobalRole)
-                      }
-                    >
-                      {availableRoles.map((role) => (
-                        <NativeSelectOption value={role} key={role}>
-                          {roleLabel(role)}
-                        </NativeSelectOption>
-                      ))}
-                    </NativeSelect>
+                  </Field>
+                  <div className="flex flex-wrap items-end gap-2">
+                    <Field className="min-w-40 flex-1">
+                      <FieldLabel htmlFor={`grant-role-${person.id}`}>
+                        Grant role
+                      </FieldLabel>
+                      <Select
+                        items={grantRoleItems}
+                        value={
+                          availableRoles.includes(grantRole)
+                            ? grantRole
+                            : availableRoles[0]
+                        }
+                        onValueChange={(value) => {
+                          if (value) setGrantRole(value as GlobalRole);
+                        }}
+                      >
+                        <SelectTrigger
+                          id={`grant-role-${person.id}`}
+                          className="w-full"
+                        >
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectGroup>
+                            {grantRoleItems.map((item) => (
+                              <SelectItem key={item.value} value={item.value}>
+                                {item.label}
+                              </SelectItem>
+                            ))}
+                          </SelectGroup>
+                        </SelectContent>
+                      </Select>
+                    </Field>
                     <Button
                       type="button"
                       disabled={Boolean(pending) || !grantReason.trim()}
@@ -1051,22 +1108,22 @@ function UserAdministrationDialog({
               ) : null}
               {assignments.length ? (
                 <>
-                  <div className={styles.field}>
-                    <label htmlFor={`role-reason-${person.id}`}>
+                  <Field>
+                    <FieldLabel htmlFor={`role-reason-${person.id}`}>
                       Reason for role revocation
-                    </label>
+                    </FieldLabel>
                     <Textarea
                       id={`role-reason-${person.id}`}
                       maxLength={500}
                       value={roleReason}
                       onChange={(event) => setRoleReason(event.target.value)}
                     />
-                  </div>
-                  <div className={styles.field}>
-                    <label htmlFor={`role-confirm-${person.id}`}>
+                  </Field>
+                  <Field>
+                    <FieldLabel htmlFor={`role-confirm-${person.id}`}>
                       Type <strong>{person.name}</strong> to confirm a
                       revocation
-                    </label>
+                    </FieldLabel>
                     <Input
                       id={`role-confirm-${person.id}`}
                       value={roleConfirmation}
@@ -1074,7 +1131,7 @@ function UserAdministrationDialog({
                         setRoleConfirmation(event.target.value)
                       }
                     />
-                  </div>
+                  </Field>
                 </>
               ) : null}
             </section>
@@ -1226,6 +1283,8 @@ function WeekDialog({ seasonId, week }: { seasonId: string; week?: Week }) {
       description="Weeks and resource links stay inside this open season."
       open={open}
       onOpenChange={requestOpenChange}
+      triggerVariant={week ? 'outline' : undefined}
+      triggerSize={week ? 'sm' : undefined}
       trigger={
         week ? (
           <>
@@ -1238,17 +1297,13 @@ function WeekDialog({ seasonId, week }: { seasonId: string; week?: Week }) {
         )
       }
     >
-      <div className={styles.form}>
-        {error ? (
-          <p className={styles.fieldError} role="alert">
-            {error}
-          </p>
-        ) : null}
-        <div className={styles.fieldGrid}>
-          <div className={styles.field}>
-            <label htmlFor={`week-number-${week?.id ?? 'new'}`}>
+      <div className="flex flex-col gap-4">
+        {error ? <FieldError>{error}</FieldError> : null}
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Field>
+            <FieldLabel htmlFor={`week-number-${week?.id ?? 'new'}`}>
               Week number
-            </label>
+            </FieldLabel>
             <Input
               id={`week-number-${week?.id ?? 'new'}`}
               type="number"
@@ -1256,7 +1311,7 @@ function WeekDialog({ seasonId, week }: { seasonId: string; week?: Week }) {
               value={number}
               onChange={(event) => setNumber(event.target.valueAsNumber)}
             />
-          </div>
+          </Field>
           <AppDatePicker
             label="Starts"
             granularity="minute"
@@ -1269,19 +1324,19 @@ function WeekDialog({ seasonId, week }: { seasonId: string; week?: Week }) {
             value={endAt}
             onChange={setEndAt}
           />
-          <div className={styles.field}>
-            <label htmlFor={`week-resource-${week?.id ?? 'new'}`}>
+          <Field>
+            <FieldLabel htmlFor={`week-resource-${week?.id ?? 'new'}`}>
               Resource URL (optional)
-            </label>
+            </FieldLabel>
             <Input
               id={`week-resource-${week?.id ?? 'new'}`}
               type="url"
               value={resourceUrl}
               onChange={(event) => setResourceUrl(event.target.value)}
             />
-          </div>
+          </Field>
         </div>
-        <div className={styles.dialogActions}>
+        <div className="flex flex-wrap justify-end gap-2">
           <Button type="button" disabled={pending} onClick={() => void save()}>
             {pending ? 'Saving…' : week ? 'Save week' : 'Create week'}
           </Button>
@@ -1360,6 +1415,34 @@ export function EnrollmentDialog({
     userId !== (enrollment?.userId ?? '') ||
     role !== (enrollment?.role ?? 'student') ||
     studentLevel !== (enrollment?.studentLevel ?? 'not_applicable');
+  const studentLevelItems = [
+    { label: 'Novice', value: 'novice' },
+    { label: 'Beginner', value: 'beginner' },
+    { label: 'Intermediate', value: 'intermediate' },
+    { label: 'Advance', value: 'advanced' },
+    { label: 'Not applicable', value: 'not_applicable' },
+  ];
+  const accountItems = [
+    {
+      label: accountsLoading
+        ? 'Loading verified accounts…'
+        : accounts.length
+          ? 'Choose an account'
+          : 'No eligible verified accounts',
+      value: '',
+    },
+    ...accounts.map((person) => ({
+      label: `${person.name} · @${person.slug}`,
+      value: person.id,
+    })),
+  ];
+  const enrollmentRoleItems = [
+    ...(!enrollment && allowCoordinator
+      ? [{ label: 'Coordinator', value: 'coordinator' }]
+      : []),
+    { label: 'Mentor', value: 'mentor' },
+    { label: 'Student', value: 'student' },
+  ];
   const requestOpenChange = (next: boolean) => {
     if (
       !next &&
@@ -1488,6 +1571,8 @@ export function EnrollmentDialog({
       description="Assign exactly one season role to an existing account."
       open={open}
       onOpenChange={requestOpenChange}
+      triggerVariant="outline"
+      triggerSize={enrollment ? 'sm' : undefined}
       trigger={
         enrollment ? (
           <>
@@ -1500,17 +1585,13 @@ export function EnrollmentDialog({
         )
       }
     >
-      <div className={styles.form}>
-        {error ? (
-          <p className={styles.fieldError} role="alert">
-            {error}
-          </p>
-        ) : null}
+      <div className="flex flex-col gap-4">
+        {error ? <FieldError>{error}</FieldError> : null}
         {accountsError && !enrollment ? (
-          <div>
-            <p className={styles.fieldError} role="alert">
+          <div className="flex flex-col items-start gap-2">
+            <FieldError>
               Verified enrollment candidates could not be loaded.
-            </p>
+            </FieldError>
             {onRetryAccounts ? (
               <Button variant="outline" type="button" onClick={onRetryAccounts}>
                 Retry accounts
@@ -1518,76 +1599,92 @@ export function EnrollmentDialog({
             ) : null}
           </div>
         ) : null}
-        <div className={styles.field}>
-          <label htmlFor={`enrollment-user-${enrollment?.id ?? 'new'}`}>
+        <Field>
+          <FieldLabel htmlFor={`enrollment-user-${enrollment?.id ?? 'new'}`}>
             Account
-          </label>
-          <NativeSelect
-            id={`enrollment-user-${enrollment?.id ?? 'new'}`}
-            className="w-full"
+          </FieldLabel>
+          <Select
+            items={accountItems}
             disabled={Boolean(enrollment) || accountsLoading || accountsError}
             value={userId}
-            onChange={(event) => setUserId(event.target.value)}
+            onValueChange={(value) => setUserId(value ?? '')}
           >
-            <NativeSelectOption value="">
-              {accountsLoading
-                ? 'Loading verified accounts…'
-                : accounts.length
-                  ? 'Choose an account'
-                  : 'No eligible verified accounts'}
-            </NativeSelectOption>
-            {accounts.map((person) => (
-              <NativeSelectOption value={person.id} key={person.id}>
-                {person.name} · @{person.slug}
-              </NativeSelectOption>
-            ))}
-          </NativeSelect>
-        </div>
-        <div className={styles.field}>
-          <label htmlFor={`enrollment-role-${enrollment?.id ?? 'new'}`}>
-            Season role
-          </label>
-          <NativeSelect
-            id={`enrollment-role-${enrollment?.id ?? 'new'}`}
-            className="w-full"
-            value={role}
-            onChange={(event) => setRole(event.target.value as SeasonRole)}
-          >
-            {!enrollment && allowCoordinator ? (
-              <NativeSelectOption value="coordinator">
-                Coordinator
-              </NativeSelectOption>
-            ) : null}
-            <NativeSelectOption value="mentor">Mentor</NativeSelectOption>
-            <NativeSelectOption value="student">Student</NativeSelectOption>
-          </NativeSelect>
-        </div>
-        {enrollment && role === 'student' ? (
-          <div className={styles.field}>
-            <label htmlFor={`enrollment-level-${enrollment.id}`}>
-              Student level
-            </label>
-            <NativeSelect
-              id={`enrollment-level-${enrollment.id}`}
+            <SelectTrigger
+              id={`enrollment-user-${enrollment?.id ?? 'new'}`}
               className="w-full"
-              value={studentLevel}
-              onChange={(event) =>
-                setStudentLevel(event.target.value as typeof studentLevel)
-              }
             >
-              <NativeSelectOption value="novice">Novice</NativeSelectOption>
-              <NativeSelectOption value="beginner">Beginner</NativeSelectOption>
-              <NativeSelectOption value="intermediate">
-                Intermediate
-              </NativeSelectOption>
-              <NativeSelectOption value="advanced">Advance</NativeSelectOption>
-              <NativeSelectOption value="not_applicable">
-                Not applicable
-              </NativeSelectOption>
-            </NativeSelect>
-          </div>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectGroup>
+                {accountItems.map((item) => (
+                  <SelectItem key={item.value} value={item.value}>
+                    {item.label}
+                  </SelectItem>
+                ))}
+              </SelectGroup>
+            </SelectContent>
+          </Select>
+        </Field>
+        <Field>
+          <FieldLabel htmlFor={`enrollment-role-${enrollment?.id ?? 'new'}`}>
+            Season role
+          </FieldLabel>
+          <Select
+            items={enrollmentRoleItems}
+            value={role}
+            onValueChange={(value) => {
+              if (value) setRole(value as SeasonRole);
+            }}
+          >
+            <SelectTrigger
+              id={`enrollment-role-${enrollment?.id ?? 'new'}`}
+              className="w-full"
+            >
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectGroup>
+                {enrollmentRoleItems.map((item) => (
+                  <SelectItem key={item.value} value={item.value}>
+                    {item.label}
+                  </SelectItem>
+                ))}
+              </SelectGroup>
+            </SelectContent>
+          </Select>
+        </Field>
+        {enrollment && role === 'student' ? (
+          <Field>
+            <FieldLabel htmlFor={`enrollment-level-${enrollment.id}`}>
+              Student level
+            </FieldLabel>
+            <Select
+              items={studentLevelItems}
+              value={studentLevel}
+              onValueChange={(value) => {
+                if (value) setStudentLevel(value as typeof studentLevel);
+              }}
+            >
+              <SelectTrigger
+                id={`enrollment-level-${enrollment.id}`}
+                className="w-full"
+              >
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectGroup>
+                  {studentLevelItems.map((item) => (
+                    <SelectItem key={item.value} value={item.value}>
+                      {item.label}
+                    </SelectItem>
+                  ))}
+                </SelectGroup>
+              </SelectContent>
+            </Select>
+          </Field>
         ) : null}
-        <div className={styles.dialogActions}>
+        <div className="flex flex-wrap justify-end gap-2">
           <Button
             type="button"
             disabled={pending || !userId}
@@ -1666,38 +1763,38 @@ function RemoveEnrollmentDialog({
       description="Season access ends immediately. Earlier membership and activity remain in the season history, and the reason is recorded for administrators."
       open={open}
       onOpenChange={setOpen}
+      triggerVariant="destructive"
+      triggerSize="sm"
       trigger={
         <>
           <IconUserMinus size={17} aria-hidden="true" /> Remove
         </>
       }
     >
-      <div className={styles.form}>
-        <div className={styles.field}>
-          <label htmlFor={`admin-remove-reason-${enrollment.id}`}>Reason</label>
+      <div className="flex flex-col gap-4">
+        <Field>
+          <FieldLabel htmlFor={`admin-remove-reason-${enrollment.id}`}>
+            Reason
+          </FieldLabel>
           <Textarea
             id={`admin-remove-reason-${enrollment.id}`}
             maxLength={500}
             value={reason}
             onChange={(event) => setReason(event.target.value)}
           />
-        </div>
-        <div className={styles.field}>
-          <label htmlFor={`admin-remove-confirm-${enrollment.id}`}>
+        </Field>
+        <Field>
+          <FieldLabel htmlFor={`admin-remove-confirm-${enrollment.id}`}>
             Type <strong>{name}</strong> to confirm
-          </label>
+          </FieldLabel>
           <Input
             id={`admin-remove-confirm-${enrollment.id}`}
             value={confirmation}
             onChange={(event) => setConfirmation(event.target.value)}
           />
-        </div>
-        {error ? (
-          <p className={styles.fieldError} role="alert">
-            {error}
-          </p>
-        ) : null}
-        <div className={styles.dialogActions}>
+        </Field>
+        {error ? <FieldError>{error}</FieldError> : null}
+        <div className="flex flex-wrap justify-end gap-2">
           <Button
             variant="destructive"
             type="button"
@@ -1726,6 +1823,14 @@ function MentorshipDialog({
   const queryClient = useQueryClient();
   const mentors = people.filter((person) => person.roles.includes('mentor'));
   const students = people.filter((person) => person.roles.includes('student'));
+  const mentorItems = [
+    { label: 'Choose a mentor', value: '' },
+    ...mentors.map((person) => ({ label: person.name, value: person.id })),
+  ];
+  const studentItems = [
+    { label: 'Choose a student', value: '' },
+    ...students.map((person) => ({ label: person.name, value: person.id })),
+  ];
   const [open, setOpen] = useState(false);
   const [mentorUserId, setMentorUserId] = useState(
     mentorship?.mentorUserId ?? '',
@@ -1829,6 +1934,8 @@ function MentorshipDialog({
       description="Both people must have active roles in the selected season."
       open={open}
       onOpenChange={requestOpenChange}
+      triggerVariant={mentorship ? 'outline' : undefined}
+      triggerSize={mentorship ? 'sm' : undefined}
       trigger={
         mentorship ? (
           <>
@@ -1841,49 +1948,61 @@ function MentorshipDialog({
         )
       }
     >
-      <div className={styles.form}>
-        {error ? (
-          <p className={styles.fieldError} role="alert">
-            {error}
-          </p>
-        ) : null}
-        <div className={styles.field}>
-          <label htmlFor={`admin-mentor-${mentorship?.id ?? 'new'}`}>
+      <div className="flex flex-col gap-4">
+        {error ? <FieldError>{error}</FieldError> : null}
+        <Field>
+          <FieldLabel htmlFor={`admin-mentor-${mentorship?.id ?? 'new'}`}>
             Mentor
-          </label>
-          <NativeSelect
-            id={`admin-mentor-${mentorship?.id ?? 'new'}`}
-            className="w-full"
+          </FieldLabel>
+          <Select
+            items={mentorItems}
             value={mentorUserId}
-            onChange={(event) => setMentorUserId(event.target.value)}
+            onValueChange={(value) => setMentorUserId(value ?? '')}
           >
-            <NativeSelectOption value="">Choose a mentor</NativeSelectOption>
-            {mentors.map((person) => (
-              <NativeSelectOption value={person.id} key={person.id}>
-                {person.name}
-              </NativeSelectOption>
-            ))}
-          </NativeSelect>
-        </div>
-        <div className={styles.field}>
-          <label htmlFor={`admin-student-${mentorship?.id ?? 'new'}`}>
+            <SelectTrigger
+              id={`admin-mentor-${mentorship?.id ?? 'new'}`}
+              className="w-full"
+            >
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectGroup>
+                {mentorItems.map((item) => (
+                  <SelectItem key={item.value} value={item.value}>
+                    {item.label}
+                  </SelectItem>
+                ))}
+              </SelectGroup>
+            </SelectContent>
+          </Select>
+        </Field>
+        <Field>
+          <FieldLabel htmlFor={`admin-student-${mentorship?.id ?? 'new'}`}>
             Student
-          </label>
-          <NativeSelect
-            id={`admin-student-${mentorship?.id ?? 'new'}`}
-            className="w-full"
+          </FieldLabel>
+          <Select
+            items={studentItems}
             value={studentUserId}
-            onChange={(event) => setStudentUserId(event.target.value)}
+            onValueChange={(value) => setStudentUserId(value ?? '')}
           >
-            <NativeSelectOption value="">Choose a student</NativeSelectOption>
-            {students.map((person) => (
-              <NativeSelectOption value={person.id} key={person.id}>
-                {person.name}
-              </NativeSelectOption>
-            ))}
-          </NativeSelect>
-        </div>
-        <div className={styles.dialogActions}>
+            <SelectTrigger
+              id={`admin-student-${mentorship?.id ?? 'new'}`}
+              className="w-full"
+            >
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectGroup>
+                {studentItems.map((item) => (
+                  <SelectItem key={item.value} value={item.value}>
+                    {item.label}
+                  </SelectItem>
+                ))}
+              </SelectGroup>
+            </SelectContent>
+          </Select>
+        </Field>
+        <div className="flex flex-wrap justify-end gap-2">
           <Button
             type="button"
             disabled={pending || !mentorUserId || !studentUserId}

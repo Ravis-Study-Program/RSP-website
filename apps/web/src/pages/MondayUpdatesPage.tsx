@@ -1,9 +1,22 @@
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
-  NativeSelect,
-  NativeSelectOption,
-} from '@/components/ui/native-select';
+  Field,
+  FieldDescription,
+  FieldLabel,
+  FieldLegend,
+  FieldSet,
+} from '@/components/ui/field';
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { useQueryClient, type QueryClient } from '@tanstack/react-query';
 import type { ColumnDef } from '@tanstack/react-table';
 import { IconChevronDown, IconChevronUp } from '@tabler/icons-react';
@@ -42,12 +55,10 @@ import { NamedConfirmation } from '@/components/Dialogs';
 import { RichTextContent } from '@/components/RichTextContent';
 import { RichTextEditor } from '@/components/RichTextEditor';
 import {
-  EmptyState,
   ErrorState,
   InlineNotice,
   PageSkeleton,
 } from '@/components/StatusViews';
-import styles from '@/styles/App.module.css';
 import { formatDate, formatDateTime, outcomeLabel } from '@/utils';
 
 type Experience = 'student' | 'mentor' | 'reviewer';
@@ -60,7 +71,32 @@ const markOptions: { value: MondayUpdateMark; label: string }[] = [
   { value: 'at_risk', label: 'At risk' },
 ];
 
+const pageClass = 'mx-auto w-full max-w-[92rem]';
+const sectionClass = 'mt-6';
+const sectionHeaderClass =
+  'mb-3 flex flex-wrap items-end justify-between gap-x-4 gap-y-1';
+const cardHeaderClass =
+  'flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1';
+const sectionTitleClass = 'text-xl font-semibold tracking-tight';
+const cardTitleClass = 'text-base font-semibold tracking-tight';
+const subTitleClass = 'text-sm font-semibold';
+const mutedClass = 'text-sm text-muted-foreground';
+const rowClass = 'flex flex-wrap items-center gap-2';
+const cleanListClass = 'm-0 grid list-none gap-3 p-0';
+const metaListClass =
+  'm-0 grid list-none gap-2 p-0 text-sm text-muted-foreground';
+const listRowClass =
+  'flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border-b border-border py-3 last:border-b-0';
+const fieldGridClass = 'grid gap-3.5 min-[56rem]:grid-cols-2';
+const formClass = 'grid gap-4';
+const cardClass = 'gap-4 p-5';
+
 const rangeErrorText = 'The end date must not be before the start date.';
+
+const markSelectItems: { label: string; value: MondayUpdateMark | '' }[] = [
+  { label: 'No mark yet', value: '' },
+  ...markOptions,
+];
 
 function markLabel(mark: MondayUpdateMark) {
   return markOptions.find((option) => option.value === mark)?.label ?? mark;
@@ -77,9 +113,9 @@ function rangeReversed(range: MondayUpdateRange) {
 }
 
 function outcomeClass(outcome: AttemptOutcome) {
-  if (outcome === 'independently_solved') return styles.badgeSuccess;
-  if (outcome === 'not_solved') return styles.badgeDanger;
-  return styles.badgeWarning;
+  if (outcome === 'independently_solved') return 'bg-success-soft text-success';
+  if (outcome === 'not_solved') return 'bg-destructive-soft text-destructive';
+  return 'bg-warning-soft text-warning';
 }
 
 /** Rich text counts as empty when it carries no text, only markup. */
@@ -178,7 +214,7 @@ export function MondayUpdatesPage() {
     return <PageSkeleton label="Loading Monday updates" />;
   if (seasons.isError || user.isError)
     return (
-      <div className={styles.page}>
+      <div className={pageClass}>
         <ErrorState
           onRetry={() => void Promise.all([seasons.refetch(), user.refetch()])}
         />
@@ -186,7 +222,7 @@ export function MondayUpdatesPage() {
     );
   if (!season)
     return (
-      <div className={styles.page}>
+      <div className={pageClass}>
         <ErrorState
           title="Season not found"
           message="This season may have moved or you may not have access."
@@ -223,7 +259,7 @@ export function MondayUpdatesPage() {
     studentNames.get(studentId) ?? studentSlugs.get(studentId) ?? studentId;
 
   return (
-    <div className={styles.page}>
+    <div className={pageClass}>
       <PageHeader
         eyebrow={season.name}
         title="Monday updates"
@@ -235,16 +271,18 @@ export function MondayUpdatesPage() {
               : 'One row per student with their solved LeetCode counts, mock interviews and every update in the range.'
         }
       />
-      <section className={styles.section} aria-labelledby="monday-range-title">
-        <div className={styles.sectionHeader}>
-          <h2 id="monday-range-title" className={styles.sectionTitle}>
-            Date range
-          </h2>
-          <span className={styles.muted}>
+      <section className={sectionClass} aria-labelledby="monday-range-title">
+        <div className="mb-3">
+          <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+            <h2 id="monday-range-title" className={sectionTitleClass}>
+              Date range
+            </h2>
+          </div>
+          <p className="mt-1 text-sm text-muted-foreground">
             Updates that overlap this range are shown.
-          </span>
+          </p>
         </div>
-        <div className={styles.fieldGrid}>
+        <div className={fieldGridClass}>
           <AppDatePicker
             label="Start date"
             granularity="day"
@@ -268,29 +306,34 @@ export function MondayUpdatesPage() {
         <>
           <StudentUpdateForm seasonId={season.id} range={range} />
           <section
-            className={styles.section}
+            className={sectionClass}
             aria-labelledby="monday-history-title"
           >
-            <div className={styles.sectionHeader}>
-              <h2 id="monday-history-title" className={styles.sectionTitle}>
+            <div className={sectionHeaderClass}>
+              <h2 id="monday-history-title" className={sectionTitleClass}>
                 Your updates
               </h2>
-              <span className={styles.muted}>{ownUpdates.length} posted</span>
+              <span className={mutedClass}>{ownUpdates.length} posted</span>
             </div>
             {updates.isLoading ? (
-              <p role="status">Loading your updates…</p>
+              <p role="status" className={mutedClass}>
+                Loading your updates…
+              </p>
             ) : updates.isError ? (
               <ErrorState
                 title="Your updates could not be loaded"
                 onRetry={() => void updates.refetch()}
               />
             ) : ownUpdates.length === 0 ? (
-              <EmptyState
-                title="No updates yet"
-                message="Post your first update for this range so your mentor can see what you worked on."
-              />
+              <Card className={cardClass}>
+                <h3 className={cardTitleClass}>No updates yet</h3>
+                <p className={mutedClass}>
+                  Post your first update for this range so your mentor can see
+                  what you worked on.
+                </p>
+              </Card>
             ) : (
-              <div className={styles.cleanList}>
+              <div className={cleanListClass}>
                 {ownUpdates.map((update) => (
                   <StudentUpdateCard
                     key={update.id}
@@ -303,62 +346,64 @@ export function MondayUpdatesPage() {
           </section>
         </>
       ) : experience === 'mentor' ? (
-        <section
-          className={styles.section}
-          aria-labelledby="monday-mentor-title"
-        >
-          <div className={styles.sectionHeader}>
-            <h2 id="monday-mentor-title" className={styles.sectionTitle}>
+        <section className={sectionClass} aria-labelledby="monday-mentor-title">
+          <div className={sectionHeaderClass}>
+            <h2 id="monday-mentor-title" className={sectionTitleClass}>
               Student updates
             </h2>
-            <span className={styles.muted}>
+            <span className={mutedClass}>
               {selectedStudentIds.length} of {menteeIds.length} students
               selected
             </span>
           </div>
-          <fieldset className={styles.unstyledFieldset}>
-            <legend className={styles.legend}>Students</legend>
-            <p className={styles.helper}>
+          <FieldSet className="min-w-0">
+            <FieldLegend variant="label" className="font-semibold">
+              Students
+            </FieldLegend>
+            <FieldDescription>
               Every student you mentor is selected by default. Uncheck a student
               to leave their updates out.
-            </p>
-            {menteeIds.length === 0 ? (
-              <p className={styles.muted}>
-                No students are assigned to you in this season.
-              </p>
-            ) : (
-              <div className={styles.fieldGrid}>
-                {menteeIds.map((studentId) => (
-                  <label className={styles.checkLabel} key={studentId}>
-                    <input
-                      type="checkbox"
-                      checked={!unselectedStudentIds.includes(studentId)}
-                      onChange={(event) =>
-                        setUnselectedStudentIds((ids) =>
-                          event.target.checked
-                            ? ids.filter((id) => id !== studentId)
-                            : [...ids, studentId],
-                        )
-                      }
-                    />
-                    {studentLabel(studentId)}
-                  </label>
-                ))}
-              </div>
-            )}
-          </fieldset>
+            </FieldDescription>
+            <div className={fieldGridClass}>
+              {menteeIds.map((studentId) => (
+                <label
+                  className="flex min-h-6 items-center gap-2 text-sm"
+                  key={studentId}
+                >
+                  <Checkbox
+                    checked={!unselectedStudentIds.includes(studentId)}
+                    onCheckedChange={(checked) =>
+                      setUnselectedStudentIds((ids) =>
+                        checked
+                          ? ids.filter((id) => id !== studentId)
+                          : [...ids, studentId],
+                      )
+                    }
+                  />
+                  {studentLabel(studentId)}
+                </label>
+              ))}
+            </div>
+          </FieldSet>
           {menteeIds.length === 0 ? (
-            <EmptyState
-              title="No students assigned"
-              message="A coordinator can assign students to your mentor team."
-            />
+            <Card className={cardClass}>
+              <h3 className={cardTitleClass}>No students assigned</h3>
+              <p className={mutedClass}>
+                A coordinator can assign students to your mentor team.
+              </p>
+            </Card>
           ) : selectedStudentIds.length === 0 ? (
-            <EmptyState
-              title="No students selected"
-              message="Select at least one student above to review their Monday updates."
-            />
+            <Card className={cardClass}>
+              <h3 className={cardTitleClass}>No students selected</h3>
+              <p className={mutedClass}>
+                Select at least one student above to review their Monday
+                updates.
+              </p>
+            </Card>
           ) : updates.isLoading ? (
-            <p role="status">Loading updates for your students…</p>
+            <p role="status" className={mutedClass}>
+              Loading updates for your students…
+            </p>
           ) : updates.isError ? (
             <ErrorState
               title="Updates could not be loaded"
@@ -369,19 +414,19 @@ export function MondayUpdatesPage() {
               const studentUpdates = updatesByStudent.get(studentId) ?? [];
               return (
                 <section
-                  className={styles.section}
+                  className={sectionClass}
                   key={studentId}
                   aria-labelledby={`monday-student-${studentId}`}
                 >
-                  <div className={styles.sectionHeader}>
+                  <div className={sectionHeaderClass}>
                     <h3
                       id={`monday-student-${studentId}`}
-                      className={styles.sectionTitle}
+                      className={cardTitleClass}
                     >
                       {studentLabel(studentId)}
                     </h3>
                     {studentUpdates.length ? (
-                      <Badge variant="secondary" className={styles.badge}>
+                      <Badge variant="secondary">
                         {studentUpdates.length === 1
                           ? '1 update in this range'
                           : `${studentUpdates.length} updates in this range`}
@@ -389,9 +434,9 @@ export function MondayUpdatesPage() {
                     ) : null}
                   </div>
                   {studentUpdates.length === 0 ? (
-                    <p className={styles.muted}>No update in this range.</p>
+                    <p className={mutedClass}>No update in this range.</p>
                   ) : (
-                    <div className={styles.cleanList}>
+                    <div className={cleanListClass}>
                       {studentUpdates.map((update) => (
                         <MentorUpdateCard
                           key={update.id}
@@ -408,15 +453,12 @@ export function MondayUpdatesPage() {
           )}
         </section>
       ) : (
-        <section
-          className={styles.section}
-          aria-labelledby="monday-review-title"
-        >
-          <div className={styles.sectionHeader}>
-            <h2 id="monday-review-title" className={styles.sectionTitle}>
+        <section className={sectionClass} aria-labelledby="monday-review-title">
+          <div className={sectionHeaderClass}>
+            <h2 id="monday-review-title" className={sectionTitleClass}>
               Student review
             </h2>
-            <span className={styles.muted}>
+            <span className={mutedClass}>
               Expand a row for every update and its mentor marks.
             </span>
           </div>
@@ -483,23 +525,23 @@ function StudentUpdateForm({
   };
 
   return (
-    <section className={styles.section} aria-labelledby="monday-post-title">
-      <div className={styles.sectionHeader}>
-        <h2 id="monday-post-title" className={styles.sectionTitle}>
+    <section className={sectionClass} aria-labelledby="monday-post-title">
+      <div className={sectionHeaderClass}>
+        <h2 id="monday-post-title" className={sectionTitleClass}>
           Post an update
         </h2>
-        <span className={styles.muted}>
+        <span className={mutedClass}>
           Your update covers the date range above.
         </span>
       </div>
-      <form className={styles.form} onSubmit={(event) => void submit(event)}>
+      <form className={formClass} onSubmit={(event) => void submit(event)}>
         {error ? (
           <InlineNotice tone="warning">
             <span role="alert">{error}</span>
           </InlineNotice>
         ) : null}
         {message ? (
-          <span className={styles.visuallyHidden} role="status">
+          <span className="sr-only" role="status">
             {message}
           </span>
         ) : null}
@@ -514,7 +556,7 @@ function StudentUpdateForm({
               : undefined
           }
         />
-        <div className={styles.buttonRow}>
+        <div className={rowClass}>
           <Button type="submit" disabled={pending}>
             {pending ? 'Posting…' : 'Post update'}
           </Button>
@@ -528,16 +570,16 @@ function UpdateActivity({ update }: { update: MondayUpdate }) {
   const attempts = update.activity.attempts;
   const mocks = update.activity.mocks;
   return (
-    <div className={styles.expandedDetails}>
-      <h4 className={styles.cardTitle}>Attempts ({attempts.length})</h4>
+    <div className="mt-3 grid gap-2">
+      <h4 className={subTitleClass}>Attempts ({attempts.length})</h4>
       {attempts.length === 0 ? (
-        <p className={styles.muted}>No practice attempts in this range.</p>
+        <p className={mutedClass}>No practice attempts in this range.</p>
       ) : (
-        <ul className={styles.metaList}>
+        <ul className={metaListClass}>
           {attempts.map((attempt) => (
-            <li className={styles.listRow} key={attempt.id}>
+            <li className={listRowClass} key={attempt.id}>
               <span>
-                <strong>
+                <strong className="font-semibold text-foreground">
                   {attempt.problemUrl ? (
                     <a
                       href={attempt.problemUrl}
@@ -550,37 +592,35 @@ function UpdateActivity({ update }: { update: MondayUpdate }) {
                     attempt.problem
                   )}
                 </strong>
-                <span className={styles.helper}>
+                <span className={mutedClass}>
                   {' '}
                   · {formatDate(attempt.attemptedAt)}
                 </span>
               </span>
-              <span className={styles.inline}>
+              <span className={rowClass}>
                 {attempt.difficulty ? (
-                  <Badge variant="secondary" className={styles.badge}>
-                    {attempt.difficulty}
-                  </Badge>
+                  <Badge variant="secondary">{attempt.difficulty}</Badge>
                 ) : null}
-                <span className={outcomeClass(attempt.outcome)}>
+                <Badge className={outcomeClass(attempt.outcome)}>
                   {outcomeLabel(attempt.outcome)}
-                </span>
-                <span className={styles.helper}>{attempt.minutes} min</span>
+                </Badge>
+                <span className={mutedClass}>{attempt.minutes} min</span>
               </span>
             </li>
           ))}
         </ul>
       )}
-      <h4 className={`${styles.cardTitle} ${styles.sectionHeaderSpaced}`}>
+      <h4 className={`${subTitleClass} mt-4`}>
         Mock interviews ({mocks.length})
       </h4>
       {mocks.length === 0 ? (
-        <p className={styles.muted}>No mock interviews in this range.</p>
+        <p className={mutedClass}>No mock interviews in this range.</p>
       ) : (
-        <ul className={styles.metaList}>
+        <ul className={metaListClass}>
           {mocks.map((mock) => (
-            <li className={styles.listRow} key={mock.id}>
+            <li className={listRowClass} key={mock.id}>
               <span>{formatDateTime(mock.occurredAt)}</span>
-              <span className={styles.helper}>{mock.durationMinutes} min</span>
+              <span className={mutedClass}>{mock.durationMinutes} min</span>
             </li>
           ))}
         </ul>
@@ -607,23 +647,28 @@ function StudentUpdateCard({
     await invalidateMondayUpdates(queryClient);
   };
   return (
-    <article className={styles.card}>
-      <div className={styles.sectionHeader}>
-        <h3 className={styles.cardTitle}>{label}</h3>
-        <span className={styles.helper}>
-          Posted {formatDateTime(update.createdAt)}
-        </span>
-      </div>
-      <RichTextContent html={update.contentHtml} empty="No written content." />
-      <UpdateActivity update={update} />
-      <div className={styles.buttonRow}>
-        <NamedConfirmation
-          name={label}
-          actionLabel="Delete update"
-          description="This permanently removes the update. The practice and mock activity it covers stays in your history."
-          onConfirm={deleteUpdate}
+    <article>
+      <Card className={cardClass}>
+        <div className={cardHeaderClass}>
+          <h3 className={cardTitleClass}>{label}</h3>
+          <span className={mutedClass}>
+            Posted {formatDateTime(update.createdAt)}
+          </span>
+        </div>
+        <RichTextContent
+          html={update.contentHtml}
+          empty="No written content."
         />
-      </div>
+        <UpdateActivity update={update} />
+        <div className={rowClass}>
+          <NamedConfirmation
+            name={label}
+            actionLabel="Delete update"
+            description="This permanently removes the update. The practice and mock activity it covers stays in your history."
+            onConfirm={deleteUpdate}
+          />
+        </div>
+      </Card>
     </article>
   );
 }
@@ -680,74 +725,86 @@ function MentorUpdateCard({
   };
 
   return (
-    <article className={styles.card}>
-      <h3 className={styles.cardTitle}>{label}</h3>
-      <RichTextContent html={update.contentHtml} empty="No written content." />
-      <UpdateActivity update={update} />
-      <div className={styles.fieldGrid}>
-        <div className={styles.field}>
-          <label htmlFor={`monday-mark-${update.id}`}>Mark for {label}</label>
-          <NativeSelect
-            id={`monday-mark-${update.id}`}
-            className="w-full"
-            value={mark}
-            onChange={(event) =>
-              setMark(event.target.value as MondayUpdateMark | '')
-            }
+    <article>
+      <Card className={cardClass}>
+        <h3 className={cardTitleClass}>{label}</h3>
+        <RichTextContent
+          html={update.contentHtml}
+          empty="No written content."
+        />
+        <UpdateActivity update={update} />
+        <div className={fieldGridClass}>
+          <Field>
+            <FieldLabel htmlFor={`monday-mark-${update.id}`}>
+              Mark for {label}
+            </FieldLabel>
+            <Select
+              items={markSelectItems}
+              value={mark}
+              onValueChange={(value) =>
+                setMark((value ?? '') as MondayUpdateMark | '')
+              }
+            >
+              <SelectTrigger id={`monday-mark-${update.id}`} className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectGroup>
+                  {markSelectItems.map((item) => (
+                    <SelectItem key={item.value} value={item.value}>
+                      {item.label}
+                    </SelectItem>
+                  ))}
+                </SelectGroup>
+              </SelectContent>
+            </Select>
+          </Field>
+        </div>
+        <RichTextEditor
+          id={`monday-mark-comment-${update.id}`}
+          label={`Comment for ${label}`}
+          value={comment}
+          onChange={setComment}
+        />
+        {error ? (
+          <InlineNotice tone="warning">
+            <span role="alert">{error}</span>
+          </InlineNotice>
+        ) : null}
+        {message ? (
+          <span className="sr-only" role="status">
+            {message}
+          </span>
+        ) : null}
+        <div className={rowClass}>
+          <Button
+            type="button"
+            disabled={pending || !mark}
+            onClick={() => void save()}
           >
-            <NativeSelectOption value="">No mark yet</NativeSelectOption>
-            {markOptions.map((option) => (
-              <NativeSelectOption key={option.value} value={option.value}>
-                {option.label}
-              </NativeSelectOption>
-            ))}
-          </NativeSelect>
+            {pending ? 'Saving…' : 'Save mark'}
+          </Button>
         </div>
-      </div>
-      <RichTextEditor
-        id={`monday-mark-comment-${update.id}`}
-        label={`Comment for ${label}`}
-        value={comment}
-        onChange={setComment}
-      />
-      {error ? (
-        <InlineNotice tone="warning">
-          <span role="alert">{error}</span>
-        </InlineNotice>
-      ) : null}
-      {message ? (
-        <span className={styles.visuallyHidden} role="status">
-          {message}
-        </span>
-      ) : null}
-      <div className={styles.buttonRow}>
-        <Button
-          type="button"
-          disabled={pending || !mark}
-          onClick={() => void save()}
-        >
-          {pending ? 'Saving…' : 'Save mark'}
-        </Button>
-      </div>
-      {otherMarks.length ? (
-        <div className={styles.helperBlock}>
-          <h4 className={styles.cardTitle}>Other mentor marks</h4>
-          <ul className={styles.metaList}>
-            {otherMarks.map((record) => (
-              <li key={record.id}>
-                <strong>{record.mentor.name}</strong>{' '}
-                <Badge variant="secondary" className={styles.badge}>
-                  {markLabel(record.mark)}
-                </Badge>
-                <RichTextContent
-                  html={record.commentHtml}
-                  empty="No comment."
-                />
-              </li>
-            ))}
-          </ul>
-        </div>
-      ) : null}
+        {otherMarks.length ? (
+          <div className="grid gap-2 border-t border-border pt-4">
+            <h4 className={subTitleClass}>Other mentor marks</h4>
+            <ul className={metaListClass}>
+              {otherMarks.map((record) => (
+                <li key={record.id}>
+                  <strong className="font-semibold text-foreground">
+                    {record.mentor.name}
+                  </strong>{' '}
+                  <Badge variant="secondary">{markLabel(record.mark)}</Badge>
+                  <RichTextContent
+                    html={record.commentHtml}
+                    empty="No comment."
+                  />
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
+      </Card>
     </article>
   );
 }
@@ -758,32 +815,32 @@ function ReviewUpdateList({
   updates: MondayUpdateReviewUpdate[];
 }) {
   if (updates.length === 0)
-    return <p className={styles.muted}>No update in this range.</p>;
+    return <p className={mutedClass}>No update in this range.</p>;
   return (
-    <ul className={styles.metaList}>
+    <ul className={metaListClass}>
       {updates.map((update) => (
-        <li key={update.id}>
-          <h4 className={styles.cardTitle}>
+        <li key={update.id} className="grid gap-2">
+          <h3 className={subTitleClass}>
             {updateRangeLabel(update)}
-            <span className={styles.helper}>
+            <span className={mutedClass}>
               {' '}
               · {formatDateTime(update.createdAt)}
             </span>
-          </h4>
+          </h3>
           <RichTextContent
             html={update.contentHtml}
             empty="No written content."
           />
           {update.marks.length === 0 ? (
-            <p className={styles.muted}>No mentor mark yet.</p>
+            <p className={mutedClass}>No mentor mark yet.</p>
           ) : (
-            <ul className={styles.metaList}>
+            <ul className={metaListClass}>
               {update.marks.map((record) => (
                 <li key={record.id}>
-                  <strong>{record.mentor.name}</strong>{' '}
-                  <Badge variant="secondary" className={styles.badge}>
-                    {markLabel(record.mark)}
-                  </Badge>
+                  <strong className="font-semibold text-foreground">
+                    {record.mentor.name}
+                  </strong>{' '}
+                  <Badge variant="secondary">{markLabel(record.mark)}</Badge>
                   <RichTextContent
                     html={record.commentHtml}
                     empty="No comment."
@@ -842,7 +899,7 @@ function ReviewerTable({
             <Link to={`/people/${row.original.student.slug}`}>
               {row.original.student.name}
             </Link>
-            <div className={styles.helper}>{row.original.student.slug}</div>
+            <div className={mutedClass}>{row.original.student.slug}</div>
           </div>
         ),
       },
@@ -854,13 +911,15 @@ function ReviewerTable({
           row.leetcodeCounts.medium +
           row.leetcodeCounts.hard,
         cell: ({ row }) => (
-          <div>
-            <Badge variant="secondary" className={styles.badge}>
-              {row.original.leetcodeCounts.easy} /{' '}
-              {row.original.leetcodeCounts.medium} /{' '}
-              {row.original.leetcodeCounts.hard}
-            </Badge>
-            <div className={styles.helper}>easy / medium / hard</div>
+          <div className="grid gap-1">
+            <span>
+              <Badge variant="secondary">
+                {row.original.leetcodeCounts.easy} /{' '}
+                {row.original.leetcodeCounts.medium} /{' '}
+                {row.original.leetcodeCounts.hard}
+              </Badge>
+            </span>
+            <div className={mutedClass}>easy / medium / hard</div>
           </div>
         ),
       },
@@ -890,27 +949,27 @@ function ReviewerTable({
       emptyMessage="No enrolled student has activity in this date range yet."
       getRowId={(row) => row.student.id}
       renderExpanded={(row) => (
-        <div className={styles.expandedDetails}>
+        <div className="mt-3">
           <ReviewUpdateList updates={row.original.updates} />
         </div>
       )}
       renderCard={(row) => (
-        <div>
-          <h3 className={styles.cardTitle}>
+        <div className="grid gap-2">
+          <h3 className={cardTitleClass}>
             <Link to={`/people/${row.original.student.slug}`}>
               {row.original.student.name}
             </Link>
           </h3>
-          <p className={styles.helper}>{row.original.student.slug}</p>
-          <div className={styles.inline}>
-            <Badge variant="secondary" className={styles.badge}>
+          <p className={mutedClass}>{row.original.student.slug}</p>
+          <div className={rowClass}>
+            <Badge variant="secondary">
               {row.original.leetcodeCounts.easy} /{' '}
               {row.original.leetcodeCounts.medium} /{' '}
               {row.original.leetcodeCounts.hard}
             </Badge>
-            <span className={styles.helper}>easy / medium / hard</span>
+            <span className={mutedClass}>easy / medium / hard</span>
           </div>
-          <p className={styles.helper}>
+          <p className={mutedClass}>
             {row.original.mockCount} mock interviews ·{' '}
             {row.original.updateCount} updates
           </p>
