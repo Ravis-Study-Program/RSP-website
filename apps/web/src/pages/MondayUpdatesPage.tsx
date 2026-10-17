@@ -854,7 +854,7 @@ function MentorUpdateCard({
                       {markSelectItems.map((item) => (
                         <SelectItem key={item.value} value={item.value}>
                           <span
-                            className={`size-2 shrink-0 rounded-full ${
+                            className={`size-2 shrink-0 self-center rounded-full ${
                               item.value
                                 ? markTone[item.value].dot
                                 : 'border border-border-strong'
