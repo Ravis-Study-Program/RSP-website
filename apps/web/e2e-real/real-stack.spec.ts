@@ -144,9 +144,6 @@ test('coordinator MFA session creates, edits, and deletes an open-season week', 
     page.getByRole('heading', { name: 'Weeks', exact: true }),
   ).toBeVisible();
   await expectSelected(page, 'Season', 'Development Season · Open');
-  await expect(page.getByLabel('Season')).toContainText(
-    'Development Season · Open',
-  );
 
   await page.getByRole('button', { name: 'Create week' }).click();
   const create = page.getByRole('dialog', { name: 'Create week' });
@@ -373,7 +370,7 @@ test('an invited new member verifies their email and joins the season', async ({
     ).toBeVisible();
     await expect(
       page.getByRole('region', { name: 'Invitations', exact: true }),
-    ).toContainText('accepted');
+    ).toContainText('Accepted');
   } finally {
     await recipientContext.close();
   }

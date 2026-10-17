@@ -82,14 +82,14 @@ export function SeasonWorkspacePage() {
 
   const hasSeasonAccess = Boolean(
     user.data &&
-      (user.data.globalRoles.length > 0 ||
-        user.data.alumni ||
-        user.data.seasonRoles.some(
-          (membership) =>
-            membership.state === 'active' ||
-            (membership.seasonId === season.id &&
-              membership.state === 'completed'),
-        )),
+    (user.data.globalRoles.length > 0 ||
+      user.data.alumni ||
+      user.data.seasonRoles.some(
+        (membership) =>
+          membership.state === 'active' ||
+          (membership.seasonId === season.id &&
+            membership.state === 'completed'),
+      )),
   );
   if (!hasSeasonAccess) return <Navigate to="/forbidden" replace />;
 
