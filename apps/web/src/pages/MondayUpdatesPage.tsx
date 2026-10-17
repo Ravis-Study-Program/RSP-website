@@ -4,7 +4,6 @@ import { Card } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
   Field,
-  FieldDescription,
   FieldError,
   FieldLabel,
   FieldLegend,
@@ -93,7 +92,6 @@ const rowClass = 'flex flex-wrap items-center gap-2';
 const cleanListClass = 'm-0 grid list-none gap-3 p-0';
 const metaListClass =
   'm-0 grid list-none gap-2 p-0 text-sm text-muted-foreground';
-const fieldGridClass = 'grid gap-3.5 min-[56rem]:grid-cols-2';
 const formClass = 'grid gap-4';
 const cardClass = 'gap-4 p-5';
 
@@ -339,11 +337,7 @@ export function MondayUpdatesPage() {
             <FieldLegend variant="label" className="font-semibold">
               Students
             </FieldLegend>
-            <FieldDescription>
-              Every student you mentor is selected by default. Uncheck a student
-              to leave their updates out.
-            </FieldDescription>
-            <div className={fieldGridClass}>
+            <div className="flex flex-wrap gap-x-6 gap-y-2">
               {menteeIds.map((studentId) => (
                 <label
                   className="flex min-h-6 items-center gap-2 text-sm"
@@ -913,7 +907,7 @@ function MentorUpdateCard({
         {ownMark?.commentHtml ? (
           <div className="grid gap-1 border-t border-border pt-4">
             <h4 className="text-xs font-medium text-muted-foreground">
-              Your comment
+              Mark comment
             </h4>
             <RichTextContent html={ownMark.commentHtml} empty="" />
           </div>
