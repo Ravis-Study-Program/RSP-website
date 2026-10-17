@@ -113,12 +113,12 @@ func newMondayUpdateFixture(t *testing.T) *Store {
 		{84, 1, "2026-03-02", "2026-03-08", "<p>Week two</p>"},
 		{86, 2, "2026-01-05", "2026-01-11", "<p>Ben week</p>"},
 	} {
-		exec(`INSERT INTO app.monday_updates(id,season_id,student_user_id,start_date,end_date,content_html)
-			VALUES($1,$2,$3,$4::date,$5::date,$6)`, mondayFixtureID(update.number), mondayFixtureID(11),
+		exec(`INSERT INTO app.monday_updates(id,season_id,student_user_id,start_date,end_date,content_html,hours)
+			VALUES($1,$2,$3,$4::date,$5::date,$6,7.5)`, mondayFixtureID(update.number), mondayFixtureID(11),
 			mondayFixtureID(update.student), update.start, update.end, update.content)
 	}
-	exec(`INSERT INTO app.monday_updates(id,season_id,student_user_id,start_date,end_date,content_html,deleted_at)
-		VALUES($1,$2,$3,'2026-03-03','2026-03-04','<p>Removed</p>',now())`, mondayFixtureID(85), mondayFixtureID(11), mondayFixtureID(1))
+	exec(`INSERT INTO app.monday_updates(id,season_id,student_user_id,start_date,end_date,content_html,hours,deleted_at)
+		VALUES($1,$2,$3,'2026-03-03','2026-03-04','<p>Removed</p>',0,now())`, mondayFixtureID(85), mondayFixtureID(11), mondayFixtureID(1))
 	exec(`INSERT INTO app.monday_update_marks(id,update_id,mentor_user_id,mark,comment_html)
 		VALUES($1,$2,$3,'on_track','<p>Keep going</p>')`, mondayFixtureID(91), mondayFixtureID(81), mondayFixtureID(3))
 	return db

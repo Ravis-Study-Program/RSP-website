@@ -109,8 +109,14 @@ test('dashboard has no detectable WCAG A or AA violations in either theme', asyn
   await page.goto('/dashboard');
   await expect(page.getByRole('heading', { name: /Welcome/i })).toBeVisible();
   for (const theme of ['light', 'dark']) {
-    await page.evaluate((nextTheme) => {
+    await page.evaluate(async (nextTheme) => {
       document.documentElement.dataset.theme = nextTheme;
+      // Flush styles so the theme's colour transitions start, then wait for
+      // them; axe would otherwise sample colours mid-fade.
+      document.body.getBoundingClientRect();
+      await Promise.all(
+        document.getAnimations().map((animation) => animation.finished),
+      );
     }, theme);
     const results = await new AxeBuilder({ page })
       .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'])

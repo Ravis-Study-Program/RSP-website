@@ -16,6 +16,11 @@ export interface MondayUpdate {
   startDate: string;
   endDate: string;
   contentHtml: string;
+  /**
+   * @minimum 0
+   * @maximum 168
+   */
+  hours: number;
   createdAt: string;
   marks: MondayUpdateMarkRecord[];
   activity: MondayUpdateActivity;

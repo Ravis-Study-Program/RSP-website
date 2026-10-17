@@ -2,6 +2,7 @@ package programme
 
 import (
 	"errors"
+	"math"
 	"time"
 	_ "time/tzdata"
 )
@@ -89,6 +90,7 @@ type MondayUpdateRecord struct {
 	StartDate   string                   `json:"startDate"`
 	EndDate     string                   `json:"endDate"`
 	ContentHTML string                   `json:"contentHtml"`
+	Hours       float64                  `json:"hours"`
 	CreatedAt   time.Time                `json:"createdAt"`
 	Marks       []MondayUpdateMarkRecord `json:"marks"`
 	Activity    MondayUpdateActivity     `json:"activity"`
@@ -107,6 +109,7 @@ type MondayUpdateReviewUpdate struct {
 	StartDate   string                   `json:"startDate"`
 	EndDate     string                   `json:"endDate"`
 	ContentHTML string                   `json:"contentHtml"`
+	Hours       float64                  `json:"hours"`
 	CreatedAt   time.Time                `json:"createdAt"`
 	Marks       []MondayUpdateMarkRecord `json:"marks"`
 }
@@ -156,4 +159,13 @@ func CurrentMondayUpdateWeekEnd(now time.Time) string {
 	weekday := (int(local.Weekday()) + 6) % 7
 	return time.Date(local.Year(), local.Month(), local.Day(), 0, 0, 0, 0, time.UTC).
 		AddDate(0, 0, 6-weekday).Format(time.DateOnly)
+}
+
+// ValidateMondayUpdateHours rejects reported hours outside 0–168 or not on a
+// half-hour step.
+func ValidateMondayUpdateHours(hours float64) error {
+	if math.IsNaN(hours) || hours < 0 || hours > 168 || hours*2 != math.Trunc(hours*2) {
+		return errors.New("hours must be between 0 and 168 in steps of 0.5")
+	}
+	return nil
 }

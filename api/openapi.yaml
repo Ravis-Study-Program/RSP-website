@@ -1932,6 +1932,47 @@ paths:
         '403': { $ref: '#/components/responses/Error' }
         '404': { $ref: '#/components/responses/Error' }
         '429': { $ref: '#/components/responses/RateLimited' }
+  /seasons/{id}/monday-update-activity:
+    parameters:
+      - { $ref: '#/components/parameters/ID' }
+    get:
+      operationId: getMondayUpdateActivity
+      description: The authenticated active student's own LeetCode attempts and mock interviews inside the range, bounded exactly like an update with that range.
+      parameters:
+        [
+          {
+            name: startDate,
+            in: query,
+            required: true,
+            description: First calendar date of the range in Australia/Adelaide.,
+            schema: { type: string, format: date },
+          },
+          {
+            name: endDate,
+            in: query,
+            required: true,
+            description: Last calendar date of the range in Australia/Adelaide.,
+            schema: { type: string, format: date },
+          },
+        ]
+      responses:
+        default: { $ref: '#/components/responses/Error' }
+        '200':
+          {
+            description: Activity inside the range,
+            content:
+              {
+                application/json:
+                  {
+                    schema:
+                      { $ref: '#/components/schemas/MondayUpdateActivity' },
+                  },
+              },
+          }
+        '400': { $ref: '#/components/responses/Error' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '429': { $ref: '#/components/responses/RateLimited' }
 components:
   securitySchemes:
     bearerAuth: { type: http, scheme: bearer, bearerFormat: JWT }
@@ -2968,6 +3009,7 @@ components:
           startDate,
           endDate,
           contentHtml,
+          hours,
           createdAt,
           marks,
           activity,
@@ -2979,6 +3021,7 @@ components:
         startDate: { type: string, format: date }
         endDate: { type: string, format: date }
         contentHtml: { type: string }
+        hours: { type: number, minimum: 0, maximum: 168, multipleOf: 0.5 }
         createdAt: { type: string, format: date-time }
         marks:
           {
@@ -3008,7 +3051,7 @@ components:
     MondayUpdateMutation:
       type: object
       additionalProperties: false
-      required: [startDate, endDate, contentHtml]
+      required: [startDate, endDate, contentHtml, hours]
       properties:
         startDate:
           {
@@ -3023,6 +3066,14 @@ components:
             description: Last calendar date the update covers in Australia/Adelaide.,
           }
         contentHtml: { type: string, maxLength: 20000 }
+        hours:
+          {
+            type: number,
+            minimum: 0,
+            maximum: 168,
+            multipleOf: 0.5,
+            description: Hours of work the student reports for the update's date range.,
+          }
     MondayUpdateMarkMutation:
       type: object
       additionalProperties: false
@@ -3046,12 +3097,13 @@ components:
     MondayUpdateReviewUpdate:
       type: object
       additionalProperties: false
-      required: [id, startDate, endDate, contentHtml, createdAt, marks]
+      required: [id, startDate, endDate, contentHtml, hours, createdAt, marks]
       properties:
         id: { type: string }
         startDate: { type: string, format: date }
         endDate: { type: string, format: date }
         contentHtml: { type: string }
+        hours: { type: number, minimum: 0, maximum: 168, multipleOf: 0.5 }
         createdAt: { type: string, format: date-time }
         marks:
           {

@@ -3,7 +3,8 @@ import {
   emptyActivityFilters,
   type ActivityFilters,
 } from '@/activityFilters';
-import { practiceGoalMinutes } from '@/utils';
+import { programmeTimezone } from '@/activityDates';
+import { calendarDateKey, practiceGoalMinutes } from '@/utils';
 import { queryOptions, useQuery } from '@tanstack/react-query';
 
 import {
@@ -32,6 +33,7 @@ import type {
   MentorshipPage,
   Mentorship,
   MondayUpdate,
+  MondayUpdateActivity,
   MondayUpdateDifficultyCounts,
   MondayUpdateReviewRow,
   PersonSummary,
@@ -465,6 +467,7 @@ function demoMondayUpdateReview(
           startDate: update.startDate,
           endDate: update.endDate,
           contentHtml: update.contentHtml,
+          hours: update.hours,
           createdAt: update.createdAt,
           marks: update.marks,
         })),
@@ -578,6 +581,40 @@ export function useMondayUpdateReview(
         : fetchAllPages<MondayUpdateReviewRow>(
             `/seasons/${encodeURIComponent(seasonId)}/monday-update-review?limit=100&startDate=${encodeURIComponent(startDate)}&endDate=${encodeURIComponent(endDate)}`,
           );
+    },
+  });
+}
+
+/** The signed-in student's own activity inside a Monday update range. */
+export function useMondayUpdateRangeActivity(
+  enabled: boolean,
+  seasonId: string | undefined,
+  startDate: string,
+  endDate: string,
+) {
+  return useQuery({
+    queryKey: ['monday-update-activity', seasonId, startDate, endDate],
+    enabled: enabled && Boolean(seasonId),
+    queryFn: (): Promise<MondayUpdateActivity> => {
+      if (demoMode) {
+        // Demo activity lives on the demo updates; collect what falls in range.
+        const inRange = (at: string) => {
+          const key = calendarDateKey(at, programmeTimezone);
+          return key >= startDate && key <= endDate;
+        };
+        const updates = demoMondayUpdates();
+        return wait({
+          attempts: uniqueById(
+            updates.flatMap((update) => update.activity.attempts),
+          ).filter((attempt) => inRange(attempt.attemptedAt)),
+          mocks: uniqueById(
+            updates.flatMap((update) => update.activity.mocks),
+          ).filter((mock) => inRange(mock.occurredAt)),
+        });
+      }
+      return apiRequest<MondayUpdateActivity>(
+        `/seasons/${encodeURIComponent(seasonId!)}/monday-update-activity?startDate=${encodeURIComponent(startDate)}&endDate=${encodeURIComponent(endDate)}`,
+      );
     },
   });
 }

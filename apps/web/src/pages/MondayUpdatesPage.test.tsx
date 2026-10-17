@@ -1,3 +1,4 @@
+import { format, parseISO } from 'date-fns';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import {
   fireEvent,
@@ -10,9 +11,11 @@ import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 
 import { defaultMondayUpdateRange } from '@/activityDates';
+import type { UseQueryResult } from '@tanstack/react-query';
 import { apiRequest } from '@/api/client';
 import type {
   MondayUpdate,
+  MondayUpdateActivity,
   MondayUpdateMark,
   MondayUpdateMarkRecord,
   MondayUpdateReviewRow,
@@ -21,13 +24,13 @@ import {
   useCurrentUser,
   useMondayUpdateReview,
   useMondayUpdates,
+  useMondayUpdateRangeActivity,
   useSeasonMentorships,
   useSeasonPeople,
   useSeasons,
 } from '@/api/queries';
 import { MondayUpdatesPage } from '@/pages/MondayUpdatesPage';
 import type { CurrentUser, Person } from '@/types';
-import { formatDate } from '@/utils';
 
 vi.mock('@/api/client', () => ({ apiRequest: vi.fn() }));
 
@@ -36,6 +39,7 @@ vi.mock('@/api/queries', () => ({
   useCurrentUser: vi.fn(),
   useMondayUpdateReview: vi.fn(),
   useMondayUpdates: vi.fn(),
+  useMondayUpdateRangeActivity: vi.fn(),
   useSeasonMentorships: vi.fn(),
   useSeasonPeople: vi.fn(),
   useSeasons: vi.fn(),
@@ -153,6 +157,7 @@ function mondayUpdate(
     startDate: range.startDate,
     endDate: range.endDate,
     contentHtml: `<p>Update ${id}</p>`,
+    hours: 30,
     createdAt: '2026-10-05T02:00:00Z',
     marks: [],
     activity: {
@@ -178,14 +183,6 @@ function mondayUpdate(
     },
     ...overrides,
   };
-}
-
-/** The date a react-aria date picker currently holds, read from its field. */
-function pickerValue(label: string) {
-  return screen
-    .getAllByLabelText(label)
-    .map((field) => field.querySelector('input[type="text"]'))
-    .find((input): input is HTMLInputElement => input !== null)?.value;
 }
 
 function renderPage() {
@@ -225,6 +222,12 @@ beforeEach(() => {
   vi.mocked(useMondayUpdateReview).mockReturnValue(
     queryResult<ReturnType<typeof useMondayUpdateReview>>({ items: [] }),
   );
+  vi.mocked(useMondayUpdateRangeActivity).mockReturnValue(
+    queryResult<UseQueryResult<MondayUpdateActivity>>({
+      attempts: [],
+      mocks: [],
+    }),
+  );
 });
 
 describe('student Monday updates', () => {
@@ -261,18 +264,70 @@ describe('student Monday updates', () => {
         ],
       }),
     );
+    vi.mocked(useMondayUpdateRangeActivity).mockReturnValue(
+      queryResult<UseQueryResult<MondayUpdateActivity>>({
+        attempts: [
+          { ...mondayUpdate('range').activity.attempts[0], id: 'r-1' },
+          {
+            ...mondayUpdate('range').activity.attempts[0],
+            id: 'r-2',
+            difficulty: 'hard',
+            outcome: 'solved_with_hints',
+          },
+          {
+            ...mondayUpdate('range').activity.attempts[0],
+            id: 'r-3',
+            difficulty: 'medium',
+            outcome: 'not_solved',
+          },
+        ],
+        mocks: [
+          {
+            id: 'm-1',
+            occurredAt: '2026-10-07T02:00:00Z',
+            durationMinutes: 45,
+          },
+          {
+            id: 'm-2',
+            occurredAt: '2026-10-08T02:00:00Z',
+            durationMinutes: 60,
+          },
+        ],
+      }),
+    );
 
     renderPage();
 
-    // The default Monday-to-Sunday range is prefilled into both pickers.
-    expect(pickerValue('Start date')).toBe(range.startDate);
-    expect(pickerValue('End date')).toBe(range.endDate);
+    // The default Monday-to-Sunday range is prefilled into the range picker.
+    expect(screen.getByLabelText('Dates')).toHaveTextContent(
+      `${format(parseISO(range.startDate), 'd MMM yyyy')} – ${format(parseISO(range.endDate), 'd MMM yyyy')}`,
+    );
 
-    // The student's own update and its activity are rendered...
-    expect(screen.getByText('Update update-1')).toBeInTheDocument();
-    expect(screen.getByText('Attempts (1)')).toBeInTheDocument();
-    expect(screen.getByText('Mock interviews (1)')).toBeInTheDocument();
-    expect(screen.getByText('Two Sum')).toBeInTheDocument();
+    // The selected range's own LeetCode and mock activity is pulled live,
+    // summarised exactly as mentors see it.
+    expect(vi.mocked(useMondayUpdateRangeActivity)).toHaveBeenLastCalledWith(
+      true,
+      'season-1',
+      range.startDate,
+      range.endDate,
+    );
+    const rangeActivity = screen.getByRole('region', {
+      name: 'Activity in this range',
+    });
+    const [solved, mocks] = within(rangeActivity).getAllByRole('definition');
+    expect(solved).toHaveTextContent(/^2 solved1Easy0Medium1Hard$/);
+    expect(mocks).toHaveTextContent(/^2 interviews105 min total$/);
+
+    // The student's own update shows the same summary mentors see, not the
+    // attempt list.
+    const card = screen.getByRole('article');
+    expect(within(card).getByText('Update update-1')).toBeInTheDocument();
+    const [cardHours, cardSolved, cardMocks] =
+      within(card).getAllByRole('definition');
+    expect(cardHours).toHaveTextContent(/^30 hours$/);
+    expect(cardSolved).toHaveTextContent(/^1 solved1Easy0Medium0Hard$/);
+    expect(cardMocks).toHaveTextContent(/^1 interview60 min total$/);
+    expect(screen.queryByText('Two Sum')).not.toBeInTheDocument();
 
     // ...but marks and comments are never part of the student experience.
     expect(screen.queryByText('On track')).not.toBeInTheDocument();
@@ -289,6 +344,19 @@ describe('student Monday updates', () => {
     fireEvent.change(screen.getByLabelText('Your update'), {
       target: { value: '<p>Intervals are clearer now.</p>' },
     });
+    // Hours default to 0; an off-step value is blocked before any request.
+    const hoursInput = screen.getByLabelText(
+      'Hours spent (Expected: ~30h/week)',
+    );
+    expect(hoursInput).toHaveValue(0);
+    fireEvent.change(hoursInput, { target: { value: '7.3' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Post update' }));
+    expect(
+      screen.getByText('Enter hours between 0 and 168 in steps of 0.5.'),
+    ).toBeInTheDocument();
+    expect(apiRequest).not.toHaveBeenCalled();
+
+    fireEvent.change(hoursInput, { target: { value: '12.5' } });
     fireEvent.click(screen.getByRole('button', { name: 'Post update' }));
 
     await waitFor(() => expect(apiRequest).toHaveBeenCalledTimes(1));
@@ -300,6 +368,7 @@ describe('student Monday updates', () => {
           startDate: range.startDate,
           endDate: range.endDate,
           contentHtml: '<p>Intervals are clearer now.</p>',
+          hours: 12.5,
         }),
       },
     );
@@ -373,9 +442,28 @@ describe('mentor Monday updates', () => {
         ),
       ],
     });
+    const attempt = first.activity.attempts[0];
     const second = mondayUpdate('update-2', {
       startDate: range.endDate,
       endDate: range.endDate,
+      activity: {
+        attempts: [
+          {
+            ...attempt,
+            id: 'a-hard',
+            difficulty: 'hard',
+            outcome: 'solved_with_hints',
+          },
+          {
+            ...attempt,
+            id: 'a-medium',
+            difficulty: 'medium',
+            outcome: 'not_solved',
+          },
+          { ...attempt, id: 'a-easy', outcome: 'independently_solved' },
+        ],
+        mocks: [],
+      },
     });
     vi.mocked(useMondayUpdates).mockReturnValue(
       queryResult<ReturnType<typeof useMondayUpdates>>({
@@ -406,30 +494,49 @@ describe('mentor Monday updates', () => {
     expect(screen.getByText('2 updates in this range')).toBeInTheDocument();
     expect(screen.getByText('No update in this range.')).toBeInTheDocument();
 
-    const firstLabel = `${formatDate(first.startDate)} – ${formatDate(first.endDate)}`;
-    const secondLabel = `${formatDate(second.startDate)} – ${formatDate(second.endDate)}`;
-    expect(
-      screen.getByRole('combobox', { name: `Mark for ${firstLabel}` }),
-    ).toHaveTextContent('On track');
-    expect(screen.getByLabelText(`Comment for ${firstLabel}`)).toHaveValue(
-      '<p>Good week.</p>',
-    );
-    expect(
-      screen.getByRole('combobox', { name: `Mark for ${secondLabel}` }),
-    ).toHaveTextContent('No mark yet');
-    const saveButtons = screen.getAllByRole('button', { name: 'Save mark' });
-    expect(saveButtons).toHaveLength(2);
-    expect(saveButtons[1]).toBeDisabled();
+    // Mentors see solved counts by difficulty, not the attempt list.
+    const [firstHours, firstSolved, firstMocks, , secondSolved, secondMocks] =
+      screen.getAllByRole('definition');
+    expect(firstHours).toHaveTextContent(/^30 hours$/);
+    expect(firstSolved).toHaveTextContent(/^1 solved1Easy0Medium0Hard$/);
+    expect(firstMocks).toHaveTextContent(/^1 interview60 min total$/);
+    expect(secondSolved).toHaveTextContent(/^2 solved1Easy0Medium1Hard$/);
+    expect(secondMocks).toHaveTextContent(/^0 interviews$/);
+    expect(screen.queryByText('Two Sum')).not.toBeInTheDocument();
 
-    // An existing mark can be replaced.
+    // The card header carries the mark; marking happens in a dialog.
+    const cards = screen.getAllByRole('article');
+    expect(within(cards[0]).getByText('On track')).toBeInTheDocument();
+    expect(within(cards[0]).getByText('Good week.')).toBeInTheDocument();
+    expect(within(cards[1]).getByText('Not marked')).toBeInTheDocument();
+    expect(
+      screen.queryByRole('combobox', {
+        name: `Mark for ${first.student.name}`,
+      }),
+    ).not.toBeInTheDocument();
+    expect(
+      within(cards[1]).getByRole('button', { name: 'Add mark' }),
+    ).toBeInTheDocument();
+
+    // An existing mark can be replaced from its dialog, prefilled.
     await user.click(
-      screen.getByRole('combobox', { name: `Mark for ${firstLabel}` }),
+      within(cards[0]).getByRole('button', { name: 'Edit mark' }),
     );
+    const dialog = await screen.findByRole('dialog');
+    const markField = within(dialog).getByRole('combobox', {
+      name: `Mark for ${first.student.name}`,
+    });
+    const commentField = within(dialog).getByLabelText(
+      `Comment for ${first.student.name}`,
+    );
+    expect(markField).toHaveTextContent('On track');
+    expect(commentField).toHaveValue('<p>Good week.</p>');
+    await user.click(markField);
     await user.click(await screen.findByRole('option', { name: 'At risk' }));
-    fireEvent.change(screen.getByLabelText(`Comment for ${firstLabel}`), {
+    fireEvent.change(commentField, {
       target: { value: '<p>Needs a check-in.</p>' },
     });
-    fireEvent.click(saveButtons[0]);
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Save mark' }));
 
     await waitFor(() => expect(apiRequest).toHaveBeenCalledTimes(1));
     expect(apiRequest).toHaveBeenCalledWith(
@@ -441,6 +548,10 @@ describe('mentor Monday updates', () => {
           commentHtml: '<p>Needs a check-in.</p>',
         }),
       },
+    );
+    // A successful save closes the dialog.
+    await waitFor(() =>
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument(),
     );
   });
 });
@@ -474,6 +585,7 @@ describe('reviewer Monday updates', () => {
             startDate: range.startDate,
             endDate: range.endDate,
             contentHtml: '<p>Finished the hash map pattern.</p>',
+            hours: 30,
             createdAt: '2026-10-05T02:00:00Z',
             marks: [
               markRecord(
@@ -505,9 +617,27 @@ describe('reviewer Monday updates', () => {
     ).not.toBeInTheDocument();
 
     const table = screen.getByRole('table');
-    expect(within(table).getAllByText('Amelia Chen').length).toBeGreaterThan(0);
-    expect(within(table).getByText('2 / 0 / 1')).toBeInTheDocument();
-    expect(within(table).getByText('easy / medium / hard')).toBeInTheDocument();
+    expect(
+      within(table).getByRole('columnheader', {
+        name: /LeetCode \(easy\/medium\/hard\)/,
+      }),
+    ).toBeInTheDocument();
+    const row = within(table).getAllByRole('row')[1];
+    expect(within(row).getByText('Amelia Chen')).toBeInTheDocument();
+    // The slug is no longer shown under the name, nor the difficulty legend.
+    expect(
+      within(row).queryByText(studentIdentity.slug),
+    ).not.toBeInTheDocument();
+    expect(
+      within(row).queryByText('easy / medium / hard'),
+    ).not.toBeInTheDocument();
+    expect(within(row).getByText('2 / 0 / 1')).toBeInTheDocument();
+    // The latest update in range shows its mark and who gave it.
+    expect(within(row).getByText('Doing good')).toBeInTheDocument();
+    expect(within(row).getByText(/by Mentor One/)).toBeInTheDocument();
+    expect(
+      within(table).queryByRole('columnheader', { name: 'Mentor' }),
+    ).not.toBeInTheDocument();
     expect(
       within(table).queryByText('Finished the hash map pattern.'),
     ).not.toBeInTheDocument();
@@ -521,7 +651,7 @@ describe('reviewer Monday updates', () => {
     expect(
       await within(table).findByText('Finished the hash map pattern.'),
     ).toBeInTheDocument();
-    expect(within(table).getByText('Doing good')).toBeInTheDocument();
+    expect(within(table).getAllByText('Doing good')).toHaveLength(2);
     expect(within(table).getByText('Mentor One')).toBeInTheDocument();
     expect(within(table).getByText('Solid progress.')).toBeInTheDocument();
   });
