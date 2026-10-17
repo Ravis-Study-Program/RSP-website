@@ -11,9 +11,11 @@ import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 
 import { defaultMondayUpdateRange } from '@/activityDates';
+import type { UseQueryResult } from '@tanstack/react-query';
 import { apiRequest } from '@/api/client';
 import type {
   MondayUpdate,
+  MondayUpdateActivity,
   MondayUpdateMark,
   MondayUpdateMarkRecord,
   MondayUpdateReviewRow,
@@ -22,6 +24,7 @@ import {
   useCurrentUser,
   useMondayUpdateReview,
   useMondayUpdates,
+  useMondayUpdateRangeActivity,
   useSeasonMentorships,
   useSeasonPeople,
   useSeasons,
@@ -36,6 +39,7 @@ vi.mock('@/api/queries', () => ({
   useCurrentUser: vi.fn(),
   useMondayUpdateReview: vi.fn(),
   useMondayUpdates: vi.fn(),
+  useMondayUpdateRangeActivity: vi.fn(),
   useSeasonMentorships: vi.fn(),
   useSeasonPeople: vi.fn(),
   useSeasons: vi.fn(),
@@ -218,6 +222,12 @@ beforeEach(() => {
   vi.mocked(useMondayUpdateReview).mockReturnValue(
     queryResult<ReturnType<typeof useMondayUpdateReview>>({ items: [] }),
   );
+  vi.mocked(useMondayUpdateRangeActivity).mockReturnValue(
+    queryResult<UseQueryResult<MondayUpdateActivity>>({
+      attempts: [],
+      mocks: [],
+    }),
+  );
 });
 
 describe('student Monday updates', () => {
@@ -254,6 +264,37 @@ describe('student Monday updates', () => {
         ],
       }),
     );
+    vi.mocked(useMondayUpdateRangeActivity).mockReturnValue(
+      queryResult<UseQueryResult<MondayUpdateActivity>>({
+        attempts: [
+          { ...mondayUpdate('range').activity.attempts[0], id: 'r-1' },
+          {
+            ...mondayUpdate('range').activity.attempts[0],
+            id: 'r-2',
+            difficulty: 'hard',
+            outcome: 'solved_with_hints',
+          },
+          {
+            ...mondayUpdate('range').activity.attempts[0],
+            id: 'r-3',
+            difficulty: 'medium',
+            outcome: 'not_solved',
+          },
+        ],
+        mocks: [
+          {
+            id: 'm-1',
+            occurredAt: '2026-10-07T02:00:00Z',
+            durationMinutes: 45,
+          },
+          {
+            id: 'm-2',
+            occurredAt: '2026-10-08T02:00:00Z',
+            durationMinutes: 60,
+          },
+        ],
+      }),
+    );
 
     renderPage();
 
@@ -262,11 +303,31 @@ describe('student Monday updates', () => {
       `${format(parseISO(range.startDate), 'd MMM yyyy')} – ${format(parseISO(range.endDate), 'd MMM yyyy')}`,
     );
 
-    // The student's own update and its activity are rendered...
-    expect(screen.getByText('Update update-1')).toBeInTheDocument();
-    expect(screen.getByText('Attempts (1)')).toBeInTheDocument();
-    expect(screen.getByText('Mock interviews (1)')).toBeInTheDocument();
-    expect(screen.getByText('Two Sum')).toBeInTheDocument();
+    // The selected range's own LeetCode and mock activity is pulled live,
+    // summarised exactly as mentors see it.
+    expect(vi.mocked(useMondayUpdateRangeActivity)).toHaveBeenLastCalledWith(
+      true,
+      'season-1',
+      range.startDate,
+      range.endDate,
+    );
+    const rangeActivity = screen.getByRole('region', {
+      name: 'Activity in this range',
+    });
+    const [solved, mocks] = within(rangeActivity).getAllByRole('definition');
+    expect(solved).toHaveTextContent(/^2 solved1Easy0Medium1Hard$/);
+    expect(mocks).toHaveTextContent(/^2 interviews105 min total$/);
+
+    // The student's own update shows the same summary mentors see, not the
+    // attempt list.
+    const card = screen.getByRole('article');
+    expect(within(card).getByText('Update update-1')).toBeInTheDocument();
+    const [cardHours, cardSolved, cardMocks] =
+      within(card).getAllByRole('definition');
+    expect(cardHours).toHaveTextContent(/^30 hours$/);
+    expect(cardSolved).toHaveTextContent(/^1 solved1Easy0Medium0Hard$/);
+    expect(cardMocks).toHaveTextContent(/^1 interview60 min total$/);
+    expect(screen.queryByText('Two Sum')).not.toBeInTheDocument();
 
     // ...but marks and comments are never part of the student experience.
     expect(screen.queryByText('On track')).not.toBeInTheDocument();
@@ -283,9 +344,11 @@ describe('student Monday updates', () => {
     fireEvent.change(screen.getByLabelText('Your update'), {
       target: { value: '<p>Intervals are clearer now.</p>' },
     });
-    // Hours default to 30; an off-step value is blocked before any request.
-    const hoursInput = screen.getByLabelText('Hours worked');
-    expect(hoursInput).toHaveValue(30);
+    // Hours default to 0; an off-step value is blocked before any request.
+    const hoursInput = screen.getByLabelText(
+      'Hours spent (Expected: ~30h/week)',
+    );
+    expect(hoursInput).toHaveValue(0);
     fireEvent.change(hoursInput, { target: { value: '7.3' } });
     fireEvent.click(screen.getByRole('button', { name: 'Post update' }));
     expect(

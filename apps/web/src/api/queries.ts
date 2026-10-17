@@ -3,7 +3,8 @@ import {
   emptyActivityFilters,
   type ActivityFilters,
 } from '@/activityFilters';
-import { practiceGoalMinutes } from '@/utils';
+import { programmeTimezone } from '@/activityDates';
+import { calendarDateKey, practiceGoalMinutes } from '@/utils';
 import { queryOptions, useQuery } from '@tanstack/react-query';
 
 import {
@@ -32,6 +33,7 @@ import type {
   MentorshipPage,
   Mentorship,
   MondayUpdate,
+  MondayUpdateActivity,
   MondayUpdateDifficultyCounts,
   MondayUpdateReviewRow,
   PersonSummary,
@@ -583,6 +585,40 @@ export function useMondayUpdateReview(
   });
 }
 
+/** The signed-in student's own activity inside a Monday update range. */
+export function useMondayUpdateRangeActivity(
+  enabled: boolean,
+  seasonId: string | undefined,
+  startDate: string,
+  endDate: string,
+) {
+  return useQuery({
+    queryKey: ['monday-update-activity', seasonId, startDate, endDate],
+    enabled: enabled && Boolean(seasonId),
+    queryFn: (): Promise<MondayUpdateActivity> => {
+      if (demoMode) {
+        // Demo activity lives on the demo updates; collect what falls in range.
+        const inRange = (at: string) => {
+          const key = calendarDateKey(at, programmeTimezone);
+          return key >= startDate && key <= endDate;
+        };
+        const updates = demoMondayUpdates();
+        return wait({
+          attempts: uniqueById(
+            updates.flatMap((update) => update.activity.attempts),
+          ).filter((attempt) => inRange(attempt.attemptedAt)),
+          mocks: uniqueById(
+            updates.flatMap((update) => update.activity.mocks),
+          ).filter((mock) => inRange(mock.occurredAt)),
+        });
+      }
+      return apiRequest<MondayUpdateActivity>(
+        `/seasons/${encodeURIComponent(seasonId!)}/monday-update-activity?startDate=${encodeURIComponent(startDate)}&endDate=${encodeURIComponent(endDate)}`,
+      );
+    },
+  });
+}
+
 export function useAttempts(
   enabled = true,
   seasonId?: string,
@@ -602,8 +638,8 @@ export function useAttempts(
                   !seasonId ||
                   Boolean(
                     season &&
-                    item.attemptedAt >= season.startsAt &&
-                    item.attemptedAt <= season.endsAt,
+                      item.attemptedAt >= season.startsAt &&
+                      item.attemptedAt <= season.endsAt,
                   )
                 );
               })
@@ -735,8 +771,8 @@ export function useUserAttempts(
                   !seasonId ||
                   Boolean(
                     season &&
-                    attempt.attemptedAt >= season.startsAt &&
-                    attempt.attemptedAt <= season.endsAt,
+                      attempt.attemptedAt >= season.startsAt &&
+                      attempt.attemptedAt <= season.endsAt,
                   )
                 );
               })
@@ -890,8 +926,8 @@ export function useMockInterviews(
                   (!seasonId ||
                     Boolean(
                       season &&
-                      item.occurredAt >= season.startsAt &&
-                      item.occurredAt <= season.endsAt,
+                        item.occurredAt >= season.startsAt &&
+                        item.occurredAt <= season.endsAt,
                     ))
                 );
               })

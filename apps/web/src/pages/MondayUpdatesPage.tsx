@@ -35,8 +35,8 @@ import {
 } from '@/activityDates';
 import { apiRequest } from '@/api/client';
 import type {
-  AttemptOutcome,
   MondayUpdate,
+  MondayUpdateActivity,
   MondayUpdateMark,
   MondayUpdateMarkMutation,
   MondayUpdateMarkRecord,
@@ -49,6 +49,7 @@ import {
   useCurrentUser,
   useMondayUpdateReview,
   useMondayUpdates,
+  useMondayUpdateRangeActivity,
   useSeasonMentorships,
   useSeasonPeople,
   useSeasons,
@@ -65,7 +66,7 @@ import {
   InlineNotice,
   PageSkeleton,
 } from '@/components/StatusViews';
-import { formatDate, formatDateTime, outcomeLabel } from '@/utils';
+import { formatDate, formatDateTime } from '@/utils';
 
 type Experience = 'student' | 'mentor' | 'reviewer';
 
@@ -91,13 +92,11 @@ const rowClass = 'flex flex-wrap items-center gap-2';
 const cleanListClass = 'm-0 grid list-none gap-3 p-0';
 const metaListClass =
   'm-0 grid list-none gap-2 p-0 text-sm text-muted-foreground';
-const listRowClass =
-  'flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border-b border-border py-3 last:border-b-0';
 const fieldGridClass = 'grid gap-3.5 min-[56rem]:grid-cols-2';
 const formClass = 'grid gap-4';
 const cardClass = 'gap-4 p-5';
 
-const defaultHours = '30';
+const defaultHours = '0';
 
 /** Hours are 0–168 in half-hour steps; returns null when the input is invalid. */
 function parseHours(value: string): number | null {
@@ -135,12 +134,6 @@ function MarkBadge({ mark }: { mark: MondayUpdateMark }) {
 
 function updateRangeLabel(update: { startDate: string; endDate: string }) {
   return `${formatDate(update.startDate)} – ${formatDate(update.endDate)}`;
-}
-
-function outcomeClass(outcome: AttemptOutcome) {
-  if (outcome === 'independently_solved') return 'bg-success-soft text-success';
-  if (outcome === 'not_solved') return 'bg-destructive-soft text-destructive';
-  return 'bg-warning-soft text-warning';
 }
 
 /** Rich text counts as empty when it carries no text, only markup. */
@@ -295,22 +288,18 @@ export function MondayUpdatesPage() {
               : 'One row per student with their solved LeetCode counts, mock interviews and every update in the range.'
         }
       />
-      <section className={sectionClass} aria-labelledby="monday-range-title">
-        <div className="mb-3">
-          <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-            <h2 id="monday-range-title" className={sectionTitleClass}>
-              Date range
-            </h2>
-          </div>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Updates that overlap this range are shown.
-          </p>
+      {experience === 'student' ? null : (
+        <div className={sectionClass}>
+          <DateRangePicker label="Dates" value={range} onChange={setRange} />
         </div>
-        <DateRangePicker label="Dates" value={range} onChange={setRange} />
-      </section>
+      )}
       {experience === 'student' ? (
         <>
-          <StudentUpdateForm seasonId={season.id} range={range} />
+          <StudentUpdateForm
+            seasonId={season.id}
+            range={range}
+            onRangeChange={setRange}
+          />
           <section
             className={sectionClass}
             aria-labelledby="monday-history-title"
@@ -494,9 +483,11 @@ export function MondayUpdatesPage() {
 function StudentUpdateForm({
   seasonId,
   range,
+  onRangeChange,
 }: {
   seasonId: string;
   range: MondayUpdateRange;
+  onRangeChange: (range: MondayUpdateRange) => void;
 }) {
   const queryClient = useQueryClient();
   const [content, setContent] = useState('');
@@ -507,6 +498,13 @@ function StudentUpdateForm({
   const [message, setMessage] = useState('');
   const contentEmpty = !hasContent(content);
   const hours = parseHours(hoursInput);
+  // Mentors see this range's activity with the update; show it while writing.
+  const rangeActivity = useMondayUpdateRangeActivity(
+    true,
+    seasonId,
+    range.startDate,
+    range.endDate,
+  );
 
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -551,9 +549,6 @@ function StudentUpdateForm({
         <h2 id="monday-post-title" className={sectionTitleClass}>
           Post an update
         </h2>
-        <span className={mutedClass}>
-          Your update covers the date range above.
-        </span>
       </div>
       <form className={formClass} onSubmit={(event) => void submit(event)}>
         {error ? (
@@ -566,6 +561,52 @@ function StudentUpdateForm({
             {message}
           </span>
         ) : null}
+        <div className="grid items-start gap-4 min-[40rem]:grid-cols-2">
+          <DateRangePicker
+            label="Dates"
+            value={range}
+            onChange={onRangeChange}
+          />
+          <Field className="max-w-sm">
+            <FieldLabel htmlFor="monday-update-hours">
+              Hours spent (Expected: ~30h/week)
+            </FieldLabel>
+            <Input
+              id="monday-update-hours"
+              type="number"
+              inputMode="decimal"
+              min="0"
+              max="168"
+              step="0.5"
+              required
+              value={hoursInput}
+              onChange={(event) => setHoursInput(event.target.value)}
+              aria-invalid={attempted && hours === null}
+            />
+            {attempted && hours === null ? (
+              <FieldError>
+                Enter hours between 0 and 168 in steps of 0.5.
+              </FieldError>
+            ) : null}
+          </Field>
+        </div>
+        <section aria-labelledby="monday-range-activity-title">
+          <h3 id="monday-range-activity-title" className={subTitleClass}>
+            Activity in this range
+          </h3>
+          {rangeActivity.isLoading ? (
+            <p role="status" className={`${mutedClass} py-2.5`}>
+              Loading your LeetCode and mock interviews…
+            </p>
+          ) : rangeActivity.isError ? (
+            <ErrorState
+              title="Your activity could not be loaded"
+              onRetry={() => void rangeActivity.refetch()}
+            />
+          ) : rangeActivity.data ? (
+            <UpdateActivitySummary activity={rangeActivity.data} />
+          ) : null}
+        </section>
         <RichTextEditor
           id="monday-update-content"
           label="Your update"
@@ -577,26 +618,6 @@ function StudentUpdateForm({
               : undefined
           }
         />
-        <Field className="max-w-48">
-          <FieldLabel htmlFor="monday-update-hours">Hours worked</FieldLabel>
-          <Input
-            id="monday-update-hours"
-            type="number"
-            inputMode="decimal"
-            min="0"
-            max="168"
-            step="0.5"
-            required
-            value={hoursInput}
-            onChange={(event) => setHoursInput(event.target.value)}
-            aria-invalid={attempted && hours === null}
-          />
-          {attempted && hours === null ? (
-            <FieldError>
-              Enter hours between 0 and 168 in steps of 0.5.
-            </FieldError>
-          ) : null}
-        </Field>
         <div className={rowClass}>
           <Button type="submit" disabled={pending}>
             {pending ? 'Posting…' : 'Post update'}
@@ -607,73 +628,20 @@ function StudentUpdateForm({
   );
 }
 
-function UpdateActivity({ update }: { update: MondayUpdate }) {
-  const attempts = update.activity.attempts;
-  const mocks = update.activity.mocks;
-  return (
-    <div className="mt-3 grid gap-2">
-      <h4 className={subTitleClass}>Attempts ({attempts.length})</h4>
-      {attempts.length === 0 ? (
-        <p className={mutedClass}>No practice attempts in this range.</p>
-      ) : (
-        <ul className={metaListClass}>
-          {attempts.map((attempt) => (
-            <li className={listRowClass} key={attempt.id}>
-              <span>
-                <strong className="font-semibold text-foreground">
-                  {attempt.problemUrl ? (
-                    <a
-                      href={attempt.problemUrl}
-                      target="_blank"
-                      rel="noreferrer"
-                    >
-                      {attempt.problem}
-                    </a>
-                  ) : (
-                    attempt.problem
-                  )}
-                </strong>
-                <span className={mutedClass}>
-                  {' '}
-                  · {formatDate(attempt.attemptedAt)}
-                </span>
-              </span>
-              <span className={rowClass}>
-                {attempt.difficulty ? (
-                  <Badge variant="secondary">{attempt.difficulty}</Badge>
-                ) : null}
-                <Badge className={outcomeClass(attempt.outcome)}>
-                  {outcomeLabel(attempt.outcome)}
-                </Badge>
-                <span className={mutedClass}>{attempt.minutes} min</span>
-              </span>
-            </li>
-          ))}
-        </ul>
-      )}
-      <h4 className={`${subTitleClass} mt-4`}>
-        Mock interviews ({mocks.length})
-      </h4>
-      {mocks.length === 0 ? (
-        <p className={mutedClass}>No mock interviews in this range.</p>
-      ) : (
-        <ul className={metaListClass}>
-          {mocks.map((mock) => (
-            <li className={listRowClass} key={mock.id}>
-              <span>{formatDateTime(mock.occurredAt)}</span>
-              <span className={mutedClass}>{mock.durationMinutes} min</span>
-            </li>
-          ))}
-        </ul>
-      )}
-    </div>
-  );
-}
-
-/** Mentor view: solved counts by difficulty, as in the reviewer list. */
-function UpdateActivitySummary({ update }: { update: MondayUpdate }) {
+/**
+ * Hours, LeetCode solved by difficulty and mock interviews for one date range,
+ * as mentors see them. Hours are omitted where the student is still entering
+ * them.
+ */
+function UpdateActivitySummary({
+  activity,
+  hours,
+}: {
+  activity: MondayUpdateActivity;
+  hours?: number;
+}) {
   const counts = { easy: 0, medium: 0, hard: 0 };
-  for (const attempt of update.activity.attempts) {
+  for (const attempt of activity.attempts) {
     const solved =
       attempt.outcome === 'independently_solved' ||
       attempt.outcome === 'solved_with_hints';
@@ -681,8 +649,8 @@ function UpdateActivitySummary({ update }: { update: MondayUpdate }) {
       counts[attempt.difficulty as keyof typeof counts] += 1;
   }
   const total = counts.easy + counts.medium + counts.hard;
-  const mockCount = update.activity.mocks.length;
-  const mockMinutes = update.activity.mocks.reduce(
+  const mockCount = activity.mocks.length;
+  const mockMinutes = activity.mocks.reduce(
     (sum, mock) => sum + mock.durationMinutes,
     0,
   );
@@ -691,16 +659,20 @@ function UpdateActivitySummary({ update }: { update: MondayUpdate }) {
     { key: 'medium', label: 'Medium', count: counts.medium, dot: 'bg-warning' },
     { key: 'hard', label: 'Hard', count: counts.hard, dot: 'bg-destructive' },
   ] as const;
+  const rowClass =
+    'grid grid-cols-[9rem_1fr] items-baseline gap-x-4 gap-y-1 border-t border-border py-2.5 first:border-t-0';
   return (
     <dl className="m-0 grid border-b border-border tabular-nums">
-      <div className="grid grid-cols-[9rem_1fr] items-baseline gap-x-4 gap-y-1 py-2.5">
-        <dt className="text-sm font-semibold">Hours worked</dt>
-        <dd className="m-0 text-sm">
-          <strong className="text-base font-semibold">{update.hours}</strong>{' '}
-          {update.hours === 1 ? 'hour' : 'hours'}
-        </dd>
-      </div>
-      <div className="grid grid-cols-[9rem_1fr] items-baseline gap-x-4 gap-y-1 border-t border-border py-2.5">
+      {hours === undefined ? null : (
+        <div className={rowClass}>
+          <dt className="text-sm font-semibold">Hours spent</dt>
+          <dd className="m-0 text-sm">
+            <strong className="text-base font-semibold">{hours}</strong>{' '}
+            {hours === 1 ? 'hour' : 'hours'}
+          </dd>
+        </div>
+      )}
+      <div className={rowClass}>
         <dt className="text-sm font-semibold">LeetCode</dt>
         <dd className="m-0 flex flex-wrap items-baseline gap-x-4 gap-y-1">
           <span className="text-sm">
@@ -718,7 +690,7 @@ function UpdateActivitySummary({ update }: { update: MondayUpdate }) {
           ))}
         </dd>
       </div>
-      <div className="grid grid-cols-[9rem_1fr] items-baseline gap-x-4 gap-y-1 border-t border-border py-2.5">
+      <div className={rowClass}>
         <dt className="text-sm font-semibold">Mock interviews</dt>
         <dd className="m-0 flex flex-wrap items-baseline gap-x-4 text-sm">
           <span>
@@ -762,11 +734,14 @@ function StudentUpdateCard({
             Posted {formatDateTime(update.createdAt)}
           </span>
         </div>
+        <UpdateActivitySummary
+          activity={update.activity}
+          hours={update.hours}
+        />
         <RichTextContent
           html={update.contentHtml}
           empty="No written content."
         />
-        <UpdateActivity update={update} />
         <div className={rowClass}>
           <NamedConfirmation
             name={label}
@@ -840,7 +815,10 @@ function MentorUpdateCard({
             Posted {formatDateTime(update.createdAt)}
           </span>
         </div>
-        <UpdateActivitySummary update={update} />
+        <UpdateActivitySummary
+          activity={update.activity}
+          hours={update.hours}
+        />
         <RichTextContent
           html={update.contentHtml}
           empty="No written content."

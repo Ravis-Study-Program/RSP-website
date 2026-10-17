@@ -268,6 +268,56 @@ func (p *Store) loadMondayUpdateActivity(ctx context.Context, items []programme.
 	return mockRows.Err()
 }
 
+// GetMondayUpdateRangeActivity reads one student's attempts and mocks inside a
+// calendar-date range with the same Adelaide bounds as an update's activity.
+func (p *Store) GetMondayUpdateRangeActivity(ctx context.Context, userID, startDate, endDate string) (programme.MondayUpdateActivity, error) {
+	activity := programme.MondayUpdateActivity{Attempts: []programme.MondayUpdateAttempt{}, Mocks: []programme.MondayUpdateMock{}}
+	attemptRows, err := p.pool.Query(ctx, `SELECT a.id,COALESCE(l.id,a.problem_id),pr.title,COALESCE(pr.url,''),
+		COALESCE(l.difficulty::text,''),a.outcome::text,a.time_taken_minutes,a.attempted_at
+		FROM app.problem_attempts a
+		JOIN app.problems pr ON pr.id=a.problem_id
+		LEFT JOIN app.leetcode_problems l ON l.problem_id=a.problem_id AND l.deleted_at IS NULL
+		WHERE a.user_id=$1 AND a.deleted_at IS NULL
+		  AND (a.attempted_at AT TIME ZONE 'Australia/Adelaide') >= $2::date
+		  AND (a.attempted_at AT TIME ZONE 'Australia/Adelaide') < ($3::date + 1)
+		ORDER BY a.attempted_at,a.id`, userID, startDate, endDate)
+	if err != nil {
+		return activity, err
+	}
+	defer attemptRows.Close()
+	for attemptRows.Next() {
+		var attempt programme.MondayUpdateAttempt
+		if err := attemptRows.Scan(&attempt.ID, &attempt.ProblemID, &attempt.Problem, &attempt.ProblemURL,
+			&attempt.Difficulty, &attempt.Outcome, &attempt.Minutes, &attempt.AttemptedAt); err != nil {
+			return activity, err
+		}
+		activity.Attempts = append(activity.Attempts, attempt)
+	}
+	if err := attemptRows.Err(); err != nil {
+		return activity, err
+	}
+	attemptRows.Close()
+
+	mockRows, err := p.pool.Query(ctx, `SELECT m.id,m.scheduled_at,m.duration_minutes
+		FROM app.mock_interviews m
+		WHERE m.interviewee_user_id=$1 AND m.deleted_at IS NULL
+		  AND (m.scheduled_at AT TIME ZONE 'Australia/Adelaide') >= $2::date
+		  AND (m.scheduled_at AT TIME ZONE 'Australia/Adelaide') < ($3::date + 1)
+		ORDER BY m.scheduled_at,m.id`, userID, startDate, endDate)
+	if err != nil {
+		return activity, err
+	}
+	defer mockRows.Close()
+	for mockRows.Next() {
+		var mock programme.MondayUpdateMock
+		if err := mockRows.Scan(&mock.ID, &mock.OccurredAt, &mock.DurationMinutes); err != nil {
+			return activity, err
+		}
+		activity.Mocks = append(activity.Mocks, mock)
+	}
+	return activity, mockRows.Err()
+}
+
 func (p *Store) CreateMondayUpdate(ctx context.Context, v programme.MondayUpdateRecord, actorID string) (programme.MondayUpdateRecord, error) {
 	tx, err := p.pool.Begin(ctx)
 	if err != nil {

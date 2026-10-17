@@ -423,6 +423,16 @@ func TestMondayUpdateValidationAndEnrollment(t *testing.T) {
 			body:    `{"mark":"nope","commentHtml":""}`,
 			message: "mark must be one of way_ahead, doing_good, on_track, a_bit_behind or at_risk", status: http.StatusBadRequest,
 		},
+		{
+			name: "mentor cannot read range activity", actor: "mentor", method: http.MethodGet,
+			path:    mondayActivityQuery(mondayTestDate(-1), mondayTestDate(0)),
+			message: "Only an active student enrollment can read its Monday update activity in this season.", status: http.StatusForbidden,
+		},
+		{
+			name: "reversed activity range", actor: "student", method: http.MethodGet,
+			path:    mondayActivityQuery(mondayTestDate(0), mondayTestDate(-1)),
+			message: "endDate must not be before startDate", status: http.StatusBadRequest,
+		},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			fixture := newMondayUpdateFixture(t)
@@ -456,5 +466,55 @@ func TestMondayUpdateRequiresActiveStudentEnrollment(t *testing.T) {
 	})
 	if response := testRequest(t, active, http.MethodPost, mondayUpdatesPath(), "student", body); response.Code != http.StatusCreated {
 		t.Fatalf("active status=%d body=%s", response.Code, response.Body)
+	}
+}
+
+func mondayActivityQuery(startDate, endDate string) string {
+	return "/api/v2/seasons/" + seasonID + "/monday-update-activity?startDate=" + startDate + "&endDate=" + endDate
+}
+
+// The range activity uses Adelaide calendar days and only the caller's own rows.
+func TestMondayUpdateRangeActivityBoundsAndOwnership(t *testing.T) {
+	fixture := newMondayUpdateFixture(t)
+	for _, statement := range []string{
+		`INSERT INTO app.problems(id,title) VALUES('00000000-0000-7000-8000-000000000501','Range Problem')`,
+		`INSERT INTO app.leetcode_problems(problem_id,leetcode_number,difficulty) VALUES('00000000-0000-7000-8000-000000000501',9901,'hard')`,
+		// 2026-03-02 00:10 and 2026-03-08 23:50 Adelaide (UTC+10:30) are inside;
+		// one minute either side of the range is outside.
+		`INSERT INTO app.problem_attempts(id,user_id,problem_id,attempted_at,time_taken_minutes,outcome) VALUES
+			('00000000-0000-7000-8000-000000000511','` + studentID + `','00000000-0000-7000-8000-000000000501','2026-03-01T13:40:00Z',30,'independently_solved'),
+			('00000000-0000-7000-8000-000000000512','` + studentID + `','00000000-0000-7000-8000-000000000501','2026-03-08T13:20:00Z',30,'solved_with_hints'),
+			('00000000-0000-7000-8000-000000000513','` + studentID + `','00000000-0000-7000-8000-000000000501','2026-03-01T13:29:00Z',30,'independently_solved'),
+			('00000000-0000-7000-8000-000000000514','` + studentID + `','00000000-0000-7000-8000-000000000501','2026-03-08T13:31:00Z',30,'independently_solved'),
+			('00000000-0000-7000-8000-000000000515','` + mondayCohortID + `','00000000-0000-7000-8000-000000000501','2026-03-04T03:00:00Z',30,'independently_solved')`,
+		`INSERT INTO app.mock_interviews(id,interviewer_user_id,interviewee_user_id,scheduled_at,duration_minutes) VALUES
+			('00000000-0000-7000-8000-000000000521','` + otherID + `','` + studentID + `','2026-03-05T08:00:00Z',60),
+			('00000000-0000-7000-8000-000000000522','` + studentID + `','` + mondayCohortID + `','2026-03-05T09:00:00Z',45)`,
+	} {
+		if _, err := fixture.pool.Exec(context.Background(), statement); err != nil {
+			t.Fatal(err)
+		}
+	}
+	response := testRequest(t, fixture.handler, http.MethodGet, mondayActivityQuery("2026-03-02", "2026-03-08"), "student", "")
+	if response.Code != http.StatusOK {
+		t.Fatalf("status=%d body=%s", response.Code, response.Body)
+	}
+	var activity programme.MondayUpdateActivity
+	if err := json.Unmarshal(response.Body.Bytes(), &activity); err != nil {
+		t.Fatal(err)
+	}
+	if len(activity.Attempts) != 2 || activity.Attempts[0].ID != "00000000-0000-7000-8000-000000000511" ||
+		activity.Attempts[1].ID != "00000000-0000-7000-8000-000000000512" || activity.Attempts[0].Difficulty != "hard" {
+		t.Fatalf("attempts=%+v", activity.Attempts)
+	}
+	// Only mocks where the caller is the interviewee count, as for updates.
+	if len(activity.Mocks) != 1 || activity.Mocks[0].ID != "00000000-0000-7000-8000-000000000521" || activity.Mocks[0].DurationMinutes != 60 {
+		t.Fatalf("mocks=%+v", activity.Mocks)
+	}
+
+	// An empty range still returns arrays, never null.
+	response = testRequest(t, fixture.handler, http.MethodGet, mondayActivityQuery("2026-05-01", "2026-05-01"), "student", "")
+	if response.Code != http.StatusOK || strings.TrimSpace(response.Body.String()) != `{"attempts":[],"mocks":[]}` {
+		t.Fatalf("empty status=%d body=%q", response.Code, response.Body)
 	}
 }

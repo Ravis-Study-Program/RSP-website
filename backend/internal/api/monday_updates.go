@@ -266,3 +266,30 @@ func (a *API) listMondayUpdateReview(w http.ResponseWriter, r *http.Request) {
 		TotalCount: total,
 	})
 }
+
+// getMondayUpdateActivity returns the active student's own LeetCode attempts
+// and mock interviews inside a date range, using the same Adelaide date bounds
+// an update with that range would show, so a student sees it before posting.
+func (a *API) getMondayUpdateActivity(w http.ResponseWriter, r *http.Request) {
+	actor := actorFrom(r.Context())
+	seasonID := r.PathValue("id")
+	enrollment, enrolled := actor.Enrollment(seasonID)
+	if !enrolled || enrollment.Role != authz.Student || enrollment.State != authz.Active {
+		writeErrorResponse(w, http.StatusForbidden, "Only an active student enrollment can read its Monday update activity in this season.")
+		return
+	}
+	startDate, endDate, ok := mondayUpdateRange(w, r)
+	if !ok {
+		return
+	}
+	if endDate < startDate {
+		writeErrorResponse(w, http.StatusBadRequest, "endDate must not be before startDate")
+		return
+	}
+	activity, err := a.db.GetMondayUpdateRangeActivity(r.Context(), actor.UserID, startDate, endDate)
+	if err != nil {
+		a.writeStoreErrorResponse(w, err)
+		return
+	}
+	writeJSONResponse(w, http.StatusOK, activity)
+}
