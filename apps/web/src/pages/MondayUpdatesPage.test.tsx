@@ -504,28 +504,39 @@ describe('mentor Monday updates', () => {
     expect(secondMocks).toHaveTextContent(/^0 interviews$/);
     expect(screen.queryByText('Two Sum')).not.toBeInTheDocument();
 
-    // Marking fields are labelled by student; cards are in update order.
-    const markFields = screen.getAllByRole('combobox', {
+    // The card header carries the mark; marking happens in a dialog.
+    const cards = screen.getAllByRole('article');
+    expect(within(cards[0]).getByText('On track')).toBeInTheDocument();
+    expect(within(cards[0]).getByText('Good week.')).toBeInTheDocument();
+    expect(within(cards[1]).getByText('Not marked')).toBeInTheDocument();
+    expect(
+      screen.queryByRole('combobox', {
+        name: `Mark for ${first.student.name}`,
+      }),
+    ).not.toBeInTheDocument();
+    expect(
+      within(cards[1]).getByRole('button', { name: 'Add mark' }),
+    ).toBeInTheDocument();
+
+    // An existing mark can be replaced from its dialog, prefilled.
+    await user.click(
+      within(cards[0]).getByRole('button', { name: 'Edit mark' }),
+    );
+    const dialog = await screen.findByRole('dialog');
+    const markField = within(dialog).getByRole('combobox', {
       name: `Mark for ${first.student.name}`,
     });
-    const commentFields = screen.getAllByLabelText(
+    const commentField = within(dialog).getByLabelText(
       `Comment for ${first.student.name}`,
     );
-    expect(markFields).toHaveLength(2);
-    expect(markFields[0]).toHaveTextContent('On track');
-    expect(commentFields[0]).toHaveValue('<p>Good week.</p>');
-    expect(markFields[1]).toHaveTextContent('No mark yet');
-    const saveButtons = screen.getAllByRole('button', { name: 'Save mark' });
-    expect(saveButtons).toHaveLength(2);
-    expect(saveButtons[1]).toBeDisabled();
-
-    // An existing mark can be replaced.
-    await user.click(markFields[0]);
+    expect(markField).toHaveTextContent('On track');
+    expect(commentField).toHaveValue('<p>Good week.</p>');
+    await user.click(markField);
     await user.click(await screen.findByRole('option', { name: 'At risk' }));
-    fireEvent.change(commentFields[0], {
+    fireEvent.change(commentField, {
       target: { value: '<p>Needs a check-in.</p>' },
     });
-    fireEvent.click(saveButtons[0]);
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Save mark' }));
 
     await waitFor(() => expect(apiRequest).toHaveBeenCalledTimes(1));
     expect(apiRequest).toHaveBeenCalledWith(
@@ -537,6 +548,10 @@ describe('mentor Monday updates', () => {
           commentHtml: '<p>Needs a check-in.</p>',
         }),
       },
+    );
+    // A successful save closes the dialog.
+    await waitFor(() =>
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument(),
     );
   });
 });
@@ -602,9 +617,27 @@ describe('reviewer Monday updates', () => {
     ).not.toBeInTheDocument();
 
     const table = screen.getByRole('table');
-    expect(within(table).getAllByText('Amelia Chen').length).toBeGreaterThan(0);
-    expect(within(table).getByText('2 / 0 / 1')).toBeInTheDocument();
-    expect(within(table).getByText('easy / medium / hard')).toBeInTheDocument();
+    expect(
+      within(table).getByRole('columnheader', {
+        name: /LeetCode \(easy\/medium\/hard\)/,
+      }),
+    ).toBeInTheDocument();
+    const row = within(table).getAllByRole('row')[1];
+    expect(within(row).getByText('Amelia Chen')).toBeInTheDocument();
+    // The slug is no longer shown under the name, nor the difficulty legend.
+    expect(
+      within(row).queryByText(studentIdentity.slug),
+    ).not.toBeInTheDocument();
+    expect(
+      within(row).queryByText('easy / medium / hard'),
+    ).not.toBeInTheDocument();
+    expect(within(row).getByText('2 / 0 / 1')).toBeInTheDocument();
+    // The latest update in range shows its mark and who gave it.
+    expect(within(row).getByText('Doing good')).toBeInTheDocument();
+    expect(within(row).getByText(/by Mentor One/)).toBeInTheDocument();
+    expect(
+      within(table).queryByRole('columnheader', { name: 'Mentor' }),
+    ).not.toBeInTheDocument();
     expect(
       within(table).queryByText('Finished the hash map pattern.'),
     ).not.toBeInTheDocument();
@@ -618,7 +651,7 @@ describe('reviewer Monday updates', () => {
     expect(
       await within(table).findByText('Finished the hash map pattern.'),
     ).toBeInTheDocument();
-    expect(within(table).getByText('Doing good')).toBeInTheDocument();
+    expect(within(table).getAllByText('Doing good')).toHaveLength(2);
     expect(within(table).getByText('Mentor One')).toBeInTheDocument();
     expect(within(table).getByText('Solid progress.')).toBeInTheDocument();
   });

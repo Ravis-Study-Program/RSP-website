@@ -25,6 +25,8 @@ import {
   IconArrowRight,
   IconChevronDown,
   IconChevronUp,
+  IconPencil,
+  IconPlus,
 } from '@tabler/icons-react';
 import { useMemo, useState, type FormEvent } from 'react';
 import { Link, Navigate, useParams } from 'react-router-dom';
@@ -58,7 +60,7 @@ import {
 import { DateRangePicker } from '@/components/DateRangePicker';
 import { PageHeader, usePageTitle } from '@/components/Common';
 import { DataTable } from '@/components/DataTable';
-import { NamedConfirmation } from '@/components/Dialogs';
+import { FormDialog, NamedConfirmation } from '@/components/Dialogs';
 import { RichTextContent } from '@/components/RichTextContent';
 import { RichTextEditor } from '@/components/RichTextEditor';
 import {
@@ -67,16 +69,15 @@ import {
   PageSkeleton,
 } from '@/components/StatusViews';
 import { formatDate, formatDateTime } from '@/utils';
+import { LatestMarkCell, MarkBadge } from '@/components/MondayMark';
+import {
+  latestMarkRank,
+  markOptions,
+  markTone,
+  pickLatestMark,
+} from '@/mondayMarks';
 
 type Experience = 'student' | 'mentor' | 'reviewer';
-
-const markOptions: { value: MondayUpdateMark; label: string }[] = [
-  { value: 'way_ahead', label: 'Way ahead' },
-  { value: 'doing_good', label: 'Doing good' },
-  { value: 'on_track', label: 'On track' },
-  { value: 'a_bit_behind', label: 'A bit behind' },
-  { value: 'at_risk', label: 'At risk' },
-];
 
 const pageClass = 'mx-auto w-full max-w-[92rem]';
 const sectionClass = 'mt-6';
@@ -114,23 +115,6 @@ const markSelectItems: { label: string; value: MondayUpdateMark | '' }[] = [
   { label: 'No mark yet', value: '' },
   ...markOptions,
 ];
-
-function markLabel(mark: MondayUpdateMark) {
-  return markOptions.find((option) => option.value === mark)?.label ?? mark;
-}
-
-/** One colour per mark, from strongest (solid green) to weakest (solid red). */
-const markTone: Record<MondayUpdateMark, { badge: string; dot: string }> = {
-  way_ahead: { badge: 'bg-success text-background', dot: 'bg-success' },
-  doing_good: { badge: 'bg-success-soft text-success', dot: 'bg-success/60' },
-  on_track: { badge: 'bg-info-soft text-info', dot: 'bg-info' },
-  a_bit_behind: { badge: 'bg-warning-soft text-warning', dot: 'bg-warning' },
-  at_risk: { badge: 'bg-destructive text-background', dot: 'bg-destructive' },
-};
-
-function MarkBadge({ mark }: { mark: MondayUpdateMark }) {
-  return <Badge className={markTone[mark].badge}>{markLabel(mark)}</Badge>;
-}
 
 function updateRangeLabel(update: { startDate: string; endDate: string }) {
   return `${formatDate(update.startDate)} – ${formatDate(update.endDate)}`;
@@ -774,6 +758,7 @@ function MentorUpdateCard({
   const [pending, setPending] = useState(false);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
+  const [dialogOpen, setDialogOpen] = useState(false);
   const label = updateRangeLabel(update);
 
   const save = async () => {
@@ -794,6 +779,7 @@ function MentorUpdateCard({
           },
         );
       setMessage(`Your mark for ${label} was saved.`);
+      setDialogOpen(false);
       await invalidateMondayUpdates(queryClient);
     } catch (requestError) {
       setError(
@@ -809,43 +795,49 @@ function MentorUpdateCard({
   return (
     <article>
       <Card className={cardClass}>
-        <div className={cardHeaderClass}>
-          <h3 className={cardTitleClass}>{label}</h3>
-          <span className={mutedClass}>
-            Posted {formatDateTime(update.createdAt)}
-          </span>
-        </div>
-        <UpdateActivitySummary
-          activity={update.activity}
-          hours={update.hours}
-        />
-        <RichTextContent
-          html={update.contentHtml}
-          empty="No written content."
-        />
-        <details className="group border-t border-border pt-3">
-          <summary className="flex cursor-pointer list-none items-center justify-between gap-3 rounded-md py-1 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring [&::-webkit-details-marker]:hidden">
-            <span className="flex items-center gap-2">
-              <span className="text-sm font-semibold">Your mark</span>
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="grid gap-1">
+            <div className="flex flex-wrap items-center gap-2">
+              <h3 className={cardTitleClass}>{label}</h3>
               {ownMark ? (
                 <MarkBadge mark={ownMark.mark} />
               ) : (
-                <span className={mutedClass}>Not marked yet</span>
+                <Badge variant="outline" className="text-muted-foreground">
+                  Not marked
+                </Badge>
               )}
+            </div>
+            <span className={mutedClass}>
+              Posted {formatDateTime(update.createdAt)}
             </span>
-            <span className="flex items-center gap-1 text-sm text-muted-foreground group-hover:text-foreground">
-              <span className="group-open:hidden">
-                {ownMark ? 'Edit mark' : 'Mark update'}
-              </span>
-              <span className="hidden group-open:inline">Hide</span>
-              <IconChevronDown
-                className="size-4 transition-transform duration-200 ease-out group-open:rotate-180"
-                aria-hidden
-              />
-            </span>
-          </summary>
-          <div className="mt-3 grid gap-4">
-            <div className={fieldGridClass}>
+          </div>
+          <FormDialog
+            title={`${ownMark ? 'Edit' : 'Add'} mark · ${update.student.name}`}
+            description={label}
+            open={dialogOpen}
+            onOpenChange={(next) => {
+              if (pending) return;
+              setDialogOpen(next);
+              if (next) {
+                setMark(ownMark?.mark ?? '');
+                setComment(ownMark?.commentHtml ?? '');
+                setError('');
+              }
+            }}
+            triggerVariant={ownMark ? 'outline' : 'default'}
+            triggerSize="sm"
+            trigger={
+              <>
+                {ownMark ? (
+                  <IconPencil size={16} aria-hidden="true" />
+                ) : (
+                  <IconPlus size={16} aria-hidden="true" />
+                )}
+                {ownMark ? 'Edit mark' : 'Add mark'}
+              </>
+            }
+          >
+            <div className="grid gap-4">
               <Field>
                 <FieldLabel htmlFor={`monday-mark-${update.id}`}>
                   Mark for {update.student.name}
@@ -882,34 +874,50 @@ function MentorUpdateCard({
                   </SelectContent>
                 </Select>
               </Field>
+              <RichTextEditor
+                id={`monday-mark-comment-${update.id}`}
+                label={`Comment for ${update.student.name}`}
+                value={comment}
+                onChange={setComment}
+              />
+              {error ? (
+                <InlineNotice tone="warning">
+                  <span role="alert">{error}</span>
+                </InlineNotice>
+              ) : null}
+              <div className="flex justify-end gap-2">
+                <Button
+                  type="button"
+                  disabled={pending || !mark}
+                  onClick={() => void save()}
+                >
+                  {pending ? 'Saving…' : 'Save mark'}
+                </Button>
+              </div>
             </div>
-            <RichTextEditor
-              id={`monday-mark-comment-${update.id}`}
-              label={`Comment for ${update.student.name}`}
-              value={comment}
-              onChange={setComment}
-            />
-            {error ? (
-              <InlineNotice tone="warning">
-                <span role="alert">{error}</span>
-              </InlineNotice>
-            ) : null}
-            {message ? (
-              <span className="sr-only" role="status">
-                {message}
-              </span>
-            ) : null}
-            <div className={rowClass}>
-              <Button
-                type="button"
-                disabled={pending || !mark}
-                onClick={() => void save()}
-              >
-                {pending ? 'Saving…' : 'Save mark'}
-              </Button>
-            </div>
+          </FormDialog>
+        </div>
+        {message ? (
+          <span className="sr-only" role="status">
+            {message}
+          </span>
+        ) : null}
+        <UpdateActivitySummary
+          activity={update.activity}
+          hours={update.hours}
+        />
+        <RichTextContent
+          html={update.contentHtml}
+          empty="No written content."
+        />
+        {ownMark?.commentHtml ? (
+          <div className="grid gap-1 border-t border-border pt-4">
+            <h4 className="text-xs font-medium text-muted-foreground">
+              Your comment
+            </h4>
+            <RichTextContent html={ownMark.commentHtml} empty="" />
           </div>
-        </details>
+        ) : null}
         {otherMarks.length ? (
           <div className="grid gap-2 border-t border-border pt-4">
             <h4 className={subTitleClass}>Other mentor marks</h4>
@@ -942,41 +950,66 @@ function ReviewUpdateList({
   if (updates.length === 0)
     return <p className={mutedClass}>No update in this range.</p>;
   return (
-    <ul className={metaListClass}>
+    <ol className="m-0 grid list-none gap-0 p-0 text-sm text-foreground">
       {updates.map((update) => (
-        <li key={update.id} className="grid gap-2">
-          <h3 className={subTitleClass}>
-            {updateRangeLabel(update)}
-            <span className={mutedClass}>
-              {' '}
-              · {hoursLabel(update.hours)} · {formatDateTime(update.createdAt)}
-            </span>
-          </h3>
-          <RichTextContent
-            html={update.contentHtml}
-            empty="No written content."
-          />
-          {update.marks.length === 0 ? (
-            <p className={mutedClass}>No mentor mark yet.</p>
-          ) : (
-            <ul className={metaListClass}>
-              {update.marks.map((record) => (
-                <li key={record.id}>
-                  <strong className="font-semibold text-foreground">
-                    {record.mentor.name}
-                  </strong>{' '}
-                  <MarkBadge mark={record.mark} />
-                  <RichTextContent
-                    html={record.commentHtml}
-                    empty="No comment."
-                  />
-                </li>
-              ))}
-            </ul>
-          )}
+        <li
+          key={update.id}
+          className="grid gap-3 border-t border-border py-4 first:border-t-0 first:pt-0"
+        >
+          <dl className="m-0 flex flex-wrap gap-x-8 gap-y-2">
+            {[
+              ['Dates', updateRangeLabel(update)],
+              ['Hours spent', hoursLabel(update.hours)],
+              ['Posted', formatDateTime(update.createdAt)],
+            ].map(([label, value]) => (
+              <div key={label} className="grid gap-0.5">
+                <dt className="text-xs font-medium text-muted-foreground">
+                  {label}
+                </dt>
+                <dd className="m-0 font-semibold tabular-nums">{value}</dd>
+              </div>
+            ))}
+          </dl>
+          <div className="grid gap-1">
+            <h4 className="text-xs font-medium text-muted-foreground">
+              Update
+            </h4>
+            <RichTextContent
+              html={update.contentHtml}
+              empty="No written content."
+            />
+          </div>
+          <div className="grid gap-2">
+            <h4 className="text-xs font-medium text-muted-foreground">
+              Mentor mark
+            </h4>
+            {update.marks.length === 0 ? (
+              <p className={mutedClass}>Not marked yet.</p>
+            ) : (
+              <ul className="m-0 grid list-none gap-3 p-0">
+                {update.marks.map((record) => (
+                  <li key={record.id} className="grid gap-1">
+                    <span className="flex flex-wrap items-center gap-2">
+                      <MarkBadge mark={record.mark} />
+                      <span className={mutedClass}>
+                        by{' '}
+                        <strong className="font-semibold text-foreground">
+                          {record.mentor.name}
+                        </strong>
+                      </span>
+                    </span>
+                    <RichTextContent
+                      html={record.commentHtml}
+                      empty="No comment."
+                    />
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
         </li>
       ))}
-    </ul>
+    </ol>
   );
 }
 
@@ -1020,32 +1053,37 @@ function ReviewerTable({
         id: 'student',
         header: 'Student',
         cell: ({ row }) => (
-          <div>
-            <Link to={`/people/${row.original.student.slug}`}>
-              {row.original.student.name}
-            </Link>
-            <div className={mutedClass}>{row.original.student.slug}</div>
-          </div>
+          <Link to={`/people/${row.original.student.slug}`}>
+            {row.original.student.name}
+          </Link>
+        ),
+      },
+      {
+        id: 'latestMark',
+        header: 'Latest mark',
+        // The latest update overlapping the selected range and its newest mark.
+        accessorFn: (row) => latestMarkRank(pickLatestMark(row.updates)),
+        cell: ({ row }) => (
+          <LatestMarkCell
+            latest={pickLatestMark(row.original.updates)}
+            noUpdateText="No updates in range"
+            showMarker
+          />
         ),
       },
       {
         id: 'leetcode',
-        header: 'LeetCode',
+        header: 'LeetCode (easy/medium/hard)',
         accessorFn: (row) =>
           row.leetcodeCounts.easy +
           row.leetcodeCounts.medium +
           row.leetcodeCounts.hard,
         cell: ({ row }) => (
-          <div className="grid gap-1">
-            <span>
-              <Badge variant="secondary">
-                {row.original.leetcodeCounts.easy} /{' '}
-                {row.original.leetcodeCounts.medium} /{' '}
-                {row.original.leetcodeCounts.hard}
-              </Badge>
-            </span>
-            <div className={mutedClass}>easy / medium / hard</div>
-          </div>
+          <Badge variant="secondary">
+            {row.original.leetcodeCounts.easy} /{' '}
+            {row.original.leetcodeCounts.medium} /{' '}
+            {row.original.leetcodeCounts.hard}
+          </Badge>
         ),
       },
       {
@@ -1085,7 +1123,11 @@ function ReviewerTable({
               {row.original.student.name}
             </Link>
           </h3>
-          <p className={mutedClass}>{row.original.student.slug}</p>
+          <LatestMarkCell
+            latest={pickLatestMark(row.original.updates)}
+            noUpdateText="No updates in range"
+            showMarker
+          />
           <div className={rowClass}>
             <Badge variant="secondary">
               {row.original.leetcodeCounts.easy} /{' '}
