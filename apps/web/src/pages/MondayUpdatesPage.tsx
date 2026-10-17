@@ -54,7 +54,7 @@ import {
   useSeasons,
   type MondayUpdateFilters,
 } from '@/api/queries';
-import { AppDatePicker } from '@/components/AppDatePicker';
+import { DateRangePicker } from '@/components/DateRangePicker';
 import { PageHeader, usePageTitle } from '@/components/Common';
 import { DataTable } from '@/components/DataTable';
 import { NamedConfirmation } from '@/components/Dialogs';
@@ -97,7 +97,6 @@ const fieldGridClass = 'grid gap-3.5 min-[56rem]:grid-cols-2';
 const formClass = 'grid gap-4';
 const cardClass = 'gap-4 p-5';
 
-const rangeErrorText = 'The end date must not be before the start date.';
 const defaultHours = '30';
 
 /** Hours are 0–168 in half-hour steps; returns null when the input is invalid. */
@@ -136,12 +135,6 @@ function MarkBadge({ mark }: { mark: MondayUpdateMark }) {
 
 function updateRangeLabel(update: { startDate: string; endDate: string }) {
   return `${formatDate(update.startDate)} – ${formatDate(update.endDate)}`;
-}
-
-function rangeReversed(range: MondayUpdateRange) {
-  return Boolean(
-    range.startDate && range.endDate && range.endDate < range.startDate,
-  );
 }
 
 function outcomeClass(outcome: AttemptOutcome) {
@@ -263,7 +256,6 @@ export function MondayUpdatesPage() {
     );
   if (!actor || !experience) return <Navigate to="/forbidden" replace />;
 
-  const reversed = rangeReversed(range);
   // The list is the actor's own updates; the filter keeps the demo fixtures to
   // the signed-in student as well.
   const ownUpdates = (updates.data?.items ?? []).filter(
@@ -314,25 +306,7 @@ export function MondayUpdatesPage() {
             Updates that overlap this range are shown.
           </p>
         </div>
-        <div className={fieldGridClass}>
-          <AppDatePicker
-            label="Start date"
-            granularity="day"
-            value={range.startDate}
-            onChange={(startDate) =>
-              setRange((current) => ({ ...current, startDate }))
-            }
-          />
-          <AppDatePicker
-            label="End date"
-            granularity="day"
-            value={range.endDate}
-            error={reversed ? rangeErrorText : undefined}
-            onChange={(endDate) =>
-              setRange((current) => ({ ...current, endDate }))
-            }
-          />
-        </div>
+        <DateRangePicker label="Dates" value={range} onChange={setRange} />
       </section>
       {experience === 'student' ? (
         <>
@@ -539,7 +513,7 @@ function StudentUpdateForm({
     setAttempted(true);
     setError('');
     setMessage('');
-    if (rangeReversed(range) || contentEmpty || hours === null) return;
+    if (contentEmpty || hours === null) return;
     setPending(true);
     try {
       if (!demoMode)

@@ -1,3 +1,4 @@
+import { format, parseISO } from 'date-fns';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import {
   fireEvent,
@@ -180,14 +181,6 @@ function mondayUpdate(
   };
 }
 
-/** The date a react-aria date picker currently holds, read from its field. */
-function pickerValue(label: string) {
-  return screen
-    .getAllByLabelText(label)
-    .map((field) => field.querySelector('input[type="text"]'))
-    .find((input): input is HTMLInputElement => input !== null)?.value;
-}
-
 function renderPage() {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false } },
@@ -264,9 +257,10 @@ describe('student Monday updates', () => {
 
     renderPage();
 
-    // The default Monday-to-Sunday range is prefilled into both pickers.
-    expect(pickerValue('Start date')).toBe(range.startDate);
-    expect(pickerValue('End date')).toBe(range.endDate);
+    // The default Monday-to-Sunday range is prefilled into the range picker.
+    expect(screen.getByLabelText('Dates')).toHaveTextContent(
+      `${format(parseISO(range.startDate), 'd MMM yyyy')} – ${format(parseISO(range.endDate), 'd MMM yyyy')}`,
+    );
 
     // The student's own update and its activity are rendered...
     expect(screen.getByText('Update update-1')).toBeInTheDocument();
