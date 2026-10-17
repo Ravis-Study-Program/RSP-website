@@ -30,6 +30,8 @@
   --color-success-soft: var(--success-soft);
   --color-warning: var(--warning);
   --color-warning-soft: var(--warning-soft);
+  --color-info: var(--info);
+  --color-info-soft: var(--info-soft);
   --color-destructive-soft: var(--danger-soft);
   --color-border-strong: var(--border-strong);
   --color-chart-1: var(--primary);

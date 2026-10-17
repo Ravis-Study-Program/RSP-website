@@ -27,7 +27,6 @@ import {
 } from '@/api/queries';
 import { MondayUpdatesPage } from '@/pages/MondayUpdatesPage';
 import type { CurrentUser, Person } from '@/types';
-import { formatDate } from '@/utils';
 
 vi.mock('@/api/client', () => ({ apiRequest: vi.fn() }));
 
@@ -386,9 +385,28 @@ describe('mentor Monday updates', () => {
         ),
       ],
     });
+    const attempt = first.activity.attempts[0];
     const second = mondayUpdate('update-2', {
       startDate: range.endDate,
       endDate: range.endDate,
+      activity: {
+        attempts: [
+          {
+            ...attempt,
+            id: 'a-hard',
+            difficulty: 'hard',
+            outcome: 'solved_with_hints',
+          },
+          {
+            ...attempt,
+            id: 'a-medium',
+            difficulty: 'medium',
+            outcome: 'not_solved',
+          },
+          { ...attempt, id: 'a-easy', outcome: 'independently_solved' },
+        ],
+        mocks: [],
+      },
     });
     vi.mocked(useMondayUpdates).mockReturnValue(
       queryResult<ReturnType<typeof useMondayUpdates>>({
@@ -419,27 +437,35 @@ describe('mentor Monday updates', () => {
     expect(screen.getByText('2 updates in this range')).toBeInTheDocument();
     expect(screen.getByText('No update in this range.')).toBeInTheDocument();
 
-    const firstLabel = `${formatDate(first.startDate)} – ${formatDate(first.endDate)}`;
-    const secondLabel = `${formatDate(second.startDate)} – ${formatDate(second.endDate)}`;
-    expect(
-      screen.getByRole('combobox', { name: `Mark for ${firstLabel}` }),
-    ).toHaveTextContent('On track');
-    expect(screen.getByLabelText(`Comment for ${firstLabel}`)).toHaveValue(
-      '<p>Good week.</p>',
+    // Mentors see solved counts by difficulty, not the attempt list.
+    const [firstHours, firstSolved, firstMocks, , secondSolved, secondMocks] =
+      screen.getAllByRole('definition');
+    expect(firstHours).toHaveTextContent(/^30 hours$/);
+    expect(firstSolved).toHaveTextContent(/^1 solved1Easy0Medium0Hard$/);
+    expect(firstMocks).toHaveTextContent(/^1 interview60 min total$/);
+    expect(secondSolved).toHaveTextContent(/^2 solved1Easy0Medium1Hard$/);
+    expect(secondMocks).toHaveTextContent(/^0 interviews$/);
+    expect(screen.queryByText('Two Sum')).not.toBeInTheDocument();
+
+    // Marking fields are labelled by student; cards are in update order.
+    const markFields = screen.getAllByRole('combobox', {
+      name: `Mark for ${first.student.name}`,
+    });
+    const commentFields = screen.getAllByLabelText(
+      `Comment for ${first.student.name}`,
     );
-    expect(
-      screen.getByRole('combobox', { name: `Mark for ${secondLabel}` }),
-    ).toHaveTextContent('No mark yet');
+    expect(markFields).toHaveLength(2);
+    expect(markFields[0]).toHaveTextContent('On track');
+    expect(commentFields[0]).toHaveValue('<p>Good week.</p>');
+    expect(markFields[1]).toHaveTextContent('No mark yet');
     const saveButtons = screen.getAllByRole('button', { name: 'Save mark' });
     expect(saveButtons).toHaveLength(2);
     expect(saveButtons[1]).toBeDisabled();
 
     // An existing mark can be replaced.
-    await user.click(
-      screen.getByRole('combobox', { name: `Mark for ${firstLabel}` }),
-    );
+    await user.click(markFields[0]);
     await user.click(await screen.findByRole('option', { name: 'At risk' }));
-    fireEvent.change(screen.getByLabelText(`Comment for ${firstLabel}`), {
+    fireEvent.change(commentFields[0], {
       target: { value: '<p>Needs a check-in.</p>' },
     });
     fireEvent.click(saveButtons[0]);

@@ -21,7 +21,11 @@ import {
 } from '@/components/ui/select';
 import { useQueryClient, type QueryClient } from '@tanstack/react-query';
 import type { ColumnDef } from '@tanstack/react-table';
-import { IconChevronDown, IconChevronUp } from '@tabler/icons-react';
+import {
+  IconArrowRight,
+  IconChevronDown,
+  IconChevronUp,
+} from '@tabler/icons-react';
 import { useMemo, useState, type FormEvent } from 'react';
 import { Link, Navigate, useParams } from 'react-router-dom';
 
@@ -115,6 +119,19 @@ const markSelectItems: { label: string; value: MondayUpdateMark | '' }[] = [
 
 function markLabel(mark: MondayUpdateMark) {
   return markOptions.find((option) => option.value === mark)?.label ?? mark;
+}
+
+/** One colour per mark, from strongest (solid green) to weakest (solid red). */
+const markTone: Record<MondayUpdateMark, { badge: string; dot: string }> = {
+  way_ahead: { badge: 'bg-success text-background', dot: 'bg-success' },
+  doing_good: { badge: 'bg-success-soft text-success', dot: 'bg-success/60' },
+  on_track: { badge: 'bg-info-soft text-info', dot: 'bg-info' },
+  a_bit_behind: { badge: 'bg-warning-soft text-warning', dot: 'bg-warning' },
+  at_risk: { badge: 'bg-destructive text-background', dot: 'bg-destructive' },
+};
+
+function MarkBadge({ mark }: { mark: MondayUpdateMark }) {
+  return <Badge className={markTone[mark].badge}>{markLabel(mark)}</Badge>;
 }
 
 function updateRangeLabel(update: { startDate: string; endDate: string }) {
@@ -434,18 +451,29 @@ export function MondayUpdatesPage() {
                   aria-labelledby={`monday-student-${studentId}`}
                 >
                   <div className={sectionHeaderClass}>
-                    <h3
-                      id={`monday-student-${studentId}`}
-                      className={cardTitleClass}
-                    >
-                      {studentLabel(studentId)}
-                    </h3>
-                    {studentUpdates.length ? (
-                      <Badge variant="secondary">
-                        {studentUpdates.length === 1
-                          ? '1 update in this range'
-                          : `${studentUpdates.length} updates in this range`}
-                      </Badge>
+                    <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+                      <h3
+                        id={`monday-student-${studentId}`}
+                        className={cardTitleClass}
+                      >
+                        {studentLabel(studentId)}
+                      </h3>
+                      {studentUpdates.length ? (
+                        <Badge variant="secondary">
+                          {studentUpdates.length === 1
+                            ? '1 update in this range'
+                            : `${studentUpdates.length} updates in this range`}
+                        </Badge>
+                      ) : null}
+                    </div>
+                    {studentSlugs.get(studentId) ? (
+                      <Link
+                        to={`/people/${studentSlugs.get(studentId)}`}
+                        className="inline-flex items-center gap-1 rounded-sm text-sm font-medium text-muted-foreground underline-offset-4 hover:text-foreground hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+                      >
+                        View {studentLabel(studentId)}’s profile
+                        <IconArrowRight className="size-4" aria-hidden />
+                      </Link>
                     ) : null}
                   </div>
                   {studentUpdates.length === 0 ? (
@@ -668,6 +696,72 @@ function UpdateActivity({ update }: { update: MondayUpdate }) {
   );
 }
 
+/** Mentor view: solved counts by difficulty, as in the reviewer list. */
+function UpdateActivitySummary({ update }: { update: MondayUpdate }) {
+  const counts = { easy: 0, medium: 0, hard: 0 };
+  for (const attempt of update.activity.attempts) {
+    const solved =
+      attempt.outcome === 'independently_solved' ||
+      attempt.outcome === 'solved_with_hints';
+    if (solved && attempt.difficulty in counts)
+      counts[attempt.difficulty as keyof typeof counts] += 1;
+  }
+  const total = counts.easy + counts.medium + counts.hard;
+  const mockCount = update.activity.mocks.length;
+  const mockMinutes = update.activity.mocks.reduce(
+    (sum, mock) => sum + mock.durationMinutes,
+    0,
+  );
+  const difficulties = [
+    { key: 'easy', label: 'Easy', count: counts.easy, dot: 'bg-success' },
+    { key: 'medium', label: 'Medium', count: counts.medium, dot: 'bg-warning' },
+    { key: 'hard', label: 'Hard', count: counts.hard, dot: 'bg-destructive' },
+  ] as const;
+  return (
+    <dl className="m-0 grid border-b border-border tabular-nums">
+      <div className="grid grid-cols-[9rem_1fr] items-baseline gap-x-4 gap-y-1 py-2.5">
+        <dt className="text-sm font-semibold">Hours worked</dt>
+        <dd className="m-0 text-sm">
+          <strong className="text-base font-semibold">{update.hours}</strong>{' '}
+          {update.hours === 1 ? 'hour' : 'hours'}
+        </dd>
+      </div>
+      <div className="grid grid-cols-[9rem_1fr] items-baseline gap-x-4 gap-y-1 border-t border-border py-2.5">
+        <dt className="text-sm font-semibold">LeetCode</dt>
+        <dd className="m-0 flex flex-wrap items-baseline gap-x-4 gap-y-1">
+          <span className="text-sm">
+            <strong className="text-base font-semibold">{total}</strong> solved
+          </span>
+          {difficulties.map((item) => (
+            <span
+              key={item.key}
+              className="flex items-center gap-1.5 text-sm text-muted-foreground"
+            >
+              <span className={`size-2 rounded-full ${item.dot}`} aria-hidden />
+              <span className="font-medium text-foreground">{item.count}</span>
+              {item.label}
+            </span>
+          ))}
+        </dd>
+      </div>
+      <div className="grid grid-cols-[9rem_1fr] items-baseline gap-x-4 gap-y-1 border-t border-border py-2.5">
+        <dt className="text-sm font-semibold">Mock interviews</dt>
+        <dd className="m-0 flex flex-wrap items-baseline gap-x-4 text-sm">
+          <span>
+            <strong className="text-base font-semibold">{mockCount}</strong>{' '}
+            {mockCount === 1 ? 'interview' : 'interviews'}
+          </span>
+          {mockCount ? (
+            <span className="text-muted-foreground">
+              {mockMinutes} min total
+            </span>
+          ) : null}
+        </dd>
+      </div>
+    </dl>
+  );
+}
+
 function StudentUpdateCard({
   seasonId,
   update,
@@ -766,64 +860,104 @@ function MentorUpdateCard({
   return (
     <article>
       <Card className={cardClass}>
-        <h3 className={cardTitleClass}>{label}</h3>
+        <div className={cardHeaderClass}>
+          <h3 className={cardTitleClass}>{label}</h3>
+          <span className={mutedClass}>
+            Posted {formatDateTime(update.createdAt)}
+          </span>
+        </div>
+        <UpdateActivitySummary update={update} />
         <RichTextContent
           html={update.contentHtml}
           empty="No written content."
         />
-        <UpdateActivity update={update} />
-        <div className={fieldGridClass}>
-          <Field>
-            <FieldLabel htmlFor={`monday-mark-${update.id}`}>
-              Mark for {label}
-            </FieldLabel>
-            <Select
-              items={markSelectItems}
-              value={mark}
-              onValueChange={(value) =>
-                setMark((value ?? '') as MondayUpdateMark | '')
-              }
-            >
-              <SelectTrigger id={`monday-mark-${update.id}`} className="w-full">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectGroup>
-                  {markSelectItems.map((item) => (
-                    <SelectItem key={item.value} value={item.value}>
-                      {item.label}
-                    </SelectItem>
-                  ))}
-                </SelectGroup>
-              </SelectContent>
-            </Select>
-          </Field>
-        </div>
-        <RichTextEditor
-          id={`monday-mark-comment-${update.id}`}
-          label={`Comment for ${label}`}
-          value={comment}
-          onChange={setComment}
-        />
-        {error ? (
-          <InlineNotice tone="warning">
-            <span role="alert">{error}</span>
-          </InlineNotice>
-        ) : null}
-        {message ? (
-          <span className="sr-only" role="status">
-            {message}
-          </span>
-        ) : null}
-        <div className={rowClass}>
-          <Button
-            type="button"
-            disabled={pending || !mark}
-            onClick={() => void save()}
-          >
-            {pending ? 'Saving…' : 'Save mark'}
-          </Button>
-        </div>
+        <details className="group border-t border-border pt-3">
+          <summary className="flex cursor-pointer list-none items-center justify-between gap-3 rounded-md py-1 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring [&::-webkit-details-marker]:hidden">
+            <span className="flex items-center gap-2">
+              <span className="text-sm font-semibold">Your mark</span>
+              {ownMark ? (
+                <MarkBadge mark={ownMark.mark} />
+              ) : (
+                <span className={mutedClass}>Not marked yet</span>
+              )}
+            </span>
+            <span className="flex items-center gap-1 text-sm text-muted-foreground group-hover:text-foreground">
+              <span className="group-open:hidden">
+                {ownMark ? 'Edit mark' : 'Mark update'}
+              </span>
+              <span className="hidden group-open:inline">Hide</span>
+              <IconChevronDown
+                className="size-4 transition-transform duration-200 ease-out group-open:rotate-180"
+                aria-hidden
+              />
+            </span>
+          </summary>
+          <div className="mt-3 grid gap-4">
+            <div className={fieldGridClass}>
+              <Field>
+                <FieldLabel htmlFor={`monday-mark-${update.id}`}>
+                  Mark for {update.student.name}
+                </FieldLabel>
+                <Select
+                  items={markSelectItems}
+                  value={mark}
+                  onValueChange={(value) =>
+                    setMark((value ?? '') as MondayUpdateMark | '')
+                  }
+                >
+                  <SelectTrigger
+                    id={`monday-mark-${update.id}`}
+                    className="w-full"
+                  >
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectGroup>
+                      {markSelectItems.map((item) => (
+                        <SelectItem key={item.value} value={item.value}>
+                          <span
+                            className={`size-2 shrink-0 rounded-full ${
+                              item.value
+                                ? markTone[item.value].dot
+                                : 'border border-border-strong'
+                            }`}
+                            aria-hidden
+                          />
+                          {item.label}
+                        </SelectItem>
+                      ))}
+                    </SelectGroup>
+                  </SelectContent>
+                </Select>
+              </Field>
+            </div>
+            <RichTextEditor
+              id={`monday-mark-comment-${update.id}`}
+              label={`Comment for ${update.student.name}`}
+              value={comment}
+              onChange={setComment}
+            />
+            {error ? (
+              <InlineNotice tone="warning">
+                <span role="alert">{error}</span>
+              </InlineNotice>
+            ) : null}
+            {message ? (
+              <span className="sr-only" role="status">
+                {message}
+              </span>
+            ) : null}
+            <div className={rowClass}>
+              <Button
+                type="button"
+                disabled={pending || !mark}
+                onClick={() => void save()}
+              >
+                {pending ? 'Saving…' : 'Save mark'}
+              </Button>
+            </div>
+          </div>
+        </details>
         {otherMarks.length ? (
           <div className="grid gap-2 border-t border-border pt-4">
             <h4 className={subTitleClass}>Other mentor marks</h4>
@@ -833,7 +967,7 @@ function MentorUpdateCard({
                   <strong className="font-semibold text-foreground">
                     {record.mentor.name}
                   </strong>{' '}
-                  <Badge variant="secondary">{markLabel(record.mark)}</Badge>
+                  <MarkBadge mark={record.mark} />
                   <RichTextContent
                     html={record.commentHtml}
                     empty="No comment."
@@ -879,7 +1013,7 @@ function ReviewUpdateList({
                   <strong className="font-semibold text-foreground">
                     {record.mentor.name}
                   </strong>{' '}
-                  <Badge variant="secondary">{markLabel(record.mark)}</Badge>
+                  <MarkBadge mark={record.mark} />
                   <RichTextContent
                     html={record.commentHtml}
                     empty="No comment."
