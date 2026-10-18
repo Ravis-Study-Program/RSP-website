@@ -736,9 +736,6 @@ function MockDetails({
     Boolean(html && html.replace(/<[^>]*>/g, '').trim());
   const actions = (
     <>
-      {canReview ? (
-        <RoundReviewDialog mock={mock} onChanged={onChanged} />
-      ) : null}
       {canEditDetails ? (
         <EditMockDialog
           mock={mock}
@@ -767,9 +764,11 @@ function MockDetails({
   );
   return (
     <div className="grid gap-5">
-      <div className="flex flex-wrap items-center justify-end gap-2.5">
-        {actions}
-      </div>
+      {canEditDetails || canCorrectIdentities ? (
+        <div className="flex flex-wrap items-center justify-end gap-2.5">
+          {actions}
+        </div>
+      ) : null}
       <div className="grid grid-cols-1 gap-px overflow-hidden rounded-lg border bg-border min-[56rem]:grid-cols-3">
         <section className="grid content-start gap-2 bg-card p-4">
           <h2 className="text-sm font-semibold text-muted-foreground">
@@ -825,6 +824,11 @@ function MockDetails({
             html={mock.reviewComments}
             empty="A review has not been submitted."
           />
+          {canReview ? (
+            <div className="mt-2">
+              <RoundReviewDialog mock={mock} onChanged={onChanged} />
+            </div>
+          ) : null}
         </section>
       </div>
     </div>
