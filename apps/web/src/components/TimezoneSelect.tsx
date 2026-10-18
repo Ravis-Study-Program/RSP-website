@@ -50,9 +50,7 @@ export function TimezoneSelect({
   return (
     <Combobox
       items={options}
-      itemToStringLabel={(timezone: string) =>
-        optionLabels.get(timezone) ?? timezone
-      }
+      itemToStringLabel={(timezone: string) => timezone}
       name={name}
       value={value || null}
       onValueChange={(timezone) => {
