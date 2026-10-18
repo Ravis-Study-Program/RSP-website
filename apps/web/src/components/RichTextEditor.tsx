@@ -106,7 +106,7 @@ export function RichTextEditor({
       attributes: {
         id,
         'aria-labelledby': `${id}-label`,
-        'aria-describedby': error ? `${id}-error` : `${id}-help`,
+        ...(error ? { 'aria-describedby': `${id}-error` } : {}),
       },
     },
     onUpdate: ({ editor: activeEditor }) => onChange(activeEditor.getHTML()),
@@ -439,10 +439,6 @@ export function RichTextEditor({
           </form>
         </DialogContent>
       </Dialog>
-      <p id={`${id}-help`} className="text-sm text-muted-foreground">
-        Use the toolbar for supported formatting. Unsafe markup is removed by
-        the server.
-      </p>
       {error ? (
         <p id={`${id}-error`} className="text-sm text-destructive">
           {error}

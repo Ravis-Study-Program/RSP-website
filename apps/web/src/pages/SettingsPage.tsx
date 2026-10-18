@@ -226,9 +226,7 @@ export function SettingsPage() {
                   options={timezoneOptions}
                   value={timezone}
                   invalid={!timezoneValid}
-                  describedBy={
-                    !timezoneValid ? 'timezone-error' : 'timezone-help'
-                  }
+                  describedBy={!timezoneValid ? 'timezone-error' : undefined}
                   getOptionLabel={(zone) =>
                     zone === browserTimezone
                       ? `${zone} (browser detected)`
@@ -239,10 +237,6 @@ export function SettingsPage() {
                     setSaved(false);
                   }}
                 />
-                <FieldDescription id="timezone-help">
-                  Use an IANA timezone such as Australia/Adelaide. Stored
-                  timestamps remain UTC.
-                </FieldDescription>
                 {!timezoneValid ? (
                   <FieldError id="timezone-error">
                     Enter a valid IANA timezone.

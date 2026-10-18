@@ -8,6 +8,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import {
+  Combobox,
+  ComboboxContent,
+  ComboboxEmpty,
+  ComboboxInput,
+  ComboboxItem,
+  ComboboxList,
+} from '@/components/ui/combobox';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { useActivityFilters, filterMocks } from '@/activityFilters';
@@ -718,79 +726,110 @@ function MockDetails({
   const mock = row.original;
   const canEditDetails = mock.interviewer.id === currentUserId;
   const canReview = mock.interviewee.id === currentUserId;
-  return (
-    <div className="grid grid-cols-1 gap-6 min-[56rem]:grid-cols-2">
-      <div>
-        <h2 className="text-base font-semibold tracking-tight">
-          Rounds and scores
-        </h2>
-        <RichTextContent
-          html={mock.notes}
-          empty="No overall interview notes."
+  const scoreTone = (score: number | null) =>
+    score === null
+      ? 'text-muted-foreground'
+      : score >= 5
+        ? 'text-success'
+        : 'text-destructive';
+  const hasNotes = (html: string | null | undefined) =>
+    Boolean(html && html.replace(/<[^>]*>/g, '').trim());
+  const actions = (
+    <>
+      {canEditDetails ? (
+        <EditMockDialog
+          mock={mock}
+          people={people}
+          seasons={seasons}
+          onChanged={onChanged}
         />
-        <div className="mt-3 grid">
+      ) : null}
+      {canCorrectIdentities ? (
+        <IdentityCorrectionDialog
+          mock={mock}
+          people={people}
+          seasons={seasons}
+          onChanged={onChanged}
+        />
+      ) : null}
+      {canEditDetails ? (
+        <NamedConfirmation
+          name={mock.interviewee.name}
+          actionLabel="Delete interview"
+          description="The interview will be soft-deleted. Its immutable version history and audit record will remain."
+          onConfirm={onDelete}
+        />
+      ) : null}
+    </>
+  );
+  return (
+    <div className="grid gap-5">
+      {canEditDetails || canCorrectIdentities ? (
+        <div className="flex flex-wrap items-center justify-end gap-2.5">
+          {actions}
+        </div>
+      ) : null}
+      <div className="grid grid-cols-1 gap-px overflow-hidden rounded-lg border bg-border min-[56rem]:grid-cols-3">
+        <section className="grid content-start gap-2 bg-card p-4">
+          <h2 className="text-sm font-semibold text-muted-foreground">
+            Interviewer notes
+          </h2>
+          <RichTextContent
+            html={mock.notes}
+            empty="No overall interview notes."
+          />
+        </section>
+        <section className="grid content-start gap-3 bg-card p-4">
+          <h2 className="text-sm font-semibold text-muted-foreground">
+            Rounds and scores
+          </h2>
           {mock.rounds.map((round) => (
-            <article
-              className="py-4 first:pt-0 [&+&]:border-t [&+&]:border-border"
-              key={round.id}
-            >
-              <div className="flex items-center justify-between gap-3">
-                <strong>{round.title}</strong>
+            <article key={round.id} className="grid gap-1.5">
+              <div className="flex items-baseline justify-between gap-3">
+                <strong className="font-semibold">{round.title}</strong>
                 <span
                   className={cn(
                     'font-semibold tabular-nums',
-                    round.score !== null &&
-                      (round.score >= 5 ? 'text-success' : 'text-destructive'),
+                    scoreTone(round.score),
                   )}
                 >
                   {round.score === null ? 'Not scored' : `${round.score}/10`}
                 </span>
               </div>
-              <Badge variant="secondary" className={badgeClass}>
+              {round.score === null ? null : (
+                <div className="h-1.5 overflow-hidden rounded-full bg-muted">
+                  <div
+                    className={cn(
+                      'h-full rounded-full',
+                      round.score >= 5 ? 'bg-success' : 'bg-destructive',
+                    )}
+                    style={{ width: `${round.score * 10}%` }}
+                  />
+                </div>
+              )}
+              <span className="text-xs text-muted-foreground capitalize">
                 {round.type}
-              </Badge>
-              <RichTextContent html={round.notes} />
+              </span>
+              {hasNotes(round.notes) ? (
+                <RichTextContent html={round.notes} />
+              ) : null}
             </article>
           ))}
-        </div>
-      </div>
-      <div>
-        <h2 className="text-base font-semibold tracking-tight">
-          Interviewee review
-        </h2>
-        <RichTextContent
-          html={mock.reviewComments}
-          empty="A review has not been submitted."
-        />
-        <div className="flex flex-wrap items-center gap-2.5">
+        </section>
+        <section className="grid content-start gap-2 bg-card p-4">
+          <h2 className="text-sm font-semibold text-muted-foreground">
+            Interviewee review
+          </h2>
+          <RichTextContent
+            html={mock.reviewComments}
+            empty="A review has not been submitted."
+          />
           {canReview ? (
-            <RoundReviewDialog mock={mock} onChanged={onChanged} />
+            <div className="mt-2">
+              <RoundReviewDialog mock={mock} onChanged={onChanged} />
+            </div>
           ) : null}
-          {canEditDetails ? (
-            <EditMockDialog
-              mock={mock}
-              people={people}
-              seasons={seasons}
-              onChanged={onChanged}
-            />
-          ) : null}
-          {canCorrectIdentities ? (
-            <IdentityCorrectionDialog
-              mock={mock}
-              people={people}
-              seasons={seasons}
-              onChanged={onChanged}
-            />
-          ) : null}
-          {canEditDetails ? (
-            <NamedConfirmation
-              name={mock.interviewee.name}
-              actionLabel="Delete interview"
-              description="The interview will be soft-deleted. Its immutable version history and audit record will remain."
-              onConfirm={onDelete}
-            />
-          ) : null}
-        </div>
+        </section>
       </div>
     </div>
   );
@@ -1550,43 +1589,44 @@ function NewMockDialog({
           <Controller
             name="intervieweeId"
             control={control}
-            render={({ field }) => (
-              <Select
-                items={[
-                  { label: 'Choose an eligible participant', value: '' },
-                  ...people
-                    .filter((person) => person.id !== interviewer?.id)
-                    .map((person) => ({
-                      label: `${person.name}${person.roles.length ? ` · ${person.roles.join(', ')}` : ''}`,
-                      value: person.id,
-                    })),
-                ]}
-                name={field.name}
-                value={field.value}
-                onValueChange={(value) => field.onChange(value ?? '')}
-              >
-                <SelectTrigger id="mock-interviewee" className="w-full">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectGroup>
-                    <SelectItem value="">
-                      Choose an eligible participant
-                    </SelectItem>
-                    {people
-                      .filter((person) => person.id !== interviewer?.id)
-                      .map((person) => (
-                        <SelectItem key={person.id} value={person.id}>
-                          {person.name}
-                          {person.roles.length
-                            ? ` · ${person.roles.join(', ')}`
-                            : ''}
-                        </SelectItem>
-                      ))}
-                  </SelectGroup>
-                </SelectContent>
-              </Select>
-            )}
+            render={({ field }) => {
+              const candidates = people.filter(
+                (person) => person.id !== interviewer?.id,
+              );
+              const labels = new Map(
+                candidates.map((person) => [
+                  person.id,
+                  `${person.name}${person.roles.length ? ` · ${person.roles.join(', ')}` : ''}`,
+                ]),
+              );
+              return (
+                <Combobox
+                  items={candidates.map((person) => person.id)}
+                  itemToStringLabel={(id: string) => labels.get(id) ?? ''}
+                  name={field.name}
+                  value={field.value || null}
+                  onValueChange={(value) => field.onChange(value ?? '')}
+                >
+                  <ComboboxInput
+                    id="mock-interviewee"
+                    className="w-full"
+                    placeholder="Search eligible participants"
+                    aria-invalid={errors.intervieweeId ? true : undefined}
+                    onBlur={field.onBlur}
+                  />
+                  <ComboboxContent>
+                    <ComboboxEmpty>No matching participants.</ComboboxEmpty>
+                    <ComboboxList>
+                      {(id: string) => (
+                        <ComboboxItem key={id} value={id}>
+                          {labels.get(id)}
+                        </ComboboxItem>
+                      )}
+                    </ComboboxList>
+                  </ComboboxContent>
+                </Combobox>
+              );
+            }}
           />
           {errors.intervieweeId ? (
             <FieldError>{errors.intervieweeId.message}</FieldError>
