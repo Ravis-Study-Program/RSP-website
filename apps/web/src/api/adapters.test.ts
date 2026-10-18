@@ -4,7 +4,6 @@ import {
   adaptMockInterviewPage,
   adaptSeasonPage,
   adaptUserPage,
-  indexProblems,
 } from '@/api/adapters';
 import type {
   AttemptPage,
@@ -122,7 +121,7 @@ describe('OpenAPI DTO adapters', () => {
     });
   });
 
-  it('joins attempt DTOs to their catalog problem', () => {
+  it('labels attempts from their embedded catalogue problem', () => {
     const attempts: AttemptPage = {
       pageInfo,
       totalCount: 1,
@@ -130,6 +129,7 @@ describe('OpenAPI DTO adapters', () => {
         {
           id: 'attempt-1',
           problemId: problem.id,
+          problem,
           outcome: 'solved_with_hints',
           confidence: 3,
           minutes: 32,
@@ -138,7 +138,7 @@ describe('OpenAPI DTO adapters', () => {
         },
       ],
     };
-    expect(adaptAttemptPage(attempts, [problem]).items[0]).toMatchObject({
+    expect(adaptAttemptPage(attempts).items[0]).toMatchObject({
       problemId: problem.id,
       problem: problem.title,
       difficulty: 'Medium',
@@ -174,6 +174,7 @@ describe('OpenAPI DTO adapters', () => {
               id: 'round-1',
               type: 'leetcode',
               problemId: problem.id,
+              problem,
               content: '<p>Clear solution.</p>',
               scores: { algorithmDesign: 8, coding: 6, testing: 7 },
               reviewed: true,
@@ -186,7 +187,6 @@ describe('OpenAPI DTO adapters', () => {
     const mapped = adaptMockInterviewPage(interviews, {
       users: new Map(),
       seasons: new Map(),
-      problems: indexProblems([problem]),
     }).items[0];
 
     expect(mapped).toMatchObject({

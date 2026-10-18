@@ -93,6 +93,10 @@ func (a *API) listProblemAttempts(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
+	if err := a.attachAttemptProblems(r.Context(), items); err != nil {
+		a.writeStoreErrorResponse(w, err)
+		return
+	}
 
 	pageInfo, err := pageInfoForKeyset(
 		a.cursorSecret, binding, direction, after, items, more,
@@ -171,7 +175,12 @@ func (a *API) createProblemAttempt(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	writeJSONResponse(w, http.StatusCreated, created)
+	attempts := []practice.AttemptRecord{created}
+	if err := a.attachAttemptProblems(r.Context(), attempts); err != nil {
+		a.writeStoreErrorResponse(w, err)
+		return
+	}
+	writeJSONResponse(w, http.StatusCreated, attempts[0])
 }
 
 func (a *API) updateProblemAttempt(w http.ResponseWriter, r *http.Request) {
@@ -206,7 +215,12 @@ func (a *API) updateProblemAttempt(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	writeJSONResponse(w, http.StatusOK, updated)
+	attempts := []practice.AttemptRecord{updated}
+	if err := a.attachAttemptProblems(r.Context(), attempts); err != nil {
+		a.writeStoreErrorResponse(w, err)
+		return
+	}
+	writeJSONResponse(w, http.StatusOK, attempts[0])
 }
 
 func (a *API) deleteProblemAttempt(w http.ResponseWriter, r *http.Request) {

@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/magedmg/RSP-website/backend/internal/accounts"
+	"github.com/magedmg/RSP-website/backend/internal/practice"
 )
 
 var (
@@ -41,14 +42,16 @@ type Scores struct {
 }
 
 type Round struct {
-	ID                 string    `json:"id"`
-	Type               RoundType `json:"type"`
-	ProblemID          string    `json:"problemId,omitempty"`
-	Content            string    `json:"content,omitempty"`
-	Link               string    `json:"link,omitempty"`
-	Scores             Scores    `json:"scores"`
-	Reviewed           bool      `json:"reviewed"`
-	IntervieweeComment string    `json:"intervieweeComment"`
+	ID        string    `json:"id"`
+	Type      RoundType `json:"type"`
+	ProblemID string    `json:"problemId,omitempty"`
+	// Problem is attached for responses; it is never part of version snapshots.
+	Problem            *practice.ProblemRecord `json:"problem,omitempty"`
+	Content            string                  `json:"content,omitempty"`
+	Link               string                  `json:"link,omitempty"`
+	Scores             Scores                  `json:"scores"`
+	Reviewed           bool                    `json:"reviewed"`
+	IntervieweeComment string                  `json:"intervieweeComment"`
 }
 
 type Interview struct {

@@ -43,7 +43,6 @@ import { z } from 'zod';
 import { adaptCurrentPerson, adaptMockInterview } from '@/api/adapters';
 import { ApiError, apiRequest } from '@/api/client';
 import type {
-  LeetcodeProblem,
   MockIdentityCorrection,
   MockInterviewCreate,
   MockInterviewMutation,
@@ -54,7 +53,6 @@ import {
   demoMode,
   demoActivityWeekId,
   useCurrentUser,
-  useLeetcodeProblems,
   useMockInterviews,
   useMockParticipants,
 } from '@/api/queries';
@@ -156,7 +154,6 @@ function interviewContext(
   mock: MockInterview,
   people: Person[],
   seasons: Season[],
-  problems: LeetcodeProblem[],
 ) {
   return {
     users: new Map(
@@ -166,7 +163,6 @@ function interviewContext(
       ]),
     ),
     seasons: new Map(seasons.map((season) => [season.id, season])),
-    problems: new Map(problems.map((problem) => [problem.id, problem])),
   };
 }
 
@@ -180,7 +176,6 @@ function RoundEditor({
   round,
   index,
   total,
-  problems,
   onChange,
   onRemove,
   onMove,
@@ -188,7 +183,6 @@ function RoundEditor({
   round: MockRound;
   index: number;
   total: number;
-  problems: LeetcodeProblem[];
   onChange: (round: MockRound) => void;
   onRemove: () => void;
   onMove: (direction: -1 | 1) => void;
@@ -205,6 +199,7 @@ function RoundEditor({
             ? 'Choose a LeetCode problem'
             : 'Custom round',
       problemId: undefined,
+      catalogProblem: undefined,
       link: undefined,
       score: 5,
       scores: scoresForType(apiType),
@@ -272,13 +267,12 @@ function RoundEditor({
             </FieldLabel>
             <ProblemSelect
               id={`round-problem-${round.id}`}
-              problems={problems}
-              value={round.problemId ?? ''}
-              onChange={(problemId) => {
-                const problem = problems.find((p) => p.id === problemId);
+              value={round.catalogProblem ?? null}
+              onChange={(problem) => {
                 onChange({
                   ...round,
-                  problemId: problemId || undefined,
+                  problemId: problem?.id,
+                  catalogProblem: problem ?? undefined,
                   title: problem?.title ?? 'Choose a LeetCode problem',
                   link: problem?.link,
                 });
@@ -846,7 +840,6 @@ function EditMockDialog({
   seasons: Season[];
   onChanged: (changed?: MockInterview) => void;
 }) {
-  const problems = useLeetcodeProblems();
   const [open, setOpen] = useState(false);
   const [durationMinutes, setDurationMinutes] = useState(mock.durationMinutes);
   const [notes, setNotes] = useState(mock.notes);
@@ -905,7 +898,7 @@ function EditMockDialog({
         );
         changed = adaptMockInterview(
           result.interview,
-          interviewContext(mock, people, seasons, problems.data?.items ?? []),
+          interviewContext(mock, people, seasons),
         );
       } else {
         changed = {
@@ -975,7 +968,6 @@ function EditMockDialog({
               round={round}
               index={roundIndex}
               total={rounds.length}
-              problems={problems.data?.items ?? []}
               onChange={(changed) =>
                 setRounds((items) =>
                   items.map((item) =>
@@ -1192,7 +1184,6 @@ function IdentityCorrectionDialog({
   seasons: Season[];
   onChanged: (changed?: MockInterview) => void;
 }) {
-  const problems = useLeetcodeProblems();
   const candidates = [
     ...new Map(
       [...people, mock.interviewer, mock.interviewee].map((person) => [
@@ -1253,12 +1244,7 @@ function IdentityCorrectionDialog({
         onChanged(
           adaptMockInterview(
             result.interview,
-            interviewContext(
-              mock,
-              candidates,
-              seasons,
-              problems.data?.items ?? [],
-            ),
+            interviewContext(mock, candidates, seasons),
           ),
         );
       } else {
@@ -1408,7 +1394,6 @@ function NewMockDialog({
   seasons: Season[];
   onCreated: (mock: MockInterview) => void;
 }) {
-  const problems = useLeetcodeProblems();
   const [open, setOpen] = useState(false);
   const [recordingDay, setRecordingDay] = useState(() =>
     calendarDateKey(new Date(), programmeTimezone),
@@ -1507,12 +1492,6 @@ function NewMockDialog({
           adaptMockInterview(result.interview, {
             users: userMap,
             seasons: new Map(seasons.map((season) => [season.id, season])),
-            problems: new Map(
-              (problems.data?.items ?? []).map((problem) => [
-                problem.id,
-                problem,
-              ]),
-            ),
           }),
         );
       } else {
@@ -1674,7 +1653,6 @@ function NewMockDialog({
               round={round}
               index={roundIndex}
               total={rounds.length}
-              problems={problems.data?.items ?? []}
               onChange={updateRound}
               onRemove={() => {
                 setRoundsDirty(true);

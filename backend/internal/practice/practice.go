@@ -42,15 +42,17 @@ type ProblemRecord struct {
 
 // AttemptRecord is the persisted and HTTP-facing attempt representation.
 type AttemptRecord struct {
-	ID          string     `json:"id"`
-	UserID      string     `json:"-"`
-	ProblemID   string     `json:"problemId"`
-	Outcome     string     `json:"outcome"`
-	Confidence  *int       `json:"confidence,omitempty"`
-	Minutes     int        `json:"minutes"`
-	Notes       string     `json:"notes"`
-	AttemptedAt time.Time  `json:"attemptedAt"`
-	SeasonID    *string    `json:"seasonId,omitempty"`
-	WeekID      *string    `json:"weekId,omitempty"`
-	DeletedAt   *time.Time `json:"-"`
+	ID        string `json:"id"`
+	UserID    string `json:"-"`
+	ProblemID string `json:"problemId"`
+	// Problem is attached for responses; it is not persisted with the attempt.
+	Problem     *ProblemRecord `json:"problem,omitempty"`
+	Outcome     string         `json:"outcome"`
+	Confidence  *int           `json:"confidence,omitempty"`
+	Minutes     int            `json:"minutes"`
+	Notes       string         `json:"notes"`
+	AttemptedAt time.Time      `json:"attemptedAt"`
+	SeasonID    *string        `json:"seasonId,omitempty"`
+	WeekID      *string        `json:"weekId,omitempty"`
+	DeletedAt   *time.Time     `json:"-"`
 }

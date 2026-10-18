@@ -1,15 +1,18 @@
 import { Combobox } from '@base-ui/react/combobox';
-import type { Ref } from 'react';
+import { useEffect, useState, type Ref } from 'react';
 import type { LeetcodeProblem } from '@/api/generated/models';
 import { displayDifficulty } from '@/api/adapters';
+import { useProblemSearch } from '@/api/queries';
+
+const searchDelayMs = 250;
 
 const label = (problem: LeetcodeProblem) =>
   `${problem.number}. ${problem.title} · ${displayDifficulty(problem.difficulty)}`;
 
+/** Picks a catalogue problem by searching the API as the user types. */
 export function ProblemSelect({
   id,
   name,
-  problems,
   value,
   onChange,
   onBlur,
@@ -20,30 +23,55 @@ export function ProblemSelect({
 }: {
   id: string;
   name?: string;
-  problems: LeetcodeProblem[];
-  value: string;
-  onChange: (id: string) => void;
+  value: LeetcodeProblem | null;
+  onChange: (problem: LeetcodeProblem | null) => void;
   onBlur?: () => void;
   inputRef?: Ref<HTMLInputElement>;
   disabled?: boolean;
   invalid?: boolean;
   describedBy?: string;
 }) {
+  const [input, setInput] = useState('');
+  const [query, setQuery] = useState('');
+  useEffect(() => {
+    const timer = window.setTimeout(
+      () => setQuery(input.trim()),
+      searchDelayMs,
+    );
+    return () => window.clearTimeout(timer);
+  }, [input]);
+  const search = useProblemSearch(query);
+  const results = query ? (search.data ?? []) : [];
+  const items =
+    value && !results.some((problem) => problem.id === value.id)
+      ? [value, ...results]
+      : results;
+  const pending = input.trim() !== query || search.isFetching;
+  const emptyMessage = !input.trim()
+    ? 'Type a question number or title.'
+    : pending
+      ? 'Searching…'
+      : search.isError
+        ? 'Questions could not be loaded.'
+        : 'No matching questions.';
+
   return (
     <Combobox.Root
-      items={problems}
-      value={problems.find((p) => p.id === value) ?? null}
+      items={items}
+      filter={null}
+      value={value}
       name={name}
       disabled={disabled}
       itemToStringLabel={label}
       itemToStringValue={(p) => p.id}
       isItemEqualToValue={(a, b) => a.id === b.id}
-      limit={50}
       autoHighlight
-      onInputValueChange={(_, details) => {
-        if (details.reason === 'input-change') onChange('');
+      onInputValueChange={(next, details) => {
+        if (details.reason !== 'input-change') return;
+        setInput(next);
+        if (value) onChange(null);
       }}
-      onValueChange={(problem) => onChange(problem?.id ?? '')}
+      onValueChange={(problem) => onChange(problem ?? null)}
     >
       <Combobox.Input
         id={id}
@@ -61,7 +89,7 @@ export function ProblemSelect({
         >
           <Combobox.Popup className="rounded-lg border border-border bg-popover text-popover-foreground shadow-md outline-none">
             <Combobox.Empty className="m-0 px-2.5 py-2 text-sm text-muted-foreground">
-              No matching questions.
+              {emptyMessage}
             </Combobox.Empty>
             <Combobox.List className="max-h-[min(18.75rem,var(--available-height))] overflow-auto p-1">
               {(problem: LeetcodeProblem) => (

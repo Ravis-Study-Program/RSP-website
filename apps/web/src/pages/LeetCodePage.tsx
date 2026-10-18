@@ -23,19 +23,14 @@ import { Controller, useForm } from 'react-hook-form';
 import { useBeforeUnload } from 'react-router-dom';
 import { z } from 'zod';
 
-import { adaptAttempt, displayDifficulty, indexProblems } from '@/api/adapters';
+import { adaptAttempt, displayDifficulty } from '@/api/adapters';
 import { ApiError, apiRequest } from '@/api/client';
 import type {
   Attempt as ApiAttempt,
   AttemptMutation,
   LeetcodeProblem,
 } from '@/api/generated/models';
-import {
-  demoMode,
-  demoActivityWeekId,
-  useAttempts,
-  useLeetcodeProblems,
-} from '@/api/queries';
+import { demoMode, demoActivityWeekId, useAttempts } from '@/api/queries';
 import { PracticeAnalytics } from '@/components/PracticeAnalytics';
 import { AppDatePicker } from '@/components/AppDatePicker';
 import { PageHeader, usePageTitle } from '@/components/Common';
@@ -194,7 +189,6 @@ export function LeetCodePage() {
     season?.id,
     filters,
   );
-  const problemsQuery = useLeetcodeProblems();
   const [localAttempts, setLocalAttempts] = useState<Attempt[]>([]);
   const [updatedAttempts, setUpdatedAttempts] = useState<
     Record<string, Attempt>
@@ -290,8 +284,6 @@ export function LeetCodePage() {
           </Button>
           <AttemptDialog
             attempt={row.original}
-            problems={problemsQuery.data?.items ?? []}
-            loading={problemsQuery.isLoading}
             onConflict={() => {
               setOperationMessage(
                 'That attempt changed elsewhere. Its latest version has been loaded.',
@@ -334,8 +326,6 @@ export function LeetCodePage() {
         description="Record what happened, not just whether a problem was completed. Track outcomes, confidence and time across your practice history."
         actions={
           <AttemptDialog
-            problems={problemsQuery.data?.items ?? []}
-            loading={problemsQuery.isLoading}
             onSaved={(attempt) => {
               setLocalAttempts((current) => [attempt, ...current]);
               setOperationMessage(`${attempt.problem} was added.`);
@@ -446,8 +436,6 @@ export function LeetCodePage() {
               <div className="flex flex-wrap items-center gap-2.5">
                 <AttemptDialog
                   attempt={row.original}
-                  problems={problemsQuery.data?.items ?? []}
-                  loading={problemsQuery.isLoading}
                   onConflict={() => {
                     setOperationMessage(
                       'That attempt changed elsewhere. Its latest version has been loaded.',
@@ -482,20 +470,18 @@ const outcomeItems: {
 
 function AttemptDialog({
   attempt,
-  problems,
-  loading,
   onSaved,
   onConflict,
 }: {
   attempt?: Attempt;
-  problems: LeetcodeProblem[];
-  loading: boolean;
   onSaved: (attempt: Attempt) => void;
   onConflict?: () => Promise<unknown> | void;
 }) {
   const [open, setOpen] = useState(false);
   const [announcement, setAnnouncement] = useState('');
   const [requestError, setRequestError] = useState('');
+  const [selectedProblem, setSelectedProblem] =
+    useState<LeetcodeProblem | null>(attempt?.catalogProblem ?? null);
   const {
     register,
     control,
@@ -518,11 +504,12 @@ function AttemptDialog({
     const attemptedAt = zonedDateTimeToUtc(`${values.attemptedAt}T12:00`);
     const confidence =
       values.confidence === '' ? null : Number(values.confidence);
-    const problem = problems.find((item) => item.id === values.problemId);
-    if (!problem) return;
+    const problem = selectedProblem;
+    if (!problem || problem.id !== values.problemId) return;
     const saved: Attempt = {
       id: attempt?.id ?? `attempt_local_${Date.now()}`,
       problemId: values.problemId,
+      catalogProblem: problem,
       problem: problem.title,
       problemUrl: problem.link,
       difficulty: displayDifficulty(problem.difficulty),
@@ -550,11 +537,12 @@ function AttemptDialog({
             body: JSON.stringify(mutation),
           },
         );
-        onSaved(adaptAttempt(apiSaved, indexProblems(problems)));
+        onSaved(adaptAttempt(apiSaved));
       } catch (error) {
         if (error instanceof ApiError && error.status === 409) {
           await onConflict?.();
           reset();
+          setSelectedProblem(attempt?.catalogProblem ?? null);
           setRequestError(
             'This attempt changed elsewhere. Its latest version has been fetched; close and reopen the editor before trying again.',
           );
@@ -578,13 +566,9 @@ function AttemptDialog({
   const requestOpenChange = (next: boolean) => {
     if (!next && isDirty && !window.confirm('Discard your unsaved attempt?'))
       return;
-    if (next) {
-      reset(attemptFormValues(attempt));
-      setRequestError('');
-    } else {
-      reset(attemptFormValues(attempt));
-      setRequestError('');
-    }
+    reset(attemptFormValues(attempt));
+    setSelectedProblem(attempt?.catalogProblem ?? null);
+    setRequestError('');
     setOpen(next);
   };
 
@@ -622,12 +606,13 @@ function AttemptDialog({
                 <ProblemSelect
                   id="attempt-problem"
                   name={field.name}
-                  problems={problems}
-                  value={field.value}
-                  onChange={field.onChange}
+                  value={selectedProblem}
+                  onChange={(problem) => {
+                    setSelectedProblem(problem);
+                    field.onChange(problem?.id ?? '');
+                  }}
                   onBlur={field.onBlur}
                   inputRef={field.ref}
-                  disabled={loading || problems.length === 0}
                   invalid={Boolean(errors.problemId)}
                   describedBy={
                     errors.problemId ? 'attempt-problem-error' : undefined

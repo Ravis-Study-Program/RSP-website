@@ -23,4 +23,9 @@ export type ListLeetcodeProblemsParams = {
   difficulty?: Difficulty;
   category?: string;
   premium?: boolean;
+  /**
+   * Case-insensitive title match or exact LeetCode number.
+   * @maxLength 100
+   */
+  q?: string;
 };

@@ -28,6 +28,8 @@ test('practice charts follow filters and the picker accepts keyboard search', as
   await page.getByLabel('Search problem attempts').clear();
   await page.getByRole('button', { name: 'Log attempt' }).first().click();
   await page.getByRole('combobox', { name: 'Problem' }).fill('Two Sum');
+  // Results load from the API as the user types.
+  await expect(page.getByRole('option', { name: /Two Sum/ })).toBeVisible();
   await page.getByRole('combobox', { name: 'Problem' }).press('ArrowDown');
   await page.getByRole('combobox', { name: 'Problem' }).press('Enter');
   await expect(page.getByRole('combobox', { name: 'Problem' })).toHaveValue(
@@ -66,6 +68,10 @@ test('suggesting a question leaves practice counts unchanged', async ({
 }, testInfo) => {
   await page.goto('/leetcode');
   const count = page.getByText(/\d+ recorded$/);
+  // Capture the count only after the attempt history has loaded.
+  await expect(
+    page.getByRole('button', { name: 'Edit', exact: true }).first(),
+  ).toBeVisible();
   await expect(count).toBeVisible();
   await expect(
     page.getByRole('button', { name: 'Suggest a question' }),
