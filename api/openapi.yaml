@@ -1112,6 +1112,12 @@ paths:
           },
           { name: category, in: query, schema: { type: string } },
           { name: premium, in: query, schema: { type: boolean } },
+          {
+            name: q,
+            in: query,
+            description: Case-insensitive title match or exact LeetCode number.,
+            schema: { type: string, maxLength: 100 },
+          },
         ]
       responses:
         default: { $ref: '#/components/responses/Error' }
@@ -1125,6 +1131,24 @@ paths:
               },
           }
         '400': { $ref: '#/components/responses/Error' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+  /leetcode-categories:
+    get:
+      operationId: listLeetcodeCategories
+      description: Lists category names used by live catalogue problems.
+      responses:
+        default: { $ref: '#/components/responses/Error' }
+        '200':
+          {
+            description: Category names,
+            content:
+              {
+                application/json:
+                  { schema: { $ref: '#/components/schemas/CategoryList' } },
+              },
+          }
         '401': { $ref: '#/components/responses/Error' }
         '403': { $ref: '#/components/responses/Error' }
         '429': { $ref: '#/components/responses/RateLimited' }
@@ -2645,6 +2669,10 @@ components:
           categories: { type: array, items: { type: string } },
           premium: { type: boolean },
         }
+    CategoryList:
+      type: object
+      required: [items]
+      properties: { items: { type: array, items: { type: string } } }
     ProblemPage:
       {
         allOf:
@@ -2672,6 +2700,7 @@ components:
         {
           id: { type: string },
           problemId: { type: string },
+          problem: { $ref: '#/components/schemas/LeetcodeProblem' },
           outcome: { $ref: '#/components/schemas/AttemptOutcome' },
           confidence: { type: integer, minimum: 1, maximum: 5, nullable: true },
           minutes: { type: integer, minimum: 1 },
@@ -2736,6 +2765,7 @@ components:
           id: { type: string },
           type: { type: string, enum: [behavioural, leetcode, custom] },
           problemId: { type: string },
+          problem: { $ref: '#/components/schemas/LeetcodeProblem' },
           content: { type: string },
           link: { type: string },
           scores: { $ref: '#/components/schemas/Scores' },

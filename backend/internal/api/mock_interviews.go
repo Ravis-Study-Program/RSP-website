@@ -224,6 +224,10 @@ func (a *API) listMockInterviews(w http.ResponseWriter, r *http.Request) {
 	for index := range items {
 		items[index] = withMockParticipantSummaries(items[index], summaries)
 	}
+	if err := a.attachRoundProblems(r.Context(), items); err != nil {
+		a.writeStoreErrorResponse(w, err)
+		return
+	}
 	pageInfo, err := pageInfoForKeyset(
 		a.cursorSecret, binding, direction, boundary, items, more,
 		func(storedInterview mockinterviews.Interview) string { return storedInterview.ID },
@@ -308,14 +312,7 @@ func (a *API) createMockInterview(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	summaries, err := a.db.ListMockParticipantSummaries(r.Context(), []string{storedInterview.InterviewerID, storedInterview.IntervieweeID})
-	if err != nil {
-		a.writeStoreErrorResponse(w, err)
-		return
-	}
-	interview := withMockParticipantSummaries(storedInterview, summaries)
-	response := buildMockInterviewResponse(interview)
-	writeJSONResponse(w, http.StatusCreated, response)
+	a.writeMockInterviewResult(w, r, http.StatusCreated, storedInterview)
 }
 
 type updateMockInterviewRequest struct {
@@ -374,14 +371,7 @@ func (a *API) updateMockInterview(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	summaries, err := a.db.ListMockParticipantSummaries(r.Context(), []string{storedInterview.InterviewerID, storedInterview.IntervieweeID})
-	if err != nil {
-		a.writeStoreErrorResponse(w, err)
-		return
-	}
-	interview := withMockParticipantSummaries(storedInterview, summaries)
-	response := buildMockInterviewResponse(interview)
-	writeJSONResponse(w, http.StatusOK, response)
+	a.writeMockInterviewResult(w, r, http.StatusOK, storedInterview)
 }
 
 func (a *API) deleteMockInterview(w http.ResponseWriter, r *http.Request) {
@@ -468,14 +458,7 @@ func (a *API) reviewMockInterviewRound(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	summaries, err := a.db.ListMockParticipantSummaries(r.Context(), []string{storedInterview.InterviewerID, storedInterview.IntervieweeID})
-	if err != nil {
-		a.writeStoreErrorResponse(w, err)
-		return
-	}
-	interview := withMockParticipantSummaries(storedInterview, summaries)
-	response := buildMockInterviewResponse(interview)
-	writeJSONResponse(w, http.StatusOK, response)
+	a.writeMockInterviewResult(w, r, http.StatusOK, storedInterview)
 }
 
 type correctMockInterviewIdentitiesRequest struct {
@@ -534,14 +517,7 @@ func (a *API) correctMockInterviewIdentities(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	summaries, err := a.db.ListMockParticipantSummaries(r.Context(), []string{storedInterview.InterviewerID, storedInterview.IntervieweeID})
-	if err != nil {
-		a.writeStoreErrorResponse(w, err)
-		return
-	}
-	interview := withMockParticipantSummaries(storedInterview, summaries)
-	response := buildMockInterviewResponse(interview)
-	writeJSONResponse(w, http.StatusOK, response)
+	a.writeMockInterviewResult(w, r, http.StatusOK, storedInterview)
 }
 
 func (a *API) writeMockErrorResponse(w http.ResponseWriter, err error) {
@@ -563,6 +539,22 @@ type mockInterviewResponse struct {
 
 func buildMockInterviewResponse(interview mockinterviews.Interview) mockInterviewResponse {
 	return mockInterviewResponse{Interview: interview, Passed: mockinterviews.Passed(interview)}
+}
+
+// writeMockInterviewResult adds participant summaries and round problems to a
+// stored interview before writing it.
+func (a *API) writeMockInterviewResult(w http.ResponseWriter, r *http.Request, status int, storedInterview mockinterviews.Interview) {
+	summaries, err := a.db.ListMockParticipantSummaries(r.Context(), []string{storedInterview.InterviewerID, storedInterview.IntervieweeID})
+	if err != nil {
+		a.writeStoreErrorResponse(w, err)
+		return
+	}
+	interviews := []mockinterviews.Interview{withMockParticipantSummaries(storedInterview, summaries)}
+	if err := a.attachRoundProblems(r.Context(), interviews); err != nil {
+		a.writeStoreErrorResponse(w, err)
+		return
+	}
+	writeJSONResponse(w, status, buildMockInterviewResponse(interviews[0]))
 }
 
 func withMockParticipantSummaries(interview mockinterviews.Interview, summaries map[string]mockinterviews.ParticipantSummary) mockinterviews.Interview {

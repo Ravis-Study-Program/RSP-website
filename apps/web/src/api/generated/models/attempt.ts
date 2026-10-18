@@ -6,6 +6,7 @@
  * OpenAPI spec version: 2.0.0
  */
 import type { AttemptOutcome } from './attemptOutcome';
+import type { LeetcodeProblem } from './leetcodeProblem';
 
 /**
  * Season and week are calculated from attemptedAt and the student participation history using current season dates.
@@ -13,6 +14,7 @@ import type { AttemptOutcome } from './attemptOutcome';
 export interface Attempt {
   id: string;
   problemId: string;
+  problem?: LeetcodeProblem;
   outcome: AttemptOutcome;
   /**
    * @minimum 1

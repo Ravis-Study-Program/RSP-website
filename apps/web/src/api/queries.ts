@@ -15,13 +15,13 @@ import {
   adaptPerson,
   adaptSeasonPage,
   adaptUserPage,
-  indexProblems,
 } from '@/api/adapters';
 import { ApiError, apiRequest } from '@/api/client';
 import { demoModeForEnvironment } from '@/api/demoMode';
 import type {
   ActivitySummary,
   AttemptPage as ApiAttemptPage,
+  CategoryList,
   Enrollment,
   EnrollmentCandidate,
   EnrollmentCandidatePage,
@@ -202,27 +202,84 @@ function demoAuthenticationError() {
 }
 
 const demoProblems: LeetcodeProblem[] = [
-  ...attempts.map((attempt, index) => ({
-    id: attempt.problemId,
-    number: index + 1,
-    title: attempt.problem,
-    link: `https://leetcode.com/problemset/?search=${encodeURIComponent(attempt.problem)}`,
-    difficulty: (
-      attempt.difficulty ?? 'Medium'
-    ).toLowerCase() as LeetcodeProblem['difficulty'],
-    categories: attempt.category ? [attempt.category] : [],
-    premium: false,
-  })),
-];
+  ...new Map(
+    attempts.map((attempt) => [
+      attempt.problemId,
+      {
+        id: attempt.problemId,
+        number: 0,
+        title: attempt.problem,
+        link: `https://leetcode.com/problemset/?search=${encodeURIComponent(attempt.problem)}`,
+        difficulty: (
+          attempt.difficulty ?? 'Medium'
+        ).toLowerCase() as LeetcodeProblem['difficulty'],
+        categories: attempt.category ? [attempt.category] : [],
+        premium: false,
+      },
+    ]),
+  ).values(),
+].map((problem, index) => ({ ...problem, number: index + 1 }));
+const demoProblemById = new Map(
+  demoProblems.map((problem) => [problem.id, problem]),
+);
 
-async function getProblems(): Promise<ProblemPage> {
-  const result = await fetchAllPages<LeetcodeProblem>(
-    '/leetcode-problems?limit=100',
+const problemSearchLimit = 20;
+
+/** Demo stand-in for /me/problem-suggestion over the complete demo history. */
+export function suggestDemoProblem(
+  filters: Pick<ActivityFilters, 'difficulties' | 'categories'>,
+): LeetcodeProblem | null {
+  const attempted = new Set(attempts.map((attempt) => attempt.problemId));
+  const candidates = demoProblems.filter(
+    (problem) =>
+      !attempted.has(problem.id) &&
+      (!filters.difficulties.length ||
+        filters.difficulties.includes(problem.difficulty)) &&
+      (!filters.categories.length ||
+        problem.categories.some((c) => filters.categories.includes(c))),
   );
-  return {
-    ...result,
-    items: [...result.items].sort((left, right) => left.number - right.number),
-  };
+  return candidates[Math.floor(Math.random() * candidates.length)] ?? null;
+}
+
+/** Searches the catalogue by title or exact number; never loads it whole. */
+export function useProblemSearch(query: string) {
+  const q = query.trim();
+  return useQuery({
+    queryKey: ['leetcode-problems', 'search', q],
+    enabled: q.length > 0,
+    staleTime: 5 * 60_000,
+    queryFn: async (): Promise<LeetcodeProblem[]> => {
+      if (demoMode) {
+        const needle = q.toLowerCase();
+        return wait(
+          demoProblems
+            .filter(
+              (problem) =>
+                String(problem.number) === needle ||
+                problem.title.toLowerCase().includes(needle),
+            )
+            .slice(0, problemSearchLimit),
+        );
+      }
+      const result = await apiRequest<ProblemPage>(
+        `/leetcode-problems?limit=${problemSearchLimit}&q=${encodeURIComponent(q)}`,
+      );
+      return [...result.items].sort(
+        (left, right) => left.number - right.number,
+      );
+    },
+  });
+}
+
+export function useLeetcodeCategories() {
+  return useQuery({
+    queryKey: ['leetcode-categories'],
+    staleTime: 30 * 60_000,
+    queryFn: async (): Promise<string[]> =>
+      demoMode
+        ? wait([...new Set(demoProblems.flatMap((p) => p.categories))].sort())
+        : (await apiRequest<CategoryList>('/leetcode-categories')).items,
+  });
 }
 
 async function getUsers(): Promise<ApiUserPage> {
@@ -645,17 +702,16 @@ export function useAttempts(
               })
               .map((item) => ({
                 ...item,
+                catalogProblem: demoProblemById.get(item.problemId),
                 weekId: demoActivityWeekId(seasonId, item.attemptedAt),
               })),
           ),
         );
-      const [attemptPage, problemPage] = await Promise.all([
-        fetchAllPages<ApiAttemptPage['items'][number]>(
+      const adapted = adaptAttemptPage(
+        await fetchAllPages<ApiAttemptPage['items'][number]>(
           `/problem-attempts?limit=100${seasonId ? `&seasonId=${encodeURIComponent(seasonId)}` : ''}${activityFilterQuery(filters)}`,
         ),
-        getProblems(),
-      ]);
-      const adapted = adaptAttemptPage(attemptPage, problemPage.items);
+      );
       return {
         ...adapted,
         items: [...adapted.items].sort((left, right) =>
@@ -663,14 +719,6 @@ export function useAttempts(
         ),
       };
     },
-  });
-}
-
-export function useLeetcodeProblems() {
-  return useQuery({
-    queryKey: ['leetcode-problems'],
-    queryFn: () => (demoMode ? wait(page(demoProblems)) : getProblems()),
-    staleTime: 5 * 60_000,
   });
 }
 
@@ -778,17 +826,16 @@ export function useUserAttempts(
               })
               .map((attempt) => ({
                 ...attempt,
+                catalogProblem: demoProblemById.get(attempt.problemId),
                 weekId: demoActivityWeekId(seasonId, attempt.attemptedAt),
               })),
           ),
         );
-      const [attemptPage, problemPage] = await Promise.all([
-        fetchAllPages<ApiAttemptPage['items'][number]>(
+      const adapted = adaptAttemptPage(
+        await fetchAllPages<ApiAttemptPage['items'][number]>(
           `/problem-attempts?limit=100&userId=${encodeURIComponent(userId)}${seasonId ? `&seasonId=${encodeURIComponent(seasonId)}` : ''}${activityFilterQuery(filters)}`,
         ),
-        getProblems(),
-      ]);
-      const adapted = adaptAttemptPage(attemptPage, problemPage.items);
+      );
       return {
         ...adapted,
         items: [...adapted.items].sort((left, right) =>
@@ -933,22 +980,26 @@ export function useMockInterviews(
               })
               .map((item) => ({
                 ...item,
+                rounds: item.rounds.map((round) => ({
+                  ...round,
+                  catalogProblem: round.problemId
+                    ? demoProblemById.get(round.problemId)
+                    : undefined,
+                })),
                 weekId: demoActivityWeekId(seasonId, item.occurredAt),
               })),
           ),
         );
-      const [interviewPage, seasonPage, problemPage] = await Promise.all([
+      const [interviewPage, seasonPage] = await Promise.all([
         fetchAllPages<ApiMockInterviewPage['items'][number]>(
           `/mock-interviews?limit=100&mode=all${userId ? `&userId=${encodeURIComponent(userId)}` : ''}${seasonId ? `&seasonId=${encodeURIComponent(seasonId)}` : ''}${activityFilterQuery(filters)}`,
         ),
         fetchAllPages<ApiSeasonPage['items'][number]>('/seasons?limit=100'),
-        getProblems(),
       ]);
       const adaptedSeasons = adaptSeasonPage(seasonPage).items;
       const adapted = adaptMockInterviewPage(interviewPage, {
         users: new Map(),
         seasons: new Map(adaptedSeasons.map((season) => [season.id, season])),
-        problems: indexProblems(problemPage.items),
       });
       return {
         ...adapted,

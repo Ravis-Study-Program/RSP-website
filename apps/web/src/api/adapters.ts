@@ -203,20 +203,12 @@ export function displayDifficulty(
   return value === 'easy' ? 'Easy' : value === 'medium' ? 'Medium' : 'Hard';
 }
 
-export function indexProblems(
-  problems: LeetcodeProblem[],
-): Map<string, LeetcodeProblem> {
-  return new Map(problems.map((problem) => [problem.id, problem]));
-}
-
-export function adaptAttempt(
-  attempt: ApiAttempt,
-  problems: ReadonlyMap<string, LeetcodeProblem>,
-): Attempt {
-  const problem = problems.get(attempt.problemId);
+export function adaptAttempt(attempt: ApiAttempt): Attempt {
+  const problem = attempt.problem;
   return {
     id: attempt.id,
     problemId: attempt.problemId,
+    catalogProblem: problem,
     problem: problem?.title ?? `Problem ${attempt.problemId}`,
     problemUrl: problem?.link,
     difficulty: problem ? displayDifficulty(problem.difficulty) : null,
@@ -232,12 +224,8 @@ export function adaptAttempt(
   };
 }
 
-export function adaptAttemptPage(
-  source: ApiAttemptPage,
-  problems: LeetcodeProblem[],
-): Page<Attempt> {
-  const problemIndex = indexProblems(problems);
-  return adaptPage(source, (attempt) => adaptAttempt(attempt, problemIndex));
+export function adaptAttemptPage(source: ApiAttemptPage): Page<Attempt> {
+  return adaptPage(source, adaptAttempt);
 }
 
 function scoresForRound(round: ApiMockRound): Record<string, number> {
@@ -248,18 +236,16 @@ function scoresForRound(round: ApiMockRound): Record<string, number> {
   );
 }
 
-export function adaptMockRound(
-  round: ApiMockRound,
-  problems: ReadonlyMap<string, LeetcodeProblem>,
-): MockRound {
+export function adaptMockRound(round: ApiMockRound): MockRound {
   const scores = scoresForRound(round);
   const values = Object.values(scores);
-  const problem = round.problemId ? problems.get(round.problemId) : undefined;
+  const problem = round.problem;
   return {
     id: round.id,
     type: round.type === 'behavioural' ? 'behavioural' : 'technical',
     apiType: round.type,
     ...(round.problemId ? { problemId: round.problemId } : {}),
+    ...(problem ? { catalogProblem: problem } : {}),
     ...(round.link ? { link: round.link } : {}),
     title:
       problem?.title ??
@@ -279,7 +265,6 @@ export function adaptMockRound(
 export interface MockInterviewContext {
   users: ReadonlyMap<string, Person>;
   seasons: ReadonlyMap<string, Season>;
-  problems: ReadonlyMap<string, LeetcodeProblem>;
 }
 
 export function adaptMockInterview(
@@ -305,9 +290,7 @@ export function adaptMockInterview(
     occurredAt: interview.occurredAt,
     durationMinutes: interview.durationMinutes,
     notes: interview.notes,
-    rounds: interview.rounds.map((round) =>
-      adaptMockRound(round, context.problems),
-    ),
+    rounds: interview.rounds.map(adaptMockRound),
     reviewStatus: interview.rounds.every((round) => round.reviewed)
       ? 'reviewed'
       : 'pending',

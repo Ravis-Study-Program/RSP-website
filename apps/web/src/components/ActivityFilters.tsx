@@ -17,7 +17,7 @@ import {
 } from '@/components/ui/select';
 import { IconChevronDown } from '@tabler/icons-react';
 import { useState } from 'react';
-import { useLeetcodeProblems, useSeasonWeeks } from '@/api/queries';
+import { useLeetcodeCategories, useSeasonWeeks } from '@/api/queries';
 import { emptyActivityFilters, type ActivityFilters } from '@/activityFilters';
 import type { Person } from '@/types';
 
@@ -107,10 +107,8 @@ export function PracticeFilters({
   filters: ActivityFilters;
   onChange: (change: Partial<ActivityFilters>) => void;
 }) {
-  const problems = useLeetcodeProblems();
-  const categories = [
-    ...new Set((problems.data?.items ?? []).flatMap((p) => p.categories)),
-  ].sort();
+  const categoriesQuery = useLeetcodeCategories();
+  const categories = categoriesQuery.data ?? [];
   return (
     <div
       className="my-3 flex flex-wrap items-end gap-3"
@@ -147,7 +145,7 @@ export function PracticeFilters({
       >
         Clear practice filters
       </Button>
-      {problems.isError ? (
+      {categoriesQuery.isError ? (
         <p role="alert">Some filter choices could not be loaded.</p>
       ) : null}
     </div>

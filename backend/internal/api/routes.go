@@ -81,6 +81,7 @@ func registerPracticeRoutes(mux *http.ServeMux, a *API) {
 	mux.HandleFunc("GET /api/v2/users/{id}/practice-settings", a.protected(ratelimit.Read, a.getUserPracticeSettings))
 	mux.HandleFunc("GET /api/v2/me/problem-suggestion", a.protected(ratelimit.Read, a.suggestProblem))
 	mux.HandleFunc("GET /api/v2/leetcode-problems", a.protected(ratelimit.Read, a.listLeetCodeProblems))
+	mux.HandleFunc("GET /api/v2/leetcode-categories", a.protected(ratelimit.Read, a.listLeetCodeCategories))
 	mux.HandleFunc("GET /api/v2/problem-attempts", a.protected(ratelimit.Read, a.listProblemAttempts))
 	mux.HandleFunc("POST /api/v2/problem-attempts", a.protected(ratelimit.Write, a.createProblemAttempt))
 	mux.HandleFunc("PATCH /api/v2/problem-attempts/{id}", a.protected(ratelimit.Write, a.updateProblemAttempt))

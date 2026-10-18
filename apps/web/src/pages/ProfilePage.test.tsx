@@ -27,7 +27,7 @@ vi.mock('@/api/queries', () => ({
   useSeasons: vi.fn(),
   useUserAttempts: vi.fn(),
   useUserProfile: vi.fn(),
-  useLeetcodeProblems: vi.fn(() => ({ data: { items: [] }, isError: false })),
+  useLeetcodeCategories: vi.fn(() => ({ data: [], isError: false })),
   useSeasonWeeks: vi.fn(() => ({ data: { items: [] }, isError: false })),
   useActivitySummary: vi.fn(() => ({
     data: {

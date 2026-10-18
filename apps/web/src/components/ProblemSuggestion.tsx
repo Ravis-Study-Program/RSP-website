@@ -1,7 +1,7 @@
 import { Button } from '@/components/ui/button';
 import { useState } from 'react';
 import { ApiError, apiRequest } from '@/api/client';
-import { demoMode, useAttempts, useLeetcodeProblems } from '@/api/queries';
+import { demoMode, suggestDemoProblem } from '@/api/queries';
 import type { LeetcodeProblem } from '@/api/generated/models';
 import {
   activityFilterQuery,
@@ -10,8 +10,6 @@ import {
 } from '@/activityFilters';
 
 export function ProblemSuggestion({ filters }: { filters: ActivityFilters }) {
-  const catalog = useLeetcodeProblems();
-  const history = useAttempts(demoMode);
   const [suggestion, setSuggestion] = useState<LeetcodeProblem | null>();
   const [pending, setPending] = useState(false);
   const [error, setError] = useState('');
@@ -21,18 +19,7 @@ export function ProblemSuggestion({ filters }: { filters: ActivityFilters }) {
     setSuggestion(undefined);
     try {
       if (demoMode) {
-        const attempted = new Set(history.data?.items.map((a) => a.problemId));
-        const candidates = (catalog.data?.items ?? []).filter(
-          (p) =>
-            !attempted.has(p.id) &&
-            (!filters.difficulties.length ||
-              filters.difficulties.includes(p.difficulty)) &&
-            (!filters.categories.length ||
-              p.categories.some((c) => filters.categories.includes(c))),
-        );
-        setSuggestion(
-          candidates[Math.floor(Math.random() * candidates.length)] ?? null,
-        );
+        setSuggestion(suggestDemoProblem(filters));
       } else {
         const query = activityFilterQuery({
           ...emptyActivityFilters,
@@ -59,9 +46,7 @@ export function ProblemSuggestion({ filters }: { filters: ActivityFilters }) {
       <Button
         variant="outline"
         type="button"
-        disabled={
-          pending || (demoMode && (catalog.isLoading || history.isLoading))
-        }
+        disabled={pending}
         onClick={() => void suggest()}
       >
         {pending ? 'Finding a question…' : 'Suggest a question'}

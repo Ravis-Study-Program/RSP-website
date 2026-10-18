@@ -35,6 +35,7 @@ type ProblemQuery struct {
 	Difficulty string
 	Category   string
 	Premium    *bool
+	Search     string
 	Direction  string
 }
 
@@ -46,11 +47,14 @@ func (p *Store) ListProblems(ctx context.Context, q ProblemQuery) ([]practice.Pr
 			WHERE fm.leetcode_problem_id = l.id AND fc.deleted_at IS NULL
 			AND lower(fc.normalized_name) = lower(@category)
 		))
-		AND (CAST(@premium AS boolean) IS NULL OR l.is_premium = @premium)`
+		AND (CAST(@premium AS boolean) IS NULL OR l.is_premium = @premium)
+		AND (@search = '' OR l.leetcode_number::text = @search
+			OR p.title ILIKE '%' || replace(replace(replace(@search, '\', '\\'), '%', '\%'), '_', '\_') || '%')`
 	args := pgx.NamedArgs{
 		"difficulty": q.Difficulty,
 		"category":   q.Category,
 		"premium":    q.Premium,
+		"search":     q.Search,
 	}
 	var total int64
 	err := p.pool.QueryRow(ctx, `SELECT count(*) FROM app.leetcode_problems l
@@ -89,4 +93,50 @@ func (p *Store) ListProblems(ctx context.Context, q ProblemQuery) ([]practice.Pr
 	}
 	out, more := finishPage(out, q.Limit, q.Direction)
 	return out, more, total, rows.Err()
+}
+
+// ProblemsByID returns catalogue entries keyed by LeetCode problem ID. Unknown
+// and deleted problems are omitted so callers can fall back explicitly.
+func (p *Store) ProblemsByID(ctx context.Context, ids []string) (map[string]practice.ProblemRecord, error) {
+	byID := make(map[string]practice.ProblemRecord, len(ids))
+	if len(ids) == 0 {
+		return byID, nil
+	}
+	rows, err := p.pool.Query(ctx, problemQuery+` AND l.id = ANY($1::uuid[]) GROUP BY l.id,p.id`, ids)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		v, err := scanProblem(rows)
+		if err != nil {
+			return nil, err
+		}
+		byID[v.ID] = v
+	}
+	return byID, rows.Err()
+}
+
+// ListProblemCategories returns the category names used by live catalogue problems.
+func (p *Store) ListProblemCategories(ctx context.Context) ([]string, error) {
+	rows, err := p.pool.Query(ctx, `SELECT DISTINCT c.normalized_name
+		FROM app.leetcode_problem_categories c
+		JOIN app.leetcode_problem_category_mappings m ON m.category_id = c.id
+		JOIN app.leetcode_problems l ON l.id = m.leetcode_problem_id
+		JOIN app.problems p ON p.id = l.problem_id
+		WHERE c.deleted_at IS NULL AND l.deleted_at IS NULL AND p.deleted_at IS NULL
+		ORDER BY c.normalized_name`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := []string{}
+	for rows.Next() {
+		var name string
+		if err := rows.Scan(&name); err != nil {
+			return nil, err
+		}
+		out = append(out, name)
+	}
+	return out, rows.Err()
 }

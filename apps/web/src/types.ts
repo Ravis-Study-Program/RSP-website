@@ -1,3 +1,5 @@
+import type { LeetcodeProblem } from '@/api/generated/models';
+
 export type GlobalRole = 'director' | 'system_admin';
 export type SeasonRole = 'student' | 'mentor' | 'coordinator';
 export type Role = GlobalRole | SeasonRole | 'graduate' | 'former_member';
@@ -48,6 +50,8 @@ export interface Attempt {
   seasonId?: string | null;
   id: string;
   problemId: string;
+  /** Catalogue entry embedded by the API; absent once a problem leaves the catalogue. */
+  catalogProblem?: LeetcodeProblem;
   problem: string;
   problemUrl?: string;
   difficulty: Difficulty | null;
@@ -90,6 +94,7 @@ export interface MockRound {
   type: 'technical' | 'behavioural';
   apiType: 'behavioural' | 'leetcode' | 'custom';
   problemId?: string;
+  catalogProblem?: LeetcodeProblem;
   link?: string;
   title: string;
   score: number | null;

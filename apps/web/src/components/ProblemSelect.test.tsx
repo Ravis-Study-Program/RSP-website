@@ -4,6 +4,20 @@ import userEvent from '@testing-library/user-event';
 import { ProblemSelect } from '@/components/ProblemSelect';
 import type { LeetcodeProblem } from '@/api/generated/models';
 
+vi.mock('@/api/queries', () => ({
+  useProblemSearch: (query: string) => {
+    const needle = query.toLowerCase();
+    return {
+      data: problems.filter(
+        (p) =>
+          String(p.number) === needle || p.title.toLowerCase().includes(needle),
+      ),
+      isFetching: false,
+      isError: false,
+    };
+  },
+}));
+
 const problems: LeetcodeProblem[] = [
   {
     id: 'two-sum',
@@ -26,22 +40,17 @@ const problems: LeetcodeProblem[] = [
 ];
 
 function Harness() {
-  const [value, setValue] = useState('');
+  const [value, setValue] = useState<LeetcodeProblem | null>(null);
   return (
     <>
       <label htmlFor="problem">Problem</label>
-      <ProblemSelect
-        id="problem"
-        problems={problems}
-        value={value}
-        onChange={setValue}
-      />
-      <output data-testid="selection">{value}</output>
+      <ProblemSelect id="problem" value={value} onChange={setValue} />
+      <output data-testid="selection">{value?.id}</output>
     </>
   );
 }
 
-it('finds questions by title and number and requires selecting a real question', async () => {
+it('searches questions by title and number and requires selecting a real question', async () => {
   const user = userEvent.setup();
   render(<Harness />);
   const input = screen.getByRole('combobox', { name: 'Problem' });

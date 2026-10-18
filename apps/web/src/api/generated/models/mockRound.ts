@@ -5,6 +5,7 @@
  * Same-origin API for the Ravi's Study Program application.
  * OpenAPI spec version: 2.0.0
  */
+import type { LeetcodeProblem } from './leetcodeProblem';
 import type { MockRoundType } from './mockRoundType';
 import type { Scores } from './scores';
 
@@ -12,6 +13,7 @@ export interface MockRound {
   id: string;
   type: MockRoundType;
   problemId?: string;
+  problem?: LeetcodeProblem;
   content?: string;
   link?: string;
   scores: Scores;
