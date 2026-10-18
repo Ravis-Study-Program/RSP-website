@@ -97,10 +97,14 @@ func (s *Store) Seed(ctx context.Context, options SeedOptions) error {
 	}
 
 	if exists {
-		if options.AllowExisting {
-			return nil
+		if !options.AllowExisting {
+			return errors.New("seed data already exists")
 		}
-		return errors.New("seed data already exists")
+		// Release the catalogue lock before the Monday update seed takes it.
+		if err := tx.Rollback(ctx); err != nil {
+			return err
+		}
+		return s.seedMondayUpdates(ctx, time.Now())
 	}
 
 	studentID, err := resolveSeedUser(ctx, tx, seedUser{
@@ -212,7 +216,10 @@ RETURNING id`, privilegedID, privilegedRole, now).Scan(&privilegedAssignmentID);
 		return fmt.Errorf("seed audit: %w", err)
 	}
 
-	return tx.Commit(ctx)
+	if err := tx.Commit(ctx); err != nil {
+		return err
+	}
+	return s.seedMondayUpdates(ctx, time.Now())
 }
 
 func seedLeetcodeProblem(ctx context.Context, tx pgx.Tx) error {

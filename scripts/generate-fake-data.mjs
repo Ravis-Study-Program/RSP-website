@@ -350,24 +350,23 @@ if (!(await fakeFixtureExists())) {
       await storeMfaSecret(user.email, secret);
     }
   }
-
-  await run('go', [
-    'run',
-    './backend/cmd/rspctl',
-    'seed',
-    '--student-email',
-    users[0].email,
-    '--mentor-email',
-    users[1].email,
-    '--coordinator-email',
-    users[2].email,
-    '--site-admin-email',
-    users[3].email,
-    '--allow-existing',
-  ]);
 }
 
-await run('go', ['run', './backend/cmd/rspctl', 'seed-monday-updates']);
+// Safe on an existing fixture: it only fills in seed parts that are missing.
+await run('go', [
+  'run',
+  './backend/cmd/rspctl',
+  'seed',
+  '--student-email',
+  users[0].email,
+  '--mentor-email',
+  users[1].email,
+  '--coordinator-email',
+  users[2].email,
+  '--site-admin-email',
+  users[3].email,
+  '--allow-existing',
+]);
 
 console.log('\nFake local accounts');
 for (const user of users) {

@@ -25,12 +25,6 @@ seed:
     DATABASE_URL="postgresql://rsp_app:${APP_DB_PASSWORD:-rsp-local-app-database-password}@127.0.0.1:${POSTGRES_PORT:-5432}/${POSTGRES_DB:-rsp}?sslmode=disable&options=-c%20search_path%3Dapp" \
     go run ./backend/cmd/rspctl seed
 
-# Add a cohort of students, a second mentor and many Monday updates to dev-season.
-fake-monday-updates:
-    APP_ENV=development \
-    DATABASE_URL="postgresql://rsp_app:${APP_DB_PASSWORD:-rsp-local-app-database-password}@127.0.0.1:${POSTGRES_PORT:-5432}/${POSTGRES_DB:-rsp}?sslmode=disable&options=-c%20search_path%3Dapp" \
-    go run ./backend/cmd/rspctl seed-monday-updates
-
 # Create local email/password accounts and a complete development fixture.
 fake-data:
     APP_ENV=development \

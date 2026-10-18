@@ -128,31 +128,25 @@ var devStudentSeed = seedCohortStudent{persona: seedPersona{
 	trend: []programme.MondayUpdateMark{programme.MarkOnTrack, programme.MarkDoingGood, programme.MarkABitBehind},
 	hours: []float64{30, 26, 33.5, 21}, topics: []string{"arrays", "hashing", "trees", "behaviour"}}, lengths: []int{7, 7, 3, 4, 7, 0, 7}}
 
-// SeedMondayUpdatesResult reports which parts of the fixture a run created.
-type SeedMondayUpdatesResult struct {
-	Cohort, Activity bool
-}
-
-// SeedMondayUpdates adds a development cohort to dev-season — extra students,
+// seedMondayUpdates adds a development cohort to dev-season (extra students,
 // a second mentor, mentorships and many Monday updates over varied date ranges
-// with mentor marks — plus LeetCode attempts and mock interviews inside those
-// ranges, so mentor and reviewer screens have realistic volume. Each part is
-// created once; a later run leaves an existing part untouched.
-func (s *Store) SeedMondayUpdates(ctx context.Context, now time.Time) (SeedMondayUpdatesResult, error) {
-	var result SeedMondayUpdatesResult
+// with mentor marks) plus LeetCode attempts and mock interviews inside those
+// ranges, so mentor and reviewer screens have realistic volume. Seed runs it;
+// each part is created once and a later run leaves an existing part untouched.
+func (s *Store) seedMondayUpdates(ctx context.Context, now time.Time) error {
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
-		return result, err
+		return err
 	}
 	defer tx.Rollback(context.Background())
 	// The worker may sync the problem catalogue concurrently.
 	if _, err := tx.Exec(ctx, `SELECT pg_advisory_xact_lock($1)`, worker.LeetCodeAdvisoryLock); err != nil {
-		return result, err
+		return err
 	}
 
 	var seasonID string
 	if err := tx.QueryRow(ctx, `SELECT id FROM app.seasons WHERE slug='dev-season'`).Scan(&seasonID); err != nil {
-		return result, fmt.Errorf("dev-season is missing; run the base seed first: %w", noRows(err))
+		return fmt.Errorf("dev-season is missing: %w", noRows(err))
 	}
 	var cohortExists, activityExists bool
 	if err := tx.QueryRow(ctx, `SELECT
@@ -160,24 +154,22 @@ func (s *Store) SeedMondayUpdates(ctx context.Context, now time.Time) (SeedMonda
 		EXISTS(SELECT 1 FROM app.problem_attempts a JOIN app.user_profiles p ON p.user_id=a.user_id WHERE p.slug LIKE $1)
 		OR EXISTS(SELECT 1 FROM app.mock_interviews m JOIN app.user_profiles p ON p.user_id=m.interviewee_user_id WHERE p.slug LIKE $1)`,
 		seedCohortSlugPrefix+"%").Scan(&cohortExists, &activityExists); err != nil {
-		return result, err
+		return err
 	}
 	if !cohortExists {
-		if _, err := seedMondayCohort(ctx, tx, seasonID, now); err != nil {
-			return result, err
+		if err := seedMondayCohort(ctx, tx, seasonID, now); err != nil {
+			return err
 		}
-		result.Cohort = true
 	}
 	if !activityExists {
 		if err := seedMondayActivity(ctx, tx, seasonID, now); err != nil {
-			return result, err
+			return err
 		}
-		result.Activity = true
 	}
-	return result, tx.Commit(ctx)
+	return tx.Commit(ctx)
 }
 
-func seedMondayCohort(ctx context.Context, tx pgx.Tx, seasonID string, now time.Time) (bool, error) {
+func seedMondayCohort(ctx context.Context, tx pgx.Tx, seasonID string, now time.Time) error {
 	enrollmentFor := func(slug, role string) (userID, enrollmentID string, err error) {
 		err = tx.QueryRow(ctx, `SELECT e.user_id,e.id FROM app.enrollments e JOIN app.user_profiles p ON p.user_id=e.user_id
 			WHERE p.slug=$1 AND e.season_id=$2 AND e.role=$3 AND e.state='active'`, slug, seasonID, role).Scan(&userID, &enrollmentID)
@@ -188,11 +180,11 @@ func seedMondayCohort(ctx context.Context, tx pgx.Tx, seasonID string, now time.
 	}
 	devStudentID, _, err := enrollmentFor("dev-student", "student")
 	if err != nil {
-		return false, err
+		return err
 	}
 	devMentorID, devMentorEnrollment, err := enrollmentFor("dev-mentor", "mentor")
 	if err != nil {
-		return false, err
+		return err
 	}
 
 	enrol := func(slug, name, role, level string) (string, string, error) {
@@ -207,13 +199,13 @@ func seedMondayCohort(ctx context.Context, tx pgx.Tx, seasonID string, now time.
 	}
 	secondMentorID, secondMentorEnrollment, err := enrol(seedCohortSlugPrefix+"priya-raman", "Priya Raman", "mentor", "not_applicable")
 	if err != nil {
-		return false, fmt.Errorf("seed second mentor: %w", err)
+		return fmt.Errorf("seed second mentor: %w", err)
 	}
 
 	rng := rand.New(rand.NewPCG(2026, 10))
 	weekEnd, err := time.Parse(time.DateOnly, programme.CurrentMondayUpdateWeekEnd(now))
 	if err != nil {
-		return false, err
+		return err
 	}
 	insert := func(studentID, mentorID string, st seedCohortStudent) error {
 		end := weekEnd
@@ -253,12 +245,12 @@ func seedMondayCohort(ctx context.Context, tx pgx.Tx, seasonID string, now time.
 	}
 
 	if err := insert(devStudentID, devMentorID, devStudentSeed); err != nil {
-		return false, err
+		return err
 	}
 	for _, st := range seedCohort {
 		studentID, enrollmentID, err := enrol(seedCohortSlugPrefix+st.slug, st.name, "student", st.level)
 		if err != nil {
-			return false, fmt.Errorf("seed cohort student %s: %w", st.slug, err)
+			return fmt.Errorf("seed cohort student %s: %w", st.slug, err)
 		}
 		mentorID, mentorEnrollment := "", ""
 		switch st.mentor {
@@ -270,14 +262,14 @@ func seedMondayCohort(ctx context.Context, tx pgx.Tx, seasonID string, now time.
 		if mentorEnrollment != "" {
 			if _, err := tx.Exec(ctx, `INSERT INTO app.mentorships(season_id,mentor_enrollment_id,student_enrollment_id) VALUES($1,$2,$3)`,
 				seasonID, mentorEnrollment, enrollmentID); err != nil {
-				return false, fmt.Errorf("seed cohort mentorship: %w", err)
+				return fmt.Errorf("seed cohort mentorship: %w", err)
 			}
 		}
 		if err := insert(studentID, mentorID, st); err != nil {
-			return false, err
+			return err
 		}
 	}
-	return true, nil
+	return nil
 }
 
 // seedUpdateHTML writes one plausible student update in the persona's style.
