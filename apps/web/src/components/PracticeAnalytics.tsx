@@ -22,12 +22,8 @@ import { legendLabel } from '@/lib/chartLegend';
 import type { Attempt, Difficulty, Season } from '@/types';
 import { practiceGoalMinutes } from '@/utils';
 
-const colors = [
-  'var(--accent)',
-  'var(--text-muted)',
-  'var(--chart-secondary)',
-  'var(--border)',
-];
+const breakdownColor = (name: string) =>
+  difficultyColor[name as Difficulty] ?? 'var(--chart-secondary)';
 
 const difficultyOrder: Difficulty[] = ['Easy', 'Medium', 'Hard'];
 const difficultyColor: Record<Difficulty, string> = {
@@ -173,9 +169,14 @@ export function PracticeAnalytics({
                         nameKey="name"
                         innerRadius="45%"
                         outerRadius="75%"
+                        stroke="var(--surface)"
+                        strokeWidth={2}
                       >
-                        {breakdown.map((item, index) => (
-                          <Cell key={item.name} fill={colors[index]} />
+                        {breakdown.map((item) => (
+                          <Cell
+                            key={item.name}
+                            fill={breakdownColor(item.name)}
+                          />
                         ))}
                       </Pie>
                       <Tooltip />
