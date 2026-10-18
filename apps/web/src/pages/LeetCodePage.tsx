@@ -383,7 +383,11 @@ export function LeetCodePage() {
           ariaLabel="Problem attempts"
           data={visibleAttempts}
           renderSummary={(rows) => (
-            <PracticeAnalytics attempts={rows} season={season} />
+            <PracticeAnalytics
+              attempts={rows}
+              season={season}
+              showActivity={false}
+            />
           )}
           columns={columns}
           loading={attemptsQuery.isLoading || seasons.isLoading}

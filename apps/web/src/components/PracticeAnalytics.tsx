@@ -96,9 +96,11 @@ function DifficultyKey() {
 export function PracticeAnalytics({
   attempts,
   season,
+  showActivity = true,
 }: {
   attempts: Attempt[];
   season?: Season;
+  showActivity?: boolean;
 }) {
   const [goals, setGoals] = useState(true);
   const breakdown = difficultyBreakdown(attempts);
@@ -146,7 +148,9 @@ export function PracticeAnalytics({
         Charts include every matching attempt, across all table pages.
       </p>
       <div className="grid gap-6">
-        <ActivityChart data={activitySeries(attempts, [], { season })} />
+        {showActivity ? (
+          <ActivityChart data={activitySeries(attempts, [], { season })} />
+        ) : null}
         <div className="grid gap-4 grid-cols-[repeat(auto-fit,minmax(min(100%,20rem),1fr))]">
           <Card
             role="region"
