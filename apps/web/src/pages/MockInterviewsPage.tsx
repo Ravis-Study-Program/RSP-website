@@ -8,6 +8,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import {
+  Combobox,
+  ComboboxContent,
+  ComboboxEmpty,
+  ComboboxInput,
+  ComboboxItem,
+  ComboboxList,
+} from '@/components/ui/combobox';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { useActivityFilters, filterMocks } from '@/activityFilters';
@@ -1550,43 +1558,44 @@ function NewMockDialog({
           <Controller
             name="intervieweeId"
             control={control}
-            render={({ field }) => (
-              <Select
-                items={[
-                  { label: 'Choose an eligible participant', value: '' },
-                  ...people
-                    .filter((person) => person.id !== interviewer?.id)
-                    .map((person) => ({
-                      label: `${person.name}${person.roles.length ? ` · ${person.roles.join(', ')}` : ''}`,
-                      value: person.id,
-                    })),
-                ]}
-                name={field.name}
-                value={field.value}
-                onValueChange={(value) => field.onChange(value ?? '')}
-              >
-                <SelectTrigger id="mock-interviewee" className="w-full">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectGroup>
-                    <SelectItem value="">
-                      Choose an eligible participant
-                    </SelectItem>
-                    {people
-                      .filter((person) => person.id !== interviewer?.id)
-                      .map((person) => (
-                        <SelectItem key={person.id} value={person.id}>
-                          {person.name}
-                          {person.roles.length
-                            ? ` · ${person.roles.join(', ')}`
-                            : ''}
-                        </SelectItem>
-                      ))}
-                  </SelectGroup>
-                </SelectContent>
-              </Select>
-            )}
+            render={({ field }) => {
+              const candidates = people.filter(
+                (person) => person.id !== interviewer?.id,
+              );
+              const labels = new Map(
+                candidates.map((person) => [
+                  person.id,
+                  `${person.name}${person.roles.length ? ` · ${person.roles.join(', ')}` : ''}`,
+                ]),
+              );
+              return (
+                <Combobox
+                  items={candidates.map((person) => person.id)}
+                  itemToStringLabel={(id: string) => labels.get(id) ?? ''}
+                  name={field.name}
+                  value={field.value || null}
+                  onValueChange={(value) => field.onChange(value ?? '')}
+                >
+                  <ComboboxInput
+                    id="mock-interviewee"
+                    className="w-full"
+                    placeholder="Search eligible participants"
+                    aria-invalid={errors.intervieweeId ? true : undefined}
+                    onBlur={field.onBlur}
+                  />
+                  <ComboboxContent>
+                    <ComboboxEmpty>No matching participants.</ComboboxEmpty>
+                    <ComboboxList>
+                      {(id: string) => (
+                        <ComboboxItem key={id} value={id}>
+                          {labels.get(id)}
+                        </ComboboxItem>
+                      )}
+                    </ComboboxList>
+                  </ComboboxContent>
+                </Combobox>
+              );
+            }}
           />
           {errors.intervieweeId ? (
             <FieldError>{errors.intervieweeId.message}</FieldError>
