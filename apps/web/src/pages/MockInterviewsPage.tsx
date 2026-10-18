@@ -726,79 +726,106 @@ function MockDetails({
   const mock = row.original;
   const canEditDetails = mock.interviewer.id === currentUserId;
   const canReview = mock.interviewee.id === currentUserId;
-  return (
-    <div className="grid grid-cols-1 gap-6 min-[56rem]:grid-cols-2">
-      <div>
-        <h2 className="text-base font-semibold tracking-tight">
-          Rounds and scores
-        </h2>
-        <RichTextContent
-          html={mock.notes}
-          empty="No overall interview notes."
+  const scoreTone = (score: number | null) =>
+    score === null
+      ? 'text-muted-foreground'
+      : score >= 5
+        ? 'text-success'
+        : 'text-destructive';
+  const hasNotes = (html: string | null | undefined) =>
+    Boolean(html && html.replace(/<[^>]*>/g, '').trim());
+  const actions = (
+    <>
+      {canReview ? (
+        <RoundReviewDialog mock={mock} onChanged={onChanged} />
+      ) : null}
+      {canEditDetails ? (
+        <EditMockDialog
+          mock={mock}
+          people={people}
+          seasons={seasons}
+          onChanged={onChanged}
         />
-        <div className="mt-3 grid">
+      ) : null}
+      {canCorrectIdentities ? (
+        <IdentityCorrectionDialog
+          mock={mock}
+          people={people}
+          seasons={seasons}
+          onChanged={onChanged}
+        />
+      ) : null}
+      {canEditDetails ? (
+        <NamedConfirmation
+          name={mock.interviewee.name}
+          actionLabel="Delete interview"
+          description="The interview will be soft-deleted. Its immutable version history and audit record will remain."
+          onConfirm={onDelete}
+        />
+      ) : null}
+    </>
+  );
+  return (
+    <div className="grid gap-5">
+      <div className="flex flex-wrap items-center justify-end gap-2.5">
+        {actions}
+      </div>
+      <div className="grid grid-cols-1 gap-px overflow-hidden rounded-lg border bg-border min-[56rem]:grid-cols-3">
+        <section className="grid content-start gap-2 bg-card p-4">
+          <h2 className="text-sm font-semibold text-muted-foreground">
+            Interviewer notes
+          </h2>
+          <RichTextContent
+            html={mock.notes}
+            empty="No overall interview notes."
+          />
+        </section>
+        <section className="grid content-start gap-3 bg-card p-4">
+          <h2 className="text-sm font-semibold text-muted-foreground">
+            Rounds and scores
+          </h2>
           {mock.rounds.map((round) => (
-            <article
-              className="py-4 first:pt-0 [&+&]:border-t [&+&]:border-border"
-              key={round.id}
-            >
-              <div className="flex items-center justify-between gap-3">
-                <strong>{round.title}</strong>
+            <article key={round.id} className="grid gap-1.5">
+              <div className="flex items-baseline justify-between gap-3">
+                <strong className="font-semibold">{round.title}</strong>
                 <span
                   className={cn(
                     'font-semibold tabular-nums',
-                    round.score !== null &&
-                      (round.score >= 5 ? 'text-success' : 'text-destructive'),
+                    scoreTone(round.score),
                   )}
                 >
                   {round.score === null ? 'Not scored' : `${round.score}/10`}
                 </span>
               </div>
-              <Badge variant="secondary" className={badgeClass}>
+              {round.score === null ? null : (
+                <div className="h-1.5 overflow-hidden rounded-full bg-muted">
+                  <div
+                    className={cn(
+                      'h-full rounded-full',
+                      round.score >= 5 ? 'bg-success' : 'bg-destructive',
+                    )}
+                    style={{ width: `${round.score * 10}%` }}
+                  />
+                </div>
+              )}
+              <span className="text-xs text-muted-foreground capitalize">
                 {round.type}
-              </Badge>
-              <RichTextContent html={round.notes} />
+              </span>
+              {hasNotes(round.notes) ? (
+                <RichTextContent html={round.notes} />
+              ) : null}
             </article>
           ))}
-        </div>
-      </div>
-      <div>
-        <h2 className="text-base font-semibold tracking-tight">
-          Interviewee review
-        </h2>
-        <RichTextContent
-          html={mock.reviewComments}
-          empty="A review has not been submitted."
-        />
-        <div className="flex flex-wrap items-center gap-2.5">
-          {canReview ? (
-            <RoundReviewDialog mock={mock} onChanged={onChanged} />
-          ) : null}
-          {canEditDetails ? (
-            <EditMockDialog
-              mock={mock}
-              people={people}
-              seasons={seasons}
-              onChanged={onChanged}
-            />
-          ) : null}
-          {canCorrectIdentities ? (
-            <IdentityCorrectionDialog
-              mock={mock}
-              people={people}
-              seasons={seasons}
-              onChanged={onChanged}
-            />
-          ) : null}
-          {canEditDetails ? (
-            <NamedConfirmation
-              name={mock.interviewee.name}
-              actionLabel="Delete interview"
-              description="The interview will be soft-deleted. Its immutable version history and audit record will remain."
-              onConfirm={onDelete}
-            />
-          ) : null}
-        </div>
+        </section>
+        <section className="grid content-start gap-2 bg-card p-4">
+          <h2 className="text-sm font-semibold text-muted-foreground">
+            Interviewee review
+          </h2>
+          <RichTextContent
+            html={mock.reviewComments}
+            empty="A review has not been submitted."
+          />
+        </section>
       </div>
     </div>
   );
