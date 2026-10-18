@@ -536,6 +536,7 @@ export function demoMondayUpdates(): MondayUpdate[] {
     startOffset: number,
     endOffset: number,
     contentHtml: string,
+    hours: number,
     marks: MondayUpdateMarkRecord[],
   ): MondayUpdate => {
     const startDate = day(startOffset);
@@ -553,6 +554,7 @@ export function demoMondayUpdates(): MondayUpdate[] {
       startDate,
       endDate,
       contentHtml,
+      hours,
       createdAt: `${endDate}T11:30:00Z`,
       marks,
       activity: {
@@ -569,6 +571,7 @@ export function demoMondayUpdates(): MondayUpdate[] {
       0,
       2,
       '<p>Finished the hash map pattern this week and slowed down on invariants before coding.</p>',
+      18,
       [
         mark(
           'monday_mark_amelia_1',
@@ -584,6 +587,7 @@ export function demoMondayUpdates(): MondayUpdate[] {
       3,
       6,
       '<p>Intervals are still shaky; two mocks helped me talk through the trade-offs.</p>',
+      22.5,
       [],
     ),
     update(
@@ -592,6 +596,7 @@ export function demoMondayUpdates(): MondayUpdate[] {
       0,
       3,
       '<p>Started the week with anagrams and moved on to interval merging.</p>',
+      30,
       [],
     ),
     update(
@@ -600,6 +605,7 @@ export function demoMondayUpdates(): MondayUpdate[] {
       2,
       6,
       '<p>Overlapping week: kept going on intervals and finished with tree traversal.</p>',
+      27,
       [
         mark(
           'monday_mark_zara_2',

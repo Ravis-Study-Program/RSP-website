@@ -33,6 +33,7 @@ export * from './enrollmentUpdate';
 export * from './enrollmentUpdateRole';
 export * from './enrollmentUpdateStudentLevel';
 export * from './errorResponse';
+export * from './getMondayUpdateActivityParams';
 export * from './getUserActivitySummaryParams';
 export * from './getUserParams';
 export * from './getUserParticipation200';

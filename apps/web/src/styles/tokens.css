@@ -28,6 +28,8 @@
   --success-soft: #edf8f1;
   --warning: #865b0b;
   --warning-soft: #fff7e6;
+  --info: #1d5fa8;
+  --info-soft: #eaf2fb;
   --danger: var(--destructive);
   --danger-soft: #fef0f1;
   --on-danger: #ffffff;
@@ -61,6 +63,8 @@
   --success-soft: #18392a;
   --warning: #efc87c;
   --warning-soft: #382e1b;
+  --info: #8ab8ef;
+  --info-soft: #1b2a3d;
   --danger-soft: #401e24;
   --on-danger: #171717;
   --chart-secondary: #a3a3a3;

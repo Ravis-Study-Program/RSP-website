@@ -100,9 +100,10 @@ func (a *API) listMondayUpdates(w http.ResponseWriter, r *http.Request) {
 }
 
 type createMondayUpdateRequest struct {
-	StartDate   string `json:"startDate"`
-	EndDate     string `json:"endDate"`
-	ContentHTML string `json:"contentHtml"`
+	StartDate   string   `json:"startDate"`
+	EndDate     string   `json:"endDate"`
+	ContentHTML string   `json:"contentHtml"`
+	Hours       *float64 `json:"hours"`
 }
 
 func (a *API) createMondayUpdate(w http.ResponseWriter, r *http.Request) {
@@ -127,6 +128,14 @@ func (a *API) createMondayUpdate(w http.ResponseWriter, r *http.Request) {
 		writeErrorResponse(w, http.StatusBadRequest, "contentHtml is required")
 		return
 	}
+	if request.Hours == nil {
+		writeErrorResponse(w, http.StatusBadRequest, "hours is required")
+		return
+	}
+	if err := programme.ValidateMondayUpdateHours(*request.Hours); err != nil {
+		writeErrorResponse(w, http.StatusBadRequest, err.Error())
+		return
+	}
 
 	created, err := a.db.CreateMondayUpdate(r.Context(), programme.MondayUpdateRecord{
 		ID:          id.New(),
@@ -135,6 +144,7 @@ func (a *API) createMondayUpdate(w http.ResponseWriter, r *http.Request) {
 		StartDate:   request.StartDate,
 		EndDate:     request.EndDate,
 		ContentHTML: content,
+		Hours:       *request.Hours,
 	}, actor.UserID)
 	if err != nil {
 		a.writeStoreErrorResponse(w, err)
@@ -255,4 +265,31 @@ func (a *API) listMondayUpdateReview(w http.ResponseWriter, r *http.Request) {
 		PageInfo:   pageInfo,
 		TotalCount: total,
 	})
+}
+
+// getMondayUpdateActivity returns the active student's own LeetCode attempts
+// and mock interviews inside a date range, using the same Adelaide date bounds
+// an update with that range would show, so a student sees it before posting.
+func (a *API) getMondayUpdateActivity(w http.ResponseWriter, r *http.Request) {
+	actor := actorFrom(r.Context())
+	seasonID := r.PathValue("id")
+	enrollment, enrolled := actor.Enrollment(seasonID)
+	if !enrolled || enrollment.Role != authz.Student || enrollment.State != authz.Active {
+		writeErrorResponse(w, http.StatusForbidden, "Only an active student enrollment can read its Monday update activity in this season.")
+		return
+	}
+	startDate, endDate, ok := mondayUpdateRange(w, r)
+	if !ok {
+		return
+	}
+	if endDate < startDate {
+		writeErrorResponse(w, http.StatusBadRequest, "endDate must not be before startDate")
+		return
+	}
+	activity, err := a.db.GetMondayUpdateRangeActivity(r.Context(), actor.UserID, startDate, endDate)
+	if err != nil {
+		a.writeStoreErrorResponse(w, err)
+		return
+	}
+	writeJSONResponse(w, http.StatusOK, activity)
 }

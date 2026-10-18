@@ -264,3 +264,4 @@ Exact and unassuming.
 - **Don't** put shadows on cards, tables or other resting surfaces. Only floating layers get shadows.
 - **Don't** add a second typeface or uppercase letter-spaced eyebrows.
 - **Don't** use solid red blocks for destructive actions. Use the red-on-wash tint.
+- **Don't** use the middle dot (`·`) as a separator, in UI text, labels, titles, or strings. Run-on `a · b · c` lines are hard to scan. Give each fact its own labelled field (a small muted label above a bold value), put it on its own line, or rewrite as a sentence.
