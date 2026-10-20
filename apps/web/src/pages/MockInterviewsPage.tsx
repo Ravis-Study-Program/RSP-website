@@ -54,6 +54,7 @@ import {
   demoActivityWeekId,
   useCurrentUser,
   useMockInterviews,
+  useSharedMockInterviews,
   useMockParticipants,
 } from '@/api/queries';
 import { PageHeader, PersonIdentity, usePageTitle } from '@/components/Common';
@@ -442,13 +443,31 @@ export function MockInterviewsPage() {
   const peopleQuery = useMockParticipants();
   const columns = useMemo(() => columnsForSeason(season?.id), [season?.id]);
   const [filters, setFilters] = useActivityFilters(season?.id);
-  const query = useMockInterviews(
-    !hasSelection || Boolean(season),
+  const [mode, setMode] = useState<ViewMode>('received');
+  const periodReady = !hasSelection || Boolean(season);
+  // Received and Given are the caller's own interviews, so they load whole.
+  // All available spans the platform: it loads only when opened, newest
+  // first, one page at a time.
+  const ownQuery = useMockInterviews({
+    enabled: periodReady && mode !== 'all',
+    mode,
+    seasonId: season?.id,
+    filters,
+  });
+  const sharedQuery = useSharedMockInterviews(
+    periodReady && mode === 'all',
     season?.id,
-    undefined,
     filters,
   );
-  const [mode, setMode] = useState<ViewMode>('received');
+  const query = mode === 'all' ? sharedQuery : ownQuery;
+  const loaded = useMemo(
+    () =>
+      mode === 'all'
+        ? (sharedQuery.data?.pages.flatMap((page) => page.items) ?? [])
+        : (ownQuery.data?.items ?? []),
+    [mode, ownQuery.data, sharedQuery.data],
+  );
+  const sharedTotal = sharedQuery.data?.pages[0]?.totalCount;
   const [created, setCreated] = useState<MockInterview[]>([]);
   const [updated, setUpdated] = useState<Record<string, MockInterview>>({});
   const [removedIds, setRemovedIds] = useState<string[]>([]);
@@ -456,11 +475,10 @@ export function MockInterviewsPage() {
     () =>
       [
         ...new Map(
-          [
-            ...(query.data?.items ?? []),
-            ...created,
-            ...Object.values(updated),
-          ].map((mock) => [mock.id, mock]),
+          [...loaded, ...created, ...Object.values(updated)].map((mock) => [
+            mock.id,
+            mock,
+          ]),
         ).values(),
       ]
         .sort(
@@ -486,7 +504,7 @@ export function MockInterviewsPage() {
                 mock.occurredAt <= season.endsAt
               : mock.seasonId === season.id),
         ),
-    [created, query.data, removedIds, updated, season],
+    [created, loaded, removedIds, updated, season],
   );
   const filtered = useMemo(() => {
     const matches = filterMocks(all, filters);
@@ -694,6 +712,23 @@ export function MockInterviewsPage() {
               </div>
             )}
           />
+          {mode === 'all' && sharedQuery.hasNextPage ? (
+            <div className="mt-4 flex flex-wrap items-center justify-between gap-3 text-sm text-muted-foreground">
+              <span>
+                Showing the newest {loaded.length}
+                {sharedTotal === undefined ? '' : ` of ${sharedTotal}`}{' '}
+                interviews. Search and sorting apply to the loaded interviews.
+              </span>
+              <Button
+                type="button"
+                variant="outline"
+                disabled={sharedQuery.isFetchingNextPage}
+                onClick={() => void sharedQuery.fetchNextPage()}
+              >
+                {sharedQuery.isFetchingNextPage ? 'Loading…' : 'Load more'}
+              </Button>
+            </div>
+          ) : null}
         </TabsContent>
       </Tabs>
     </div>

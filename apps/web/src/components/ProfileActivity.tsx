@@ -70,7 +70,7 @@ export function ProfileActivity({
   const season = seasons.data?.items.find((s) => s.id === seasonId);
   const [filters, setFilters] = useActivityFilters(seasonId);
   const attempts = useUserAttempts(person.id, true, seasonId, filters);
-  const mocks = useMockInterviews(true, seasonId, person.id);
+  const mocks = useMockInterviews({ seasonId, userId: person.id });
   const visibleAttempts = useMemo(
     () => filterPractice(attempts.data?.items ?? [], filters),
     [attempts.data, filters],

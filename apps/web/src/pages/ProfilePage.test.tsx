@@ -151,11 +151,10 @@ describe('profile slug suggestion', () => {
       'season-1',
       expect.any(Object),
     );
-    expect(useMockInterviews).toHaveBeenLastCalledWith(
-      true,
-      'season-1',
-      'user-1',
-    );
+    expect(useMockInterviews).toHaveBeenLastCalledWith({
+      seasonId: 'season-1',
+      userId: 'user-1',
+    });
     await user.click(screen.getByRole('combobox', { name: 'View activity' }));
     await user.click(await screen.findByRole('option', { name: 'All time' }));
     expect(useActivitySummary).toHaveBeenLastCalledWith('user-1', undefined);

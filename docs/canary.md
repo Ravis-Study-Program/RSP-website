@@ -54,7 +54,10 @@ Guards that keep canary behaviour out of production:
 ## One-time setup
 
 1. **DNS.** Point a wildcard record such as `*.canary.example.org` at the
-   Dokploy server.
+   Dokploy server. On Cloudflare, set it to **DNS only**: the free proxied
+   certificate covers only one subdomain level, so a proxied
+   `pr-1.canary.example.org` fails with `ERR_SSL_VERSION_OR_CIPHER_MISMATCH`.
+   Traefik issues each canary's Let's Encrypt certificate itself.
 2. **Dokploy.** Create a project and environment for canaries, and connect
    the GitHub provider for this repository. Create an API key under
    Settings > Profile > API/CLI.

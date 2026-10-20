@@ -39,7 +39,11 @@ export function DashboardPage() {
     user.data && (user.data.seasonRoles.length > 0 || user.data.alumni),
   );
   const attempts = useAttempts(eligibleForGlobalPractice);
-  const interviews = useMockInterviews(eligibleForGlobalPractice);
+  // Only the signed-in member's own interviews; never the whole platform.
+  const interviews = useMockInterviews({
+    enabled: eligibleForGlobalPractice && Boolean(user.data?.id),
+    userId: user.data?.id,
+  });
   const { activeWorkspace } = useWorkspace();
 
   const currentSeason =

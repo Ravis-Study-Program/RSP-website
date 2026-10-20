@@ -17,6 +17,8 @@
 # Each canary gets fresh random secrets on creation. Redeploys keep them,
 # because the PostgreSQL volume was initialised with the original passwords.
 set -euo pipefail
+# Fail inside $(...) too, so a failed API call cannot yield an empty id.
+shopt -s inherit_errexit 2>/dev/null || true
 
 command=${1:?usage: dokploy.sh deploy|destroy <pr-number> [branch]}
 pr=${2:?pull request number is required}
@@ -28,13 +30,31 @@ host="pr-${pr}.${CANARY_DOMAIN}"
 origin="https://${host}"
 
 api() {
-  local method=$1 route=$2 body=${3:-}
+  local method=$1 route=$2 body=${3:-} response
   local args=(--fail-with-body --silent --show-error --max-time 60
     -X "$method" -H "x-api-key: ${DOKPLOY_API_KEY}" -H 'accept: application/json')
   if [[ -n $body ]]; then
     args+=(-H 'content-type: application/json' --data "$body")
   fi
-  curl "${args[@]}" "${DOKPLOY_URL%/}/api/${route}"
+  if ! response=$(curl "${args[@]}" "${DOKPLOY_URL%/}/api/${route}"); then
+    echo "Dokploy ${route} failed: ${response:-no response body}" >&2
+    return 1
+  fi
+  printf '%s' "$response"
+}
+
+# A wrong id makes compose.create return a bare 404, so check it first and
+# list the environments the API key can see.
+require_environment() {
+  local projects
+  projects=$(api GET project.all)
+  if ! jq -e --arg id "$DOKPLOY_ENVIRONMENT_ID" \
+    'any(.[].environments[]?; .environmentId == $id)' <<<"$projects" >/dev/null; then
+    echo "DOKPLOY_CANARY_ENVIRONMENT_ID ${DOKPLOY_ENVIRONMENT_ID} is not an environment this API key can see." >&2
+    echo "Available environments (project / environment: id):" >&2
+    jq -r '.[] | .name as $project | .environments[]? | "  \($project) / \(.name): \(.environmentId)"' <<<"$projects" >&2
+    exit 1
+  fi
 }
 
 # project.all nests compose services under projects (and environments on
@@ -78,6 +98,7 @@ create_compose() {
   : "${DOKPLOY_ENVIRONMENT_ID:?}" "${DOKPLOY_GITHUB_ID:?}" "${GITHUB_REPOSITORY:?}"
   owner=${GITHUB_REPOSITORY%%/*}
   repository=${GITHUB_REPOSITORY#*/}
+  require_environment
 
   compose_id=$(api POST compose.create "$(jq -n --arg name "$name" --arg env "$DOKPLOY_ENVIRONMENT_ID" \
     '{name: $name, appName: $name, environmentId: $env, composeType: "docker-compose",
@@ -93,7 +114,7 @@ create_compose() {
     --arg env "$(canary_env)" \
     '{composeId: $id, sourceType: "github", githubId: $github, owner: $owner,
       repository: $repository, branch: $branch, composePath: "compose.prod.yaml",
-      command: $command, env: $env, autoDeploy: false}')" >/dev/null
+      command: $command, env: $env, createEnvFile: true, autoDeploy: false}')" >/dev/null
 
   api POST domain.create "$(jq -n --arg id "$compose_id" --arg host "$host" \
     '{composeId: $id, host: $host, serviceName: "caddy", port: 8080,

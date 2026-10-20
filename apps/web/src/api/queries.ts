@@ -5,7 +5,12 @@ import {
 } from '@/activityFilters';
 import { programmeTimezone } from '@/activityDates';
 import { calendarDateKey, practiceGoalMinutes } from '@/utils';
-import { queryOptions, useQuery } from '@tanstack/react-query';
+import {
+  queryOptions,
+  useInfiniteQuery,
+  useQuery,
+  useQueryClient,
+} from '@tanstack/react-query';
 
 import {
   adaptAttemptPage,
@@ -40,7 +45,6 @@ import type {
   ProblemPage,
   PracticeSettings,
   Participation,
-  SeasonPage as ApiSeasonPage,
   User as ApiUser,
   UserPrivate,
   UserPage as ApiUserPage,
@@ -57,7 +61,7 @@ import {
   seasonWeeks,
   seasons,
 } from '@/data/demo';
-import type { CurrentUser, Page, Person } from '@/types';
+import type { CurrentUser, MockInterview, Page, Person } from '@/types';
 
 export const demoMode = demoModeForEnvironment(
   import.meta.env.VITE_USE_DEMO_DATA,
@@ -950,57 +954,98 @@ export function useSeasonPeople(seasonId?: string, seasonName?: string) {
   });
 }
 
-export function useMockInterviews(
-  enabled = true,
-  seasonId?: string,
-  userId?: string,
-  filters: ActivityFilters = emptyActivityFilters,
+export type MockInterviewMode = 'received' | 'given' | 'all';
+
+export interface MockInterviewQuery {
+  /** received and given are the caller's own; all is every visible interview. */
+  mode?: MockInterviewMode;
+  /** Narrows to one person's interviews in either direction. */
+  userId?: string;
+  seasonId?: string;
+  filters?: ActivityFilters;
+}
+
+const mockInterviewPageSize = 100;
+
+function mockInterviewPath(
+  {
+    mode = 'all',
+    userId,
+    seasonId,
+    filters = emptyActivityFilters,
+  }: MockInterviewQuery,
+  cursor?: string | null,
 ) {
+  return `/mock-interviews?limit=${mockInterviewPageSize}&mode=${mode}${userId ? `&userId=${encodeURIComponent(userId)}` : ''}${seasonId ? `&seasonId=${encodeURIComponent(seasonId)}` : ''}${activityFilterQuery(filters)}${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ''}`;
+}
+
+function demoMockInterviewPage({
+  userId,
+  seasonId,
+}: MockInterviewQuery): Page<MockInterview> {
+  const season = seasons.find((item) => item.id === seasonId);
+  return page(
+    mockInterviews
+      .filter(
+        (item) =>
+          (!userId ||
+            item.interviewee.id === userId ||
+            item.interviewer.id === userId) &&
+          (!seasonId ||
+            Boolean(
+              season &&
+              item.occurredAt >= season.startsAt &&
+              item.occurredAt <= season.endsAt,
+            )),
+      )
+      .map((item) => ({
+        ...item,
+        rounds: item.rounds.map((round) => ({
+          ...round,
+          catalogProblem: round.problemId
+            ? demoProblemById.get(round.problemId)
+            : undefined,
+        })),
+        weekId: demoActivityWeekId(seasonId, item.occurredAt),
+      })),
+  );
+}
+
+/**
+ * Resolves season names from the cached season list instead of downloading
+ * it again with every interview request.
+ */
+function useAdaptMockInterviews() {
+  const queryClient = useQueryClient();
+  return async (source: ApiMockInterviewPage) => {
+    const knownSeasons = await queryClient.ensureQueryData(seasonsOptions);
+    return adaptMockInterviewPage(source, {
+      users: new Map(),
+      seasons: new Map(knownSeasons.items.map((season) => [season.id, season])),
+    });
+  };
+}
+
+/**
+ * One person's interviews: the caller's received or given interviews, or a
+ * single user's history. These stay small, so every page is loaded.
+ * Use useSharedMockInterviews for the platform-wide list.
+ */
+export function useMockInterviews(
+  query: MockInterviewQuery & { enabled?: boolean },
+) {
+  const { enabled = true, ...request } = query;
+  const adapt = useAdaptMockInterviews();
   return useQuery({
-    queryKey: ['mock-interviews', { seasonId, userId, filters }],
+    queryKey: ['mock-interviews', 'scoped', request],
     enabled,
     queryFn: async () => {
-      if (demoMode)
-        return wait(
-          page(
-            mockInterviews
-              .filter((item) => {
-                const season = seasons.find((item) => item.id === seasonId);
-                return (
-                  (!userId ||
-                    item.interviewee.id === userId ||
-                    item.interviewer.id === userId) &&
-                  (!seasonId ||
-                    Boolean(
-                      season &&
-                      item.occurredAt >= season.startsAt &&
-                      item.occurredAt <= season.endsAt,
-                    ))
-                );
-              })
-              .map((item) => ({
-                ...item,
-                rounds: item.rounds.map((round) => ({
-                  ...round,
-                  catalogProblem: round.problemId
-                    ? demoProblemById.get(round.problemId)
-                    : undefined,
-                })),
-                weekId: demoActivityWeekId(seasonId, item.occurredAt),
-              })),
-          ),
-        );
-      const [interviewPage, seasonPage] = await Promise.all([
-        fetchAllPages<ApiMockInterviewPage['items'][number]>(
-          `/mock-interviews?limit=100&mode=all${userId ? `&userId=${encodeURIComponent(userId)}` : ''}${seasonId ? `&seasonId=${encodeURIComponent(seasonId)}` : ''}${activityFilterQuery(filters)}`,
+      if (demoMode) return wait(demoMockInterviewPage(request));
+      const adapted = await adapt(
+        await fetchAllPages<ApiMockInterviewPage['items'][number]>(
+          mockInterviewPath(request),
         ),
-        fetchAllPages<ApiSeasonPage['items'][number]>('/seasons?limit=100'),
-      ]);
-      const adaptedSeasons = adaptSeasonPage(seasonPage).items;
-      const adapted = adaptMockInterviewPage(interviewPage, {
-        users: new Map(),
-        seasons: new Map(adaptedSeasons.map((season) => [season.id, season])),
-      });
+      );
       return {
         ...adapted,
         items: [...adapted.items].sort((left, right) =>
@@ -1008,6 +1053,35 @@ export function useMockInterviews(
         ),
       };
     },
+  });
+}
+
+/**
+ * Every interview the caller may read, newest first, one page at a time.
+ * The next page is requested only through fetchNextPage.
+ */
+export function useSharedMockInterviews(
+  enabled: boolean,
+  seasonId?: string,
+  filters: ActivityFilters = emptyActivityFilters,
+) {
+  const adapt = useAdaptMockInterviews();
+  return useInfiniteQuery({
+    queryKey: ['mock-interviews', 'shared', { seasonId, filters }],
+    enabled,
+    initialPageParam: null as string | null,
+    queryFn: async ({ pageParam }): Promise<Page<MockInterview>> => {
+      if (demoMode) return wait(demoMockInterviewPage({ seasonId }));
+      return adapt(
+        await apiRequest<ApiMockInterviewPage>(
+          mockInterviewPath({ mode: 'all', seasonId, filters }, pageParam),
+        ),
+      );
+    },
+    getNextPageParam: (last) =>
+      last.pageInfo.hasMore
+        ? (last.pageInfo.nextCursor ?? undefined)
+        : undefined,
   });
 }
 
