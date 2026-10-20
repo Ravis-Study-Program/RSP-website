@@ -1,0 +1,119 @@
+name: Canary
+
+# An opt-in pre-production stack per pull request, at
+# https://pr-<number>.<CANARY_DOMAIN>, with its own fake-data database.
+# Add the "canary" label to deploy; pushes then redeploy. Removing the label or
+# closing the pull request deletes the stack. See docs/canary.md.
+
+on:
+  pull_request:
+    types: [labeled, unlabeled, synchronize, reopened, closed]
+  workflow_dispatch:
+    inputs:
+      pr:
+        description: Pull request number
+        required: true
+      reset:
+        description: Delete the canary's database and reseed it
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+  pull-requests: write
+
+concurrency:
+  group: canary-${{ github.event.pull_request.number || inputs.pr }}
+  cancel-in-progress: false
+
+env:
+  DOKPLOY_URL: ${{ vars.DOKPLOY_URL }}
+  DOKPLOY_API_KEY: ${{ secrets.DOKPLOY_API_KEY }}
+  DOKPLOY_ENVIRONMENT_ID: ${{ vars.DOKPLOY_CANARY_ENVIRONMENT_ID }}
+  DOKPLOY_GITHUB_ID: ${{ vars.DOKPLOY_GITHUB_ID }}
+  CANARY_DOMAIN: ${{ vars.CANARY_DOMAIN }}
+  CANARY_MAILPIT_AUTH: ${{ secrets.CANARY_MAILPIT_AUTH }}
+  PR_NUMBER: ${{ github.event.pull_request.number || inputs.pr }}
+  CANARY_LABEL: canary
+
+jobs:
+  deploy:
+    name: Deploy canary
+    # Only labelled same-repository pull requests; forks never receive deploy
+    # credentials. Adding the label deploys; later pushes redeploy.
+    if: >-
+      (github.event_name == 'pull_request' &&
+       github.event.pull_request.head.repo.full_name == github.repository &&
+       contains(github.event.pull_request.labels.*.name, 'canary') &&
+       ((github.event.action == 'labeled' && github.event.label.name == 'canary') ||
+        github.event.action == 'synchronize' || github.event.action == 'reopened')) ||
+      github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    environment:
+      name: canary
+      url: ${{ steps.deploy.outputs.url }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Resolve pull request branch
+        id: pr
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          pr=$(gh pr view "$PR_NUMBER" --repo "$GITHUB_REPOSITORY" --json headRefName,headRefOid,state,isCrossRepository,labels)
+          if [ "$(jq -r .isCrossRepository <<<"$pr")" = true ] || [ "$(jq -r .state <<<"$pr")" != OPEN ]; then
+            echo "Pull request $PR_NUMBER is not an open same-repository pull request." >&2
+            exit 1
+          fi
+          if ! jq -e --arg label "$CANARY_LABEL" 'any(.labels[]; .name == $label)' <<<"$pr" >/dev/null; then
+            echo "Add the $CANARY_LABEL label to pull request $PR_NUMBER to request a canary." >&2
+            exit 1
+          fi
+          echo "branch=$(jq -r .headRefName <<<"$pr")" >> "$GITHUB_OUTPUT"
+          echo "sha=$(jq -r .headRefOid <<<"$pr")" >> "$GITHUB_OUTPUT"
+      - name: Reset canary data
+        if: inputs.reset
+        run: scripts/canary/dokploy.sh destroy "$PR_NUMBER"
+      - name: Deploy
+        id: deploy
+        env:
+          BRANCH: ${{ steps.pr.outputs.branch }}
+          GITHUB_SHA: ${{ steps.pr.outputs.sha }}
+        run: |
+          scripts/canary/dokploy.sh deploy "$PR_NUMBER" "$BRANCH" | tee deploy.log
+          grep '^url=' deploy.log >> "$GITHUB_OUTPUT"
+      - name: Comment canary link
+        env:
+          GH_TOKEN: ${{ github.token }}
+          URL: ${{ steps.deploy.outputs.url }}
+          SHA: ${{ steps.pr.outputs.sha }}
+        run: |
+          body=$(cat <<EOF
+          <!-- rsp-canary -->
+          **Canary ready:** $URL
+
+          - Fake data only. Sign up with any email address, then open the verification email at [captured emails]($URL/mailpit/).
+          - Use **Switch roles** in the header to become a Student, Mentor, Coordinator, Director or System Admin. Privileged roles activate after you set up two-factor authentication in Settings.
+          - Deployed \`${SHA::7}\`. Pushes redeploy it. To start over with fresh data, run the **Canary** workflow with this PR number and **reset** ticked.
+          - Remove the \`canary\` label to delete this canary early.
+          EOF
+          )
+          scripts/canary/comment.sh "$PR_NUMBER" "$body"
+
+  destroy:
+    name: Delete canary
+    if: >-
+      github.event_name == 'pull_request' &&
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      ((github.event.action == 'unlabeled' && github.event.label.name == 'canary') ||
+       (github.event.action == 'closed' && contains(github.event.pull_request.labels.*.name, 'canary')))
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - run: scripts/canary/dokploy.sh destroy "$PR_NUMBER"
+      - name: Update canary comment
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REASON: ${{ github.event.action == 'closed' && 'the pull request closed' || 'the canary label was removed' }}
+        run: scripts/canary/comment.sh "$PR_NUMBER" "$(printf '<!-- rsp-canary -->\nCanary deleted with its database because %s.' "$REASON")"
