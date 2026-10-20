@@ -1,18 +1,18 @@
 import { calendarDateKey } from '@/utils';
 import { programmeTimezone } from '@/activityDates';
-import type { Attempt, MockInterview, Season } from '@/types';
+import type { MockInterviewDayCount } from '@/api/generated/models';
+import type { Attempt, Season } from '@/types';
 
+/** `mockDays` are server-aggregated programme-timezone day counts. */
 export function activitySeries(
   attempts: Attempt[],
-  mocks: MockInterview[] = [],
+  mockDays: MockInterviewDayCount[] = [],
   period?: { season?: Season },
 ) {
   const dates = [
-    ...attempts.map((a) => a.attemptedAt),
-    ...mocks.map((m) => m.occurredAt),
-  ]
-    .map((d) => calendarDateKey(d, programmeTimezone))
-    .sort();
+    ...attempts.map((a) => calendarDateKey(a.attemptedAt, programmeTimezone)),
+    ...mockDays.map((d) => d.date),
+  ].sort();
   const start = period?.season
     ? calendarDateKey(period.season.startsAt, programmeTimezone)
     : dates[0];
@@ -47,17 +47,14 @@ export function activitySeries(
     if (monthly) cursor.setUTCMonth(cursor.getUTCMonth() + 1);
     else cursor.setUTCDate(cursor.getUTCDate() + 7);
   }
-  for (const [items, field] of [
-    [attempts.map((a) => a.attemptedAt), 'attempts'],
-    [mocks.map((m) => m.occurredAt), 'interviews'],
-  ] as const) {
-    for (const at of items) {
-      const day = calendarDateKey(at, programmeTimezone);
-      if (day < start || day > end) continue;
-      const bucket = buckets.get(key(day));
-      if (bucket) bucket[field]++;
-    }
-  }
+  const add = (day: string, field: 'attempts' | 'interviews', count = 1) => {
+    if (day < start || day > end) return;
+    const bucket = buckets.get(key(day));
+    if (bucket) bucket[field] += count;
+  };
+  for (const a of attempts)
+    add(calendarDateKey(a.attemptedAt, programmeTimezone), 'attempts');
+  for (const d of mockDays) add(d.date, 'interviews', d.count);
   return [...buckets.values()];
 }
 

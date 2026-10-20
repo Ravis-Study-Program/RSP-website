@@ -1322,6 +1322,71 @@ paths:
         '401': { $ref: '#/components/responses/Error' }
         '403': { $ref: '#/components/responses/Error' }
         '429': { $ref: '#/components/responses/RateLimited' }
+  /mock-interviews/summary:
+    get:
+      operationId: getMockInterviewSummary
+      description: Counts the interviews that listMockInterviews would return for the same scope and filters, without returning interview content.
+      parameters:
+        [
+          {
+            name: weekId,
+            in: query,
+            style: form,
+            explode: true,
+            description: Filter by weeks within the selected season.,
+            schema: { type: array, items: { type: string, format: uuid } },
+          },
+          { name: passed, in: query, schema: { type: boolean } },
+          {
+            name: interviewerId,
+            in: query,
+            style: form,
+            explode: true,
+            schema: { type: array, items: { type: string, format: uuid } },
+          },
+          {
+            name: userId,
+            in: query,
+            description: Filter a member whose activity the viewer may read,
+            schema: { type: string, format: uuid },
+          },
+          {
+            name: mode,
+            in: query,
+            schema:
+              { type: string, enum: [received, given, all], default: received },
+          },
+          {
+            name: seasonId,
+            in: query,
+            schema: { type: string, format: uuid },
+            description: Filter by the season derived from activity time and student participation.,
+          },
+          {
+            name: year,
+            in: query,
+            schema: { type: integer, minimum: 1900, maximum: 9999 },
+            description: Calendar year in Australia/Adelaide.,
+          },
+        ]
+      responses:
+        default: { $ref: '#/components/responses/Error' }
+        '200':
+          {
+            description: Mock interview counts,
+            content:
+              {
+                application/json:
+                  {
+                    schema:
+                      { $ref: '#/components/schemas/MockInterviewSummary' },
+                  },
+              },
+          }
+        '400': { $ref: '#/components/responses/Error' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '429': { $ref: '#/components/responses/RateLimited' }
   /mock-interviews:
     get:
       operationId: listMockInterviews
@@ -2525,6 +2590,34 @@ components:
         mocksReceived: { type: integer, minimum: 0 }
         mocksConducted: { type: integer, minimum: 0 }
         lastActivityAt: { type: string, format: date-time, nullable: true }
+    MockInterviewSummary:
+      type: object
+      description: Counts for one mock interview list scope across all pages. received and given are relative to userId, or the viewer when userId is omitted.
+      required: [total, received, given, reviewed, days, interviewers]
+      properties:
+        total: { type: integer, minimum: 0 }
+        received: { type: integer, minimum: 0 }
+        given: { type: integer, minimum: 0 }
+        reviewed:
+          {
+            type: integer,
+            minimum: 0,
+            description: Interviews whose every round the interviewee has reviewed.,
+          }
+        days:
+          type: array
+          description: Interview counts per Australia/Adelaide calendar day, ascending.
+          items: { $ref: '#/components/schemas/MockInterviewDayCount' }
+        interviewers:
+          type: array
+          description: Everyone who conducted an interview in scope, ordered by name, for filter options.
+          items: { $ref: '#/components/schemas/MockParticipantSummary' }
+    MockInterviewDayCount:
+      type: object
+      required: [date, count]
+      properties:
+        date: { type: string, format: date }
+        count: { type: integer, minimum: 1 }
     SeasonMemberSummary:
       type: object
       required: [id, slug, name, avatarUrl, activity]

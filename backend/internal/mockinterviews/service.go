@@ -69,6 +69,24 @@ type Interview struct {
 	DeletedAt       *time.Time         `json:"-"`
 }
 
+// Summary counts interviews in one list scope without exposing interview content.
+// Received and Given are relative to the filtered user, or the viewer when unfiltered.
+type Summary struct {
+	Total    int64      `json:"total"`
+	Received int64      `json:"received"`
+	Given    int64      `json:"given"`
+	Reviewed int64      `json:"reviewed"`
+	Days     []DayCount `json:"days"`
+	// Interviewers lists everyone who conducted an interview in scope, for filter options.
+	Interviewers []ParticipantSummary `json:"interviewers"`
+}
+
+// DayCount is the number of interviews on one Australia/Adelaide calendar day.
+type DayCount struct {
+	Date  string `json:"date"`
+	Count int64  `json:"count"`
+}
+
 // Service contains deterministic interview rules and input normalization.
 type Service struct {
 	Sanitize func(string) string

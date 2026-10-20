@@ -1,13 +1,15 @@
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { useMemo } from 'react';
-import {
-  filterPractice,
-  filterMocks,
-  useActivityFilters,
-} from '@/activityFilters';
+import { filterPractice, useActivityFilters } from '@/activityFilters';
 import { PracticeFilters, MockFilters } from '@/components/ActivityFilters';
 import type { ColumnDef } from '@tanstack/react-table';
-import { useMockInterviews, useUserAttempts, useSeasons } from '@/api/queries';
+import { adaptMockParticipant } from '@/api/adapters';
+import {
+  useMockInterviewPages,
+  useMockInterviewSummary,
+  useUserAttempts,
+  useSeasons,
+} from '@/api/queries';
 import { PracticeAnalytics } from '@/components/PracticeAnalytics';
 import { ActivityChart } from '@/components/ActivityChart';
 import { activitySeries } from '@/activityAnalytics';
@@ -69,21 +71,36 @@ export function ProfileActivity({
   const seasons = useSeasons();
   const season = seasons.data?.items.find((s) => s.id === seasonId);
   const [filters, setFilters] = useActivityFilters(seasonId);
-  const attempts = useUserAttempts(person.id, true, seasonId, filters);
-  const mocks = useMockInterviews(true, seasonId, person.id);
+  // Each tab's data loads only once that tab is shown.
+  const attempts = useUserAttempts(
+    person.id,
+    tab === 'leetcode',
+    seasonId,
+    filters,
+  );
+  const mockScope = { mode: 'all', seasonId, userId: person.id } as const;
+  const mocks = useMockInterviewPages(
+    { ...mockScope, filters },
+    tab === 'mocks',
+  );
+  const mockSummary = useMockInterviewSummary(
+    { ...mockScope, filters },
+    tab === 'mocks',
+  );
+  // Unfiltered so selecting an interviewer never removes the other options.
+  const mockInterviewers = useMockInterviewSummary(mockScope, tab === 'mocks');
   const visibleAttempts = useMemo(
     () => filterPractice(attempts.data?.items ?? [], filters),
     [attempts.data, filters],
   );
   const visibleMocks = useMemo(
-    () => filterMocks(mocks.data?.items ?? [], filters),
-    [mocks.data, filters],
+    () => mocks.data?.pages.flatMap((page) => page.items) ?? [],
+    [mocks.data],
   );
-  const interviewers = [
-    ...new Map(
-      (mocks.data?.items ?? []).map((m) => [m.interviewer.id, m.interviewer]),
-    ).values(),
-  ];
+  const interviewers = useMemo(
+    () => (mockInterviewers.data?.interviewers ?? []).map(adaptMockParticipant),
+    [mockInterviewers.data],
+  );
   const mockColumns: ColumnDef<MockInterview, any>[] = [
     {
       accessorKey: 'occurredAt',
@@ -184,13 +201,21 @@ export function ProfileActivity({
         <DataTable
           ariaLabel={`${person.name} mock history`}
           data={visibleMocks}
-          renderSummary={(rows) => (
-            <ActivityChart data={activitySeries([], rows, { season })} />
+          renderSummary={() => (
+            <ActivityChart
+              data={activitySeries([], mockSummary.data?.days, { season })}
+            />
           )}
           columns={mockColumns}
           loading={mocks.isLoading}
           error={mocks.isError}
           onRetry={() => void mocks.refetch()}
+          serverPagination={{
+            totalCount: mocks.data?.pages[0]?.totalCount ?? 0,
+            hasMore: Boolean(mocks.hasNextPage),
+            loadingMore: mocks.isFetchingNextPage,
+            onLoadMore: () => void mocks.fetchNextPage(),
+          }}
           emptyTitle="No mocks in this period"
           emptyMessage="Received and conducted interviews will appear here."
           getRowId={(m) => m.id}

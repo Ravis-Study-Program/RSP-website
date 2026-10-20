@@ -4,7 +4,9 @@ package api
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
+	"net/http"
 	"reflect"
 	"sort"
 	"strings"
@@ -139,6 +141,82 @@ func TestMockListUsesBoundedReadsAndPreservesPageValues(t *testing.T) {
 	})
 	if err != nil || more || total != 0 || len(items) != 0 || len(queries.statements) != 2 {
 		t.Fatalf("empty received page=%#v more=%v total=%d queries=%d error=%v", items, more, total, len(queries.statements), err)
+	}
+}
+
+func TestMockSummaryCountsTheListScopeAcrossPages(t *testing.T) {
+	fixture := newPostgresFixture(t)
+	ctx := context.Background()
+	base := createMockForWrites(t, fixture)
+	for index := 1; index < 4; index++ {
+		interview := base
+		interview.ID = id.New()
+		if index < 3 {
+			interview.OccurredAt = base.OccurredAt.Add(-48 * time.Hour)
+		}
+		interview.Rounds = append([]mockinterviews.Round(nil), base.Rounds...)
+		for round := range interview.Rounds {
+			interview.Rounds[round].ID = id.New()
+		}
+		if _, err := fixture.db.CreateMockInterview(ctx, interview, studentID, time.Now()); err != nil {
+			t.Fatal(err)
+		}
+	}
+	// An interview counts as reviewed only when every live round is reviewed.
+	if _, err := fixture.pool.Exec(ctx, `UPDATE app.mock_interview_rounds SET review_status='reviewed', reviewed_at=now() WHERE mock_interview_id=$1`, base.ID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := fixture.pool.Exec(ctx, `UPDATE app.mock_interview_rounds SET review_status='reviewed', reviewed_at=now()
+		WHERE id=(SELECT r.id FROM app.mock_interview_rounds r WHERE r.mock_interview_id<>$1 ORDER BY r.id LIMIT 1)`, base.ID); err != nil {
+		t.Fatal(err)
+	}
+
+	adelaide, err := time.LoadLocation("Australia/Adelaide")
+	if err != nil {
+		t.Fatal(err)
+	}
+	day := func(at time.Time) string { return at.In(adelaide).Format(time.DateOnly) }
+	summary := func(actor, query string) mockinterviews.Summary {
+		t.Helper()
+		response := testRequest(t, fixture.handler, http.MethodGet, "/api/v2/mock-interviews/summary?"+query, actor, "")
+		if response.Code != http.StatusOK {
+			t.Fatalf("summary %s: status=%d body=%s", query, response.Code, response.Body.String())
+		}
+		var result mockinterviews.Summary
+		if err := json.Unmarshal(response.Body.Bytes(), &result); err != nil {
+			t.Fatal(err)
+		}
+		return result
+	}
+
+	given := summary("student", "mode=given")
+	want := mockinterviews.Summary{Total: 4, Given: 4, Reviewed: 1, Days: []mockinterviews.DayCount{
+		{Date: day(base.OccurredAt.Add(-48 * time.Hour)), Count: 2},
+		{Date: day(base.OccurredAt), Count: 2},
+	}, Interviewers: []mockinterviews.ParticipantSummary{{ID: studentID, Slug: "student", Name: "Student"}}}
+	if !reflect.DeepEqual(given, want) {
+		t.Fatalf("given summary=%#v want=%#v", given, want)
+	}
+	if received := summary("student", "mode=received"); received.Total != 0 || len(received.Days) != 0 {
+		t.Fatalf("interviewer has no received interviews: %#v", received)
+	}
+	if own := summary("other", "mode=all&userId="+otherID); own.Total != 4 || own.Received != 4 || own.Given != 0 {
+		t.Fatalf("user-scoped summary must count that user's side: %#v", own)
+	}
+	// Filters are applied server-side exactly as the list applies them.
+	if failed := summary("student", "mode=given&passed=false"); failed.Total != 0 {
+		t.Fatalf("passed filter ignored: %#v", failed)
+	}
+	if bad := testRequest(t, fixture.handler, http.MethodGet, "/api/v2/mock-interviews/summary?mode=everyone", "student", ""); bad.Code != http.StatusBadRequest {
+		t.Fatalf("invalid mode status=%d", bad.Code)
+	}
+
+	page := testRequest(t, fixture.handler, http.MethodGet, "/api/v2/mock-interviews?mode=given&limit=1", "student", "")
+	var list struct {
+		TotalCount int64 `json:"totalCount"`
+	}
+	if err := json.Unmarshal(page.Body.Bytes(), &list); err != nil || list.TotalCount != given.Total {
+		t.Fatalf("list total=%d summary total=%d error=%v", list.TotalCount, given.Total, err)
 	}
 }
 

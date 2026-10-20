@@ -53,7 +53,8 @@ import {
   demoMode,
   demoActivityWeekId,
   useCurrentUser,
-  useMockInterviews,
+  useMockInterviewPages,
+  type MockInterviewMode,
   useMockParticipants,
 } from '@/api/queries';
 import { PageHeader, PersonIdentity, usePageTitle } from '@/components/Common';
@@ -433,8 +434,6 @@ const columnsForSeason = (
   },
 ];
 
-type ViewMode = 'received' | 'given' | 'all';
-
 export function MockInterviewsPage() {
   usePageTitle('Mock interviews');
   const { seasons: seasonsQuery, season, hasSelection } = useActivitySeason();
@@ -442,34 +441,21 @@ export function MockInterviewsPage() {
   const peopleQuery = useMockParticipants();
   const columns = useMemo(() => columnsForSeason(season?.id), [season?.id]);
   const [filters, setFilters] = useActivityFilters(season?.id);
-  const query = useMockInterviews(
+  const [mode, setMode] = useState<MockInterviewMode>('received');
+  // Keyed by mode: only the visible tab's pages are requested, and each
+  // further page is requested only when the reader asks for it.
+  const query = useMockInterviewPages(
+    { mode, seasonId: season?.id, filters },
     !hasSelection || Boolean(season),
-    season?.id,
-    undefined,
-    filters,
   );
-  const [mode, setMode] = useState<ViewMode>('received');
   const [created, setCreated] = useState<MockInterview[]>([]);
   const [updated, setUpdated] = useState<Record<string, MockInterview>>({});
   const [removedIds, setRemovedIds] = useState<string[]>([]);
-  const all = useMemo(
-    () =>
-      [
-        ...new Map(
-          [
-            ...(query.data?.items ?? []),
-            ...created,
-            ...Object.values(updated),
-          ].map((mock) => [mock.id, mock]),
-        ).values(),
-      ]
-        .sort(
-          (left, right) =>
-            new Date(right.occurredAt).getTime() -
-            new Date(left.occurredAt).getTime(),
-        )
-        .filter((mock) => !removedIds.includes(mock.id))
-        .map((mock) => updated[mock.id] ?? mock)
+  const filtered = useMemo(() => {
+    // The server filters loaded pages; only interviews recorded on this page
+    // since loading need the scope applied locally.
+    const createdInScope = filterMocks(
+      created
         .map((mock) =>
           demoMode
             ? {
@@ -480,22 +466,45 @@ export function MockInterviewsPage() {
         )
         .filter(
           (mock) =>
-            !season ||
-            (demoMode
-              ? mock.occurredAt >= season.startsAt &&
-                mock.occurredAt <= season.endsAt
-              : mock.seasonId === season.id),
+            (!season ||
+              (demoMode
+                ? mock.occurredAt >= season.startsAt &&
+                  mock.occurredAt <= season.endsAt
+                : mock.seasonId === season.id)) &&
+            (mode !== 'received' || mock.interviewee.id === user.data?.id) &&
+            (mode !== 'given' || mock.interviewer.id === user.data?.id),
         ),
-    [created, query.data, removedIds, updated, season],
-  );
-  const filtered = useMemo(() => {
-    const matches = filterMocks(all, filters);
-    if (mode === 'received')
-      return matches.filter((mock) => mock.interviewee.id === user.data?.id);
-    if (mode === 'given')
-      return matches.filter((mock) => mock.interviewer.id === user.data?.id);
-    return matches;
-  }, [all, filters, mode, user.data?.id]);
+      filters,
+    );
+    return [
+      ...new Map(
+        [
+          ...createdInScope,
+          ...(query.data?.pages.flatMap((page) => page.items) ?? []),
+        ].map((mock) => [mock.id, mock]),
+      ).values(),
+    ]
+      .filter((mock) => !removedIds.includes(mock.id))
+      .map((mock) => updated[mock.id] ?? mock)
+      .sort(
+        (left, right) =>
+          new Date(right.occurredAt).getTime() -
+          new Date(left.occurredAt).getTime(),
+      );
+  }, [
+    created,
+    filters,
+    mode,
+    query.data,
+    removedIds,
+    season,
+    updated,
+    user.data?.id,
+  ]);
+  const serverTotal = query.data?.pages[0]?.totalCount ?? 0;
+  const localDelta =
+    filtered.length -
+    (query.data?.pages.reduce((sum, page) => sum + page.items.length, 0) ?? 0);
   const availablePeople = peopleQuery.data?.items ?? [];
   const interviewer = user.data
     ? (availablePeople.find((person) => person.id === user.data.id) ??
@@ -553,7 +562,7 @@ export function MockInterviewsPage() {
       <Tabs
         className="mt-6"
         value={mode}
-        onValueChange={(value) => setMode(value as ViewMode)}
+        onValueChange={(value) => setMode(value as MockInterviewMode)}
       >
         <TabsList aria-label="Mock interview view">
           <TabsTrigger value="received">Received</TabsTrigger>
@@ -577,6 +586,12 @@ export function MockInterviewsPage() {
               peopleQuery.isError ||
               seasonsQuery.isError
             }
+            serverPagination={{
+              totalCount: serverTotal + localDelta,
+              hasMore: Boolean(query.hasNextPage),
+              loadingMore: query.isFetchingNextPage,
+              onLoadMore: () => void query.fetchNextPage(),
+            }}
             onRetry={() =>
               void Promise.all([
                 query.refetch(),

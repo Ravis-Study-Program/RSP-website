@@ -6,7 +6,7 @@ import { MemoryRouter } from 'react-router-dom';
 import { apiRequest } from '@/api/client';
 import {
   useActivitySummary,
-  useMockInterviews,
+  useMockInterviewPages,
   useCurrentUser,
   useSeasons,
   useUserAttempts,
@@ -39,11 +39,12 @@ vi.mock('@/api/queries', () => ({
     },
     isError: false,
   })),
-  useMockInterviews: vi.fn(() => ({
-    data: { items: [] },
+  useMockInterviewPages: vi.fn(() => ({
+    data: undefined,
     isLoading: false,
     isError: false,
   })),
+  useMockInterviewSummary: vi.fn(() => ({ data: undefined })),
   useUserParticipation: vi.fn(() => ({
     data: {
       items: [
@@ -151,10 +152,14 @@ describe('profile slug suggestion', () => {
       'season-1',
       expect.any(Object),
     );
-    expect(useMockInterviews).toHaveBeenLastCalledWith(
-      true,
-      'season-1',
-      'user-1',
+    // The mock tab is not shown, so its pages are scoped but not requested.
+    expect(useMockInterviewPages).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        mode: 'all',
+        seasonId: 'season-1',
+        userId: 'user-1',
+      }),
+      false,
     );
     await user.click(screen.getByRole('combobox', { name: 'View activity' }));
     await user.click(await screen.findByRole('option', { name: 'All time' }));
