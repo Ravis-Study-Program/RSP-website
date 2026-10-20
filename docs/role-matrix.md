@@ -32,6 +32,10 @@ use protected product features.
 | Grant global roles                      |     No      |       No        |       No        |        No        |       Yes        |
 | Technical/auth administration           |     No      |       No        |       No        |        No        |       Yes        |
 
+Pull request [canaries](canary.md) are the one exception: there, any verified
+account may choose its own global and season roles for testing. That route
+does not exist outside `APP_ENV=canary`.
+
 Coordinator is a season-scoped administrator, not an alias for System Admin.
 There is exactly one season role—student, mentor or coordinator—per enrollment.
 Privileged role assignments remain `pending_mfa` until TOTP is configured.

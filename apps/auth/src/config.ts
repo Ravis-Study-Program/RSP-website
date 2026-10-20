@@ -22,6 +22,13 @@ const environmentSchema = z
     NODE_ENV: z
       .enum(['development', 'test', 'production'])
       .default('development'),
+    // A canary is a production build on a pre-production domain. It keeps the
+    // production security checks but must capture email instead of sending it.
+    APP_ENV: z.preprocess(
+      (value) =>
+        typeof value === 'string' && value.trim() === '' ? undefined : value,
+      z.enum(['development', 'test', 'production', 'canary']).optional(),
+    ),
     AUTH_HOST: z.string().trim().min(1).default('0.0.0.0'),
     AUTH_PORT: z.coerce.number().int().min(1).max(65_535).default(3001),
     BETTER_AUTH_URL: z.url().default('http://localhost:8080'),
@@ -134,6 +141,23 @@ const environmentSchema = z
           message: 'IDENTITY_SERVICE_TOKEN must not reuse BETTER_AUTH_SECRET',
           path: ['IDENTITY_SERVICE_TOKEN'],
         });
+      }
+      if (environment.APP_ENV === 'canary') {
+        if (!baseUrl.hostname.toLowerCase().split('.').includes('canary')) {
+          context.addIssue({
+            code: 'custom',
+            message: 'BETTER_AUTH_URL must include a canary DNS label',
+            path: ['BETTER_AUTH_URL'],
+          });
+        }
+        if (environment.EMAIL_PROVIDER !== 'smtp') {
+          context.addIssue({
+            code: 'custom',
+            message: 'EMAIL_PROVIDER must be smtp in a canary',
+            path: ['EMAIL_PROVIDER'],
+          });
+        }
+        return;
       }
       if (!environment.GOOGLE_CLIENT_ID || !environment.GOOGLE_CLIENT_SECRET) {
         context.addIssue({

@@ -40,6 +40,8 @@ type Config struct {
 	GetMFAConfigured   func(context.Context, string) (bool, error)
 	// RateLimits overrides the per-account limits; zero fields use defaults.
 	RateLimits ratelimit.Limits
+	// Canary enables self-service role changes for pre-production testing.
+	Canary bool
 }
 
 // API connects HTTP handlers to authentication, application services, and storage.
@@ -59,6 +61,7 @@ type API struct {
 	telemetry            *apiMetrics
 	mockRules            mockinterviews.Service
 	sanitizeHTML         func(string) string
+	canary               bool
 }
 
 // New constructs the HTTP API from its dependencies.
@@ -88,6 +91,7 @@ func New(c Config) *API {
 		telemetry:            newAPIMetrics(),
 		mockRules:            mockinterviews.Service{Sanitize: cleaner.String},
 		sanitizeHTML:         cleaner.String,
+		canary:               c.Canary,
 	}
 }
 
