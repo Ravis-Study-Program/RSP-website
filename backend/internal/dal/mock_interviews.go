@@ -56,9 +56,9 @@ const mockPassedSQL = `SELECT COALESCE(bool_and(scores.value>=5),false)
  CROSS JOIN LATERAL unnest(ARRAY[b.behavioural_score,l.clarify_question_score,l.algorithm_design_score,l.complexity_analysis_score,l.coding_score,l.testing_score,c.score]) AS scores(value)
  WHERE round.mock_interview_id=mi.id AND round.deleted_at IS NULL AND scores.value IS NOT NULL`
 
-func (p *Store) ListMockInterviews(ctx context.Context, q MockInterviewQuery) ([]mockinterviews.Interview, bool, int64, error) {
-	args := pgx.NamedArgs{"viewerID": q.ViewerID, "targetID": q.TargetID, "targetMode": q.TargetMode, "seasonID": q.SeasonID, "year": q.Year, "boundary": q.Boundary, "limit": q.Limit + 1, "interviewers": q.InterviewerIDs, "passed": q.Passed}
-	args["weeks"] = q.WeekIDs
+// mockInterviewFilter is the shared visibility and filter predicate for list and summary reads.
+func mockInterviewFilter(q MockInterviewQuery) (string, pgx.NamedArgs) {
+	args := pgx.NamedArgs{"viewerID": q.ViewerID, "targetID": q.TargetID, "targetMode": q.TargetMode, "seasonID": q.SeasonID, "year": q.Year, "interviewers": q.InterviewerIDs, "passed": q.Passed, "weeks": q.WeekIDs}
 	where := `(mi.interviewer_user_id=@viewerID OR mi.interviewee_user_id=@viewerID)`
 	if q.Visibility == MockInterviewsGiven {
 		where = `mi.interviewer_user_id=@viewerID`
@@ -89,11 +89,71 @@ func (p *Store) ListMockInterviews(ctx context.Context, q MockInterviewQuery) ([
 	where += ` AND (COALESCE(cardinality(@interviewers::uuid[]),0)=0 OR mi.interviewer_user_id=ANY(@interviewers::uuid[]))
  AND (COALESCE(cardinality(@weeks::uuid[]),0)=0 OR mi.activity_week_id=ANY(@weeks::uuid[]))
  AND (@passed::boolean IS NULL OR (` + mockPassedSQL + `)=@passed::boolean)`
+	return "mi.deleted_at IS NULL AND " + where, args
+}
+
+// SummarizeMockInterviews counts the interviews a list query would return, across all pages.
+func (p *Store) SummarizeMockInterviews(ctx context.Context, q MockInterviewQuery) (mockinterviews.Summary, error) {
+	where, args := mockInterviewFilter(q)
+	args["subjectID"] = q.TargetID
+	if q.TargetID == "" {
+		args["subjectID"] = q.ViewerID
+	}
+	summary := mockinterviews.Summary{Days: []mockinterviews.DayCount{}, Interviewers: []mockinterviews.ParticipantSummary{}}
+	if err := p.pool.QueryRow(ctx, `SELECT count(*),
+  count(*) FILTER (WHERE mi.interviewee_user_id=NULLIF(@subjectID,'')::uuid),
+  count(*) FILTER (WHERE mi.interviewer_user_id=NULLIF(@subjectID,'')::uuid),
+  count(*) FILTER (WHERE NOT EXISTS (
+   SELECT 1 FROM app.mock_interview_rounds round
+   WHERE round.mock_interview_id=mi.id AND round.deleted_at IS NULL AND round.review_status<>'reviewed'))
+ FROM app.scoped_mock_interviews mi WHERE `+where, args).
+		Scan(&summary.Total, &summary.Received, &summary.Given, &summary.Reviewed); err != nil {
+		return mockinterviews.Summary{}, err
+	}
+	rows, err := p.pool.Query(ctx, `SELECT to_char((mi.scheduled_at AT TIME ZONE 'Australia/Adelaide')::date,'YYYY-MM-DD') AS day, count(*)
+ FROM app.scoped_mock_interviews mi WHERE `+where+` GROUP BY day ORDER BY day`, args)
+	if err != nil {
+		return mockinterviews.Summary{}, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var day mockinterviews.DayCount
+		if err := rows.Scan(&day.Date, &day.Count); err != nil {
+			return mockinterviews.Summary{}, err
+		}
+		summary.Days = append(summary.Days, day)
+	}
+	if err := rows.Err(); err != nil {
+		return mockinterviews.Summary{}, err
+	}
+	rows.Close()
+	rows, err = p.pool.Query(ctx, `SELECT u.id,p.slug,p.display_name,p.avatar_url FROM app.users u
+ JOIN app.user_profiles p ON p.user_id=u.id
+ WHERE u.deleted_at IS NULL AND u.account_state<>'deleted' AND u.id IN (
+  SELECT mi.interviewer_user_id FROM app.scoped_mock_interviews mi WHERE `+where+`)
+ ORDER BY p.display_name,u.id`, args)
+	if err != nil {
+		return mockinterviews.Summary{}, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var interviewer mockinterviews.ParticipantSummary
+		if err := rows.Scan(&interviewer.ID, &interviewer.Slug, &interviewer.Name, &interviewer.AvatarURL); err != nil {
+			return mockinterviews.Summary{}, err
+		}
+		summary.Interviewers = append(summary.Interviewers, interviewer)
+	}
+	return summary, rows.Err()
+}
+
+func (p *Store) ListMockInterviews(ctx context.Context, q MockInterviewQuery) ([]mockinterviews.Interview, bool, int64, error) {
+	where, args := mockInterviewFilter(q)
+	args["boundary"] = q.Boundary
+	args["limit"] = q.Limit + 1
 	var total int64
-	if err := p.pool.QueryRow(ctx, `SELECT count(*) FROM app.scoped_mock_interviews mi WHERE mi.deleted_at IS NULL AND `+where, args).Scan(&total); err != nil {
+	if err := p.pool.QueryRow(ctx, `SELECT count(*) FROM app.scoped_mock_interviews mi WHERE `+where, args).Scan(&total); err != nil {
 		return nil, false, 0, err
 	}
-
 	comparator, order := ">", "ASC"
 	key, boundaryKey := "mi.id", "b.id"
 	boundarySelect := "id"
@@ -115,7 +175,7 @@ func (p *Store) ListMockInterviews(ctx context.Context, q MockInterviewQuery) ([
 	query := `WITH boundary AS (
 		SELECT ` + boundarySelect + ` FROM app.mock_interviews WHERE id=NULLIF(@boundary,'')::uuid AND deleted_at IS NULL
 	) SELECT ` + mockInterviewColumns + ` FROM app.scoped_mock_interviews mi
-	WHERE mi.deleted_at IS NULL AND ` + where + `
+	WHERE ` + where + `
 	  AND (NULLIF(@boundary,'')::uuid IS NULL OR EXISTS (SELECT 1 FROM boundary b WHERE ` + key + ` ` + comparator + ` ` + boundaryKey + `))
 	ORDER BY ` + orderBy + ` LIMIT @limit`
 	rows, err := p.pool.Query(ctx, query, args)

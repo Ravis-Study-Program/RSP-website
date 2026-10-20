@@ -4,6 +4,7 @@ import type {
   Difficulty,
   MockInterview,
 } from '@/types';
+import type { MockInterviewDayCount } from '@/api/generated/models';
 
 let displayTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
@@ -190,10 +191,10 @@ export function interviewPassed(interview: MockInterview) {
   );
 }
 
+/** `mockDays` are server-aggregated, already limited to the subject's interviews. */
 export function recentActivitySeries(
   attempts: Attempt[],
-  interviews: MockInterview[] = [],
-  userId?: string,
+  mockDays: MockInterviewDayCount[] = [],
 ) {
   const today = new Date();
   const todayCalendarDay = calendarDay(today);
@@ -221,18 +222,12 @@ export function recentActivitySeries(
     );
     if (bucket) bucket.attempts += 1;
   });
-  interviews.forEach((interview) => {
-    if (
-      userId &&
-      interview.interviewer.id !== userId &&
-      interview.interviewee.id !== userId
-    )
-      return;
-    const time = calendarDay(interview.occurredAt);
+  mockDays.forEach(({ date, count }) => {
+    const time = Date.parse(date);
     const bucket = buckets.find(
       (item) => time >= item.start && time < item.end,
     );
-    if (bucket) bucket.interviews += 1;
+    if (bucket) bucket.interviews += count;
   });
   return buckets.map(({ week, attempts: count, interviews: mockCount }) => ({
     week,

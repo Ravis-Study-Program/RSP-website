@@ -93,6 +93,15 @@ export interface DataTableProps<TData> {
   defaultExpanded?: boolean;
   getRowId?: (row: TData) => string;
   renderSummary?: (rows: TData[]) => ReactNode;
+  /** `data` holds the loaded server pages; more rows load on demand. */
+  serverPagination?: ServerPagination;
+}
+
+export interface ServerPagination {
+  totalCount: number;
+  hasMore: boolean;
+  loadingMore: boolean;
+  onLoadMore: () => void;
 }
 
 const toolbarClass =
@@ -119,6 +128,7 @@ export function DataTable<TData>({
   defaultExpanded = false,
   getRowId,
   renderSummary,
+  serverPagination,
 }: DataTableProps<TData>) {
   const [sorting, setSorting] = useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
@@ -151,6 +161,8 @@ export function DataTable<TData>({
     getExpandedRowModel: getExpandedRowModel(),
     getRowCanExpand: () => Boolean(renderExpanded),
     getRowId,
+    // Appended server pages must not jump the reader back to page one.
+    autoResetPageIndex: !serverPagination,
     initialState: {
       pagination: { pageSize: initialPageSize },
       ...(defaultExpanded ? { expanded: true } : {}),
@@ -511,6 +523,23 @@ export function DataTable<TData>({
             </div>
           </>
         )}
+        {serverPagination && !loading && !error && data.length > 0 ? (
+          <div className={paginationClass}>
+            <span className="text-sm text-muted-foreground" aria-live="polite">
+              Loaded {data.length} of {serverPagination.totalCount}
+            </span>
+            {serverPagination.hasMore ? (
+              <Button
+                variant="outline"
+                type="button"
+                disabled={serverPagination.loadingMore}
+                onClick={serverPagination.onLoadMore}
+              >
+                {serverPagination.loadingMore ? 'Loading…' : 'Load more'}
+              </Button>
+            ) : null}
+          </div>
+        ) : null}
       </section>
       {renderSummary?.(filteredRows.map((row) => row.original))}
     </SearchHighlightContext.Provider>

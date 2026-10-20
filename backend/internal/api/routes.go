@@ -90,6 +90,7 @@ func registerPracticeRoutes(mux *http.ServeMux, a *API) {
 
 func registerMockInterviewRoutes(mux *http.ServeMux, a *API) {
 	mux.HandleFunc("GET /api/v2/mock-interviews/participants", a.protected(ratelimit.Read, a.listMockInterviewParticipants))
+	mux.HandleFunc("GET /api/v2/mock-interviews/summary", a.protected(ratelimit.Read, a.getMockInterviewSummary))
 	mux.HandleFunc("GET /api/v2/mock-interviews", a.protected(ratelimit.Read, a.listMockInterviews))
 	mux.HandleFunc("POST /api/v2/mock-interviews", a.protected(ratelimit.Write, a.createMockInterview))
 	mux.HandleFunc("PATCH /api/v2/mock-interviews/{id}", a.protected(ratelimit.Write, a.updateMockInterview))

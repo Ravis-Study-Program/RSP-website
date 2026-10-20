@@ -13,7 +13,7 @@ import { Link } from 'react-router-dom';
 import {
   useAttempts,
   useCurrentUser,
-  useMockInterviews,
+  useMockInterviewSummary,
   useSeasonEnrollments,
   useSeasonPeople,
   useSeasonWeeks,
@@ -39,7 +39,10 @@ export function DashboardPage() {
     user.data && (user.data.seasonRoles.length > 0 || user.data.alumni),
   );
   const attempts = useAttempts(eligibleForGlobalPractice);
-  const interviews = useMockInterviews(eligibleForGlobalPractice);
+  const interviews = useMockInterviewSummary(
+    { mode: 'all', userId: user.data?.id },
+    eligibleForGlobalPractice,
+  );
   const { activeWorkspace } = useWorkspace();
 
   const currentSeason =
@@ -82,20 +85,9 @@ export function DashboardPage() {
   const missingWeekResources = orderedWeeks.filter(
     (week) => !week.resourceUrl,
   ).length;
-  const ownInterviews =
-    interviews.data?.items.filter(
-      (interview) =>
-        interview.interviewer.id === userId ||
-        interview.interviewee.id === userId,
-    ) ?? [];
-  const givenInterviews =
-    interviews.data?.items.filter(
-      (interview) => interview.interviewer.id === userId,
-    ) ?? [];
   const activity = recentActivitySeries(
     attempts.data?.items ?? [],
-    interviews.data?.items ?? [],
-    userId,
+    interviews.data?.days,
   );
 
   if (user.isLoading || seasons.isLoading)
@@ -203,7 +195,7 @@ export function DashboardPage() {
             />
             <MetricCard
               label="Interviews given"
-              value={interviews.isLoading ? '—' : givenInterviews.length}
+              value={interviews.data?.given ?? '—'}
               detail="Visible interview history"
             />
             <MetricCard
@@ -230,8 +222,8 @@ export function DashboardPage() {
             />
             <MetricCard
               label="Mock interviews"
-              value={interviews.isLoading ? '—' : ownInterviews.length}
-              detail={`${ownInterviews.filter((item) => item.reviewStatus === 'reviewed').length} reviewed`}
+              value={interviews.data?.total ?? '—'}
+              detail={`${interviews.data?.reviewed ?? 0} reviewed`}
             />
           </>
         )}

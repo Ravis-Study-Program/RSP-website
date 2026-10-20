@@ -1,11 +1,17 @@
 import {
   activityFilterQuery,
   emptyActivityFilters,
+  filterMocks,
   type ActivityFilters,
 } from '@/activityFilters';
 import { programmeTimezone } from '@/activityDates';
 import { calendarDateKey, practiceGoalMinutes } from '@/utils';
-import { queryOptions, useQuery } from '@tanstack/react-query';
+import {
+  queryOptions,
+  useInfiniteQuery,
+  useQuery,
+  useQueryClient,
+} from '@tanstack/react-query';
 
 import {
   adaptAttemptPage,
@@ -29,6 +35,7 @@ import type {
   LeetcodeProblem,
   Me,
   MockInterviewPage as ApiMockInterviewPage,
+  MockInterviewSummary,
   MockParticipantSummaryPage,
   MentorshipPage,
   Mentorship,
@@ -40,7 +47,6 @@ import type {
   ProblemPage,
   PracticeSettings,
   Participation,
-  SeasonPage as ApiSeasonPage,
   User as ApiUser,
   UserPrivate,
   UserPage as ApiUserPage,
@@ -57,7 +63,7 @@ import {
   seasonWeeks,
   seasons,
 } from '@/data/demo';
-import type { CurrentUser, Page, Person } from '@/types';
+import type { CurrentUser, MockInterview, Page, Person } from '@/types';
 
 export const demoMode = demoModeForEnvironment(
   import.meta.env.VITE_USE_DEMO_DATA,
@@ -950,64 +956,136 @@ export function useSeasonPeople(seasonId?: string, seasonName?: string) {
   });
 }
 
-export function useMockInterviews(
+export type MockInterviewMode = 'received' | 'given' | 'all';
+
+/** One server-filtered mock interview list; summary counts and pages share it. */
+export interface MockInterviewScope {
+  mode: MockInterviewMode;
+  seasonId?: string;
+  userId?: string;
+  filters?: ActivityFilters;
+}
+
+const mockInterviewPageSize = 25;
+
+function mockInterviewScopeQuery({
+  mode,
+  seasonId,
+  userId,
+  filters = emptyActivityFilters,
+}: MockInterviewScope) {
+  return `mode=${mode}${userId ? `&userId=${encodeURIComponent(userId)}` : ''}${seasonId ? `&seasonId=${encodeURIComponent(seasonId)}` : ''}${activityFilterQuery(filters)}`;
+}
+
+function demoMockInterviewsInScope({
+  mode,
+  seasonId,
+  userId,
+  filters = emptyActivityFilters,
+}: MockInterviewScope) {
+  const season = seasons.find((item) => item.id === seasonId);
+  const subject = userId ?? selectedDemoUser().id;
+  const items = mockInterviews
+    .filter(
+      (item) =>
+        (mode !== 'received' || item.interviewee.id === subject) &&
+        (mode !== 'given' || item.interviewer.id === subject) &&
+        (mode !== 'all' ||
+          !userId ||
+          item.interviewee.id === userId ||
+          item.interviewer.id === userId) &&
+        (!seasonId ||
+          Boolean(
+            season &&
+            item.occurredAt >= season.startsAt &&
+            item.occurredAt <= season.endsAt,
+          )),
+    )
+    .map((item) => ({
+      ...item,
+      rounds: item.rounds.map((round) => ({
+        ...round,
+        catalogProblem: round.problemId
+          ? demoProblemById.get(round.problemId)
+          : undefined,
+      })),
+      weekId: demoActivityWeekId(seasonId, item.occurredAt),
+    }))
+    .sort((left, right) => right.occurredAt.localeCompare(left.occurredAt));
+  return { items: filterMocks(items, filters), subject };
+}
+
+/** Counts for a scope across every page; never loads interview records. */
+export function useMockInterviewSummary(
+  scope: MockInterviewScope,
   enabled = true,
-  seasonId?: string,
-  userId?: string,
-  filters: ActivityFilters = emptyActivityFilters,
 ) {
   return useQuery({
-    queryKey: ['mock-interviews', { seasonId, userId, filters }],
+    // Keyed by the request so equivalent scopes share one request.
+    queryKey: ['mock-interviews', 'summary', mockInterviewScopeQuery(scope)],
     enabled,
-    queryFn: async () => {
-      if (demoMode)
-        return wait(
-          page(
-            mockInterviews
-              .filter((item) => {
-                const season = seasons.find((item) => item.id === seasonId);
-                return (
-                  (!userId ||
-                    item.interviewee.id === userId ||
-                    item.interviewer.id === userId) &&
-                  (!seasonId ||
-                    Boolean(
-                      season &&
-                      item.occurredAt >= season.startsAt &&
-                      item.occurredAt <= season.endsAt,
-                    ))
-                );
-              })
-              .map((item) => ({
-                ...item,
-                rounds: item.rounds.map((round) => ({
-                  ...round,
-                  catalogProblem: round.problemId
-                    ? demoProblemById.get(round.problemId)
-                    : undefined,
-                })),
-                weekId: demoActivityWeekId(seasonId, item.occurredAt),
-              })),
-          ),
+    queryFn: async (): Promise<MockInterviewSummary> => {
+      if (!demoMode)
+        return apiRequest<MockInterviewSummary>(
+          `/mock-interviews/summary?${mockInterviewScopeQuery(scope)}`,
         );
-      const [interviewPage, seasonPage] = await Promise.all([
-        fetchAllPages<ApiMockInterviewPage['items'][number]>(
-          `/mock-interviews?limit=100&mode=all${userId ? `&userId=${encodeURIComponent(userId)}` : ''}${seasonId ? `&seasonId=${encodeURIComponent(seasonId)}` : ''}${activityFilterQuery(filters)}`,
-        ),
-        fetchAllPages<ApiSeasonPage['items'][number]>('/seasons?limit=100'),
-      ]);
-      const adaptedSeasons = adaptSeasonPage(seasonPage).items;
-      const adapted = adaptMockInterviewPage(interviewPage, {
-        users: new Map(),
-        seasons: new Map(adaptedSeasons.map((season) => [season.id, season])),
+      const { items, subject } = demoMockInterviewsInScope(scope);
+      const days = new Map<string, number>();
+      for (const item of items) {
+        const day = calendarDateKey(item.occurredAt, programmeTimezone);
+        days.set(day, (days.get(day) ?? 0) + 1);
+      }
+      return wait({
+        total: items.length,
+        received: items.filter((item) => item.interviewee.id === subject)
+          .length,
+        given: items.filter((item) => item.interviewer.id === subject).length,
+        reviewed: items.filter((item) => item.reviewStatus === 'reviewed')
+          .length,
+        days: [...days]
+          .sort(([left], [right]) => left.localeCompare(right))
+          .map(([date, count]) => ({ date, count })),
+        interviewers: [
+          ...new Map(
+            items.map(({ interviewer: { id, slug, name, avatarUrl } }) => [
+              id,
+              { id, slug, name, avatarUrl },
+            ]),
+          ).values(),
+        ].sort((left, right) => left.name.localeCompare(right.name)),
       });
-      return {
-        ...adapted,
-        items: [...adapted.items].sort((left, right) =>
-          right.occurredAt.localeCompare(left.occurredAt),
-        ),
-      };
     },
+  });
+}
+
+/**
+ * Cursor pages for a scope, newest first. Only the first page loads when the
+ * query is enabled; later pages load through `fetchNextPage`.
+ */
+export function useMockInterviewPages(
+  scope: MockInterviewScope,
+  enabled = true,
+) {
+  const queryClient = useQueryClient();
+  return useInfiniteQuery({
+    queryKey: ['mock-interviews', 'pages', mockInterviewScopeQuery(scope)],
+    enabled,
+    initialPageParam: null as string | null,
+    queryFn: async ({ pageParam }): Promise<Page<MockInterview>> => {
+      if (demoMode) return wait(page(demoMockInterviewsInScope(scope).items));
+      const [interviewPage, seasonPage] = await Promise.all([
+        apiRequest<ApiMockInterviewPage>(
+          `/mock-interviews?limit=${mockInterviewPageSize}&sort=occurredAt:desc&${mockInterviewScopeQuery(scope)}${pageParam ? `&cursor=${encodeURIComponent(pageParam)}` : ''}`,
+        ),
+        queryClient.ensureQueryData(seasonsOptions),
+      ]);
+      return adaptMockInterviewPage(interviewPage, {
+        users: new Map(),
+        seasons: new Map(seasonPage.items.map((season) => [season.id, season])),
+      });
+    },
+    getNextPageParam: (last) =>
+      last.pageInfo.hasMore ? last.pageInfo.nextCursor : null,
   });
 }
 

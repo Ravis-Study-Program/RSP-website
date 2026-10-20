@@ -111,26 +111,28 @@ func (a *API) listMockInterviewParticipants(w http.ResponseWriter, r *http.Reque
 	writeJSONResponse(w, http.StatusOK, response)
 }
 
-func (a *API) listMockInterviews(w http.ResponseWriter, r *http.Request) {
+// mockInterviewScope parses the access, visibility and filter parameters shared by list and summary reads.
+// The returned binding identifies the scope for cursor validation. It writes the error response when ok is false.
+func (a *API) mockInterviewScope(w http.ResponseWriter, r *http.Request) (query dal.MockInterviewQuery, binding string, ok bool) {
 	actor := actorFrom(r.Context())
 	memberStatus, err := a.db.GetMemberStatus(r.Context(), actor.UserID)
 	if err != nil && !errors.Is(err, dal.ErrNotFound) {
 		a.writeStoreErrorResponse(w, err)
-		return
+		return query, "", false
 	}
 	eligible := err == nil && memberStatus.CanBeMockInterviewParticipant()
 	if !eligible && !actor.IsDirectorOrSystemAdmin() && !historicalMockReviewer(actor) {
 		writeErrorResponse(w, http.StatusForbidden, "Only current or former programme members may access mock interviews.")
-		return
+		return query, "", false
 	}
 	seasonID, year, filterErr := activityFilters(r, actor)
 	if filterErr != nil {
 		writeErrorResponse(w, http.StatusBadRequest, filterErr.Error())
-		return
+		return query, "", false
 	}
 	targetID := r.URL.Query().Get("userId")
 	if targetID != "" && !a.authorizeActivityRead(w, r, targetID, seasonID) {
-		return
+		return query, "", false
 	}
 	mode := r.URL.Query().Get("mode")
 	if mode == "" {
@@ -138,24 +140,18 @@ func (a *API) listMockInterviews(w http.ResponseWriter, r *http.Request) {
 	}
 	if mode != "received" && mode != "given" && mode != "all" {
 		writeErrorResponse(w, http.StatusBadRequest, "mode must be received, given, or all")
-		return
-	}
-	if mode == "all" || targetID != "" {
-		if err := a.auditPrivateDataRead(r.Context(), actor, "mock_interview_collection", actor.UserID); err != nil {
-			writeErrorResponse(w, http.StatusInternalServerError, "Private data was not returned because its access could not be audited.")
-			return
-		}
+		return query, "", false
 	}
 	interviewers, err := selection(r.URL.Query(), "interviewerId", uuidSelection)
 	if err != nil {
 		writeErrorResponse(w, http.StatusBadRequest, err.Error())
-		return
+		return query, "", false
 	}
 	var passed *bool
 	if value := r.URL.Query().Get("passed"); value != "" {
 		if value != "true" && value != "false" {
 			writeErrorResponse(w, http.StatusBadRequest, "passed must be true or false")
-			return
+			return query, "", false
 		}
 		flag := value == "true"
 		passed = &flag
@@ -163,27 +159,10 @@ func (a *API) listMockInterviews(w http.ResponseWriter, r *http.Request) {
 	weeks, err := selection(r.URL.Query(), "weekId", uuidSelection)
 	if err != nil || len(weeks) > 0 && seasonID == "" {
 		writeErrorResponse(w, http.StatusBadRequest, "Week filters require a season and valid week IDs.")
-		return
+		return query, "", false
 	}
 	filterBinding, _ := json.Marshal(struct{ Interviewers, Weeks []string }{interviewers, weeks})
-	sortBy, err := parseSort(r.URL.Query().Get("sort"), "occurredAt:desc", "occurredAt:desc", "id:asc")
-	if err != nil {
-		writeErrorResponse(w, http.StatusBadRequest, "sort must be occurredAt:desc or id:asc")
-		return
-	}
-
-	direction, err := parsePageDirection(r.URL.Query().Get("direction"))
-	if err != nil {
-		writeErrorResponse(w, http.StatusBadRequest, "direction must be forward or backward")
-		return
-	}
-
-	binding := "mock-interviews|user=" + targetID + "|interviewers=" + string(filterBinding) + "|passed=" + r.URL.Query().Get("passed") + "|mode=" + mode + "|sort=" + sortBy + fmt.Sprintf("|season=%s|year=%d", seasonID, year)
-	limit, boundary, err := parsePagination(r.URL.Query().Get("limit"), r.URL.Query().Get("cursor"), binding, a.cursorSecret)
-	if err != nil {
-		writeErrorResponse(w, http.StatusBadRequest, "The cursor does not match the selected mode and sort.")
-		return
-	}
+	binding = "mock-interviews|user=" + targetID + "|interviewers=" + string(filterBinding) + "|passed=" + r.URL.Query().Get("passed") + "|mode=" + mode + fmt.Sprintf("|season=%s|year=%d", seasonID, year)
 
 	visibility := dal.MockInterviewsReceived
 	if mode == "given" {
@@ -198,15 +177,66 @@ func (a *API) listMockInterviews(w http.ResponseWriter, r *http.Request) {
 			visibility = dal.MockInterviewsAll
 		}
 	}
-	items, more, total, err := a.db.ListMockInterviews(r.Context(), dal.MockInterviewQuery{
+	return dal.MockInterviewQuery{
 		SeasonID: seasonID, Year: year, TargetID: targetID, TargetMode: mode, InterviewerIDs: interviewers, Passed: passed, WeekIDs: weeks,
 		ViewerID:   actor.UserID,
 		Visibility: visibility,
-		Boundary:   boundary,
-		Limit:      limit,
-		SortBy:     sortBy,
-		Direction:  direction,
-	})
+	}, binding, true
+}
+
+// getMockInterviewSummary returns counts for a list scope so screens can show totals without loading every page.
+func (a *API) getMockInterviewSummary(w http.ResponseWriter, r *http.Request) {
+	query, _, ok := a.mockInterviewScope(w, r)
+	if !ok {
+		return
+	}
+	actor := actorFrom(r.Context())
+	if query.TargetMode == "all" || query.TargetID != "" {
+		if err := a.auditPrivateDataRead(r.Context(), actor, "mock_interview_collection", actor.UserID); err != nil {
+			writeErrorResponse(w, http.StatusInternalServerError, "Private data was not returned because its access could not be audited.")
+			return
+		}
+	}
+	summary, err := a.db.SummarizeMockInterviews(r.Context(), query)
+	if err != nil {
+		a.writeStoreErrorResponse(w, err)
+		return
+	}
+	writeJSONResponse(w, http.StatusOK, summary)
+}
+
+func (a *API) listMockInterviews(w http.ResponseWriter, r *http.Request) {
+	query, binding, ok := a.mockInterviewScope(w, r)
+	if !ok {
+		return
+	}
+	actor := actorFrom(r.Context())
+	if query.TargetMode == "all" || query.TargetID != "" {
+		if err := a.auditPrivateDataRead(r.Context(), actor, "mock_interview_collection", actor.UserID); err != nil {
+			writeErrorResponse(w, http.StatusInternalServerError, "Private data was not returned because its access could not be audited.")
+			return
+		}
+	}
+	sortBy, err := parseSort(r.URL.Query().Get("sort"), "occurredAt:desc", "occurredAt:desc", "id:asc")
+	if err != nil {
+		writeErrorResponse(w, http.StatusBadRequest, "sort must be occurredAt:desc or id:asc")
+		return
+	}
+
+	direction, err := parsePageDirection(r.URL.Query().Get("direction"))
+	if err != nil {
+		writeErrorResponse(w, http.StatusBadRequest, "direction must be forward or backward")
+		return
+	}
+
+	binding += "|sort=" + sortBy
+	limit, boundary, err := parsePagination(r.URL.Query().Get("limit"), r.URL.Query().Get("cursor"), binding, a.cursorSecret)
+	if err != nil {
+		writeErrorResponse(w, http.StatusBadRequest, "The cursor does not match the selected mode and sort.")
+		return
+	}
+	query.Boundary, query.Limit, query.SortBy, query.Direction = boundary, limit, sortBy, direction
+	items, more, total, err := a.db.ListMockInterviews(r.Context(), query)
 	if err != nil {
 		a.writeStoreErrorResponse(w, err)
 		return
