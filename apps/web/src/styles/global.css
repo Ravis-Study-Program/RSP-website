@@ -127,3 +127,28 @@
     }
   }
 }
+
+/* Canary-only surfaces (role switcher): remap the theme tokens to amber so
+   every control inside follows, matching the floating Canary badge. */
+.canary-theme {
+  --card: var(--color-amber-50);
+  --foreground: var(--color-amber-950);
+  --muted: var(--color-amber-100);
+  --muted-foreground: var(--color-amber-800);
+  --border: var(--color-amber-300);
+  --primary: var(--color-amber-600);
+  --primary-foreground: var(--color-white);
+  --ring: var(--color-amber-500);
+}
+
+[data-theme='dark'] .canary-theme,
+[data-theme='dark'].canary-theme {
+  --card: var(--color-amber-950);
+  --foreground: var(--color-amber-100);
+  --muted: color-mix(in oklch, var(--color-amber-900) 60%, transparent);
+  --muted-foreground: var(--color-amber-300);
+  --border: var(--color-amber-800);
+  --primary: var(--color-amber-400);
+  --primary-foreground: var(--color-amber-950);
+  --ring: var(--color-amber-500);
+}

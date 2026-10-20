@@ -43,6 +43,35 @@ describe('loadConfig', () => {
     expect(configuration.email.provider).toBe('ses');
   });
 
+  it('accepts a canary that captures email without Google sign-in', () => {
+    const canary = {
+      NODE_ENV: 'production',
+      APP_ENV: 'canary',
+      BETTER_AUTH_URL: 'https://pr-12.canary.example.org',
+      BETTER_AUTH_SECRET: 'a'.repeat(64),
+      AUTH_TRUSTED_ORIGINS: 'https://pr-12.canary.example.org',
+      AUTH_COOKIE_SECURE: 'true',
+      AUTH_TRUST_PROXY_HEADERS: 'true',
+      EMAIL_PROVIDER: 'smtp',
+      SMTP_HOST: 'mailpit',
+      IDENTITY_SERVICE_TOKEN: 'b'.repeat(64),
+    };
+    expect(loadConfig(canary).email.provider).toBe('smtp');
+    expect(() => loadConfig({ ...canary, EMAIL_PROVIDER: 'ses' })).toThrow(
+      /smtp in a canary/,
+    );
+    expect(() =>
+      loadConfig({
+        ...canary,
+        BETTER_AUTH_URL: 'https://rsp.example.org',
+        AUTH_TRUSTED_ORIGINS: 'https://rsp.example.org',
+      }),
+    ).toThrow(/canary DNS label/);
+    expect(() =>
+      loadConfig({ ...canary, AUTH_COOKIE_SECURE: 'false' }),
+    ).toThrow(/AUTH_COOKIE_SECURE/);
+  });
+
   it('rejects a production HTTP origin, widened trust boundary, or untrusted proxy mode', () => {
     const complete = {
       NODE_ENV: 'production',

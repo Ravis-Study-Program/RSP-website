@@ -19,6 +19,9 @@ CMD ["pnpm", "--filter", "@rsp/web", "dev"]
 
 FROM base AS build
 
+# Per-PR canary images enable the canary bar; production leaves it unset.
+ARG VITE_RSP_CANARY=
+ENV VITE_RSP_CANARY=${VITE_RSP_CANARY}
 COPY apps/web apps/web
 COPY api/openapi.yaml api/openapi.yaml
 RUN pnpm --filter @rsp/web build

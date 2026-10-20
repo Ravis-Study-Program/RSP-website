@@ -39,8 +39,8 @@ func run(ctx context.Context, args []string) error {
 	switch args[0] {
 	case "seed":
 		appEnv := strings.ToLower(strings.TrimSpace(os.Getenv("APP_ENV")))
-		if appEnv != "development" && appEnv != "test" {
-			return errors.New("seed is allowed only when APP_ENV=development or APP_ENV=test")
+		if appEnv != "development" && appEnv != "test" && appEnv != "canary" {
+			return errors.New("seed is allowed only when APP_ENV=development, test or canary")
 		}
 		options, err := parseSeedOptions(args[1:])
 		if err != nil {

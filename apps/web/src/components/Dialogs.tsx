@@ -34,6 +34,8 @@ export function FormDialog({
   trigger,
   triggerVariant,
   triggerSize,
+  triggerClassName,
+  contentClassName,
   children,
   open,
   onOpenChange,
@@ -43,6 +45,8 @@ export function FormDialog({
   trigger?: ReactNode;
   triggerVariant?: ButtonProps['variant'];
   triggerSize?: ButtonProps['size'];
+  triggerClassName?: string;
+  contentClassName?: string;
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
 }>) {
@@ -50,13 +54,19 @@ export function FormDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       {trigger ? (
         <DialogTrigger
-          render={<Button variant={triggerVariant} size={triggerSize} />}
+          render={
+            <Button
+              variant={triggerVariant}
+              size={triggerSize}
+              className={triggerClassName}
+            />
+          }
         >
           {trigger}
         </DialogTrigger>
       ) : null}
 
-      <DialogContent showCloseButton={false}>
+      <DialogContent showCloseButton={false} className={contentClassName}>
         <div className="mb-4 flex items-start justify-between gap-4">
           <div>
             <DialogTitle>{title}</DialogTitle>
