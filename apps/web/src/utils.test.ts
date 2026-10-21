@@ -5,6 +5,7 @@ import {
   configureDisplayTimezone,
   formatDateTime,
   formatDateTimeInput,
+  problemName,
   zonedDateTimeToUtc,
 } from '@/utils';
 
@@ -20,5 +21,18 @@ describe('saved display timezone', () => {
     expect(formatDateTime(instant)).toMatch(/(?:17 Aug|Aug 17).*2026/);
     expect(formatDateTimeInput(instant)).toBe('2026-08-17T01:00');
     expect(zonedDateTimeToUtc('2026-08-17T01:00')).toBe(instant);
+  });
+});
+
+describe('problemName', () => {
+  it('prefixes the number once', () => {
+    expect(problemName({ number: 1, title: 'Two Sum' })).toBe('1. Two Sum');
+    expect(
+      problemName({ number: 3379, title: '3379. Transformed Array' }),
+    ).toBe('3379. Transformed Array');
+  });
+
+  it('keeps titles that only start with a digit', () => {
+    expect(problemName({ number: 15, title: '3Sum' })).toBe('15. 3Sum');
   });
 });

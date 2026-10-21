@@ -140,7 +140,7 @@ describe('OpenAPI DTO adapters', () => {
     };
     expect(adaptAttemptPage(attempts).items[0]).toMatchObject({
       problemId: problem.id,
-      problem: problem.title,
+      problem: '347. Top K Frequent Elements',
       difficulty: 'Medium',
       category: 'Hash maps, Sorting',
       categories: ['Hash maps', 'Sorting'],
