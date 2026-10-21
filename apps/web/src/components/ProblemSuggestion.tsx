@@ -8,11 +8,13 @@ import {
   emptyActivityFilters,
   type ActivityFilters,
 } from '@/activityFilters';
+import { problemName } from '@/utils';
 
 export function ProblemSuggestion({ filters }: { filters: ActivityFilters }) {
   const [suggestion, setSuggestion] = useState<LeetcodeProblem | null>();
   const [pending, setPending] = useState(false);
   const [error, setError] = useState('');
+  const targeted = filters.difficulties.length + filters.categories.length > 0;
   async function suggest() {
     setPending(true);
     setError('');
@@ -52,9 +54,16 @@ export function ProblemSuggestion({ filters }: { filters: ActivityFilters }) {
         {pending ? 'Finding a question…' : 'Suggest a question'}
       </Button>
       <span className="min-w-0 text-sm text-muted-foreground">
-        Uses the selected difficulty and topics and excludes your previous
-        attempts from every season.
+        Picks a question you have not attempted in any season, using the
+        selected difficulty and topics.
       </span>
+      {targeted ? (
+        <p className="basis-full text-sm text-muted-foreground">
+          Targeting a difficulty or topic is generally discouraged: interviews
+          will not tell you either in advance, so practise without knowing them
+          too.
+        </p>
+      ) : null}
       {error ? (
         <p role="alert" className="basis-full text-sm text-destructive">
           {error}
@@ -68,9 +77,8 @@ export function ProblemSuggestion({ filters }: { filters: ActivityFilters }) {
         ) : suggestion ? (
           <p>
             <a href={suggestion.link} target="_blank" rel="noreferrer">
-              {suggestion.number}. {suggestion.title}
-            </a>{' '}
-            · {suggestion.difficulty} · {suggestion.categories.join(', ')}
+              {problemName(suggestion)}
+            </a>
             {suggestion.premium ? ' · LeetCode Premium' : ''}
           </p>
         ) : null}

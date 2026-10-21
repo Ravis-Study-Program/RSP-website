@@ -26,7 +26,7 @@ COPY apps/web apps/web
 COPY api/openapi.yaml api/openapi.yaml
 RUN pnpm --filter @rsp/web build
 
-FROM golang:1.26.9-alpine3.24 AS caddy-build
+FROM golang:1.26.10-alpine3.24 AS caddy-build
 
 ARG CADDY_VERSION=2.11.4
 ARG XCADDY_VERSION=v0.4.5
@@ -35,6 +35,7 @@ RUN apk add --no-cache git \
     && go install github.com/caddyserver/xcaddy/cmd/xcaddy@${XCADDY_VERSION} \
     && xcaddy build v${CADDY_VERSION} \
       --output /out/caddy \
+      --replace github.com/klauspost/compress=github.com/klauspost/compress@v1.18.7 \
       --replace golang.org/x/crypto=golang.org/x/crypto@v0.57.0 \
       --replace golang.org/x/net=golang.org/x/net@v0.60.0 \
       --replace golang.org/x/text=golang.org/x/text@v0.42.0 \

@@ -4,7 +4,10 @@ import type {
   Difficulty,
   MockInterview,
 } from '@/types';
-import type { MockInterviewDayCount } from '@/api/generated/models';
+import type {
+  LeetcodeProblem,
+  MockInterviewDayCount,
+} from '@/api/generated/models';
 
 let displayTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
@@ -166,6 +169,18 @@ export function titleCase(value: string) {
   return value
     .replaceAll('_', ' ')
     .replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
+/**
+ * "1. Two Sum". Some catalogue titles already start with their number, so a
+ * matching prefix is not repeated.
+ */
+export function problemName({
+  number,
+  title,
+}: Pick<LeetcodeProblem, 'number' | 'title'>) {
+  const prefix = `${number}. `;
+  return title.startsWith(prefix) ? title : `${prefix}${title}`;
 }
 
 export const practiceGoalMinutes = { Easy: 20, Medium: 35, Hard: 50 } as const;

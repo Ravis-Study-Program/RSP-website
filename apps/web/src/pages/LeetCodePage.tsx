@@ -11,6 +11,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { useActivityFilters, filterPractice } from '@/activityFilters';
 import { ProblemSuggestion } from '@/components/ProblemSuggestion';
+import { Spoiler } from '@/components/Spoiler';
 import { PracticeFilters } from '@/components/ActivityFilters';
 import { ActivityPeriodFilter } from '@/components/ActivityPeriodFilter';
 import { useActivitySeason } from '@/activityPeriod';
@@ -114,9 +115,13 @@ const baseColumns: ColumnDef<Attempt, any>[] = [
           )}
         </strong>
         <div className="text-sm text-muted-foreground">
-          <HighlightText
-            text={row.original.category ?? 'Category unavailable'}
-          />
+          {row.original.category ? (
+            <Spoiler>
+              <HighlightText text={row.original.category} />
+            </Spoiler>
+          ) : (
+            'Category unavailable'
+          )}
         </div>
       </div>
     ),
@@ -421,7 +426,12 @@ export function LeetCodePage() {
                 </a>
               </h3>
               <p className="text-sm text-muted-foreground">
-                {row.original.category} · {formatDate(row.original.attemptedAt)}
+                {row.original.category ? (
+                  <>
+                    <Spoiler>{row.original.category}</Spoiler> ·{' '}
+                  </>
+                ) : null}
+                {formatDate(row.original.attemptedAt)}
               </p>
               <p>
                 {row.original.minutes

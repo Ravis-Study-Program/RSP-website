@@ -25,7 +25,7 @@ compose.yaml    Local development stack
 
 - Docker Desktop or another Compose v2 compatible engine
 - `just`
-- Go 1.26.6 for native development
+- Go 1.26.10 for native development
 - Node 24.19.0 and pnpm 10.15.0 for native development
 
 The language versions are also recorded in `.tool-versions`. All production
