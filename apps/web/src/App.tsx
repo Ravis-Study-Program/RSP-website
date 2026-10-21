@@ -19,6 +19,7 @@ import { getBrowserAuthSession } from '@/api/authClient';
 import { demoMode, useCurrentUser } from '@/api/queries';
 import { WorkspaceProvider } from '@/auth/WorkspaceContext';
 import { AppShell } from '@/components/AppShell';
+import { CanaryBar } from '@/components/CanaryBar';
 import { PageSkeleton } from '@/components/StatusViews';
 import {
   ForbiddenPage,
@@ -430,6 +431,7 @@ export function App() {
   const [router] = useState(() => createBrowserRouter(routeObjects));
   return (
     <AppProviders>
+      <CanaryBar />
       <RouterProvider router={router} />
     </AppProviders>
   );

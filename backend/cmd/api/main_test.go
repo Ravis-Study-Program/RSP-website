@@ -41,6 +41,26 @@ func TestValidateProductionConfig(t *testing.T) {
 	}
 }
 
+func TestValidateCanaryConfig(t *testing.T) {
+	for origin, wantValid := range map[string]bool{
+		"https://pr-12.canary.rsp.example": true,
+		"https://canary.rsp.example":       true,
+		"https://rsp.example":              false,
+		"https://canaryrsp.example":        false,
+		"https://pr-12-canary.rsp.example": false,
+	} {
+		err := validateCanaryConfig(func(key string) string {
+			if key == "PUBLIC_ORIGIN" {
+				return origin
+			}
+			return ""
+		})
+		if (err == nil) != wantValid {
+			t.Errorf("validateCanaryConfig(%q) error = %v, want valid %v", origin, err, wantValid)
+		}
+	}
+}
+
 func TestRateLimitsFromEnv(t *testing.T) {
 	values := map[string]string{"API_RATE_LIMIT_READ_PER_MINUTE": " 2000 "}
 	limits, err := rateLimitsFromEnv(func(key string) string { return values[key] })

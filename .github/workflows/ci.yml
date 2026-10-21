@@ -39,13 +39,7 @@ jobs:
       - name: Install JavaScript dependencies
         run: pnpm install --frozen-lockfile
       - name: Check Go formatting
-        shell: bash
-        run: |
-          unformatted="$(gofmt -l backend)"
-          if [[ -n "$unformatted" ]]; then
-            printf 'Go files need gofmt:\n%s\n' "$unformatted" >&2
-            exit 1
-          fi
+        run: scripts/ci/check-gofmt.sh
       - name: Vet Go
         run: go vet ./...
       - name: Staticcheck
@@ -156,42 +150,15 @@ jobs:
           sudo apt-get install --yes postgresql-client
           go install github.com/pressly/goose/v3/cmd/goose@v3.27.3
       - name: Migrate app and auth schemas
-        run: |
-          goose -dir db/migrations postgres "$DATABASE_URL" up
-          psql "$DATABASE_URL" --set ON_ERROR_STOP=1 --command "CREATE SCHEMA IF NOT EXISTS auth"
-          psql "$DATABASE_URL" --set ON_ERROR_STOP=1 --file deploy/postgres/migrate-auth.sql
-          psql "$DATABASE_URL" --set ON_ERROR_STOP=1 --file deploy/postgres/migrate-auth.sql
+        run: scripts/ci/postgres.sh migrate
       - name: Prove existing auth schema upgrades and remains idempotent
         env:
           PGPASSWORD: rsp-ci-database-password
-        run: |
-          psql "$DATABASE_URL" --set ON_ERROR_STOP=1 --command "CREATE DATABASE rsp_auth_upgrade"
-          upgrade_url="postgresql://rsp:rsp-ci-database-password@127.0.0.1:5432/rsp_auth_upgrade?sslmode=disable"
-          psql "$upgrade_url" --set ON_ERROR_STOP=1 --command "CREATE SCHEMA auth"
-          psql "$upgrade_url" --set ON_ERROR_STOP=1 --file apps/auth/migrations/better-auth.sql
-          psql "$upgrade_url" --set ON_ERROR_STOP=1 --file deploy/postgres/migrate-auth.sql
-          psql "$upgrade_url" --set ON_ERROR_STOP=1 --file deploy/postgres/migrate-auth.sql
-          migration_ok="$(psql "$upgrade_url" --set ON_ERROR_STOP=1 --tuples-only --no-align --command \
-            "SELECT to_regclass('auth.account_deletion_recovery_tokens') IS NOT NULL AND to_regclass('auth.lifecycle_outbox') IS NOT NULL AND (SELECT count(*) = 2 FROM auth.schema_migrations)")"
-          test "$migration_ok" = "t"
-          psql "$DATABASE_URL" --set ON_ERROR_STOP=1 --command "DROP DATABASE rsp_auth_upgrade"
+        run: scripts/ci/postgres.sh prove-auth-upgrade
       - name: Prove concurrent auth migration runners serialize the full sequence
         env:
           PGPASSWORD: rsp-ci-database-password
-        run: |
-          psql "$DATABASE_URL" --set ON_ERROR_STOP=1 --command "CREATE DATABASE rsp_auth_concurrent"
-          concurrent_url="postgresql://rsp:rsp-ci-database-password@127.0.0.1:5432/rsp_auth_concurrent?sslmode=disable"
-          psql "$concurrent_url" --set ON_ERROR_STOP=1 --command "CREATE SCHEMA auth"
-          psql "$concurrent_url" --set ON_ERROR_STOP=1 --file deploy/postgres/migrate-auth.sql &
-          first_pid=$!
-          psql "$concurrent_url" --set ON_ERROR_STOP=1 --file deploy/postgres/migrate-auth.sql &
-          second_pid=$!
-          wait "$first_pid"
-          wait "$second_pid"
-          migration_ok="$(psql "$concurrent_url" --set ON_ERROR_STOP=1 --tuples-only --no-align --command \
-            "SELECT to_regclass('auth.lifecycle_outbox') IS NOT NULL AND (SELECT count(*) = 2 FROM auth.schema_migrations)")"
-          test "$migration_ok" = "t"
-          psql "$DATABASE_URL" --set ON_ERROR_STOP=1 --command "DROP DATABASE rsp_auth_concurrent"
+        run: scripts/ci/postgres.sh prove-auth-concurrent
       - name: Run PostgreSQL-backed tests
         run: go test -tags=integration ./...
       - name: Run live Better Auth session, MFA, linking and JWKS tests
@@ -215,11 +182,7 @@ jobs:
           SMTP_SECURE: 'false'
         run: pnpm --filter @rsp/auth exec vitest run test/live-auth-handler.test.ts
       - name: Prove app migration down and up
-        run: |
-          goose -dir db/migrations postgres "$DATABASE_URL" down-to 0
-          goose -dir db/migrations postgres "$DATABASE_URL" up
-          psql "$DATABASE_URL" --set ON_ERROR_STOP=1 --command \
-            "SELECT to_regclass('app.audit_events'), to_regclass('migration.runs'), to_regclass('auth.users');"
+        run: scripts/ci/postgres.sh prove-app-roundtrip
 
   browser-e2e:
     name: Browser and accessibility workflows
@@ -303,37 +266,9 @@ jobs:
       - name: Install Chromium
         run: pnpm --filter @rsp/web exec playwright install --with-deps chromium
       - name: Start isolated development stack
-        run: |
-          docker compose -f compose.yaml -f deploy/compose.real-e2e.yaml \
-            up --build --detach
-          curl --fail --show-error --retry 30 --retry-delay 2 --retry-all-errors \
-            "$RSP_E2E_BASE_URL/health/live" > /dev/null
-          curl --fail --show-error --retry 30 --retry-delay 2 --retry-all-errors \
-            "$RSP_E2E_BASE_URL/api/v2/health/ready" > /dev/null
-          docker compose -f compose.yaml -f deploy/compose.real-e2e.yaml ps
+        run: scripts/ci/real-e2e-stack.sh up
       - name: Run 10 live Better Auth and PostgreSQL tests in isolation
-        run: |
-          docker compose -f compose.yaml -f deploy/compose.real-e2e.yaml stop auth
-          docker compose -f compose.yaml -f deploy/compose.real-e2e.yaml \
-            run --rm --no-deps \
-            -e AUTH_LIVE_TEST=true \
-            -e AUTH_LIVE_MAILPIT_URL=http://mailpit:8025 \
-            -e BETTER_AUTH_URL=http://127.0.0.1:3001 \
-            -e AUTH_TRUSTED_ORIGINS=http://127.0.0.1:3001 \
-            -e IDENTITY_SERVICE_URL=http://127.0.0.1:4000 \
-            auth pnpm --filter @rsp/auth exec vitest run test/live-auth-handler.test.ts
-          docker compose -f compose.yaml -f deploy/compose.real-e2e.yaml start auth
-          auth_ready=false
-          for _ in {1..30}; do
-            if docker compose -f compose.yaml -f deploy/compose.real-e2e.yaml \
-              exec -T auth node -e \
-              "fetch('http://127.0.0.1:3001/health/ready').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"; then
-              auth_ready=true
-              break
-            fi
-            sleep 2
-          done
-          [[ "$auth_ready" == "true" ]]
+        run: scripts/ci/real-e2e-stack.sh auth-live-tests
       - name: Provision verified role fixtures
         env:
           APP_ENV: test
@@ -356,29 +291,10 @@ jobs:
           retention-days: 7
       - name: Real-stack logs on failure
         if: failure()
-        run: |
-          app_tables_ready="$(docker compose -f compose.yaml -f deploy/compose.real-e2e.yaml \
-            exec -T postgres psql --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" --tuples-only --no-align --command \
-            "SELECT to_regclass('app.users') IS NOT NULL AND to_regclass('app.user_auth_links') IS NOT NULL AND to_regclass('app.identity_event_receipts') IS NOT NULL" 2>/dev/null || true)"
-          if [[ "$app_tables_ready" == "t" ]]; then
-            docker compose -f compose.yaml -f deploy/compose.real-e2e.yaml \
-              exec -T postgres psql --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" --command \
-              "SELECT (SELECT count(*) FROM app.users) AS app_users, (SELECT count(*) FROM app.user_auth_links) AS auth_links, (SELECT count(*) FROM app.identity_event_receipts) AS identity_receipts;" || true
-          fi
-          auth_outbox_ready="$(docker compose -f compose.yaml -f deploy/compose.real-e2e.yaml \
-            exec -T postgres psql --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" --tuples-only --no-align --command \
-            "SELECT to_regclass('auth.lifecycle_outbox') IS NOT NULL" 2>/dev/null || true)"
-          if [[ "$auth_outbox_ready" == "t" ]]; then
-            docker compose -f compose.yaml -f deploy/compose.real-e2e.yaml \
-              exec -T postgres psql --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" --command \
-              "SELECT payload->>'type' AS event_type, payload->>'authUserId' AS auth_user_id, attempt_count, last_error FROM auth.lifecycle_outbox WHERE delivered_at IS NULL ORDER BY created_at;" || true
-          fi
-          docker compose -f compose.yaml -f deploy/compose.real-e2e.yaml logs --tail=500
+        run: scripts/ci/real-e2e-stack.sh diagnostics
       - name: Stop isolated development stack
         if: always()
-        run: |
-          docker compose -f compose.yaml -f deploy/compose.real-e2e.yaml \
-            down --volumes --remove-orphans
+        run: scripts/ci/real-e2e-stack.sh down
 
   dependency-security:
     name: Dependency and secret security
@@ -407,19 +323,12 @@ jobs:
         run: go run golang.org/x/vuln/cmd/govulncheck@v1.6.0 ./...
       - name: pnpm audit
         run: pnpm audit --audit-level high
-      # The gitleaks GitHub Action requires a paid license for organisation
-      # repositories, so run the MIT-licensed CLI directly over full history.
+      # Pinned gitleaks CLI; see the script for why not the GitHub Action.
       - name: Secret scan
         env:
           GITLEAKS_VERSION: 8.30.1
           GITLEAKS_SHA256: 551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb
-        run: |
-          archive="gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
-          curl --fail --silent --show-error --location --output "$RUNNER_TEMP/$archive" \
-            "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/${archive}"
-          echo "${GITLEAKS_SHA256}  $RUNNER_TEMP/$archive" | sha256sum --check --strict
-          tar --extract --gzip --file "$RUNNER_TEMP/$archive" --directory "$RUNNER_TEMP" gitleaks
-          "$RUNNER_TEMP/gitleaks" git --config .gitleaks.toml --redact --no-banner --exit-code 1 .
+        run: scripts/ci/gitleaks.sh
 
   migration-fixture:
     name: Legacy migration rehearsal fixture
@@ -432,83 +341,7 @@ jobs:
           go-version: ${{ env.GO_VERSION }}
           cache-dependency-path: go.sum
       - name: Plan Auth0 identities and exercise legacy migration fixtures
-        shell: bash
-        run: |
-          migration_dir="$(mktemp -d)"
-          trap 'rm -rf "$migration_dir"' EXIT
-          go run ./scripts/legacy-migration/cmd auth0 plan \
-            --auth0-users scripts/legacy-migration/migration/testdata/auth0_users.json \
-            --app-candidates scripts/legacy-migration/migration/testdata/auth0_app_candidates.json \
-            --resolutions scripts/legacy-migration/migration/testdata/auth0_resolutions.json \
-            --plan "$migration_dir/auth0-plan.json"
-          jq -e '
-            .version == 1 and
-            (.checksum | length == 64) and
-            .reconciliation.auth0UserCount == 4 and
-            .reconciliation.providerIdentityCount == 4 and
-            .reconciliation.explicitResolutionCount == 2 and
-            .reconciliation.statusCounts.matched == 1 and
-            .reconciliation.statusCounts.requires_resolution == 2 and
-            .reconciliation.statusCounts.password_reset_required == 1 and
-            .reconciliation.statusCounts.imported == 0 and
-            .reconciliation.unresolvedAuth0UserIds == ["auth0|ambiguous", "auth0|unverified"] and
-            ([.reconciliation.providerAccounts[] |
-              [.provider, .providerAccountId] | join("\u0000")] |
-              length == (unique | length)) and
-            ([.items[] | select(.auth0UserId == "auth0|ambiguous")] | length == 1) and
-            all(.items[] | select(.auth0UserId == "auth0|ambiguous");
-              .status == "requires_resolution" and
-              (.resolvedAppUserId // "") == "" and
-              (.candidateAppUserIds | length) == 2) and
-            all(.items[] | select(.auth0UserId == "auth0|unverified");
-              .status == "requires_resolution" and
-              (.resolvedAppUserId // "") == "" and
-              ((.candidateAppUserIds // []) | length) == 0)
-          ' "$migration_dir/auth0-plan.json"
-          go run ./scripts/legacy-migration/cmd legacy dry-run \
-            --source-fixture scripts/legacy-migration/migration/testdata/valid_snapshot.json \
-            --manifest "$migration_dir/manifest.json"
-          go run ./scripts/legacy-migration/cmd legacy apply \
-            --source-fixture scripts/legacy-migration/migration/testdata/valid_snapshot.json \
-            --target-state "$migration_dir/target-state.json" \
-            --manifest "$migration_dir/manifest.json"
-          go run ./scripts/legacy-migration/cmd legacy verify \
-            --target-state "$migration_dir/target-state.json" \
-            --manifest "$migration_dir/manifest.json" \
-            > "$migration_dir/verification.json"
-          jq -e '
-            .foreignKeyErrors == 0 and
-            (.runId | length > 0) and
-            (.manifestChecksum | length == 64) and
-            (.verifiedAt | length > 0) and
-            (.counts | length == 17) and
-            (.checksums | length == 17)
-          ' \
-            "$migration_dir/verification.json"
-          jq -e '
-            .version == 1 and
-            (.sourceSchemaFingerprint | length == 64) and
-            (.sourceSnapshotChecksum | length == 64) and
-            (.efHistory | length > 0) and
-            (.tables | length == 17) and
-            (.mappings | length > 0) and
-            (.histograms | length > 0) and
-            (.anomalies | length == 0) and
-            (.autoFixes | length > 0) and
-            (.checksum | length == 64)
-          ' \
-            "$migration_dir/manifest.json"
-          cp "$migration_dir/target-state.json" "$migration_dir/before-repeat.json"
-          if go run ./scripts/legacy-migration/cmd legacy apply \
-            --source-fixture scripts/legacy-migration/migration/testdata/valid_snapshot.json \
-            --target-state "$migration_dir/target-state.json" \
-            --manifest "$migration_dir/manifest.json" \
-            > "$migration_dir/repeat.log" 2>&1; then
-            echo "Repeated migration unexpectedly succeeded" >&2
-            exit 1
-          fi
-          grep -F 'migration run has already been applied' "$migration_dir/repeat.log"
-          cmp "$migration_dir/before-repeat.json" "$migration_dir/target-state.json"
+        run: scripts/ci/legacy-migration-fixture.sh
 
   containers:
     name: Production images and Trivy
@@ -542,22 +375,9 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Build production images
-        run: |
-          docker build --file backend/Dockerfile --target runtime --build-arg BINARY=api --tag rsp-api:ci .
-          docker build --file backend/Dockerfile --target runtime --build-arg BINARY=worker --tag rsp-worker:ci .
-          docker build --file backend/Dockerfile --target migrations --tag rsp-migrations:ci .
-          docker build --file backend/Dockerfile --target ops --tag rsp-ops:ci .
-          docker build --file apps/auth/Dockerfile --target runtime --tag rsp-auth:ci .
-          docker build --file apps/web/Dockerfile --target runtime --tag rsp-web:ci .
-          docker run --rm --entrypoint sh rsp-ops:ci -c \
-            'command -v rspctl >/dev/null && command -v rsp-migrate >/dev/null'
+        run: scripts/ci/containers.sh build
       - name: Prove production web bundle excludes demo fixtures
-        run: |
-          if docker run --rm --entrypoint sh rsp-web:ci -c \
-            "grep -R -E 'rsp-demo-|example\\.test|Amelia Chen' /srv"; then
-            echo "Production web image contains demo-only fixture data" >&2
-            exit 1
-          fi
+        run: scripts/ci/containers.sh check-web-bundle
       - name: Scan API image
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:

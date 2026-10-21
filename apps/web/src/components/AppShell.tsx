@@ -42,6 +42,7 @@ import {
 import { signOut } from '@/api/authClient';
 import { useCurrentUser } from '@/api/queries';
 import { useWorkspace } from '@/auth/WorkspaceContext';
+import { CanaryRoleSwitcher } from '@/components/CanaryBar';
 import { CommandPalette } from '@/components/CommandPalette';
 import { useCurrentPageTitle } from '@/components/Common';
 import { cn } from '@/lib/utils';
@@ -374,7 +375,10 @@ export function AppShell() {
                 navItems.find((item) => location.pathname === item.to)?.label}
             </span>
           </div>
-          <CommandPalette />
+          <div className="flex shrink-0 items-center gap-2">
+            <CanaryRoleSwitcher />
+            <CommandPalette />
+          </div>
         </header>
         <main
           id="main-content"

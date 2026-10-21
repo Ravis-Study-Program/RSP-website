@@ -77,7 +77,8 @@ Start with [architecture](docs/architecture.md), then use the
 [operations runbook](docs/operations.md) for health, logs and observability.
 Data and identity cutovers are deliberately separate runbooks:
 [data migration](docs/data-migration.md) and
-[auth cutover](docs/auth-cutover.md).
+[auth cutover](docs/auth-cutover.md). Any pull request can opt in to its own
+[canary](docs/canary.md) with fake data and self-service roles.
 
 ## Frontend components
 

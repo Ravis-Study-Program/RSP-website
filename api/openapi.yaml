@@ -2062,6 +2062,42 @@ paths:
         '401': { $ref: '#/components/responses/Error' }
         '403': { $ref: '#/components/responses/Error' }
         '429': { $ref: '#/components/responses/RateLimited' }
+  /canary/access:
+    get:
+      operationId: getCanaryAccess
+      description: Canary deployments only; production returns 404. The caller's own global roles and canary season role.
+      responses:
+        default: { $ref: '#/components/responses/Error' }
+        '200':
+          description: Caller access in the canary environment
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CanaryAccess' }
+        '401': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+    put:
+      operationId: setCanaryAccess
+      description: Canary deployments only; production returns 404. Replaces the caller's own global roles and canary season role. Privileged roles stay pending_mfa until TOTP is configured.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CanaryAccessUpdate' }
+      responses:
+        default: { $ref: '#/components/responses/Error' }
+        '200':
+          description: Updated caller access
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CanaryAccess' }
+        '400': { $ref: '#/components/responses/Error' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+        '429': { $ref: '#/components/responses/RateLimited' }
 components:
   securitySchemes:
     bearerAuth: { type: http, scheme: bearer, bearerFormat: JWT }
@@ -2351,6 +2387,46 @@ components:
           role: { $ref: '#/components/schemas/GlobalRole' },
           reason: { type: string, minLength: 1, maxLength: 500 },
         }
+    CanarySeasonRole:
+      { type: string, enum: [student, mentor, coordinator, removed] }
+    CanaryRoleState:
+      type: object
+      additionalProperties: false
+      required: [role, state]
+      properties:
+        role: { type: string }
+        state:
+          description: Assignment state for active roles; enrollment state (kicked or withdrawn) when role is removed.
+          type: string
+    CanaryAccess:
+      type: object
+      additionalProperties: false
+      required: [season, seasonRole, globalRoles, mfaConfigured]
+      properties:
+        season:
+          type: object
+          additionalProperties: false
+          required: [id, slug, name]
+          properties:
+            id: { type: string }
+            slug: { type: string }
+            name: { type: string }
+        seasonRole:
+          allOf: [{ $ref: '#/components/schemas/CanaryRoleState' }]
+          nullable: true
+        globalRoles:
+          type: array
+          items: { $ref: '#/components/schemas/CanaryRoleState' }
+        mfaConfigured: { type: boolean }
+    CanaryAccessUpdate:
+      type: object
+      additionalProperties: false
+      required: [globalRoles, seasonRole]
+      properties:
+        globalRoles:
+          type: array
+          items: { $ref: '#/components/schemas/GlobalRole' }
+        seasonRole: { $ref: '#/components/schemas/CanarySeasonRole' }
     GlobalRoleAssignment:
       type: object
       additionalProperties: false

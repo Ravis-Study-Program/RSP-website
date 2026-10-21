@@ -1,0 +1,66 @@
+# Per-pull-request canary overlay. Layer it over the production stack:
+#
+#   docker compose -f compose.prod.yaml -f compose.canary.yaml up -d --build
+#
+# Each canary is its own Compose project with its own PostgreSQL volume,
+# seeded with fake data. Testers choose their own roles from the canary bar,
+# and every email is captured by Mailpit at /mailpit/ instead of being sent.
+# .github/workflows/canary.yml creates, updates and deletes these stacks.
+
+services:
+  api:
+    environment:
+      APP_ENV: canary
+
+  worker:
+    environment:
+      APP_ENV: canary
+
+  auth:
+    environment:
+      APP_ENV: canary
+      GOOGLE_CLIENT_ID: ''
+      GOOGLE_CLIENT_SECRET: ''
+      EMAIL_PROVIDER: smtp
+      EMAIL_FROM: RSP Canary <no-reply@canary.invalid>
+      SMTP_HOST: mailpit
+      SMTP_PORT: 1025
+      SMTP_SECURE: 'false'
+      AWS_ACCESS_KEY_ID: ''
+      AWS_SECRET_ACCESS_KEY: ''
+    depends_on:
+      mailpit:
+        condition: service_started
+
+  web:
+    build:
+      args:
+        VITE_RSP_CANARY: 'true'
+
+  # Fake season, people, mentorship and activity. Safe to rerun on redeploys.
+  seed:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+      target: ops
+    restart: 'no'
+    environment:
+      APP_ENV: canary
+      DATABASE_URL: postgresql://rsp_app:${APP_DB_PASSWORD}@postgres:5432/${POSTGRES_DB}?sslmode=disable&options=-c%20search_path%3Dapp
+    command: [rspctl, seed, --allow-existing]
+    depends_on:
+      api:
+        condition: service_healthy
+
+  mailpit:
+    image: axllent/mailpit:v1.30.7
+    restart: unless-stopped
+    environment:
+      MP_WEBROOT: /mailpit/
+      MP_MAX_MESSAGES: 1000
+      # Optional "user:password" pairs, space separated, for the inbox UI.
+      MP_UI_AUTH: ${CANARY_MAILPIT_AUTH:-}
+
+  caddy:
+    volumes:
+      - ./deploy/caddy/Caddyfile.canary:/etc/caddy/Caddyfile:ro

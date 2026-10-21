@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -22,11 +23,18 @@ import (
 func main() {
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
 	appEnv := env("APP_ENV", "development")
-	if appEnv == "production" {
+	if appEnv == "production" || appEnv == "canary" {
 		if err := validateProductionConfig(os.Getenv); err != nil {
 			logger.Error("invalid production configuration", "error", err)
 			os.Exit(1)
 		}
+	}
+	if appEnv == "canary" {
+		if err := validateCanaryConfig(os.Getenv); err != nil {
+			logger.Error("invalid canary configuration", "error", err)
+			os.Exit(1)
+		}
+		logger.Warn("canary mode: users can change their own roles")
 	}
 
 	rateLimits, err := rateLimitsFromEnv(os.Getenv)
@@ -88,6 +96,7 @@ func main() {
 		RequestEmailChange: authClient.RequestEmailChange,
 		GetMFAConfigured:   authClient.GetMFAConfigured,
 		RateLimits:         rateLimits,
+		Canary:             appEnv == "canary",
 	})
 	apiHandler := app.Handler()
 
@@ -124,6 +133,19 @@ func validateProductionConfig(getenv func(string) string) error {
 		return errors.New("IDENTITY_SERVICE_TOKEN must be at least 32 characters and must not be a placeholder")
 	}
 
+	return nil
+}
+
+// validateCanaryConfig keeps self-service roles off the production domain: a
+// canary origin must carry a "canary" DNS label, such as pr-12.canary.example.org.
+func validateCanaryConfig(getenv func(string) string) error {
+	origin, err := url.Parse(getenv("PUBLIC_ORIGIN"))
+	if err != nil {
+		return errors.New("PUBLIC_ORIGIN must be a valid origin")
+	}
+	if !slices.Contains(strings.Split(strings.ToLower(origin.Hostname()), "."), "canary") {
+		return errors.New("PUBLIC_ORIGIN must include a canary DNS label when APP_ENV=canary")
+	}
 	return nil
 }
 
