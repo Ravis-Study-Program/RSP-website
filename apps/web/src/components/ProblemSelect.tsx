@@ -3,11 +3,12 @@ import { useEffect, useState, type Ref } from 'react';
 import type { LeetcodeProblem } from '@/api/generated/models';
 import { displayDifficulty } from '@/api/adapters';
 import { useProblemSearch } from '@/api/queries';
+import { problemName } from '@/utils';
 
 const searchDelayMs = 250;
 
 const label = (problem: LeetcodeProblem) =>
-  `${problem.number}. ${problem.title} · ${displayDifficulty(problem.difficulty)}`;
+  `${problemName(problem)} · ${displayDifficulty(problem.difficulty)}`;
 
 /** Picks a catalogue problem by searching the API as the user types. */
 export function ProblemSelect({

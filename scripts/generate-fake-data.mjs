@@ -77,7 +77,41 @@ class CookieJar {
   }
 }
 
-async function request(path, { body, jar, expected = [200] } = {}) {
+const RATE_LIMIT_RETRIES = 3;
+
+async function request(path, options = {}) {
+  for (let attempt = 0; ; attempt++) {
+    const response = await requestOnce(path, options);
+    if (response.status !== 429 || attempt === RATE_LIMIT_RETRIES)
+      return checked(path, response, options.expected);
+    // Auth allows only a few sign-ups and sign-ins per minute, counted across
+    // runs, so wait out the window instead of failing.
+    await response.arrayBuffer();
+    const seconds = retryAfterSeconds(response);
+    console.log(`${path} is rate limited; retrying in ${seconds}s`);
+    await sleep((seconds + 1) * 1000);
+  }
+}
+
+// Better Auth's X-Retry-After is garbled when PostgreSQL returns its bigint
+// timestamp as a string, so only trust values within one rate-limit window.
+function retryAfterSeconds(response) {
+  const seconds = Number(
+    response.headers.get('retry-after') ??
+      response.headers.get('x-retry-after'),
+  );
+  return seconds > 0 && seconds <= 60 ? Math.ceil(seconds) : 60;
+}
+
+async function checked(path, response, expected = [200]) {
+  if (!expected.includes(response.status)) {
+    const detail = (await response.text()).slice(0, 500);
+    fail(`${path} returned HTTP ${response.status}: ${detail}`);
+  }
+  return response;
+}
+
+async function requestOnce(path, { body, jar }) {
   const headers = new Headers({
     accept: 'application/json, application/problem+json',
     origin: origin.origin,
@@ -91,24 +125,18 @@ async function request(path, { body, jar, expected = [200] } = {}) {
     ...(body === undefined ? {} : { body: JSON.stringify(body) }),
   });
   jar?.absorb(response);
-  if (!expected.includes(response.status)) {
-    const detail = (await response.text()).slice(0, 500);
-    fail(`${path} returned HTTP ${response.status}: ${detail}`);
-  }
   return response;
 }
 
 async function createAndVerify(user) {
   const existing = await request('/sign-in/email', {
     body: { email: user.email, password: user.password },
-    expected: [200, 401, 403, 404, 429],
+    expected: [200, 401, 403, 404],
   });
   if (existing.status === 200) {
     await existing.arrayBuffer();
     return;
   }
-  if (existing.status === 429)
-    fail(`sign-in is rate limited for ${user.email}; try again in a minute`);
 
   const response = await request('/sign-up/email', {
     body: {

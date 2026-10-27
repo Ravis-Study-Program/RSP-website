@@ -96,7 +96,7 @@ test('student creates, edits, and deletes a Go-backed practice attempt', async (
     .fill('Real-stack note with structured details.');
   await create.getByRole('button', { name: 'Save attempt' }).click();
   await expect(
-    page.getByRole('status').filter({ hasText: 'Two Sum was added.' }),
+    page.getByRole('status').filter({ hasText: '1. Two Sum was added.' }),
   ).toBeVisible();
 
   const row = page.getByRole('row').filter({ hasText: 'Two Sum' }).first();
@@ -104,10 +104,10 @@ test('student creates, edits, and deletes a Go-backed practice attempt', async (
   await expect(row).toContainText('24 min');
   await row.getByRole('button', { name: 'View notes' }).click();
   await expect(
-    page.getByRole('region', { name: 'Notes for Two Sum' }),
+    page.getByRole('region', { name: 'Notes for 1. Two Sum' }),
   ).toContainText('Real-stack note with structured details.');
   await row.getByRole('button', { name: 'Edit' }).click();
-  const edit = page.getByRole('dialog', { name: 'Edit Two Sum' });
+  const edit = page.getByRole('dialog', { name: 'Edit 1. Two Sum' });
   await expect(edit.getByLabel('Time taken (minutes)')).toHaveValue('24');
   await expect(edit.locator('#attempt-notes')).toContainText(
     'Real-stack note with structured details.',
@@ -117,19 +117,19 @@ test('student creates, edits, and deletes a Go-backed practice attempt', async (
     .locator('#attempt-notes')
     .fill('Updated real-stack note with rich-text persistence.');
   await edit.getByRole('button', { name: 'Update attempt' }).click();
-  await expect(page.getByText('Two Sum was saved.')).toBeVisible();
+  await expect(page.getByText('1. Two Sum was saved.')).toBeVisible();
   await expect(row).toContainText('5/5');
   await expect(
-    page.getByRole('region', { name: 'Notes for Two Sum' }),
+    page.getByRole('region', { name: 'Notes for 1. Two Sum' }),
   ).toContainText('Updated real-stack note with rich-text persistence.');
 
   await row.getByRole('button', { name: 'Delete attempt' }).click();
   const confirmation = page.getByRole('alertdialog', {
-    name: 'Delete attempt Two Sum?',
+    name: 'Delete attempt 1. Two Sum?',
   });
-  await confirmation.getByLabel(/Type Two Sum/).fill('Two Sum');
+  await confirmation.getByLabel(/Type 1\. Two Sum/).fill('1. Two Sum');
   await confirmation.getByRole('button', { name: 'Delete attempt' }).click();
-  await expect(page.getByText('Two Sum was deleted.')).toBeVisible();
+  await expect(page.getByText('1. Two Sum was deleted.')).toBeVisible();
 });
 
 test('coordinator MFA session creates, edits, and deletes an open-season week', async ({

@@ -24,7 +24,7 @@ import type {
   Role,
   Season,
 } from '@/types';
-import { initials } from '@/utils';
+import { initials, problemName } from '@/utils';
 
 type ApiPage<T> = {
   items: T[];
@@ -209,7 +209,7 @@ export function adaptAttempt(attempt: ApiAttempt): Attempt {
     id: attempt.id,
     problemId: attempt.problemId,
     catalogProblem: problem,
-    problem: problem?.title ?? `Problem ${attempt.problemId}`,
+    problem: problem ? problemName(problem) : `Problem ${attempt.problemId}`,
     problemUrl: problem?.link,
     difficulty: problem ? displayDifficulty(problem.difficulty) : null,
     category: problem?.categories.join(', ') || null,
