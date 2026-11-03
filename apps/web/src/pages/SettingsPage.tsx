@@ -11,7 +11,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { IconAlertTriangle, IconCheck } from '@tabler/icons-react';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useMemo, useState } from 'react';
 import { useBeforeUnload, useBlocker, useNavigate } from 'react-router-dom';
 
@@ -30,7 +30,15 @@ import {
 import { apiRequest } from '@/api/client';
 import { adaptCurrentUser } from '@/api/adapters';
 import type { Me } from '@/api/generated/models';
-import { currentUserOptions, demoMode, useCurrentUser } from '@/api/queries';
+import {
+  currentUserOptions,
+  demoMode,
+  programmePracticeGoalsOptions,
+  useCurrentUser,
+  usePracticeSettings,
+} from '@/api/queries';
+import { updateProgrammePracticeGoals } from '@/api/practiceSettingsClient';
+import type { PracticeGoals, PracticeSettings } from '@/api/generated/models';
 import { PageHeader, usePageTitle } from '@/components/Common';
 import {
   DirtyFormGuard,
@@ -43,7 +51,14 @@ import {
   InlineNotice,
   PageSkeleton,
 } from '@/components/StatusViews';
-import { difficultyGoal, supportedTimezones } from '@/utils';
+import { PracticeGoalsDialog } from '@/components/PracticeGoalsDialog';
+import {
+  goalDifficulties,
+  goalMinutesFrom,
+  goalSummary,
+  practiceGoalsFrom,
+} from '@/practiceGoals';
+import { supportedTimezones } from '@/utils';
 
 const pageClass = 'mx-auto w-full max-w-[92rem]';
 const sectionClass = 'mt-6 flex flex-col';
@@ -399,22 +414,87 @@ export function SettingsPage() {
 }
 
 export function PracticePreferencesPanel() {
+  const user = useCurrentUser();
+  const settings = usePracticeSettings();
+  const queryClient = useQueryClient();
+  const canEditProgramme = Boolean(
+    user.data?.globalRoles.some(
+      (role) => role === 'director' || role === 'system_admin',
+    ),
+  );
+  const programme = useQuery({
+    ...programmePracticeGoalsOptions,
+    enabled: canEditProgramme,
+  });
+  const goals = settings.data ? goalMinutesFrom(settings.data) : undefined;
+  const programmeGoals = programme.data
+    ? goalMinutesFrom(programme.data)
+    : undefined;
   return (
     <Card className="h-full">
       <CardContent className={formClass}>
-        <p className="text-muted-foreground">
-          Time goals are fixed for everyone and apply automatically.
-        </p>
-        <dl className="grid grid-cols-2 gap-3.5 max-[56rem]:grid-cols-1">
-          {(['Easy', 'Medium', 'Hard'] as const).map((difficulty) => (
+        {settings.isError ? (
+          <InlineNotice tone="danger">
+            Your time goals could not be loaded.
+          </InlineNotice>
+        ) : (
+          <p className="text-muted-foreground">
+            {settings.data?.source === 'student'
+              ? 'Your mentor set these time goals for you.'
+              : 'These programme time goals apply to everyone.'}
+          </p>
+        )}
+        <dl className="grid grid-cols-3 gap-3.5 max-[56rem]:grid-cols-1">
+          {goalDifficulties.map((difficulty) => (
             <div key={difficulty}>
               <dt className="text-sm font-semibold">{difficulty}</dt>
               <dd className="text-sm text-muted-foreground">
-                {difficultyGoal(difficulty)} minutes
+                {goals ? `${goals[difficulty]} minutes` : '—'}
               </dd>
             </div>
           ))}
         </dl>
+        {canEditProgramme ? (
+          <div className="flex flex-wrap items-center justify-between gap-3 border-t pt-4">
+            <p className="text-sm text-muted-foreground">
+              {programmeGoals
+                ? `Programme goals: ${goalSummary(programmeGoals)} minutes. `
+                : ''}
+              Students whose mentor set their own goals keep them.
+            </p>
+            <PracticeGoalsDialog
+              title="Programme time goals"
+              description="These goals apply to every member without goals set by their mentor."
+              triggerLabel="Edit programme goals"
+              goals={programmeGoals}
+              saveLabel="Save goals"
+              onSave={async (next) => {
+                const body = practiceGoalsFrom(next);
+                const saved = demoMode
+                  ? body
+                  : await updateProgrammePracticeGoals(body);
+                queryClient.setQueryData<PracticeGoals>(
+                  programmePracticeGoalsOptions.queryKey,
+                  saved,
+                );
+                if (demoMode) {
+                  queryClient.setQueryData<PracticeSettings>(
+                    ['me', 'practice-settings'],
+                    (current) =>
+                      current?.source === 'programme'
+                        ? { ...current, ...saved }
+                        : current,
+                  );
+                  return;
+                }
+                void queryClient.invalidateQueries({
+                  predicate: ({ queryKey }) =>
+                    queryKey.at(-1) === 'practice-settings',
+                });
+              }}
+            />
+          </div>
+        ) : null}
       </CardContent>
     </Card>
   );

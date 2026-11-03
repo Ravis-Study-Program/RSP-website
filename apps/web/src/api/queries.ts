@@ -5,13 +5,19 @@ import {
   type ActivityFilters,
 } from '@/activityFilters';
 import { programmeTimezone } from '@/activityDates';
-import { calendarDateKey, practiceGoalMinutes } from '@/utils';
+import { calendarDateKey } from '@/utils';
+import {
+  defaultGoalMinutes,
+  goalMinutesFrom,
+  practiceGoalsFrom,
+} from '@/practiceGoals';
 import {
   queryOptions,
   useInfiniteQuery,
   useQuery,
   useQueryClient,
 } from '@tanstack/react-query';
+import { useMemo } from 'react';
 
 import {
   adaptAttemptPage,
@@ -53,7 +59,11 @@ import type {
   Week,
   WeekPage,
 } from '@/api/generated/models';
-import { fetchPracticeSettings } from '@/api/practiceSettingsClient';
+import {
+  fetchPracticeSettings,
+  fetchProgrammePracticeGoals,
+  fetchUserPracticeSettings,
+} from '@/api/practiceSettingsClient';
 import {
   attempts,
   demoUser,
@@ -119,9 +129,8 @@ export async function fetchAllPages<T>(path: string): Promise<ApiPage<T>> {
 
 export const demoPracticeSettings: PracticeSettings = {
   goalsEnabled: true,
-  easyMinutes: practiceGoalMinutes.Easy,
-  mediumMinutes: practiceGoalMinutes.Medium,
-  hardMinutes: practiceGoalMinutes.Hard,
+  ...practiceGoalsFrom(defaultGoalMinutes),
+  source: 'programme',
 };
 
 function selectedDemoUser(): CurrentUser {
@@ -330,8 +339,39 @@ export function useSeasons(enabled = true) {
   });
 }
 
+export const userPracticeSettingsOptions = (userId: string) =>
+  queryOptions({
+    queryKey: ['users', userId, 'practice-settings'],
+    queryFn: () =>
+      demoMode ? wait(demoPracticeSettings) : fetchUserPracticeSettings(userId),
+    staleTime: 60_000,
+  });
+
+export const programmePracticeGoalsOptions = queryOptions({
+  queryKey: ['practice-goals'],
+  queryFn: () =>
+    demoMode
+      ? wait(practiceGoalsFrom(defaultGoalMinutes))
+      : fetchProgrammePracticeGoals(),
+  staleTime: 60_000,
+});
+
 export function usePracticeSettings() {
   return useQuery(practiceSettingsOptions);
+}
+
+/**
+ * The goals that judge a member's attempts: the current user's when no member
+ * is given. Undefined until they load, so nothing is judged against a guess.
+ */
+export function useGoalMinutes(userId?: string) {
+  const query = useQuery(
+    userId ? userPracticeSettingsOptions(userId) : practiceSettingsOptions,
+  );
+  return useMemo(
+    () => (query.data ? goalMinutesFrom(query.data) : undefined),
+    [query.data],
+  );
 }
 
 export const seasonWeeksQueryKey = (seasonId?: string) =>

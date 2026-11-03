@@ -1,9 +1,4 @@
-import type {
-  Attempt,
-  AttemptOutcome,
-  Difficulty,
-  MockInterview,
-} from '@/types';
+import type { Attempt, AttemptOutcome, MockInterview } from '@/types';
 import type {
   LeetcodeProblem,
   MockInterviewDayCount,
@@ -181,12 +176,6 @@ export function problemName({
 }: Pick<LeetcodeProblem, 'number' | 'title'>) {
   const prefix = `${number}. `;
   return title.startsWith(prefix) ? title : `${prefix}${title}`;
-}
-
-export const practiceGoalMinutes = { Easy: 20, Medium: 35, Hard: 50 } as const;
-
-export function difficultyGoal(difficulty: Difficulty) {
-  return practiceGoalMinutes[difficulty];
 }
 
 export function outcomeLabel(outcome: AttemptOutcome) {

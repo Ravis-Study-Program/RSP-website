@@ -7,6 +7,7 @@ import { adaptMockParticipant } from '@/api/adapters';
 import {
   useMockInterviewPages,
   useMockInterviewSummary,
+  useGoalMinutes,
   useUserAttempts,
   useSeasons,
 } from '@/api/queries';
@@ -70,6 +71,7 @@ export function ProfileActivity({
 }) {
   const seasons = useSeasons();
   const season = seasons.data?.items.find((s) => s.id === seasonId);
+  const goalMinutes = useGoalMinutes(person.id);
   const [filters, setFilters] = useActivityFilters(seasonId);
   // Each tab's data loads only once that tab is shown.
   const attempts = useUserAttempts(
@@ -158,7 +160,11 @@ export function ProfileActivity({
           ariaLabel={`${person.name} practice history`}
           data={visibleAttempts}
           renderSummary={(rows) => (
-            <PracticeAnalytics attempts={rows} season={season} />
+            <PracticeAnalytics
+              attempts={rows}
+              season={season}
+              goalMinutes={goalMinutes}
+            />
           )}
           columns={practiceColumns}
           loading={attempts.isLoading}

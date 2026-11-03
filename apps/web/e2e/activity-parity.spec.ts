@@ -16,7 +16,7 @@ test('practice charts follow filters and the picker accepts keyboard search', as
   ).toBeVisible();
   await page
     .getByRole('checkbox', {
-      name: 'Show practice goals (20 / 35 / 50 minutes)',
+      name: 'Show practice goals (10 / 25 / 40 minutes)',
     })
     .uncheck();
   await page

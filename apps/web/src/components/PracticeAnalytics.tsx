@@ -20,7 +20,7 @@ import { activitySeries, difficultyBreakdown } from '@/activityAnalytics';
 import { ActivityChart } from '@/components/ActivityChart';
 import { legendLabel } from '@/lib/chartLegend';
 import type { Attempt, Difficulty, Season } from '@/types';
-import { practiceGoalMinutes } from '@/utils';
+import { type GoalMinutes, goalSummary } from '@/practiceGoals';
 
 const breakdownColor = (name: string) =>
   difficultyColor[name as Difficulty] ?? 'var(--chart-secondary)';
@@ -96,13 +96,16 @@ function DifficultyKey() {
 export function PracticeAnalytics({
   attempts,
   season,
+  goalMinutes,
   showActivity = true,
 }: {
   attempts: Attempt[];
   season?: Season;
+  /** The member's time goals; the goal lines are hidden until they load. */
+  goalMinutes?: GoalMinutes;
   showActivity?: boolean;
 }) {
-  const [goals, setGoals] = useState(true);
+  const [showGoals, setShowGoals] = useState(true);
   const breakdown = difficultyBreakdown(attempts);
   const points: TimedPoint[] = attempts
     .filter((a) => a.minutes !== null && a.difficulty)
@@ -204,13 +207,15 @@ export function PracticeAnalytics({
             className="gap-3 p-5"
           >
             <h3 className="text-base font-semibold">Time by difficulty</h3>
-            <Label className="font-normal">
-              <Checkbox
-                checked={goals}
-                onCheckedChange={(checked) => setGoals(checked)}
-              />
-              Show practice goals (20 / 35 / 50 minutes)
-            </Label>
+            {goalMinutes ? (
+              <Label className="font-normal">
+                <Checkbox
+                  checked={showGoals}
+                  onCheckedChange={(checked) => setShowGoals(checked)}
+                />
+                Show practice goals ({goalSummary(goalMinutes)} minutes)
+              </Label>
+            ) : null}
             {points.length ? (
               <>
                 <div className="mt-3 grid gap-2">
@@ -234,11 +239,11 @@ export function PracticeAnalytics({
                           cursor={{ strokeDasharray: '3 3' }}
                           content={TimedTooltip}
                         />
-                        {goals
+                        {goalMinutes && showGoals
                           ? difficultyOrder.map((difficulty) => (
                               <ReferenceLine
                                 key={difficulty}
-                                y={practiceGoalMinutes[difficulty]}
+                                y={goalMinutes[difficulty]}
                                 stroke={difficultyColor[difficulty]}
                                 strokeOpacity={0.55}
                                 strokeDasharray="4 4"

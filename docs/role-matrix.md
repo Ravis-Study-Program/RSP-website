@@ -19,6 +19,8 @@ use protected product features.
 | Review all students' Monday updates     |     No      |       No        |   Own season    |    Any season    |    Any season    |
 | Change student role/remove student      |     No      |  Assigned only  |   Own season    |    Any season    |    Any season    |
 | Set an active student level             |     No      | Own open season | Own open season | Any open season  | Any open season  |
+| Set a student's practice time goals     |     No      |  Assigned only  | Own open season | Any open season  | Any open season  |
+| Set programme practice time goals       |     No      |       No        |       No        |       Yes        |       Yes        |
 | Manage enrollments and mentorships      |     No      |       No        | Own open season | Any open season  | Any open season  |
 | Manage weeks/resources                  |     No      |       No        | Own open season | Any open season  | Any open season  |
 | Close season                            |     No      |       No        |   Own season    |    Any season    |    Any season    |
@@ -45,8 +47,13 @@ in the same open season may set a student's level, including students assigned
 to another mentor or not yet assigned. This does not change the student's role,
 mentor assignment, or the mentor's access to private fields and removal actions.
 
-Practice time goals apply automatically to every member: Easy 20 minutes,
-Medium 35 minutes and Hard 50 minutes. The thresholds cannot be customised.
+Practice time goals default to Easy 10 minutes, Medium 25 minutes and Hard 40
+minutes for every member. Directors and System Admins can change these
+programme goals in Settings. A student's assigned mentor, an active Coordinator
+of the season, a Director or a System Admin can replace them for one active
+student in an open season, or clear that override; the override follows the
+student across seasons. Members cannot set their own goals. Goals are visible to
+anyone who can read the student's shared activity, and every change is audited.
 The chart's reference lines can be hidden without changing the goals.
 Existing personal-goal rows are retained as historical data and are ignored.
 

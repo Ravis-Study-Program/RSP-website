@@ -25,6 +25,7 @@ vi.mock('@/api/queries', () => ({
   demoMode: false,
   useCurrentUser: vi.fn(),
   useSeasons: vi.fn(),
+  useGoalMinutes: vi.fn(() => ({ Easy: 10, Medium: 25, Hard: 40 })),
   useUserAttempts: vi.fn(),
   useUserProfile: vi.fn(),
   useLeetcodeCategories: vi.fn(() => ({ data: [], isError: false })),

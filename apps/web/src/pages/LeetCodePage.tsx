@@ -31,7 +31,12 @@ import type {
   AttemptMutation,
   LeetcodeProblem,
 } from '@/api/generated/models';
-import { demoMode, demoActivityWeekId, useAttempts } from '@/api/queries';
+import {
+  demoMode,
+  demoActivityWeekId,
+  useAttempts,
+  useGoalMinutes,
+} from '@/api/queries';
 import { PracticeAnalytics } from '@/components/PracticeAnalytics';
 import { AppDatePicker } from '@/components/AppDatePicker';
 import { PageHeader, usePageTitle } from '@/components/Common';
@@ -42,17 +47,33 @@ import { RichTextEditor } from '@/components/RichTextEditor';
 import { RichTextContent } from '@/components/RichTextContent';
 import { ErrorState, InlineNotice } from '@/components/StatusViews';
 import { cn } from '@/lib/utils';
+import { overGoal } from '@/practiceGoals';
 import { Field, FieldError, FieldLabel } from '@/components/ui/field';
 import type { Attempt } from '@/types';
 import {
   calendarDateKey,
-  difficultyGoal,
   formatDate,
   outcomeLabel,
   zonedDateTimeToUtc,
 } from '@/utils';
 
 const badgeClass = 'rounded-sm font-semibold';
+
+/** Minutes taken, highlighted when over the current member's goal. */
+function AttemptTime({ attempt }: { attempt: Attempt }) {
+  const goalMinutes = useGoalMinutes();
+  return (
+    <span
+      className={
+        overGoal(goalMinutes, attempt)
+          ? 'font-semibold text-warning'
+          : undefined
+      }
+    >
+      {attempt.minutes} min
+    </span>
+  );
+}
 const outcomeTone = {
   success: 'border-transparent bg-success-soft text-success',
   warning: 'border-transparent bg-warning-soft text-warning',
@@ -163,20 +184,7 @@ const baseColumns: ColumnDef<Attempt, any>[] = [
     accessorKey: 'minutes',
     header: 'Time',
     cell: ({ row }) =>
-      row.original.minutes ? (
-        <span
-          className={
-            row.original.difficulty &&
-            row.original.minutes > difficultyGoal(row.original.difficulty)
-              ? 'font-semibold text-warning'
-              : undefined
-          }
-        >
-          {row.original.minutes} min
-        </span>
-      ) : (
-        '—'
-      ),
+      row.original.minutes ? <AttemptTime attempt={row.original} /> : '—',
   },
   {
     accessorKey: 'attemptedAt',
@@ -187,6 +195,7 @@ const baseColumns: ColumnDef<Attempt, any>[] = [
 
 export function LeetCodePage() {
   usePageTitle('LeetCode');
+  const goalMinutes = useGoalMinutes();
   const { seasons, season, hasSelection } = useActivitySeason();
   const [filters, setFilters] = useActivityFilters(season?.id);
   const attemptsQuery = useAttempts(
@@ -381,6 +390,7 @@ export function LeetCodePage() {
             <PracticeAnalytics
               attempts={rows}
               season={season}
+              goalMinutes={goalMinutes}
               showActivity={false}
             />
           )}

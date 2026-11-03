@@ -5,16 +5,28 @@
  * Same-origin API for the Ravi's Study Program application.
  * OpenAPI spec version: 2.0.0
  */
-import type { PracticeSettingsEasyMinutes } from './practiceSettingsEasyMinutes';
-import type { PracticeSettingsHardMinutes } from './practiceSettingsHardMinutes';
-import type { PracticeSettingsMediumMinutes } from './practiceSettingsMediumMinutes';
+import type { PracticeSettingsSource } from './practiceSettingsSource';
 
 /**
- * Fixed programme time goals. These apply automatically to every member and cannot be customised.
+ * The time goals that apply to one member. Students use the programme goals unless their mentor or a season administrator set an override.
  */
 export interface PracticeSettings {
   goalsEnabled: true;
-  easyMinutes: PracticeSettingsEasyMinutes;
-  mediumMinutes: PracticeSettingsMediumMinutes;
-  hardMinutes: PracticeSettingsHardMinutes;
+  /**
+   * @minimum 1
+   * @maximum 180
+   */
+  easyMinutes: number;
+  /**
+   * @minimum 1
+   * @maximum 180
+   */
+  mediumMinutes: number;
+  /**
+   * @minimum 1
+   * @maximum 180
+   */
+  hardMinutes: number;
+  /** programme for the goals everyone uses; student for an override on this member. */
+  source: PracticeSettingsSource;
 }

@@ -38,7 +38,7 @@ test('season mentors can set student levels and see fixed practice goals', async
 
   await page.goto('/settings');
   const goals = page.getByRole('region', { name: 'Practice goals' });
-  for (const minutes of [20, 35, 50])
+  for (const minutes of [10, 25, 40])
     await expect(
       goals.getByText(`${minutes} minutes`, { exact: true }),
     ).toBeVisible();

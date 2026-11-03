@@ -24,6 +24,7 @@ import { DataTable } from '@/components/DataTable';
 import { LatestMarkCell } from '@/components/MondayMark';
 import { latestMarkRank, pickLatestMark, type LatestMark } from '@/mondayMarks';
 import { StudentLevelDialog } from '@/components/StudentLevelDialog';
+import { StudentPracticeGoalsDialog } from '@/components/StudentPracticeGoalsDialog';
 import { canSetStudentLevel, studentLevelLabel } from '@/studentLevels';
 import { FormDialog } from '@/components/Dialogs';
 import type { Person } from '@/types';
@@ -212,6 +213,16 @@ export function MenteesPage() {
                 onChanged={() => void query.refetch()}
               />
             ) : null}
+            {season &&
+            canChangeLevel &&
+            row.original.enrollmentState === 'active' &&
+            (canManageEveryStudent ||
+              row.original.mentorshipMentorId === currentUser.data?.id) ? (
+              <StudentPracticeGoalsDialog
+                seasonId={season.id}
+                person={row.original}
+              />
+            ) : null}
             {canChangeLevel &&
             row.original.enrollmentState === 'active' &&
             (canManageEveryStudent ||
@@ -298,6 +309,16 @@ export function MenteesPage() {
                   seasonId={season.id}
                   person={row.original}
                   onChanged={() => void query.refetch()}
+                />
+              ) : null}
+              {season &&
+              canChangeLevel &&
+              row.original.enrollmentState === 'active' &&
+              (canManageEveryStudent ||
+                row.original.mentorshipMentorId === currentUser.data?.id) ? (
+                <StudentPracticeGoalsDialog
+                  seasonId={season.id}
+                  person={row.original}
                 />
               ) : null}
               {canChangeLevel &&
