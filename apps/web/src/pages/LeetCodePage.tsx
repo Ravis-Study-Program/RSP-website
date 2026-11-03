@@ -428,7 +428,7 @@ export function LeetCodePage() {
         </InlineNotice>
       ) : null}
 
-      <ProblemSuggestion filters={filters} />
+      <ProblemSuggestion />
       <section aria-label="Attempt history">
         <div className="mb-4">
           <ActivityPeriodFilter
