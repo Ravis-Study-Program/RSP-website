@@ -543,7 +543,7 @@ test('attempt create, edit, delete and dirty-close confirmation work', async ({
   const edit = page.getByRole('dialog', {
     name: /Edit Binary Tree Level Order Traversal/,
   });
-  await edit.getByLabel('Confidence (optional, 1–5)').fill('5');
+  await edit.getByLabel('Confidence (1–5)').fill('5');
   await edit.getByRole('button', { name: 'Update attempt' }).click();
   await expect(
     page.getByText('Binary Tree Level Order Traversal was saved.'),

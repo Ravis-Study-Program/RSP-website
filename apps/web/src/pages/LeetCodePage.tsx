@@ -746,7 +746,6 @@ function AttemptDialog({
     <>
       <FormDialog
         title={attempt ? `Edit ${attempt.problem}` : 'Log problem attempt'}
-        description="Record enough detail to make your progress history useful."
         open={open}
         onOpenChange={requestOpenChange}
         trigger={
@@ -829,7 +828,7 @@ function AttemptDialog({
             </Field>
             <Field>
               <FieldLabel htmlFor="attempt-confidence">
-                Confidence (optional, 1–5)
+                Confidence (1–5)
               </FieldLabel>
               <Input
                 id="attempt-confidence"

@@ -1,4 +1,5 @@
 import { Input } from '@/components/ui/input';
+import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import {
   AlertDialog,
@@ -41,7 +42,7 @@ export function FormDialog({
   onOpenChange,
 }: PropsWithChildren<{
   title: string;
-  description: string;
+  description?: string;
   trigger?: ReactNode;
   triggerVariant?: ButtonProps['variant'];
   triggerSize?: ButtonProps['size'];
@@ -67,10 +68,19 @@ export function FormDialog({
       ) : null}
 
       <DialogContent showCloseButton={false} className={contentClassName}>
-        <div className="mb-4 flex items-start justify-between gap-4">
+        {/* Without a description, centre the title on the close button and
+            let the content's own gap set the space below. */}
+        <div
+          className={cn(
+            'flex justify-between gap-4',
+            description ? 'mb-4 items-start' : 'items-center',
+          )}
+        >
           <div>
             <DialogTitle>{title}</DialogTitle>
-            <DialogDescription>{description}</DialogDescription>
+            {description ? (
+              <DialogDescription>{description}</DialogDescription>
+            ) : null}
           </div>
           <DialogClose
             render={<Button variant="ghost" size="icon" />}
