@@ -46,7 +46,7 @@ case $command in
     sql "$upgrade_url" --file deploy/postgres/migrate-auth.sql
     sql "$upgrade_url" --file deploy/postgres/migrate-auth.sql
     assert_true "$upgrade_url" \
-      "SELECT to_regclass('auth.account_deletion_recovery_tokens') IS NOT NULL AND to_regclass('auth.lifecycle_outbox') IS NOT NULL AND (SELECT count(*) = 2 FROM auth.schema_migrations)"
+      "SELECT to_regclass('auth.account_deletion_recovery_tokens') IS NOT NULL AND to_regclass('auth.lifecycle_outbox') IS NOT NULL AND (SELECT count(*) = 2 FROM information_schema.columns WHERE table_schema = 'auth' AND table_name = 'jwks' AND column_name IN ('alg', 'crv')) AND (SELECT count(*) = 3 FROM auth.schema_migrations)"
     sql "$DATABASE_URL" --command "DROP DATABASE rsp_auth_upgrade"
     ;;
   prove-auth-concurrent)
@@ -60,7 +60,7 @@ case $command in
     wait "$first_pid"
     wait "$second_pid"
     assert_true "$concurrent_url" \
-      "SELECT to_regclass('auth.lifecycle_outbox') IS NOT NULL AND (SELECT count(*) = 2 FROM auth.schema_migrations)"
+      "SELECT to_regclass('auth.lifecycle_outbox') IS NOT NULL AND (SELECT count(*) = 2 FROM information_schema.columns WHERE table_schema = 'auth' AND table_name = 'jwks' AND column_name IN ('alg', 'crv')) AND (SELECT count(*) = 3 FROM auth.schema_migrations)"
     sql "$DATABASE_URL" --command "DROP DATABASE rsp_auth_concurrent"
     ;;
   prove-app-roundtrip)

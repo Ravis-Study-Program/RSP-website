@@ -92,4 +92,27 @@ BEGIN
 END
 $checksum$;
 
+SELECT NOT EXISTS (
+  SELECT 1 FROM auth.schema_migrations WHERE version = '0003-better-auth-1.7-jwks'
+) AS needs_jwks_algorithm \gset
+\if :needs_jwks_algorithm
+\echo 'Applying auth migration 0003-better-auth-1.7-jwks'
+BEGIN;
+\ir ../../apps/auth/migrations/0003-better-auth-1.7-jwks.sql
+INSERT INTO auth.schema_migrations (version, checksum)
+VALUES ('0003-better-auth-1.7-jwks', '2fa931b8823d620bba07862c6e59d20982f413b6132b2f1034d75deb246ab2a9');
+COMMIT;
+\else
+\echo 'Auth migration 0003-better-auth-1.7-jwks already applied'
+\endif
+
+DO $checksum$
+BEGIN
+  IF (SELECT checksum FROM auth.schema_migrations WHERE version = '0003-better-auth-1.7-jwks')
+       <> '2fa931b8823d620bba07862c6e59d20982f413b6132b2f1034d75deb246ab2a9' THEN
+    RAISE EXCEPTION 'auth migration checksum mismatch: 0003-better-auth-1.7-jwks';
+  END IF;
+END
+$checksum$;
+
 SELECT pg_advisory_unlock(hashtext('rsp-auth-schema-migrations'));

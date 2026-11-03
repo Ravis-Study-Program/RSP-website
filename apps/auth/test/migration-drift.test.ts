@@ -11,11 +11,14 @@ afterAll(async () => {
 });
 
 describe('pinned Better Auth migration', () => {
-  it('contains every table and mapped column exposed by Better Auth 1.6.27', async () => {
-    const migration = await readFile(
-      new URL('../migrations/better-auth.sql', import.meta.url),
-      'utf8',
-    );
+  it('contains every table and mapped column exposed by Better Auth 1.7.11', async () => {
+    const migration = (
+      await Promise.all(
+        ['better-auth.sql', '0003-better-auth-1.7-jwks.sql'].map((file) =>
+          readFile(new URL(`../migrations/${file}`, import.meta.url), 'utf8'),
+        ),
+      )
+    ).join('\n');
     const tables = getAuthTables(auth.options);
     for (const table of Object.values(tables)) {
       expect(migration, `missing table ${table.modelName}`).toMatch(
@@ -42,6 +45,10 @@ describe('pinned Better Auth migration', () => {
       new URL('../migrations/0002-lifecycle-outbox.sql', import.meta.url),
       'utf8',
     );
+    const jwksAlgorithm = await readFile(
+      new URL('../migrations/0003-better-auth-1.7-jwks.sql', import.meta.url),
+      'utf8',
+    );
     const runner = await readFile(
       new URL('../../../deploy/postgres/migrate-auth.sql', import.meta.url),
       'utf8',
@@ -58,6 +65,12 @@ describe('pinned Better Auth migration', () => {
       `'0001-better-auth-1.6.27', '${digest(baseline)}'`,
     );
     expect(runner).toContain(`'0002-lifecycle-outbox', '${digest(companion)}'`);
+    expect(digest(jwksAlgorithm)).toBe(
+      '2fa931b8823d620bba07862c6e59d20982f413b6132b2f1034d75deb246ab2a9',
+    );
+    expect(runner).toContain(
+      `'0003-better-auth-1.7-jwks', '${digest(jwksAlgorithm)}'`,
+    );
     expect(companion).toContain(
       'CREATE TABLE IF NOT EXISTS account_deletion_recovery_tokens',
     );

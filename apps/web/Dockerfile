@@ -35,6 +35,7 @@ RUN apk add --no-cache git \
     && go install github.com/caddyserver/xcaddy/cmd/xcaddy@${XCADDY_VERSION} \
     && xcaddy build v${CADDY_VERSION} \
       --output /out/caddy \
+      --replace github.com/go-jose/go-jose/v4=github.com/go-jose/go-jose/v4@v4.1.6 \
       --replace github.com/klauspost/compress=github.com/klauspost/compress@v1.18.7 \
       --replace golang.org/x/crypto=golang.org/x/crypto@v0.57.0 \
       --replace golang.org/x/net=golang.org/x/net@v0.60.0 \
