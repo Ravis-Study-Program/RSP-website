@@ -60,6 +60,8 @@ type TimedPoint = {
   difficulty: Difficulty;
   minutes: number;
   at: number;
+  /** Position in date order, so same-day attempts sit side by side. */
+  index: number;
 };
 
 function TimedTooltip({
@@ -125,21 +127,25 @@ export function PracticeAnalytics({
       minutes: a.minutes!,
       at: Date.parse(a.attemptedAt),
     }))
-    .sort((a, b) => a.at - b.at);
+    .sort((a, b) => a.at - b.at)
+    .map((point, index) => ({ ...point, index }));
   const byDifficulty = difficultyOrder
     .map((difficulty) => ({
       difficulty,
       data: points.filter((p) => p.difficulty === difficulty),
     }))
     .filter((group) => group.data.length);
-  const timeAxis = {
+  // One even step per attempt rather than a time scale: attempts logged on the
+  // same day (including bulk-migrated history) would otherwise overlap.
+  const attemptAxis = {
     type: 'number' as const,
-    dataKey: 'at',
-    name: 'Date',
-    scale: 'time' as const,
+    dataKey: 'index',
+    name: 'Attempt',
     domain: ['dataMin', 'dataMax'] as [string, string],
+    allowDecimals: false,
     padding: { left: 16, right: 16 },
-    tickFormatter: (value: number) => shortDate.format(value),
+    tickFormatter: (value: number) =>
+      points[value] ? shortDate.format(points[value].at) : '',
     tick: { fill: 'var(--text-muted)', fontSize: 12 },
     stroke: 'var(--border-strong)',
   };
@@ -259,10 +265,10 @@ export function PracticeAnalytics({
             </Label>
             {points.length ? (
               <>
-                <div className="mt-3 grid gap-2">
+                <div className="mt-3 grid flex-1 grid-rows-[auto_1fr] gap-2">
                   <DifficultyKey />
                   <div
-                    className="h-72 w-full min-w-0 max-[56rem]:h-56"
+                    className="h-full min-h-72 w-full min-w-0 max-[56rem]:min-h-56"
                     aria-hidden="true"
                   >
                     <ResponsiveContainer width="100%" height="100%">
@@ -274,7 +280,7 @@ export function PracticeAnalytics({
                           stroke="var(--border)"
                           vertical={false}
                         />
-                        <XAxis {...timeAxis} />
+                        <XAxis {...attemptAxis} />
                         <YAxis {...minutesAxis} />
                         <Tooltip
                           cursor={{ strokeDasharray: '3 3' }}
@@ -311,7 +317,7 @@ export function PracticeAnalytics({
                     </ResponsiveContainer>
                   </div>
                 </div>
-                <p>
+                <p className="sr-only">
                   {points.length} attempts with recorded times. Lowest:{' '}
                   {Math.min(...points.map((p) => p.minutes))} min; highest:{' '}
                   {Math.max(...points.map((p) => p.minutes))} min. Individual
