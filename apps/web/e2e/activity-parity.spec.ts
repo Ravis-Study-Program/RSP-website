@@ -67,21 +67,21 @@ test('suggesting a question leaves practice counts unchanged', async ({
   page,
 }, testInfo) => {
   await page.goto('/leetcode');
-  const count = page.getByText(/\d+ recorded$/);
+  // One per attempt: a row menu on desktop, an Edit button on mobile cards.
+  const attempts = page
+    .getByRole('button', { name: /More actions for/ })
+    .or(page.getByRole('button', { name: 'Edit', exact: true }));
   // Capture the count only after the attempt history has loaded.
-  await expect(
-    page.getByRole('button', { name: 'Edit', exact: true }).first(),
-  ).toBeVisible();
-  await expect(count).toBeVisible();
+  await expect(attempts.first()).toBeVisible();
   await expect(
     page.getByRole('button', { name: 'Suggest a question' }),
   ).toBeEnabled();
-  const before = await count.textContent();
+  const before = await attempts.count();
   await page.getByRole('button', { name: 'Suggest a question' }).click();
   await expect(
     page.getByRole('button', { name: 'Suggest a question' }),
   ).toBeEnabled();
-  await expect(count).toHaveText(before!);
+  await expect(attempts).toHaveCount(before);
   await page.screenshot({
     path: testInfo.outputPath('practice-charts.png'),
     fullPage: true,

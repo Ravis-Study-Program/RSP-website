@@ -91,15 +91,26 @@ export function NamedConfirmation({
   description,
   onConfirm,
   triggerSize,
+  open: controlledOpen,
+  onOpenChange,
 }: {
   name: string;
   actionLabel: string;
   description: string;
   onConfirm: () => void | Promise<void>;
   triggerSize?: ButtonProps['size'];
+  /** When provided, the dialog is opened externally and renders no trigger. */
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }) {
   const [value, setValue] = useState('');
-  const [open, setOpen] = useState(false);
+  const [uncontrolledOpen, setUncontrolledOpen] = useState(false);
+  const controlled = controlledOpen !== undefined;
+  const open = controlled ? controlledOpen : uncontrolledOpen;
+  const setOpen = (next: boolean) => {
+    if (!controlled) setUncontrolledOpen(next);
+    onOpenChange?.(next);
+  };
   const [pending, setPending] = useState(false);
   const [error, setError] = useState('');
   const confirmationId = useId();
@@ -132,13 +143,19 @@ export function NamedConfirmation({
         }
       }}
     >
-      <AlertDialogTrigger
-        render={
-          <Button variant="destructive" size={triggerSize} className="w-fit" />
-        }
-      >
-        <IconTrash size={17} aria-hidden="true" /> {actionLabel}
-      </AlertDialogTrigger>
+      {controlled ? null : (
+        <AlertDialogTrigger
+          render={
+            <Button
+              variant="destructive"
+              size={triggerSize}
+              className="w-fit"
+            />
+          }
+        >
+          <IconTrash size={17} aria-hidden="true" /> {actionLabel}
+        </AlertDialogTrigger>
+      )}
 
       <AlertDialogContent>
         <AlertDialogTitle>

@@ -35,6 +35,7 @@ import {
   getPaginationRowModel,
   getSortedRowModel,
   type Row,
+  type RowData,
   type SortingState,
   type VisibilityState,
   useReactTable,
@@ -61,6 +62,20 @@ import {
 import { EmptyState, ErrorState } from '@/components/StatusViews';
 import { cn } from '@/lib/utils';
 import { useMediaQuery } from '@/lib/useMediaQuery';
+
+declare module '@tanstack/react-table' {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  interface ColumnMeta<TData extends RowData, TValue> {
+    /** Fixed width in rem. Columns without one share the remaining space. */
+    width?: number;
+    /** Let long content wrap instead of truncating with an ellipsis. */
+    wrap?: boolean;
+    /** Align the header and cell content to the end, e.g. for actions. */
+    align?: 'end';
+    /** Filter by choosing one of these values instead of typing. */
+    filterOptions?: { label: string; value: string }[];
+  }
+}
 
 const SearchHighlightContext = createContext('');
 
@@ -93,8 +108,17 @@ export interface DataTableProps<TData> {
   defaultExpanded?: boolean;
   getRowId?: (row: TData) => string;
   renderSummary?: (rows: TData[]) => ReactNode;
+  /** Filters beyond the column text filters, shown in the Filters popover. */
+  extraFilters?: ExtraFilters;
   /** `data` holds the loaded server pages; more rows load on demand. */
   serverPagination?: ServerPagination;
+}
+
+export interface ExtraFilters {
+  content: ReactNode;
+  /** How many of these filters are set, added to the Filters count. */
+  activeCount: number;
+  onClear: () => void;
 }
 
 export interface ServerPagination {
@@ -108,6 +132,11 @@ const toolbarClass =
   'flex flex-wrap items-center justify-between gap-3 border-b p-3 max-[56rem]:flex-col max-[56rem]:items-stretch';
 const paginationClass =
   'flex flex-wrap items-center justify-between gap-3 border-t p-3 max-[56rem]:flex-col max-[56rem]:items-stretch';
+// Fixed layout keeps every page's columns the same width; anything that does
+// not fit is truncated. Flex rows (actions, badge groups) still wrap.
+const flexibleColumnMinWidth = 8;
+const truncateCellClass =
+  'overflow-hidden text-ellipsis [&_:where(div,p):not(.flex,.grid)]:truncate';
 const pageSizeItems = [10, 25, 50, 100].map((value) => ({
   label: String(value),
   value,
@@ -128,6 +157,7 @@ export function DataTable<TData>({
   defaultExpanded = false,
   getRowId,
   renderSummary,
+  extraFilters,
   serverPagination,
 }: DataTableProps<TData>) {
   const [sorting, setSorting] = useState<SortingState>([]);
@@ -213,6 +243,14 @@ export function DataTable<TData>({
       </div>
     );
 
+  const visibleColumns = table.getVisibleLeafColumns();
+  const tableMinWidth = visibleColumns.reduce(
+    (total, column) =>
+      total + (column.columnDef.meta?.width ?? flexibleColumnMinWidth),
+    0,
+  );
+  const activeFilterCount =
+    columnFilters.length + (extraFilters?.activeCount ?? 0);
   const filteredRows = table.getFilteredRowModel().rows;
   const pageRows = table.getRowModel().rows;
   const filterableColumns = table
@@ -306,9 +344,10 @@ export function DataTable<TData>({
               >
                 <IconFilter size={18} aria-hidden="true" />
                 Filters
-                {columnFilters.length ? ` (${columnFilters.length})` : ''}
+                {activeFilterCount ? ` (${activeFilterCount})` : ''}
               </PopoverTrigger>
               <PopoverContent align="end" className="grid w-72 gap-3 p-3">
+                {extraFilters?.content}
                 {filterableColumns.map((column) => {
                   const label =
                     typeof column.columnDef.header === 'string'
@@ -318,6 +357,38 @@ export function DataTable<TData>({
                     /\s+/g,
                     '-',
                   );
+                  const options = column.columnDef.meta?.filterOptions;
+                  if (options) {
+                    const items = [{ label: 'All', value: '' }, ...options];
+                    return (
+                      <Field key={column.id}>
+                        <FieldLabel htmlFor={inputId}>{label}</FieldLabel>
+                        <Select
+                          items={items}
+                          value={
+                            (column.getFilterValue() as string | undefined) ??
+                            ''
+                          }
+                          onValueChange={(value) =>
+                            column.setFilterValue(value || undefined)
+                          }
+                        >
+                          <SelectTrigger id={inputId} className="w-full">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectGroup>
+                              {items.map((item) => (
+                                <SelectItem key={item.value} value={item.value}>
+                                  {item.label}
+                                </SelectItem>
+                              ))}
+                            </SelectGroup>
+                          </SelectContent>
+                        </Select>
+                      </Field>
+                    );
+                  }
                   return (
                     <Field key={column.id}>
                       <FieldLabel htmlFor={inputId}>{label}</FieldLabel>
@@ -334,13 +405,16 @@ export function DataTable<TData>({
                     </Field>
                   );
                 })}
-                {columnFilters.length ? (
+                {activeFilterCount ? (
                   <Button
                     variant="outline"
                     type="button"
-                    onClick={() => setColumnFilters([])}
+                    onClick={() => {
+                      setColumnFilters([]);
+                      extraFilters?.onClear();
+                    }}
                   >
-                    Clear column filters
+                    Clear table filters
                   </Button>
                 ) : null}
               </PopoverContent>
@@ -377,13 +451,14 @@ export function DataTable<TData>({
               data.length && (globalFilter || columnFilters.length),
             )}
             action={
-              globalFilter || columnFilters.length ? (
+              globalFilter || activeFilterCount ? (
                 <Button
                   variant="outline"
                   type="button"
                   onClick={() => {
                     setGlobalFilter('');
                     setColumnFilters([]);
+                    extraFilters?.onClear();
                   }}
                 >
                   Clear filters
@@ -395,10 +470,24 @@ export function DataTable<TData>({
           <>
             {compact ? null : (
               <div className="overflow-x-auto">
-                <Table>
+                <Table
+                  className="table-fixed"
+                  style={{ minWidth: `${tableMinWidth}rem` }}
+                >
                   <caption className="sr-only">
                     {ariaLabel}. Sortable and filterable data table.
                   </caption>
+                  <colgroup>
+                    {visibleColumns.map((column) => {
+                      const width = column.columnDef.meta?.width;
+                      return (
+                        <col
+                          key={column.id}
+                          style={width ? { width: `${width}rem` } : undefined}
+                        />
+                      );
+                    })}
+                  </colgroup>
                   <TableHeader>
                     {table.getHeaderGroups().map((headerGroup) => (
                       <TableRow key={headerGroup.id}>
@@ -406,7 +495,11 @@ export function DataTable<TData>({
                           <TableHead
                             key={header.id}
                             scope="col"
-                            className="px-3.5 text-xs font-semibold text-muted-foreground"
+                            className={cn(
+                              'truncate px-3.5 text-xs font-semibold text-muted-foreground',
+                              header.column.columnDef.meta?.align === 'end' &&
+                                'text-right',
+                            )}
                             aria-sort={
                               header.column.getIsSorted() === 'asc'
                                 ? 'ascending'
@@ -557,7 +650,17 @@ function DataTableRecord<TData>({
     <>
       <TableRow>
         {row.getVisibleCells().map((cell) => (
-          <TableCell className="px-3.5 py-3" key={cell.id}>
+          <TableCell
+            className={cn(
+              'px-3.5 py-3',
+              cell.column.columnDef.meta?.wrap
+                ? 'whitespace-normal'
+                : truncateCellClass,
+              cell.column.columnDef.meta?.align === 'end' &&
+                'text-right [&>.flex]:justify-end',
+            )}
+            key={cell.id}
+          >
             {flexRender(cell.column.columnDef.cell, cell.getContext())}
           </TableCell>
         ))}

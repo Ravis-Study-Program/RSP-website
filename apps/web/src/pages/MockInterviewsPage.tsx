@@ -340,6 +340,7 @@ const columnsForSeason = (
   {
     id: 'expand',
     header: 'Details',
+    meta: { width: 4.5 },
     enableSorting: false,
     enableHiding: false,
     cell: ({ row }) => (
@@ -378,16 +379,19 @@ const columnsForSeason = (
   {
     accessorKey: 'occurredAt',
     header: 'Date',
+    meta: { width: 11.5 },
     cell: ({ getValue }) => formatDateTime(getValue()),
   },
   {
     accessorKey: 'durationMinutes',
     header: 'Duration',
+    meta: { width: 6.5 },
     cell: ({ getValue }) => `${getValue()} min`,
   },
   {
     id: 'score',
     header: 'Scores',
+    meta: { width: 7 },
     accessorFn: (row) =>
       row.rounds
         .map((round) => round.score)
@@ -402,6 +406,7 @@ const columnsForSeason = (
   {
     id: 'result',
     header: 'Result',
+    meta: { width: 7.5 },
     accessorFn: interviewPassed,
     cell: ({ row }) => (
       <Badge
@@ -420,6 +425,7 @@ const columnsForSeason = (
   {
     accessorKey: 'reviewStatus',
     header: 'Review',
+    meta: { width: 7.5 },
     cell: ({ getValue }) => (
       <Badge
         variant="outline"

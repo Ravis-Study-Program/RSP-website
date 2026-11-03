@@ -160,10 +160,7 @@ export function PracticeAnalytics({
   };
   return (
     <section className="mt-6" aria-label="Practice charts">
-      <h2 className="text-xl font-semibold tracking-tight">
-        Practice in this period
-      </h2>
-      <div className="mt-3 grid gap-6">
+      <div className="grid gap-6">
         {showActivity ? (
           <ActivityChart data={activitySeries(attempts, [], { season })} />
         ) : null}

@@ -16,9 +16,23 @@ import { activitySeries } from '@/activityAnalytics';
 import { DataTable } from '@/components/DataTable';
 import { MockFeedback } from '@/components/MockFeedback';
 import { PersonIdentity } from '@/components/Common';
-import { RichTextContent } from '@/components/RichTextContent';
+import {
+  RichTextContent,
+  sanitizeRichTextForDisplay,
+} from '@/components/RichTextContent';
 import type { Attempt, MockInterview, Person } from '@/types';
 import { formatDateTime, interviewPassed } from '@/utils';
+
+/** Sanitised notes flattened to one line, so table rows stay one height. */
+function richTextPreview(html: string) {
+  const sanitized = sanitizeRichTextForDisplay(html);
+  if (!sanitized) return '';
+  const root = new DOMParser().parseFromString(sanitized, 'text/html').body;
+  root
+    .querySelectorAll('p, li, blockquote, h1, h2, h3, h4, br')
+    .forEach((block) => block.append(' '));
+  return (root.textContent ?? '').replace(/\s+/g, ' ').trim();
+}
 
 const practiceColumns: ColumnDef<Attempt, any>[] = [
   {
@@ -33,27 +47,37 @@ const practiceColumns: ColumnDef<Attempt, any>[] = [
         row.original.problem
       ),
   },
-  { accessorKey: 'difficulty', header: 'Difficulty' },
+  { accessorKey: 'difficulty', header: 'Difficulty', meta: { width: 6.5 } },
   {
     accessorKey: 'outcome',
     header: 'Outcome',
+    meta: { width: 10.5 },
     cell: ({ getValue }) => String(getValue()).replaceAll('_', ' '),
   },
-  { accessorKey: 'minutes', header: 'Minutes' },
+  { accessorKey: 'minutes', header: 'Minutes', meta: { width: 6.5 } },
   {
     accessorKey: 'confidence',
     header: 'Confidence',
+    meta: { width: 7 },
     cell: ({ getValue }) => (getValue() ? `${getValue()}/5` : '—'),
   },
   {
     accessorKey: 'attemptedAt',
     header: 'Recorded',
+    meta: { width: 11.5 },
     cell: ({ getValue }) => formatDateTime(getValue()),
   },
   {
     accessorKey: 'notes',
     header: 'Notes',
-    cell: ({ getValue }) => <RichTextContent html={getValue()} />,
+    cell: ({ getValue }) => {
+      const preview = richTextPreview(getValue());
+      return preview ? (
+        <p title={preview}>{preview}</p>
+      ) : (
+        <span className="text-muted-foreground">No notes recorded.</span>
+      );
+    },
   },
 ];
 
@@ -105,6 +129,7 @@ export function ProfileActivity({
     {
       accessorKey: 'occurredAt',
       header: 'Recorded',
+      meta: { width: 11.5 },
       cell: ({ getValue }) => formatDateTime(getValue()),
     },
     {
@@ -121,15 +146,21 @@ export function ProfileActivity({
         <PersonIdentity person={row.original.interviewer} seasonId={seasonId} />
       ),
     },
-    { accessorKey: 'durationMinutes', header: 'Minutes' },
+    {
+      accessorKey: 'durationMinutes',
+      header: 'Minutes',
+      meta: { width: 6.5 },
+    },
     {
       id: 'result',
       header: 'Result',
+      meta: { width: 7.5 },
       accessorFn: (mock) => (interviewPassed(mock) ? 'Pass' : 'Needs work'),
     },
     {
       id: 'feedback',
       header: 'Feedback',
+      meta: { wrap: true },
       cell: ({ row }) => (
         <details>
           <summary>View feedback</summary>

@@ -31,7 +31,10 @@ import { calendarDateKey, formatDateTime } from '@/utils';
 
 /** A row's latest-mark cell: a status, or the mentee's latest update. */
 type MenteeMark =
-  'not-mentee' | 'loading' | 'error' | { latest: LatestMark | undefined };
+  | 'not-mentee'
+  | 'loading'
+  | 'error'
+  | { latest: LatestMark | undefined };
 
 const menteeMarkText = {
   'not-mentee': '—',
@@ -61,12 +64,12 @@ export function MenteesPage() {
   const [removed, setRemoved] = useState<string[]>([]);
   const canManageEveryStudent = Boolean(
     currentUser.data?.globalRoles.length ||
-    currentUser.data?.seasonRoles.some(
-      (membership) =>
-        membership.seasonId === season?.id &&
-        membership.role === 'coordinator' &&
-        (membership.state === 'active' || membership.state === 'completed'),
-    ),
+      currentUser.data?.seasonRoles.some(
+        (membership) =>
+          membership.seasonId === season?.id &&
+          membership.role === 'coordinator' &&
+          (membership.state === 'active' || membership.state === 'completed'),
+      ),
   );
   const canChangeLevel = canSetStudentLevel(currentUser.data, season);
   const mentees = useMemo(
@@ -170,13 +173,19 @@ export function MenteesPage() {
       {
         accessorKey: 'studentLevel',
         header: 'Level',
+        meta: { width: 8 },
         cell: ({ row }) => studentLevelLabel(row.original.studentLevel),
       },
-      { accessorKey: 'attempts', header: 'Attempts' },
-      { accessorKey: 'interviews', header: 'Mock interviews' },
+      { accessorKey: 'attempts', header: 'Attempts', meta: { width: 7 } },
+      {
+        accessorKey: 'interviews',
+        header: 'Mock interviews',
+        meta: { width: 9 },
+      },
       {
         accessorKey: 'lastActiveAt',
         header: 'Last recorded activity',
+        meta: { width: 11.5 },
         cell: ({ getValue }) => (getValue() ? formatDateTime(getValue()) : '—'),
       },
       ...(showLatestMark
@@ -184,6 +193,7 @@ export function MenteesPage() {
             {
               id: 'latestMark',
               header: 'Latest Monday mark',
+              meta: { width: 12 },
               accessorFn: (person: Person) => {
                 const state = latestMarkState(person);
                 return typeof state === 'string'
@@ -199,6 +209,7 @@ export function MenteesPage() {
       {
         id: 'actions',
         header: 'Actions',
+        meta: { width: 12, align: 'end' },
         enableSorting: false,
         enableHiding: false,
         cell: ({ row }) => (

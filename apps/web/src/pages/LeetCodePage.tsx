@@ -8,15 +8,33 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
-import { useActivityFilters, filterPractice } from '@/activityFilters';
+import {
+  emptyActivityFilters,
+  filterPractice,
+  useActivityFilters,
+} from '@/activityFilters';
 import { ProblemSuggestion } from '@/components/ProblemSuggestion';
 import { Spoiler } from '@/components/Spoiler';
-import { PracticeFilters } from '@/components/ActivityFilters';
+import { SeasonWeekChoices } from '@/components/ActivityFilters';
 import { ActivityPeriodFilter } from '@/components/ActivityPeriodFilter';
 import { useActivitySeason } from '@/activityPeriod';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { IconEdit, IconPlus } from '@tabler/icons-react';
+import {
+  IconChevronDown,
+  IconChevronUp,
+  IconDotsVertical,
+  IconEdit,
+  IconNotes,
+  IconPlus,
+  IconTrash,
+} from '@tabler/icons-react';
 import type { ColumnDef } from '@tanstack/react-table';
 import type { Resolver } from 'react-hook-form';
 import { useMemo, useState } from 'react';
@@ -43,7 +61,7 @@ import { RichTextContent } from '@/components/RichTextContent';
 import { ErrorState, InlineNotice } from '@/components/StatusViews';
 import { cn } from '@/lib/utils';
 import { Field, FieldError, FieldLabel } from '@/components/ui/field';
-import type { Attempt } from '@/types';
+import type { Attempt, Difficulty } from '@/types';
 import {
   calendarDateKey,
   difficultyGoal,
@@ -57,6 +75,11 @@ const outcomeTone = {
   success: 'border-transparent bg-success-soft text-success',
   warning: 'border-transparent bg-warning-soft text-warning',
   danger: 'border-transparent bg-destructive-soft text-destructive',
+};
+const difficultyTone: Record<Difficulty, string> = {
+  Easy: outcomeTone.success,
+  Medium: outcomeTone.warning,
+  Hard: outcomeTone.danger,
 };
 
 const attemptSchema = z.object({
@@ -99,6 +122,42 @@ function attemptFormValues(attempt?: Attempt): AttemptFormValues {
       };
 }
 
+/** Minutes taken, highlighted when within the difficulty's practice goal. */
+function AttemptTime({ attempt }: { attempt: Attempt }) {
+  return (
+    <span
+      className={
+        attempt.difficulty &&
+        attempt.minutes !== null &&
+        attempt.minutes <= difficultyGoal(attempt.difficulty)
+          ? 'font-semibold text-success'
+          : undefined
+      }
+    >
+      {attempt.minutes} min
+    </span>
+  );
+}
+
+const difficultyFilterOptions = (['Easy', 'Medium', 'Hard'] as const).map(
+  (value) => ({ label: value, value }),
+);
+const outcomeFilterOptions = (
+  [
+    'independently_solved',
+    'solved_with_hints',
+    'not_solved',
+    'unknown',
+  ] as const
+).map((value) => ({ label: outcomeLabel(value), value }));
+/** Values are a number of days back from now. */
+const attemptedFilterOptions = [
+  { label: 'Past 7 days', value: '7' },
+  { label: 'Past 30 days', value: '30' },
+  { label: 'Past 90 days', value: '90' },
+  { label: 'Past year', value: '365' },
+];
+
 const baseColumns: ColumnDef<Attempt, any>[] = [
   {
     accessorKey: 'problem',
@@ -129,8 +188,13 @@ const baseColumns: ColumnDef<Attempt, any>[] = [
   {
     accessorKey: 'difficulty',
     header: 'Difficulty',
+    meta: { width: 6.5, filterOptions: difficultyFilterOptions },
+    filterFn: 'equalsString',
     cell: ({ getValue }) => (
-      <Badge variant="secondary" className={badgeClass}>
+      <Badge
+        variant="outline"
+        className={cn(badgeClass, difficultyTone[getValue() as Difficulty])}
+      >
         {getValue()}
       </Badge>
     ),
@@ -138,6 +202,8 @@ const baseColumns: ColumnDef<Attempt, any>[] = [
   {
     accessorKey: 'outcome',
     header: 'Outcome',
+    meta: { width: 10.5, filterOptions: outcomeFilterOptions },
+    filterFn: 'equalsString',
     cell: ({ getValue }) => (
       <Badge
         variant="outline"
@@ -157,30 +223,23 @@ const baseColumns: ColumnDef<Attempt, any>[] = [
   {
     accessorKey: 'confidence',
     header: 'Confidence',
+    meta: { width: 6.5 },
     cell: ({ getValue }) => (getValue() ? `${getValue()}/5` : '—'),
   },
   {
     accessorKey: 'minutes',
     header: 'Time',
+    meta: { width: 5.5 },
     cell: ({ row }) =>
-      row.original.minutes ? (
-        <span
-          className={
-            row.original.difficulty &&
-            row.original.minutes > difficultyGoal(row.original.difficulty)
-              ? 'font-semibold text-warning'
-              : undefined
-          }
-        >
-          {row.original.minutes} min
-        </span>
-      ) : (
-        '—'
-      ),
+      row.original.minutes ? <AttemptTime attempt={row.original} /> : '—',
   },
   {
     accessorKey: 'attemptedAt',
-    header: 'Attempted',
+    header: 'Date Attempted',
+    meta: { width: 8.5, filterOptions: attemptedFilterOptions },
+    filterFn: (row, columnId, days: string) =>
+      Date.now() - new Date(row.getValue<string>(columnId)).getTime() <=
+      Number(days) * 24 * 60 * 60 * 1000,
     cell: ({ getValue }) => formatDate(getValue()),
   },
 ];
@@ -188,11 +247,18 @@ const baseColumns: ColumnDef<Attempt, any>[] = [
 export function LeetCodePage() {
   usePageTitle('LeetCode');
   const { seasons, season, hasSelection } = useActivitySeason();
-  const [filters, setFilters] = useActivityFilters(season?.id);
+  const [urlFilters, setFilters] = useActivityFilters(season?.id);
+  // Only season weeks narrow the table; difficulty and topics are just for
+  // suggesting a question, so stale URL parameters must not hide attempts.
+  const filters = useMemo(
+    () => ({ ...emptyActivityFilters, weeks: urlFilters.weeks }),
+    [urlFilters.weeks],
+  );
+  // Weeks are filtered locally: refetching would remount the table and close
+  // its Filters popover while someone is choosing weeks.
   const attemptsQuery = useAttempts(
     !hasSelection || Boolean(season),
     season?.id,
-    filters,
   );
   const [localAttempts, setLocalAttempts] = useState<Attempt[]>([]);
   const [updatedAttempts, setUpdatedAttempts] = useState<
@@ -271,39 +337,50 @@ export function LeetCodePage() {
     }
   };
   const columns: ColumnDef<Attempt, any>[] = [
-    ...baseColumns,
     {
-      id: 'actions',
-      header: 'Actions',
+      id: 'expand',
+      header: 'Notes',
+      meta: { width: 4.5 },
       enableSorting: false,
       enableHiding: false,
       cell: ({ row }) => (
-        <div className="flex flex-wrap items-center gap-2.5">
-          <Button
-            variant="ghost"
-            type="button"
-            aria-expanded={row.getIsExpanded()}
-            onClick={row.getToggleExpandedHandler()}
-          >
-            {row.getIsExpanded() ? 'Hide notes' : 'View notes'}
-          </Button>
-          <AttemptDialog
-            attempt={row.original}
-            onConflict={() => {
-              setOperationMessage(
-                'That attempt changed elsewhere. Its latest version has been loaded.',
-              );
-              return attemptsQuery.refetch();
-            }}
-            onSaved={saveAttempt}
-          />
-          <NamedConfirmation
-            name={row.original.problem}
-            actionLabel="Delete attempt"
-            description="This permanently removes the attempt from your practice history."
-            onConfirm={() => void deleteAttempt(row.original)}
-          />
-        </div>
+        <Button
+          variant="ghost"
+          size="icon"
+          type="button"
+          aria-label={`${row.getIsExpanded() ? 'Hide' : 'Show'} notes for ${row.original.problem}`}
+          aria-expanded={row.getIsExpanded()}
+          onClick={row.getToggleExpandedHandler()}
+        >
+          {row.getIsExpanded() ? (
+            <IconChevronUp size={18} />
+          ) : (
+            <IconChevronDown size={18} />
+          )}
+        </Button>
+      ),
+    },
+    ...baseColumns,
+    {
+      id: 'actions',
+      header: () => <span className="sr-only">Actions</span>,
+      meta: { width: 4, align: 'end' },
+      enableSorting: false,
+      enableHiding: false,
+      cell: ({ row }) => (
+        <AttemptRowMenu
+          attempt={row.original}
+          notesExpanded={row.getIsExpanded()}
+          onToggleNotes={row.getToggleExpandedHandler()}
+          onConflict={() => {
+            setOperationMessage(
+              'That attempt changed elsewhere. Its latest version has been loaded.',
+            );
+            return attemptsQuery.refetch();
+          }}
+          onSaved={saveAttempt}
+          onDelete={() => void deleteAttempt(row.original)}
+        />
       ),
     },
   ];
@@ -351,32 +428,33 @@ export function LeetCodePage() {
         </InlineNotice>
       ) : null}
 
-      <section className="mt-6" aria-labelledby="attempts-title">
-        <div className="mb-3 flex items-end justify-between gap-4">
-          <h2
-            id="attempts-title"
-            className="text-xl font-semibold tracking-tight"
-          >
-            Attempt history
-          </h2>
-          <span className="text-sm text-muted-foreground">
-            {visibleAttempts.length} recorded
-          </span>
+      <ProblemSuggestion filters={filters} />
+      <section aria-label="Attempt history">
+        <div className="mb-4">
+          <ActivityPeriodFilter
+            section="leetcode"
+            season={season}
+            seasons={seasons.data?.items ?? []}
+          />
         </div>
-        <ActivityPeriodFilter
-          section="leetcode"
-          season={season}
-          seasons={seasons.data?.items ?? []}
-        />
-        <PracticeFilters
-          seasonId={season?.id}
-          filters={filters}
-          onChange={setFilters}
-        />
-        <ProblemSuggestion filters={filters} />
         <DataTable
           ariaLabel="Problem attempts"
           data={visibleAttempts}
+          extraFilters={
+            season
+              ? {
+                  content: (
+                    <SeasonWeekChoices
+                      seasonId={season.id}
+                      selected={filters.weeks}
+                      onChange={(weeks) => setFilters({ weeks })}
+                    />
+                  ),
+                  activeCount: filters.weeks.length,
+                  onClear: () => setFilters({ weeks: [] }),
+                }
+              : undefined
+          }
           renderSummary={(rows) => (
             <PracticeAnalytics
               attempts={rows}
@@ -399,7 +477,14 @@ export function LeetCodePage() {
           renderCard={(row) => (
             <div>
               <div className="flex flex-wrap items-center gap-2.5">
-                <Badge variant="secondary" className={badgeClass}>
+                <Badge
+                  variant="outline"
+                  className={cn(
+                    badgeClass,
+                    row.original.difficulty &&
+                      difficultyTone[row.original.difficulty],
+                  )}
+                >
                   {row.original.difficulty}
                 </Badge>
                 <Badge
@@ -434,9 +519,11 @@ export function LeetCodePage() {
                 {formatDate(row.original.attemptedAt)}
               </p>
               <p>
-                {row.original.minutes
-                  ? `${row.original.minutes} min`
-                  : 'No time recorded'}{' '}
+                {row.original.minutes ? (
+                  <AttemptTime attempt={row.original} />
+                ) : (
+                  'No time recorded'
+                )}{' '}
                 ·{' '}
                 {row.original.confidence
                   ? `confidence ${row.original.confidence}/5`
@@ -469,11 +556,73 @@ export function LeetCodePage() {
   );
 }
 
+/** Notes, edit and delete actions for a table row, behind a kebab menu. */
+function AttemptRowMenu({
+  attempt,
+  notesExpanded,
+  onToggleNotes,
+  onSaved,
+  onConflict,
+  onDelete,
+}: {
+  attempt: Attempt;
+  notesExpanded: boolean;
+  onToggleNotes: () => void;
+  onSaved: (attempt: Attempt) => void;
+  onConflict: () => Promise<unknown> | void;
+  onDelete: () => void;
+}) {
+  const [editOpen, setEditOpen] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  return (
+    <>
+      <DropdownMenu>
+        <DropdownMenuTrigger
+          render={<Button variant="ghost" size="icon" />}
+          aria-label={`More actions for ${attempt.problem}`}
+        >
+          <IconDotsVertical size={18} aria-hidden="true" />
+        </DropdownMenuTrigger>
+        <DropdownMenuContent>
+          <DropdownMenuItem onClick={onToggleNotes}>
+            <IconNotes size={17} aria-hidden="true" />
+            {notesExpanded ? 'Hide notes' : 'View notes'}
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => setEditOpen(true)}>
+            <IconEdit size={17} aria-hidden="true" /> Edit
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            variant="destructive"
+            onClick={() => setDeleteOpen(true)}
+          >
+            <IconTrash size={17} aria-hidden="true" /> Delete attempt
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+      <AttemptDialog
+        attempt={attempt}
+        open={editOpen}
+        onOpenChange={setEditOpen}
+        onConflict={onConflict}
+        onSaved={onSaved}
+      />
+      <NamedConfirmation
+        name={attempt.problem}
+        actionLabel="Delete attempt"
+        description="This permanently removes the attempt from your practice history."
+        open={deleteOpen}
+        onOpenChange={setDeleteOpen}
+        onConfirm={onDelete}
+      />
+    </>
+  );
+}
+
 const outcomeItems: {
   label: string;
   value: AttemptFormValues['outcome'];
 }[] = [
-  { label: 'Independently solved', value: 'independently_solved' },
+  { label: 'Solved', value: 'independently_solved' },
   { label: 'Solved with hints', value: 'solved_with_hints' },
   { label: 'Not solved', value: 'not_solved' },
 ];
@@ -482,12 +631,23 @@ function AttemptDialog({
   attempt,
   onSaved,
   onConflict,
+  open: controlledOpen,
+  onOpenChange,
 }: {
   attempt?: Attempt;
   onSaved: (attempt: Attempt) => void;
   onConflict?: () => Promise<unknown> | void;
+  /** When provided, the dialog is opened externally and renders no trigger. */
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }) {
-  const [open, setOpen] = useState(false);
+  const [uncontrolledOpen, setUncontrolledOpen] = useState(false);
+  const controlled = controlledOpen !== undefined;
+  const open = controlled ? controlledOpen : uncontrolledOpen;
+  const setOpen = (next: boolean) => {
+    if (!controlled) setUncontrolledOpen(next);
+    onOpenChange?.(next);
+  };
   const [announcement, setAnnouncement] = useState('');
   const [requestError, setRequestError] = useState('');
   const [selectedProblem, setSelectedProblem] =
@@ -590,7 +750,7 @@ function AttemptDialog({
         open={open}
         onOpenChange={requestOpenChange}
         trigger={
-          attempt ? (
+          controlled ? undefined : attempt ? (
             <>
               <IconEdit size={17} aria-hidden="true" /> Edit
             </>

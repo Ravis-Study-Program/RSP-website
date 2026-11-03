@@ -254,6 +254,7 @@ export function Invitations({ season }: { season: Season }) {
           {
             id: 'actions',
             header: 'Actions',
+            meta: { align: 'end' },
             cell: ({ row }) => actions(row.original),
           },
         ]}
