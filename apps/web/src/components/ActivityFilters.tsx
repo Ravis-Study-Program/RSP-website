@@ -180,7 +180,7 @@ export function PracticeFilters({
   const categories = categoriesQuery.data ?? [];
   return (
     <div
-      className="my-3 flex flex-wrap items-end gap-3"
+      className="flex flex-wrap items-end gap-3"
       aria-label="Practice filters"
     >
       <Choices
@@ -239,10 +239,7 @@ export function MockFilters({
   onChange: (change: Partial<ActivityFilters>) => void;
 }) {
   return (
-    <div
-      className="my-3 flex flex-wrap items-end gap-3"
-      aria-label="Mock filters"
-    >
+    <div className="flex flex-wrap items-end gap-3" aria-label="Mock filters">
       <label className="grid gap-2 text-sm font-medium">
         Result
         <Select

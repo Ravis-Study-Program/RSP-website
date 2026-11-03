@@ -179,7 +179,7 @@ export function ProfileActivity({
         <TabsTrigger value="leetcode">LeetCode</TabsTrigger>
         <TabsTrigger value="mocks">Mock interviews</TabsTrigger>
       </TabsList>
-      <TabsContent value="leetcode">
+      <TabsContent value="leetcode" className="flex flex-col gap-6">
         <PracticeFilters
           seasonId={seasonId}
           filters={filters}
@@ -222,7 +222,7 @@ export function ProfileActivity({
           )}
         />
       </TabsContent>
-      <TabsContent value="mocks">
+      <TabsContent value="mocks" className="flex flex-col gap-6">
         <MockFilters
           seasonId={seasonId}
           people={interviewers}

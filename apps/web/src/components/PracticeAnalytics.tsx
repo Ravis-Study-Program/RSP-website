@@ -159,16 +159,16 @@ export function PracticeAnalytics({
     stroke: 'var(--border-strong)',
   };
   return (
-    <section className="mt-6" aria-label="Practice charts">
+    <section aria-label="Practice charts">
       <div className="grid gap-6">
         {showActivity ? (
           <ActivityChart data={activitySeries(attempts, [], { season })} />
         ) : null}
-        <div className="grid gap-4 grid-cols-[repeat(auto-fit,minmax(min(100%,20rem),1fr))]">
+        <div className="grid gap-6 grid-cols-[repeat(auto-fit,minmax(min(100%,20rem),1fr))]">
           <Card
             role="region"
             aria-label="Difficulty breakdown"
-            className="gap-3 p-5"
+            className="gap-3 p-4"
           >
             <h3 className="text-base font-semibold">Difficulty breakdown</h3>
             {breakdown.length ? (
@@ -250,7 +250,7 @@ export function PracticeAnalytics({
           <Card
             role="region"
             aria-label="Time by difficulty"
-            className="gap-3 p-5"
+            className="gap-3 p-4"
           >
             <h3 className="text-base font-semibold">Time by difficulty</h3>
             <Label className="font-normal">

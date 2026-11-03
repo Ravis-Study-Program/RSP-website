@@ -415,143 +415,143 @@ export function LeetCodePage() {
           />
         }
       />
-      {operationMessage ? (
-        <InlineNotice
-          tone={
-            operationMessage.startsWith('Unable') ||
-            operationMessage.includes('changed elsewhere')
-              ? 'warning'
-              : 'success'
-          }
-        >
-          {operationMessage}
-        </InlineNotice>
-      ) : null}
+      <div className="flex flex-col gap-6">
+        {operationMessage ? (
+          <InlineNotice
+            tone={
+              operationMessage.startsWith('Unable') ||
+              operationMessage.includes('changed elsewhere')
+                ? 'warning'
+                : 'success'
+            }
+          >
+            {operationMessage}
+          </InlineNotice>
+        ) : null}
 
-      <ProblemSuggestion />
-      <section aria-label="Attempt history">
-        <div className="mb-4">
+        <ProblemSuggestion />
+        <section aria-label="Attempt history" className="flex flex-col gap-6">
           <ActivityPeriodFilter
             section="leetcode"
             season={season}
             seasons={seasons.data?.items ?? []}
           />
-        </div>
-        <DataTable
-          ariaLabel="Problem attempts"
-          data={visibleAttempts}
-          extraFilters={
-            season
-              ? {
-                  content: (
-                    <SeasonWeekChoices
-                      seasonId={season.id}
-                      selected={filters.weeks}
-                      onChange={(weeks) => setFilters({ weeks })}
-                    />
-                  ),
-                  activeCount: filters.weeks.length,
-                  onClear: () => setFilters({ weeks: [] }),
-                }
-              : undefined
-          }
-          renderSummary={(rows) => (
-            <PracticeAnalytics
-              attempts={rows}
-              season={season}
-              showActivity={false}
-            />
-          )}
-          columns={columns}
-          loading={attemptsQuery.isLoading || seasons.isLoading}
-          error={attemptsQuery.isError}
-          onRetry={() => void attemptsQuery.refetch()}
-          emptyTitle="No attempts recorded"
-          emptyMessage="Log your first problem attempt to begin building a useful practice history."
-          getRowId={(attempt) => attempt.id}
-          renderExpanded={(row) => (
-            <section aria-label={`Notes for ${row.original.problem}`}>
-              <RichTextContent html={row.original.notes} />
-            </section>
-          )}
-          renderCard={(row) => (
-            <div>
-              <div className="flex flex-wrap items-center gap-2.5">
-                <Badge
-                  variant="outline"
-                  className={cn(
-                    badgeClass,
-                    row.original.difficulty &&
-                      difficultyTone[row.original.difficulty],
-                  )}
-                >
-                  {row.original.difficulty}
-                </Badge>
-                <Badge
-                  variant="outline"
-                  className={cn(
-                    badgeClass,
-                    row.original.outcome === 'independently_solved'
-                      ? outcomeTone.success
-                      : row.original.outcome === 'not_solved'
-                        ? outcomeTone.danger
-                        : outcomeTone.warning,
-                  )}
-                >
-                  {outcomeLabel(row.original.outcome)}
-                </Badge>
+          <DataTable
+            ariaLabel="Problem attempts"
+            data={visibleAttempts}
+            extraFilters={
+              season
+                ? {
+                    content: (
+                      <SeasonWeekChoices
+                        seasonId={season.id}
+                        selected={filters.weeks}
+                        onChange={(weeks) => setFilters({ weeks })}
+                      />
+                    ),
+                    activeCount: filters.weeks.length,
+                    onClear: () => setFilters({ weeks: [] }),
+                  }
+                : undefined
+            }
+            renderSummary={(rows) => (
+              <PracticeAnalytics
+                attempts={rows}
+                season={season}
+                showActivity={false}
+              />
+            )}
+            columns={columns}
+            loading={attemptsQuery.isLoading || seasons.isLoading}
+            error={attemptsQuery.isError}
+            onRetry={() => void attemptsQuery.refetch()}
+            emptyTitle="No attempts recorded"
+            emptyMessage="Log your first problem attempt to begin building a useful practice history."
+            getRowId={(attempt) => attempt.id}
+            renderExpanded={(row) => (
+              <section aria-label={`Notes for ${row.original.problem}`}>
+                <RichTextContent html={row.original.notes} />
+              </section>
+            )}
+            renderCard={(row) => (
+              <div>
+                <div className="flex flex-wrap items-center gap-2.5">
+                  <Badge
+                    variant="outline"
+                    className={cn(
+                      badgeClass,
+                      row.original.difficulty &&
+                        difficultyTone[row.original.difficulty],
+                    )}
+                  >
+                    {row.original.difficulty}
+                  </Badge>
+                  <Badge
+                    variant="outline"
+                    className={cn(
+                      badgeClass,
+                      row.original.outcome === 'independently_solved'
+                        ? outcomeTone.success
+                        : row.original.outcome === 'not_solved'
+                          ? outcomeTone.danger
+                          : outcomeTone.warning,
+                    )}
+                  >
+                    {outcomeLabel(row.original.outcome)}
+                  </Badge>
+                </div>
+                <h3 className="mt-3 text-base font-semibold tracking-tight">
+                  <a
+                    href={row.original.problemUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    <HighlightText text={row.original.problem} />
+                  </a>
+                </h3>
+                <p className="text-sm text-muted-foreground">
+                  {row.original.category ? (
+                    <>
+                      <Spoiler>{row.original.category}</Spoiler> ·{' '}
+                    </>
+                  ) : null}
+                  {formatDate(row.original.attemptedAt)}
+                </p>
+                <p>
+                  {row.original.minutes ? (
+                    <AttemptTime attempt={row.original} />
+                  ) : (
+                    'No time recorded'
+                  )}{' '}
+                  ·{' '}
+                  {row.original.confidence
+                    ? `confidence ${row.original.confidence}/5`
+                    : 'confidence not recorded'}
+                </p>
+                <RichTextContent html={row.original.notes} />
+                <div className="flex flex-wrap items-center gap-2.5">
+                  <AttemptDialog
+                    attempt={row.original}
+                    onConflict={() => {
+                      setOperationMessage(
+                        'That attempt changed elsewhere. Its latest version has been loaded.',
+                      );
+                      return attemptsQuery.refetch();
+                    }}
+                    onSaved={saveAttempt}
+                  />
+                  <NamedConfirmation
+                    name={row.original.problem}
+                    actionLabel="Delete attempt"
+                    description="This permanently removes the attempt from your practice history."
+                    onConfirm={() => void deleteAttempt(row.original)}
+                  />
+                </div>
               </div>
-              <h3 className="mt-3 text-base font-semibold tracking-tight">
-                <a
-                  href={row.original.problemUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                >
-                  <HighlightText text={row.original.problem} />
-                </a>
-              </h3>
-              <p className="text-sm text-muted-foreground">
-                {row.original.category ? (
-                  <>
-                    <Spoiler>{row.original.category}</Spoiler> ·{' '}
-                  </>
-                ) : null}
-                {formatDate(row.original.attemptedAt)}
-              </p>
-              <p>
-                {row.original.minutes ? (
-                  <AttemptTime attempt={row.original} />
-                ) : (
-                  'No time recorded'
-                )}{' '}
-                ·{' '}
-                {row.original.confidence
-                  ? `confidence ${row.original.confidence}/5`
-                  : 'confidence not recorded'}
-              </p>
-              <RichTextContent html={row.original.notes} />
-              <div className="flex flex-wrap items-center gap-2.5">
-                <AttemptDialog
-                  attempt={row.original}
-                  onConflict={() => {
-                    setOperationMessage(
-                      'That attempt changed elsewhere. Its latest version has been loaded.',
-                    );
-                    return attemptsQuery.refetch();
-                  }}
-                  onSaved={saveAttempt}
-                />
-                <NamedConfirmation
-                  name={row.original.problem}
-                  actionLabel="Delete attempt"
-                  description="This permanently removes the attempt from your practice history."
-                  onConfirm={() => void deleteAttempt(row.original)}
-                />
-              </div>
-            </div>
-          )}
-        />
-      </section>
+            )}
+          />
+        </section>
+      </div>
     </div>
   );
 }

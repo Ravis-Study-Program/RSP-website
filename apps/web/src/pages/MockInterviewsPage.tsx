@@ -554,169 +554,170 @@ export function MockInterviewsPage() {
           />
         }
       />
-      <ActivityPeriodFilter
-        section="mock-interviews"
-        season={season}
-        seasons={seasonsQuery.data?.items ?? []}
-      />
-      <MockFilters
-        seasonId={season?.id}
-        people={availablePeople}
-        filters={filters}
-        onChange={setFilters}
-      />
-      <Tabs
-        className="mt-6"
-        value={mode}
-        onValueChange={(value) => setMode(value as MockInterviewMode)}
-      >
-        <TabsList aria-label="Mock interview view">
-          <TabsTrigger value="received">Received</TabsTrigger>
-          <TabsTrigger value="given">Given</TabsTrigger>
-          <TabsTrigger value="all">All available</TabsTrigger>
-        </TabsList>
-        <TabsContent value={mode}>
-          <DataTable
-            ariaLabel={`${mode} mock interviews`}
-            data={filtered}
-            columns={columns}
-            loading={
-              query.isLoading ||
-              user.isLoading ||
-              peopleQuery.isLoading ||
-              seasonsQuery.isLoading
-            }
-            error={
-              query.isError ||
-              user.isError ||
-              peopleQuery.isError ||
-              seasonsQuery.isError
-            }
-            serverPagination={{
-              totalCount: serverTotal + localDelta,
-              hasMore: Boolean(query.hasNextPage),
-              loadingMore: query.isFetchingNextPage,
-              onLoadMore: () => void query.fetchNextPage(),
-            }}
-            onRetry={() =>
-              void Promise.all([
-                query.refetch(),
-                user.refetch(),
-                peopleQuery.refetch(),
-                seasonsQuery.refetch(),
-              ])
-            }
-            emptyTitle={`No ${mode} mock interviews`}
-            emptyMessage={
-              mode === 'received'
-                ? 'Interviews where you are the interviewee will appear here.'
-                : mode === 'given'
-                  ? 'Interviews you conduct will appear here.'
-                  : 'Create the first eligible mock interview.'
-            }
-            getRowId={(mock) => mock.id}
-            renderExpanded={(row) => (
-              <MockDetails
-                row={row}
-                currentUserId={user.data?.id}
-                canCorrectIdentities={Boolean(
-                  user.data?.globalRoles.some(
-                    (role) => role === 'director' || role === 'system_admin',
-                  ),
-                )}
-                people={availablePeople}
-                seasons={seasonsQuery.data?.items ?? []}
-                onDelete={() => removeInterview(row.original)}
-                onChanged={(changed) => {
-                  if (changed)
-                    setUpdated((items) => ({
-                      ...items,
-                      [changed.id]: changed,
-                    }));
-                  else void query.refetch();
-                }}
-              />
-            )}
-            defaultExpanded
-            renderCard={(row) => (
-              <div>
-                <div className="flex flex-wrap items-center gap-2.5">
-                  <Badge
-                    variant="outline"
-                    className={cn(
-                      badgeClass,
-                      interviewPassed(row.original)
-                        ? outcomeTone.success
-                        : outcomeTone.danger,
-                    )}
-                  >
-                    {interviewPassed(row.original) ? 'Pass' : 'Needs work'}
-                  </Badge>
-                  <Badge
-                    variant="outline"
-                    className={cn(
-                      badgeClass,
-                      row.original.reviewStatus === 'reviewed'
-                        ? outcomeTone.success
-                        : outcomeTone.warning,
-                    )}
-                  >
-                    {row.original.reviewStatus}
-                  </Badge>
-                </div>
-                <h2 className="mt-3 text-base font-semibold tracking-tight">
-                  <PersonIdentity
-                    person={row.original.interviewee}
-                    seasonId={season?.id}
-                  />
-                </h2>
-                <p className="text-sm text-muted-foreground">
-                  with {row.original.interviewer.name} ·{' '}
-                  {formatDateTime(row.original.occurredAt)}
-                </p>
-                <p>
-                  {row.original.durationMinutes} minutes ·{' '}
-                  {row.original.rounds.length}{' '}
-                  {row.original.rounds.length === 1 ? 'round' : 'rounds'}
-                </p>
-                <Button
-                  variant="outline"
-                  type="button"
-                  aria-expanded={row.getIsExpanded()}
-                  onClick={row.getToggleExpandedHandler()}
-                >
-                  View details
-                </Button>
-                {row.getIsExpanded() ? (
-                  <div className="mt-3">
-                    <MockDetails
-                      row={row}
-                      currentUserId={user.data?.id}
-                      canCorrectIdentities={Boolean(
-                        user.data?.globalRoles.some(
-                          (role) =>
-                            role === 'director' || role === 'system_admin',
-                        ),
+      <div className="flex flex-col gap-6">
+        <ActivityPeriodFilter
+          section="mock-interviews"
+          season={season}
+          seasons={seasonsQuery.data?.items ?? []}
+        />
+        <MockFilters
+          seasonId={season?.id}
+          people={availablePeople}
+          filters={filters}
+          onChange={setFilters}
+        />
+        <Tabs
+          value={mode}
+          onValueChange={(value) => setMode(value as MockInterviewMode)}
+        >
+          <TabsList aria-label="Mock interview view">
+            <TabsTrigger value="received">Received</TabsTrigger>
+            <TabsTrigger value="given">Given</TabsTrigger>
+            <TabsTrigger value="all">All available</TabsTrigger>
+          </TabsList>
+          <TabsContent value={mode}>
+            <DataTable
+              ariaLabel={`${mode} mock interviews`}
+              data={filtered}
+              columns={columns}
+              loading={
+                query.isLoading ||
+                user.isLoading ||
+                peopleQuery.isLoading ||
+                seasonsQuery.isLoading
+              }
+              error={
+                query.isError ||
+                user.isError ||
+                peopleQuery.isError ||
+                seasonsQuery.isError
+              }
+              serverPagination={{
+                totalCount: serverTotal + localDelta,
+                hasMore: Boolean(query.hasNextPage),
+                loadingMore: query.isFetchingNextPage,
+                onLoadMore: () => void query.fetchNextPage(),
+              }}
+              onRetry={() =>
+                void Promise.all([
+                  query.refetch(),
+                  user.refetch(),
+                  peopleQuery.refetch(),
+                  seasonsQuery.refetch(),
+                ])
+              }
+              emptyTitle={`No ${mode} mock interviews`}
+              emptyMessage={
+                mode === 'received'
+                  ? 'Interviews where you are the interviewee will appear here.'
+                  : mode === 'given'
+                    ? 'Interviews you conduct will appear here.'
+                    : 'Create the first eligible mock interview.'
+              }
+              getRowId={(mock) => mock.id}
+              renderExpanded={(row) => (
+                <MockDetails
+                  row={row}
+                  currentUserId={user.data?.id}
+                  canCorrectIdentities={Boolean(
+                    user.data?.globalRoles.some(
+                      (role) => role === 'director' || role === 'system_admin',
+                    ),
+                  )}
+                  people={availablePeople}
+                  seasons={seasonsQuery.data?.items ?? []}
+                  onDelete={() => removeInterview(row.original)}
+                  onChanged={(changed) => {
+                    if (changed)
+                      setUpdated((items) => ({
+                        ...items,
+                        [changed.id]: changed,
+                      }));
+                    else void query.refetch();
+                  }}
+                />
+              )}
+              defaultExpanded
+              renderCard={(row) => (
+                <div>
+                  <div className="flex flex-wrap items-center gap-2.5">
+                    <Badge
+                      variant="outline"
+                      className={cn(
+                        badgeClass,
+                        interviewPassed(row.original)
+                          ? outcomeTone.success
+                          : outcomeTone.danger,
                       )}
-                      people={availablePeople}
-                      seasons={seasonsQuery.data?.items ?? []}
-                      onDelete={() => removeInterview(row.original)}
-                      onChanged={(changed) => {
-                        if (changed)
-                          setUpdated((items) => ({
-                            ...items,
-                            [changed.id]: changed,
-                          }));
-                        else void query.refetch();
-                      }}
-                    />
+                    >
+                      {interviewPassed(row.original) ? 'Pass' : 'Needs work'}
+                    </Badge>
+                    <Badge
+                      variant="outline"
+                      className={cn(
+                        badgeClass,
+                        row.original.reviewStatus === 'reviewed'
+                          ? outcomeTone.success
+                          : outcomeTone.warning,
+                      )}
+                    >
+                      {row.original.reviewStatus}
+                    </Badge>
                   </div>
-                ) : null}
-              </div>
-            )}
-          />
-        </TabsContent>
-      </Tabs>
+                  <h2 className="mt-3 text-base font-semibold tracking-tight">
+                    <PersonIdentity
+                      person={row.original.interviewee}
+                      seasonId={season?.id}
+                    />
+                  </h2>
+                  <p className="text-sm text-muted-foreground">
+                    with {row.original.interviewer.name} ·{' '}
+                    {formatDateTime(row.original.occurredAt)}
+                  </p>
+                  <p>
+                    {row.original.durationMinutes} minutes ·{' '}
+                    {row.original.rounds.length}{' '}
+                    {row.original.rounds.length === 1 ? 'round' : 'rounds'}
+                  </p>
+                  <Button
+                    variant="outline"
+                    type="button"
+                    aria-expanded={row.getIsExpanded()}
+                    onClick={row.getToggleExpandedHandler()}
+                  >
+                    View details
+                  </Button>
+                  {row.getIsExpanded() ? (
+                    <div className="mt-3">
+                      <MockDetails
+                        row={row}
+                        currentUserId={user.data?.id}
+                        canCorrectIdentities={Boolean(
+                          user.data?.globalRoles.some(
+                            (role) =>
+                              role === 'director' || role === 'system_admin',
+                          ),
+                        )}
+                        people={availablePeople}
+                        seasons={seasonsQuery.data?.items ?? []}
+                        onDelete={() => removeInterview(row.original)}
+                        onChanged={(changed) => {
+                          if (changed)
+                            setUpdated((items) => ({
+                              ...items,
+                              [changed.id]: changed,
+                            }));
+                          else void query.refetch();
+                        }}
+                      />
+                    </div>
+                  ) : null}
+                </div>
+              )}
+            />
+          </TabsContent>
+        </Tabs>
+      </div>
     </div>
   );
 }
