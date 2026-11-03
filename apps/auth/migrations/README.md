@@ -16,4 +16,6 @@ Review generated SQL and constraints before updating the pinned SHA-256 in
 `deploy/postgres/migrate-auth.sql` and `test/migration-drift.test.ts`.
 Application-owned additions use numbered, repeatable files such as
 `0002-lifecycle-outbox.sql`; they are applied and checksum-verified by the
-deployment runner, including when upgrading an existing auth schema.
+deployment runner, including when upgrading an existing auth schema. Columns
+added by later Better Auth releases are layered on the same way (for example
+`0003-better-auth-1.7-jwks.sql`) so the pinned baseline checksum never changes.
