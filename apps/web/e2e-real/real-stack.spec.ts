@@ -102,17 +102,22 @@ test('student creates, edits, and deletes a Go-backed practice attempt', async (
   const row = page.getByRole('row').filter({ hasText: 'Two Sum' }).first();
   await expect(row).toBeVisible();
   await expect(row).toContainText('24 min');
-  await row.getByRole('button', { name: 'View notes' }).click();
+  await row.getByRole('button', { name: 'Show notes for 1. Two Sum' }).click();
   await expect(
     page.getByRole('region', { name: 'Notes for 1. Two Sum' }),
   ).toContainText('Real-stack note with structured details.');
-  await row.getByRole('button', { name: 'Edit' }).click();
+  // Edit and delete sit in the row's kebab menu.
+  const rowMenu = row.getByRole('button', {
+    name: 'More actions for 1. Two Sum',
+  });
+  await rowMenu.click();
+  await page.getByRole('menuitem', { name: 'Edit' }).click();
   const edit = page.getByRole('dialog', { name: 'Edit 1. Two Sum' });
   await expect(edit.getByLabel('Time taken (minutes)')).toHaveValue('24');
   await expect(edit.locator('#attempt-notes')).toContainText(
     'Real-stack note with structured details.',
   );
-  await edit.getByLabel('Confidence (optional, 1–5)').fill('5');
+  await edit.getByLabel('Confidence (1–5)').fill('5');
   await edit
     .locator('#attempt-notes')
     .fill('Updated real-stack note with rich-text persistence.');
@@ -123,7 +128,8 @@ test('student creates, edits, and deletes a Go-backed practice attempt', async (
     page.getByRole('region', { name: 'Notes for 1. Two Sum' }),
   ).toContainText('Updated real-stack note with rich-text persistence.');
 
-  await row.getByRole('button', { name: 'Delete attempt' }).click();
+  await rowMenu.click();
+  await page.getByRole('menuitem', { name: 'Delete attempt' }).click();
   const confirmation = page.getByRole('alertdialog', {
     name: 'Delete attempt 1. Two Sum?',
   });

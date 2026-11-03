@@ -1385,8 +1385,7 @@ function DeleteWeekButton({
 }
 
 type EnrollmentAccountOption =
-  | Pick<Person, 'id' | 'name' | 'slug'>
-  | EnrollmentCandidate;
+  Pick<Person, 'id' | 'name' | 'slug'> | EnrollmentCandidate;
 
 export function EnrollmentDialog({
   seasonId,

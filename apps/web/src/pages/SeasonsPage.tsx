@@ -29,9 +29,9 @@ export function SeasonsPage() {
   );
   const canBrowseAll = Boolean(
     user.data &&
-      (user.data.globalRoles.length > 0 ||
-        user.data.alumni ||
-        user.data.seasonRoles.some((m) => m.state === 'active')),
+    (user.data.globalRoles.length > 0 ||
+      user.data.alumni ||
+      user.data.seasonRoles.some((m) => m.state === 'active')),
   );
   const visibleSeasonIds = new Set(
     user.data?.seasonRoles
