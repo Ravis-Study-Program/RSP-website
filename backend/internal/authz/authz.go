@@ -181,6 +181,18 @@ func (a Actor) CanSetStudentLevel(seasonID string) bool {
 	return ok && e.State == Active && e.Role == Mentor
 }
 
+// CanSetProgrammePracticeGoals controls the time goals that apply to everyone.
+func (a Actor) CanSetProgrammePracticeGoals() bool {
+	return a.authenticated() && a.IsDirectorOrSystemAdmin()
+}
+
+// CanSetStudentPracticeGoals lets an active student's assigned mentor, an
+// active Coordinator of the season, a Director or a System Admin override the
+// programme time goals for that student.
+func (a Actor) CanSetStudentPracticeGoals(seasonID string, assignedMentee, targetActive bool) bool {
+	return a.CanPromoteOrRemoveStudent(seasonID, assignedMentee, targetActive)
+}
+
 func (a Actor) CanReopenSeason(now time.Time) bool {
 	return a.authenticated() && a.IsDirectorOrSystemAdmin() && a.HasRecentMFA(now)
 }

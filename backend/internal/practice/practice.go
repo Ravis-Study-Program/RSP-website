@@ -15,17 +15,41 @@ const (
 // Not solved and unknown outcomes never count.
 func SolvedOutcomes() []Outcome { return []Outcome{Independent, WithHints} }
 
-// PracticeSettings describes the fixed programme time goals.
-type PracticeSettings struct {
-	GoalsEnabled  bool `json:"goalsEnabled"`
-	EasyMinutes   int  `json:"easyMinutes"`
-	MediumMinutes int  `json:"mediumMinutes"`
-	HardMinutes   int  `json:"hardMinutes"`
+// Goals are the Easy, Medium and Hard time goals, in minutes.
+type Goals struct {
+	EasyMinutes   int `json:"easyMinutes"`
+	MediumMinutes int `json:"mediumMinutes"`
+	HardMinutes   int `json:"hardMinutes"`
 }
 
-// FixedSettings applies to every member, including members with legacy personal goals.
-func FixedSettings() PracticeSettings {
-	return PracticeSettings{GoalsEnabled: true, EasyMinutes: 20, MediumMinutes: 35, HardMinutes: 50}
+// MaxGoalMinutes matches the database range for every goal.
+const MaxGoalMinutes = 180
+
+// DefaultGoals apply until a Director or System Admin saves programme goals.
+func DefaultGoals() Goals { return Goals{EasyMinutes: 10, MediumMinutes: 25, HardMinutes: 40} }
+
+// Valid reports whether every goal is a whole number of minutes from 1 to 180.
+func (g Goals) Valid() bool {
+	for _, minutes := range []int{g.EasyMinutes, g.MediumMinutes, g.HardMinutes} {
+		if minutes < 1 || minutes > MaxGoalMinutes {
+			return false
+		}
+	}
+	return true
+}
+
+const (
+	// GoalSourceProgramme means the member uses the programme goals.
+	GoalSourceProgramme = "programme"
+	// GoalSourceStudent means a mentor or administrator set goals for this student.
+	GoalSourceStudent = "student"
+)
+
+// PracticeSettings describes the time goals that apply to one member.
+type PracticeSettings struct {
+	GoalsEnabled bool `json:"goalsEnabled"`
+	Goals
+	Source string `json:"source"`
 }
 
 // ProblemRecord is the persisted and HTTP-facing problem representation.

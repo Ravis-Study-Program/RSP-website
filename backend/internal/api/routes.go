@@ -80,6 +80,10 @@ func registerProgrammeRoutes(mux *http.ServeMux, a *API) {
 func registerPracticeRoutes(mux *http.ServeMux, a *API) {
 	mux.HandleFunc("GET /api/v2/me/practice-settings", a.protected(ratelimit.Read, a.getCurrentUserPracticeSettings))
 	mux.HandleFunc("GET /api/v2/users/{id}/practice-settings", a.protected(ratelimit.Read, a.getUserPracticeSettings))
+	mux.HandleFunc("GET /api/v2/practice-goals", a.protected(ratelimit.Read, a.getProgrammePracticeGoals))
+	mux.HandleFunc("PUT /api/v2/practice-goals", a.protected(ratelimit.Write, a.updateProgrammePracticeGoals))
+	mux.HandleFunc("PUT /api/v2/seasons/{id}/members/{memberId}/practice-goals", a.protected(ratelimit.Write, a.putStudentPracticeGoals))
+	mux.HandleFunc("DELETE /api/v2/seasons/{id}/members/{memberId}/practice-goals", a.protected(ratelimit.Write, a.deleteStudentPracticeGoals))
 	mux.HandleFunc("GET /api/v2/me/problem-suggestion", a.protected(ratelimit.Read, a.suggestProblem))
 	mux.HandleFunc("GET /api/v2/leetcode-problems", a.protected(ratelimit.Read, a.listLeetCodeProblems))
 	mux.HandleFunc("GET /api/v2/leetcode-categories", a.protected(ratelimit.Read, a.listLeetCodeCategories))

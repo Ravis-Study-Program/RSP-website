@@ -11,7 +11,6 @@ import (
 
 	"github.com/magedmg/RSP-website/backend/internal/authz"
 	"github.com/magedmg/RSP-website/backend/internal/platform/id"
-	"github.com/magedmg/RSP-website/backend/internal/practice"
 	"github.com/magedmg/RSP-website/backend/internal/programme"
 )
 
@@ -94,28 +93,5 @@ func TestStudentLevelRestrictions(t *testing.T) {
 		if response.Code != http.StatusForbidden {
 			t.Fatalf("membership=%+v status=%d", state, response.Code)
 		}
-	}
-}
-
-func TestPracticeGoalsAreFixed(t *testing.T) {
-	fixture := newPostgresFixture(t)
-	for _, legacy := range []bool{false, true} {
-		if legacy {
-			if _, err := fixture.pool.Exec(context.Background(), `INSERT INTO app.practice_goals(user_id,enabled,easy_minutes,medium_minutes,hard_minutes) VALUES($1,false,10,20,45)`, studentID); err != nil {
-				t.Fatal(err)
-			}
-		}
-		response := testRequest(t, fixture.handler, http.MethodGet, "/api/v2/me/practice-settings", "student", "")
-		var settings practice.PracticeSettings
-		if err := json.Unmarshal(response.Body.Bytes(), &settings); err != nil {
-			t.Fatal(err)
-		}
-		if response.Code != http.StatusOK || settings != practice.FixedSettings() {
-			t.Fatalf("status=%d settings=%+v", response.Code, settings)
-		}
-	}
-	response := testRequest(t, fixture.handler, http.MethodPatch, "/api/v2/me/practice-settings", "student", `{"easyMinutes":25,"mediumMinutes":40,"hardMinutes":60}`)
-	if response.Code != http.StatusMethodNotAllowed {
-		t.Fatalf("custom goals status=%d body=%s", response.Code, response.Body)
 	}
 }

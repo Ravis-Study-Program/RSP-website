@@ -101,13 +101,59 @@ paths:
         default: { $ref: '#/components/responses/Error' }
         '200':
           {
-            description: Fixed programme time goals for every member,
+            description: The time goals that apply to the current member,
             content:
               {
                 application/json:
                   { schema: { $ref: '#/components/schemas/PracticeSettings' } },
               },
           }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+
+  /practice-goals:
+    get:
+      operationId: getProgrammePracticeGoals
+      description: The programme time goals that apply to every member without a student override.
+      responses:
+        default: { $ref: '#/components/responses/Error' }
+        '200':
+          {
+            description: Programme time goals,
+            content:
+              {
+                application/json:
+                  { schema: { $ref: '#/components/schemas/PracticeGoals' } },
+              },
+          }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+    put:
+      operationId: updateProgrammePracticeGoals
+      description: Directors and System Admins set the time goals for everyone. Student overrides are unchanged.
+      requestBody:
+        {
+          required: true,
+          content:
+            {
+              application/json:
+                { schema: { $ref: '#/components/schemas/PracticeGoals' } },
+            },
+        }
+      responses:
+        default: { $ref: '#/components/responses/Error' }
+        '200':
+          {
+            description: Updated programme time goals,
+            content:
+              {
+                application/json:
+                  { schema: { $ref: '#/components/schemas/PracticeGoals' } },
+              },
+          }
+        '400': { $ref: '#/components/responses/Error' }
         '401': { $ref: '#/components/responses/Error' }
         '403': { $ref: '#/components/responses/Error' }
         '429': { $ref: '#/components/responses/RateLimited' }
@@ -244,7 +290,7 @@ paths:
     parameters: [{ $ref: '#/components/parameters/ID' }]
     get:
       operationId: getUserPracticeSettings
-      description: Returns private practice settings to the member, their assigned mentor, their season Coordinator, a Director, or a System Admin.
+      description: Returns the time goals that apply to a member. Anyone who can read shared programme activity may read them; former staff without that access reach them through the audited private-data relationship policy.
       responses:
         default: { $ref: '#/components/responses/Error' }
         '200':
@@ -879,6 +925,60 @@ paths:
               },
           }
         '400': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+        '401': { $ref: '#/components/responses/Error' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+  /seasons/{id}/members/{memberId}/practice-goals:
+    parameters:
+      [
+        { $ref: '#/components/parameters/ID' },
+        { name: memberId, in: path, required: true, schema: { type: string } },
+      ]
+    put:
+      operationId: setStudentPracticeGoals
+      description: The student's assigned mentor, an active season Coordinator, a Director or a System Admin replaces the programme time goals for an active student in an open season. The override follows the student until it is cleared.
+      requestBody:
+        {
+          required: true,
+          content:
+            {
+              application/json:
+                { schema: { $ref: '#/components/schemas/PracticeGoals' } },
+            },
+        }
+      responses:
+        default: { $ref: '#/components/responses/Error' }
+        '200':
+          {
+            description: The student's time goals,
+            content:
+              {
+                application/json:
+                  { schema: { $ref: '#/components/schemas/PracticeSettings' } },
+              },
+          }
+        '400': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+        '401': { $ref: '#/components/responses/Error' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+    delete:
+      operationId: clearStudentPracticeGoals
+      description: Clears a student's override so the programme time goals apply again. Uses the same permissions as setting it.
+      responses:
+        default: { $ref: '#/components/responses/Error' }
+        '200':
+          {
+            description: The student's time goals,
+            content:
+              {
+                application/json:
+                  { schema: { $ref: '#/components/schemas/PracticeSettings' } },
+              },
+          }
         '403': { $ref: '#/components/responses/Error' }
         '404': { $ref: '#/components/responses/Error' }
         '409': { $ref: '#/components/responses/Error' }
@@ -2360,15 +2460,28 @@ components:
           slug:
             { type: string, pattern: '^[a-z0-9](?:[a-z0-9-]{1,48}[a-z0-9])?$' },
         }
+    PracticeGoals:
+      type: object
+      additionalProperties: false
+      description: Easy, Medium and Hard time goals in whole minutes.
+      required: [easyMinutes, mediumMinutes, hardMinutes]
+      properties:
+        easyMinutes: { type: integer, minimum: 1, maximum: 180 }
+        mediumMinutes: { type: integer, minimum: 1, maximum: 180 }
+        hardMinutes: { type: integer, minimum: 1, maximum: 180 }
     PracticeSettings:
       type: object
-      description: Fixed programme time goals. These apply automatically to every member and cannot be customised.
-      required: [goalsEnabled, easyMinutes, mediumMinutes, hardMinutes]
+      description: The time goals that apply to one member. Students use the programme goals unless their mentor or a season administrator set an override.
+      required: [goalsEnabled, easyMinutes, mediumMinutes, hardMinutes, source]
       properties:
         goalsEnabled: { type: boolean, enum: [true] }
-        easyMinutes: { type: integer, enum: [20] }
-        mediumMinutes: { type: integer, enum: [35] }
-        hardMinutes: { type: integer, enum: [50] }
+        easyMinutes: { type: integer, minimum: 1, maximum: 180 }
+        mediumMinutes: { type: integer, minimum: 1, maximum: 180 }
+        hardMinutes: { type: integer, minimum: 1, maximum: 180 }
+        source:
+          type: string
+          enum: [programme, student]
+          description: programme for the goals everyone uses; student for an override on this member.
     AccountStateMutation:
       type: object
       additionalProperties: false

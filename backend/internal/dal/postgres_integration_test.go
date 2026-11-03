@@ -255,8 +255,9 @@ func TestPostgres18MigrationsAndDAL(t *testing.T) {
 		t.Fatalf("create season: %#v %v", season, err)
 	}
 
+	programmeSettings := practice.PracticeSettings{GoalsEnabled: true, Goals: practice.DefaultGoals(), Source: practice.GoalSourceProgramme}
 	settings, err := repository.GetPracticeSettings(ctx, "00000000-0000-7000-8000-000000000033")
-	if err != nil || !settings.GoalsEnabled || settings.EasyMinutes != 20 || settings.MediumMinutes != 35 || settings.HardMinutes != 50 {
+	if err != nil || settings != programmeSettings {
 		t.Fatalf("default practice settings=%#v err=%v", settings, err)
 	}
 
@@ -264,8 +265,24 @@ func TestPostgres18MigrationsAndDAL(t *testing.T) {
 		t.Fatal(err)
 	}
 	settings, err = repository.GetPracticeSettings(ctx, "00000000-0000-7000-8000-000000000033")
-	if err != nil || !settings.GoalsEnabled || settings.EasyMinutes != 20 || settings.MediumMinutes != 35 || settings.HardMinutes != 50 {
-		t.Fatalf("legacy preferences must not override fixed goals: %#v err=%v", settings, err)
+	if err != nil || settings != programmeSettings {
+		t.Fatalf("legacy preferences must not override programme goals: %#v err=%v", settings, err)
+	}
+
+	edited := practice.Goals{EasyMinutes: 12, MediumMinutes: 28, HardMinutes: 45}
+	for range 2 {
+		goals, err := repository.UpdateProgrammePracticeGoals(ctx, UpdateProgrammePracticeGoalsInput{Goals: edited, ActorID: "00000000-0000-7000-8000-000000000033", ChangedAt: time.Now()})
+		if err != nil || goals != edited {
+			t.Fatalf("update programme goals=%#v err=%v", goals, err)
+		}
+	}
+	settings, err = repository.GetPracticeSettings(ctx, "00000000-0000-7000-8000-000000000033")
+	if err != nil || settings.Goals != edited || settings.Source != practice.GoalSourceProgramme {
+		t.Fatalf("edited programme settings=%#v err=%v", settings, err)
+	}
+	var programmeAudits int
+	if err := repository.pool.QueryRow(ctx, `SELECT count(*) FROM app.audit_events WHERE action='practice_goals.programme_updated'`).Scan(&programmeAudits); err != nil || programmeAudits != 1 {
+		t.Fatalf("unchanged programme goals must not be audited again: count=%d err=%v", programmeAudits, err)
 	}
 
 	if _, err := repository.pool.Exec(context.Background(), `INSERT INTO app.users(id,account_state) VALUES
