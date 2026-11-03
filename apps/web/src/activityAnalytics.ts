@@ -1,7 +1,7 @@
-import { calendarDateKey } from '@/utils';
+import { calendarDateKey, practiceGoalMinutes } from '@/utils';
 import { programmeTimezone } from '@/activityDates';
 import type { MockInterviewDayCount } from '@/api/generated/models';
-import type { Attempt, Season } from '@/types';
+import type { Attempt, Difficulty, Season } from '@/types';
 
 /** `mockDays` are server-aggregated programme-timezone day counts. */
 export function activitySeries(
@@ -66,4 +66,24 @@ export function difficultyBreakdown(attempts: Attempt[]) {
         .length,
     }))
     .filter((item) => item.value > 0);
+}
+
+/**
+ * Per-difficulty counts and successes, where a success is an attempt solved
+ * independently within that difficulty's practice goal.
+ */
+export function difficultySuccessRates(attempts: Attempt[]) {
+  return (['Easy', 'Medium', 'Hard'] as Difficulty[]).map((difficulty) => {
+    const matching = attempts.filter((a) => a.difficulty === difficulty);
+    return {
+      difficulty,
+      count: matching.length,
+      successes: matching.filter(
+        (a) =>
+          a.outcome === 'independently_solved' &&
+          a.minutes !== null &&
+          a.minutes <= practiceGoalMinutes[difficulty],
+      ).length,
+    };
+  });
 }

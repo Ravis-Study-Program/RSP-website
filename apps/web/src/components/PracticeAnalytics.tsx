@@ -1,6 +1,14 @@
 import { Card } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 import { useState } from 'react';
 import {
   CartesianGrid,
@@ -16,7 +24,11 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
-import { activitySeries, difficultyBreakdown } from '@/activityAnalytics';
+import {
+  activitySeries,
+  difficultyBreakdown,
+  difficultySuccessRates,
+} from '@/activityAnalytics';
 import { ActivityChart } from '@/components/ActivityChart';
 import { legendLabel } from '@/lib/chartLegend';
 import type { Attempt, Difficulty, Season } from '@/types';
@@ -104,6 +116,7 @@ export function PracticeAnalytics({
 }) {
   const [goals, setGoals] = useState(true);
   const breakdown = difficultyBreakdown(attempts);
+  const successRates = difficultySuccessRates(attempts);
   const points: TimedPoint[] = attempts
     .filter((a) => a.minutes !== null && a.difficulty)
     .map((a) => ({
@@ -144,10 +157,7 @@ export function PracticeAnalytics({
       <h2 className="text-xl font-semibold tracking-tight">
         Practice in this period
       </h2>
-      <p className="mt-1 text-sm text-muted-foreground">
-        Charts include every matching attempt, across all table pages.
-      </p>
-      <div className="grid gap-6">
+      <div className="mt-3 grid gap-6">
         {showActivity ? (
           <ActivityChart data={activitySeries(attempts, [], { season })} />
         ) : null}
@@ -188,11 +198,47 @@ export function PracticeAnalytics({
                     </PieChart>
                   </ResponsiveContainer>
                 </div>
-                <p>
-                  {breakdown
-                    .map((item) => `${item.name}: ${item.value}`)
-                    .join(' · ')}
-                </p>
+                <Table className="table-fixed tabular-nums">
+                  <caption className="sr-only">
+                    Success: solved independently within the practice goal.
+                  </caption>
+                  <colgroup>
+                    <col className="w-28" />
+                    {successRates.map(({ difficulty }) => (
+                      <col key={difficulty} />
+                    ))}
+                  </colgroup>
+                  <TableHeader>
+                    <TableRow className="hover:bg-transparent">
+                      <TableHead>
+                        <span className="sr-only">Measure</span>
+                      </TableHead>
+                      {successRates.map(({ difficulty }) => (
+                        <TableHead key={difficulty} scope="col">
+                          {difficulty}
+                        </TableHead>
+                      ))}
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    <TableRow className="hover:bg-transparent">
+                      <TableHead scope="row">Count</TableHead>
+                      {successRates.map(({ difficulty, count }) => (
+                        <TableCell key={difficulty}>{count}</TableCell>
+                      ))}
+                    </TableRow>
+                    <TableRow className="hover:bg-transparent">
+                      <TableHead scope="row">Success rate</TableHead>
+                      {successRates.map(({ difficulty, count, successes }) => (
+                        <TableCell key={difficulty}>
+                          {count
+                            ? `${Math.round((successes / count) * 100)}%`
+                            : '—'}
+                        </TableCell>
+                      ))}
+                    </TableRow>
+                  </TableBody>
+                </Table>
               </>
             ) : (
               <p>No attempts match these filters.</p>
