@@ -15,10 +15,12 @@ export function ActivityPeriodFilter({
   section,
   season,
   seasons,
+  label = 'View activity',
 }: {
   section: 'leetcode' | 'mock-interviews';
   season?: Season;
   seasons: Season[];
+  label?: string;
 }) {
   const { slug } = useParams();
   const navigate = useNavigate();
@@ -30,7 +32,7 @@ export function ActivityPeriodFilter({
   ];
   return (
     <Field>
-      <FieldLabel htmlFor={selectId}>View activity</FieldLabel>
+      <FieldLabel htmlFor={selectId}>{label}</FieldLabel>
       <Select
         items={seasonItems}
         value={season?.id ?? ''}

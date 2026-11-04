@@ -232,14 +232,19 @@ export function MockFilters({
   people,
   filters,
   onChange,
+  embedded = false,
 }: {
   seasonId?: string;
   people: Person[];
   filters: ActivityFilters;
   onChange: (change: Partial<ActivityFilters>) => void;
+  embedded?: boolean;
 }) {
   return (
-    <div className="flex flex-wrap items-end gap-3" aria-label="Mock filters">
+    <div
+      className={embedded ? 'grid gap-3' : 'flex flex-wrap items-end gap-3'}
+      aria-label="Mock filters"
+    >
       <label className="grid gap-2 text-sm font-medium">
         Result
         <Select
@@ -261,32 +266,73 @@ export function MockFilters({
           </SelectContent>
         </Select>
       </label>
-      <Choices
-        label="Interviewers"
-        options={people.map((p) => ({ label: p.name, value: p.id }))}
-        selected={filters.interviewers}
-        onChange={(interviewers) => onChange({ interviewers })}
-      />
-      <SeasonWeekFilter
-        seasonId={seasonId}
-        filters={filters}
-        onChange={onChange}
-      />
-      <Button
-        variant="ghost"
-        size="sm"
-        type="button"
-        className={clearFilterClass}
-        onClick={() =>
-          onChange({
-            passed: emptyActivityFilters.passed,
-            interviewers: [],
-            weeks: [],
-          })
-        }
-      >
-        Clear mock filters
-      </Button>
+      {embedded ? (
+        <>
+          <label className="grid gap-2 text-sm font-medium">
+            Interviewers
+            <Select
+              multiple
+              items={people.map((person) => ({
+                label: person.name,
+                value: person.id,
+              }))}
+              value={filters.interviewers}
+              onValueChange={(interviewers) => onChange({ interviewers })}
+            >
+              <SelectTrigger aria-label="Interviewers" className="w-full">
+                <SelectValue placeholder="All interviewers" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectGroup>
+                  {people.map((person) => (
+                    <SelectItem key={person.id} value={person.id}>
+                      {person.name}
+                    </SelectItem>
+                  ))}
+                </SelectGroup>
+              </SelectContent>
+            </Select>
+          </label>
+          {seasonId && (
+            <SeasonWeekChoices
+              seasonId={seasonId}
+              selected={filters.weeks}
+              onChange={(weeks) => onChange({ weeks })}
+            />
+          )}
+        </>
+      ) : (
+        <>
+          <Choices
+            label="Interviewers"
+            options={people.map((p) => ({ label: p.name, value: p.id }))}
+            selected={filters.interviewers}
+            onChange={(interviewers) => onChange({ interviewers })}
+          />
+          <SeasonWeekFilter
+            seasonId={seasonId}
+            filters={filters}
+            onChange={onChange}
+          />
+        </>
+      )}
+      {!embedded && (
+        <Button
+          variant="ghost"
+          size="sm"
+          type="button"
+          className={clearFilterClass}
+          onClick={() =>
+            onChange({
+              passed: emptyActivityFilters.passed,
+              interviewers: [],
+              weeks: [],
+            })
+          }
+        >
+          Clear mock filters
+        </Button>
+      )}
     </div>
   );
 }

@@ -621,12 +621,12 @@ test('mock interview create, round edit and named deletion work', async ({
   await selectDemoRole(page, 'director');
   await page.goto('/mock-interviews');
   await page.getByRole('button', { name: 'New interview' }).click();
-  const create = page.getByRole('dialog', { name: 'Record mock interview' });
+  const create = page.getByRole('dialog', { name: 'New mock interview' });
   await chooseOption(create, 'Interviewee', 'Amelia Chen · student');
-  await create.getByRole('button', { name: 'Add LeetCode round' }).click();
+  await create.getByRole('button', { name: 'Add LeetCode' }).click();
   await create.getByLabel('LeetCode problem').fill('Two Sum');
   await page.getByRole('option').filter({ hasText: 'Two Sum' }).first().click();
-  await create.getByRole('button', { name: 'Save interview' }).click();
+  await create.getByRole('button', { name: 'Create interview' }).click();
   await page.getByRole('tab', { name: 'Given' }).click();
   await expect(
     page
@@ -642,7 +642,7 @@ test('mock interview create, round edit and named deletion work', async ({
     .getByLabel(/custom score/i)
     .first()
     .fill('8');
-  await edit.getByRole('button', { name: 'Save interview' }).click();
+  await edit.getByRole('button', { name: 'Save changes' }).click();
   await expect(page.getByText('65 min').first()).toBeVisible();
 
   await page.getByRole('button', { name: 'Delete interview' }).first().click();

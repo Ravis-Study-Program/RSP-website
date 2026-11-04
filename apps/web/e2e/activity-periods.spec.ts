@@ -93,11 +93,31 @@ test('mocks and both profile tabs support weeks inside a season', async ({
   page,
 }, testInfo) => {
   await page.goto('/mock-interviews');
-  await expectSelected(page, 'View activity', 'All time');
-  await chooseOption(page, 'View activity', 'Summer 2025/26');
-  await page.getByRole('tab', { name: 'All', exact: true }).click();
-  await page.getByText('Season weeks: All', { exact: true }).click();
-  await toggleWeek(page, 3, true);
+  await expect(page.getByRole('tab', { name: 'All', exact: true })).toHaveCount(
+    0,
+  );
+  await expect(
+    page.getByRole('combobox', { name: 'Season', exact: true }),
+  ).toHaveCount(0);
+  await expect(
+    page.getByRole('link', { name: 'Avery Example', exact: true }),
+  ).toHaveCount(0);
+  await expect(
+    page
+      .getByRole('link', { name: 'Noah Williams', exact: true })
+      .filter({ visible: true }),
+  ).toBeVisible();
+  await page.getByRole('button', { name: /^Filters/ }).click();
+  await expectSelected(page, /^Season$/, 'All time');
+  await chooseOption(page, /^Season$/, 'Summer 2025/26');
+  await page.keyboard.press('Escape');
+  await page.getByRole('tab', { name: 'Given', exact: true }).click();
+  await page.getByRole('button', { name: /^Filters/ }).click();
+  await page.screenshot({
+    path: testInfo.outputPath('mock-filters.png'),
+    fullPage: true,
+  });
+  await toggleWeekOption(page, 3, true);
   const amelia = page
     .getByRole('link', { name: 'Amelia Chen', exact: true })
     .filter({ visible: true });
@@ -106,15 +126,26 @@ test('mocks and both profile tabs support weeks inside a season', async ({
     .filter({ visible: true });
   await expect(amelia).toBeVisible();
   await expect(zara).toHaveCount(0);
-  await toggleWeek(page, 2, true);
-  await expect(zara).toBeVisible();
+  await toggleWeekOption(page, 2, true);
+  await expect(zara).toHaveCount(0);
+  await toggleWeekOption(page, 3, false);
+  await expect(amelia).toHaveCount(0);
+  await toggleWeekOption(page, 3, true);
+  await expect(amelia).toBeVisible();
+  await page.keyboard.press('Escape');
+  await page.keyboard.press('Escape');
+  await expect(
+    page.getByRole('link', { name: 'Avery Example', exact: true }),
+  ).toHaveCount(0);
   await page.screenshot({
     path: testInfo.outputPath('season-mock-weeks.png'),
     fullPage: true,
   });
-  await chooseOption(page, 'View activity', 'All time');
+  await page.getByRole('button', { name: /^Filters/ }).click();
+  await chooseOption(page, /^Season$/, 'All time');
   await expect(page).toHaveURL(/\/mock-interviews$/);
   await expect(page.getByText(/^Season weeks/)).toHaveCount(0);
+  await page.keyboard.press('Escape');
 
   await page.goto('/people/amelia-chen?seasonId=season_2026_s2');
   await page.getByText('Season weeks: All', { exact: true }).click();

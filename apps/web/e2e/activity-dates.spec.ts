@@ -13,7 +13,7 @@ test('former students can record mocks today in Adelaide and filter their person
     page.getByRole('heading', { name: 'Mock Interviews', exact: true }),
   ).toBeVisible();
   await page.getByRole('button', { name: 'New interview' }).click();
-  const create = page.getByRole('dialog', { name: 'Record mock interview' });
+  const create = page.getByRole('dialog', { name: 'New mock interview' });
   await expect(create.getByText(/Today in Adelaide: 2026-09-06/)).toBeVisible();
   await expect(create.locator('input[type="date"]')).toHaveCount(0);
   await expect(create.getByLabel('Round type')).toHaveAttribute(
@@ -22,13 +22,13 @@ test('former students can record mocks today in Adelaide and filter their person
   );
   await chooseOption(create, 'Interviewee', 'Amelia Chen · student');
   await create.getByLabel('Time (Adelaide)').fill('23:00');
-  await create.getByRole('button', { name: 'Save interview' }).click();
+  await create.getByRole('button', { name: 'Create interview' }).click();
   await expect(create.getByText(/Future times are not allowed/)).toBeVisible();
   await create.getByLabel('Time (Adelaide)').fill('16:30');
   await create.screenshot({
     path: testInfo.outputPath('adelaide-recording.png'),
   });
-  await create.getByRole('button', { name: 'Save interview' }).click();
+  await create.getByRole('button', { name: 'Create interview' }).click();
   await expect(create).toBeHidden();
   await page.getByRole('tab', { name: 'Given' }).click();
   await expect(
@@ -44,14 +44,18 @@ test('former students can record mocks today in Adelaide and filter their person
     edit.locator('input[type="date"], input[type="time"]'),
   ).toHaveCount(0);
   await edit.getByLabel('Duration (minutes)').fill('65');
-  await edit.getByRole('button', { name: 'Save interview' }).click();
+  await edit.getByRole('button', { name: 'Save changes' }).click();
   await expect(edit).toBeHidden();
-  await chooseOption(page, 'View activity', 'Summer 2024/25');
+  await page.getByRole('button', { name: /^Filters/ }).click();
+  await chooseOption(page, /^Season$/, 'Summer 2024/25');
+  await page.keyboard.press('Escape');
   await expect(page).toHaveURL(/\/mock-interviews\?seasonId=season_2026_s1/);
   await expect(page.getByRole('button', { name: 'Edit details' })).toHaveCount(
     0,
   );
-  await chooseOption(page, 'View activity', 'All time');
+  await page.getByRole('button', { name: /^Filters/ }).click();
+  await chooseOption(page, /^Season$/, 'All time');
+  await page.keyboard.press('Escape');
   await expect(page).not.toHaveURL(/seasonId=/);
   await expect(
     page
