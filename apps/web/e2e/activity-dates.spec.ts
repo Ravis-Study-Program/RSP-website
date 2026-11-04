@@ -67,11 +67,15 @@ test('former students can record mocks today in Adelaide and filter their person
   await expect(
     page.getByRole('heading', { name: 'LeetCode Practice', exact: true }),
   ).toBeVisible();
-  await chooseOption(page, 'View activity', 'Summer 2024/25');
+  await page.getByRole('button', { name: /^Filters/ }).click();
+  await chooseOption(page, /^Season$/, 'Summer 2024/25');
+  await page.keyboard.press('Escape');
   await expect(
     page.getByText('Binary Tree Level Order Traversal', { exact: true }),
   ).toHaveCount(0);
-  await chooseOption(page, 'View activity', 'All time');
+  await page.getByRole('button', { name: /^Filters/ }).click();
+  await chooseOption(page, /^Season$/, 'All time');
+  await page.keyboard.press('Escape');
   await expect(
     page
       .getByText('Binary Tree Level Order Traversal', { exact: true })

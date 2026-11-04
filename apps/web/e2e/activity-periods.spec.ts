@@ -29,14 +29,15 @@ async function toggleWeekOption(page: Page, week: number, selected: boolean) {
 test('practice uses season or all time and clears weeks when changing periods @compat', async ({
   page,
 }, testInfo) => {
-  // Season weeks live in the attempt table's Filters popover.
+  // Season and weeks live in the attempt table's Filters popover.
   const openTableFilters = () =>
     page.getByRole('button', { name: /^Filters/ }).click();
   const weeksFilter = page.getByRole('combobox', { name: 'Season weeks' });
   await page.goto('/seasons/summer-2025-26/leetcode');
-  await expectSelected(page, 'View activity', 'Summer 2025/26');
-  await expect(page.getByLabel('Year (Adelaide time)')).toHaveCount(0);
+  await expect(page.getByRole('combobox', { name: /^Season$/ })).toHaveCount(0);
   await openTableFilters();
+  await expectSelected(page, /^Season$/, 'Summer 2025/26');
+  await expect(page.getByLabel('Year (Adelaide time)')).toHaveCount(0);
   await toggleWeekOption(page, 3, true);
   await expect(page).toHaveURL(/weekId=week_season_2026_s2_3/);
   const tree = page
@@ -51,25 +52,30 @@ test('practice uses season or all time and clears weeks when changing periods @c
   await expect(anagram).toBeVisible();
   await page.keyboard.press('Escape');
   await expect(weeksFilter).toHaveText('Week 2, Week 3');
-  await expect(page.getByRole('button', { name: 'Filters (2)' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Filters (3)' })).toBeVisible();
+  await chooseOption(page, /^Season$/, 'Summer 2024/25');
   await page.keyboard.press('Escape');
-  await chooseOption(page, 'View activity', 'Summer 2024/25');
   await expect(page).toHaveURL(/\/seasons\/summer-2024-25\/leetcode$/);
-  await expect(page.getByRole('button', { name: 'Filters' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Filters (1)' })).toBeVisible();
   await expect(tree).toHaveCount(0);
   await page.goBack();
-  await expectSelected(page, 'View activity', 'Summer 2025/26');
   await openTableFilters();
+  await expectSelected(page, /^Season$/, 'Summer 2025/26');
   await expect(weeksFilter).toHaveText('Week 2, Week 3');
+  await page.screenshot({
+    path: testInfo.outputPath('practice-filters.png'),
+    fullPage: true,
+  });
   await page.keyboard.press('Escape');
+  await expect(page.getByRole('combobox', { name: /^Season$/ })).toHaveCount(0);
   await expect(tree).toBeVisible();
   await page.screenshot({
     path: testInfo.outputPath('season-practice-weeks.png'),
     fullPage: true,
   });
-  await chooseOption(page, 'View activity', 'All time');
-  await expect(page).toHaveURL(/\/leetcode$/);
   await openTableFilters();
+  await chooseOption(page, /^Season$/, 'All time');
+  await expect(page).toHaveURL(/\/leetcode$/);
   await expect(weeksFilter).toHaveCount(0);
   await page.keyboard.press('Escape');
   await expect(
@@ -83,9 +89,9 @@ test('practice uses season or all time and clears weeks when changing periods @c
   await page.goto(
     '/leetcode?year=1900&weekId=week_season_2026_s2_3&difficulty=hard',
   );
-  await expectSelected(page, 'View activity', 'All time');
   await expect(anagram).toBeVisible();
   await openTableFilters();
+  await expectSelected(page, /^Season$/, 'All time');
   await expect(weeksFilter).toHaveCount(0);
 });
 
