@@ -42,7 +42,7 @@ export function EmptyState({
   action,
 }: {
   title: string;
-  message: string;
+  message?: string;
   filtered?: boolean;
   action?: React.ReactNode;
 }) {
@@ -57,7 +57,9 @@ export function EmptyState({
         <h2 className="text-xl font-semibold tracking-tight">
           {filtered ? `No matches for ${title.toLowerCase()}` : title}
         </h2>
-        <p className="text-sm text-muted-foreground">{message}</p>
+        {message ? (
+          <p className="text-sm text-muted-foreground">{message}</p>
+        ) : null}
         {action}
       </div>
     </div>
@@ -66,7 +68,7 @@ export function EmptyState({
 
 export function ErrorState({
   title = 'We could not load this section',
-  message = 'The rest of your workspace is still available. Try this request again.',
+  message,
   onRetry,
 }: {
   title?: string;
@@ -82,7 +84,9 @@ export function ErrorState({
           className="text-muted-foreground"
         />
         <h2 className="text-xl font-semibold tracking-tight">{title}</h2>
-        <p className="text-sm text-muted-foreground">{message}</p>
+        {message ? (
+          <p className="text-sm text-muted-foreground">{message}</p>
+        ) : null}
         {onRetry ? (
           <Button variant="outline" type="button" onClick={onRetry}>
             <IconRefresh size={18} aria-hidden="true" /> Retry

@@ -5,7 +5,6 @@ import {
   DialogTrigger,
   DialogContent,
   DialogTitle,
-  DialogDescription,
   DialogClose,
 } from '@/components/ui/dialog';
 import { IconSearch, IconX } from '@tabler/icons-react';
@@ -221,9 +220,6 @@ export function CommandPalette() {
         <div className="mb-4 flex items-start justify-between gap-4">
           <div>
             <DialogTitle>Quick navigation</DialogTitle>
-            <DialogDescription>
-              Search pages available in your current role.
-            </DialogDescription>
           </div>
           <DialogClose
             render={<Button variant="ghost" size="icon" />}

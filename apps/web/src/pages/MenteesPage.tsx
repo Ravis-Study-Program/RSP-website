@@ -369,7 +369,7 @@ function RemovalDialog({
       triggerVariant="destructive"
       triggerSize="sm"
       title={`Remove ${person.name}?`}
-      description="Removal immediately revokes season resources and directory access. The reason and actor are stored in an immutable audit event."
+      description="This student immediately loses access to season resources and the directory. Your name and the removal reason are recorded."
       trigger={
         <>
           <IconUserMinus size={17} aria-hidden="true" /> Remove

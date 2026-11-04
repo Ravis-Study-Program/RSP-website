@@ -132,29 +132,13 @@ export function DashboardPage() {
         </div>
       </header>
 
-      <dl
-        className="mb-6 flex flex-wrap gap-x-6 gap-y-1 text-sm"
-        aria-label="Current workspace summary"
+      <div
+        className={`mt-4 grid gap-4 max-[56rem]:grid-cols-1 ${
+          ['mentor', 'coordinator', 'director', 'system_admin'].includes(role)
+            ? 'grid-cols-3'
+            : 'grid-cols-2'
+        }`}
       >
-        <div className="flex gap-2">
-          <dt className="text-muted-foreground">Workspace</dt>
-          <dd className="font-semibold">{activeWorkspace?.label}</dd>
-        </div>
-        <div className="flex gap-2">
-          <dt className="text-muted-foreground">Season</dt>
-          <dd className="font-semibold">
-            {currentSeason?.status === 'open' ? 'Open' : 'Graduate'}
-          </dd>
-        </div>
-        <div className="flex gap-2">
-          <dt className="text-muted-foreground">Timezone</dt>
-          <dd className="font-semibold">
-            {user.data.timezone.split('/').at(-1)}
-          </dd>
-        </div>
-      </dl>
-
-      <div className="mt-4 grid grid-cols-3 gap-4 max-[56rem]:grid-cols-1">
         {role === 'coordinator' ||
         role === 'director' ||
         role === 'system_admin' ? (
@@ -203,14 +187,6 @@ export function DashboardPage() {
               value={attempts.data?.totalCount ?? '—'}
             />
             <MetricCard
-              label="Independent Solves"
-              value={
-                attempts.data?.items.filter(
-                  (item) => item.outcome === 'independently_solved',
-                ).length ?? '—'
-              }
-            />
-            <MetricCard
               label="Mock Interviews"
               value={interviews.data?.total ?? '—'}
               detail={`${interviews.data?.reviewed ?? 0} reviewed`}
@@ -219,118 +195,107 @@ export function DashboardPage() {
         )}
       </div>
 
-      <div className="mt-8 grid items-stretch gap-6 lg:grid-cols-2">
-        <section
-          className="mt-6 flex flex-col"
-          aria-labelledby="dashboard-focus-title"
-        >
-          <div className={sectionHeaderClass}>
-            <h2 id="dashboard-focus-title" className={sectionTitleClass}>
-              {role === 'coordinator'
-                ? 'Operations needing attention'
-                : role === 'mentor'
-                  ? 'Your mentor team'
-                  : 'Practice History'}
-            </h2>
-          </div>
-          {role === 'coordinator' ? (
-            <Card className="h-full">
-              <CardContent>
-                <ul className={listClass}>
-                  <li className={listRowClass}>
-                    <span className="flex items-center gap-2">
-                      <IconUsers size={18} aria-hidden="true" />{' '}
-                      {unassigned.length
-                        ? `${unassigned.length} ${unassigned.length === 1 ? 'student is' : 'students are'} unassigned`
-                        : 'Every active student is assigned'}
-                    </span>
-                    <Link
-                      to={`/seasons/${currentSeason?.slug}/mentor-teams`}
-                      className={buttonVariants({
-                        variant: 'link',
-                        size: 'sm',
-                      })}
-                    >
-                      Mentor Teams
-                    </Link>
-                  </li>
-                  <li className={listRowClass}>
-                    <span className="flex items-center gap-2">
-                      <IconClipboardCheck size={18} aria-hidden="true" />{' '}
-                      {activeEnrollments.length} active{' '}
-                      {activeEnrollments.length === 1
-                        ? 'enrollment'
-                        : 'enrollments'}
-                    </span>
-                    <Link
-                      to="/admin/enrollments"
-                      className={buttonVariants({
-                        variant: 'link',
-                        size: 'sm',
-                      })}
-                    >
-                      Manage
-                    </Link>
-                  </li>
-                  <li className={listRowClass}>
-                    <span className="flex items-center gap-2">
-                      <IconCalendarEvent size={18} aria-hidden="true" />{' '}
-                      {missingWeekResources
-                        ? `${missingWeekResources} ${missingWeekResources === 1 ? 'week has' : 'weeks have'} no resource link`
-                        : 'All scheduled weeks have resource links'}
-                    </span>
-                    <Link
-                      to="/admin/weeks"
-                      className={buttonVariants({
-                        variant: 'link',
-                        size: 'sm',
-                      })}
-                    >
-                      Weeks
-                    </Link>
-                  </li>
-                </ul>
-              </CardContent>
-            </Card>
-          ) : role === 'mentor' ? (
-            <Card className="h-full">
-              <CardContent>
-                {mentees.length ? (
+      <div
+        className={`mt-8 grid items-stretch gap-6 ${role === 'coordinator' || role === 'mentor' ? 'lg:grid-cols-2' : ''}`}
+      >
+        {role === 'coordinator' || role === 'mentor' ? (
+          <section
+            className="mt-6 flex flex-col"
+            aria-labelledby="dashboard-focus-title"
+          >
+            <div className={sectionHeaderClass}>
+              <h2 id="dashboard-focus-title" className={sectionTitleClass}>
+                {role === 'coordinator'
+                  ? 'Operations needing attention'
+                  : 'Your mentor team'}
+              </h2>
+            </div>
+            {role === 'coordinator' ? (
+              <Card className="h-full">
+                <CardContent>
                   <ul className={listClass}>
-                    {mentees.slice(0, 3).map((person) => (
-                      <li className={listRowClass} key={person.id}>
-                        <PersonIdentity
-                          person={person}
-                          seasonId={currentSeason?.id}
-                        />
-                        <Badge variant="secondary">
-                          {person.attempts ?? '—'} attempts
-                        </Badge>
-                      </li>
-                    ))}
+                    <li className={listRowClass}>
+                      <span className="flex items-center gap-2">
+                        <IconUsers size={18} aria-hidden="true" />{' '}
+                        {unassigned.length
+                          ? `${unassigned.length} ${unassigned.length === 1 ? 'student is' : 'students are'} unassigned`
+                          : 'Every active student is assigned'}
+                      </span>
+                      <Link
+                        to={`/seasons/${currentSeason?.slug}/mentor-teams`}
+                        className={buttonVariants({
+                          variant: 'link',
+                          size: 'sm',
+                        })}
+                      >
+                        Mentor Teams
+                      </Link>
+                    </li>
+                    <li className={listRowClass}>
+                      <span className="flex items-center gap-2">
+                        <IconClipboardCheck size={18} aria-hidden="true" />{' '}
+                        {activeEnrollments.length} active{' '}
+                        {activeEnrollments.length === 1
+                          ? 'enrollment'
+                          : 'enrollments'}
+                      </span>
+                      <Link
+                        to="/admin/enrollments"
+                        className={buttonVariants({
+                          variant: 'link',
+                          size: 'sm',
+                        })}
+                      >
+                        Manage
+                      </Link>
+                    </li>
+                    <li className={listRowClass}>
+                      <span className="flex items-center gap-2">
+                        <IconCalendarEvent size={18} aria-hidden="true" />{' '}
+                        {missingWeekResources
+                          ? `${missingWeekResources} ${missingWeekResources === 1 ? 'week has' : 'weeks have'} no resource link`
+                          : 'All scheduled weeks have resource links'}
+                      </span>
+                      <Link
+                        to="/admin/weeks"
+                        className={buttonVariants({
+                          variant: 'link',
+                          size: 'sm',
+                        })}
+                      >
+                        Weeks
+                      </Link>
+                    </li>
                   </ul>
-                ) : (
-                  <p className="text-muted-foreground">
-                    No active students are assigned to you in this season.
-                  </p>
-                )}
-              </CardContent>
-            </Card>
-          ) : (
-            <Card className="h-full">
-              <CardContent>
-                <div className="flex flex-wrap gap-2.5">
-                  <Link
-                    to="/leetcode"
-                    className={buttonVariants({ variant: 'default' })}
-                  >
-                    View LeetCode history
-                  </Link>
-                </div>
-              </CardContent>
-            </Card>
-          )}
-        </section>
+                </CardContent>
+              </Card>
+            ) : (
+              <Card className="h-full">
+                <CardContent>
+                  {mentees.length ? (
+                    <ul className={listClass}>
+                      {mentees.slice(0, 3).map((person) => (
+                        <li className={listRowClass} key={person.id}>
+                          <PersonIdentity
+                            person={person}
+                            seasonId={currentSeason?.id}
+                          />
+                          <Badge variant="secondary">
+                            {person.attempts ?? '—'} attempts
+                          </Badge>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="text-muted-foreground">
+                      No active students are assigned to you in this season.
+                    </p>
+                  )}
+                </CardContent>
+              </Card>
+            )}
+          </section>
+        ) : null}
 
         <section
           className="mt-6 flex flex-col"

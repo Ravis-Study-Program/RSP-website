@@ -48,11 +48,13 @@ export function PageHeader({
   eyebrow,
   title,
   description,
+  status,
   actions,
 }: {
   eyebrow?: string;
   title: string;
   description?: string;
+  status?: ReactNode;
   actions?: ReactNode;
 }) {
   return (
@@ -63,9 +65,12 @@ export function PageHeader({
             {eyebrow}
           </p>
         ) : null}
-        <h1 className="text-2xl font-semibold tracking-tight md:text-3xl">
-          {title}
-        </h1>
+        <div className="flex flex-wrap items-center gap-3">
+          <h1 className="text-2xl font-semibold tracking-tight md:text-3xl">
+            {title}
+          </h1>
+          {status}
+        </div>
         {description ? (
           <p className="mt-2 max-w-[68ch] text-base text-muted-foreground">
             {description}
@@ -92,10 +97,12 @@ export function RoleBadge({ role }: { role: Role }) {
 export function PersonIdentity({
   person,
   privateView = false,
+  showRoles = true,
   seasonId,
 }: {
   person: Person;
   privateView?: boolean;
+  showRoles?: boolean;
   seasonId?: string;
 }) {
   return (
@@ -113,11 +120,15 @@ export function PersonIdentity({
         >
           {person.name}
         </Link>
-        <span className="truncate text-sm text-muted-foreground">
-          {privateView && person.email
-            ? person.email
-            : person.roles.map((role) => role.replace('_', ' ')).join(' · ')}
-        </span>
+        {privateView && person.email ? (
+          <span className="truncate text-sm text-muted-foreground">
+            {person.email}
+          </span>
+        ) : showRoles ? (
+          <span className="truncate text-sm text-muted-foreground">
+            {person.roles.map((role) => role.replace('_', ' ')).join(' · ')}
+          </span>
+        ) : null}
       </span>
     </span>
   );

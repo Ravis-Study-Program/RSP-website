@@ -1,9 +1,4 @@
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardDescription,
-} from '@/components/ui/card';
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -188,11 +183,6 @@ export function SignInPage() {
             <h1 className="text-2xl font-semibold tracking-tight">
               {mode === 'sign-in' ? 'Welcome to RSP' : 'Create your account'}
             </h1>
-            <CardDescription>
-              {mode === 'sign-in'
-                ? 'Sign in to your study workspace.'
-                : 'Get started with Google or your email.'}
-            </CardDescription>
           </CardHeader>
           <CardContent className="px-6">
             <Tabs
@@ -398,7 +388,7 @@ export function ResetPasswordPage() {
     <StateLayout
       icon={<IconLock size={48} aria-hidden="true" />}
       title="Choose a new password"
-      message="Reset links are single-use. Completing this change revokes existing sessions."
+      message="This link can only be used once. Resetting your password signs you out on all devices."
     >
       <form
         className="grid w-full gap-4 text-left"
@@ -473,7 +463,7 @@ export function VerifyEmailPage() {
     <StateLayout
       icon={<IconMailCheck size={48} aria-hidden="true" />}
       title="Check your email"
-      message="Protected programme access begins after your email address is verified."
+      message="Verify your email to continue."
     >
       <div className="grid w-full gap-4 text-left">
         {status ? (

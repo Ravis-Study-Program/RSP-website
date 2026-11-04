@@ -464,7 +464,6 @@ export function LeetCodePage() {
             error={attemptsQuery.isError}
             onRetry={() => void attemptsQuery.refetch()}
             emptyTitle="No attempts recorded"
-            emptyMessage="Log your first problem attempt to begin building a useful practice history."
             getRowId={(attempt) => attempt.id}
             renderExpanded={(row) => (
               <section aria-label={`Notes for ${row.original.problem}`}>

@@ -101,7 +101,7 @@ export interface DataTableProps<TData> {
   error?: boolean;
   onRetry?: () => void;
   emptyTitle: string;
-  emptyMessage: string;
+  emptyMessage?: string;
   searchPlaceholder?: string;
   renderCard: (row: Row<TData>) => ReactNode;
   renderExpanded?: (row: Row<TData>) => ReactNode;

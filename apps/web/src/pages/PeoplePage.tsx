@@ -83,6 +83,7 @@ export function PeoplePage() {
               seasonId={season?.id}
               person={row.original}
               privateView={privateView}
+              showRoles={false}
             />
           </div>
         ),
@@ -198,11 +199,10 @@ export function PeoplePage() {
         loading={query.isLoading || (Boolean(slug) && seasons.isLoading)}
         error={query.isError || (Boolean(slug) && seasons.isError)}
         onRetry={() => void query.refetch()}
-        emptyTitle={graduatesOnly ? 'No graduates yet' : 'No people available'}
-        emptyMessage={
+        emptyTitle={
           graduatesOnly
-            ? 'A completed student enrolment grants graduate access.'
-            : 'Approved members will appear when enrolments are active.'
+            ? 'No graduated students yet'
+            : 'No current students yet'
         }
         getRowId={(person) => person.id}
         renderCard={(row) => (
@@ -211,6 +211,7 @@ export function PeoplePage() {
               seasonId={season?.id}
               person={row.original}
               privateView={privateView}
+              showRoles={false}
             />
             <div className={`${inlineClass} mt-2.5`}>
               {row.original.roles.map((role) => (

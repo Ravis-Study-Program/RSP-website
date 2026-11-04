@@ -294,10 +294,6 @@ export function MondayUpdatesPage() {
             ) : ownUpdates.length === 0 ? (
               <Card className={cardClass}>
                 <h3 className={cardTitleClass}>No updates yet</h3>
-                <p className={mutedClass}>
-                  Post your first update for this range so your mentor can see
-                  what you worked on.
-                </p>
               </Card>
             ) : (
               <div className={cleanListClass}>
@@ -433,7 +429,7 @@ export function MondayUpdatesPage() {
               Student review
             </h2>
             <span className={mutedClass}>
-              Expand a row for every update and its mentor marks.
+              Expand a student to view updates and marks.
             </span>
           </div>
           <ReviewerTable

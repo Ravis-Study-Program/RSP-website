@@ -1,10 +1,5 @@
 import { Badge } from '@/components/ui/badge';
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-} from '@/components/ui/card';
+import { Card } from '@/components/ui/card';
 import { Button, buttonVariants } from '@/components/ui/button';
 import {
   Select,
@@ -84,7 +79,6 @@ import {
   SeasonEditorDialog,
   SeasonLifecycleDialog,
 } from '@/components/SeasonManagement';
-import { InlineNotice } from '@/components/StatusViews';
 import type { Page as ViewPage, Person, SeasonRole } from '@/types';
 import { formatDate, formatDateTimeInput, zonedDateTimeToUtc } from '@/utils';
 
@@ -164,11 +158,7 @@ export function AdminPage() {
   return (
     <div className="flex flex-col gap-6">
       <PageHeader title="Administration" />
-      <InlineNotice>
-        <IconShieldLock size={19} aria-hidden="true" /> Your privileged session
-        has recent MFA. Identity and lifecycle operations are always audited.
-      </InlineNotice>
-      <div className="grid gap-4 sm:grid-cols-3">
+      <div className="grid gap-4 sm:grid-cols-2">
         <MetricCard
           label="Seasons"
           value={seasons.data?.totalCount ?? '—'}
@@ -179,16 +169,6 @@ export function AdminPage() {
           value={people.data?.totalCount ?? '—'}
           detail="Active members and alumni"
         />
-        <Card>
-          <CardHeader>
-            <CardDescription>Pending operations</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm text-muted-foreground">
-              Pending operation counts are not available yet.
-            </p>
-          </CardContent>
-        </Card>
       </div>
       <div className="grid gap-4 md:grid-cols-2">
         {visibleResources.map((resource, index) => {
@@ -205,9 +185,6 @@ export function AdminPage() {
                 <Icon size={20} aria-hidden="true" />
               </span>
               <h2 className="text-base font-semibold">{resource.title}</h2>
-              <p className="text-sm text-muted-foreground">
-                {resource.description}
-              </p>
               <div className="mt-4">
                 <Link
                   to={`/admin/${resource.slug}`}
@@ -230,8 +207,7 @@ export function AdminPage() {
             <span>
               <strong>LeetCode catalogue sync</strong>
               <span className="block text-sm text-muted-foreground">
-                Queues an audited worker sync; the regular schedule remains
-                Sunday 03:00 UTC.
+                Scheduled for Sundays at 03:00 UTC.
               </span>
             </span>
             <Button
@@ -241,12 +217,9 @@ export function AdminPage() {
               disabled={syncPending}
               onClick={() => void sync()}
             >
-              {syncPending ? 'Queueing…' : 'Run audited sync'}
+              {syncPending ? 'Queueing…' : 'Sync now'}
             </Button>
           </div>
-          <p className="text-sm text-muted-foreground">
-            Audit export is not available yet.
-          </p>
         </Card>
       </section>
     </div>
@@ -885,7 +858,7 @@ function UserAdministrationDialog({
   return (
     <FormDialog
       title={`Administer ${person.name}`}
-      description="System Admin actions require recent MFA and create immutable audit records."
+      description="Confirm your identity before making account changes. Changes are recorded."
       open={open}
       onOpenChange={onOpenChange}
       triggerVariant="outline"
@@ -1273,7 +1246,6 @@ function WeekDialog({ seasonId, week }: { seasonId: string; week?: Week }) {
   return (
     <FormDialog
       title={week ? `Edit week ${week.number}` : 'Create week'}
-      description="Weeks and resource links stay inside this open season."
       open={open}
       onOpenChange={requestOpenChange}
       triggerVariant={week ? 'outline' : undefined}
@@ -1753,7 +1725,7 @@ function RemoveEnrollmentDialog({
   return (
     <FormDialog
       title={`Remove ${name}?`}
-      description="Season access ends immediately. Earlier membership and activity remain in the season history, and the reason is recorded for administrators."
+      description="This member loses season access immediately. Their history is kept, and administrators can see the removal reason."
       open={open}
       onOpenChange={setOpen}
       triggerVariant="destructive"
@@ -2043,7 +2015,7 @@ function DeleteMentorshipButton({
     <NamedConfirmation
       name="END MENTORSHIP"
       actionLabel="End mentorship"
-      description="This ends the active mentor relationship. Historical programme records remain."
+      description="This ends the mentorship. Past records are kept."
       onConfirm={remove}
     />
   );

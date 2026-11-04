@@ -610,7 +610,7 @@ export function MockInterviewsPage() {
                   ? 'Interviews where you are the interviewee will appear here.'
                   : mode === 'given'
                     ? 'Interviews you conduct will appear here.'
-                    : 'Create the first eligible mock interview.'
+                    : ''
               }
               getRowId={(mock) => mock.id}
               renderExpanded={(row) => (
@@ -770,7 +770,7 @@ function MockDetails({
         <NamedConfirmation
           name={mock.interviewee.name}
           actionLabel="Delete interview"
-          description="The interview will be soft-deleted. Its immutable version history and audit record will remain."
+          description="This removes the interview from your history. Earlier versions and the record of changes are retained."
           onConfirm={onDelete}
         />
       ) : null}
@@ -950,7 +950,6 @@ function EditMockDialog({
   return (
     <FormDialog
       title="Edit interview details"
-      description="Saving creates an immutable interview version."
       open={open}
       onOpenChange={requestOpenChange}
       trigger="Edit details"
@@ -1243,9 +1242,7 @@ function IdentityCorrectionDialog({
   };
   const save = async () => {
     if (!reason.trim())
-      return setError(
-        'Explain why these immutable identities need correction.',
-      );
+      return setError('Explain why the participants need correcting.');
     if (interviewerId === intervieweeId)
       return setError('Interviewer and interviewee must be different people.');
     setPending(true);
@@ -1304,7 +1301,7 @@ function IdentityCorrectionDialog({
   return (
     <FormDialog
       title="Correct interview identities"
-      description="Director and System Admin corrections are permanently audited. Interviewers cannot use this flow to rewrite ownership."
+      description="Only a Director or System Admin can correct participants. The correction and reason are recorded."
       open={open}
       onOpenChange={requestOpenChange}
       trigger="Correct identities"
@@ -1573,7 +1570,7 @@ function NewMockDialog({
   return (
     <FormDialog
       title="Record mock interview"
-      description="You are recorded as the interviewer. Participant identities cannot be changed after creation without an audited correction."
+      description="You’ll be listed as the interviewer. Only a Director or System Admin can correct participants later."
       open={open}
       onOpenChange={requestOpen}
       trigger={
@@ -1662,10 +1659,6 @@ function NewMockDialog({
         </div>
         <FieldSet>
           <FieldLegend variant="label">Interview rounds</FieldLegend>
-          <FieldDescription>
-            Add LeetCode, custom or behavioural rounds. LeetCode rounds capture
-            all five scoring criteria.
-          </FieldDescription>
           {roundError ? <FieldError>{roundError}</FieldError> : null}
           {rounds.map((round, roundIndex) => (
             <RoundEditor

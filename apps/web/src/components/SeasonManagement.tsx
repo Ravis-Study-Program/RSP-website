@@ -192,7 +192,7 @@ export function SeasonEditorDialog({
   return (
     <FormDialog
       title={season ? `Edit ${season.name}` : 'Create season'}
-      description="Set the dates for this summer programme, usually around three months. These dates determine which activity counts toward the season."
+      description="These dates determine which activity counts toward the season."
       open={open}
       onOpenChange={(next) => {
         if (
@@ -565,8 +565,8 @@ export function SeasonLifecycleDialog({
       title={`${label}: ${season.name}`}
       description={
         action === 'close'
-          ? 'Active enrollments will be completed and season-scoped writes locked.'
-          : 'Only enrollments completed by the close event will be restored.'
+          ? 'Active members will be marked as completed, and this season will become read-only.'
+          : 'Only memberships completed when this season was closed will be reactivated.'
       }
       open={open}
       onOpenChange={requestOpenChange}

@@ -42,11 +42,7 @@ const sectionHeaderClass = 'mb-3 flex items-end justify-between gap-4';
 const sectionTitleClass = 'text-xl font-semibold tracking-tight';
 const inlineClass = 'flex flex-wrap items-center gap-2.5';
 const helperClass = 'text-sm text-muted-foreground';
-const statusBadgeClass = 'h-5 rounded-4xl px-2 text-xs font-medium';
-const badgeSuccessClass = 'bg-success-soft text-success';
-const badgeNeutralClass = 'bg-muted text-muted-foreground';
-const metricGridClass =
-  'mt-4 grid grid-cols-2 gap-3 min-[56rem]:grid-cols-3 min-[56rem]:gap-4';
+const metricGridClass = 'mt-4 grid grid-cols-2 gap-3 min-[56rem]:gap-4';
 const resourceLinkClass =
   'flex min-h-11 items-center justify-between gap-4 py-3 font-medium text-foreground hover:underline';
 
@@ -116,66 +112,62 @@ export function SeasonWorkspacePage() {
   const orderedWeeks = [...(weeks.data?.items ?? [])].sort(
     (left, right) => left.number - right.number,
   );
-  const currentWeek =
-    orderedWeeks.find(
-      (week) =>
-        new Date(week.startAt).getTime() <= now &&
-        now <= new Date(week.endAt).getTime(),
-    ) ?? orderedWeeks.find((week) => new Date(week.startAt).getTime() > now);
+  const currentWeek = orderedWeeks.find(
+    (week) =>
+      new Date(week.startAt).getTime() <= now &&
+      now <= new Date(week.endAt).getTime(),
+  );
 
   return (
     <div className={pageClass}>
       <PageHeader
         title={season.name}
+        status={
+          <Badge variant="outline" className="h-7 rounded-md px-2.5 text-sm">
+            {season.status === 'open' ? 'Open' : 'Closed'}
+          </Badge>
+        }
         actions={
-          <div className={inlineClass}>
-            <Badge
-              variant="secondary"
-              className={`${statusBadgeClass} ${
-                season.status === 'open' ? badgeSuccessClass : badgeNeutralClass
-              }`}
-            >
-              {season.status === 'open' ? 'Open' : 'Closed'}
-            </Badge>
-            {canEditDefinition ? <SeasonEditorDialog season={season} /> : null}
-            {canEditResources ? (
-              <SeasonResourcesDialog season={season} />
-            ) : null}
-            {canClose ? (
-              <SeasonLifecycleDialog season={season} action="close" />
-            ) : null}
-            {canReopen ? (
-              <SeasonLifecycleDialog season={season} action="reopen" />
-            ) : null}
-          </div>
+          canEditDefinition || canEditResources || canClose || canReopen ? (
+            <div className={inlineClass}>
+              {canEditDefinition ? (
+                <SeasonEditorDialog season={season} />
+              ) : null}
+              {canEditResources ? (
+                <SeasonResourcesDialog season={season} />
+              ) : null}
+              {canClose ? (
+                <SeasonLifecycleDialog season={season} action="close" />
+              ) : null}
+              {canReopen ? (
+                <SeasonLifecycleDialog season={season} action="reopen" />
+              ) : null}
+            </div>
+          ) : undefined
         }
       />
       {season.status === 'closed' ? (
         <div className="mt-4">
           <InlineNotice tone="warning">
             <IconLock size={19} aria-hidden="true" /> This season is read-only.
-            You can still create global practice attempts and mock interviews.
+            You can still log LeetCode attempts and mock interviews outside this
+            season.
           </InlineNotice>
         </div>
       ) : null}
       <div className={metricGridClass}>
         <MetricCard
-          label="Members"
-          value={enrollments.data?.totalCount ?? '—'}
+          label="Students"
+          value={
+            enrollments.data?.items.filter(
+              (member) => member.role === 'student',
+            ).length ?? '—'
+          }
         />
         <MetricCard
           label="Programme Weeks"
           value={weeks.data?.totalCount ?? '—'}
           detail={`${formatDate(season.startsAt)} – ${formatDate(season.endsAt)}`}
-        />
-        <MetricCard
-          label="Current Focus"
-          value={currentWeek ? `Week ${currentWeek.number}` : '—'}
-          detail={
-            currentWeek
-              ? `${formatDate(currentWeek.startAt)} – ${formatDate(currentWeek.endAt)}`
-              : 'No current or upcoming week'
-          }
         />
       </div>
       <div className={metricGridClass}>
@@ -186,14 +178,6 @@ export function SeasonWorkspacePage() {
         <MetricCard
           label="Mock Interviews"
           value={activity.data?.mockInterviewCount ?? '—'}
-        />
-        <MetricCard
-          label="Last Recorded Activity"
-          value={
-            activity.data?.lastActivityAt
-              ? formatDate(activity.data.lastActivityAt)
-              : '—'
-          }
         />
       </div>
       {activity.isError ? (
@@ -235,15 +219,23 @@ export function SeasonWorkspacePage() {
                     <li
                       className="relative grid grid-cols-[2.2rem_1fr] gap-3 pb-4 last:pb-0 before:absolute before:top-4 before:bottom-[-0.2rem] before:left-[0.45rem] before:w-0.5 before:bg-border before:content-[''] last:before:hidden"
                       key={week.id}
+                      aria-current={
+                        week.id === currentWeek?.id ? 'date' : undefined
+                      }
                     >
                       <span
                         className="z-10 mt-1 size-3.5 rounded-sm bg-primary"
                         aria-hidden="true"
                       />
                       <div className="min-w-0">
-                        <h3 className="text-base font-semibold">
-                          Week {week.number}
-                        </h3>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <h3 className="text-base font-semibold">
+                            Week {week.number}
+                          </h3>
+                          {week.id === currentWeek?.id ? (
+                            <Badge variant="secondary">Current week</Badge>
+                          ) : null}
+                        </div>
                         <p className="text-sm">
                           {formatDate(week.startAt)} – {formatDate(week.endAt)}
                         </p>

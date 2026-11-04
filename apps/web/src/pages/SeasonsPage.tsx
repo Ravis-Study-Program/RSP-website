@@ -55,7 +55,6 @@ export function SeasonsPage() {
               <HighlightText text={row.original.name} />
             </strong>
           </Link>
-          <div className={helperClass}>{row.original.summary}</div>
         </div>
       ),
     },
@@ -150,7 +149,6 @@ export function SeasonsPage() {
               {formatDate(row.original.startsAt)} –{' '}
               {formatDate(row.original.endsAt)}
             </p>
-            <p>{row.original.summary}</p>
             <Link
               to={`/seasons/${row.original.slug}`}
               className={buttonVariants({ variant: 'outline', size: 'sm' })}

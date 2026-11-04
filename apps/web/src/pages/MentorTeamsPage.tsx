@@ -222,7 +222,6 @@ function MentorshipDialog({
   return (
     <FormDialog
       title="Create mentorship"
-      description="Choose one active mentor and one active student in this season."
       open={open}
       onOpenChange={requestOpenChange}
       trigger={
@@ -233,10 +232,6 @@ function MentorshipDialog({
       }
     >
       <div className="grid gap-4">
-        <InlineNotice>
-          Assignment validates season consistency and prevents duplicate active
-          mentorships.
-        </InlineNotice>
         {error ? (
           <p className="text-sm text-destructive" role="alert">
             {error}
