@@ -22,7 +22,7 @@ import { useActivityFilters, filterMocks } from '@/activityFilters';
 import { MockFilters } from '@/components/ActivityFilters';
 import { programmeTimezone } from '@/activityDates';
 import { ActivityPeriodFilter } from '@/components/ActivityPeriodFilter';
-import { useActivitySeason } from '@/activityPeriod';
+import { useActivitySeason, useActivitySeasons } from '@/activityPeriod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import {
@@ -446,6 +446,13 @@ export function MockInterviewsPage() {
   const peopleQuery = useMockParticipants();
   const [filters, setFilters] = useActivityFilters(season?.id);
   const [mode, setMode] = useState<'received' | 'given'>('received');
+  // Received mocks belong to seasons where you were a student; ones you gave
+  // belong to the interviewee's season, which can be any season you took part in.
+  const periodSeasons = useActivitySeasons(
+    user.data?.id,
+    seasonsQuery.data?.items ?? [],
+    { anyRole: mode === 'given', selectedId: season?.id },
+  );
   const navigate = useNavigate();
   const columns = useMemo(
     () =>
@@ -580,7 +587,7 @@ export function MockInterviewsPage() {
                       label="Season"
                       section="mock-interviews"
                       season={season}
-                      seasons={seasonsQuery.data?.items ?? []}
+                      seasons={periodSeasons}
                     />
                     <MockFilters
                       embedded

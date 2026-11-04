@@ -24,7 +24,7 @@ import { ProblemSuggestion } from '@/components/ProblemSuggestion';
 import { Spoiler } from '@/components/Spoiler';
 import { SeasonWeekChoices } from '@/components/ActivityFilters';
 import { ActivityPeriodFilter } from '@/components/ActivityPeriodFilter';
-import { useActivitySeason } from '@/activityPeriod';
+import { useActivitySeason, useActivitySeasons } from '@/activityPeriod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import {
   IconChevronDown,
@@ -49,7 +49,12 @@ import type {
   AttemptMutation,
   LeetcodeProblem,
 } from '@/api/generated/models';
-import { demoMode, demoActivityWeekId, useAttempts } from '@/api/queries';
+import {
+  demoMode,
+  demoActivityWeekId,
+  useAttempts,
+  useCurrentUser,
+} from '@/api/queries';
 import { PracticeAnalytics } from '@/components/PracticeAnalytics';
 import { AppDatePicker } from '@/components/AppDatePicker';
 import { PageHeader, usePageTitle } from '@/components/Common';
@@ -248,6 +253,13 @@ export function LeetCodePage() {
   const navigate = useNavigate();
   usePageTitle('LeetCode');
   const { seasons, season, hasSelection } = useActivitySeason();
+  const user = useCurrentUser();
+  // Practice only belongs to seasons where you were a student.
+  const studentSeasons = useActivitySeasons(
+    user.data?.id,
+    seasons.data?.items ?? [],
+    { selectedId: season?.id },
+  );
   const [urlFilters, setFilters] = useActivityFilters(season?.id);
   // Only season weeks narrow the table; difficulty and topics are just for
   // suggesting a question, so stale URL parameters must not hide attempts.
@@ -440,7 +452,7 @@ export function LeetCodePage() {
                     label="Season"
                     section="leetcode"
                     season={season}
-                    seasons={seasons.data?.items ?? []}
+                    seasons={studentSeasons}
                   />
                   {season && (
                     <SeasonWeekChoices

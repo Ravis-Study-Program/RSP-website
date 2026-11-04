@@ -41,6 +41,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { MetricCard, RoleBadge, usePageTitle } from '@/components/Common';
 import { ProfileActivity } from '@/components/ProfileActivity';
 import { studentLevelLabel } from '@/studentLevels';
+import { activitySeasons } from '@/activityPeriod';
 import { FormDialog } from '@/components/Dialogs';
 import { TimezoneSelect } from '@/components/TimezoneSelect';
 import {
@@ -115,11 +116,9 @@ export function ProfilePage() {
       ? adaptCurrentPerson(user.data, seasons.data?.items)
       : undefined
     : (publicProfile.data ?? undefined);
-  const participation = useUserParticipation(
-    person?.id,
-    hasProgrammeAccess,
-    seasonId,
-  );
+  // The whole history, not just the selected season: it also decides which
+  // seasons the activity picker offers.
+  const participation = useUserParticipation(person?.id, hasProgrammeAccess);
   const summary = useActivitySummary(
     hasProgrammeAccess ? person?.id : undefined,
     hasProgrammeAccess ? seasonId : undefined,
@@ -177,6 +176,10 @@ export function ProfilePage() {
       </div>
     );
   const displayName = savedName ?? person.name;
+  // With a season selected, the participation list shows just that season.
+  const shownParticipation = (participation.data?.items ?? []).filter(
+    (entry) => !seasonId || entry.seasonId === seasonId,
+  );
   const selectedParticipation = participation.data?.items.find(
     (entry) => entry.seasonId === seasonId,
   );
@@ -184,17 +187,15 @@ export function ProfilePage() {
     ? [selectedParticipation.role]
     : person.roles;
   const displayedStatus = selectedParticipation?.state ?? person.status;
+  // A member's practice and mocks only belong to seasons where they were a
+  // student, so only those seasons are offered.
   const seasonItems = [
     { label: 'All time', value: '' },
-    ...(seasons.data?.items ?? [])
-      .filter(
-        (season) =>
-          season.id === seasonId ||
-          participation.data?.items.some(
-            (entry) => entry.seasonId === season.id,
-          ),
-      )
-      .map((season) => ({ label: season.name, value: season.id })),
+    ...activitySeasons(
+      seasons.data?.items ?? [],
+      participation.data?.items ?? [],
+      { selectedId: seasonId },
+    ).map((season) => ({ label: season.name, value: season.id })),
   ];
   return (
     <div className={pageClass}>
@@ -327,7 +328,7 @@ export function ProfilePage() {
                   />
                 ) : (
                   <ol className="relative grid gap-0">
-                    {(participation.data?.items ?? []).map((entry) => (
+                    {shownParticipation.map((entry) => (
                       <li key={entry.id} className="pb-4 last:pb-0">
                         <div className="min-w-0">
                           <Link
@@ -357,7 +358,7 @@ export function ProfilePage() {
                         </div>
                       </li>
                     ))}
-                    {!participation.data?.items.length ? (
+                    {!shownParticipation.length ? (
                       <li>No recorded season participation.</li>
                     ) : null}
                   </ol>

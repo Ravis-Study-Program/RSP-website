@@ -1149,8 +1149,22 @@ export function useUserParticipation(
       if (demoMode)
         return page(
           seasons.flatMap((season) =>
-            demoEnrollmentPage(season.id)
-              .items.filter((e) => e.userId === userId)
+            [
+              ...demoEnrollmentPage(season.id).items,
+              // The demo account is a graduate who practised as a student in
+              // every demo season, which is where its practice and mocks sit.
+              {
+                id: `enrol_${season.id}_${demoUser.id}`,
+                seasonId: season.id,
+                userId: demoUser.id,
+                role: 'student' as const,
+                studentLevel: 'intermediate' as const,
+                state: 'completed' as const,
+                assignmentState: 'active' as const,
+                removalReason: null,
+              },
+            ]
+              .filter((e) => e.userId === userId)
               .map((e) => ({
                 ...e,
                 seasonName: season.name,

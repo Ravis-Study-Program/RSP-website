@@ -187,3 +187,22 @@ test('mocks and both profile tabs support weeks inside a season', async ({
     page.getByText('View feedback', { exact: true }).filter({ visible: true }),
   ).toBeVisible();
 });
+
+test('season pickers only offer seasons where the member was a student', async ({
+  page,
+}) => {
+  // Amelia was a student in both demo seasons.
+  await page.goto('/people/amelia-chen');
+  await page.getByRole('combobox', { name: 'View activity' }).click();
+  await expect(page.getByRole('option')).toHaveText([
+    'All time',
+    'Summer 2025/26',
+    'Summer 2024/25',
+  ]);
+  await page.keyboard.press('Escape');
+
+  // Noah only ever mentored, so his practice has no season to filter by.
+  await page.goto('/people/noah-williams');
+  await page.getByRole('combobox', { name: 'View activity' }).click();
+  await expect(page.getByRole('option')).toHaveText(['All time']);
+});
