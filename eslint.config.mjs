@@ -32,7 +32,7 @@ export default tseslint.config(
   },
   ...tseslint.configs.recommended,
   {
-    files: ['apps/auth/**/*.ts'],
+    files: ['apps/auth/**/*.ts', 'scripts/ci/**/*.mjs'],
     languageOptions: {
       globals: {
         ...globals.node,
