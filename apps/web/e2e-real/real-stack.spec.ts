@@ -161,7 +161,9 @@ test('coordinator MFA session creates, edits, and deletes an open-season week', 
     .filter({ hasText: `Week ${weekNumber}` });
   await expect(createdWeek).toBeVisible();
   await expect(createdWeek).toContainText(resourceUrl);
-  await expect(createdWeek).toContainText(/2026.*2026/);
+  await expect(createdWeek).toContainText(
+    /\d{2}\/\d{2}\/\d{2} – \d{2}\/\d{2}\/\d{2}/,
+  );
 
   await createdWeek.getByRole('button', { name: 'Edit' }).click();
   const edit = page.getByRole('dialog', { name: `Edit week ${weekNumber}` });
@@ -172,7 +174,9 @@ test('coordinator MFA session creates, edits, and deletes an open-season week', 
     .filter({ hasText: `Week ${updatedWeekNumber}` });
   await expect(updatedWeek).toBeVisible();
   await expect(updatedWeek).toContainText(resourceUrl);
-  await expect(updatedWeek).toContainText(/2026.*2026/);
+  await expect(updatedWeek).toContainText(
+    /\d{2}\/\d{2}\/\d{2} – \d{2}\/\d{2}\/\d{2}/,
+  );
 
   await updatedWeek.getByRole('button', { name: 'Delete week' }).click();
   const confirmation = page.getByRole('alertdialog', {

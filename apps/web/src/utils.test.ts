@@ -18,7 +18,7 @@ describe('saved display timezone', () => {
     expect(calendarDateKey(instant, 'Australia/Adelaide')).toBe('2026-08-17');
 
     configureDisplayTimezone('Australia/Adelaide');
-    expect(formatDateTime(instant)).toMatch(/(?:17 Aug|Aug 17).*2026/);
+    expect(formatDateTime(instant)).toBe('17/08/26, 01:00');
     expect(formatDateTimeInput(instant)).toBe('2026-08-17T01:00');
     expect(zonedDateTimeToUtc('2026-08-17T01:00')).toBe(instant);
   });
