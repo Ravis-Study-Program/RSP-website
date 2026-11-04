@@ -1,0 +1,66 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["config:recommended"],
+  "enabledManagers": [
+    "npm",
+    "gomod",
+    "dockerfile",
+    "docker-compose",
+    "github-actions",
+    "custom.regex"
+  ],
+  "automerge": false,
+  "dependencyDashboard": true,
+  "schedule": ["before 6am on monday"],
+  "timezone": "Etc/UTC",
+  "prConcurrentLimit": 3,
+  "rebaseWhen": "behind-base-branch",
+  "packageRules": [
+    {
+      "description": "Keep routine compatible updates separate from security fixes",
+      "matchUpdateTypes": ["minor", "patch", "pin", "digest"],
+      "groupName": "{{manager}} routine dependencies"
+    },
+    {
+      "matchPackageNames": ["go", "golang", "node", "pnpm"],
+      "matchUpdateTypes": ["minor", "patch", "pin", "digest"],
+      "groupName": "runtime and package manager versions"
+    }
+  ],
+  "customManagers": [
+    {
+      "customType": "regex",
+      "managerFilePatterns": ["/^\\.github/workflows/.*\\.ya?ml$/"],
+      "matchStrings": ["GO_VERSION: (?<currentValue>[0-9.]+)"],
+      "depNameTemplate": "go",
+      "datasourceTemplate": "golang-version"
+    },
+    {
+      "customType": "regex",
+      "managerFilePatterns": ["/^\\.github/workflows/.*\\.ya?ml$/"],
+      "matchStrings": ["NODE_VERSION: (?<currentValue>[0-9.]+)"],
+      "depNameTemplate": "node",
+      "datasourceTemplate": "node-version",
+      "versioningTemplate": "node"
+    },
+    {
+      "customType": "regex",
+      "managerFilePatterns": [
+        "/^\\.github/workflows/.*\\.ya?ml$/",
+        "/^apps/[^/]+/Dockerfile$/"
+      ],
+      "matchStrings": [
+        "PNPM_VERSION: (?<currentValue>[0-9.]+)",
+        "corepack prepare pnpm@(?<currentValue>[0-9.]+)"
+      ],
+      "depNameTemplate": "pnpm",
+      "datasourceTemplate": "npm"
+    }
+  ],
+  "vulnerabilityAlerts": {
+    "enabled": true,
+    "groupName": "security remediation",
+    "automerge": false,
+    "vulnerabilityFixStrategy": "lowest"
+  }
+}
