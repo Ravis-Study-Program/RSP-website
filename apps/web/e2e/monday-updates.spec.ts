@@ -36,7 +36,9 @@ test('Monday reminder clears after the fixed weekly report is submitted; missed 
     .getByRole('spinbutton', { name: 'Hours spent (Expected: ~30h/week)' })
     .fill('30');
   await page.getByRole('button', { name: 'Post update', exact: true }).click();
-  await expect(page.getByRole('status')).toContainText('Week 2 submitted.');
+  await expect(
+    page.getByRole('status').filter({ hasText: 'Week 2 submitted.' }),
+  ).toBeVisible();
   await expect(
     page.getByRole('button', { name: 'Post update', exact: true }),
   ).toHaveCount(0);
@@ -58,7 +60,9 @@ test('Monday reminder clears after the fixed weekly report is submitted; missed 
     .getByRole('textbox', { name: 'Your update', exact: true })
     .fill('Submitting my missed first week.');
   await page.getByRole('button', { name: 'Post update', exact: true }).click();
-  await expect(page.getByRole('status')).toContainText('Week 1 submitted.');
+  await expect(
+    page.getByRole('status').filter({ hasText: 'Week 1 submitted.' }),
+  ).toBeVisible();
   const submissions = await page.evaluate(
     () =>
       JSON.parse(localStorage.getItem('rsp-demo-monday-updates') ?? '{}').added,
