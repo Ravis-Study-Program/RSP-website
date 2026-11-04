@@ -221,7 +221,8 @@ test('director MFA session creates, edits, closes, and reopens a throwaway seaso
   await expect(edit.getByLabel('Location')).toHaveValue(
     'E2E Test Campus Updated',
   );
-  await edit.getByRole('button', { name: 'Cancel' }).click();
+  await page.keyboard.press('Escape');
+  await expect(edit).toBeHidden();
 
   await row.getByRole('link', { name: seasonName }).click();
   await expect(page.getByRole('heading', { name: seasonName })).toBeVisible();
