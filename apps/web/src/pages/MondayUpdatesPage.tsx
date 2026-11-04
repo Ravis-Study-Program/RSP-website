@@ -28,12 +28,16 @@ import {
   IconPlus,
 } from '@tabler/icons-react';
 import { useMemo, useState, type FormEvent } from 'react';
-import { Link, Navigate, useParams } from 'react-router-dom';
+import { Link, Navigate, useParams, useSearchParams } from 'react-router-dom';
 
 import {
   defaultMondayUpdateRange,
+  completedMondayUpdateWeeks,
+  mondayUpdateWeeks,
+  sameUpdateWeek,
   type MondayUpdateRange,
 } from '@/activityDates';
+import { saveDemoMondayUpdate, deleteDemoMondayUpdate } from '@/data/demo';
 import { apiRequest } from '@/api/client';
 import type {
   MondayUpdate,
@@ -54,9 +58,9 @@ import {
   useSeasonMentorships,
   useSeasonPeople,
   useSeasons,
+  useSeasonWeeks,
   type MondayUpdateFilters,
 } from '@/api/queries';
-import { DateRangePicker } from '@/components/DateRangePicker';
 import { PageHeader, usePageTitle } from '@/components/Common';
 import { DataTable } from '@/components/DataTable';
 import { FormDialog, NamedConfirmation } from '@/components/Dialogs';
@@ -140,9 +144,8 @@ export function MondayUpdatesPage() {
   const seasons = useSeasons();
   const user = useCurrentUser();
   const season = seasons.data?.items.find((item) => item.slug === slug);
-  const [range, setRange] = useState<MondayUpdateRange>(() =>
-    defaultMondayUpdateRange(),
-  );
+  const weeks = useSeasonWeeks(season?.id);
+  const [searchParams, setSearchParams] = useSearchParams();
   const [unselectedStudentIds, setUnselectedStudentIds] = useState<string[]>(
     [],
   );
@@ -167,6 +170,24 @@ export function MondayUpdatesPage() {
           ? 'student'
           : null;
 
+  const availableWeeks =
+    experience === 'student'
+      ? completedMondayUpdateWeeks(weeks.data?.items ?? [])
+      : mondayUpdateWeeks(weeks.data?.items ?? []);
+  const completedWeeks = completedMondayUpdateWeeks(weeks.data?.items ?? []);
+  const selectedWeek =
+    availableWeeks.find((week) => week.id === searchParams.get('week')) ??
+    completedWeeks.at(-1) ??
+    availableWeeks[0];
+  const allHistory =
+    experience !== 'student' &&
+    (searchParams.get('week') === 'all' || availableWeeks.length === 0);
+  const historyRange = { startDate: '1900-01-01', endDate: '9999-12-31' };
+  const range = allHistory
+    ? historyRange
+    : (selectedWeek ?? defaultMondayUpdateRange());
+  const queryRange = experience === 'student' ? historyRange : range;
+
   const mentorships = useSeasonMentorships(
     experience === 'mentor' ? season?.id : undefined,
   );
@@ -189,14 +210,11 @@ export function MondayUpdatesPage() {
     () => menteeIds.filter((id) => !unselectedStudentIds.includes(id)),
     [menteeIds, unselectedStudentIds],
   );
-  const filters = useMemo<MondayUpdateFilters>(
-    () => ({
-      startDate: range.startDate,
-      endDate: range.endDate,
-      studentIds: selectedStudentIds,
-    }),
-    [range.startDate, range.endDate, selectedStudentIds],
-  );
+  const filters: MondayUpdateFilters = {
+    startDate: queryRange.startDate,
+    endDate: queryRange.endDate,
+    studentIds: selectedStudentIds,
+  };
   const updates = useMondayUpdates(
     experience === 'student' ||
       (experience === 'mentor' && selectedStudentIds.length > 0),
@@ -210,13 +228,19 @@ export function MondayUpdatesPage() {
   );
   usePageTitle('Monday Updates');
 
-  if (seasons.isLoading || user.isLoading)
+  if (seasons.isLoading || user.isLoading || weeks.isLoading)
     return <PageSkeleton label="Loading Monday updates" />;
-  if (seasons.isError || user.isError)
+  if (seasons.isError || user.isError || weeks.isError)
     return (
       <div className={pageClass}>
         <ErrorState
-          onRetry={() => void Promise.all([seasons.refetch(), user.refetch()])}
+          onRetry={() =>
+            void Promise.all([
+              seasons.refetch(),
+              user.refetch(),
+              weeks.refetch(),
+            ])
+          }
         />
       </div>
     );
@@ -236,6 +260,19 @@ export function MondayUpdatesPage() {
   const ownUpdates = (updates.data?.items ?? []).filter(
     (update) => update.student.id === actor.id,
   );
+  const submitted =
+    selectedWeek &&
+    ownUpdates.some((update) => sameUpdateWeek(update, selectedWeek));
+  const canPost = season.status === 'open' && membership?.state === 'active';
+  const weekItems = [
+    ...(experience === 'student'
+      ? []
+      : [{ value: 'all', label: 'All updates' }]),
+    ...availableWeeks.map((week) => ({
+      value: week.id,
+      label: `Week ${week.number}: ${updateRangeLabel(week)}${experience === 'student' && ownUpdates.some((update) => sameUpdateWeek(update, week)) ? ' (Submitted)' : ''}`,
+    })),
+  ];
   const updatesByStudent = new Map<string, MondayUpdate[]>();
   for (const update of updates.data?.items ?? []) {
     const current = updatesByStudent.get(update.student.id);
@@ -260,18 +297,54 @@ export function MondayUpdatesPage() {
   return (
     <div className={pageClass}>
       <PageHeader title="Monday Updates" />
-      {experience === 'student' ? null : (
-        <div className={sectionClass}>
-          <DateRangePicker label="Dates" value={range} onChange={setRange} />
-        </div>
-      )}
+      {weekItems.length > 0 ? (
+        <Field className="mt-6 max-w-lg">
+          <FieldLabel htmlFor="monday-week">Programme week</FieldLabel>
+          <Select
+            items={weekItems}
+            value={allHistory ? 'all' : (selectedWeek?.id ?? 'all')}
+            onValueChange={(value) => {
+              if (value) setSearchParams({ week: value });
+            }}
+          >
+            <SelectTrigger id="monday-week" className="w-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectGroup>
+                {weekItems.map((item) => (
+                  <SelectItem key={item.value} value={item.value}>
+                    {item.label}
+                  </SelectItem>
+                ))}
+              </SelectGroup>
+            </SelectContent>
+          </Select>
+        </Field>
+      ) : null}
       {experience === 'student' ? (
         <>
-          <StudentUpdateForm
-            seasonId={season.id}
-            range={range}
-            onRangeChange={setRange}
-          />
+          {!canPost ? (
+            <p className="mt-6 text-sm text-muted-foreground">
+              Updates are read-only.
+            </p>
+          ) : !selectedWeek ? (
+            <p className="mt-6 text-sm text-muted-foreground">
+              Updates open after the first programme week ends.
+            </p>
+          ) : submitted ? (
+            <p role="status" className="mt-6 text-sm">
+              Week {selectedWeek.number} submitted.
+            </p>
+          ) : updates.data && !updates.isError ? (
+            <StudentUpdateForm
+              key={`${season.id}:${selectedWeek.id}`}
+              seasonId={season.id}
+              range={selectedWeek}
+              weekNumber={selectedWeek.number}
+              student={actor}
+            />
+          ) : null}
           <section
             className={sectionClass}
             aria-labelledby="monday-history-title"
@@ -302,6 +375,12 @@ export function MondayUpdatesPage() {
                     key={update.id}
                     seasonId={season.id}
                     update={update}
+                    weekNumber={
+                      mondayUpdateWeeks(weeks.data?.items ?? []).find((week) =>
+                        sameUpdateWeek(update, week),
+                      )?.number
+                    }
+                    canDelete={canPost}
                   />
                 ))}
               </div>
@@ -447,11 +526,13 @@ export function MondayUpdatesPage() {
 function StudentUpdateForm({
   seasonId,
   range,
-  onRangeChange,
+  weekNumber,
+  student,
 }: {
   seasonId: string;
   range: MondayUpdateRange;
-  onRangeChange: (range: MondayUpdateRange) => void;
+  weekNumber: number;
+  student: MondayUpdate['student'];
 }) {
   const queryClient = useQueryClient();
   const [content, setContent] = useState('');
@@ -478,7 +559,25 @@ function StudentUpdateForm({
     if (contentEmpty || hours === null) return;
     setPending(true);
     try {
-      if (!demoMode)
+      if (demoMode) {
+        saveDemoMondayUpdate({
+          id: crypto.randomUUID(),
+          seasonId,
+          student: {
+            id: student.id,
+            slug: student.slug,
+            name: student.name,
+            avatarUrl: student.avatarUrl,
+          },
+          startDate: range.startDate,
+          endDate: range.endDate,
+          contentHtml: content,
+          hours,
+          createdAt: new Date().toISOString(),
+          marks: [],
+          activity: rangeActivity.data ?? { attempts: [], mocks: [] },
+        });
+      } else
         await apiRequest<MondayUpdate>(
           `/seasons/${encodeURIComponent(seasonId)}/monday-updates`,
           {
@@ -511,7 +610,7 @@ function StudentUpdateForm({
     <section className={sectionClass} aria-labelledby="monday-post-title">
       <div className={sectionHeaderClass}>
         <h2 id="monday-post-title" className={sectionTitleClass}>
-          Post an Update
+          Week {weekNumber} update
         </h2>
       </div>
       <form className={formClass} onSubmit={(event) => void submit(event)}>
@@ -526,11 +625,6 @@ function StudentUpdateForm({
           </span>
         ) : null}
         <div className="grid items-start gap-4 min-[40rem]:grid-cols-2">
-          <DateRangePicker
-            label="Dates"
-            value={range}
-            onChange={onRangeChange}
-          />
           <Field className="max-w-sm">
             <FieldLabel htmlFor="monday-update-hours">
               Hours spent (Expected: ~30h/week)
@@ -556,7 +650,7 @@ function StudentUpdateForm({
         </div>
         <section aria-labelledby="monday-range-activity-title">
           <h3 id="monday-range-activity-title" className={subTitleClass}>
-            Activity in this range
+            Activity this week
           </h3>
           {rangeActivity.isLoading ? (
             <p role="status" className={`${mutedClass} py-2.5`}>
@@ -684,14 +778,19 @@ function UpdateActivitySummary({
 function StudentUpdateCard({
   seasonId,
   update,
+  weekNumber,
+  canDelete,
 }: {
   seasonId: string;
   update: MondayUpdate;
+  weekNumber?: number;
+  canDelete: boolean;
 }) {
   const queryClient = useQueryClient();
-  const label = updateRangeLabel(update);
+  const label = `${weekNumber ? `Week ${weekNumber}: ` : ''}${updateRangeLabel(update)}`;
   const deleteUpdate = async () => {
-    if (!demoMode)
+    if (demoMode) deleteDemoMondayUpdate(update.id);
+    else
       await apiRequest<void>(
         `/seasons/${encodeURIComponent(seasonId)}/monday-updates/${encodeURIComponent(update.id)}`,
         { method: 'DELETE' },
@@ -715,14 +814,16 @@ function StudentUpdateCard({
           html={update.contentHtml}
           empty="No written content."
         />
-        <div className={rowClass}>
-          <NamedConfirmation
-            name={label}
-            actionLabel="Delete update"
-            description="This permanently removes the update. The practice and mock activity it covers stays in your history."
-            onConfirm={deleteUpdate}
-          />
-        </div>
+        {canDelete ? (
+          <div className={rowClass}>
+            <NamedConfirmation
+              name={label}
+              actionLabel="Delete update"
+              description="This permanently removes the update. The practice and mock activity it covers stays in your history."
+              onConfirm={deleteUpdate}
+            />
+          </div>
+        ) : null}
       </Card>
     </article>
   );

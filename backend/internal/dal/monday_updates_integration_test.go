@@ -399,23 +399,27 @@ func TestMondayUpdateLifecycle(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	if _, err := db.pool.Exec(ctx, `INSERT INTO app.season_weeks(season_id,week_number,start_at,end_at)
+		VALUES($1,1,'2026-03-09T00:00:00+10:30','2026-03-15T23:59:59+10:30')`, mondayFixtureID(11)); err != nil {
+		t.Fatal(err)
+	}
 	created, err := db.CreateMondayUpdate(ctx, programme.MondayUpdateRecord{
 		ID:          id.New(),
 		SeasonID:    mondayFixtureID(11),
 		Student:     programme.PersonSummary{ID: actor},
-		StartDate:   "2026-03-10",
-		EndDate:     "2026-03-12",
+		StartDate:   "2026-03-09",
+		EndDate:     "2026-03-15",
 		ContentHTML: "<p>Fresh</p>",
 	}, actor)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if created.StartDate != "2026-03-10" || created.EndDate != "2026-03-12" || created.ContentHTML != "<p>Fresh</p>" ||
+	if created.StartDate != "2026-03-09" || created.EndDate != "2026-03-15" || created.ContentHTML != "<p>Fresh</p>" ||
 		created.SeasonID != mondayFixtureID(11) || created.Student.Name != "Ada Lovelace" || created.Student.Slug != "monday-1" {
 		t.Fatalf("created=%+v", created)
 	}
 	// The returned detail carries the activity of its own dates only.
-	if got := mondayAttemptIDs(created.Activity.Attempts); !slices.Equal(got, []string{mondayFixtureID(70)}) || len(created.Activity.Mocks) != 0 {
+	if got := mondayAttemptIDs(created.Activity.Attempts); !slices.Equal(got, []string{mondayFixtureID(64), mondayFixtureID(70)}) || len(created.Activity.Mocks) != 0 {
 		t.Fatalf("activity=%+v", created.Activity)
 	}
 	if created.Marks == nil || len(created.Marks) != 0 {

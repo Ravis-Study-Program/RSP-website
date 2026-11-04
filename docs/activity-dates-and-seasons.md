@@ -20,6 +20,22 @@ December 2025 to February 2026; the name does not mean two full calendar years.
 - Stored timestamps are absolute instants. Personal display-timezone preferences
   still control history display; recording eligibility always uses Adelaide time.
 
+## Monday updates
+
+Reporting weeks share the configured programme week numbers. Each covers the
+Monday–Sunday containing the programme week's start date in Australia/Adelaide.
+The form defaults to the latest completed programme week. Students can select an
+earlier completed week to submit late; they cannot edit dates or submit a week
+before it ends. The API checks the dates and configured week and serializes
+submissions per student to prevent duplicates. Existing free-date reports are
+preserved, and staff can use All updates to find older reports.
+
+On Mondays, an active student in an open season sees a red dashboard reminder
+when today falls in a programme week and the preceding calendar week's report is
+missing. There is no reminder before Week 1, during gaps, or after the programme.
+Submitting the matching report clears the reminder. Other missed weeks remain
+available on the Monday Updates page.
+
 ## Calculating a season
 
 An activity counts toward a season when its timestamp lies within the season's

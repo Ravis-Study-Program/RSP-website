@@ -1887,6 +1887,7 @@ paths:
         '429': { $ref: '#/components/responses/RateLimited' }
     post:
       operationId: createMondayUpdate
+      description: Submit one update for a completed configured programme week. Dates must be its Monday–Sunday in Australia/Adelaide. Late submissions are allowed in open seasons; duplicate weekly submissions return 409.
       requestBody:
         {
           required: true,
@@ -1913,6 +1914,7 @@ paths:
         '401': { $ref: '#/components/responses/Error' }
         '403': { $ref: '#/components/responses/Error' }
         '404': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
         '429': { $ref: '#/components/responses/RateLimited' }
   /seasons/{id}/monday-updates/{updateId}:
     parameters:

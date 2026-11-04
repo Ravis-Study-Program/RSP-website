@@ -21,6 +21,7 @@ import {
 } from '@/api/queries';
 import { useWorkspace } from '@/auth/WorkspaceContext';
 import { ActivityChart } from '@/components/ActivityChart';
+import { MondayUpdateReminder } from '@/components/MondayUpdateReminder';
 import { MetricCard, PersonIdentity, usePageTitle } from '@/components/Common';
 import { ErrorState, PageSkeleton } from '@/components/StatusViews';
 import { recentActivitySeries } from '@/utils';
@@ -103,6 +104,22 @@ export function DashboardPage() {
 
   return (
     <div className={pageClass}>
+      {role === 'student' &&
+      currentSeason?.status === 'open' &&
+      !weeks.isError &&
+      user.data.seasonRoles.some(
+        (membership) =>
+          membership.seasonId === currentSeason.id &&
+          membership.role === 'student' &&
+          membership.state === 'active',
+      ) ? (
+        <MondayUpdateReminder
+          seasonId={currentSeason.id}
+          seasonSlug={currentSeason.slug}
+          studentId={user.data.id}
+          weeks={weeks.data?.items ?? []}
+        />
+      ) : null}
       <header className="mb-6 flex flex-col items-stretch justify-between gap-5 md:flex-row md:items-start">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight md:text-3xl">

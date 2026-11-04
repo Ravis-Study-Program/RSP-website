@@ -399,7 +399,7 @@ function demoPersonSummary(person: Person): PersonSummary {
  * 0 = Monday … 6 = Sunday of that week. Built on call, never at module load, so
  * production bundles can drop this module entirely.
  */
-export function demoMondayUpdates(): MondayUpdate[] {
+function fixtureMondayUpdates(): MondayUpdate[] {
   const week = defaultMondayUpdateRange();
   const day = (offset: number) => {
     const date = new Date(`${week.startDate}T00:00:00Z`);
@@ -616,4 +616,49 @@ export function demoMondayUpdates(): MondayUpdate[] {
       ],
     ),
   ];
+}
+
+const mondayStorageKey = 'rsp-demo-monday-updates';
+function storedMondayUpdates(): { added: MondayUpdate[]; deleted: string[] } {
+  try {
+    return JSON.parse(
+      localStorage.getItem(mondayStorageKey) ?? '{"added":[],"deleted":[]}',
+    );
+  } catch {
+    return { added: [], deleted: [] };
+  }
+}
+
+export function demoMondayUpdates(): MondayUpdate[] {
+  const stored = storedMondayUpdates();
+  return [...stored.added, ...fixtureMondayUpdates()].filter(
+    (update) => !stored.deleted.includes(update.id),
+  );
+}
+
+export function saveDemoMondayUpdate(update: MondayUpdate) {
+  const stored = storedMondayUpdates();
+  if (
+    demoMondayUpdates().some(
+      (item) =>
+        item.seasonId === update.seasonId &&
+        item.student.id === update.student.id &&
+        item.startDate === update.startDate &&
+        item.endDate === update.endDate,
+    )
+  ) {
+    throw new Error('You have already submitted an update for this week.');
+  }
+  localStorage.setItem(
+    mondayStorageKey,
+    JSON.stringify({ ...stored, added: [update, ...stored.added] }),
+  );
+}
+
+export function deleteDemoMondayUpdate(id: string) {
+  const stored = storedMondayUpdates();
+  localStorage.setItem(
+    mondayStorageKey,
+    JSON.stringify({ ...stored, deleted: [...stored.deleted, id] }),
+  );
 }

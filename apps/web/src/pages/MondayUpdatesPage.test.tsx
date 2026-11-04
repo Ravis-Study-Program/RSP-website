@@ -1,4 +1,3 @@
-import { format, parseISO } from 'date-fns';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import {
   fireEvent,
@@ -28,6 +27,7 @@ import {
   useSeasonMentorships,
   useSeasonPeople,
   useSeasons,
+  useSeasonWeeks,
 } from '@/api/queries';
 import { MondayUpdatesPage } from '@/pages/MondayUpdatesPage';
 import type { CurrentUser, Person } from '@/types';
@@ -43,6 +43,7 @@ vi.mock('@/api/queries', () => ({
   useSeasonMentorships: vi.fn(),
   useSeasonPeople: vi.fn(),
   useSeasons: vi.fn(),
+  useSeasonWeeks: vi.fn(),
 }));
 
 vi.mock('@/components/RichTextEditor', () => ({
@@ -72,7 +73,20 @@ vi.mock('@/components/RichTextEditor', () => ({
 }));
 
 const range = defaultMondayUpdateRange();
-const season = { id: 'season-1', slug: 'season-one', name: 'Season One' };
+const season = {
+  id: 'season-1',
+  slug: 'season-one',
+  name: 'Season One',
+  status: 'open',
+};
+const week = {
+  id: 'week-1',
+  number: 1,
+  seasonId: season.id,
+  startAt: `${range.startDate}T00:00:00+10:30`,
+  endAt: `${range.endDate}T23:59:59+10:30`,
+  resourceUrl: '',
+};
 const studentIdentity = {
   id: 'student-1',
   name: 'Amelia Chen',
@@ -210,6 +224,9 @@ beforeEach(() => {
   vi.mocked(useSeasons).mockReturnValue(
     queryResult<ReturnType<typeof useSeasons>>({ items: [season] }),
   );
+  vi.mocked(useSeasonWeeks).mockReturnValue(
+    queryResult<ReturnType<typeof useSeasonWeeks>>({ items: [week] }),
+  );
   vi.mocked(useSeasonMentorships).mockReturnValue(
     queryResult<ReturnType<typeof useSeasonMentorships>>({ items: [] }),
   );
@@ -251,6 +268,8 @@ describe('student Monday Updates', () => {
       queryResult<ReturnType<typeof useMondayUpdates>>({
         items: [
           mondayUpdate('update-1', {
+            startDate: '2025-01-06',
+            endDate: '2025-01-12',
             marks: [
               markRecord(
                 'mark-1',
@@ -298,10 +317,10 @@ describe('student Monday Updates', () => {
 
     renderPage();
 
-    // The default Monday-to-Sunday range is prefilled into the range picker.
-    expect(screen.getByLabelText('Dates')).toHaveTextContent(
-      `${format(parseISO(range.startDate), 'd MMM yyyy')} – ${format(parseISO(range.endDate), 'd MMM yyyy')}`,
-    );
+    expect(
+      screen.getByRole('combobox', { name: 'Programme week' }),
+    ).toHaveTextContent('Week 1');
+    expect(screen.queryByLabelText('Dates')).not.toBeInTheDocument();
 
     // The selected range's own LeetCode and mock activity is pulled live,
     // summarised exactly as mentors see it.
@@ -312,7 +331,7 @@ describe('student Monday Updates', () => {
       range.endDate,
     );
     const rangeActivity = screen.getByRole('region', {
-      name: 'Activity in this range',
+      name: 'Activity this week',
     });
     const [solved, mocks] = within(rangeActivity).getAllByRole('definition');
     expect(solved).toHaveTextContent(/^2 solved1Easy0Medium1Hard$/);
@@ -696,5 +715,90 @@ describe('Monday update access', () => {
     expect(
       screen.getByRole('region', { name: 'Monday update review' }),
     ).toBeInTheDocument();
+  });
+});
+
+describe('fixed weekly submissions', () => {
+  beforeEach(() => {
+    vi.mocked(useCurrentUser).mockReturnValue(
+      queryResult<ReturnType<typeof useCurrentUser>>(
+        userWith({
+          id: studentIdentity.id,
+          seasonRoles: [
+            {
+              seasonId: season.id,
+              seasonSlug: season.slug,
+              role: 'student',
+              state: 'active',
+            },
+          ],
+        }),
+      ),
+    );
+  });
+  it('does not offer a second form for a submitted week', () => {
+    vi.mocked(useMondayUpdates).mockReturnValue(
+      queryResult<ReturnType<typeof useMondayUpdates>>({
+        items: [mondayUpdate('existing')],
+      }),
+    );
+    renderPage();
+    expect(screen.getByRole('status')).toHaveTextContent('Week 1 submitted.');
+    expect(
+      screen.queryByRole('button', { name: 'Post update' }),
+    ).not.toBeInTheDocument();
+  });
+  it('offers earlier completed weeks for late submission and excludes unfinished weeks', async () => {
+    vi.mocked(useSeasonWeeks).mockReturnValue(
+      queryResult<ReturnType<typeof useSeasonWeeks>>({
+        items: [
+          {
+            ...week,
+            id: 'late',
+            number: 1,
+            startAt: '2025-01-06T00:00:00+10:30',
+            endAt: '2025-01-12T23:59:59+10:30',
+          },
+          { ...week, number: 2 },
+          {
+            ...week,
+            id: 'future',
+            number: 3,
+            startAt: '2099-01-05T00:00:00+10:30',
+            endAt: '2099-01-11T23:59:59+10:30',
+          },
+        ],
+      }),
+    );
+    const user = userEvent.setup();
+    renderPage();
+    screen.getByRole('combobox', { name: 'Programme week' }).focus();
+    await user.keyboard('[ArrowDown]');
+    expect(
+      screen.queryByRole('option', { name: /Week 3/ }),
+    ).not.toBeInTheDocument();
+    await user.click(screen.getByRole('option', { name: /Week 1/ }));
+    fireEvent.change(screen.getByLabelText('Your update'), {
+      target: { value: '<p>Catching up</p>' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Post update' }));
+    await waitFor(() => expect(apiRequest).toHaveBeenCalledTimes(1));
+    const options = vi.mocked(apiRequest).mock.calls[0][1];
+    expect(JSON.parse(options?.body as string)).toMatchObject({
+      startDate: '2025-01-06',
+      endDate: '2025-01-12',
+    });
+  });
+  it('keeps closed seasons read-only', () => {
+    vi.mocked(useSeasons).mockReturnValue(
+      queryResult<ReturnType<typeof useSeasons>>({
+        items: [{ ...season, status: 'closed' }],
+      }),
+    );
+    renderPage();
+    expect(screen.getByText('Updates are read-only.')).toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: 'Post update' }),
+    ).not.toBeInTheDocument();
   });
 });

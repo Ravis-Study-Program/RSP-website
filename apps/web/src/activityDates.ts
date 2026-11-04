@@ -1,3 +1,4 @@
+import type { Week } from '@/api/generated/models';
 import { calendarDateKey } from '@/utils';
 
 export const programmeTimezone = 'Australia/Adelaide';
@@ -22,16 +23,67 @@ function calendarWeekday(dateKey: string) {
 
 /**
  * The Monday-to-Sunday range a Monday update defaults to, in Australia/Adelaide:
- * the current week on Saturday or Sunday, otherwise the previous week.
+ * always the previous completed week, including on weekends.
  */
 export function defaultMondayUpdateRange(
   now: Date = new Date(),
 ): MondayUpdateRange {
   const today = calendarDateKey(now, programmeTimezone);
   const weekday = calendarWeekday(today);
-  // Monday is 0 days into its own week from Tuesday onwards, and the current
-  // week is 7 days ahead of the previous one for Monday to Friday.
-  const daysBack = weekday <= 5 ? weekday + 6 : weekday - 1;
+  const daysBack = weekday + 6;
   const startDate = shiftCalendarDate(today, -daysBack);
   return { startDate, endDate: shiftCalendarDate(startDate, 6) };
+}
+
+export interface MondayUpdateWeek extends MondayUpdateRange {
+  id: string;
+  number: number;
+}
+
+/** Programme numbering is shared with the schedule; reporting dates are fixed. */
+export function mondayUpdateWeeks(weeks: Week[]): MondayUpdateWeek[] {
+  return weeks
+    .map((week) => {
+      const day = calendarDateKey(week.startAt, programmeTimezone);
+      const startDate = shiftCalendarDate(day, 1 - calendarWeekday(day));
+      return {
+        id: week.id,
+        number: week.number,
+        startDate,
+        endDate: shiftCalendarDate(startDate, 6),
+      };
+    })
+    .sort(
+      (a, b) => a.startDate.localeCompare(b.startDate) || a.number - b.number,
+    );
+}
+
+export function completedMondayUpdateWeeks(weeks: Week[], now = new Date()) {
+  const today = calendarDateKey(now, programmeTimezone);
+  return mondayUpdateWeeks(weeks).filter((week) => week.endDate < today);
+}
+
+export function sameUpdateWeek(
+  update: MondayUpdateRange,
+  week: MondayUpdateRange,
+) {
+  return update.startDate === week.startDate && update.endDate === week.endDate;
+}
+
+/** A Monday reminder is due only during an active programme week. */
+export function mondayReminderWeek(weeks: Week[], now = new Date()) {
+  const today = calendarDateKey(now, programmeTimezone);
+  if (
+    calendarWeekday(today) !== 1 ||
+    !weeks.some(
+      (week) =>
+        calendarDateKey(week.startAt, programmeTimezone) <= today &&
+        calendarDateKey(week.endAt, programmeTimezone) >= today,
+    )
+  )
+    return undefined;
+  const previous = defaultMondayUpdateRange(now);
+  return mondayUpdateWeeks(weeks).find((week) =>
+    sameUpdateWeek(week, previous),
+  );
 }
