@@ -441,7 +441,11 @@ const columnsForSeason = (
 
 export function MockInterviewsPage() {
   usePageTitle('Mock Interviews');
-  const { seasons: seasonsQuery, season, hasSelection } = useActivitySeason();
+  const {
+    seasons: seasonsQuery,
+    season,
+    hasSelection,
+  } = useActivitySeason('mock-interviews');
   const user = useCurrentUser();
   const peopleQuery = useMockParticipants();
   const [filters, setFilters] = useActivityFilters(season?.id);

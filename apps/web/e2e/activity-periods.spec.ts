@@ -206,3 +206,24 @@ test('season pickers only offer seasons where the member was a student', async (
   await page.getByRole('combobox', { name: 'View activity' }).click();
   await expect(page.getByRole('option')).toHaveText(['All time']);
 });
+
+test('the season chosen in one table is remembered in the others', async ({
+  page,
+}) => {
+  await page.goto('/mock-interviews');
+  await page.getByRole('button', { name: /^Filters/ }).click();
+  await chooseOption(page, /^Season$/, 'Summer 2024/25');
+  await page.keyboard.press('Escape');
+
+  // A plain link to another table opens on the same season.
+  await page.goto('/leetcode');
+  await expect(page).toHaveURL(/seasonId=season_2026_s1/);
+  await page.getByRole('button', { name: /^Filters/ }).click();
+  await expectSelected(page, /^Season$/, 'Summer 2024/25');
+
+  // All time is remembered too, even over a season workspace link.
+  await chooseOption(page, /^Season$/, 'All time');
+  await page.keyboard.press('Escape');
+  await page.goto('/seasons/summer-2025-26/mock-interviews');
+  await expect(page).toHaveURL(/\/mock-interviews$/);
+});

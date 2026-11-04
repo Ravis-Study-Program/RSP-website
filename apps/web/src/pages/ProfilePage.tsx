@@ -18,7 +18,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { IconEdit, IconLock, IconMail, IconWorld } from '@tabler/icons-react';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { Resolver } from 'react-hook-form';
 import { useForm } from 'react-hook-form';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
@@ -41,7 +41,11 @@ import { useQueryClient } from '@tanstack/react-query';
 import { MetricCard, RoleBadge, usePageTitle } from '@/components/Common';
 import { ProfileActivity } from '@/components/ProfileActivity';
 import { studentLevelLabel } from '@/studentLevels';
-import { activitySeasons } from '@/activityPeriod';
+import {
+  activitySeasons,
+  rememberActivitySeason,
+  rememberedActivitySeason,
+} from '@/activityPeriod';
 import { FormDialog } from '@/components/Dialogs';
 import { TimezoneSelect } from '@/components/TimezoneSelect';
 import {
@@ -130,6 +134,28 @@ export function ProfilePage() {
   const [savedName, setSavedName] = useState<string | null>(null);
   const [savedSlug, setSavedSlug] = useState<string | null>(null);
   const [activityTab, setActivityTab] = useState('leetcode');
+  // Apply the season last chosen in any table when the address names none,
+  // if this person was a student in it.
+  useEffect(() => {
+    if (seasonId || !participation.data || !seasons.data) return;
+    const remembered = rememberedActivitySeason();
+    if (!remembered || remembered === 'all') return;
+    const offered = activitySeasons(
+      seasons.data.items,
+      participation.data.items,
+      {},
+    );
+    if (!offered.some((season) => season.id === remembered)) return;
+    const next = new URLSearchParams(searchParams);
+    next.set('seasonId', remembered);
+    setSearchParams(next, { replace: true });
+  }, [
+    participation.data,
+    searchParams,
+    seasonId,
+    seasons.data,
+    setSearchParams,
+  ]);
   usePageTitle(person?.name ?? 'Profile');
 
   if (
@@ -217,6 +243,7 @@ export function ProfilePage() {
             items={seasonItems}
             value={seasonId ?? ''}
             onValueChange={(value) => {
+              rememberActivitySeason(value || undefined);
               const next = new URLSearchParams(searchParams);
               next.delete('weekId');
               next.delete('year');

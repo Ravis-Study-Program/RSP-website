@@ -252,7 +252,7 @@ const baseColumns: ColumnDef<Attempt, any>[] = [
 export function LeetCodePage() {
   const navigate = useNavigate();
   usePageTitle('LeetCode');
-  const { seasons, season, hasSelection } = useActivitySeason();
+  const { seasons, season, hasSelection } = useActivitySeason('leetcode');
   const user = useCurrentUser();
   // Practice only belongs to seasons where you were a student.
   const studentSeasons = useActivitySeasons(

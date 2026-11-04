@@ -9,6 +9,7 @@ import {
 import { useId } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import type { Season } from '@/types';
+import { rememberActivitySeason } from '@/activityPeriod';
 import { Field, FieldLabel } from '@/components/ui/field';
 
 export function ActivityPeriodFilter({
@@ -38,6 +39,7 @@ export function ActivityPeriodFilter({
         value={season?.id ?? ''}
         onValueChange={(value) => {
           const selected = seasons.find((item) => item.id === (value ?? ''));
+          rememberActivitySeason(selected?.id);
           const next = new URLSearchParams(params);
           next.delete('year');
           next.delete('weekId');
