@@ -4,9 +4,12 @@ on:
   push:
     branches: [main]
   pull_request:
+  schedule:
+    - cron: '0 6 * * *'
+  workflow_dispatch:
 
 concurrency:
-  group: ci-${{ github.workflow }}-${{ github.ref }}
+  group: ci-${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
   cancel-in-progress: true
 
 permissions:
@@ -19,6 +22,7 @@ env:
 
 jobs:
   quality-and-codegen:
+    if: github.event_name == 'push' || github.event_name == 'pull_request'
     name: Format, lint, types and generated code
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -65,6 +69,7 @@ jobs:
         run: docker compose config --quiet
 
   impeccable:
+    if: github.event_name == 'push' || github.event_name == 'pull_request'
     name: Impeccable design detector
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -78,6 +83,7 @@ jobs:
         run: ../../.agents/skills/impeccable/scripts/impeccable detect src
 
   unit:
+    if: github.event_name == 'push' || github.event_name == 'pull_request'
     name: Unit and race tests
     runs-on: ubuntu-latest
     timeout-minutes: 25
@@ -100,10 +106,13 @@ jobs:
         run: go test -race -coverprofile=go-coverage.out ./...
       - name: TypeScript tests
         run: pnpm test
+      - name: Security report tests
+        run: node --test scripts/ci/security-tracker.test.mjs
       - name: Production builds
         run: pnpm build
 
   postgres-integration:
+    if: github.event_name == 'push' || github.event_name == 'pull_request'
     name: PostgreSQL 18 migrations and integration
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -185,6 +194,7 @@ jobs:
         run: scripts/ci/postgres.sh prove-app-roundtrip
 
   browser-e2e:
+    if: github.event_name == 'push' || github.event_name == 'pull_request'
     name: Browser and accessibility workflows
     runs-on: ubuntu-latest
     timeout-minutes: 25
@@ -215,6 +225,7 @@ jobs:
           retention-days: 7
 
   real-stack-browser-e2e:
+    if: github.event_name == 'push' || github.event_name == 'pull_request'
     name: Real auth, API and PostgreSQL browser workflows
     runs-on: ubuntu-latest
     timeout-minutes: 35
@@ -319,18 +330,31 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      - name: Prepare security reports
+        run: mkdir -p security-reports
       - name: Go vulnerability database
-        run: go run golang.org/x/vuln/cmd/govulncheck@v1.6.0 ./...
+        run: go run golang.org/x/vuln/cmd/govulncheck@v1.6.0 ./... 2>&1 | tee security-reports/go.txt
       - name: pnpm audit
-        run: pnpm audit --audit-level high
+        if: '!cancelled()'
+        run: pnpm audit --audit-level high 2>&1 | tee security-reports/pnpm.txt
       # Pinned gitleaks CLI; see the script for why not the GitHub Action.
       - name: Secret scan
+        if: '!cancelled()'
         env:
           GITLEAKS_VERSION: 8.30.1
           GITLEAKS_SHA256: 551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb
         run: scripts/ci/gitleaks.sh
+      - name: Upload dependency reports
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: security-dependencies
+          path: security-reports
+          if-no-files-found: warn
+          retention-days: 14
 
   migration-fixture:
+    if: github.event_name == 'push' || github.event_name == 'pull_request'
     name: Legacy migration rehearsal fixture
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -376,59 +400,114 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Build production images
         run: scripts/ci/containers.sh build
+      - name: Prepare image reports
+        id: image-reports
+        run: mkdir -p security-reports
       - name: Prove production web bundle excludes demo fixtures
         run: scripts/ci/containers.sh check-web-bundle
       - name: Scan API image
+        if: "!cancelled() && steps.image-reports.outcome == 'success'"
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
           image-ref: rsp-api:ci
           version: v0.70.0
           format: table
+          output: security-reports/api.txt
           severity: HIGH,CRITICAL
           ignore-unfixed: true
           exit-code: 1
       - name: Scan auth image
+        if: "!cancelled() && steps.image-reports.outcome == 'success'"
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
           image-ref: rsp-auth:ci
           version: v0.70.0
           format: table
+          output: security-reports/auth.txt
           severity: HIGH,CRITICAL
           ignore-unfixed: true
           exit-code: 1
       - name: Scan worker image
+        if: "!cancelled() && steps.image-reports.outcome == 'success'"
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
           image-ref: rsp-worker:ci
           version: v0.70.0
           format: table
+          output: security-reports/worker.txt
           severity: HIGH,CRITICAL
           ignore-unfixed: true
           exit-code: 1
       - name: Scan web image
+        if: "!cancelled() && steps.image-reports.outcome == 'success'"
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
           image-ref: rsp-web:ci
           version: v0.70.0
           format: table
+          output: security-reports/web.txt
           severity: HIGH,CRITICAL
           ignore-unfixed: true
           exit-code: 1
       - name: Scan migration image
+        if: "!cancelled() && steps.image-reports.outcome == 'success'"
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
           image-ref: rsp-migrations:ci
           version: v0.70.0
           format: table
+          output: security-reports/migrations.txt
           severity: HIGH,CRITICAL
           ignore-unfixed: true
           exit-code: 1
       - name: Scan operations image
+        if: "!cancelled() && steps.image-reports.outcome == 'success'"
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
           image-ref: rsp-ops:ci
           version: v0.70.0
           format: table
+          output: security-reports/ops.txt
           severity: HIGH,CRITICAL
           ignore-unfixed: true
           exit-code: 1
+      - name: Upload image reports
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: security-images
+          path: security-reports
+          if-no-files-found: warn
+          retention-days: 14
+
+  security-tracker:
+    name: Update security tracker
+    needs: [dependency-security, containers]
+    if: >-
+      always() && github.ref == 'refs/heads/main' &&
+      (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      actions: read
+      contents: read
+      issues: write
+    concurrency:
+      group: security-tracker
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - name: Download available reports
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p security-reports
+          gh run download "$GITHUB_RUN_ID" --repo "$GITHUB_REPOSITORY" --pattern 'security-*' --dir security-reports || echo 'Reports unavailable; inspect linked jobs.'
+      - name: Update tracking issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SECURITY_JOB_RESULTS: ${{ toJSON(needs) }}
+        run: node scripts/ci/security-tracker.mjs
