@@ -50,15 +50,45 @@ Use the opt-in canary for frontend/auth review when needed; see `docs/canary.md`
 A maintainer reviews and merges each remediation PR. Agent checks and auto-merge
 are not part of this initial rollout.
 
-## Next phase: baseline-aware gates
+## Baseline comparison pilot
 
 The current full-tree PR gates remain strict. Daily reports and grouped updates
 do not yet prevent inherited vulnerabilities from blocking unrelated PRs.
 
-Before changing that policy, implement a base-versus-head comparison with tests
-for unchanged findings, new advisories, worsened exposure, removed findings,
-renamed packages, and scanner failures. Use matching scanner versions and advisory
-data. Compare advisory/package identities and exposure, not finding counts.
-Require remediation PRs to remove their targeted findings. Preserve strict secret
-checks. Enable the new gate only after a shadow run proves its behavior against
-real reports; do not weaken gates with `continue-on-error` in the meantime.
+PRs run a pnpm comparison in shadow mode. The same pinned pnpm binary converts
+the event's base lockfile and the PR merge lockfile into audit trees without
+installing packages. A loopback capture server collects those trees; its empty
+responses are capture acknowledgements, not security scan results.
+
+The job namespaces both trees and submits their union to the public npm audit
+endpoint in **one request**. It freezes that response and partitions its finding
+paths back into base and PR reports. Both reports use the same advisory records,
+so an advisory publication between separate scans cannot create a false regression.
+This is a frozen response for this pair of trees, not a mirror of npm's full
+advisory database.
+
+The job summary and `pnpm-security-shadow` artifact distinguish new advisories,
+inherited findings, removed findings, and changed exposure. The artifact retains
+the combined request, frozen response, derived reports, scanner versions, and a
+SHA-256 manifest with lockfile hashes. To replay a downloaded artifact offline:
+
+```sh
+node scripts/ci/pnpm-shadow.mjs --replay /path/to/artifact
+```
+
+Replay verifies the request and response hashes before comparison. The hashes
+detect accidental modification; they do not authenticate an untrusted artifact.
+Findings do not fail this diagnostic job; invalid snapshots, unexpected paths,
+scanner failures, or registry errors do. Do not require this pilot as a branch
+protection check yet.
+
+The comparison keys findings by GHSA and package name. A new vulnerable path or
+affected version flags changed exposure conservatively, not proof of greater
+exploitability. Partial path removals remain inherited. A package rename cannot
+reuse another package's baseline. Tests cover those cases and incomplete reports.
+
+Before enforcement, extend snapshot-based comparison to Go and images, and require
+remediation PRs to remove explicit target advisories. Review real shadow reports
+first, including npm endpoint compatibility with the combined graph. Preserve
+strict secret checks and full-tree gates until then; do not bypass them with
+`continue-on-error`.
