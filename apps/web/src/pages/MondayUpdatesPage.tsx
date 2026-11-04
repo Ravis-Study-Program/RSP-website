@@ -37,7 +37,6 @@ import {
   sameUpdateWeek,
   type MondayUpdateRange,
 } from '@/activityDates';
-import { saveDemoMondayUpdate, deleteDemoMondayUpdate } from '@/data/demo';
 import { apiRequest } from '@/api/client';
 import type {
   MondayUpdate,
@@ -559,7 +558,9 @@ function StudentUpdateForm({
     if (contentEmpty || hours === null) return;
     setPending(true);
     try {
-      if (demoMode) {
+      // A local compile-time guard keeps fixture imports out of production chunks.
+      if (import.meta.env.MODE !== 'production' && demoMode) {
+        const { saveDemoMondayUpdate } = await import('@/data/demo');
         saveDemoMondayUpdate({
           id: crypto.randomUUID(),
           seasonId,
@@ -789,8 +790,10 @@ function StudentUpdateCard({
   const queryClient = useQueryClient();
   const label = `${weekNumber ? `Week ${weekNumber}: ` : ''}${updateRangeLabel(update)}`;
   const deleteUpdate = async () => {
-    if (demoMode) deleteDemoMondayUpdate(update.id);
-    else
+    if (import.meta.env.MODE !== 'production' && demoMode) {
+      const { deleteDemoMondayUpdate } = await import('@/data/demo');
+      deleteDemoMondayUpdate(update.id);
+    } else
       await apiRequest<void>(
         `/seasons/${encodeURIComponent(seasonId)}/monday-updates/${encodeURIComponent(update.id)}`,
         { method: 'DELETE' },

@@ -65,10 +65,13 @@ import {
 } from '@/data/demo';
 import type { CurrentUser, MockInterview, Page, Person } from '@/types';
 
-export const demoMode = demoModeForEnvironment(
-  import.meta.env.VITE_USE_DEMO_DATA,
-  import.meta.env.MODE,
-);
+// Make the production exclusion visible to the bundler before minification.
+export const demoMode =
+  import.meta.env.MODE !== 'production' &&
+  demoModeForEnvironment(
+    import.meta.env.VITE_USE_DEMO_DATA,
+    import.meta.env.MODE,
+  );
 
 const wait = <T>(value: T) =>
   new Promise<T>((resolve) => window.setTimeout(() => resolve(value), 90));
