@@ -170,13 +170,19 @@ export function MenteesPage() {
       {
         accessorKey: 'studentLevel',
         header: 'Level',
+        meta: { width: 8 },
         cell: ({ row }) => studentLevelLabel(row.original.studentLevel),
       },
-      { accessorKey: 'attempts', header: 'Attempts' },
-      { accessorKey: 'interviews', header: 'Mock interviews' },
+      { accessorKey: 'attempts', header: 'Attempts', meta: { width: 7 } },
+      {
+        accessorKey: 'interviews',
+        header: 'Mock interviews',
+        meta: { width: 9 },
+      },
       {
         accessorKey: 'lastActiveAt',
         header: 'Last recorded activity',
+        meta: { width: 11.5 },
         cell: ({ getValue }) => (getValue() ? formatDateTime(getValue()) : '—'),
       },
       ...(showLatestMark
@@ -184,6 +190,7 @@ export function MenteesPage() {
             {
               id: 'latestMark',
               header: 'Latest Monday mark',
+              meta: { width: 12 },
               accessorFn: (person: Person) => {
                 const state = latestMarkState(person);
                 return typeof state === 'string'
@@ -199,6 +206,7 @@ export function MenteesPage() {
       {
         id: 'actions',
         header: 'Actions',
+        meta: { width: 12, align: 'end' },
         enableSorting: false,
         enableHiding: false,
         cell: ({ row }) => (

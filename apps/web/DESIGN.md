@@ -62,6 +62,7 @@ spacing:
   card-sm: '12px'
   page-x: 'clamp(1.25rem, 3vw, 3rem)'
   page-top: '2rem'
+  section: '1.5rem'
 components:
   button-primary:
     backgroundColor: '{colors.ink}'
@@ -191,6 +192,8 @@ A near-monochrome neutral ledger. Hue appears only where it reports status.
 - **Page:** content maxes at 92rem and is centred. Main padding is `2rem clamp(1.25rem, 3vw, 3rem) 4rem`. The page header puts title, eyebrow and lede on the left and actions on the right, with a 1.5rem gap below.
 - **Grids:** three-column card and metric grids drop to two columns below 70rem. Below 56rem the sidebar is hidden, a mobile header and mobile navigation appear, tables switch to stacked mobile cards, and page headers stack.
 - **Rhythm:** a compact 4px-based Tailwind scale. Card padding is 16px (12px for small cards). Typical gaps are 0.5–1.25rem.
+- **Section spacing:** blocks stacked down a page — panels, filter rows and dropdowns, tables, chart cards — are 1.5rem apart, the same as the gap below the page header. Stack them in a `flex flex-col gap-6` container rather than giving each block its own margin, so gaps never double up; `DataTable` already stacks its table and summary this way. A block's title (like a field label) sits 0.5rem above it, outside the panel.
+- **Panel insets:** content sits 16px (`p-4`, the card padding) in from its panel's edge, so controls line up down the page: panel bodies, chart cards, the table toolbar and pagination bars, and the first and last table columns (cells use `px-4`). Only small cards and popovers use 12px.
 - **Floor:** the minimum width is 320px, and layouts must reflow at 200% zoom.
 
 ## Elevation & Depth

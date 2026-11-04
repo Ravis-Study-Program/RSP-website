@@ -1,4 +1,5 @@
 import { Input } from '@/components/ui/input';
+import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import {
   AlertDialog,
@@ -41,7 +42,7 @@ export function FormDialog({
   onOpenChange,
 }: PropsWithChildren<{
   title: string;
-  description: string;
+  description?: string;
   trigger?: ReactNode;
   triggerVariant?: ButtonProps['variant'];
   triggerSize?: ButtonProps['size'];
@@ -67,10 +68,19 @@ export function FormDialog({
       ) : null}
 
       <DialogContent showCloseButton={false} className={contentClassName}>
-        <div className="mb-4 flex items-start justify-between gap-4">
+        {/* Without a description, centre the title on the close button and
+            let the content's own gap set the space below. */}
+        <div
+          className={cn(
+            'flex justify-between gap-4',
+            description ? 'mb-4 items-start' : 'items-center',
+          )}
+        >
           <div>
             <DialogTitle>{title}</DialogTitle>
-            <DialogDescription>{description}</DialogDescription>
+            {description ? (
+              <DialogDescription>{description}</DialogDescription>
+            ) : null}
           </div>
           <DialogClose
             render={<Button variant="ghost" size="icon" />}
@@ -91,15 +101,26 @@ export function NamedConfirmation({
   description,
   onConfirm,
   triggerSize,
+  open: controlledOpen,
+  onOpenChange,
 }: {
   name: string;
   actionLabel: string;
   description: string;
   onConfirm: () => void | Promise<void>;
   triggerSize?: ButtonProps['size'];
+  /** When provided, the dialog is opened externally and renders no trigger. */
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }) {
   const [value, setValue] = useState('');
-  const [open, setOpen] = useState(false);
+  const [uncontrolledOpen, setUncontrolledOpen] = useState(false);
+  const controlled = controlledOpen !== undefined;
+  const open = controlled ? controlledOpen : uncontrolledOpen;
+  const setOpen = (next: boolean) => {
+    if (!controlled) setUncontrolledOpen(next);
+    onOpenChange?.(next);
+  };
   const [pending, setPending] = useState(false);
   const [error, setError] = useState('');
   const confirmationId = useId();
@@ -132,13 +153,19 @@ export function NamedConfirmation({
         }
       }}
     >
-      <AlertDialogTrigger
-        render={
-          <Button variant="destructive" size={triggerSize} className="w-fit" />
-        }
-      >
-        <IconTrash size={17} aria-hidden="true" /> {actionLabel}
-      </AlertDialogTrigger>
+      {controlled ? null : (
+        <AlertDialogTrigger
+          render={
+            <Button
+              variant="destructive"
+              size={triggerSize}
+              className="w-fit"
+            />
+          }
+        >
+          <IconTrash size={17} aria-hidden="true" /> {actionLabel}
+        </AlertDialogTrigger>
+      )}
 
       <AlertDialogContent>
         <AlertDialogTitle>

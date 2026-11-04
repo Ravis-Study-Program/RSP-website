@@ -1023,6 +1023,7 @@ function ReviewerTable({
       {
         id: 'expand',
         header: 'Details',
+        meta: { width: 4.5 },
         enableSorting: false,
         enableHiding: false,
         cell: ({ row }) => (
@@ -1055,6 +1056,7 @@ function ReviewerTable({
       {
         id: 'latestMark',
         header: 'Latest mark',
+        meta: { width: 12 },
         // The latest update overlapping the selected range and its newest mark.
         accessorFn: (row) => latestMarkRank(pickLatestMark(row.updates)),
         cell: ({ row }) => (
@@ -1068,6 +1070,7 @@ function ReviewerTable({
       {
         id: 'leetcode',
         header: 'LeetCode (easy/medium/hard)',
+        meta: { width: 14 },
         accessorFn: (row) =>
           row.leetcodeCounts.easy +
           row.leetcodeCounts.medium +
@@ -1083,11 +1086,13 @@ function ReviewerTable({
       {
         accessorKey: 'mockCount',
         header: 'Mocks',
+        meta: { width: 7.5 },
         cell: ({ getValue }) => `${getValue()} in range`,
       },
       {
         accessorKey: 'updateCount',
         header: 'Updates',
+        meta: { width: 7.5 },
         cell: ({ getValue }) => `${getValue()} in range`,
       },
     ],

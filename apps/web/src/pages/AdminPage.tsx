@@ -290,6 +290,7 @@ const columns: ColumnDef<AdminRow, any>[] = [
   {
     accessorKey: 'status',
     header: 'Status',
+    meta: { width: 9 },
     cell: ({ getValue }) => (
       <Badge variant="outline" className={statusToneFor(getValue())}>
         {statusLabel(getValue())}
@@ -300,6 +301,7 @@ const columns: ColumnDef<AdminRow, any>[] = [
   {
     id: 'actions',
     header: 'Actions',
+    meta: { width: 16, align: 'end' },
     enableSorting: false,
     enableHiding: false,
     cell: ({ row }) => row.original.actions ?? '—',

@@ -191,7 +191,7 @@ export function difficultyGoal(difficulty: Difficulty) {
 
 export function outcomeLabel(outcome: AttemptOutcome) {
   const labels: Record<AttemptOutcome, string> = {
-    independently_solved: 'Independently solved',
+    independently_solved: 'Solved',
     solved_with_hints: 'Solved with hints',
     not_solved: 'Not solved',
     unknown: 'Outcome not recorded',

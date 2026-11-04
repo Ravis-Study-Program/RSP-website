@@ -62,6 +62,7 @@ export function SeasonsPage() {
     {
       accessorKey: 'status',
       header: 'Status',
+      meta: { width: 7.5 },
       cell: ({ getValue }) => (
         <Badge
           variant="secondary"
@@ -76,22 +77,26 @@ export function SeasonsPage() {
     {
       accessorKey: 'startsAt',
       header: 'Dates',
+      meta: { width: 13 },
       cell: ({ row }) =>
         `${formatDate(row.original.startsAt)} – ${formatDate(row.original.endsAt)}`,
     },
     {
       accessorKey: 'memberCount',
       header: 'Members',
+      meta: { width: 8 },
       cell: ({ getValue }) => getValue() ?? '—',
     },
     {
       accessorKey: 'weekCount',
       header: 'Weeks',
+      meta: { width: 7 },
       cell: ({ getValue }) => getValue() ?? '—',
     },
     {
       id: 'actions',
       header: 'Actions',
+      meta: { width: 14, align: 'end' },
       enableSorting: false,
       enableHiding: false,
       cell: ({ row }) => (

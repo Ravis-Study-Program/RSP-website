@@ -16,15 +16,16 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { IconChevronDown } from '@tabler/icons-react';
-import { useState } from 'react';
+import { useId, useState } from 'react';
 import { useLeetcodeCategories, useSeasonWeeks } from '@/api/queries';
 import { emptyActivityFilters, type ActivityFilters } from '@/activityFilters';
 import type { Person } from '@/types';
+import { Field, FieldLabel } from '@/components/ui/field';
 
 const clearFilterClass =
   'justify-start px-0 max-[56rem]:basis-full max-[56rem]:self-start';
 
-function Choices({
+export function Choices({
   label,
   options,
   selected,
@@ -98,6 +99,74 @@ function Choices({
   );
 }
 
+/** Season weeks as a multi-select dropdown, for use inside another popover. */
+export function SeasonWeekChoices({
+  seasonId,
+  selected,
+  onChange,
+}: {
+  seasonId: string;
+  selected: string[];
+  onChange: (weeks: string[]) => void;
+}) {
+  const weeks = useSeasonWeeks(seasonId);
+  const selectId = useId();
+  // The URL updates in a transition, so quick successive picks would build on
+  // a stale `selected`. Track picks locally and resync when the URL changes.
+  const [value, setValue] = useState(selected);
+  const [synced, setSynced] = useState(selected);
+  if (synced !== selected) {
+    setSynced(selected);
+    setValue(selected);
+  }
+  const items = (weeks.data?.items ?? []).map((week) => ({
+    label: `Week ${week.number}`,
+    value: week.id,
+  }));
+  return (
+    <Field>
+      <FieldLabel htmlFor={selectId}>Season weeks</FieldLabel>
+      <Select
+        multiple
+        items={items}
+        value={value}
+        onValueChange={(next) => {
+          setValue(next);
+          onChange(next);
+        }}
+        disabled={!items.length}
+      >
+        <SelectTrigger id={selectId} className="w-full">
+          <SelectValue>
+            {(value: string[]) =>
+              !items.length
+                ? 'No weeks in this season'
+                : value.length
+                  ? items
+                      .filter((item) => value.includes(item.value))
+                      .map((item) => item.label)
+                      .join(', ')
+                  : 'All weeks'
+            }
+          </SelectValue>
+        </SelectTrigger>
+        <SelectContent>
+          <SelectGroup>
+            {items.map((item) => (
+              <SelectItem key={item.value} value={item.value}>
+                {item.label}
+              </SelectItem>
+            ))}
+          </SelectGroup>
+        </SelectContent>
+      </Select>
+      {weeks.isError ? (
+        <p role="alert">Season weeks could not be loaded.</p>
+      ) : null}
+    </Field>
+  );
+}
+
 export function PracticeFilters({
   seasonId,
   filters,
@@ -111,7 +180,7 @@ export function PracticeFilters({
   const categories = categoriesQuery.data ?? [];
   return (
     <div
-      className="my-3 flex flex-wrap items-end gap-3"
+      className="flex flex-wrap items-end gap-3"
       aria-label="Practice filters"
     >
       <Choices
@@ -170,10 +239,7 @@ export function MockFilters({
   onChange: (change: Partial<ActivityFilters>) => void;
 }) {
   return (
-    <div
-      className="my-3 flex flex-wrap items-end gap-3"
-      aria-label="Mock filters"
-    >
+    <div className="flex flex-wrap items-end gap-3" aria-label="Mock filters">
       <label className="grid gap-2 text-sm font-medium">
         Result
         <Select

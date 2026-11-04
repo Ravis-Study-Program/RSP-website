@@ -90,6 +90,7 @@ export function PeoplePage() {
       {
         id: 'roles',
         header: 'Roles',
+        meta: { width: 11 },
         accessorFn: (person) => person.roles.join(' '),
         cell: ({ row }) => (
           <div className={inlineClass}>
@@ -105,6 +106,7 @@ export function PeoplePage() {
             {
               id: 'studentLevel',
               header: 'Level',
+              meta: { width: 8 },
               accessorFn: (person: Person) =>
                 studentLevelLabel(person.studentLevel),
               cell: ({ row }: { row: { original: Person } }) =>
@@ -120,6 +122,7 @@ export function PeoplePage() {
                   {
                     id: 'levelActions',
                     header: 'Actions',
+                    meta: { width: 10, align: 'end' as const },
                     enableSorting: false,
                     cell: ({ row }: { row: { original: Person } }) =>
                       season &&
@@ -139,6 +142,7 @@ export function PeoplePage() {
       {
         accessorKey: 'status',
         header: 'Status',
+        meta: { width: 8 },
         cell: ({ getValue }) => (
           <Badge
             variant="secondary"
@@ -154,11 +158,16 @@ export function PeoplePage() {
           </Badge>
         ),
       },
-      { accessorKey: 'attempts', header: 'Attempts' },
-      { accessorKey: 'interviews', header: 'Interviews' },
+      { accessorKey: 'attempts', header: 'Attempts', meta: { width: 7 } },
+      {
+        accessorKey: 'interviews',
+        header: 'Interviews',
+        meta: { width: 7.5 },
+      },
       {
         accessorKey: 'lastActiveAt',
         header: 'Last recorded activity',
+        meta: { width: 11.5 },
         cell: ({ getValue }) => (getValue() ? formatDateTime(getValue()) : '—'),
       },
     ],

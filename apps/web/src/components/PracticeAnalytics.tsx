@@ -1,6 +1,14 @@
 import { Card } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 import { useState } from 'react';
 import {
   CartesianGrid,
@@ -16,7 +24,11 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
-import { activitySeries, difficultyBreakdown } from '@/activityAnalytics';
+import {
+  activitySeries,
+  difficultyBreakdown,
+  difficultySuccessRates,
+} from '@/activityAnalytics';
 import { ActivityChart } from '@/components/ActivityChart';
 import { legendLabel } from '@/lib/chartLegend';
 import type { Attempt, Difficulty, Season } from '@/types';
@@ -48,6 +60,8 @@ type TimedPoint = {
   difficulty: Difficulty;
   minutes: number;
   at: number;
+  /** Position in date order, so same-day attempts sit side by side. */
+  index: number;
 };
 
 function TimedTooltip({
@@ -104,6 +118,7 @@ export function PracticeAnalytics({
 }) {
   const [goals, setGoals] = useState(true);
   const breakdown = difficultyBreakdown(attempts);
+  const successRates = difficultySuccessRates(attempts);
   const points: TimedPoint[] = attempts
     .filter((a) => a.minutes !== null && a.difficulty)
     .map((a) => ({
@@ -112,21 +127,25 @@ export function PracticeAnalytics({
       minutes: a.minutes!,
       at: Date.parse(a.attemptedAt),
     }))
-    .sort((a, b) => a.at - b.at);
+    .sort((a, b) => a.at - b.at)
+    .map((point, index) => ({ ...point, index }));
   const byDifficulty = difficultyOrder
     .map((difficulty) => ({
       difficulty,
       data: points.filter((p) => p.difficulty === difficulty),
     }))
     .filter((group) => group.data.length);
-  const timeAxis = {
+  // One even step per attempt rather than a time scale: attempts logged on the
+  // same day (including bulk-migrated history) would otherwise overlap.
+  const attemptAxis = {
     type: 'number' as const,
-    dataKey: 'at',
-    name: 'Date',
-    scale: 'time' as const,
+    dataKey: 'index',
+    name: 'Attempt',
     domain: ['dataMin', 'dataMax'] as [string, string],
+    allowDecimals: false,
     padding: { left: 16, right: 16 },
-    tickFormatter: (value: number) => shortDate.format(value),
+    tickFormatter: (value: number) =>
+      points[value] ? shortDate.format(points[value].at) : '',
     tick: { fill: 'var(--text-muted)', fontSize: 12 },
     stroke: 'var(--border-strong)',
   };
@@ -140,22 +159,16 @@ export function PracticeAnalytics({
     stroke: 'var(--border-strong)',
   };
   return (
-    <section className="mt-6" aria-label="Practice charts">
-      <h2 className="text-xl font-semibold tracking-tight">
-        Practice in this period
-      </h2>
-      <p className="mt-1 text-sm text-muted-foreground">
-        Charts include every matching attempt, across all table pages.
-      </p>
+    <section aria-label="Practice charts">
       <div className="grid gap-6">
         {showActivity ? (
           <ActivityChart data={activitySeries(attempts, [], { season })} />
         ) : null}
-        <div className="grid gap-4 grid-cols-[repeat(auto-fit,minmax(min(100%,20rem),1fr))]">
+        <div className="grid gap-6 grid-cols-[repeat(auto-fit,minmax(min(100%,20rem),1fr))]">
           <Card
             role="region"
             aria-label="Difficulty breakdown"
-            className="gap-3 p-5"
+            className="gap-3 p-4"
           >
             <h3 className="text-base font-semibold">Difficulty breakdown</h3>
             {breakdown.length ? (
@@ -188,11 +201,47 @@ export function PracticeAnalytics({
                     </PieChart>
                   </ResponsiveContainer>
                 </div>
-                <p>
-                  {breakdown
-                    .map((item) => `${item.name}: ${item.value}`)
-                    .join(' · ')}
-                </p>
+                <Table className="table-fixed tabular-nums">
+                  <caption className="sr-only">
+                    Success: solved independently within the practice goal.
+                  </caption>
+                  <colgroup>
+                    <col className="w-28" />
+                    {successRates.map(({ difficulty }) => (
+                      <col key={difficulty} />
+                    ))}
+                  </colgroup>
+                  <TableHeader>
+                    <TableRow className="hover:bg-transparent">
+                      <TableHead>
+                        <span className="sr-only">Measure</span>
+                      </TableHead>
+                      {successRates.map(({ difficulty }) => (
+                        <TableHead key={difficulty} scope="col">
+                          {difficulty}
+                        </TableHead>
+                      ))}
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    <TableRow className="hover:bg-transparent">
+                      <TableHead scope="row">Count</TableHead>
+                      {successRates.map(({ difficulty, count }) => (
+                        <TableCell key={difficulty}>{count}</TableCell>
+                      ))}
+                    </TableRow>
+                    <TableRow className="hover:bg-transparent">
+                      <TableHead scope="row">Success rate</TableHead>
+                      {successRates.map(({ difficulty, count, successes }) => (
+                        <TableCell key={difficulty}>
+                          {count
+                            ? `${Math.round((successes / count) * 100)}%`
+                            : '—'}
+                        </TableCell>
+                      ))}
+                    </TableRow>
+                  </TableBody>
+                </Table>
               </>
             ) : (
               <p>No attempts match these filters.</p>
@@ -201,7 +250,7 @@ export function PracticeAnalytics({
           <Card
             role="region"
             aria-label="Time by difficulty"
-            className="gap-3 p-5"
+            className="gap-3 p-4"
           >
             <h3 className="text-base font-semibold">Time by difficulty</h3>
             <Label className="font-normal">
@@ -213,10 +262,10 @@ export function PracticeAnalytics({
             </Label>
             {points.length ? (
               <>
-                <div className="mt-3 grid gap-2">
+                <div className="mt-3 grid flex-1 grid-rows-[auto_1fr] gap-2">
                   <DifficultyKey />
                   <div
-                    className="h-72 w-full min-w-0 max-[56rem]:h-56"
+                    className="h-full min-h-72 w-full min-w-0 max-[56rem]:min-h-56"
                     aria-hidden="true"
                   >
                     <ResponsiveContainer width="100%" height="100%">
@@ -228,7 +277,7 @@ export function PracticeAnalytics({
                           stroke="var(--border)"
                           vertical={false}
                         />
-                        <XAxis {...timeAxis} />
+                        <XAxis {...attemptAxis} />
                         <YAxis {...minutesAxis} />
                         <Tooltip
                           cursor={{ strokeDasharray: '3 3' }}
@@ -265,7 +314,7 @@ export function PracticeAnalytics({
                     </ResponsiveContainer>
                   </div>
                 </div>
-                <p>
+                <p className="sr-only">
                   {points.length} attempts with recorded times. Lowest:{' '}
                   {Math.min(...points.map((p) => p.minutes))} min; highest:{' '}
                   {Math.max(...points.map((p) => p.minutes))} min. Individual
