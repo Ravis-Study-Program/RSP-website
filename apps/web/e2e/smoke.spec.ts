@@ -80,7 +80,7 @@ test('old practice route redirects without losing the app shell', async ({
   await page.goto('/practice');
   await expect(page).toHaveURL(/\/leetcode$/);
   await expect(
-    page.getByRole('heading', { name: 'LeetCode practice' }),
+    page.getByRole('heading', { name: 'LeetCode Practice' }),
   ).toBeVisible();
   await expect(
     page.locator('#workspace-select:visible, #workspace-select-mobile:visible'),
@@ -91,7 +91,7 @@ test('mobile tables use readable cards', async ({ page }, testInfo) => {
   test.skip(!testInfo.project.name.includes('mobile'), 'Mobile-only assertion');
   await page.goto('/leetcode');
   await expect(
-    page.getByRole('heading', { name: 'LeetCode practice' }),
+    page.getByRole('heading', { name: 'LeetCode Practice' }),
   ).toBeVisible();
   await expect(
     page
@@ -206,8 +206,8 @@ test('role-aware navigation covers every major programme role', async ({
   test.skip(testInfo.project.name.includes('mobile'), 'Desktop role matrix');
   const cases = [
     ['student', 'Season'],
-    ['mentor', 'My students'],
-    ['coordinator', 'Mentor teams'],
+    ['mentor', 'My Students'],
+    ['coordinator', 'Mentor Teams'],
     ['graduate', 'Directory'],
     ['director', 'Administration'],
     ['system_admin', 'Administration'],
@@ -240,14 +240,14 @@ test('completed staff can review their season and keep personal practice without
     name: 'Primary navigation',
   });
   await expect(
-    navigation.getByRole('link', { name: 'My students' }),
+    navigation.getByRole('link', { name: 'My Students' }),
   ).toBeVisible();
   await chooseOption(page, 'Workspace', 'Former member workspace');
   await expect(
     navigation.getByRole('link', { name: 'LeetCode' }),
   ).toBeVisible();
   await expect(
-    navigation.getByRole('link', { name: 'Mock interviews' }),
+    navigation.getByRole('link', { name: 'Mock Interviews' }),
   ).toBeVisible();
   await expect(navigation.getByRole('link', { name: 'Directory' })).toHaveCount(
     0,
@@ -469,7 +469,7 @@ test('received mock interviews start with their detail rows expanded', async ({
   await selectDemoRole(page, 'director');
   await page.goto('/mock-interviews');
   await expect(
-    page.getByRole('heading', { name: 'Mock interviews' }),
+    page.getByRole('heading', { name: 'Mock Interviews' }),
   ).toBeVisible();
   await expect(
     page.getByRole('button', { name: 'Hide details for Avery Example' }),
@@ -592,9 +592,11 @@ test('director can create, edit and close a season', async ({
   const edit = page.getByRole('dialog', { name: /Edit Summer 2025\/26/ });
   await edit.getByLabel('Location').fill('Adelaide City Campus');
   await edit.getByRole('button', { name: 'Save season' }).click();
-  await expect(
-    page.getByText(/Current programme at Adelaide City Campus/),
-  ).toBeVisible();
+  await expect(edit).not.toBeVisible();
+  await page.getByRole('button', { name: 'Edit season' }).click();
+  await expect(edit.getByLabel('Location')).toHaveValue('Adelaide City Campus');
+  await page.keyboard.press('Escape');
+  await expect(edit).not.toBeVisible();
 
   await page.getByRole('button', { name: 'Close season' }).click();
   const close = page.getByRole('dialog', {

@@ -155,7 +155,7 @@ export function ProfileActivity({
       id: 'result',
       header: 'Result',
       meta: { width: 7.5 },
-      accessorFn: (mock) => (interviewPassed(mock) ? 'Pass' : 'Needs work'),
+      accessorFn: (mock) => (interviewPassed(mock) ? 'Pass' : 'Fail'),
     },
     {
       id: 'feedback',
@@ -177,7 +177,7 @@ export function ProfileActivity({
     >
       <TabsList aria-label="Profile activity">
         <TabsTrigger value="leetcode">LeetCode</TabsTrigger>
-        <TabsTrigger value="mocks">Mock interviews</TabsTrigger>
+        <TabsTrigger value="mocks">Mock Interviews</TabsTrigger>
       </TabsList>
       <TabsContent value="leetcode" className="flex flex-col gap-6">
         <PracticeFilters

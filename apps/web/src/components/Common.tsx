@@ -52,7 +52,7 @@ export function PageHeader({
 }: {
   eyebrow?: string;
   title: string;
-  description: string;
+  description?: string;
   actions?: ReactNode;
 }) {
   return (
@@ -66,9 +66,11 @@ export function PageHeader({
         <h1 className="text-2xl font-semibold tracking-tight md:text-3xl">
           {title}
         </h1>
-        <p className="mt-2 max-w-[68ch] text-base text-muted-foreground">
-          {description}
-        </p>
+        {description ? (
+          <p className="mt-2 max-w-[68ch] text-base text-muted-foreground">
+            {description}
+          </p>
+        ) : null}
       </div>
       {actions ? (
         <div className="flex flex-wrap items-center gap-2.5 self-end min-[56rem]:self-center">
@@ -148,7 +150,7 @@ export function MetricCard({
 }: {
   label: string;
   value: ReactNode;
-  detail: string;
+  detail?: string;
 }) {
   return (
     <Card>
@@ -159,7 +161,9 @@ export function MetricCard({
         <strong className="block text-3xl font-semibold tracking-tight tabular-nums">
           {value}
         </strong>
-        <p className="mt-1 text-sm text-muted-foreground">{detail}</p>
+        {detail ? (
+          <p className="mt-1 text-sm text-muted-foreground">{detail}</p>
+        ) : null}
       </CardContent>
     </Card>
   );

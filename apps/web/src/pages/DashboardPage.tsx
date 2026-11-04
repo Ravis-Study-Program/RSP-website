@@ -108,9 +108,6 @@ export function DashboardPage() {
           <h1 className="text-2xl font-semibold tracking-tight md:text-3xl">
             Welcome, {user.data.name.split(' ')[0]}.
           </h1>
-          <p className="mt-2 max-w-3xl text-base text-muted-foreground">
-            {dashboardIntro(role)}
-          </p>
         </div>
         <div className="flex flex-wrap items-center gap-2.5">
           <Link
@@ -130,7 +127,7 @@ export function DashboardPage() {
             to="/mock-interviews"
             className={buttonVariants({ variant: 'outline' })}
           >
-            Mock interviews
+            Mock Interviews
           </Link>
         </div>
       </header>
@@ -163,17 +160,15 @@ export function DashboardPage() {
         role === 'system_admin' ? (
           <>
             <MetricCard
-              label="Active members"
+              label="Active Members"
               value={enrollments.isLoading ? '—' : activeEnrollments.length}
-              detail="Students, mentors and coordinators"
             />
             <MetricCard
-              label="Unassigned students"
+              label="Unassigned Students"
               value={seasonPeople.isLoading ? '—' : unassigned.length}
-              detail="Need a mentor team"
             />
             <MetricCard
-              label="Programme week"
+              label="Programme Week"
               value={
                 currentWeek
                   ? `${currentWeek.number} of ${orderedWeeks.length}`
@@ -189,39 +184,34 @@ export function DashboardPage() {
         ) : role === 'mentor' ? (
           <>
             <MetricCard
-              label="Assigned mentees"
+              label="Assigned Mentees"
               value={seasonPeople.isLoading ? '—' : mentees.length}
-              detail="Active students in your mentor team"
             />
             <MetricCard
-              label="Interviews given"
+              label="Interviews Given"
               value={interviews.data?.given ?? '—'}
-              detail="Visible interview history"
             />
             <MetricCard
-              label="Programme weeks"
+              label="Programme Weeks"
               value={weeks.isLoading ? '—' : orderedWeeks.length}
-              detail="Published for this season"
             />
           </>
         ) : (
           <>
             <MetricCard
-              label="Practice attempts"
+              label="Leetcodes"
               value={attempts.data?.totalCount ?? '—'}
-              detail="Your complete history"
             />
             <MetricCard
-              label="Independent solves"
+              label="Independent Solves"
               value={
                 attempts.data?.items.filter(
                   (item) => item.outcome === 'independently_solved',
                 ).length ?? '—'
               }
-              detail="Across outcome-known attempts"
             />
             <MetricCard
-              label="Mock interviews"
+              label="Mock Interviews"
               value={interviews.data?.total ?? '—'}
               detail={`${interviews.data?.reviewed ?? 0} reviewed`}
             />
@@ -240,7 +230,7 @@ export function DashboardPage() {
                 ? 'Operations needing attention'
                 : role === 'mentor'
                   ? 'Your mentor team'
-                  : 'Practice history'}
+                  : 'Practice History'}
             </h2>
           </div>
           {role === 'coordinator' ? (
@@ -261,7 +251,7 @@ export function DashboardPage() {
                         size: 'sm',
                       })}
                     >
-                      Mentor teams
+                      Mentor Teams
                     </Link>
                   </li>
                   <li className={listRowClass}>
@@ -329,11 +319,7 @@ export function DashboardPage() {
           ) : (
             <Card className="h-full">
               <CardContent>
-                <p>
-                  Review your recorded problem attempts, outcomes and practice
-                  time.
-                </p>
-                <div className="mt-4 flex flex-wrap gap-2.5">
+                <div className="flex flex-wrap gap-2.5">
                   <Link
                     to="/leetcode"
                     className={buttonVariants({ variant: 'default' })}
@@ -352,7 +338,7 @@ export function DashboardPage() {
         >
           <div className={sectionHeaderClass}>
             <h2 id="activity-title" className={sectionTitleClass}>
-              Your recent activity
+              Your Recent Activity
             </h2>
           </div>
           <Card className="h-full">
@@ -364,18 +350,4 @@ export function DashboardPage() {
       </div>
     </div>
   );
-}
-
-function dashboardIntro(role: string) {
-  if (role === 'coordinator')
-    return 'Review the current roster, mentor assignments and published weeks.';
-  if (role === 'mentor')
-    return 'Your assigned mentees and interview activity are gathered here.';
-  if (role === 'director' || role === 'system_admin')
-    return 'All programme workspaces are available, with clear audit trails for privileged actions.';
-  if (role === 'graduate')
-    return 'Your cross-season practice and interview history stays with you.';
-  if (role === 'former_member')
-    return 'Your global practice and mock interview access remains available after a completed season.';
-  return 'Your recorded practice and mock interview history are ready.';
 }

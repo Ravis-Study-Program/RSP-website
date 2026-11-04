@@ -181,9 +181,7 @@ export function SettingsPage() {
     <div className={pageClass}>
       <DirtyFormGuard blocker={blocker} />
       <PageHeader
-        eyebrow="Account"
         title="Settings"
-        description="Set your display timezone, view practice goals and manage account security."
         actions={
           <Button
             type="button"

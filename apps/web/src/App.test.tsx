@@ -51,7 +51,7 @@ describe('application routes', () => {
     expect(
       await screen.findByRole(
         'heading',
-        { name: 'LeetCode practice' },
+        { name: 'LeetCode Practice' },
         routeTimeout,
       ),
     ).toBeInTheDocument();

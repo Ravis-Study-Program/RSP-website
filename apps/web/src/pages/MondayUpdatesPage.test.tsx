@@ -230,7 +230,7 @@ beforeEach(() => {
   );
 });
 
-describe('student Monday updates', () => {
+describe('student Monday Updates', () => {
   it('posts the default range and never renders marks', async () => {
     vi.mocked(useCurrentUser).mockReturnValue(
       queryResult<ReturnType<typeof useCurrentUser>>(
@@ -378,7 +378,7 @@ describe('student Monday updates', () => {
   });
 });
 
-describe('mentor Monday updates', () => {
+describe('mentor Monday Updates', () => {
   it('shows each mentee, pre-selects the existing mark and saves a change', async () => {
     vi.mocked(useCurrentUser).mockReturnValue(
       queryResult<ReturnType<typeof useCurrentUser>>(
@@ -556,7 +556,7 @@ describe('mentor Monday updates', () => {
   });
 });
 
-describe('reviewer Monday updates', () => {
+describe('reviewer Monday Updates', () => {
   it('renders one row per student with counts and expands to updates and marks', async () => {
     vi.mocked(useCurrentUser).mockReturnValue(
       queryResult<ReturnType<typeof useCurrentUser>>(

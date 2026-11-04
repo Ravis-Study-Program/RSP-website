@@ -208,7 +208,7 @@ export function MondayUpdatesPage() {
     range.startDate,
     range.endDate,
   );
-  usePageTitle(season ? `Monday updates · ${season.name}` : 'Monday updates');
+  usePageTitle('Monday Updates');
 
   if (seasons.isLoading || user.isLoading)
     return <PageSkeleton label="Loading Monday updates" />;
@@ -259,17 +259,7 @@ export function MondayUpdatesPage() {
 
   return (
     <div className={pageClass}>
-      <PageHeader
-        eyebrow={season.name}
-        title="Monday updates"
-        description={
-          experience === 'student'
-            ? 'Post what you worked on and see the practice and mock activity inside each date range.'
-            : experience === 'mentor'
-              ? "Review your students' written updates and record your own mark and comment for each one."
-              : 'One row per student with their solved LeetCode counts, mock interviews and every update in the range.'
-        }
-      />
+      <PageHeader title="Monday Updates" />
       {experience === 'student' ? null : (
         <div className={sectionClass}>
           <DateRangePicker label="Dates" value={range} onChange={setRange} />
@@ -525,7 +515,7 @@ function StudentUpdateForm({
     <section className={sectionClass} aria-labelledby="monday-post-title">
       <div className={sectionHeaderClass}>
         <h2 id="monday-post-title" className={sectionTitleClass}>
-          Post an update
+          Post an Update
         </h2>
       </div>
       <form className={formClass} onSubmit={(event) => void submit(event)}>
@@ -585,6 +575,15 @@ function StudentUpdateForm({
             <UpdateActivitySummary activity={rangeActivity.data} />
           ) : null}
         </section>
+        <div className="text-sm text-muted-foreground">
+          <p className="font-medium text-foreground">What to Include</p>
+          <ul className="mt-2 list-disc space-y-1 pl-5">
+            <li>What you worked on and completed.</li>
+            <li>What you learned.</li>
+            <li>Any blockers or help you need.</li>
+            <li>What you plan to work on next week.</li>
+          </ul>
+        </div>
         <RichTextEditor
           id="monday-update-content"
           label="Your update"
@@ -669,7 +668,7 @@ function UpdateActivitySummary({
         </dd>
       </div>
       <div className={rowClass}>
-        <dt className="text-sm font-semibold">Mock interviews</dt>
+        <dt className="text-sm font-semibold">Mock Interviews</dt>
         <dd className="m-0 flex flex-wrap items-baseline gap-x-4 text-sm">
           <span>
             <strong className="text-base font-semibold">{mockCount}</strong>{' '}

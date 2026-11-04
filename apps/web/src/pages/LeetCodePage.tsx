@@ -403,9 +403,7 @@ export function LeetCodePage() {
   return (
     <div className="mx-auto w-full max-w-[92rem]">
       <PageHeader
-        eyebrow="LeetCode"
-        title="LeetCode practice"
-        description="Record what happened, not just whether a problem was completed. Track outcomes, confidence and time across your practice history."
+        title="LeetCode Practice"
         actions={
           <AttemptDialog
             onSaved={(attempt) => {

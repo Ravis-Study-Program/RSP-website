@@ -84,7 +84,7 @@ test('student creates, edits, and deletes a Go-backed practice attempt', async (
   await signIn(page, 'STUDENT');
   await page.goto('/leetcode');
   await expect(
-    page.getByRole('heading', { name: 'LeetCode practice' }),
+    page.getByRole('heading', { name: 'LeetCode Practice' }),
   ).toBeVisible();
   await page.getByRole('button', { name: 'Log attempt' }).click();
   const create = page.getByRole('dialog', { name: 'Log problem attempt' });

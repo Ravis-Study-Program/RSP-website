@@ -90,7 +90,7 @@ export function ActivityChart({
               isAnimationActive={false}
               type="monotone"
               dataKey="interviews"
-              name="Mock interviews"
+              name="Mock Interviews"
               stroke="var(--chart-secondary)"
               strokeWidth={2}
               fill="none"

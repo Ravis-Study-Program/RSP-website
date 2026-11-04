@@ -115,9 +115,7 @@ export function SeasonsPage() {
   return (
     <div className={pageClass}>
       <PageHeader
-        eyebrow="Programme"
         title="Seasons"
-        description="Move between current work and preserved programme history. Closed seasons stay readable and their records stay locked."
         actions={canCreate ? <SeasonEditorDialog /> : undefined}
       />
       <DataTable

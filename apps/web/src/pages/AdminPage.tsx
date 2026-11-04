@@ -163,11 +163,7 @@ export function AdminPage() {
   );
   return (
     <div className="flex flex-col gap-6">
-      <PageHeader
-        eyebrow="Audited operations"
-        title="Administration"
-        description="Manage programme definitions and relationships. Privileged changes require recent MFA and leave immutable audit events."
-      />
+      <PageHeader title="Administration" />
       <InlineNotice>
         <IconShieldLock size={19} aria-hidden="true" /> Your privileged session
         has recent MFA. Identity and lifecycle operations are always audited.
@@ -572,12 +568,7 @@ export function AdminResourcePage({
 
   return (
     <div className="flex flex-col gap-6">
-      <PageHeader
-        eyebrow="Administration"
-        title={config.title}
-        description={config.description}
-        actions={createAction}
-      />
+      <PageHeader title={config.title} actions={createAction} />
       {resource !== 'seasons' && resource !== 'users' ? (
         <div className="rounded-lg border border-border bg-card p-4">
           <Field>

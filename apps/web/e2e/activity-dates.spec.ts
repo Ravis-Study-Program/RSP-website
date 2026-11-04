@@ -10,7 +10,7 @@ test('former students can record mocks today in Adelaide and filter their person
   );
   await page.goto('/mock-interviews');
   await expect(
-    page.getByRole('heading', { name: 'Mock interviews', exact: true }),
+    page.getByRole('heading', { name: 'Mock Interviews', exact: true }),
   ).toBeVisible();
   await page.getByRole('button', { name: 'New interview' }).click();
   const create = page.getByRole('dialog', { name: 'Record mock interview' });
@@ -61,7 +61,7 @@ test('former students can record mocks today in Adelaide and filter their person
   ).toBeVisible();
   await page.goto('/leetcode');
   await expect(
-    page.getByRole('heading', { name: 'LeetCode practice', exact: true }),
+    page.getByRole('heading', { name: 'LeetCode Practice', exact: true }),
   ).toBeVisible();
   await chooseOption(page, 'View activity', 'Summer 2024/25');
   await expect(

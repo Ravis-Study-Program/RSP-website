@@ -418,7 +418,7 @@ const columnsForSeason = (
             : outcomeTone.danger,
         )}
       >
-        {interviewPassed(row.original) ? 'Pass' : 'Needs work'}
+        {interviewPassed(row.original) ? 'Pass' : 'Fail'}
       </Badge>
     ),
   },
@@ -441,7 +441,7 @@ const columnsForSeason = (
 ];
 
 export function MockInterviewsPage() {
-  usePageTitle('Mock interviews');
+  usePageTitle('Mock Interviews');
   const { seasons: seasonsQuery, season, hasSelection } = useActivitySeason();
   const user = useCurrentUser();
   const peopleQuery = useMockParticipants();
@@ -542,9 +542,7 @@ export function MockInterviewsPage() {
   return (
     <div className="mx-auto w-full max-w-[92rem]">
       <PageHeader
-        eyebrow="Interview preparation"
-        title="Mock interviews"
-        description="Keep rounds, scores and feedback together. Interview details are versioned, and only the interviewee controls their review."
+        title="Mock Interviews"
         actions={
           <NewMockDialog
             people={availablePeople}
@@ -573,7 +571,7 @@ export function MockInterviewsPage() {
           <TabsList aria-label="Mock interview view">
             <TabsTrigger value="received">Received</TabsTrigger>
             <TabsTrigger value="given">Given</TabsTrigger>
-            <TabsTrigger value="all">All available</TabsTrigger>
+            <TabsTrigger value="all">All</TabsTrigger>
           </TabsList>
           <TabsContent value={mode}>
             <DataTable
@@ -650,7 +648,7 @@ export function MockInterviewsPage() {
                           : outcomeTone.danger,
                       )}
                     >
-                      {interviewPassed(row.original) ? 'Pass' : 'Needs work'}
+                      {interviewPassed(row.original) ? 'Pass' : 'Fail'}
                     </Badge>
                     <Badge
                       variant="outline"

@@ -292,12 +292,12 @@ export function ProfilePage() {
       {showProgrammeDetails ? (
         <div className="mt-4 grid grid-cols-3 gap-4 max-[56rem]:grid-cols-1">
           <MetricCard
-            label="Practice attempts"
+            label="Leetcodes"
             value={summary.data?.attemptCount ?? '—'}
             detail={selectedSeason?.name ?? 'All time'}
           />
           <MetricCard
-            label="Mock interviews"
+            label="Mock Interviews"
             value={summary.data?.mockInterviewCount ?? '—'}
             detail={
               summary.data
@@ -306,7 +306,7 @@ export function ProfilePage() {
             }
           />
           <MetricCard
-            label="Last recorded activity"
+            label="Last Recorded Activity"
             value={
               summary.data?.lastActivityAt ? (
                 formatDateTime(summary.data.lastActivityAt).split(',')[0]

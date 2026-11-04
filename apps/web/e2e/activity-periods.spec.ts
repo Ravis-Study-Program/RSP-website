@@ -95,7 +95,7 @@ test('mocks and both profile tabs support weeks inside a season', async ({
   await page.goto('/mock-interviews');
   await expectSelected(page, 'View activity', 'All time');
   await chooseOption(page, 'View activity', 'Summer 2025/26');
-  await page.getByRole('tab', { name: 'All available', exact: true }).click();
+  await page.getByRole('tab', { name: 'All', exact: true }).click();
   await page.getByText('Season weeks: All', { exact: true }).click();
   await toggleWeek(page, 3, true);
   const amelia = page
@@ -127,7 +127,7 @@ test('mocks and both profile tabs support weeks inside a season', async ({
   await expect(
     page.getByText('Valid Anagram', { exact: true }).filter({ visible: true }),
   ).toHaveCount(0);
-  await page.getByRole('tab', { name: 'Mock interviews', exact: true }).click();
+  await page.getByRole('tab', { name: 'Mock Interviews', exact: true }).click();
   await expect(
     page.getByText('Season weeks (1)', { exact: true }),
   ).toBeVisible();
@@ -143,7 +143,7 @@ test('mocks and both profile tabs support weeks inside a season', async ({
   await chooseOption(page, 'View activity', 'All time');
   await expect(page).not.toHaveURL(/seasonId=|weekId=/);
   await expect(
-    page.getByRole('tab', { name: 'Mock interviews', exact: true }),
+    page.getByRole('tab', { name: 'Mock Interviews', exact: true }),
   ).toHaveAttribute('aria-selected', 'true');
   await expect(page.getByText(/^Season weeks/)).toHaveCount(0);
   await expect(

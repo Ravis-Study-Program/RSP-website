@@ -126,11 +126,7 @@ export function SeasonWorkspacePage() {
   return (
     <div className={pageClass}>
       <PageHeader
-        eyebrow={
-          season.status === 'open' ? 'Active season' : 'Programme history'
-        }
         title={season.name}
-        description={season.summary}
         actions={
           <div className={inlineClass}>
             <Badge
@@ -166,15 +162,14 @@ export function SeasonWorkspacePage() {
         <MetricCard
           label="Members"
           value={enrollments.data?.totalCount ?? '—'}
-          detail="Across all season roles"
         />
         <MetricCard
-          label="Programme weeks"
+          label="Programme Weeks"
           value={weeks.data?.totalCount ?? '—'}
           detail={`${formatDate(season.startsAt)} – ${formatDate(season.endsAt)}`}
         />
         <MetricCard
-          label="Current focus"
+          label="Current Focus"
           value={currentWeek ? `Week ${currentWeek.number}` : '—'}
           detail={
             currentWeek
@@ -185,23 +180,20 @@ export function SeasonWorkspacePage() {
       </div>
       <div className={metricGridClass}>
         <MetricCard
-          label="Practice attempts"
+          label="Leetcodes"
           value={activity.data?.attemptCount ?? '—'}
-          detail="Recorded in this season"
         />
         <MetricCard
-          label="Mock interviews"
+          label="Mock Interviews"
           value={activity.data?.mockInterviewCount ?? '—'}
-          detail="Each interview counted once"
         />
         <MetricCard
-          label="Last recorded activity"
+          label="Last Recorded Activity"
           value={
             activity.data?.lastActivityAt
               ? formatDate(activity.data.lastActivityAt)
               : '—'
           }
-          detail="Within this season"
         />
       </div>
       {activity.isError ? (

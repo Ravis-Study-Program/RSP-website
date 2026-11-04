@@ -26,7 +26,7 @@ import {
 } from '@/components/StatusViews';
 
 export function MentorTeamsPage() {
-  usePageTitle('Mentor teams');
+  usePageTitle('Mentor Teams');
   const { slug } = useParams();
   const seasons = useSeasons();
   const season = seasons.data?.items.find((item) => item.slug === slug);
@@ -40,9 +40,7 @@ export function MentorTeamsPage() {
   return (
     <div className="mx-auto w-full max-w-[92rem]">
       <PageHeader
-        eyebrow="Season operations"
-        title="Mentor teams"
-        description="See assignments at a glance, find unassigned students and balance each mentor's team."
+        title="Mentor Teams"
         actions={
           <MentorshipDialog
             seasonId={season?.id}
@@ -109,7 +107,7 @@ export function MentorTeamsPage() {
       <section className="mt-6">
         <div className="mb-3 flex flex-wrap items-end justify-between gap-x-4 gap-y-1">
           <h2 className="text-xl font-semibold tracking-tight">
-            Unassigned students
+            Unassigned Students
           </h2>
         </div>
         {students.some((student) => student.status === 'unassigned') ? (

@@ -166,7 +166,7 @@ export function PeoplePage() {
       },
       {
         accessorKey: 'lastActiveAt',
-        header: 'Last recorded activity',
+        header: 'Last Recorded Activity',
         meta: { width: 11.5 },
         cell: ({ getValue }) => (getValue() ? formatDateTime(getValue()) : '—'),
       },
@@ -177,13 +177,7 @@ export function PeoplePage() {
   return (
     <div className={pageClass}>
       <PageHeader
-        eyebrow={graduatesOnly ? 'Alumni directory' : 'Season community'}
         title={graduatesOnly ? 'Graduates' : 'People'}
-        description={
-          graduatesOnly
-            ? 'Find programme graduates and view their public practice and interview participation.'
-            : 'Approved active members and alumni can find one another here. Private fields stay limited to authorised relationships.'
-        }
         actions={
           privateView && season ? (
             <EnrollmentDialog

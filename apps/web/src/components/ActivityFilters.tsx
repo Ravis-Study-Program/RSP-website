@@ -224,7 +224,7 @@ export function PracticeFilters({
 const resultItems = [
   { label: 'All results', value: '' },
   { label: 'Pass', value: 'true' },
-  { label: 'Needs work', value: 'false' },
+  { label: 'Fail', value: 'false' },
 ];
 
 export function MockFilters({

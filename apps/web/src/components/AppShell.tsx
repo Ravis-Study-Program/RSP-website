@@ -80,12 +80,12 @@ function itemsFor(role: string | undefined, seasonSlug?: string): NavItem[] {
       { label: 'Season', to: seasonBase, icon: IconSchool, end: true },
       { label: 'LeetCode', to: `${seasonBase}/leetcode`, icon: IconBriefcase },
       {
-        label: 'Mock interviews',
+        label: 'Mock Interviews',
         to: `${seasonBase}/mock-interviews`,
         icon: IconMessage2,
       },
       {
-        label: 'Monday updates',
+        label: 'Monday Updates',
         to: `${seasonBase}/monday-updates`,
         icon: IconNotebook,
       },
@@ -95,14 +95,14 @@ function itemsFor(role: string | undefined, seasonSlug?: string): NavItem[] {
   if (role === 'mentor') {
     return [
       { label: 'Dashboard', to: '/dashboard', icon: IconDashboard },
-      { label: 'My students', to: `${seasonBase}/mentees`, icon: IconUsers },
+      { label: 'My Students', to: `${seasonBase}/mentees`, icon: IconUsers },
       {
-        label: 'Mock interviews',
+        label: 'Mock Interviews',
         to: `${seasonBase}/mock-interviews`,
         icon: IconMessage2,
       },
       {
-        label: 'Monday updates',
+        label: 'Monday Updates',
         to: `${seasonBase}/monday-updates`,
         icon: IconNotebook,
       },
@@ -114,24 +114,24 @@ function itemsFor(role: string | undefined, seasonSlug?: string): NavItem[] {
       { label: 'Dashboard', to: '/dashboard', icon: IconDashboard },
       { label: 'Season', to: seasonBase, icon: IconCalendarEvent, end: true },
       { label: 'People', to: `${seasonBase}/people`, icon: IconUsers },
-      { label: 'All students', to: `${seasonBase}/mentees`, icon: IconUsers },
+      { label: 'All Students', to: `${seasonBase}/mentees`, icon: IconUsers },
       {
-        label: 'Mentor teams',
+        label: 'Mentor Teams',
         to: `${seasonBase}/mentor-teams`,
         icon: IconSchool,
       },
       {
-        label: 'Mock interviews',
+        label: 'Mock Interviews',
         to: `${seasonBase}/mock-interviews`,
         icon: IconMessage2,
       },
       {
-        label: 'Monday updates',
+        label: 'Monday Updates',
         to: `${seasonBase}/monday-updates`,
         icon: IconNotebook,
       },
       {
-        label: 'Season operations',
+        label: 'Season Operations',
         to: '/admin/enrollments',
         icon: IconAdjustments,
       },
@@ -150,14 +150,14 @@ function itemsFor(role: string | undefined, seasonSlug?: string): NavItem[] {
     return [
       { label: 'Dashboard', to: '/dashboard', icon: IconDashboard },
       { label: 'LeetCode', to: '/leetcode', icon: IconBriefcase },
-      { label: 'Mock interviews', to: '/mock-interviews', icon: IconMessage2 },
+      { label: 'Mock Interviews', to: '/mock-interviews', icon: IconMessage2 },
       { label: 'Directory', to: '/graduates', icon: IconUsers },
     ];
   if (role === 'former_member')
     return [
       { label: 'Dashboard', to: '/dashboard', icon: IconDashboard },
       { label: 'LeetCode', to: '/leetcode', icon: IconBriefcase },
-      { label: 'Mock interviews', to: '/mock-interviews', icon: IconMessage2 },
+      { label: 'Mock Interviews', to: '/mock-interviews', icon: IconMessage2 },
     ];
   return [{ label: 'Profile', to: '/profile', icon: IconUsers }];
 }
@@ -398,12 +398,12 @@ const MOBILE_NAV_VISIBLE = 4;
 
 const mobileNavShortLabels: Record<string, string> = {
   Administration: 'Admin',
-  'Mock interviews': 'Mocks',
-  'Monday updates': 'Updates',
-  'Season operations': 'Operations',
-  'All students': 'Students',
-  'Mentor teams': 'Teams',
-  'My students': 'Students',
+  'Mock Interviews': 'Mocks',
+  'Monday Updates': 'Updates',
+  'Season Operations': 'Operations',
+  'All Students': 'Students',
+  'Mentor Teams': 'Teams',
+  'My Students': 'Students',
 };
 
 function NavLinks({
