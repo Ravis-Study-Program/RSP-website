@@ -109,7 +109,7 @@ jobs:
       - name: TypeScript tests
         run: pnpm test
       - name: Security report tests
-        run: node --test scripts/ci/security-tracker.test.mjs
+        run: node --test scripts/ci/*.test.mjs
       - name: Production builds
         run: pnpm build
 
@@ -352,6 +352,36 @@ jobs:
         with:
           name: security-dependencies
           path: security-reports
+          if-no-files-found: warn
+          retention-days: 14
+
+  pnpm-security-shadow:
+    name: pnpm baseline comparison (shadow)
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          path: .security-base
+          persist-credentials: false
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
+        with:
+          version: ${{ env.PNPM_VERSION }}
+          run_install: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - name: Compare base and PR merge lockfiles without installing packages
+        run: node scripts/ci/pnpm-shadow.mjs .security-base . security-shadow
+      - name: Upload raw audits and comparison
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: pnpm-security-shadow
+          path: security-shadow
           if-no-files-found: warn
           retention-days: 14
 
