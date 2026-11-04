@@ -1353,6 +1353,7 @@ paths:
           {
             name: mode,
             in: query,
+            description: "With userId, all is that member's received and given interviews; without it, all is the viewer's own received and given interviews.",
             schema:
               { type: string, enum: [received, given, all], default: received },
           },
@@ -1421,6 +1422,7 @@ paths:
           {
             name: mode,
             in: query,
+            description: "With userId, all is that member's received and given interviews; without it, all is the viewer's own received and given interviews.",
             schema:
               { type: string, enum: [received, given, all], default: received },
           },

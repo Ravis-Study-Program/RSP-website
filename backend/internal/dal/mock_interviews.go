@@ -28,8 +28,10 @@ const (
 	MockInterviewsGiven    MockInterviewVisibility = "given"
 	MockInterviewsReceived MockInterviewVisibility = "received"
 	MockInterviewsRelated  MockInterviewVisibility = "related"
-	MockInterviewsAll      MockInterviewVisibility = "all"
-	MockInterviewsShared   MockInterviewVisibility = "shared"
+	// MockInterviewsParticipated is the viewer's own interviews, given or received.
+	MockInterviewsParticipated MockInterviewVisibility = "participated"
+	MockInterviewsAll          MockInterviewVisibility = "all"
+	MockInterviewsShared       MockInterviewVisibility = "shared"
 )
 
 type MockInterviewQuery struct {

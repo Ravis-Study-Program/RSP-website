@@ -168,7 +168,12 @@ func (a *API) mockInterviewScope(w http.ResponseWriter, r *http.Request) (query 
 	if mode == "given" {
 		visibility = dal.MockInterviewsGiven
 	}
-	if mode == "all" || targetID != "" {
+	if mode == "all" && targetID == "" {
+		// Without a member to look at, "all" combines the viewer's own received
+		// and given interviews rather than every interview they could read.
+		visibility = dal.MockInterviewsParticipated
+	}
+	if targetID != "" {
 		visibility = dal.MockInterviewsRelated
 		if actor.CanReadSharedActivity() {
 			visibility = dal.MockInterviewsShared

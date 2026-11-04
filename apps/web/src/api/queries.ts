@@ -999,9 +999,8 @@ function demoMockInterviewsInScope({
         (mode !== 'received' || item.interviewee.id === subject) &&
         (mode !== 'given' || item.interviewer.id === subject) &&
         (mode !== 'all' ||
-          !userId ||
-          item.interviewee.id === userId ||
-          item.interviewer.id === userId) &&
+          item.interviewee.id === subject ||
+          item.interviewer.id === subject) &&
         (!seasonId ||
           Boolean(
             season &&
