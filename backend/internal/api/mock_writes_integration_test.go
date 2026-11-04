@@ -332,3 +332,30 @@ func readColumn[T any](t *testing.T, pool *pgxpool.Pool, query string, args ...a
 	}
 	return values
 }
+
+func TestMockRoundNotesPersistForEveryRoundType(t *testing.T) {
+	fixture := newPostgresFixture(t)
+	interview := createMockForWrites(t, fixture)
+	notes := []string{"<p>Behavioural notes</p>", "<p>LeetCode notes</p>", "<p>Custom notes</p>"}
+	for i := range interview.Rounds {
+		interview.Rounds[i].Content = notes[i]
+	}
+	mockRequest(t, fixture.handler, http.MethodPatch, "/api/v2/mock-interviews/"+interview.ID, "student", mockUpdateBody(interview), http.StatusOK)
+
+	// Read back through the list, so the notes come from the database.
+	response := testRequest(t, fixture.handler, http.MethodGet, "/api/v2/mock-interviews?mode=given", "student", "")
+	var list struct {
+		Items []mockinterviews.Interview `json:"items"`
+	}
+	if err := json.Unmarshal(response.Body.Bytes(), &list); err != nil {
+		t.Fatal(err)
+	}
+	if len(list.Items) != 1 || len(list.Items[0].Rounds) != 3 {
+		t.Fatalf("unexpected list: %s", response.Body)
+	}
+	for i, round := range list.Items[0].Rounds {
+		if round.Content != notes[i] {
+			t.Fatalf("%s round notes=%q want %q", round.Type, round.Content, notes[i])
+		}
+	}
+}

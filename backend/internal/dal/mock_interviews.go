@@ -236,7 +236,7 @@ func loadMockRounds(ctx context.Context, db queryer, interviews []mockinterviews
 	rows, err := db.Query(ctx, `SELECT r.mock_interview_id,r.id,r.kind::text,r.review_status='reviewed',
 		COALESCE(r.interviewee_comment_html,''),b.behavioural_score,l.leetcode_problem_id,
 		l.clarify_question_score,l.algorithm_design_score,l.complexity_analysis_score,
-		l.coding_score,l.testing_score,COALESCE(c.content_html,''),COALESCE(c.url,''),c.score
+		l.coding_score,l.testing_score,COALESCE(b.content_html,l.content_html,c.content_html,''),COALESCE(c.url,''),c.score
 		FROM app.mock_interview_rounds r
 		LEFT JOIN app.behavioural_mock_interview_rounds b ON b.mock_interview_round_id=r.id
 		LEFT JOIN app.leetcode_mock_interview_rounds l ON l.mock_interview_round_id=r.id
@@ -547,19 +547,19 @@ func saveMockRoundSubtype(ctx context.Context, tx pgx.Tx, round mockinterviews.R
 		if round.Scores.Behavioural == nil {
 			return mockinterviews.ErrInvalid
 		}
-		_, err := tx.Exec(ctx, `INSERT INTO app.behavioural_mock_interview_rounds(id,mock_interview_round_id,behavioural_score)
-   VALUES($1,$2,$3) ON CONFLICT(mock_interview_round_id) DO UPDATE SET behavioural_score=EXCLUDED.behavioural_score`, id.New(), round.ID, *round.Scores.Behavioural)
+		_, err := tx.Exec(ctx, `INSERT INTO app.behavioural_mock_interview_rounds(id,mock_interview_round_id,behavioural_score,content_html)
+   VALUES($1,$2,$3,$4) ON CONFLICT(mock_interview_round_id) DO UPDATE SET behavioural_score=EXCLUDED.behavioural_score,content_html=EXCLUDED.content_html`, id.New(), round.ID, *round.Scores.Behavioural, nullableString(round.Content))
 		return err
 	case mockinterviews.LeetCode:
 		if round.Scores.ConfirmQuestions == nil || round.Scores.AlgorithmDesign == nil || round.Scores.ComplexityAnalysis == nil || round.Scores.Coding == nil || round.Scores.Testing == nil {
 			return mockinterviews.ErrInvalid
 		}
-		_, err := tx.Exec(ctx, `INSERT INTO app.leetcode_mock_interview_rounds(id,mock_interview_round_id,leetcode_problem_id,clarify_question_score,algorithm_design_score,complexity_analysis_score,coding_score,testing_score)
-   VALUES($1,$2,$3,$4,$5,$6,$7,$8) ON CONFLICT(mock_interview_round_id) DO UPDATE SET
+		_, err := tx.Exec(ctx, `INSERT INTO app.leetcode_mock_interview_rounds(id,mock_interview_round_id,leetcode_problem_id,clarify_question_score,algorithm_design_score,complexity_analysis_score,coding_score,testing_score,content_html)
+   VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9) ON CONFLICT(mock_interview_round_id) DO UPDATE SET
    leetcode_problem_id=EXCLUDED.leetcode_problem_id,clarify_question_score=EXCLUDED.clarify_question_score,
    algorithm_design_score=EXCLUDED.algorithm_design_score,complexity_analysis_score=EXCLUDED.complexity_analysis_score,
-   coding_score=EXCLUDED.coding_score,testing_score=EXCLUDED.testing_score`, id.New(), round.ID, round.ProblemID,
-			*round.Scores.ConfirmQuestions, *round.Scores.AlgorithmDesign, *round.Scores.ComplexityAnalysis, *round.Scores.Coding, *round.Scores.Testing)
+   coding_score=EXCLUDED.coding_score,testing_score=EXCLUDED.testing_score,content_html=EXCLUDED.content_html`, id.New(), round.ID, round.ProblemID,
+			*round.Scores.ConfirmQuestions, *round.Scores.AlgorithmDesign, *round.Scores.ComplexityAnalysis, *round.Scores.Coding, *round.Scores.Testing, nullableString(round.Content))
 		return err
 	case mockinterviews.Custom:
 		if round.Scores.Custom == nil {
