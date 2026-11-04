@@ -18,22 +18,12 @@ export function ActivityChart({
 }) {
   const attempts = data.reduce((total, item) => total + item.attempts, 0);
   const interviews = data.reduce((total, item) => total + item.interviews, 0);
-  const busiest = data.reduce<(typeof data)[number] | null>(
-    (current, item) =>
-      !current ||
-      item.attempts + item.interviews > current.attempts + current.interviews
-        ? item
-        : current,
-    null,
-  );
   const hasActivity = attempts + interviews > 0;
   const summary = (
     <p className="mt-3 text-sm text-muted-foreground">
-      Activity summary: {attempts} practice attempts and {interviews} mock
-      interviews across {data.length} periods.
-      {busiest && busiest.attempts + busiest.interviews > 0
-        ? ` ${busiest.week} had the highest recorded activity.`
-        : ' No activity was recorded in this period.'}
+      {hasActivity
+        ? `${attempts} LeetCode attempts and ${interviews} mock interviews in this period.`
+        : 'No activity in this period.'}
     </p>
   );
   if (!hasActivity) return summary;
@@ -90,7 +80,7 @@ export function ActivityChart({
               isAnimationActive={false}
               type="monotone"
               dataKey="interviews"
-              name="Mock interviews"
+              name="Mock Interviews"
               stroke="var(--chart-secondary)"
               strokeWidth={2}
               fill="none"

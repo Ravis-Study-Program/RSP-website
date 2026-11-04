@@ -325,6 +325,37 @@ func (p *Store) CreateMondayUpdate(ctx context.Context, v programme.MondayUpdate
 	}
 
 	defer tx.Rollback(context.Background())
+	if err := lockOpenSeason(ctx, tx, v.SeasonID); err != nil {
+		return v, err
+	}
+	// Serialize submissions for this student, including simultaneous requests.
+	// Historical free-date updates remain untouched; exact weekly submissions
+	// (including older ones) count as already submitted.
+	var enrollmentID string
+	if err := tx.QueryRow(ctx, `SELECT id FROM app.enrollments
+		WHERE season_id=$1 AND user_id=$2 AND role='student' AND state='active' AND deleted_at IS NULL
+		FOR UPDATE`, v.SeasonID, v.Student.ID).Scan(&enrollmentID); err != nil {
+		return v, mapDatabaseError(err)
+	}
+	var configured, submitted bool
+	if err := tx.QueryRow(ctx, `SELECT EXISTS (
+		SELECT 1 FROM app.season_weeks WHERE season_id=$1 AND deleted_at IS NULL
+		AND date_trunc('week', start_at AT TIME ZONE 'Australia/Adelaide')::date=$2::date
+	)`, v.SeasonID, v.StartDate).Scan(&configured); err != nil {
+		return v, err
+	}
+	if !configured {
+		return v, ErrMondayUpdateWeek
+	}
+	if err := tx.QueryRow(ctx, `SELECT EXISTS (
+		SELECT 1 FROM app.monday_updates WHERE season_id=$1 AND student_user_id=$2
+		AND start_date=$3::date AND end_date=$4::date AND deleted_at IS NULL
+	)`, v.SeasonID, v.Student.ID, v.StartDate, v.EndDate).Scan(&submitted); err != nil {
+		return v, err
+	}
+	if submitted {
+		return v, ErrMondayUpdateSubmitted
+	}
 	if _, err := tx.Exec(ctx, `INSERT INTO app.monday_updates(id,season_id,student_user_id,start_date,end_date,content_html,hours)
 		VALUES($1,$2,$3,$4::date,$5::date,$6,$7)`, v.ID, v.SeasonID, v.Student.ID, v.StartDate, v.EndDate, v.ContentHTML, v.Hours); err != nil {
 		return v, mapDatabaseError(err)

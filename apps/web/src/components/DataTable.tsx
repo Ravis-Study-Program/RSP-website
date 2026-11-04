@@ -101,7 +101,7 @@ export interface DataTableProps<TData> {
   error?: boolean;
   onRetry?: () => void;
   emptyTitle: string;
-  emptyMessage: string;
+  emptyMessage?: string;
   searchPlaceholder?: string;
   renderCard: (row: Row<TData>) => ReactNode;
   renderExpanded?: (row: Row<TData>) => ReactNode;
@@ -218,7 +218,7 @@ export function DataTable<TData>({
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [fullscreen]);
 
-  if (loading) {
+  if (loading && !extraFilters) {
     return (
       <div
         className="overflow-hidden rounded-lg border bg-card"
@@ -236,7 +236,7 @@ export function DataTable<TData>({
     );
   }
 
-  if (error)
+  if (error && !extraFilters)
     return (
       <div className="overflow-hidden rounded-lg border bg-card">
         <ErrorState onRetry={onRetry} />
@@ -347,7 +347,10 @@ export function DataTable<TData>({
                   Filters
                   {activeFilterCount ? ` (${activeFilterCount})` : ''}
                 </PopoverTrigger>
-                <PopoverContent align="end" className="grid w-72 gap-3 p-3">
+                <PopoverContent
+                  align="end"
+                  className="grid max-h-(--available-height) w-72 gap-3 overflow-y-auto p-3"
+                >
                   {extraFilters?.content}
                   {filterableColumns.map((column) => {
                     const label =
@@ -446,9 +449,18 @@ export function DataTable<TData>({
             </div>
           </div>
           <div className="sr-only" aria-live="polite">
-            {filteredRows.length} results
+            {loading ? 'Loading results…' : `${filteredRows.length} results`}
           </div>
-          {!data.length || !filteredRows.length ? (
+          {loading ? (
+            <div
+              className="grid min-h-60 place-items-center p-8 text-center"
+              aria-busy="true"
+            >
+              <span role="status">Loading {ariaLabel.toLowerCase()}…</span>
+            </div>
+          ) : error ? (
+            <ErrorState onRetry={onRetry} />
+          ) : !data.length || !filteredRows.length ? (
             <EmptyState
               title={emptyTitle}
               message={
@@ -629,24 +641,23 @@ export function DataTable<TData>({
             </>
           )}
           {serverPagination && !loading && !error && data.length > 0 ? (
-            <div className={paginationClass}>
-              <span
-                className="text-sm text-muted-foreground"
-                aria-live="polite"
-              >
+            <>
+              <span className="sr-only" aria-live="polite">
                 Loaded {data.length} of {serverPagination.totalCount}
               </span>
               {serverPagination.hasMore ? (
-                <Button
-                  variant="outline"
-                  type="button"
-                  disabled={serverPagination.loadingMore}
-                  onClick={serverPagination.onLoadMore}
-                >
-                  {serverPagination.loadingMore ? 'Loading…' : 'Load more'}
-                </Button>
+                <div className={paginationClass}>
+                  <Button
+                    variant="outline"
+                    type="button"
+                    disabled={serverPagination.loadingMore}
+                    onClick={serverPagination.onLoadMore}
+                  >
+                    {serverPagination.loadingMore ? 'Loading…' : 'Load more'}
+                  </Button>
+                </div>
               ) : null}
-            </div>
+            </>
           ) : null}
         </section>
         {renderSummary?.(filteredRows.map((row) => row.original))}

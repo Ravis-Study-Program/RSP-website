@@ -78,7 +78,7 @@ describe('mentor team presentation', () => {
     ).not.toBeInTheDocument();
 
     const unassignedHeading = screen.getByRole('heading', {
-      name: 'Unassigned students',
+      name: 'Unassigned Students',
     });
     const unassignedSection = unassignedHeading.closest('section');
     expect(unassignedSection).not.toBeNull();

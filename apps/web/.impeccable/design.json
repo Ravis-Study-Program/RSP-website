@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-10-17T00:00:00Z",
+  "generatedAt": "2026-11-04T07:04:17.645774Z",
   "title": "Design System: RSP Workspace",
   "extensions": {
     "colorMeta": {
@@ -141,7 +141,10 @@
       }
     },
     "typographyMeta": {
-      "headline": { "displayName": "Headline", "purpose": "Page titles." },
+      "headline": {
+        "displayName": "Headline",
+        "purpose": "Page titles."
+      },
       "title": {
         "displayName": "Title",
         "purpose": "Card titles and section headings."
@@ -158,7 +161,10 @@
         "displayName": "Label",
         "purpose": "Sentence-case eyebrows, badges, small meta."
       },
-      "mono": { "displayName": "Mono", "purpose": "Code-like values only." }
+      "mono": {
+        "displayName": "Mono",
+        "purpose": "Code-like values only."
+      }
     },
     "shadows": [
       {
@@ -190,9 +196,18 @@
       }
     ],
     "breakpoints": [
-      { "name": "md", "value": "48rem" },
-      { "name": "mobile-shell", "value": "56rem" },
-      { "name": "grid-two-col", "value": "70rem" }
+      {
+        "name": "md",
+        "value": "48rem"
+      },
+      {
+        "name": "mobile-shell",
+        "value": "56rem"
+      },
+      {
+        "name": "grid-two-col",
+        "value": "70rem"
+      }
     ]
   },
   "components": [
@@ -287,7 +302,8 @@
     ],
     "dos": [
       "**Do** take emphasis from ink fill, weight (500–700) and size before reaching for colour.",
-      "**Do** use the tokens in `src/styles/tokens.css` (`--primary`, `--muted`, `--border`, `--success`/`--success-soft` and so on) so both themes stay in sync.",
+      "**Do** style with Tailwind utilities on shadcn/ui components (`src/components/ui`), using the theme tokens mapped in `src/styles/global.css` (`bg-primary`, `bg-muted`, `border-border`, `text-success` / `bg-success-soft`, `bg-sidebar` and so on; values live in `src/styles/tokens.css`) so both themes stay in sync. No CSS modules or literal colours.",
+      "**Do** keep one solid (`default`) button per header or dialog; row and secondary actions are `outline`, destructive actions `destructive`, and links styled as buttons use `buttonVariants` on `Link`.",
       "**Do** pair every status colour with its soft wash, and keep `forced-colors` and `prefers-reduced-motion` behaviour intact.",
       "**Do** keep focus visible: 3px ring or outline, offset 3px.",
       "**Do** keep controls compact (36px default) while nav targets stay at 44px or more."
@@ -296,7 +312,8 @@
       "**Don't** introduce a brand hue, gradients, or decorative colour. Colour means status.",
       "**Don't** put shadows on cards, tables or other resting surfaces. Only floating layers get shadows.",
       "**Don't** add a second typeface or uppercase letter-spaced eyebrows.",
-      "**Don't** use solid red blocks for destructive actions. Use the red-on-wash tint."
+      "**Don't** use solid red blocks for destructive actions. Use the red-on-wash tint.",
+      "**Don't** use the middle dot (`·`) as a separator, in UI text, labels, titles, or strings. Run-on `a · b · c` lines are hard to scan. Give each fact its own labelled field (a small muted label above a bold value), put it on its own line, or rewrite as a sentence."
     ]
   }
 }

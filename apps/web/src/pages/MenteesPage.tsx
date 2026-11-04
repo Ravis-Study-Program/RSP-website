@@ -50,7 +50,7 @@ function MenteeMarkCell({ state }: { state: MenteeMark }) {
 }
 
 export function MenteesPage() {
-  usePageTitle('My students');
+  usePageTitle('My Students');
   const { slug } = useParams();
   const seasons = useSeasons();
   const currentUser = useCurrentUser();
@@ -176,12 +176,12 @@ export function MenteesPage() {
       { accessorKey: 'attempts', header: 'Attempts', meta: { width: 7 } },
       {
         accessorKey: 'interviews',
-        header: 'Mock interviews',
+        header: 'Mock Interviews',
         meta: { width: 9 },
       },
       {
         accessorKey: 'lastActiveAt',
-        header: 'Last recorded activity',
+        header: 'Last Recorded Activity',
         meta: { width: 11.5 },
         cell: ({ getValue }) => (getValue() ? formatDateTime(getValue()) : '—'),
       },
@@ -249,13 +249,7 @@ export function MenteesPage() {
   return (
     <div className="mx-auto w-full max-w-[92rem]">
       <PageHeader
-        eyebrow="Mentoring"
-        title={canManageEveryStudent ? 'All students' : 'My students'}
-        description={
-          canManageEveryStudent
-            ? 'Review students in this season.'
-            : 'Review students assigned to you. Open People to browse every member in this season.'
-        }
+        title={canManageEveryStudent ? 'All Students' : 'My Students'}
       />
       <div className="mt-2 mb-4 flex min-h-6 items-center gap-2">
         <Checkbox
@@ -269,7 +263,7 @@ export function MenteesPage() {
         </Label>
       </div>
       <DataTable
-        ariaLabel={canManageEveryStudent ? 'All students' : 'Assigned students'}
+        ariaLabel={canManageEveryStudent ? 'All Students' : 'Assigned students'}
         data={mentees}
         columns={columns}
         loading={query.isLoading || seasons.isLoading || currentUser.isLoading}
@@ -375,7 +369,7 @@ function RemovalDialog({
       triggerVariant="destructive"
       triggerSize="sm"
       title={`Remove ${person.name}?`}
-      description="Removal immediately revokes season resources and directory access. The reason and actor are stored in an immutable audit event."
+      description="This student immediately loses access to season resources and the directory. Your name and the removal reason are recorded."
       trigger={
         <>
           <IconUserMinus size={17} aria-hidden="true" /> Remove

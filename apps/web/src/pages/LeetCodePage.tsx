@@ -39,7 +39,7 @@ import type { ColumnDef } from '@tanstack/react-table';
 import type { Resolver } from 'react-hook-form';
 import { useMemo, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
-import { useBeforeUnload } from 'react-router-dom';
+import { useBeforeUnload, useNavigate } from 'react-router-dom';
 import { z } from 'zod';
 
 import { adaptAttempt, displayDifficulty } from '@/api/adapters';
@@ -245,6 +245,7 @@ const baseColumns: ColumnDef<Attempt, any>[] = [
 ];
 
 export function LeetCodePage() {
+  const navigate = useNavigate();
   usePageTitle('LeetCode');
   const { seasons, season, hasSelection } = useActivitySeason();
   const [urlFilters, setFilters] = useActivityFilters(season?.id);
@@ -403,9 +404,7 @@ export function LeetCodePage() {
   return (
     <div className="mx-auto w-full max-w-[92rem]">
       <PageHeader
-        eyebrow="LeetCode"
-        title="LeetCode practice"
-        description="Record what happened, not just whether a problem was completed. Track outcomes, confidence and time across your practice history."
+        title="LeetCode Practice"
         actions={
           <AttemptDialog
             onSaved={(attempt) => {
@@ -431,29 +430,30 @@ export function LeetCodePage() {
 
         <ProblemSuggestion />
         <section aria-label="Attempt history" className="flex flex-col gap-6">
-          <ActivityPeriodFilter
-            section="leetcode"
-            season={season}
-            seasons={seasons.data?.items ?? []}
-          />
           <DataTable
             ariaLabel="Problem attempts"
             data={visibleAttempts}
-            extraFilters={
-              season
-                ? {
-                    content: (
-                      <SeasonWeekChoices
-                        seasonId={season.id}
-                        selected={filters.weeks}
-                        onChange={(weeks) => setFilters({ weeks })}
-                      />
-                    ),
-                    activeCount: filters.weeks.length,
-                    onClear: () => setFilters({ weeks: [] }),
-                  }
-                : undefined
-            }
+            extraFilters={{
+              content: (
+                <>
+                  <ActivityPeriodFilter
+                    label="Season"
+                    section="leetcode"
+                    season={season}
+                    seasons={seasons.data?.items ?? []}
+                  />
+                  {season && (
+                    <SeasonWeekChoices
+                      seasonId={season.id}
+                      selected={filters.weeks}
+                      onChange={(weeks) => setFilters({ weeks })}
+                    />
+                  )}
+                </>
+              ),
+              activeCount: Number(Boolean(season)) + filters.weeks.length,
+              onClear: () => navigate('/leetcode'),
+            }}
             renderSummary={(rows) => (
               <PracticeAnalytics
                 attempts={rows}
@@ -466,7 +466,6 @@ export function LeetCodePage() {
             error={attemptsQuery.isError}
             onRetry={() => void attemptsQuery.refetch()}
             emptyTitle="No attempts recorded"
-            emptyMessage="Log your first problem attempt to begin building a useful practice history."
             getRowId={(attempt) => attempt.id}
             renderExpanded={(row) => (
               <section aria-label={`Notes for ${row.original.problem}`}>

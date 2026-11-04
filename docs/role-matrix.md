@@ -115,10 +115,14 @@ access is unavailable.
 
 ## Monday update authority
 
-A Monday update is one student's written record for a date range they choose. It
-records the season it was written in; the LeetCode attempts and mock interviews
+A Monday update is one student's written record for a completed programme week.
+It uses the programme's week number and the Monday–Sunday dates containing that
+week's start in Australia/Adelaide. Students choose a completed week, never custom
+dates. One update per student per week is allowed; missed weeks can be submitted
+late while the season is open. It records the season it was written in; the LeetCode attempts and mock interviews
 shown with it are always derived from its own dates when it is read, never copied
-into it. Several updates may cover the same week, and their ranges may overlap.
+into it. Historical free-date updates remain readable with their original dates
+and marks. Only an exact Monday–Sunday report counts as that week submitted.
 
 Only an active student enrollment can post an update, and only its author can
 delete it. There is no editing and no draft state; deletion is the only change.

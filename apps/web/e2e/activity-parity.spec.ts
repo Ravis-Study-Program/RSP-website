@@ -6,7 +6,7 @@ test('practice charts follow filters and the picker accepts keyboard search', as
 }, testInfo) => {
   await page.goto('/leetcode');
   await expect(
-    page.getByRole('heading', { name: 'LeetCode practice' }),
+    page.getByRole('heading', { name: 'LeetCode Practice' }),
   ).toBeVisible();
   await expect(
     page.getByRole('heading', { name: 'Difficulty breakdown' }),
@@ -53,7 +53,7 @@ test('profiles switch between seasons and all time with readable activity', asyn
   await expect(
     page.getByRole('heading', { name: 'Programme participation' }),
   ).toBeVisible();
-  await page.getByRole('tab', { name: /Mock interviews/ }).click();
+  await page.getByRole('tab', { name: /Mock Interviews/ }).click();
   await expect(
     page.getByRole('combobox', { name: 'Result', exact: true }),
   ).toBeVisible();

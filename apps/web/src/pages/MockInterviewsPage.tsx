@@ -37,7 +37,7 @@ import type { ColumnDef, Row } from '@tanstack/react-table';
 import type { Resolver } from 'react-hook-form';
 import { useMemo, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
-import { useBeforeUnload } from 'react-router-dom';
+import { useBeforeUnload, useNavigate } from 'react-router-dom';
 import { z } from 'zod';
 
 import { adaptCurrentPerson, adaptMockInterview } from '@/api/adapters';
@@ -54,7 +54,6 @@ import {
   demoActivityWeekId,
   useCurrentUser,
   useMockInterviewPages,
-  type MockInterviewMode,
   useMockParticipants,
 } from '@/api/queries';
 import { PageHeader, PersonIdentity, usePageTitle } from '@/components/Common';
@@ -418,7 +417,7 @@ const columnsForSeason = (
             : outcomeTone.danger,
         )}
       >
-        {interviewPassed(row.original) ? 'Pass' : 'Needs work'}
+        {interviewPassed(row.original) ? 'Pass' : 'Fail'}
       </Badge>
     ),
   },
@@ -441,13 +440,21 @@ const columnsForSeason = (
 ];
 
 export function MockInterviewsPage() {
-  usePageTitle('Mock interviews');
+  usePageTitle('Mock Interviews');
   const { seasons: seasonsQuery, season, hasSelection } = useActivitySeason();
   const user = useCurrentUser();
   const peopleQuery = useMockParticipants();
-  const columns = useMemo(() => columnsForSeason(season?.id), [season?.id]);
   const [filters, setFilters] = useActivityFilters(season?.id);
-  const [mode, setMode] = useState<MockInterviewMode>('received');
+  const [mode, setMode] = useState<'received' | 'given'>('received');
+  const navigate = useNavigate();
+  const columns = useMemo(
+    () =>
+      columnsForSeason(season?.id).filter(
+        (column) =>
+          column.id !== (mode === 'received' ? 'interviewee' : 'interviewer'),
+      ),
+    [season?.id, mode],
+  );
   // Keyed by mode: only the visible tab's pages are requested, and each
   // further page is requested only when the reader asks for it.
   const query = useMockInterviewPages(
@@ -542,9 +549,7 @@ export function MockInterviewsPage() {
   return (
     <div className="mx-auto w-full max-w-[92rem]">
       <PageHeader
-        eyebrow="Interview preparation"
-        title="Mock interviews"
-        description="Keep rounds, scores and feedback together. Interview details are versioned, and only the interviewee controls their review."
+        title="Mock Interviews"
         actions={
           <NewMockDialog
             people={availablePeople}
@@ -555,31 +560,44 @@ export function MockInterviewsPage() {
         }
       />
       <div className="flex flex-col gap-6">
-        <ActivityPeriodFilter
-          section="mock-interviews"
-          season={season}
-          seasons={seasonsQuery.data?.items ?? []}
-        />
-        <MockFilters
-          seasonId={season?.id}
-          people={availablePeople}
-          filters={filters}
-          onChange={setFilters}
-        />
         <Tabs
           value={mode}
-          onValueChange={(value) => setMode(value as MockInterviewMode)}
+          onValueChange={(value) => setMode(value as 'received' | 'given')}
         >
           <TabsList aria-label="Mock interview view">
             <TabsTrigger value="received">Received</TabsTrigger>
             <TabsTrigger value="given">Given</TabsTrigger>
-            <TabsTrigger value="all">All available</TabsTrigger>
           </TabsList>
           <TabsContent value={mode}>
             <DataTable
               ariaLabel={`${mode} mock interviews`}
               data={filtered}
               columns={columns}
+              extraFilters={{
+                content: (
+                  <>
+                    <ActivityPeriodFilter
+                      label="Season"
+                      section="mock-interviews"
+                      season={season}
+                      seasons={seasonsQuery.data?.items ?? []}
+                    />
+                    <MockFilters
+                      embedded
+                      seasonId={season?.id}
+                      people={availablePeople}
+                      filters={filters}
+                      onChange={setFilters}
+                    />
+                  </>
+                ),
+                activeCount:
+                  Number(Boolean(season)) +
+                  Number(Boolean(filters.passed)) +
+                  filters.interviewers.length +
+                  filters.weeks.length,
+                onClear: () => navigate('/mock-interviews'),
+              }}
               loading={
                 query.isLoading ||
                 user.isLoading ||
@@ -610,9 +628,7 @@ export function MockInterviewsPage() {
               emptyMessage={
                 mode === 'received'
                   ? 'Interviews where you are the interviewee will appear here.'
-                  : mode === 'given'
-                    ? 'Interviews you conduct will appear here.'
-                    : 'Create the first eligible mock interview.'
+                  : 'Interviews you conduct will appear here.'
               }
               getRowId={(mock) => mock.id}
               renderExpanded={(row) => (
@@ -650,7 +666,7 @@ export function MockInterviewsPage() {
                           : outcomeTone.danger,
                       )}
                     >
-                      {interviewPassed(row.original) ? 'Pass' : 'Needs work'}
+                      {interviewPassed(row.original) ? 'Pass' : 'Fail'}
                     </Badge>
                     <Badge
                       variant="outline"
@@ -666,16 +682,19 @@ export function MockInterviewsPage() {
                   </div>
                   <h2 className="mt-3 text-base font-semibold tracking-tight">
                     <PersonIdentity
-                      person={row.original.interviewee}
+                      person={
+                        mode === 'received'
+                          ? row.original.interviewer
+                          : row.original.interviewee
+                      }
                       seasonId={season?.id}
                     />
                   </h2>
                   <p className="text-sm text-muted-foreground">
-                    with {row.original.interviewer.name} ·{' '}
                     {formatDateTime(row.original.occurredAt)}
                   </p>
                   <p>
-                    {row.original.durationMinutes} minutes ·{' '}
+                    {row.original.durationMinutes} minutes,{' '}
                     {row.original.rounds.length}{' '}
                     {row.original.rounds.length === 1 ? 'round' : 'rounds'}
                   </p>
@@ -772,7 +791,7 @@ function MockDetails({
         <NamedConfirmation
           name={mock.interviewee.name}
           actionLabel="Delete interview"
-          description="The interview will be soft-deleted. Its immutable version history and audit record will remain."
+          description="This removes the interview from your history. Earlier versions and the record of changes are retained."
           onConfirm={onDelete}
         />
       ) : null}
@@ -952,7 +971,6 @@ function EditMockDialog({
   return (
     <FormDialog
       title="Edit interview details"
-      description="Saving creates an immutable interview version."
       open={open}
       onOpenChange={requestOpenChange}
       trigger="Edit details"
@@ -1023,7 +1041,12 @@ function EditMockDialog({
                 key={type}
                 onClick={() => setRounds((items) => [...items, newRound(type)])}
               >
-                <IconPlus size={17} aria-hidden="true" /> Add {type} round
+                <IconPlus size={17} aria-hidden="true" /> Add{' '}
+                {type === 'leetcode'
+                  ? 'LeetCode'
+                  : type === 'custom'
+                    ? 'custom'
+                    : 'behavioural'}
               </Button>
             ))}
           </div>
@@ -1048,7 +1071,7 @@ function EditMockDialog({
             }
             onClick={() => void save()}
           >
-            {pending ? 'Saving…' : 'Save interview'}
+            {pending ? 'Saving…' : 'Save changes'}
           </Button>
         </div>
       </div>
@@ -1245,9 +1268,7 @@ function IdentityCorrectionDialog({
   };
   const save = async () => {
     if (!reason.trim())
-      return setError(
-        'Explain why these immutable identities need correction.',
-      );
+      return setError('Explain why the participants need correcting.');
     if (interviewerId === intervieweeId)
       return setError('Interviewer and interviewee must be different people.');
     setPending(true);
@@ -1306,7 +1327,7 @@ function IdentityCorrectionDialog({
   return (
     <FormDialog
       title="Correct interview identities"
-      description="Director and System Admin corrections are permanently audited. Interviewers cannot use this flow to rewrite ownership."
+      description="Only a Director or System Admin can correct participants. The correction and reason are recorded."
       open={open}
       onOpenChange={requestOpenChange}
       trigger="Correct identities"
@@ -1574,8 +1595,8 @@ function NewMockDialog({
 
   return (
     <FormDialog
-      title="Record mock interview"
-      description="You are recorded as the interviewer. Participant identities cannot be changed after creation without an audited correction."
+      title="New mock interview"
+      description="You’re the interviewer. Ask a Director or System Admin to correct participants after saving."
       open={open}
       onOpenChange={requestOpen}
       trigger={
@@ -1664,10 +1685,6 @@ function NewMockDialog({
         </div>
         <FieldSet>
           <FieldLegend variant="label">Interview rounds</FieldLegend>
-          <FieldDescription>
-            Add LeetCode, custom or behavioural rounds. LeetCode rounds capture
-            all five scoring criteria.
-          </FieldDescription>
           {roundError ? <FieldError>{roundError}</FieldError> : null}
           {rounds.map((round, roundIndex) => (
             <RoundEditor
@@ -1696,7 +1713,12 @@ function NewMockDialog({
                   setRounds((items) => [...items, newRound(type)]);
                 }}
               >
-                <IconPlus size={17} aria-hidden="true" /> Add {type} round
+                <IconPlus size={17} aria-hidden="true" /> Add{' '}
+                {type === 'leetcode'
+                  ? 'LeetCode'
+                  : type === 'custom'
+                    ? 'custom'
+                    : 'behavioural'}
               </Button>
             ))}
           </div>
@@ -1710,7 +1732,7 @@ function NewMockDialog({
             Cancel
           </Button>
           <Button type="submit" disabled={isSubmitting}>
-            {isSubmitting ? 'Saving…' : 'Save interview'}
+            {isSubmitting ? 'Creating…' : 'Create interview'}
           </Button>
         </div>
       </form>

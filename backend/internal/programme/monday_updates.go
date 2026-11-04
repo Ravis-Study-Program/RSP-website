@@ -132,8 +132,7 @@ func ParseMondayUpdateDate(value string) (time.Time, error) {
 	return parsed, nil
 }
 
-// ValidateMondayUpdateDates rejects a reversed range and a start date later than
-// the end of the current Australia/Adelaide week.
+// ValidateMondayUpdateDates accepts only completed Monday–Sunday weeks in Adelaide.
 func ValidateMondayUpdateDates(startDate, endDate string, now time.Time) error {
 	start, err := ParseMondayUpdateDate(startDate)
 	if err != nil {
@@ -143,11 +142,11 @@ func ValidateMondayUpdateDates(startDate, endDate string, now time.Time) error {
 	if err != nil {
 		return err
 	}
-	if end.Before(start) {
-		return errors.New("endDate must not be before startDate")
+	if start.Weekday() != time.Monday || !end.Equal(start.AddDate(0, 0, 6)) {
+		return errors.New("updates must cover one Monday to Sunday week")
 	}
-	if start.Format(time.DateOnly) > CurrentMondayUpdateWeekEnd(now) {
-		return errors.New("startDate cannot be after the current Australia/Adelaide week")
+	if endDate >= now.In(programmeTimezone).Format(time.DateOnly) {
+		return errors.New("updates can be submitted after the week has ended")
 	}
 	return nil
 }

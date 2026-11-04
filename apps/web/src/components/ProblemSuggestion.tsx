@@ -94,8 +94,7 @@ export function ProblemSuggestion() {
             {pending ? 'Finding a question…' : 'Suggest a question'}
           </Button>
           <span className="min-w-0 text-sm text-muted-foreground">
-            Picks a question you have not attempted in any season, using the
-            selected difficulty and topics.
+            Suggests a question you haven’t attempted.
           </span>
         </div>
         {targeted ? (

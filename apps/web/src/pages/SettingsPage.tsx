@@ -181,9 +181,7 @@ export function SettingsPage() {
     <div className={pageClass}>
       <DirtyFormGuard blocker={blocker} />
       <PageHeader
-        eyebrow="Account"
         title="Settings"
-        description="Set your display timezone, view practice goals and manage account security."
         actions={
           <Button
             type="button"
@@ -324,8 +322,9 @@ export function SettingsPage() {
                   Password sign-in method
                 </strong>
                 <span className={rowTextClass}>
-                  For Google-only accounts. Connecting requires a fresh session
-                  and signs you out.
+                  For accounts that use Google sign-in only. Confirm your
+                  identity to add a password; you’ll then be signed out on all
+                  devices.
                 </span>
               </span>
               <ConnectPasswordDialog
@@ -348,7 +347,7 @@ export function SettingsPage() {
               <span>
                 <strong className="font-semibold">Password</strong>
                 <span className={rowTextClass}>
-                  Changing it revokes every session, including this one.
+                  Changing your password signs you out on all devices.
                 </span>
               </span>
               <ChangePasswordDialog onChanged={finishSecurityChange} />
@@ -356,9 +355,6 @@ export function SettingsPage() {
             <div className={rowClass}>
               <span>
                 <strong className="font-semibold">Current session</strong>
-                <span className={rowTextClass}>
-                  End this browser session securely.
-                </span>
               </span>
               <Button
                 variant="outline"
@@ -381,15 +377,15 @@ export function SettingsPage() {
         <Alert variant="destructive">
           <IconAlertTriangle size={19} aria-hidden="true" />
           <AlertDescription>
-            Requesting deletion revokes all sessions immediately. A verified
-            recovery link can cancel the request during the 30-day grace period.
+            Requesting deletion signs you out on all devices. You have 30 days
+            to cancel using the recovery link sent to your email.
           </AlertDescription>
         </Alert>
         <div className="mt-3 w-fit">
           <NamedConfirmation
             name="DELETE MY ACCOUNT"
             actionLabel="Request account deletion"
-            description="After 30 days, credentials and profile contact details are removed or pseudonymised. Historical programme records remain under an opaque ID."
+            description="After 30 days, your sign-in details and profile contact information are removed or replaced. Programme history is kept under an account ID."
             onConfirm={() => void deleteAccount()}
           />
         </div>
@@ -402,9 +398,6 @@ export function PracticePreferencesPanel() {
   return (
     <Card className="h-full">
       <CardContent className={formClass}>
-        <p className="text-muted-foreground">
-          Time goals are fixed for everyone and apply automatically.
-        </p>
         <dl className="grid grid-cols-2 gap-3.5 max-[56rem]:grid-cols-1">
           {(['Easy', 'Medium', 'Hard'] as const).map((difficulty) => (
             <div key={difficulty}>
@@ -481,7 +474,7 @@ function MfaSetupDialog({ onComplete }: { onComplete: () => void }) {
   return (
     <FormDialog
       title="Set up two-factor authentication"
-      description="Reauthenticate, add the TOTP URI to your authenticator, then verify a code."
+      description="Confirm your identity, add this account to your authenticator app, then enter a code."
       open={open}
       onOpenChange={setOpen}
       triggerVariant="outline"
@@ -583,8 +576,8 @@ function BackupCodesDialog({ onComplete }: { onComplete: () => void }) {
           <>
             <BackupCodeList codes={codes} />
             <FieldDescription>
-              All sessions have been revoked. Confirm only after storing the
-              codes.
+              You’ve been signed out on all devices. Save these codes before
+              continuing.
             </FieldDescription>
             <Button type="button" onClick={onComplete}>
               I stored the codes — sign in again
@@ -646,7 +639,7 @@ function ChangeEmailDialog({ onRequested }: { onRequested: () => void }) {
   return (
     <FormDialog
       title="Change account email"
-      description="This security-sensitive action requires a fresh session. Your new address must be verified."
+      description="Confirm your identity to change your email. You’ll need to verify the new address."
       open={open}
       onOpenChange={setOpen}
       triggerVariant="outline"
@@ -713,7 +706,7 @@ function ChangePasswordDialog({ onChanged }: { onChanged: () => void }) {
   return (
     <FormDialog
       title="Change password"
-      description="Confirm your current password. Every session, including this one, is revoked after the change."
+      description="Enter your current password. Changing it signs you out on all devices."
       open={open}
       onOpenChange={setOpen}
       triggerVariant="outline"
@@ -798,7 +791,7 @@ function ConnectPasswordDialog({ onConnected }: { onConnected: () => void }) {
   return (
     <FormDialog
       title="Connect password sign-in"
-      description="Use this only if you currently sign in with Google. All sessions are revoked after the method is connected."
+      description="Add a password if you currently sign in with Google only. You’ll be signed out on all devices afterward."
       open={open}
       onOpenChange={setOpen}
       triggerVariant="outline"

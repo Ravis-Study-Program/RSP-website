@@ -102,3 +102,43 @@ it('summarises all filtered records independently of pagination', async () => {
   await user.type(screen.getByLabelText('Search summary members'), 'Amelia');
   expect(screen.getByLabelText('Summary count')).toHaveTextContent('12');
 });
+
+it('keeps server pagination available until all records are loaded', async () => {
+  const user = userEvent.setup();
+  const onLoadMore = vi.fn();
+  const props = {
+    ariaLabel: 'Interviews',
+    data: [{ id: '1', name: 'Amelia', status: 'active' }],
+    columns,
+    emptyTitle: 'No interviews',
+    emptyMessage: '',
+    renderCard: (row: { original: RowData }) => row.original.name,
+  };
+  const pagination = {
+    totalCount: 2,
+    hasMore: true,
+    loadingMore: false,
+    onLoadMore,
+  };
+  const { rerender } = render(
+    <DataTable {...props} serverPagination={pagination} />,
+  );
+  await user.click(screen.getByRole('button', { name: 'Load more' }));
+  expect(onLoadMore).toHaveBeenCalledOnce();
+  rerender(
+    <DataTable
+      {...props}
+      serverPagination={{ ...pagination, loadingMore: true }}
+    />,
+  );
+  expect(screen.getByRole('button', { name: 'Loading…' })).toBeDisabled();
+  rerender(
+    <DataTable
+      {...props}
+      serverPagination={{ ...pagination, hasMore: false }}
+    />,
+  );
+  expect(
+    screen.queryByRole('button', { name: 'Load more' }),
+  ).not.toBeInTheDocument();
+});

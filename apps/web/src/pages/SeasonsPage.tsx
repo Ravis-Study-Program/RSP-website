@@ -55,7 +55,6 @@ export function SeasonsPage() {
               <HighlightText text={row.original.name} />
             </strong>
           </Link>
-          <div className={helperClass}>{row.original.summary}</div>
         </div>
       ),
     },
@@ -115,9 +114,7 @@ export function SeasonsPage() {
   return (
     <div className={pageClass}>
       <PageHeader
-        eyebrow="Programme"
         title="Seasons"
-        description="Move between current work and preserved programme history. Closed seasons stay readable and their records stay locked."
         actions={canCreate ? <SeasonEditorDialog /> : undefined}
       />
       <DataTable
@@ -152,7 +149,6 @@ export function SeasonsPage() {
               {formatDate(row.original.startsAt)} –{' '}
               {formatDate(row.original.endsAt)}
             </p>
-            <p>{row.original.summary}</p>
             <Link
               to={`/seasons/${row.original.slug}`}
               className={buttonVariants({ variant: 'outline', size: 'sm' })}

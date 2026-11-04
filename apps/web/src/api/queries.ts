@@ -65,10 +65,13 @@ import {
 } from '@/data/demo';
 import type { CurrentUser, MockInterview, Page, Person } from '@/types';
 
-export const demoMode = demoModeForEnvironment(
-  import.meta.env.VITE_USE_DEMO_DATA,
-  import.meta.env.MODE,
-);
+// Make the production exclusion visible to the bundler before minification.
+export const demoMode =
+  import.meta.env.MODE !== 'production' &&
+  demoModeForEnvironment(
+    import.meta.env.VITE_USE_DEMO_DATA,
+    import.meta.env.MODE,
+  );
 
 const wait = <T>(value: T) =>
   new Promise<T>((resolve) => window.setTimeout(() => resolve(value), 90));
@@ -488,6 +491,7 @@ function demoMondayUpdateReview(
     students.map((student): MondayUpdateReviewRow => {
       const updates = allUpdates.filter(
         (update) =>
+          update.seasonId === seasonId &&
           update.student.id === student.id &&
           dateRangesOverlap(
             update.startDate,
@@ -665,7 +669,11 @@ export function useMondayUpdateRangeActivity(
           const key = calendarDateKey(at, programmeTimezone);
           return key >= startDate && key <= endDate;
         };
-        const updates = demoMondayUpdates();
+        const updates = demoMondayUpdates().filter(
+          (update) =>
+            update.seasonId === seasonId &&
+            update.student.id === selectedDemoUser().id,
+        );
         return wait({
           attempts: uniqueById(
             updates.flatMap((update) => update.activity.attempts),

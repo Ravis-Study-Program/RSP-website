@@ -25,11 +25,10 @@ const (
 	mondayMentorshipID        = "00000000-0000-7000-8000-000000000221"
 )
 
-// mondayTestDate returns a calendar date the API accepts as a Monday update
-// boundary. Adelaide is ahead of UTC, so a UTC date is never after the current
-// Australia/Adelaide week.
+// mondayTestDate offsets from the last completed Sunday in Adelaide.
 func mondayTestDate(offsetDays int) string {
-	return time.Now().UTC().AddDate(0, 0, offsetDays).Format(time.DateOnly)
+	end, _ := time.Parse(time.DateOnly, programme.CurrentMondayUpdateWeekEnd(time.Now()))
+	return end.AddDate(0, 0, offsetDays-7).Format(time.DateOnly)
 }
 
 // newMondayUpdateFixture seeds the season with a mentored second student, a
@@ -59,6 +58,10 @@ func newMondayUpdateFixture(t *testing.T) postgresFixture {
 		if _, err := fixture.pool.Exec(context.Background(), statement); err != nil {
 			t.Fatal(err)
 		}
+	}
+	if _, err := fixture.pool.Exec(context.Background(), `INSERT INTO app.season_weeks(season_id,week_number,start_at,end_at)
+		VALUES($1,1,$2::date AT TIME ZONE 'Australia/Adelaide',($3::date + 1) AT TIME ZONE 'Australia/Adelaide' - interval '1 second')`, seasonID, mondayTestDate(-6), mondayTestDate(0)); err != nil {
+		t.Fatal(err)
 	}
 	fixture.handler = mondayUpdateHandler(fixture.db, map[string]authz.Actor{
 		"student": mondayActor(studentID, authz.Enrollment{SeasonID: seasonID, Role: authz.Student, State: authz.Active}),
@@ -101,7 +104,7 @@ func mondayReviewQuery(extra string) string {
 
 func createMondayUpdateFor(t *testing.T, fixture postgresFixture, actor, content string) programme.MondayUpdateRecord {
 	t.Helper()
-	return createMondayUpdateRange(t, fixture, actor, mondayTestDate(-1), mondayTestDate(0), content)
+	return createMondayUpdateRange(t, fixture, actor, mondayTestDate(-6), mondayTestDate(0), content)
 }
 
 func createMondayUpdateRange(t *testing.T, fixture postgresFixture, actor, startDate, endDate, content string) programme.MondayUpdateRecord {
@@ -346,13 +349,13 @@ func TestMondayUpdateValidationAndEnrollment(t *testing.T) {
 	}{
 		{
 			name: "reversed range", actor: "student", method: http.MethodPost, path: mondayUpdatesPath(),
-			body:    `{"startDate":"` + mondayTestDate(0) + `","endDate":"` + mondayTestDate(-1) + `","contentHtml":"<p>x</p>"}`,
-			message: "endDate must not be before startDate", status: http.StatusBadRequest,
+			body:    `{"startDate":"` + mondayTestDate(-6) + `","endDate":"` + mondayTestDate(-7) + `","contentHtml":"<p>x</p>"}`,
+			message: "updates must cover one Monday to Sunday week", status: http.StatusBadRequest,
 		},
 		{
 			name: "start after the current week", actor: "student", method: http.MethodPost, path: mondayUpdatesPath(),
-			body:    `{"startDate":"` + mondayTestDate(30) + `","endDate":"` + mondayTestDate(30) + `","contentHtml":"<p>x</p>"}`,
-			message: "startDate cannot be after the current Australia/Adelaide week", status: http.StatusBadRequest,
+			body:    `{"startDate":"` + mondayTestDate(1) + `","endDate":"` + mondayTestDate(7) + `","contentHtml":"<p>x</p>"}`,
+			message: "updates can be submitted after the week has ended", status: http.StatusBadRequest,
 		},
 		{
 			name: "malformed date", actor: "student", method: http.MethodPost, path: mondayUpdatesPath(),
@@ -361,42 +364,42 @@ func TestMondayUpdateValidationAndEnrollment(t *testing.T) {
 		},
 		{
 			name: "whitespace content", actor: "student", method: http.MethodPost, path: mondayUpdatesPath(),
-			body:    `{"startDate":"` + mondayTestDate(0) + `","endDate":"` + mondayTestDate(0) + `","contentHtml":"  "}`,
+			body:    `{"startDate":"` + mondayTestDate(-6) + `","endDate":"` + mondayTestDate(0) + `","contentHtml":"  "}`,
 			message: "contentHtml is required", status: http.StatusBadRequest,
 		},
 		{
 			name: "missing hours", actor: "student", method: http.MethodPost, path: mondayUpdatesPath(),
-			body:    `{"startDate":"` + mondayTestDate(0) + `","endDate":"` + mondayTestDate(0) + `","contentHtml":"<p>x</p>"}`,
+			body:    `{"startDate":"` + mondayTestDate(-6) + `","endDate":"` + mondayTestDate(0) + `","contentHtml":"<p>x</p>"}`,
 			message: "hours is required", status: http.StatusBadRequest,
 		},
 		{
 			name: "hours above a week", actor: "student", method: http.MethodPost, path: mondayUpdatesPath(),
-			body:    `{"startDate":"` + mondayTestDate(0) + `","endDate":"` + mondayTestDate(0) + `","contentHtml":"<p>x</p>","hours":168.5}`,
+			body:    `{"startDate":"` + mondayTestDate(-6) + `","endDate":"` + mondayTestDate(0) + `","contentHtml":"<p>x</p>","hours":168.5}`,
 			message: "hours must be between 0 and 168 in steps of 0.5", status: http.StatusBadRequest,
 		},
 		{
 			name: "negative hours", actor: "student", method: http.MethodPost, path: mondayUpdatesPath(),
-			body:    `{"startDate":"` + mondayTestDate(0) + `","endDate":"` + mondayTestDate(0) + `","contentHtml":"<p>x</p>","hours":-0.5}`,
+			body:    `{"startDate":"` + mondayTestDate(-6) + `","endDate":"` + mondayTestDate(0) + `","contentHtml":"<p>x</p>","hours":-0.5}`,
 			message: "hours must be between 0 and 168 in steps of 0.5", status: http.StatusBadRequest,
 		},
 		{
 			name: "hours off the half-hour step", actor: "student", method: http.MethodPost, path: mondayUpdatesPath(),
-			body:    `{"startDate":"` + mondayTestDate(0) + `","endDate":"` + mondayTestDate(0) + `","contentHtml":"<p>x</p>","hours":7.3}`,
+			body:    `{"startDate":"` + mondayTestDate(-6) + `","endDate":"` + mondayTestDate(0) + `","contentHtml":"<p>x</p>","hours":7.3}`,
 			message: "hours must be between 0 and 168 in steps of 0.5", status: http.StatusBadRequest,
 		},
 		{
 			name: "unknown field", actor: "student", method: http.MethodPost, path: mondayUpdatesPath(),
-			body:    `{"startDate":"` + mondayTestDate(0) + `","endDate":"` + mondayTestDate(0) + `","contentHtml":"<p>x</p>","studentId":"` + studentID + `"}`,
+			body:    `{"startDate":"` + mondayTestDate(-6) + `","endDate":"` + mondayTestDate(0) + `","contentHtml":"<p>x</p>","studentId":"` + studentID + `"}`,
 			message: `json: unknown field "studentId"`, status: http.StatusBadRequest,
 		},
 		{
 			name: "mentor cannot post", actor: "mentor", method: http.MethodPost, path: mondayUpdatesPath(),
-			body:    `{"startDate":"` + mondayTestDate(0) + `","endDate":"` + mondayTestDate(0) + `","contentHtml":"<p>x</p>"}`,
+			body:    `{"startDate":"` + mondayTestDate(-6) + `","endDate":"` + mondayTestDate(0) + `","contentHtml":"<p>x</p>"}`,
 			message: "Only an active student enrollment can post a Monday update in this season.", status: http.StatusForbidden,
 		},
 		{
 			name: "unenrolled actor cannot post", actor: "outsider", method: http.MethodPost, path: mondayUpdatesPath(),
-			body:    `{"startDate":"` + mondayTestDate(0) + `","endDate":"` + mondayTestDate(0) + `","contentHtml":"<p>x</p>"}`,
+			body:    `{"startDate":"` + mondayTestDate(-6) + `","endDate":"` + mondayTestDate(0) + `","contentHtml":"<p>x</p>"}`,
 			message: "Only an active student enrollment can post a Monday update in this season.", status: http.StatusForbidden,
 		},
 		{
@@ -446,7 +449,7 @@ func TestMondayUpdateValidationAndEnrollment(t *testing.T) {
 
 func TestMondayUpdateRequiresActiveStudentEnrollment(t *testing.T) {
 	fixture := newMondayUpdateFixture(t)
-	body := `{"startDate":"` + mondayTestDate(0) + `","endDate":"` + mondayTestDate(0) + `","contentHtml":"<p>x</p>","hours":30}`
+	body := `{"startDate":"` + mondayTestDate(-6) + `","endDate":"` + mondayTestDate(0) + `","contentHtml":"<p>x</p>","hours":30}`
 	for _, state := range []authz.EnrollmentState{authz.Completed, authz.Withdrawn} {
 		handler := mondayUpdateHandler(fixture.db, map[string]authz.Actor{
 			"student": mondayActor(studentID, authz.Enrollment{SeasonID: seasonID, Role: authz.Student, State: state}),
@@ -516,5 +519,55 @@ func TestMondayUpdateRangeActivityBoundsAndOwnership(t *testing.T) {
 	response = testRequest(t, fixture.handler, http.MethodGet, mondayActivityQuery("2026-05-01", "2026-05-01"), "student", "")
 	if response.Code != http.StatusOK || strings.TrimSpace(response.Body.String()) != `{"attempts":[],"mocks":[]}` {
 		t.Fatalf("empty status=%d body=%q", response.Code, response.Body)
+	}
+}
+
+func TestMondayUpdateFixedWeeksAndConcurrentSubmission(t *testing.T) {
+	fixture := newMondayUpdateFixture(t)
+	body := func(start, end string) string {
+		return `{"startDate":"` + start + `","endDate":"` + end + `","contentHtml":"<p>Weekly progress</p>","hours":30}`
+	}
+	// Completed dates outside the configured programme cannot be posted.
+	response := testRequest(t, fixture.handler, http.MethodPost, mondayUpdatesPath(), "student", body(mondayTestDate(-20), mondayTestDate(-14)))
+	if response.Code != http.StatusBadRequest {
+		t.Fatalf("unconfigured week: %d %s", response.Code, response.Body)
+	}
+	// A configured missed week remains available for a late submission.
+	if _, err := fixture.pool.Exec(context.Background(), `INSERT INTO app.season_weeks(season_id,week_number,start_at,end_at)
+  VALUES($1,2,$2::date AT TIME ZONE 'Australia/Adelaide',($3::date + 1) AT TIME ZONE 'Australia/Adelaide' - interval '1 second')`, seasonID, mondayTestDate(-20), mondayTestDate(-14)); err != nil {
+		t.Fatal(err)
+	}
+	late := createMondayUpdateRange(t, fixture, "student", mondayTestDate(-20), mondayTestDate(-14), "<p>Late</p>")
+	if late.StartDate != mondayTestDate(-20) {
+		t.Fatalf("late=%+v", late)
+	}
+	// Two simultaneous clicks/tabs still produce exactly one weekly update.
+	statuses := make(chan int, 2)
+	start := make(chan struct{})
+	for i := 0; i < 2; i++ {
+		go func() {
+			<-start
+			statuses <- testRequest(t, fixture.handler, http.MethodPost, mondayUpdatesPath(), "student", body(mondayTestDate(-6), mondayTestDate(0))).Code
+		}()
+	}
+	close(start)
+	first, second := <-statuses, <-statuses
+	if !((first == 201 && second == 409) || (first == 409 && second == 201)) {
+		t.Fatalf("concurrent statuses=%d,%d", first, second)
+	}
+	// Deleting one's update permits a replacement without leaving a duplicate.
+	own := listMondayUpdates(t, fixture, "student", "").Items[0]
+	response = testRequest(t, fixture.handler, http.MethodDelete, mondayUpdatesPath()+"/"+own.ID, "student", "")
+	if response.Code != 204 {
+		t.Fatalf("delete=%d %s", response.Code, response.Body)
+	}
+	createMondayUpdateFor(t, fixture, "student", "<p>Replacement</p>")
+	// Closing the season also closes late submissions.
+	if _, err := fixture.pool.Exec(context.Background(), `UPDATE app.seasons SET status='closed',closed_at=now() WHERE id=$1`, seasonID); err != nil {
+		t.Fatal(err)
+	}
+	response = testRequest(t, fixture.handler, http.MethodPost, mondayUpdatesPath(), "cohort", body(mondayTestDate(-6), mondayTestDate(0)))
+	if response.Code != http.StatusConflict {
+		t.Fatalf("closed=%d %s", response.Code, response.Body)
 	}
 }

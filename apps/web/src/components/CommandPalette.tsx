@@ -5,7 +5,6 @@ import {
   DialogTrigger,
   DialogContent,
   DialogTitle,
-  DialogDescription,
   DialogClose,
 } from '@/components/ui/dialog';
 import { IconSearch, IconX } from '@tabler/icons-react';
@@ -51,7 +50,7 @@ export function CommandPalette() {
               to: `${seasonBase}/leetcode`,
             },
             {
-              label: 'Mock interviews',
+              label: 'Mock Interviews',
               description: 'Received, given and available interviews',
               to: `${seasonBase}/mock-interviews`,
             },
@@ -69,7 +68,7 @@ export function CommandPalette() {
                 to: `${seasonBase}/mentees`,
               },
               {
-                label: 'Mock interviews',
+                label: 'Mock Interviews',
                 description: 'Received, given and available interviews',
                 to: `${seasonBase}/mock-interviews`,
               },
@@ -92,17 +91,17 @@ export function CommandPalette() {
                   to: `${seasonBase}/people`,
                 },
                 {
-                  label: 'Mentor teams',
+                  label: 'Mentor Teams',
                   description: 'Mentorship assignments',
                   to: `${seasonBase}/mentor-teams`,
                 },
                 {
-                  label: 'Mock interviews',
+                  label: 'Mock Interviews',
                   description: 'Season interview activity',
                   to: `${seasonBase}/mock-interviews`,
                 },
                 {
-                  label: 'Season operations',
+                  label: 'Season Operations',
                   description: 'Weeks, enrollments and mentorships',
                   to: '/admin/enrollments',
                 },
@@ -138,7 +137,7 @@ export function CommandPalette() {
                       to: '/leetcode',
                     },
                     {
-                      label: 'Mock interviews',
+                      label: 'Mock Interviews',
                       description: 'Received, given and available interviews',
                       to: '/mock-interviews',
                     },
@@ -156,7 +155,7 @@ export function CommandPalette() {
                         to: '/leetcode',
                       },
                       {
-                        label: 'Mock interviews',
+                        label: 'Mock Interviews',
                         description: 'Global interview activity',
                         to: '/mock-interviews',
                       },
@@ -221,9 +220,6 @@ export function CommandPalette() {
         <div className="mb-4 flex items-start justify-between gap-4">
           <div>
             <DialogTitle>Quick navigation</DialogTitle>
-            <DialogDescription>
-              Search pages available in your current role.
-            </DialogDescription>
           </div>
           <DialogClose
             render={<Button variant="ghost" size="icon" />}

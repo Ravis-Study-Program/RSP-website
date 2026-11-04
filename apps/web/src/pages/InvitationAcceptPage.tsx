@@ -73,7 +73,6 @@ export function InvitationAcceptPage() {
   return (
     <main className="mx-auto grid w-full max-w-[92rem] content-start gap-4">
       <PageHeader
-        eyebrow="RSP"
         title="Accept your invitation"
         description="Join your season using the email address that received the invitation."
       />

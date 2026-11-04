@@ -8,9 +8,11 @@ import (
 )
 
 var (
-	ErrNotFound  = errors.New("not found")
-	ErrConflict  = errors.New("conflict")
-	ErrDuplicate = errors.New("duplicate")
+	ErrNotFound              = errors.New("not found")
+	ErrConflict              = errors.New("conflict")
+	ErrDuplicate             = errors.New("duplicate")
+	ErrMondayUpdateWeek      = errors.New("updates must match a configured programme week")
+	ErrMondayUpdateSubmitted = errors.New("you have already submitted an update for this week")
 )
 
 func noRows(err error) error {

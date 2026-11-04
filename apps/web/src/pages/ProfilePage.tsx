@@ -206,12 +206,7 @@ export function ProfilePage() {
           <h1 className="text-2xl font-semibold tracking-tight md:text-3xl">
             {displayName}
           </h1>
-          <p className="text-muted-foreground">
-            @{savedSlug ?? person.slug}
-            {showProgrammeDetails
-              ? ` · ${selectedSeason?.name ?? 'All time'}`
-              : ''}
-          </p>
+          <p className="text-muted-foreground">@{savedSlug ?? person.slug}</p>
         </div>
       </header>
       {showProgrammeDetails ? (
@@ -242,11 +237,6 @@ export function ProfilePage() {
               </SelectGroup>
             </SelectContent>
           </Select>
-          <FieldDescription>
-            {selectedSeason
-              ? `Activity recorded in ${selectedSeason.name}`
-              : 'Complete practice and mock history, including activity between seasons.'}
-          </FieldDescription>
         </Field>
       ) : null}
       <div className="mt-4 flex flex-wrap items-center justify-between gap-4">
@@ -282,7 +272,7 @@ export function ProfilePage() {
         <div className="mt-4">
           <InlineNotice>
             <IconLock size={19} aria-hidden="true" /> Private account details
-            below are only visible to you
+            are visible only to you
             {showProgrammeDetails
               ? ' and authorised programme administrators.'
               : '.'}
@@ -292,12 +282,11 @@ export function ProfilePage() {
       {showProgrammeDetails ? (
         <div className="mt-4 grid grid-cols-3 gap-4 max-[56rem]:grid-cols-1">
           <MetricCard
-            label="Practice attempts"
+            label="Leetcodes"
             value={summary.data?.attemptCount ?? '—'}
-            detail={selectedSeason?.name ?? 'All time'}
           />
           <MetricCard
-            label="Mock interviews"
+            label="Mock Interviews"
             value={summary.data?.mockInterviewCount ?? '—'}
             detail={
               summary.data
@@ -306,7 +295,7 @@ export function ProfilePage() {
             }
           />
           <MetricCard
-            label="Last recorded activity"
+            label="Last Recorded Activity"
             value={
               summary.data?.lastActivityAt ? (
                 formatDateTime(summary.data.lastActivityAt).split(',')[0]
@@ -316,7 +305,6 @@ export function ProfilePage() {
                 </span>
               )
             }
-            detail={selectedSeason?.name ?? 'All time'}
           />
         </div>
       ) : null}

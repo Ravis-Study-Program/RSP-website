@@ -29,14 +29,15 @@ async function toggleWeekOption(page: Page, week: number, selected: boolean) {
 test('practice uses season or all time and clears weeks when changing periods @compat', async ({
   page,
 }, testInfo) => {
-  // Season weeks live in the attempt table's Filters popover.
+  // Season and weeks live in the attempt table's Filters popover.
   const openTableFilters = () =>
     page.getByRole('button', { name: /^Filters/ }).click();
   const weeksFilter = page.getByRole('combobox', { name: 'Season weeks' });
   await page.goto('/seasons/summer-2025-26/leetcode');
-  await expectSelected(page, 'View activity', 'Summer 2025/26');
-  await expect(page.getByLabel('Year (Adelaide time)')).toHaveCount(0);
+  await expect(page.getByRole('combobox', { name: /^Season$/ })).toHaveCount(0);
   await openTableFilters();
+  await expectSelected(page, /^Season$/, 'Summer 2025/26');
+  await expect(page.getByLabel('Year (Adelaide time)')).toHaveCount(0);
   await toggleWeekOption(page, 3, true);
   await expect(page).toHaveURL(/weekId=week_season_2026_s2_3/);
   const tree = page
@@ -51,25 +52,30 @@ test('practice uses season or all time and clears weeks when changing periods @c
   await expect(anagram).toBeVisible();
   await page.keyboard.press('Escape');
   await expect(weeksFilter).toHaveText('Week 2, Week 3');
-  await expect(page.getByRole('button', { name: 'Filters (2)' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Filters (3)' })).toBeVisible();
+  await chooseOption(page, /^Season$/, 'Summer 2024/25');
   await page.keyboard.press('Escape');
-  await chooseOption(page, 'View activity', 'Summer 2024/25');
   await expect(page).toHaveURL(/\/seasons\/summer-2024-25\/leetcode$/);
-  await expect(page.getByRole('button', { name: 'Filters' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Filters (1)' })).toBeVisible();
   await expect(tree).toHaveCount(0);
   await page.goBack();
-  await expectSelected(page, 'View activity', 'Summer 2025/26');
   await openTableFilters();
+  await expectSelected(page, /^Season$/, 'Summer 2025/26');
   await expect(weeksFilter).toHaveText('Week 2, Week 3');
+  await page.screenshot({
+    path: testInfo.outputPath('practice-filters.png'),
+    fullPage: true,
+  });
   await page.keyboard.press('Escape');
+  await expect(page.getByRole('combobox', { name: /^Season$/ })).toHaveCount(0);
   await expect(tree).toBeVisible();
   await page.screenshot({
     path: testInfo.outputPath('season-practice-weeks.png'),
     fullPage: true,
   });
-  await chooseOption(page, 'View activity', 'All time');
-  await expect(page).toHaveURL(/\/leetcode$/);
   await openTableFilters();
+  await chooseOption(page, /^Season$/, 'All time');
+  await expect(page).toHaveURL(/\/leetcode$/);
   await expect(weeksFilter).toHaveCount(0);
   await page.keyboard.press('Escape');
   await expect(
@@ -83,9 +89,9 @@ test('practice uses season or all time and clears weeks when changing periods @c
   await page.goto(
     '/leetcode?year=1900&weekId=week_season_2026_s2_3&difficulty=hard',
   );
-  await expectSelected(page, 'View activity', 'All time');
   await expect(anagram).toBeVisible();
   await openTableFilters();
+  await expectSelected(page, /^Season$/, 'All time');
   await expect(weeksFilter).toHaveCount(0);
 });
 
@@ -93,11 +99,31 @@ test('mocks and both profile tabs support weeks inside a season', async ({
   page,
 }, testInfo) => {
   await page.goto('/mock-interviews');
-  await expectSelected(page, 'View activity', 'All time');
-  await chooseOption(page, 'View activity', 'Summer 2025/26');
-  await page.getByRole('tab', { name: 'All available', exact: true }).click();
-  await page.getByText('Season weeks: All', { exact: true }).click();
-  await toggleWeek(page, 3, true);
+  await expect(page.getByRole('tab', { name: 'All', exact: true })).toHaveCount(
+    0,
+  );
+  await expect(
+    page.getByRole('combobox', { name: 'Season', exact: true }),
+  ).toHaveCount(0);
+  await expect(
+    page.getByRole('link', { name: 'Avery Example', exact: true }),
+  ).toHaveCount(0);
+  await expect(
+    page
+      .getByRole('link', { name: 'Noah Williams', exact: true })
+      .filter({ visible: true }),
+  ).toBeVisible();
+  await page.getByRole('button', { name: /^Filters/ }).click();
+  await expectSelected(page, /^Season$/, 'All time');
+  await chooseOption(page, /^Season$/, 'Summer 2025/26');
+  await page.keyboard.press('Escape');
+  await page.getByRole('tab', { name: 'Given', exact: true }).click();
+  await page.getByRole('button', { name: /^Filters/ }).click();
+  await page.screenshot({
+    path: testInfo.outputPath('mock-filters.png'),
+    fullPage: true,
+  });
+  await toggleWeekOption(page, 3, true);
   const amelia = page
     .getByRole('link', { name: 'Amelia Chen', exact: true })
     .filter({ visible: true });
@@ -106,15 +132,26 @@ test('mocks and both profile tabs support weeks inside a season', async ({
     .filter({ visible: true });
   await expect(amelia).toBeVisible();
   await expect(zara).toHaveCount(0);
-  await toggleWeek(page, 2, true);
-  await expect(zara).toBeVisible();
+  await toggleWeekOption(page, 2, true);
+  await expect(zara).toHaveCount(0);
+  await toggleWeekOption(page, 3, false);
+  await expect(amelia).toHaveCount(0);
+  await toggleWeekOption(page, 3, true);
+  await expect(amelia).toBeVisible();
+  await page.keyboard.press('Escape');
+  await page.keyboard.press('Escape');
+  await expect(
+    page.getByRole('link', { name: 'Avery Example', exact: true }),
+  ).toHaveCount(0);
   await page.screenshot({
     path: testInfo.outputPath('season-mock-weeks.png'),
     fullPage: true,
   });
-  await chooseOption(page, 'View activity', 'All time');
+  await page.getByRole('button', { name: /^Filters/ }).click();
+  await chooseOption(page, /^Season$/, 'All time');
   await expect(page).toHaveURL(/\/mock-interviews$/);
   await expect(page.getByText(/^Season weeks/)).toHaveCount(0);
+  await page.keyboard.press('Escape');
 
   await page.goto('/people/amelia-chen?seasonId=season_2026_s2');
   await page.getByText('Season weeks: All', { exact: true }).click();
@@ -127,7 +164,7 @@ test('mocks and both profile tabs support weeks inside a season', async ({
   await expect(
     page.getByText('Valid Anagram', { exact: true }).filter({ visible: true }),
   ).toHaveCount(0);
-  await page.getByRole('tab', { name: 'Mock interviews', exact: true }).click();
+  await page.getByRole('tab', { name: 'Mock Interviews', exact: true }).click();
   await expect(
     page.getByText('Season weeks (1)', { exact: true }),
   ).toBeVisible();
@@ -143,7 +180,7 @@ test('mocks and both profile tabs support weeks inside a season', async ({
   await chooseOption(page, 'View activity', 'All time');
   await expect(page).not.toHaveURL(/seasonId=|weekId=/);
   await expect(
-    page.getByRole('tab', { name: 'Mock interviews', exact: true }),
+    page.getByRole('tab', { name: 'Mock Interviews', exact: true }),
   ).toHaveAttribute('aria-selected', 'true');
   await expect(page.getByText(/^Season weeks/)).toHaveCount(0);
   await expect(
