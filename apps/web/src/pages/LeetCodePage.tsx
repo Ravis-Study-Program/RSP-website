@@ -43,6 +43,7 @@ import { useBeforeUnload, useNavigate } from 'react-router-dom';
 import { z } from 'zod';
 
 import { adaptAttempt, displayDifficulty } from '@/api/adapters';
+import { ExternalLink } from '@/components/ExternalLink';
 import { ApiError, apiRequest } from '@/api/client';
 import type {
   Attempt as ApiAttempt,
@@ -165,9 +166,9 @@ const baseColumns: ColumnDef<Attempt, any>[] = [
       <div>
         <strong>
           {row.original.problemUrl ? (
-            <a href={row.original.problemUrl} target="_blank" rel="noreferrer">
+            <ExternalLink href={row.original.problemUrl}>
               <HighlightText text={row.original.problem} />
-            </a>
+            </ExternalLink>
           ) : (
             <HighlightText text={row.original.problem} />
           )}
@@ -504,13 +505,13 @@ export function LeetCodePage() {
                   </Badge>
                 </div>
                 <h3 className="mt-3 text-base font-semibold tracking-tight">
-                  <a
-                    href={row.original.problemUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                  >
+                  {row.original.problemUrl ? (
+                    <ExternalLink href={row.original.problemUrl}>
+                      <HighlightText text={row.original.problem} />
+                    </ExternalLink>
+                  ) : (
                     <HighlightText text={row.original.problem} />
-                  </a>
+                  )}
                 </h3>
                 <p className="text-sm text-muted-foreground">
                   {row.original.category ? (

@@ -69,6 +69,7 @@ import {
 } from '@/api/queries';
 import { PageHeader, PersonIdentity, usePageTitle } from '@/components/Common';
 import { AppDatePicker } from '@/components/AppDatePicker';
+import { ExternalLink } from '@/components/ExternalLink';
 import { DataTable } from '@/components/DataTable';
 import { FormDialog, NamedConfirmation } from '@/components/Dialogs';
 import { ProblemSelect } from '@/components/ProblemSelect';
@@ -256,9 +257,7 @@ function RoundTitle({ round }: { round: MockRound }) {
   const problem = round.catalogProblem;
   if (round.apiType !== 'leetcode' || !problem) return round.title;
   return (
-    <a href={problem.link} target="_blank" rel="noreferrer">
-      {problemName(problem)}
-    </a>
+    <ExternalLink href={problem.link}>{problemName(problem)}</ExternalLink>
   );
 }
 
