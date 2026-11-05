@@ -63,6 +63,16 @@ test('profiles switch between seasons and all time with readable activity', asyn
   });
 });
 
+test('the sidebar account card opens your profile', async ({
+  page,
+  isMobile,
+}) => {
+  test.skip(isMobile, 'The sidebar is shown on wide screens only.');
+  await page.goto('/dashboard');
+  await page.getByRole('link', { name: /^Your profile/ }).click();
+  await expect(page).toHaveURL(/\/profile$/);
+});
+
 test('suggesting a question leaves practice counts unchanged', async ({
   page,
 }, testInfo) => {
