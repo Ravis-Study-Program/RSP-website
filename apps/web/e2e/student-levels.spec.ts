@@ -18,15 +18,17 @@ test('season mentors can set student levels and see fixed practice goals', async
     'Novice',
     'Beginner',
     'Intermediate',
-    'Advance',
+    'Advanced',
   ]);
-  await page.getByRole('option', { name: 'Advance', exact: true }).click();
+  await page.getByRole('option', { name: 'Advanced', exact: true }).click();
   await dialog.getByRole('button', { name: 'Save level' }).click();
   await expect(dialog).toBeHidden();
   await expect(
     page
       .getByText(
-        testInfo.project.name.includes('mobile') ? 'Level: Advance' : 'Advance',
+        testInfo.project.name.includes('mobile')
+          ? 'Level: Advanced'
+          : 'Advanced',
         { exact: true },
       )
       .first(),

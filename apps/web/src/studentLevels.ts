@@ -4,8 +4,16 @@ export const studentLevels = {
   novice: 'Novice',
   beginner: 'Beginner',
   intermediate: 'Intermediate',
-  advanced: 'Advance',
+  advanced: 'Advanced',
 } as const;
+
+/** Each level's badge colours, from grey for beginners up to purple. */
+export const studentLevelTone: Record<keyof typeof studentLevels, string> = {
+  beginner: 'border-transparent bg-muted text-muted-foreground',
+  novice: 'border-transparent bg-success-soft text-success',
+  intermediate: 'border-transparent bg-info-soft text-info',
+  advanced: 'border-transparent bg-purple-soft text-purple',
+};
 
 export function studentLevelLabel(level?: Person['studentLevel']) {
   return level && level !== 'not_applicable' ? studentLevels[level] : '—';

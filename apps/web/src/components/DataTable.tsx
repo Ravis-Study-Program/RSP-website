@@ -112,6 +112,11 @@ export interface DataTableProps<TData> {
   extraFilters?: ExtraFilters;
   /** Controls shown beside the search box, such as a view switch. */
   toolbarStart?: ReactNode;
+  /**
+   * Controls shown before the search box, such as tabs switching between
+   * tables. They stay while the table loads or fails.
+   */
+  toolbarLead?: ReactNode;
   /** `data` holds the loaded server pages; more rows load on demand. */
   serverPagination?: ServerPagination;
 }
@@ -161,6 +166,7 @@ export function DataTable<TData>({
   renderSummary,
   extraFilters,
   toolbarStart,
+  toolbarLead,
   serverPagination,
 }: DataTableProps<TData>) {
   const [sorting, setSorting] = useState<SortingState>([]);
@@ -228,9 +234,12 @@ export function DataTable<TData>({
         aria-busy="true"
       >
         <div className={toolbarClass}>
-          <Skeleton className="h-9 w-full max-w-96 text-transparent">
-            Loading
-          </Skeleton>
+          <div className="flex min-w-0 flex-1 flex-wrap items-center gap-3">
+            {toolbarLead}
+            <Skeleton className="h-9 w-full max-w-96 text-transparent">
+              Loading
+            </Skeleton>
+          </div>
         </div>
         <div className="grid min-h-60 place-items-center p-8 text-center">
           <span role="status">Loading {ariaLabel.toLowerCase()}…</span>
@@ -242,6 +251,7 @@ export function DataTable<TData>({
   if (error && !extraFilters)
     return (
       <div className="overflow-hidden rounded-lg border bg-card">
+        {toolbarLead ? <div className={toolbarClass}>{toolbarLead}</div> : null}
         <ErrorState onRetry={onRetry} />
       </div>
     );
@@ -279,6 +289,7 @@ export function DataTable<TData>({
         >
           <div className={toolbarClass}>
             <div className="flex min-w-0 flex-1 flex-wrap items-center gap-3">
+              {toolbarLead}
               <div className="relative w-full max-w-96">
                 <IconSearch
                   className="pointer-events-none absolute top-1/2 left-2.5 -translate-y-1/2 text-muted-foreground"

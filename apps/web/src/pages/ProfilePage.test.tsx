@@ -140,30 +140,16 @@ describe('profile slug suggestion', () => {
       </QueryClientProvider>,
     );
 
+    // Profiles are all time only, with no season picker.
     expect(
-      screen.getByRole('combobox', { name: 'View activity' }),
-    ).toHaveTextContent('All time');
-    await user.click(screen.getByRole('combobox', { name: 'View activity' }));
-    await user.click(await screen.findByRole('option', { name: 'Season One' }));
-    expect(useActivitySummary).toHaveBeenLastCalledWith('user-1', 'season-1');
-    expect(useUserAttempts).toHaveBeenLastCalledWith(
-      'user-1',
-      true,
-      'season-1',
-      expect.any(Object),
-    );
-    // The mock tab is not shown, so its pages are scoped but not requested.
+      screen.queryByRole('combobox', { name: 'View activity' }),
+    ).not.toBeInTheDocument();
+    expect(useActivitySummary).toHaveBeenLastCalledWith('user-1');
+    expect(useUserAttempts).toHaveBeenLastCalledWith('user-1', true);
     expect(useMockInterviewPages).toHaveBeenLastCalledWith(
-      expect.objectContaining({
-        mode: 'all',
-        seasonId: 'season-1',
-        userId: 'user-1',
-      }),
+      expect.objectContaining({ mode: 'all', userId: 'user-1' }),
       false,
     );
-    await user.click(screen.getByRole('combobox', { name: 'View activity' }));
-    await user.click(await screen.findByRole('option', { name: 'All time' }));
-    expect(useActivitySummary).toHaveBeenLastCalledWith('user-1', undefined);
     await user.click(screen.getByRole('button', { name: /edit profile/i }));
     await user.click(screen.getByRole('button', { name: 'Suggest' }));
 

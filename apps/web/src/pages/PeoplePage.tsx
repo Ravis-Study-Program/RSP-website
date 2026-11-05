@@ -18,6 +18,8 @@ import {
   PersonIdentity,
   RoleBadge,
   usePageTitle,
+  SeasonBadge,
+  StudentLevelBadge,
 } from '@/components/Common';
 import { DataTable } from '@/components/DataTable';
 import { StudentLevelDialog } from '@/components/StudentLevelDialog';
@@ -101,7 +103,24 @@ export function PeoplePage() {
           </div>
         ),
       },
-      { accessorKey: 'season', header: 'Season' },
+      {
+        accessorKey: 'season',
+        header: 'Season',
+        meta: { width: 6.5 },
+        cell: ({ row }: { row: { original: Person } }) => {
+          // A person's season is its name or slug.
+          const match = seasons.data?.items.find(
+            (item) =>
+              item.name === row.original.season ||
+              item.slug === row.original.season,
+          );
+          return match ? (
+            <SeasonBadge name={match.name} startsAt={match.startsAt} />
+          ) : (
+            (row.original.season ?? '—')
+          );
+        },
+      },
       ...(season
         ? [
             {
@@ -111,7 +130,12 @@ export function PeoplePage() {
               accessorFn: (person: Person) =>
                 studentLevelLabel(person.studentLevel),
               cell: ({ row }: { row: { original: Person } }) =>
-                studentLevelLabel(row.original.studentLevel),
+                row.original.studentLevel &&
+                row.original.studentLevel !== 'not_applicable' ? (
+                  <StudentLevelBadge level={row.original.studentLevel} />
+                ) : (
+                  '—'
+                ),
             },
             ...(canChangeLevel &&
             data.some(
@@ -172,7 +196,7 @@ export function PeoplePage() {
         cell: ({ getValue }) => (getValue() ? formatDateTime(getValue()) : '—'),
       },
     ],
-    [privateView, season, canChangeLevel, data, query],
+    [privateView, season, seasons.data?.items, canChangeLevel, data, query],
   );
 
   return (

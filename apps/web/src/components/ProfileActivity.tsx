@@ -1,245 +1,153 @@
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import { useMemo } from 'react';
-import { filterPractice, useActivityFilters } from '@/activityFilters';
-import { PracticeFilters, MockFilters } from '@/components/ActivityFilters';
-import type { ColumnDef } from '@tanstack/react-table';
-import { adaptMockParticipant } from '@/api/adapters';
+import { useMemo, useState } from 'react';
+import { useActivityFilters } from '@/activityFilters';
+import { MockFilters } from '@/components/ActivityFilters';
 import {
+  useCurrentUser,
   useMockInterviewPages,
   useMockInterviewSummary,
   useUserAttempts,
-  useSeasons,
 } from '@/api/queries';
+import { AttemptTable } from '@/components/AttemptTable';
 import { PracticeAnalytics } from '@/components/PracticeAnalytics';
-import { ActivityChart } from '@/components/ActivityChart';
-import { activitySeries } from '@/activityAnalytics';
-import { DataTable } from '@/components/DataTable';
-import { MockFeedback } from '@/components/MockFeedback';
-import { PersonIdentity } from '@/components/Common';
 import {
-  RichTextContent,
-  sanitizeRichTextForDisplay,
-} from '@/components/RichTextContent';
-import type { Attempt, MockInterview, Person } from '@/types';
-import { formatDate, formatDateTime, interviewPassed } from '@/utils';
+  MockInterviewTable,
+  MockTypeField,
+  type MockView,
+} from '@/pages/MockInterviewsPage';
+import type { MockInterview, Person } from '@/types';
 
-/** Sanitised notes flattened to one line, so table rows stay one height. */
-function richTextPreview(html: string) {
-  const sanitized = sanitizeRichTextForDisplay(html);
-  if (!sanitized) return '';
-  const root = new DOMParser().parseFromString(sanitized, 'text/html').body;
-  root
-    .querySelectorAll('p, li, blockquote, h1, h2, h3, h4, br')
-    .forEach((block) => block.append(' '));
-  return (root.textContent ?? '').replace(/\s+/g, ' ').trim();
-}
-
-const practiceColumns: ColumnDef<Attempt, any>[] = [
-  {
-    accessorKey: 'problem',
-    header: 'Problem',
-    cell: ({ row }) =>
-      row.original.problemUrl ? (
-        <a href={row.original.problemUrl} target="_blank" rel="noreferrer">
-          {row.original.problem}
-        </a>
-      ) : (
-        row.original.problem
-      ),
-  },
-  { accessorKey: 'difficulty', header: 'Difficulty', meta: { width: 6.5 } },
-  {
-    accessorKey: 'outcome',
-    header: 'Outcome',
-    meta: { width: 10.5 },
-    cell: ({ getValue }) => String(getValue()).replaceAll('_', ' '),
-  },
-  { accessorKey: 'minutes', header: 'Minutes', meta: { width: 6.5 } },
-  {
-    accessorKey: 'confidence',
-    header: 'Confidence',
-    meta: { width: 7 },
-    cell: ({ getValue }) => (getValue() ? `${getValue()}/5` : '—'),
-  },
-  {
-    accessorKey: 'attemptedAt',
-    header: 'Recorded',
-    meta: { width: 11.5 },
-    cell: ({ getValue }) => formatDateTime(getValue()),
-  },
-  {
-    accessorKey: 'notes',
-    header: 'Notes',
-    cell: ({ getValue }) => {
-      const preview = richTextPreview(getValue());
-      return preview ? (
-        <p title={preview}>{preview}</p>
-      ) : (
-        <span className="text-muted-foreground">No notes recorded.</span>
-      );
-    },
-  },
-];
-
+/**
+ * A person's LeetCode attempts and mock interviews, in the same tables as the
+ * LeetCode and Mock Interviews pages, read-only. Received and Given are from
+ * the person's side.
+ */
 export function ProfileActivity({
   person,
-  seasonId,
   tab,
   onTabChange,
 }: {
   person: Person;
-  seasonId?: string;
   tab: string;
   onTabChange: (tab: string) => void;
 }) {
-  const seasons = useSeasons();
-  const season = seasons.data?.items.find((s) => s.id === seasonId);
-  const [filters, setFilters] = useActivityFilters(seasonId);
-  // Each tab's data loads only once that tab is shown.
-  const attempts = useUserAttempts(
-    person.id,
-    tab === 'leetcode',
-    seasonId,
-    filters,
+  const user = useCurrentUser();
+  // Someone else's notes and interview details stay private: you see your
+  // own, and the details of interviews you took part in.
+  const isSelf = person.id === user.data?.id;
+  const [urlFilters, setFilters] = useActivityFilters();
+  const [view, setView] = useState<MockView>('all');
+  // Each tab's data loads only once that tab is shown. Profiles show
+  // all-time activity, so there are no season weeks to filter by.
+  const attempts = useUserAttempts(person.id, tab === 'leetcode');
+  // As on the Mock Interviews page, Received filters by interviewer, Given by
+  // interviewee, and All has no people filter.
+  const mockFilters = useMemo(
+    () => ({
+      ...urlFilters,
+      difficulties: [],
+      categories: [],
+      ...(view !== 'received' ? { interviewers: [] } : {}),
+      ...(view !== 'given' ? { interviewees: [] } : {}),
+      weeks: [],
+    }),
+    [urlFilters, view],
   );
-  const mockScope = { mode: 'all', seasonId, userId: person.id } as const;
   const mocks = useMockInterviewPages(
-    { ...mockScope, filters },
+    { mode: view, userId: person.id, filters: mockFilters },
     tab === 'mocks',
   );
-  const mockSummary = useMockInterviewSummary(
-    { ...mockScope, filters },
+  // Only people they have had interviews with, across all time, are offered.
+  const participants = useMockInterviewSummary(
+    { mode: view, userId: person.id },
     tab === 'mocks',
   );
-  // Unfiltered so selecting an interviewer never removes the other options.
-  const mockInterviewers = useMockInterviewSummary(mockScope, tab === 'mocks');
-  const visibleAttempts = useMemo(
-    () => filterPractice(attempts.data?.items ?? [], filters),
-    [attempts.data, filters],
-  );
+  const participantOptions =
+    (view === 'received'
+      ? participants.data?.interviewers
+      : view === 'given'
+        ? participants.data?.interviewees
+        : undefined) ?? [];
+  const [updated, setUpdated] = useState<Record<string, MockInterview>>({});
   const visibleMocks = useMemo(
-    () => mocks.data?.pages.flatMap((page) => page.items) ?? [],
-    [mocks.data],
+    () =>
+      (mocks.data?.pages.flatMap((page) => page.items) ?? []).map(
+        (mock) => updated[mock.id] ?? mock,
+      ),
+    [mocks.data, updated],
   );
-  const interviewers = useMemo(
-    () => (mockInterviewers.data?.interviewers ?? []).map(adaptMockParticipant),
-    [mockInterviewers.data],
-  );
-  const mockColumns: ColumnDef<MockInterview, any>[] = [
-    {
-      accessorKey: 'occurredAt',
-      header: 'Recorded',
-      meta: { width: 7.5 },
-      // Mocks are dated, not timed.
-      cell: ({ getValue }) => formatDate(getValue()),
-    },
-    {
-      accessorKey: 'interviewee.name',
-      header: 'Interviewee',
-      cell: ({ row }) => (
-        <PersonIdentity person={row.original.interviewee} seasonId={seasonId} />
-      ),
-    },
-    {
-      accessorKey: 'interviewer.name',
-      header: 'Interviewer',
-      cell: ({ row }) => (
-        <PersonIdentity person={row.original.interviewer} seasonId={seasonId} />
-      ),
-    },
-    {
-      accessorKey: 'durationMinutes',
-      header: 'Minutes',
-      meta: { width: 6.5 },
-    },
-    {
-      id: 'result',
-      header: 'Result',
-      meta: { width: 7.5 },
-      accessorFn: (mock) => (interviewPassed(mock) ? 'Pass' : 'Fail'),
-    },
-    {
-      id: 'feedback',
-      header: 'Feedback',
-      meta: { wrap: true },
-      cell: ({ row }) => (
-        <details>
-          <summary>View feedback</summary>
-          <MockFeedback mock={row.original} />
-        </details>
-      ),
-    },
-  ];
-  return (
-    <Tabs
-      className="mt-6"
-      value={tab}
-      onValueChange={(value) => onTabChange(String(value))}
+  // Switches between the two tables, in each table's toolbar.
+  const activityTabs = (
+    <TabsList
+      aria-label="Profile activity"
+      className="group-data-[orientation=horizontal]/tabs:h-9"
     >
-      <TabsList aria-label="Profile activity">
-        <TabsTrigger value="leetcode">LeetCode</TabsTrigger>
-        <TabsTrigger value="mocks">Mock Interviews</TabsTrigger>
-      </TabsList>
-      <TabsContent value="leetcode" className="flex flex-col gap-6">
-        <PracticeFilters
-          seasonId={seasonId}
-          filters={filters}
-          onChange={setFilters}
-        />
-        <DataTable
+      <TabsTrigger value="leetcode">LeetCode</TabsTrigger>
+      <TabsTrigger value="mocks">Mock interviews</TabsTrigger>
+    </TabsList>
+  );
+  return (
+    <Tabs value={tab} onValueChange={(value) => onTabChange(String(value))}>
+      <TabsContent value="leetcode">
+        <AttemptTable
+          toolbarLead={activityTabs}
           ariaLabel={`${person.name} practice history`}
-          data={visibleAttempts}
-          renderSummary={(rows) => (
-            <PracticeAnalytics attempts={rows} season={season} />
-          )}
-          columns={practiceColumns}
+          data={attempts.data?.items ?? []}
+          showNotes={isSelf}
+          renderSummary={(rows) => <PracticeAnalytics attempts={rows} />}
           loading={attempts.isLoading}
           error={attempts.isError}
           onRetry={() => void attempts.refetch()}
           emptyTitle="No practice in this period"
           emptyMessage="Recorded practice will appear here."
-          getRowId={(a) => a.id}
-          renderCard={({ original: a }) => (
-            <div>
-              <h3>
-                {a.problemUrl ? (
-                  <a href={a.problemUrl} target="_blank" rel="noreferrer">
-                    {a.problem}
-                  </a>
-                ) : (
-                  a.problem
-                )}
-              </h3>
-              <p>
-                {a.difficulty} · {a.minutes ?? '—'} min ·{' '}
-                {formatDateTime(a.attemptedAt)}
-              </p>
-              <p>
-                {a.outcome.replaceAll('_', ' ')} · Confidence:{' '}
-                {a.confidence ? `${a.confidence}/5` : 'Not recorded'}
-              </p>
-              <RichTextContent html={a.notes} />
-            </div>
-          )}
         />
       </TabsContent>
-      <TabsContent value="mocks" className="flex flex-col gap-6">
-        <MockFilters
-          seasonId={seasonId}
-          people={interviewers}
-          filters={filters}
-          onChange={setFilters}
-        />
-        <DataTable
+      <TabsContent value="mocks">
+        <MockInterviewTable
+          view={view}
+          onViewChange={setView}
+          mocks={visibleMocks}
+          subjectId={person.id}
+          viewerId={user.data?.id}
+          onChanged={(changed) => {
+            if (changed)
+              setUpdated((items) => ({ ...items, [changed.id]: changed }));
+            else void mocks.refetch();
+          }}
+          toolbarLead={activityTabs}
+          canViewDetails={(mock) =>
+            mock.interviewer.id === user.data?.id ||
+            mock.interviewee.id === user.data?.id
+          }
           ariaLabel={`${person.name} mock history`}
-          data={visibleMocks}
-          renderSummary={() => (
-            <ActivityChart
-              data={activitySeries([], mockSummary.data?.days, { season })}
-            />
-          )}
-          columns={mockColumns}
-          loading={mocks.isLoading}
+          extraFilters={{
+            content: (
+              <>
+                <MockTypeField view={view} onViewChange={setView} />
+                <MockFilters
+                  participant={
+                    view === 'received' ? 'interviewer' : 'interviewee'
+                  }
+                  people={participantOptions}
+                  filters={mockFilters}
+                  onChange={setFilters}
+                />
+              </>
+            ),
+            activeCount:
+              Number(Boolean(mockFilters.passed)) +
+              mockFilters.interviewers.length +
+              mockFilters.interviewees.length,
+            onClear: () => {
+              setView('all');
+              setFilters({
+                passed: '',
+                interviewers: [],
+                interviewees: [],
+              });
+            },
+          }}
+          loading={mocks.isLoading || user.isLoading}
           error={mocks.isError}
           onRetry={() => void mocks.refetch()}
           serverPagination={{
@@ -249,22 +157,7 @@ export function ProfileActivity({
             onLoadMore: () => void mocks.fetchNextPage(),
           }}
           emptyTitle="No mocks in this period"
-          emptyMessage="Received and conducted interviews will appear here."
-          getRowId={(m) => m.id}
-          renderCard={({ original: m }) => (
-            <div>
-              <PersonIdentity person={m.interviewee} seasonId={seasonId} />
-              <p>Interviewer</p>
-              <PersonIdentity person={m.interviewer} seasonId={seasonId} />
-              <p>
-                {formatDate(m.occurredAt)} · {m.durationMinutes} min
-              </p>
-              <details>
-                <summary>View feedback</summary>
-                <MockFeedback mock={m} />
-              </details>
-            </div>
-          )}
+          emptyMessage="Received and given interviews will appear here."
         />
       </TabsContent>
     </Tabs>

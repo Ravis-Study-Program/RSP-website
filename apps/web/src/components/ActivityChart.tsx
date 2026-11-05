@@ -19,14 +19,12 @@ export function ActivityChart({
   const attempts = data.reduce((total, item) => total + item.attempts, 0);
   const interviews = data.reduce((total, item) => total + item.interviews, 0);
   const hasActivity = attempts + interviews > 0;
-  const summary = (
-    <p className="mt-3 text-sm text-muted-foreground">
-      {hasActivity
-        ? `${attempts} LeetCode attempts and ${interviews} mock interviews in this period.`
-        : 'No activity in this period.'}
-    </p>
-  );
-  if (!hasActivity) return summary;
+  if (!hasActivity)
+    return (
+      <p className="mt-3 text-sm text-muted-foreground">
+        No activity in this period.
+      </p>
+    );
   return (
     <div className="min-w-0">
       <div
@@ -88,7 +86,6 @@ export function ActivityChart({
           </AreaChart>
         </ResponsiveContainer>
       </div>
-      {summary}
     </div>
   );
 }

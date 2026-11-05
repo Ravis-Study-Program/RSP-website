@@ -1,13 +1,5 @@
 import { Badge } from '@/components/ui/badge';
-import { Card, CardContent } from '@/components/ui/card';
-import {
-  Select,
-  SelectContent,
-  SelectGroup,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+import { cn } from '@/lib/utils';
 import {
   Field,
   FieldDescription,
@@ -17,11 +9,11 @@ import {
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { IconEdit, IconLock, IconMail, IconWorld } from '@tabler/icons-react';
-import { useEffect, useMemo, useState } from 'react';
+import { IconEdit } from '@tabler/icons-react';
+import { useMemo, useState } from 'react';
 import type { Resolver } from 'react-hook-form';
 import { useForm } from 'react-hook-form';
-import { Link, useParams, useSearchParams } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 import { z } from 'zod';
 
 import { adaptCurrentPerson, adaptCurrentUser } from '@/api/adapters';
@@ -38,36 +30,23 @@ import {
   useUserProfile,
 } from '@/api/queries';
 import { useQueryClient } from '@tanstack/react-query';
-import { MetricCard, RoleBadge, usePageTitle } from '@/components/Common';
-import { ProfileActivity } from '@/components/ProfileActivity';
-import { studentLevelLabel } from '@/studentLevels';
 import {
-  activitySeasons,
-  rememberActivitySeason,
-  rememberedActivitySeason,
-} from '@/activityPeriod';
+  MetricCard,
+  RoleBadge,
+  SeasonBadge,
+  StudentLevelBadge,
+  usePageTitle,
+} from '@/components/Common';
+import { ProfileActivity } from '@/components/ProfileActivity';
 import { FormDialog } from '@/components/Dialogs';
 import { TimezoneSelect } from '@/components/TimezoneSelect';
-import {
-  ErrorState,
-  InlineNotice,
-  PageSkeleton,
-} from '@/components/StatusViews';
-import {
-  formatDate,
-  formatDateTime,
-  initials,
-  supportedTimezones,
-} from '@/utils';
+import { ErrorState, PageSkeleton } from '@/components/StatusViews';
+import { formatDateTime, initials, supportedTimezones } from '@/utils';
 
 const pageClass = 'mx-auto w-full max-w-[92rem]';
-const sectionClass = 'mt-6';
-const sectionHeaderClass = 'mb-3 flex items-end justify-between gap-4';
-const sectionTitleClass = 'text-xl font-semibold tracking-tight';
 const formClass = 'flex flex-col gap-4';
 const inlineClass = 'flex flex-wrap items-center gap-2.5';
 const dialogActionsClass = 'mt-5 flex justify-end gap-2.5';
-const helperClass = 'text-sm text-muted-foreground';
 const badgeSuccessClass = 'bg-success-soft text-success';
 const badgeNeutralClass = 'bg-muted text-muted-foreground';
 
@@ -103,8 +82,6 @@ type ProfileValues = z.infer<typeof profileSchema>;
 
 export function ProfilePage() {
   const { slug } = useParams();
-  const [searchParams, setSearchParams] = useSearchParams();
-  const seasonId = searchParams.get('seasonId') || undefined;
   const user = useCurrentUser();
   const isSelf = !slug || slug === user.data?.slug;
   const hasProgrammeAccess = Boolean(
@@ -114,48 +91,21 @@ export function ProfilePage() {
       user.data.alumni),
   );
   const seasons = useSeasons(hasProgrammeAccess);
-  const publicProfile = useUserProfile(isSelf ? undefined : slug, seasonId);
+  const publicProfile = useUserProfile(isSelf ? undefined : slug);
   const person = isSelf
     ? user.data
       ? adaptCurrentPerson(user.data, seasons.data?.items)
       : undefined
     : (publicProfile.data ?? undefined);
-  // The whole history, not just the selected season: it also decides which
-  // seasons the activity picker offers.
   const participation = useUserParticipation(person?.id, hasProgrammeAccess);
+  // Profiles always show all-time activity.
   const summary = useActivitySummary(
     hasProgrammeAccess ? person?.id : undefined,
-    hasProgrammeAccess ? seasonId : undefined,
-  );
-  const selectedSeason = seasons.data?.items.find(
-    (season) => season.id === seasonId,
   );
   const showProgrammeDetails = !isSelf || hasProgrammeAccess;
   const [savedName, setSavedName] = useState<string | null>(null);
   const [savedSlug, setSavedSlug] = useState<string | null>(null);
   const [activityTab, setActivityTab] = useState('leetcode');
-  // Apply the season last chosen in any table when the address names none,
-  // if this person was a student in it.
-  useEffect(() => {
-    if (seasonId || !participation.data || !seasons.data) return;
-    const remembered = rememberedActivitySeason();
-    if (!remembered || remembered === 'all') return;
-    const offered = activitySeasons(
-      seasons.data.items,
-      participation.data.items,
-      {},
-    );
-    if (!offered.some((season) => season.id === remembered)) return;
-    const next = new URLSearchParams(searchParams);
-    next.set('seasonId', remembered);
-    setSearchParams(next, { replace: true });
-  }, [
-    participation.data,
-    searchParams,
-    seasonId,
-    seasons.data,
-    setSearchParams,
-  ]);
   usePageTitle(person?.name ?? 'Profile');
 
   if (
@@ -192,99 +142,64 @@ export function ProfilePage() {
       </div>
     );
 
-  if (seasonId && !seasons.isLoading && !selectedSeason)
-    return (
-      <div className={pageClass}>
-        <ErrorState
-          title="Season unavailable"
-          message="This season does not exist or is not available to your account."
-        />
-      </div>
-    );
   const displayName = savedName ?? person.name;
-  // With a season selected, the participation list shows just that season.
-  const shownParticipation = (participation.data?.items ?? []).filter(
-    (entry) => !seasonId || entry.seasonId === seasonId,
-  );
-  const selectedParticipation = participation.data?.items.find(
-    (entry) => entry.seasonId === seasonId,
-  );
-  const displayedRoles = selectedParticipation
-    ? [selectedParticipation.role]
-    : person.roles;
-  const displayedStatus = selectedParticipation?.state ?? person.status;
-  // A member's practice and mocks only belong to seasons where they were a
-  // student, so only those seasons are offered.
-  const seasonItems = [
-    { label: 'All time', value: '' },
-    ...activitySeasons(
-      seasons.data?.items ?? [],
-      participation.data?.items ?? [],
-      { selectedId: seasonId },
-    ).map((season) => ({ label: season.name, value: season.id })),
+  // The student level from the most recent season that recorded one.
+  const studentLevel = [...(participation.data?.items ?? [])]
+    .sort((left, right) => right.startAt.localeCompare(left.startAt))
+    .find(
+      (entry) => entry.lastStudentLevel !== 'not_applicable',
+    )?.lastStudentLevel;
+  const seasonsTaken = [
+    ...new Map(
+      [...(participation.data?.items ?? [])]
+        .sort((left, right) => left.startAt.localeCompare(right.startAt))
+        .map((entry) => [entry.seasonId, entry]),
+    ).values(),
   ];
   return (
-    <div className={pageClass}>
-      <header className="flex items-center gap-4 border-b pb-4">
-        <span className="inline-grid size-18 shrink-0 place-items-center rounded-full bg-primary text-xl font-semibold text-primary-foreground">
-          {initials(displayName)}
-        </span>
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight md:text-3xl">
-            {displayName}
-          </h1>
-          <p className="text-muted-foreground">@{savedSlug ?? person.slug}</p>
-        </div>
-      </header>
-      {showProgrammeDetails ? (
-        <Field className="mt-4">
-          <FieldLabel htmlFor="profile-season">View activity</FieldLabel>
-          <Select
-            items={seasonItems}
-            value={seasonId ?? ''}
-            onValueChange={(value) => {
-              rememberActivitySeason(value || undefined);
-              const next = new URLSearchParams(searchParams);
-              next.delete('weekId');
-              next.delete('year');
-              if (value) next.set('seasonId', value);
-              else next.delete('seasonId');
-              setSearchParams(next);
-            }}
-          >
-            <SelectTrigger id="profile-season" className="w-full">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectGroup>
-                {seasonItems.map((item) => (
-                  <SelectItem key={item.value} value={item.value}>
-                    {item.label}
-                  </SelectItem>
-                ))}
-              </SelectGroup>
-            </SelectContent>
-          </Select>
-        </Field>
-      ) : null}
-      <div className="mt-4 flex flex-wrap items-center justify-between gap-4">
-        {showProgrammeDetails ? (
-          <div className={inlineClass}>
-            {displayedRoles.map((role) => (
-              <RoleBadge role={role} key={role} />
-            ))}
-            <Badge
-              variant="secondary"
-              className={
-                displayedStatus === 'active'
-                  ? badgeSuccessClass
-                  : badgeNeutralClass
-              }
-            >
-              {statusLabel(displayedStatus)}
-            </Badge>
+    // Every part of the profile sits 24px from the next.
+    <div className={cn(pageClass, 'flex flex-col gap-6')}>
+      <header className="flex flex-wrap items-center justify-between gap-4 border-b pb-4">
+        <div className="flex min-w-0 items-center gap-4">
+          <span className="inline-grid size-18 shrink-0 place-items-center rounded-full bg-primary text-xl font-semibold text-primary-foreground">
+            {initials(displayName)}
+          </span>
+          <div className="grid min-w-0 gap-1">
+            <h1 className="text-2xl font-semibold tracking-tight md:text-3xl">
+              {displayName}
+            </h1>
+            <div className={inlineClass}>
+              <p className="text-muted-foreground">
+                @{savedSlug ?? person.slug}
+              </p>
+              {showProgrammeDetails ? (
+                <>
+                  {person.roles.map((role) => (
+                    <RoleBadge role={role} key={role} />
+                  ))}
+                  {seasonsTaken.map((entry) => (
+                    <SeasonBadge
+                      key={entry.seasonId}
+                      name={entry.seasonName}
+                      startsAt={entry.startAt}
+                    />
+                  ))}
+                  <StudentLevelBadge level={studentLevel} />
+                  <Badge
+                    variant="secondary"
+                    className={
+                      person.status === 'active'
+                        ? badgeSuccessClass
+                        : badgeNeutralClass
+                    }
+                  >
+                    {statusLabel(person.status)}
+                  </Badge>
+                </>
+              ) : null}
+            </div>
           </div>
-        ) : null}
+        </div>
         {isSelf && user.data ? (
           <EditProfileDialog
             user={user.data}
@@ -295,20 +210,9 @@ export function ProfilePage() {
             }}
           />
         ) : null}
-      </div>
-      {isSelf ? (
-        <div className="mt-4">
-          <InlineNotice>
-            <IconLock size={19} aria-hidden="true" /> Private account details
-            are visible only to you
-            {showProgrammeDetails
-              ? ' and authorised programme administrators.'
-              : '.'}
-          </InlineNotice>
-        </div>
-      ) : null}
+      </header>
       {showProgrammeDetails ? (
-        <div className="mt-4 grid grid-cols-3 gap-6 max-[56rem]:grid-cols-1">
+        <div className="grid grid-cols-3 gap-6 max-[56rem]:grid-cols-1">
           <MetricCard
             label="Leetcodes"
             value={summary.data?.attemptCount ?? '—'}
@@ -316,11 +220,6 @@ export function ProfilePage() {
           <MetricCard
             label="Mock Interviews"
             value={summary.data?.mockInterviewCount ?? '—'}
-            detail={
-              summary.data
-                ? `${summary.data.mocksReceived} received · ${summary.data.mocksConducted} conducted`
-                : 'Received and conducted'
-            }
           />
           <MetricCard
             label="Last Recorded Activity"
@@ -336,100 +235,6 @@ export function ProfilePage() {
           />
         </div>
       ) : null}
-      <div
-        className={`mt-4 grid items-stretch gap-6 ${showProgrammeDetails && isSelf ? 'min-[56rem]:grid-cols-2' : ''}`}
-      >
-        {showProgrammeDetails ? (
-          <section className={sectionClass}>
-            <div className={sectionHeaderClass}>
-              <h2 className={sectionTitleClass}>Programme participation</h2>
-            </div>
-            <Card className="h-full">
-              <CardContent>
-                {participation.isLoading ? (
-                  <p role="status">Loading participation…</p>
-                ) : participation.isError ? (
-                  <ErrorState
-                    title="Participation unavailable"
-                    onRetry={() => void participation.refetch()}
-                  />
-                ) : (
-                  <ol className="relative grid gap-0">
-                    {shownParticipation.map((entry) => (
-                      <li key={entry.id} className="pb-4 last:pb-0">
-                        <div className="min-w-0">
-                          <Link
-                            to={`${isSelf ? '/profile' : `/people/${person.slug}`}?seasonId=${encodeURIComponent(entry.seasonId)}`}
-                          >
-                            {entry.seasonName}
-                          </Link>
-                          <p className="text-sm">
-                            {formatDate(entry.startAt)} –{' '}
-                            {formatDate(entry.endAt)} · {entry.role} ·{' '}
-                            {entry.state}
-                          </p>
-                          {entry.lastStudentLevel !== 'not_applicable' ? (
-                            <p className="text-sm">
-                              Student level:{' '}
-                              {studentLevelLabel(entry.lastStudentLevel)}
-                            </p>
-                          ) : null}
-                          {entry.periods.map((period, index) => (
-                            <p className={helperClass} key={index}>
-                              {period.role}: {formatDate(period.startedAt)} –{' '}
-                              {period.endedAt
-                                ? formatDate(period.endedAt)
-                                : 'Season end'}
-                            </p>
-                          ))}
-                        </div>
-                      </li>
-                    ))}
-                    {!shownParticipation.length ? (
-                      <li>No recorded season participation.</li>
-                    ) : null}
-                  </ol>
-                )}
-              </CardContent>
-            </Card>
-          </section>
-        ) : null}
-        {isSelf ? (
-          <section className={sectionClass}>
-            <div className={sectionHeaderClass}>
-              <h2 className={sectionTitleClass}>Private account details</h2>
-            </div>
-            <Card className="h-full">
-              <CardContent>
-                <ul className="m-0 list-none divide-y p-0">
-                  <li className="flex items-center justify-between gap-4 py-3 first:pt-0 last:pb-0">
-                    <span className={inlineClass}>
-                      <IconMail size={18} aria-hidden="true" /> Email
-                    </span>
-                    <strong className="font-semibold">
-                      {user.data?.email}
-                    </strong>
-                  </li>
-                  <li className="flex items-center justify-between gap-4 py-3 first:pt-0 last:pb-0">
-                    <span className={inlineClass}>
-                      <IconWorld size={18} aria-hidden="true" /> Timezone
-                    </span>
-                    <strong className="font-semibold">
-                      {user.data?.timezone}
-                    </strong>
-                  </li>
-                  <li className="flex items-center justify-between gap-4 py-3 first:pt-0 last:pb-0">
-                    <span>Email verification</span>
-                    <Badge variant="secondary" className={badgeSuccessClass}>
-                      Verified
-                    </Badge>
-                  </li>
-                </ul>
-              </CardContent>
-            </Card>
-          </section>
-        ) : null}
-      </div>
       {showProgrammeDetails && summary.isError ? (
         <ErrorState
           title="Activity totals unavailable"
@@ -437,10 +242,9 @@ export function ProfilePage() {
         />
       ) : null}
       {showProgrammeDetails ? (
-        <div className="mt-6">
+        <div>
           <ProfileActivity
             person={person}
-            seasonId={seasonId}
             tab={activityTab}
             onTabChange={setActivityTab}
           />

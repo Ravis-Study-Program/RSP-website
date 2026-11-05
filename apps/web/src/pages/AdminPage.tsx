@@ -1383,7 +1383,7 @@ export function EnrollmentDialog({
     { label: 'Novice', value: 'novice' },
     { label: 'Beginner', value: 'beginner' },
     { label: 'Intermediate', value: 'intermediate' },
-    { label: 'Advance', value: 'advanced' },
+    { label: 'Advanced', value: 'advanced' },
     { label: 'Not applicable', value: 'not_applicable' },
   ];
   const accountItems = [
