@@ -9,7 +9,7 @@ import (
 
 	"github.com/magedmg/RSP-website/backend/internal/dal"
 	"github.com/magedmg/RSP-website/backend/internal/platform/id"
-	"github.com/magedmg/RSP-website/backend/internal/programme"
+	"github.com/magedmg/RSP-website/backend/internal/program"
 )
 
 func TestMentorReassignmentPreservesPreviousStudents(t *testing.T) {
@@ -22,7 +22,7 @@ func TestMentorReassignmentPreservesPreviousStudents(t *testing.T) {
 	if _, err := f.pool.Exec(ctx, `INSERT INTO app.enrollments(user_id,season_id,role,student_level,state) VALUES($1,$2,'mentor','not_applicable','active')`, nextMentor, seasonID); err != nil {
 		t.Fatal(err)
 	}
-	old, err := f.db.CreateMentorship(ctx, programme.MentorshipRecord{ID: id.New(), SeasonID: seasonID, MentorUserID: otherID, StudentUserID: studentID}, otherID, time.Now())
+	old, err := f.db.CreateMentorship(ctx, program.MentorshipRecord{ID: id.New(), SeasonID: seasonID, MentorUserID: otherID, StudentUserID: studentID}, otherID, time.Now())
 	if err != nil {
 		t.Fatal(err)
 	}

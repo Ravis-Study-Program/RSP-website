@@ -10,7 +10,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/magedmg/RSP-website/backend/internal/programme"
+	"github.com/magedmg/RSP-website/backend/internal/program"
 	"github.com/magedmg/RSP-website/backend/internal/worker"
 )
 
@@ -28,8 +28,8 @@ type seedCohortStudent struct {
 }
 
 type seedPersona struct {
-	trend  []programme.MondayUpdateMark // cycles over a student's updates
-	hours  []float64                    // cycles over a student's updates
+	trend  []program.MondayUpdateMark // cycles over a student's updates
+	hours  []float64                  // cycles over a student's updates
 	topics []string
 	style  int // 0 detailed, 1 bullet list, 2 terse
 }
@@ -76,56 +76,56 @@ var seedNext = []string{
 	"Practise writing clean code first, then optimise.",
 }
 
-var seedMarkComments = map[programme.MondayUpdateMark][]string{
-	programme.MarkWayAhead:   {"Outstanding consistency. Start mixing in harder problems and timed mocks.", "You're well ahead of the plan; keep the reflection quality this high."},
-	programme.MarkDoingGood:  {"Strong week. Push one more mock before the end of the month.", "Good progress and honest reflection. Keep the mistakes log going."},
-	programme.MarkOnTrack:    {"Steady progress. Try to narrate the invariant before you start typing.", "On pace. Next step is solving mediums without peeking at hints."},
-	programme.MarkABitBehind: {"A lighter stretch. Let's plan smaller daily goals so uni doesn't swallow the week.", "Fewer problems than planned. Pick two topics and go deep rather than wide."},
-	programme.MarkAtRisk:     {"Let's catch up this week; book a 1:1 so we can reset the plan.", "Very little activity recently. Please reach out so we can adjust your schedule."},
+var seedMarkComments = map[program.MondayUpdateMark][]string{
+	program.MarkWayAhead:   {"Outstanding consistency. Start mixing in harder problems and timed mocks.", "You're well ahead of the plan; keep the reflection quality this high."},
+	program.MarkDoingGood:  {"Strong week. Push one more mock before the end of the month.", "Good progress and honest reflection. Keep the mistakes log going."},
+	program.MarkOnTrack:    {"Steady progress. Try to narrate the invariant before you start typing.", "On pace. Next step is solving mediums without peeking at hints."},
+	program.MarkABitBehind: {"A lighter stretch. Let's plan smaller daily goals so uni doesn't swallow the week.", "Fewer problems than planned. Pick two topics and go deep rather than wide."},
+	program.MarkAtRisk:     {"Let's catch up this week; book a 1:1 so we can reset the plan.", "Very little activity recently. Please reach out so we can adjust your schedule."},
 }
 
 var seedCohort = []seedCohortStudent{
 	{"amelia-chen", "Amelia Chen", "intermediate", "dev", seedPersona{
-		trend: []programme.MondayUpdateMark{programme.MarkDoingGood, programme.MarkWayAhead, programme.MarkDoingGood},
+		trend: []program.MondayUpdateMark{program.MarkDoingGood, program.MarkWayAhead, program.MarkDoingGood},
 		hours: []float64{32, 28.5, 35, 30}, topics: []string{"hashing", "trees", "graphs", "dp"}}, []int{7, 7, 7, 7, 7, 7, 7, 7}},
 	{"marcus-oyelaran", "Marcus Oyelaran", "beginner", "dev", seedPersona{
-		trend: []programme.MondayUpdateMark{programme.MarkABitBehind, programme.MarkOnTrack, programme.MarkAtRisk},
+		trend: []program.MondayUpdateMark{program.MarkABitBehind, program.MarkOnTrack, program.MarkAtRisk},
 		hours: []float64{12, 8.5, 15, 4}, topics: []string{"arrays", "hashing", "behaviour"}, style: 2}, []int{3, 0, 4, 7, 0, 14, 7}},
 	{"zara-ahmed", "Zara Ahmed", "advanced", "dev", seedPersona{
-		trend: []programme.MondayUpdateMark{programme.MarkWayAhead},
+		trend: []program.MondayUpdateMark{program.MarkWayAhead},
 		hours: []float64{42, 38, 45.5, 40}, topics: []string{"graphs", "dp", "system", "heaps"}, style: 1}, []int{7, 3, 4, 7, 7, 7, 7, 7, 7}},
 	{"liam-nguyen", "Liam Nguyen", "novice", "dev", seedPersona{
-		trend: []programme.MondayUpdateMark{programme.MarkOnTrack, programme.MarkABitBehind},
+		trend: []program.MondayUpdateMark{program.MarkOnTrack, program.MarkABitBehind},
 		hours: []float64{18, 20, 16.5}, topics: []string{"arrays", "hashing", "intervals"}}, []int{14, 14, 7, 10}},
 	{"sofia-rossi", "Sofia Rossi", "intermediate", "dev", seedPersona{
-		trend: []programme.MondayUpdateMark{programme.MarkOnTrack, programme.MarkDoingGood},
+		trend: []program.MondayUpdateMark{program.MarkOnTrack, program.MarkDoingGood},
 		hours: []float64{25, 22, 30, 27.5}, topics: []string{"intervals", "heaps", "backtrack", "behaviour"}, style: 1}, []int{1, 6, 7, 0, 7, 5, 2, 7}},
 	{"noah-williams", "Noah Williams", "beginner", "second", seedPersona{
-		trend: []programme.MondayUpdateMark{programme.MarkAtRisk, programme.MarkABitBehind},
+		trend: []program.MondayUpdateMark{program.MarkAtRisk, program.MarkABitBehind},
 		hours: []float64{3, 6.5, 0, 10}, topics: []string{"arrays", "behaviour"}, style: 2}, []int{0, 7, 0, 0, 21}},
 	{"priyanka-das", "Priyanka Das", "advanced", "second", seedPersona{
-		trend: []programme.MondayUpdateMark{programme.MarkDoingGood, programme.MarkWayAhead},
+		trend: []program.MondayUpdateMark{program.MarkDoingGood, program.MarkWayAhead},
 		hours: []float64{36, 40, 33.5}, topics: []string{"system", "graphs", "dp"}}, []int{7, 7, 7, 7, 7, 7, 7, 7, 7}},
 	{"ethan-park", "Ethan Park", "intermediate", "second", seedPersona{
-		trend: []programme.MondayUpdateMark{programme.MarkOnTrack},
+		trend: []program.MondayUpdateMark{program.MarkOnTrack},
 		hours: []float64{20, 24, 19.5, 26}, topics: []string{"trees", "backtrack", "heaps"}, style: 1}, []int{4, 3, 7, 7, 2, 5, 7}},
 	{"hannah-kowalski", "Hannah Kowalski", "novice", "second", seedPersona{
-		trend: []programme.MondayUpdateMark{programme.MarkABitBehind, programme.MarkOnTrack},
+		trend: []program.MondayUpdateMark{program.MarkABitBehind, program.MarkOnTrack},
 		hours: []float64{14, 11, 16}, topics: []string{"arrays", "hashing", "trees"}}, []int{7, 7, 0, 7, 7}},
 	{"diego-martinez", "Diego Martínez", "intermediate", "", seedPersona{
-		trend: []programme.MondayUpdateMark{programme.MarkOnTrack},
+		trend: []program.MondayUpdateMark{program.MarkOnTrack},
 		hours: []float64{22, 18.5, 27}, topics: []string{"intervals", "dp", "behaviour"}, style: 2}, []int{10, 4, 7, 7}},
 	{"aisha-bello", "Aisha Bello", "beginner", "", seedPersona{
-		trend: []programme.MondayUpdateMark{programme.MarkOnTrack},
+		trend: []program.MondayUpdateMark{program.MarkOnTrack},
 		hours: []float64{15, 17.5, 12}, topics: []string{"arrays", "hashing"}, style: 1}, []int{7, 7, 7}},
 	{"oliver-smith", "Oliver Smith", "advanced", "", seedPersona{
-		trend: []programme.MondayUpdateMark{programme.MarkDoingGood},
+		trend: []program.MondayUpdateMark{program.MarkDoingGood},
 		hours: []float64{50, 45, 55.5}, topics: []string{"system", "graphs"}}, []int{2, 5, 7, 7, 7, 7, 7, 7, 7, 7}},
 }
 
 // devStudentSeed gives the seeded (log-in-able) student their own history.
 var devStudentSeed = seedCohortStudent{persona: seedPersona{
-	trend: []programme.MondayUpdateMark{programme.MarkOnTrack, programme.MarkDoingGood, programme.MarkABitBehind},
+	trend: []program.MondayUpdateMark{program.MarkOnTrack, program.MarkDoingGood, program.MarkABitBehind},
 	hours: []float64{30, 26, 33.5, 21}, topics: []string{"arrays", "hashing", "trees", "behaviour"}}, lengths: []int{7, 7, 3, 4, 7, 0, 7}}
 
 // seedMondayUpdates adds a development cohort to dev-season (extra students,
@@ -203,7 +203,7 @@ func seedMondayCohort(ctx context.Context, tx pgx.Tx, seasonID string, now time.
 	}
 
 	rng := rand.New(rand.NewPCG(2026, 10))
-	weekEnd, err := time.Parse(time.DateOnly, programme.CurrentMondayUpdateWeekEnd(now))
+	weekEnd, err := time.Parse(time.DateOnly, program.CurrentMondayUpdateWeekEnd(now))
 	if err != nil {
 		return err
 	}

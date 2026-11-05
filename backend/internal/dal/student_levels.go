@@ -6,7 +6,7 @@ import (
 
 	"github.com/magedmg/RSP-website/backend/internal/platform/audit"
 	"github.com/magedmg/RSP-website/backend/internal/platform/id"
-	"github.com/magedmg/RSP-website/backend/internal/programme"
+	"github.com/magedmg/RSP-website/backend/internal/program"
 )
 
 type UpdateStudentLevelInput struct {
@@ -14,20 +14,20 @@ type UpdateStudentLevelInput struct {
 	ChangedAt                                     time.Time
 }
 
-func (p *Store) UpdateStudentLevel(ctx context.Context, input UpdateStudentLevelInput) (programme.EnrollmentRecord, error) {
+func (p *Store) UpdateStudentLevel(ctx context.Context, input UpdateStudentLevelInput) (program.EnrollmentRecord, error) {
 	tx, err := p.pool.Begin(ctx)
 	if err != nil {
-		return programme.EnrollmentRecord{}, err
+		return program.EnrollmentRecord{}, err
 	}
 	defer tx.Rollback(context.Background())
 	// Lock the season first, as CloseSeason does, so a level change cannot
 	// race with completing its enrollments.
 	var status string
 	if err := tx.QueryRow(ctx, `SELECT status FROM app.seasons WHERE id=$1 AND deleted_at IS NULL FOR UPDATE`, input.SeasonID).Scan(&status); err != nil {
-		return programme.EnrollmentRecord{}, noRows(err)
+		return program.EnrollmentRecord{}, noRows(err)
 	}
 	if status != "open" {
-		return programme.EnrollmentRecord{}, ErrConflict
+		return program.EnrollmentRecord{}, ErrConflict
 	}
 	member, err := scanEnrollment(tx.QueryRow(ctx, `SELECT `+enrollmentColumns+` FROM app.enrollments e JOIN app.seasons s ON s.id=e.season_id WHERE e.id=$1 AND e.season_id=$2 AND e.deleted_at IS NULL FOR UPDATE OF e`, input.EnrollmentID, input.SeasonID))
 	if err != nil {

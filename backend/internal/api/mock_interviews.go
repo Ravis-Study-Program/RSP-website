@@ -49,7 +49,7 @@ func (a *API) listMockInterviewParticipants(w http.ResponseWriter, r *http.Reque
 	}
 	eligible := err == nil && memberStatus.CanBeMockInterviewParticipant()
 	if !eligible && !actor.IsDirectorOrSystemAdmin() {
-		writeErrorResponse(w, http.StatusForbidden, "Only programme members may select eligible mock-interview participants.")
+		writeErrorResponse(w, http.StatusForbidden, "Only program members may select eligible mock-interview participants.")
 		return
 	}
 	if _, err := parseSort(r.URL.Query().Get("sort"), "id:asc", "id:asc"); err != nil {
@@ -124,7 +124,7 @@ func (a *API) mockInterviewScope(w http.ResponseWriter, r *http.Request) (query 
 	}
 	eligible := err == nil && memberStatus.CanBeMockInterviewParticipant()
 	if !eligible && !actor.IsDirectorOrSystemAdmin() && !historicalMockReviewer(actor) {
-		writeErrorResponse(w, http.StatusForbidden, "Only current or former programme members may access mock interviews.")
+		writeErrorResponse(w, http.StatusForbidden, "Only current or former program members may access mock interviews.")
 		return query, "", false
 	}
 	seasonID, year, filterErr := activityFilters(r, actor)
@@ -315,7 +315,7 @@ func (a *API) createMockInterview(w http.ResponseWriter, r *http.Request) {
 	}
 	eligible := err == nil && memberStatus.CanBeMockInterviewParticipant()
 	if !eligible {
-		writeErrorResponse(w, http.StatusForbidden, "The interviewer must be a current or former programme member.")
+		writeErrorResponse(w, http.StatusForbidden, "The interviewer must be a current or former program member.")
 		return
 	}
 	var request createMockInterviewRequest
@@ -373,7 +373,7 @@ func (a *API) updateMockInterview(w http.ResponseWriter, r *http.Request) {
 	}
 	eligible := err == nil && memberStatus.CanBeMockInterviewParticipant()
 	if !eligible && !actor.IsDirectorOrSystemAdmin() {
-		writeErrorResponse(w, http.StatusForbidden, "Only current or former programme members may update mock interviews.")
+		writeErrorResponse(w, http.StatusForbidden, "Only current or former program members may update mock interviews.")
 		return
 	}
 	var request updateMockInterviewRequest
@@ -425,7 +425,7 @@ func (a *API) deleteMockInterview(w http.ResponseWriter, r *http.Request) {
 	}
 	eligible := err == nil && memberStatus.CanBeMockInterviewParticipant()
 	if !eligible && !actor.IsDirectorOrSystemAdmin() {
-		writeErrorResponse(w, http.StatusForbidden, "Only current or former programme members may delete mock interviews.")
+		writeErrorResponse(w, http.StatusForbidden, "Only current or former program members may delete mock interviews.")
 		return
 	}
 
@@ -465,7 +465,7 @@ func (a *API) reviewMockInterviewRound(w http.ResponseWriter, r *http.Request) {
 	}
 	eligible := err == nil && memberStatus.CanBeMockInterviewParticipant()
 	if !eligible && !actor.IsDirectorOrSystemAdmin() {
-		writeErrorResponse(w, http.StatusForbidden, "Only current or former programme members may review mock interviews.")
+		writeErrorResponse(w, http.StatusForbidden, "Only current or former program members may review mock interviews.")
 		return
 	}
 	var request reviewMockInterviewRoundRequest
@@ -516,7 +516,7 @@ func (a *API) setMockIntervieweeNotes(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if !(err == nil && memberStatus.CanBeMockInterviewParticipant()) && !actor.IsDirectorOrSystemAdmin() {
-		writeErrorResponse(w, http.StatusForbidden, "Only current or former programme members may review mock interviews.")
+		writeErrorResponse(w, http.StatusForbidden, "Only current or former program members may review mock interviews.")
 		return
 	}
 	var request mockIntervieweeNotesRequest
@@ -582,7 +582,7 @@ func (a *API) correctMockInterviewIdentities(w http.ResponseWriter, r *http.Requ
 			return
 		}
 		if err != nil || !participant.CanBeMockInterviewParticipant() {
-			writeErrorResponse(w, http.StatusBadRequest, "Corrected participants must be current or former programme members.")
+			writeErrorResponse(w, http.StatusBadRequest, "Corrected participants must be current or former program members.")
 			return
 		}
 	}

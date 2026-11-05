@@ -7,7 +7,7 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/magedmg/RSP-website/backend/internal/practice"
-	"github.com/magedmg/RSP-website/backend/internal/programme"
+	"github.com/magedmg/RSP-website/backend/internal/program"
 )
 
 // mondayUpdateColumns selects one update with the student's public profile.
@@ -39,31 +39,31 @@ const mondayUpdateMockRange = `JOIN app.mock_interviews m ON m.interviewee_user_
  AND (m.scheduled_at AT TIME ZONE 'Australia/Adelaide') >= u.start_date
  AND (m.scheduled_at AT TIME ZONE 'Australia/Adelaide') < (u.end_date + 1)`
 
-func scanMondayUpdate(row pgx.Row) (programme.MondayUpdateRecord, error) {
-	var v programme.MondayUpdateRecord
+func scanMondayUpdate(row pgx.Row) (program.MondayUpdateRecord, error) {
+	var v program.MondayUpdateRecord
 	err := row.Scan(&v.ID, &v.SeasonID, &v.Student.ID, &v.Student.Slug, &v.Student.Name, &v.Student.AvatarURL,
 		&v.StartDate, &v.EndDate, &v.ContentHTML, &v.Hours, &v.CreatedAt)
 	return v, noRows(err)
 }
 
 // normalizeMondayUpdate keeps the collections JSON requires to be arrays.
-func normalizeMondayUpdate(v programme.MondayUpdateRecord) programme.MondayUpdateRecord {
+func normalizeMondayUpdate(v program.MondayUpdateRecord) program.MondayUpdateRecord {
 	if v.Marks == nil {
-		v.Marks = []programme.MondayUpdateMarkRecord{}
+		v.Marks = []program.MondayUpdateMarkRecord{}
 	}
 	if v.Activity.Attempts == nil {
-		v.Activity.Attempts = []programme.MondayUpdateAttempt{}
+		v.Activity.Attempts = []program.MondayUpdateAttempt{}
 	}
 	if v.Activity.Mocks == nil {
-		v.Activity.Mocks = []programme.MondayUpdateMock{}
+		v.Activity.Mocks = []program.MondayUpdateMock{}
 	}
 	return v
 }
 
 // mondayUpdateRecordIDs indexes the loaded updates by id for batch hydration.
-func mondayUpdateRecordIDs(items []programme.MondayUpdateRecord) ([]string, map[string]*programme.MondayUpdateRecord) {
+func mondayUpdateRecordIDs(items []program.MondayUpdateRecord) ([]string, map[string]*program.MondayUpdateRecord) {
 	ids := make([]string, len(items))
-	byID := make(map[string]*programme.MondayUpdateRecord, len(items))
+	byID := make(map[string]*program.MondayUpdateRecord, len(items))
 	for i := range items {
 		ids[i] = items[i].ID
 		byID[items[i].ID] = &items[i]
@@ -87,7 +87,7 @@ type MondayUpdateQuery struct {
 	IncludeMarks bool
 }
 
-func (p *Store) ListMondayUpdates(ctx context.Context, q MondayUpdateQuery) ([]programme.MondayUpdateRecord, bool, int64, error) {
+func (p *Store) ListMondayUpdates(ctx context.Context, q MondayUpdateQuery) ([]program.MondayUpdateRecord, bool, int64, error) {
 	args := pgx.NamedArgs{
 		"seasonID":     q.SeasonID,
 		"startDate":    q.StartDate,
@@ -113,7 +113,7 @@ func (p *Store) ListMondayUpdates(ctx context.Context, q MondayUpdateQuery) ([]p
 	}
 
 	defer rows.Close()
-	items := []programme.MondayUpdateRecord{}
+	items := []program.MondayUpdateRecord{}
 	for rows.Next() {
 		record, err := scanMondayUpdate(rows)
 		if err != nil {
@@ -147,7 +147,7 @@ func (p *Store) ListMondayUpdates(ctx context.Context, q MondayUpdateQuery) ([]p
 	return items, more, total, nil
 }
 
-func (p *Store) GetMondayUpdate(ctx context.Context, seasonID, updateID string) (programme.MondayUpdateRecord, error) {
+func (p *Store) GetMondayUpdate(ctx context.Context, seasonID, updateID string) (program.MondayUpdateRecord, error) {
 	record, err := scanMondayUpdate(p.pool.QueryRow(ctx, `SELECT `+mondayUpdateColumns+`
 		FROM app.monday_updates u
 		JOIN app.user_profiles s ON s.user_id=u.student_user_id
@@ -158,7 +158,7 @@ func (p *Store) GetMondayUpdate(ctx context.Context, seasonID, updateID string) 
 	return normalizeMondayUpdate(record), nil
 }
 
-func (p *Store) GetMondayUpdateDetail(ctx context.Context, seasonID, updateID string) (programme.MondayUpdateRecord, error) {
+func (p *Store) GetMondayUpdateDetail(ctx context.Context, seasonID, updateID string) (program.MondayUpdateRecord, error) {
 	record, err := p.GetMondayUpdate(ctx, seasonID, updateID)
 	if err != nil {
 		return record, err
@@ -170,7 +170,7 @@ func (p *Store) GetMondayUpdateDetail(ctx context.Context, seasonID, updateID st
 	if records := marks[record.ID]; records != nil {
 		record.Marks = records
 	}
-	items := []programme.MondayUpdateRecord{record}
+	items := []program.MondayUpdateRecord{record}
 	if err := p.loadMondayUpdateActivity(ctx, items); err != nil {
 		return record, err
 	}
@@ -178,8 +178,8 @@ func (p *Store) GetMondayUpdateDetail(ctx context.Context, seasonID, updateID st
 }
 
 // loadMondayUpdateMarks hydrates every requested update's marks in one query.
-func (p *Store) loadMondayUpdateMarks(ctx context.Context, updateIDs []string) (map[string][]programme.MondayUpdateMarkRecord, error) {
-	marks := make(map[string][]programme.MondayUpdateMarkRecord, len(updateIDs))
+func (p *Store) loadMondayUpdateMarks(ctx context.Context, updateIDs []string) (map[string][]program.MondayUpdateMarkRecord, error) {
+	marks := make(map[string][]program.MondayUpdateMarkRecord, len(updateIDs))
 	if len(updateIDs) == 0 {
 		return marks, nil
 	}
@@ -195,7 +195,7 @@ func (p *Store) loadMondayUpdateMarks(ctx context.Context, updateIDs []string) (
 	defer rows.Close()
 	for rows.Next() {
 		var updateID string
-		var record programme.MondayUpdateMarkRecord
+		var record program.MondayUpdateMarkRecord
 		if err := rows.Scan(&updateID, &record.ID, &record.Mentor.ID, &record.Mentor.Slug, &record.Mentor.Name, &record.Mentor.AvatarURL,
 			&record.Mark, &record.CommentHTML, &record.UpdatedAt); err != nil {
 			return nil, err
@@ -208,7 +208,7 @@ func (p *Store) loadMondayUpdateMarks(ctx context.Context, updateIDs []string) (
 
 // loadMondayUpdateActivity hydrates the attempts and mocks of every loaded
 // update in two queries, each bounded by the update's own dates.
-func (p *Store) loadMondayUpdateActivity(ctx context.Context, items []programme.MondayUpdateRecord) error {
+func (p *Store) loadMondayUpdateActivity(ctx context.Context, items []program.MondayUpdateRecord) error {
 	if len(items) == 0 {
 		return nil
 	}
@@ -228,7 +228,7 @@ func (p *Store) loadMondayUpdateActivity(ctx context.Context, items []programme.
 	defer attemptRows.Close()
 	for attemptRows.Next() {
 		var updateID string
-		var attempt programme.MondayUpdateAttempt
+		var attempt program.MondayUpdateAttempt
 		if err := attemptRows.Scan(&updateID, &attempt.ID, &attempt.ProblemID, &attempt.Problem, &attempt.ProblemURL,
 			&attempt.Difficulty, &attempt.Outcome, &attempt.Minutes, &attempt.AttemptedAt); err != nil {
 			return err
@@ -254,7 +254,7 @@ func (p *Store) loadMondayUpdateActivity(ctx context.Context, items []programme.
 	defer mockRows.Close()
 	for mockRows.Next() {
 		var updateID string
-		var mock programme.MondayUpdateMock
+		var mock program.MondayUpdateMock
 		if err := mockRows.Scan(&updateID, &mock.ID, &mock.OccurredAt, &mock.DurationMinutes); err != nil {
 			return err
 		}
@@ -266,8 +266,8 @@ func (p *Store) loadMondayUpdateActivity(ctx context.Context, items []programme.
 
 // GetMondayUpdateRangeActivity reads one student's attempts and mocks inside a
 // calendar-date range with the same Adelaide bounds as an update's activity.
-func (p *Store) GetMondayUpdateRangeActivity(ctx context.Context, userID, startDate, endDate string) (programme.MondayUpdateActivity, error) {
-	activity := programme.MondayUpdateActivity{Attempts: []programme.MondayUpdateAttempt{}, Mocks: []programme.MondayUpdateMock{}}
+func (p *Store) GetMondayUpdateRangeActivity(ctx context.Context, userID, startDate, endDate string) (program.MondayUpdateActivity, error) {
+	activity := program.MondayUpdateActivity{Attempts: []program.MondayUpdateAttempt{}, Mocks: []program.MondayUpdateMock{}}
 	attemptRows, err := p.pool.Query(ctx, `SELECT a.id,COALESCE(l.id,a.problem_id),pr.title,COALESCE(pr.url,''),
 		COALESCE(l.difficulty::text,''),a.outcome::text,a.time_taken_minutes,a.attempted_at
 		FROM app.problem_attempts a
@@ -282,7 +282,7 @@ func (p *Store) GetMondayUpdateRangeActivity(ctx context.Context, userID, startD
 	}
 	defer attemptRows.Close()
 	for attemptRows.Next() {
-		var attempt programme.MondayUpdateAttempt
+		var attempt program.MondayUpdateAttempt
 		if err := attemptRows.Scan(&attempt.ID, &attempt.ProblemID, &attempt.Problem, &attempt.ProblemURL,
 			&attempt.Difficulty, &attempt.Outcome, &attempt.Minutes, &attempt.AttemptedAt); err != nil {
 			return activity, err
@@ -306,7 +306,7 @@ func (p *Store) GetMondayUpdateRangeActivity(ctx context.Context, userID, startD
 	}
 	defer mockRows.Close()
 	for mockRows.Next() {
-		var mock programme.MondayUpdateMock
+		var mock program.MondayUpdateMock
 		if err := mockRows.Scan(&mock.ID, &mock.OccurredAt, &mock.DurationMinutes); err != nil {
 			return activity, err
 		}
@@ -315,7 +315,7 @@ func (p *Store) GetMondayUpdateRangeActivity(ctx context.Context, userID, startD
 	return activity, mockRows.Err()
 }
 
-func (p *Store) CreateMondayUpdate(ctx context.Context, v programme.MondayUpdateRecord, actorID string) (programme.MondayUpdateRecord, error) {
+func (p *Store) CreateMondayUpdate(ctx context.Context, v program.MondayUpdateRecord, actorID string) (program.MondayUpdateRecord, error) {
 	tx, err := p.pool.Begin(ctx)
 	if err != nil {
 		return v, err
@@ -387,7 +387,7 @@ func (p *Store) DeleteMondayUpdate(ctx context.Context, seasonID, updateID, stud
 	return tx.Commit(ctx)
 }
 
-func (p *Store) UpsertMondayUpdateMark(ctx context.Context, v programme.MondayUpdateMarkRecord, actorID string) (programme.MondayUpdateMarkRecord, error) {
+func (p *Store) UpsertMondayUpdateMark(ctx context.Context, v program.MondayUpdateMarkRecord, actorID string) (program.MondayUpdateMarkRecord, error) {
 	tx, err := p.pool.Begin(ctx)
 	if err != nil {
 		return v, err
@@ -415,8 +415,8 @@ func (p *Store) UpsertMondayUpdateMark(ctx context.Context, v programme.MondayUp
 		WHERE k.update_id=$1 AND k.mentor_user_id=$2`, v.UpdateID, v.Mentor.ID))
 }
 
-func scanMondayUpdateMark(row pgx.Row) (programme.MondayUpdateMarkRecord, error) {
-	var v programme.MondayUpdateMarkRecord
+func scanMondayUpdateMark(row pgx.Row) (program.MondayUpdateMarkRecord, error) {
+	var v program.MondayUpdateMarkRecord
 	err := row.Scan(&v.UpdateID, &v.ID, &v.Mentor.ID, &v.Mentor.Slug, &v.Mentor.Name, &v.Mentor.AvatarURL, &v.Mark, &v.CommentHTML, &v.UpdatedAt)
 	return v, noRows(err)
 }
@@ -432,7 +432,7 @@ type MondayUpdateReviewQuery struct {
 // ListMondayUpdateReview returns one row per student enrolled in the season,
 // including students with no update in the range. Every update and count for
 // the page is hydrated in batched queries, never per row.
-func (p *Store) ListMondayUpdateReview(ctx context.Context, q MondayUpdateReviewQuery) ([]programme.MondayUpdateReviewRow, bool, int64, error) {
+func (p *Store) ListMondayUpdateReview(ctx context.Context, q MondayUpdateReviewQuery) ([]program.MondayUpdateReviewRow, bool, int64, error) {
 	args := pgx.NamedArgs{"seasonID": q.SeasonID}
 	var total int64
 	if err := p.pool.QueryRow(ctx, `SELECT count(*) FROM app.enrollments e
@@ -456,13 +456,13 @@ func (p *Store) ListMondayUpdateReview(ctx context.Context, q MondayUpdateReview
 	}
 
 	defer rows.Close()
-	items := []programme.MondayUpdateReviewRow{}
+	items := []program.MondayUpdateReviewRow{}
 	for rows.Next() {
-		var row programme.MondayUpdateReviewRow
+		var row program.MondayUpdateReviewRow
 		if err := rows.Scan(&row.Student.ID, &row.Student.Slug, &row.Student.Name, &row.Student.AvatarURL); err != nil {
 			return nil, false, 0, err
 		}
-		row.Updates = []programme.MondayUpdateReviewUpdate{}
+		row.Updates = []program.MondayUpdateReviewUpdate{}
 		items = append(items, row)
 	}
 	if err := rows.Err(); err != nil {
@@ -476,7 +476,7 @@ func (p *Store) ListMondayUpdateReview(ctx context.Context, q MondayUpdateReview
 		return items, more, total, nil
 	}
 	studentIDs := make([]string, len(items))
-	byStudent := make(map[string]*programme.MondayUpdateReviewRow, len(items))
+	byStudent := make(map[string]*program.MondayUpdateReviewRow, len(items))
 	for i := range items {
 		studentIDs[i] = items[i].Student.ID
 		byStudent[items[i].Student.ID] = &items[i]
@@ -499,7 +499,7 @@ func (p *Store) ListMondayUpdateReview(ctx context.Context, q MondayUpdateReview
 
 // loadMondayUpdateReviewUpdates attaches each student's updates in the reviewed
 // range, marks included, and returns the loaded update ids.
-func (p *Store) loadMondayUpdateReviewUpdates(ctx context.Context, q MondayUpdateReviewQuery, studentIDs []string, byStudent map[string]*programme.MondayUpdateReviewRow) ([]string, error) {
+func (p *Store) loadMondayUpdateReviewUpdates(ctx context.Context, q MondayUpdateReviewQuery, studentIDs []string, byStudent map[string]*program.MondayUpdateReviewRow) ([]string, error) {
 	args := pgx.NamedArgs{"seasonID": q.SeasonID, "startDate": q.StartDate, "endDate": q.EndDate, "studentIDs": studentIDs}
 	rows, err := p.pool.Query(ctx, `SELECT u.student_user_id,u.id,u.start_date::text,u.end_date::text,u.content_html,u.hours::float8,u.created_at
 		FROM app.monday_updates u
@@ -515,11 +515,11 @@ func (p *Store) loadMondayUpdateReviewUpdates(ctx context.Context, q MondayUpdat
 	updateIDs := []string{}
 	for rows.Next() {
 		var studentID string
-		var update programme.MondayUpdateReviewUpdate
+		var update program.MondayUpdateReviewUpdate
 		if err := rows.Scan(&studentID, &update.ID, &update.StartDate, &update.EndDate, &update.ContentHTML, &update.Hours, &update.CreatedAt); err != nil {
 			return nil, err
 		}
-		update.Marks = []programme.MondayUpdateMarkRecord{}
+		update.Marks = []program.MondayUpdateMarkRecord{}
 		record := byStudent[studentID]
 		record.Updates = append(record.Updates, update)
 		updateIDs = append(updateIDs, update.ID)
@@ -545,7 +545,7 @@ func (p *Store) loadMondayUpdateReviewUpdates(ctx context.Context, q MondayUpdat
 
 // loadMondayUpdateReviewCounts counts each student's solved problems and mocks
 // once, however many of that student's updates in the range contain them.
-func (p *Store) loadMondayUpdateReviewCounts(ctx context.Context, updateIDs []string, byStudent map[string]*programme.MondayUpdateReviewRow) error {
+func (p *Store) loadMondayUpdateReviewCounts(ctx context.Context, updateIDs []string, byStudent map[string]*program.MondayUpdateReviewRow) error {
 	solvedRows, err := p.pool.Query(ctx, `SELECT u.student_user_id,l.difficulty::text,count(DISTINCT a.id)
 		FROM app.monday_updates u
 		`+mondayUpdateAttemptRange+`

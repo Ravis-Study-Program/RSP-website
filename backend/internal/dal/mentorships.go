@@ -7,7 +7,7 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/magedmg/RSP-website/backend/internal/platform/id"
-	"github.com/magedmg/RSP-website/backend/internal/programme"
+	"github.com/magedmg/RSP-website/backend/internal/program"
 )
 
 type MentorshipQuery struct {
@@ -21,7 +21,7 @@ type MentorshipQuery struct {
 	StudentUserID string
 }
 
-func (p *Store) ListMentorships(ctx context.Context, q MentorshipQuery) ([]programme.MentorshipRecord, bool, int64, error) {
+func (p *Store) ListMentorships(ctx context.Context, q MentorshipQuery) ([]program.MentorshipRecord, bool, int64, error) {
 	const base = ` FROM app.mentorships m
 		JOIN app.enrollments mentor ON mentor.id=m.mentor_enrollment_id
 		JOIN app.enrollments student ON student.id=m.student_enrollment_id`
@@ -67,9 +67,9 @@ func (p *Store) ListMentorships(ctx context.Context, q MentorshipQuery) ([]progr
 	}
 
 	defer rows.Close()
-	items := make([]programme.MentorshipRecord, 0, q.Limit+1)
+	items := make([]program.MentorshipRecord, 0, q.Limit+1)
 	for rows.Next() {
-		var v programme.MentorshipRecord
+		var v program.MentorshipRecord
 		if err := rows.Scan(&v.ID, &v.SeasonID, &v.MentorUserID, &v.StudentUserID, &v.CreatedAt, &v.EndedAt); err != nil {
 			return nil, false, 0, err
 		}
@@ -84,7 +84,7 @@ func (p *Store) ListMentorships(ctx context.Context, q MentorshipQuery) ([]progr
 	return items, more, total, nil
 }
 
-func (p *Store) CreateMentorship(ctx context.Context, v programme.MentorshipRecord, actorID string, at time.Time) (programme.MentorshipRecord, error) {
+func (p *Store) CreateMentorship(ctx context.Context, v program.MentorshipRecord, actorID string, at time.Time) (program.MentorshipRecord, error) {
 	tx, err := p.pool.Begin(ctx)
 	if err != nil {
 		return v, err
@@ -110,14 +110,14 @@ type UpdateMentorshipInput struct {
 	ChangedAt     time.Time
 }
 
-func (p *Store) UpdateMentorship(ctx context.Context, input UpdateMentorshipInput) (programme.MentorshipRecord, error) {
+func (p *Store) UpdateMentorship(ctx context.Context, input UpdateMentorshipInput) (program.MentorshipRecord, error) {
 	tx, err := p.pool.Begin(ctx)
 	if err != nil {
-		return programme.MentorshipRecord{}, err
+		return program.MentorshipRecord{}, err
 	}
 
 	defer tx.Rollback(context.Background())
-	var old programme.MentorshipRecord
+	var old program.MentorshipRecord
 	err = tx.QueryRow(ctx, `SELECT m.id,m.season_id,mentor.user_id,student.user_id FROM app.mentorships m
  JOIN app.enrollments mentor ON mentor.id=m.mentor_enrollment_id
  JOIN app.enrollments student ON student.id=m.student_enrollment_id
@@ -131,7 +131,7 @@ func (p *Store) UpdateMentorship(ctx context.Context, input UpdateMentorshipInpu
 	if _, err := tx.Exec(ctx, `UPDATE app.mentorships SET ended_at=$2 WHERE id=$1`, old.ID, input.ChangedAt); err != nil {
 		return old, err
 	}
-	v := programme.MentorshipRecord{ID: id.New(), SeasonID: input.SeasonID, MentorUserID: input.MentorUserID, StudentUserID: input.StudentUserID}
+	v := program.MentorshipRecord{ID: id.New(), SeasonID: input.SeasonID, MentorUserID: input.MentorUserID, StudentUserID: input.StudentUserID}
 	_, err = tx.Exec(ctx, `INSERT INTO app.mentorships(id,season_id,mentor_enrollment_id,student_enrollment_id,created_at)
  VALUES($1,$2,(SELECT id FROM app.enrollments WHERE season_id=$2 AND user_id=$3 AND role IN ('mentor','coordinator') AND state='active' AND deleted_at IS NULL),
  (SELECT id FROM app.enrollments WHERE season_id=$2 AND user_id=$4 AND role='student' AND state='active' AND deleted_at IS NULL),$5)`, v.ID, v.SeasonID, v.MentorUserID, v.StudentUserID, input.ChangedAt)

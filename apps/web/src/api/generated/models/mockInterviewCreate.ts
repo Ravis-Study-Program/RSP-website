@@ -9,7 +9,7 @@ import type { MockRoundMutation } from './mockRoundMutation';
 import type { Participant } from './participant';
 
 /**
- * Record a mock that has already happened; future timestamps are rejected. Current and former programme members can participate.
+ * Record a mock that has already happened; future timestamps are rejected. Current and former program members can participate.
  */
 export interface MockInterviewCreate {
   interviewee: Participant;

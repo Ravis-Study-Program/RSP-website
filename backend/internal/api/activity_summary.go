@@ -10,7 +10,7 @@ func (a *API) getUserActivitySummary(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if !actor.CanRecordActivity() {
-		writeErrorResponse(w, http.StatusForbidden, "Programme membership is required.")
+		writeErrorResponse(w, http.StatusForbidden, "Program membership is required.")
 		return
 	}
 	if !a.authorizeActivityRead(w, r, r.PathValue("id"), seasonID) {

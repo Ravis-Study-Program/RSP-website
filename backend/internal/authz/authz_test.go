@@ -103,3 +103,31 @@ func TestSeasonAdminIsSeasonSpecificAndIndependentOfMFA(t *testing.T) {
 		t.Fatal("suspended coordinator may administer season")
 	}
 }
+
+func TestPracticeGoalsAreSetByCoordinatorsAndAdmins(t *testing.T) {
+	enrolled := func(role SeasonRole, state EnrollmentState) Actor {
+		a := activeActor("u")
+		a.Enrollments = []Enrollment{{"s", role, state}}
+		return a
+	}
+	admin := activeActor("u")
+	admin.GlobalRoles[SystemAdmin] = true
+	director := activeActor("u")
+	director.GlobalRoles[Director] = true
+	for name, tc := range map[string]struct {
+		actor Actor
+		want  bool
+	}{
+		"system admin":          {admin, true},
+		"director":              {director, true},
+		"active coordinator":    {enrolled(Coordinator, Active), true},
+		"completed coordinator": {enrolled(Coordinator, Completed), false},
+		"mentor":                {enrolled(Mentor, Active), false},
+		"student":               {enrolled(Student, Active), false},
+		"anonymous":             {Actor{}, false},
+	} {
+		if got := tc.actor.CanSetPracticeGoals(); got != tc.want {
+			t.Errorf("%s: CanSetPracticeGoals() = %v, want %v", name, got, tc.want)
+		}
+	}
+}

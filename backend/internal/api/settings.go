@@ -1,10 +1,13 @@
 package api
 
 import (
+	"fmt"
 	"net/http"
+	"time"
 
 	"github.com/magedmg/RSP-website/backend/internal/authz"
-	"github.com/magedmg/RSP-website/backend/internal/programme"
+	"github.com/magedmg/RSP-website/backend/internal/practice"
+	"github.com/magedmg/RSP-website/backend/internal/program"
 )
 
 func (a *API) getCurrentUserPracticeSettings(w http.ResponseWriter, r *http.Request) {
@@ -27,7 +30,7 @@ func (a *API) getUserPracticeSettings(w http.ResponseWriter, r *http.Request) {
 	}
 
 	allowed := actor.CanViewMemberPrivateData(target.ID, authz.MemberRelationship{})
-	var targetEnrollments []programme.EnrollmentRecord
+	var targetEnrollments []program.EnrollmentRecord
 	targetLoaded := false
 	for _, enrollment := range actor.Enrollments {
 		if allowed {
@@ -85,4 +88,39 @@ func (a *API) getUserPracticeSettings(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeJSONResponse(w, http.StatusOK, settings)
+}
+
+// updatePracticeSettings changes the program's practice goals, which apply
+// to every member. Coordinators and administrators may set them.
+func (a *API) updatePracticeSettings(w http.ResponseWriter, r *http.Request) {
+	actor := actorFrom(r.Context())
+	if !actor.CanSetPracticeGoals() {
+		writeErrorResponse(w, http.StatusForbidden, "Only coordinators and administrators can change practice goals.")
+		return
+	}
+	var request struct {
+		EasyMinutes   int `json:"easyMinutes"`
+		MediumMinutes int `json:"mediumMinutes"`
+		HardMinutes   int `json:"hardMinutes"`
+	}
+	if err := decodeJSON(r.Body, &request); err != nil {
+		writeErrorResponse(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	settings := practice.PracticeSettings{
+		GoalsEnabled:  true,
+		EasyMinutes:   request.EasyMinutes,
+		MediumMinutes: request.MediumMinutes,
+		HardMinutes:   request.HardMinutes,
+	}
+	if !settings.Valid() {
+		writeErrorResponse(w, http.StatusBadRequest, fmt.Sprintf("Each goal must be a whole number of minutes from 1 to %d.", practice.MaxGoalMinutes))
+		return
+	}
+	saved, err := a.db.SetPracticeSettings(r.Context(), actor.UserID, settings, time.Now().UTC())
+	if err != nil {
+		a.writeStoreErrorResponse(w, err)
+		return
+	}
+	writeJSONResponse(w, http.StatusOK, saved)
 }

@@ -17,7 +17,7 @@ import (
 	"github.com/magedmg/RSP-website/backend/internal/mockinterviews"
 	"github.com/magedmg/RSP-website/backend/internal/platform/id"
 	"github.com/magedmg/RSP-website/backend/internal/practice"
-	"github.com/magedmg/RSP-website/backend/internal/programme"
+	"github.com/magedmg/RSP-website/backend/internal/program"
 )
 
 func activityTime(t *testing.T, value string) time.Time {
@@ -80,7 +80,7 @@ func TestActivitySeasonsFollowDatesAndParticipation(t *testing.T) {
 		t.Fatalf("derived mock=%+v err=%v", reloaded, err)
 	}
 	// A kick changes the participation interval, not earlier records.
-	if _, err := f.db.RemoveEnrollment(ctx, dal.RemoveEnrollmentInput{EnrollmentID: studentMemberID, ActorID: otherID, Reason: "left programme", ChangedAt: activityTime(t, "2026-02-10T00:00:00Z")}); err != nil {
+	if _, err := f.db.RemoveEnrollment(ctx, dal.RemoveEnrollmentInput{EnrollmentID: studentMemberID, ActorID: otherID, Reason: "left program", ChangedAt: activityTime(t, "2026-02-10T00:00:00Z")}); err != nil {
 		t.Fatal(err)
 	}
 	count(1, 0)
@@ -228,7 +228,7 @@ func TestActivityScopeRoleChangesAndOverlappingSeasons(t *testing.T) {
 func TestActivityFiltersBindCursorsAndPrivateHistory(t *testing.T) {
 	f := newPostgresFixture(t)
 	ctx := context.Background()
-	if _, err := f.db.CreateMentorship(ctx, programme.MentorshipRecord{ID: id.New(), SeasonID: seasonID, MentorUserID: otherID, StudentUserID: studentID}, otherID, time.Now()); err != nil {
+	if _, err := f.db.CreateMentorship(ctx, program.MentorshipRecord{ID: id.New(), SeasonID: seasonID, MentorUserID: otherID, StudentUserID: studentID}, otherID, time.Now()); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := f.pool.Exec(ctx, `UPDATE app.mentorships SET created_at='2026-01-01'`); err != nil {

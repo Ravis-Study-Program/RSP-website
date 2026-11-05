@@ -3,7 +3,7 @@ package api
 import (
 	"net/http"
 
-	"github.com/magedmg/RSP-website/backend/internal/programme"
+	"github.com/magedmg/RSP-website/backend/internal/program"
 )
 
 func (a *API) getUserParticipation(w http.ResponseWriter, r *http.Request) {
@@ -14,7 +14,7 @@ func (a *API) getUserParticipation(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if !actor.CanRecordActivity() {
-		writeErrorResponse(w, http.StatusForbidden, "Programme membership is required.")
+		writeErrorResponse(w, http.StatusForbidden, "Program membership is required.")
 		return
 	}
 	if !a.authorizeActivityRead(w, r, r.PathValue("id"), seasonID) {
@@ -25,11 +25,11 @@ func (a *API) getUserParticipation(w http.ResponseWriter, r *http.Request) {
 		a.writeStoreErrorResponse(w, err)
 		return
 	}
-	visible := []programme.Participation{}
+	visible := []program.Participation{}
 	for _, item := range items {
 		if actor.UserID == item.UserID || actor.CanViewSeason(item.SeasonID) {
 			visible = append(visible, item)
 		}
 	}
-	writeJSONResponse(w, http.StatusOK, Page[programme.Participation]{Items: visible, TotalCount: int64(len(visible))})
+	writeJSONResponse(w, http.StatusOK, Page[program.Participation]{Items: visible, TotalCount: int64(len(visible))})
 }

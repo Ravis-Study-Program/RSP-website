@@ -5,37 +5,37 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/magedmg/RSP-website/backend/internal/programme"
+	"github.com/magedmg/RSP-website/backend/internal/program"
 )
 
-type programmeEnrollmentRow struct {
+type programEnrollmentRow struct {
 	ID              string
 	State           string
 	AssignmentState string
 }
 
-func loadProgrammeSeason(ctx context.Context, tx pgx.Tx, seasonID string) (programme.Season, []programmeEnrollmentRow, error) {
-	var season programme.Season
+func loadProgramSeason(ctx context.Context, tx pgx.Tx, seasonID string) (program.Season, []programEnrollmentRow, error) {
+	var season program.Season
 	err := tx.QueryRow(ctx, `SELECT id,status::text
 		FROM app.seasons WHERE id=$1 AND deleted_at IS NULL FOR UPDATE`, seasonID).Scan(&season.ID, &season.Status)
 	if err != nil {
-		return programme.Season{}, nil, noRows(err)
+		return program.Season{}, nil, noRows(err)
 	}
 
 	rows, err := tx.Query(ctx, `SELECT id,state::text,assignment_state::text
 		FROM app.enrollments WHERE season_id=$1 AND deleted_at IS NULL ORDER BY id FOR UPDATE`, seasonID)
 	if err != nil {
-		return programme.Season{}, nil, err
+		return program.Season{}, nil, err
 	}
 	defer rows.Close()
 
-	items := []programmeEnrollmentRow{}
+	items := []programEnrollmentRow{}
 	for rows.Next() {
-		var item programmeEnrollmentRow
+		var item programEnrollmentRow
 		if err := rows.Scan(&item.ID, &item.State, &item.AssignmentState); err != nil {
-			return programme.Season{}, nil, err
+			return program.Season{}, nil, err
 		}
-		season.Enrollments = append(season.Enrollments, programme.Enrollment{
+		season.Enrollments = append(season.Enrollments, program.Enrollment{
 			ID:              item.ID,
 			State:           item.State,
 			AssignmentState: item.AssignmentState,
@@ -43,15 +43,15 @@ func loadProgrammeSeason(ctx context.Context, tx pgx.Tx, seasonID string) (progr
 		items = append(items, item)
 	}
 	if err := rows.Err(); err != nil {
-		return programme.Season{}, nil, err
+		return program.Season{}, nil, err
 	}
 	return season, items, nil
 }
 
-func loadProgrammeReopenSeason(ctx context.Context, tx pgx.Tx, seasonID, closeEventID string) (programme.Season, []programmeEnrollmentRow, error) {
-	season, items, err := loadProgrammeSeason(ctx, tx, seasonID)
+func loadProgramReopenSeason(ctx context.Context, tx pgx.Tx, seasonID, closeEventID string) (program.Season, []programEnrollmentRow, error) {
+	season, items, err := loadProgramSeason(ctx, tx, seasonID)
 	if err != nil {
-		return programme.Season{}, nil, err
+		return program.Season{}, nil, err
 	}
 	for index := range season.Enrollments {
 		if items[index].State != "completed" {
@@ -62,7 +62,7 @@ func loadProgrammeReopenSeason(ctx context.Context, tx pgx.Tx, seasonID, closeEv
 		err := tx.QueryRow(ctx, `SELECT completed_by_close_id,COALESCE(close_assignment_state::text,'')
 			FROM app.enrollments WHERE id=$1`, items[index].ID).Scan(&completedByCloseID, &closeAssignmentState)
 		if err != nil {
-			return programme.Season{}, nil, err
+			return program.Season{}, nil, err
 		}
 		if completedByCloseID == nil || *completedByCloseID != closeEventID {
 			completedByCloseID = nil

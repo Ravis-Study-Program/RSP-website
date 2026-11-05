@@ -11,8 +11,8 @@ func TestRecordingTimeAllowsThePastButNotTheFuture(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		local := now.In(programmeTimezone)
-		midnight := time.Date(local.Year(), local.Month(), local.Day(), 0, 0, 0, 0, programmeTimezone)
+		local := now.In(programTimezone)
+		midnight := time.Date(local.Year(), local.Month(), local.Day(), 0, 0, 0, 0, programTimezone)
 		for _, test := range []struct {
 			name  string
 			at    time.Time

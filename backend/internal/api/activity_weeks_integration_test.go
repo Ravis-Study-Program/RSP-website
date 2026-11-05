@@ -12,7 +12,7 @@ import (
 	"github.com/magedmg/RSP-website/backend/internal/authz"
 	"github.com/magedmg/RSP-website/backend/internal/mockinterviews"
 	"github.com/magedmg/RSP-website/backend/internal/platform/id"
-	"github.com/magedmg/RSP-website/backend/internal/programme"
+	"github.com/magedmg/RSP-website/backend/internal/program"
 )
 
 func TestMockWeekSelectionRecalculatesDatesAndBindsCursors(t *testing.T) {
@@ -94,7 +94,7 @@ func TestFormerMembersCanReadOwnWeekDatesWithoutResourceLinks(t *testing.T) {
 				return actor, nil
 			})}).Handler()
 			response := testRequest(t, handler, http.MethodGet, "/api/v2/seasons/"+seasonID+"/weeks", "student", "")
-			var result Page[programme.WeekRecord]
+			var result Page[program.WeekRecord]
 			if err := json.Unmarshal(response.Body.Bytes(), &result); err != nil || response.Code != 200 || len(result.Items) != 1 || result.Items[0].StartAt.IsZero() {
 				t.Fatalf("week metadata=%d %s error=%v", response.Code, response.Body, err)
 			}

@@ -1,5 +1,5 @@
-// Package programme models programme lifecycle rules.
-package programme
+// Package program models program lifecycle rules.
+package program
 
 import (
 	"errors"

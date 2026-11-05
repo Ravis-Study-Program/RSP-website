@@ -4,10 +4,10 @@ import (
 	"context"
 	"encoding/json"
 
-	"github.com/magedmg/RSP-website/backend/internal/programme"
+	"github.com/magedmg/RSP-website/backend/internal/program"
 )
 
-func (p *Store) ListUserParticipation(ctx context.Context, userID string) ([]programme.Participation, error) {
+func (p *Store) ListUserParticipation(ctx context.Context, userID string) ([]program.Participation, error) {
 	rows, err := p.pool.Query(ctx, `SELECT e.id,e.season_id,s.slug,e.user_id,e.role::text,e.student_level::text,e.state::text,e.assignment_state::text,
  s.name,s.start_at,s.end_at,
  COALESCE(NULLIF(e.student_level::text,'not_applicable'),(
@@ -24,9 +24,9 @@ func (p *Store) ListUserParticipation(ctx context.Context, userID string) ([]pro
 		return nil, err
 	}
 	defer rows.Close()
-	items := []programme.Participation{}
+	items := []program.Participation{}
 	for rows.Next() {
-		var item programme.Participation
+		var item program.Participation
 		var periods []byte
 		if err := rows.Scan(&item.ID, &item.SeasonID, &item.SeasonSlug, &item.UserID, &item.Role, &item.StudentLevel, &item.State, &item.AssignmentState, &item.SeasonName, &item.StartAt, &item.EndAt, &item.LastStudentLevel, &periods); err != nil {
 			return nil, err

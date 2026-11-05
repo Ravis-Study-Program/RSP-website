@@ -12,7 +12,7 @@ import (
 	"github.com/magedmg/RSP-website/backend/internal/dal"
 	"github.com/magedmg/RSP-website/backend/internal/platform/id"
 	"github.com/magedmg/RSP-website/backend/internal/practice"
-	"github.com/magedmg/RSP-website/backend/internal/programme"
+	"github.com/magedmg/RSP-website/backend/internal/program"
 )
 
 func TestSeasonSummariesFollowDateChangesAndRetainDepartedMembers(t *testing.T) {
@@ -30,7 +30,7 @@ func TestSeasonSummariesFollowDateChangesAndRetainDepartedMembers(t *testing.T) 
 		t.Helper()
 		for _, path := range []string{"/api/v2/users/" + studentID + "/activity-summary?seasonId=" + seasonID, "/api/v2/seasons/" + seasonID + "/activity-summary"} {
 			res := testRequest(t, f.handler, http.MethodGet, path, "other", "")
-			var summary programme.ActivitySummary
+			var summary program.ActivitySummary
 			if err := json.Unmarshal(res.Body.Bytes(), &summary); err != nil || res.Code != 200 || summary.AttemptCount != want || summary.LastActivityAt == nil {
 				t.Fatalf("summary %s: %d %s %v", path, res.Code, res.Body, err)
 			}
@@ -46,7 +46,7 @@ func TestSeasonSummariesFollowDateChangesAndRetainDepartedMembers(t *testing.T) 
 	}
 	read(2)
 	res := testRequest(t, f.handler, http.MethodGet, "/api/v2/seasons/"+seasonID+"/members", "other", "")
-	var members Page[programme.EnrollmentRecord]
+	var members Page[program.EnrollmentRecord]
 	if err := json.Unmarshal(res.Body.Bytes(), &members); err != nil || res.Code != 200 {
 		t.Fatalf("members: %d %s %v", res.Code, res.Body, err)
 	}

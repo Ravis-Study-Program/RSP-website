@@ -90,10 +90,10 @@ func (a Actor) CanAccessMemberDirectory() bool {
 	return false
 }
 
-// ProgrammeAccess includes historical members whose active enrollment was
+// ProgramAccess includes historical members whose active enrollment was
 // completed by closing a season. It is intentionally broader than
 // EligibleMember, which remains the directory/basic-profile policy.
-func (a Actor) CanAccessProgramme() bool {
+func (a Actor) CanAccessProgram() bool {
 	if !a.authenticated() {
 		return false
 	}
@@ -110,7 +110,7 @@ func (a Actor) CanRecordActivity() bool {
 	return a.authenticated() && (len(a.Enrollments) > 0 || a.IsDirectorOrSystemAdmin())
 }
 
-// CanReadSharedActivity permits programme members and student alumni to read
+// CanReadSharedActivity permits program members and student alumni to read
 // each other's activity. Contact details and write permissions remain separate.
 func (a Actor) CanReadSharedActivity() bool {
 	return a.authenticated() && (a.IsDirectorOrSystemAdmin() || a.CanAccessMemberDirectory())
@@ -169,6 +169,24 @@ func (a Actor) IsSeasonAdmin(seasonID string) bool {
 }
 
 func (a Actor) CanCloseSeason(seasonID string) bool { return a.IsSeasonAdmin(seasonID) }
+
+// CanSetPracticeGoals reports whether the actor may change the program's
+// practice time goals, which apply to every member: directors, system
+// admins and active coordinators of any season.
+func (a Actor) CanSetPracticeGoals() bool {
+	if !a.authenticated() {
+		return false
+	}
+	if a.IsDirectorOrSystemAdmin() {
+		return true
+	}
+	for _, e := range a.Enrollments {
+		if e.State == Active && e.Role == Coordinator {
+			return true
+		}
+	}
+	return false
+}
 
 func (a Actor) CanSetStudentLevel(seasonID string) bool {
 	if !a.authenticated() {

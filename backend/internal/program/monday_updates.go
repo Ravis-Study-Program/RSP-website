@@ -1,4 +1,4 @@
-package programme
+package program
 
 import (
 	"errors"
@@ -7,9 +7,9 @@ import (
 	_ "time/tzdata"
 )
 
-// programmeTimezone is the boundary zone for programme weeks, including its
+// programTimezone is the boundary zone for program weeks, including its
 // daylight-saving rules.
-var programmeTimezone = func() *time.Location {
+var programTimezone = func() *time.Location {
 	zone, err := time.LoadLocation("Australia/Adelaide")
 	if err != nil {
 		panic(err)
@@ -145,7 +145,7 @@ func ValidateMondayUpdateDates(startDate, endDate string, now time.Time) error {
 	if start.Weekday() != time.Monday || !end.Equal(start.AddDate(0, 0, 6)) {
 		return errors.New("updates must cover one Monday to Sunday week")
 	}
-	if endDate >= now.In(programmeTimezone).Format(time.DateOnly) {
+	if endDate >= now.In(programTimezone).Format(time.DateOnly) {
 		return errors.New("updates can be submitted after the week has ended")
 	}
 	return nil
@@ -154,7 +154,7 @@ func ValidateMondayUpdateDates(startDate, endDate string, now time.Time) error {
 // CurrentMondayUpdateWeekEnd is the Sunday of the Monday-anchored
 // Australia/Adelaide week containing now, as a calendar date.
 func CurrentMondayUpdateWeekEnd(now time.Time) string {
-	local := now.In(programmeTimezone)
+	local := now.In(programTimezone)
 	weekday := (int(local.Weekday()) + 6) % 7
 	return time.Date(local.Year(), local.Month(), local.Day(), 0, 0, 0, 0, time.UTC).
 		AddDate(0, 0, 6-weekday).Format(time.DateOnly)

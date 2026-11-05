@@ -13,7 +13,7 @@ import (
 	"github.com/magedmg/RSP-website/backend/internal/authz"
 	"github.com/magedmg/RSP-website/backend/internal/dal"
 	"github.com/magedmg/RSP-website/backend/internal/platform/id"
-	"github.com/magedmg/RSP-website/backend/internal/programme"
+	"github.com/magedmg/RSP-website/backend/internal/program"
 )
 
 func TestEmptySeasonDeletionPreservesHistoryAndSerializesEnrollment(t *testing.T) {
@@ -57,7 +57,7 @@ func TestEmptySeasonDeletionPreservesHistoryAndSerializesEnrollment(t *testing.T
 	if err != nil || token == "" {
 		t.Fatal(err)
 	}
-	invite, err := f.db.CreateInvitation(ctx, programme.Invitation{ID: id.New(), SeasonID: season, Name: "Invitee", Email: "invitee@example.test", Role: "student", DeliveryID: id.New(), ExpiresAt: at.Add(time.Hour)}, hash, otherID, at)
+	invite, err := f.db.CreateInvitation(ctx, program.Invitation{ID: id.New(), SeasonID: season, Name: "Invitee", Email: "invitee@example.test", Role: "student", DeliveryID: id.New(), ExpiresAt: at.Add(time.Hour)}, hash, otherID, at)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -67,7 +67,7 @@ func TestEmptySeasonDeletionPreservesHistoryAndSerializesEnrollment(t *testing.T
 	if _, err = f.db.ChangeInvitation(ctx, season, invite.ID, "", "", otherID, true, at); err != nil {
 		t.Fatal(err)
 	}
-	if _, err = f.db.CreateWeek(ctx, programme.WeekRecord{ID: id.New(), SeasonID: season, Number: 1, StartAt: activityTime(t, "2026-01-01T00:00:00Z"), EndAt: activityTime(t, "2026-01-07T00:00:00Z")}, otherID, at); err != nil {
+	if _, err = f.db.CreateWeek(ctx, program.WeekRecord{ID: id.New(), SeasonID: season, Number: 1, StartAt: activityTime(t, "2026-01-01T00:00:00Z"), EndAt: activityTime(t, "2026-01-07T00:00:00Z")}, otherID, at); err != nil {
 		t.Fatal(err)
 	}
 	if res := testRequest(t, handler, http.MethodDelete, "/api/v2/seasons/"+season, "admin", ""); res.Code != 204 {
@@ -89,7 +89,7 @@ func TestEmptySeasonDeletionPreservesHistoryAndSerializesEnrollment(t *testing.T
 		go func() { defer wg.Done(); errs <- f.db.DeleteEmptySeason(ctx, raceSeason, otherID, at) }()
 		go func() {
 			defer wg.Done()
-			_, err := f.db.CreateEnrollment(ctx, programme.EnrollmentRecord{ID: id.New(), SeasonID: raceSeason, UserID: otherID, Role: "student", State: "active"}, otherID, at)
+			_, err := f.db.CreateEnrollment(ctx, program.EnrollmentRecord{ID: id.New(), SeasonID: raceSeason, UserID: otherID, Role: "student", State: "active"}, otherID, at)
 			errs <- err
 		}()
 		wg.Wait()

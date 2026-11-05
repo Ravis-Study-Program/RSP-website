@@ -6,7 +6,7 @@ import (
 
 	"github.com/magedmg/RSP-website/backend/internal/dal"
 	"github.com/magedmg/RSP-website/backend/internal/platform/id"
-	"github.com/magedmg/RSP-website/backend/internal/programme"
+	"github.com/magedmg/RSP-website/backend/internal/program"
 )
 
 func (a *API) listWeeks(w http.ResponseWriter, r *http.Request) {
@@ -56,14 +56,14 @@ func (a *API) listWeeks(w http.ResponseWriter, r *http.Request) {
 
 	pageInfo, err := pageInfoForKeyset(
 		a.cursorSecret, binding, direction, boundary, items, more,
-		func(week programme.WeekRecord) string { return week.ID },
+		func(week program.WeekRecord) string { return week.ID },
 	)
 	if err != nil {
 		a.logger.Error("cursor encoding failed", "error", err)
 		writeErrorResponse(w, http.StatusInternalServerError, "The request could not be completed.")
 		return
 	}
-	response := Page[programme.WeekRecord]{
+	response := Page[program.WeekRecord]{
 		Items:      items,
 		PageInfo:   pageInfo,
 		TotalCount: total,
@@ -123,7 +123,7 @@ func (a *API) createWeek(w http.ResponseWriter, r *http.Request) {
 		writeErrorResponse(w, http.StatusBadRequest, "week dates must fall within the season dates")
 		return
 	}
-	week := programme.WeekRecord{
+	week := program.WeekRecord{
 		ID:          id.New(),
 		SeasonID:    r.PathValue("id"),
 		Number:      request.Number,
@@ -190,7 +190,7 @@ func (a *API) updateWeek(w http.ResponseWriter, r *http.Request) {
 	week, err := a.db.UpdateWeek(r.Context(), dal.UpdateWeekInput{
 		SeasonID:  r.PathValue("id"),
 		WeekID:    r.PathValue("weekId"),
-		Week:      programme.WeekRecord{Number: request.Number, StartAt: request.StartAt.UTC(), EndAt: request.EndAt.UTC(), ResourceURL: request.ResourceURL},
+		Week:      program.WeekRecord{Number: request.Number, StartAt: request.StartAt.UTC(), EndAt: request.EndAt.UTC(), ResourceURL: request.ResourceURL},
 		ActorID:   actor.UserID,
 		ChangedAt: time.Now().UTC(),
 	})

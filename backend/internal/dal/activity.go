@@ -3,7 +3,7 @@ package dal
 import (
 	"context"
 
-	"github.com/magedmg/RSP-website/backend/internal/programme"
+	"github.com/magedmg/RSP-website/backend/internal/program"
 )
 
 // The same derived views power the lists and their totals. SQL aggregates keep
@@ -29,16 +29,16 @@ const activitySummaryJoins = `
 
 const activitySummaryColumns = `attempts.count,mocks.count,mocks.received,mocks.conducted,GREATEST(attempts.latest,mocks.latest)`
 
-func (p *Store) GetActivitySummary(ctx context.Context, userID, seasonID string, year int) (programme.ActivitySummary, error) {
-	var summary programme.ActivitySummary
+func (p *Store) GetActivitySummary(ctx context.Context, userID, seasonID string, year int) (program.ActivitySummary, error) {
+	var summary program.ActivitySummary
 	err := p.pool.QueryRow(ctx, `SELECT `+activitySummaryColumns+`
  FROM (SELECT NULLIF($3,'')::uuid AS user_id) subject`+activitySummaryJoins, seasonID, year, userID).
 		Scan(&summary.AttemptCount, &summary.MockInterviewCount, &summary.MocksReceived, &summary.MocksConducted, &summary.LastActivityAt)
 	return summary, err
 }
 
-func (p *Store) SeasonMemberSummaries(ctx context.Context, seasonID string, userIDs []string) (map[string]programme.SeasonMemberSummary, error) {
-	out := map[string]programme.SeasonMemberSummary{}
+func (p *Store) SeasonMemberSummaries(ctx context.Context, seasonID string, userIDs []string) (map[string]program.SeasonMemberSummary, error) {
+	out := map[string]program.SeasonMemberSummary{}
 	if len(userIDs) == 0 {
 		return out, nil
 	}
@@ -52,7 +52,7 @@ func (p *Store) SeasonMemberSummaries(ctx context.Context, seasonID string, user
 	}
 	defer rows.Close()
 	for rows.Next() {
-		var member programme.SeasonMemberSummary
+		var member program.SeasonMemberSummary
 		v := &member.Activity
 		if err := rows.Scan(&member.ID, &member.Slug, &member.Name, &member.AvatarURL, &v.AttemptCount, &v.MockInterviewCount, &v.MocksReceived, &v.MocksConducted, &v.LastActivityAt); err != nil {
 			return nil, err

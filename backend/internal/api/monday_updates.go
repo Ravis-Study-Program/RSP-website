@@ -8,18 +8,18 @@ import (
 	"github.com/magedmg/RSP-website/backend/internal/authz"
 	"github.com/magedmg/RSP-website/backend/internal/dal"
 	"github.com/magedmg/RSP-website/backend/internal/platform/id"
-	"github.com/magedmg/RSP-website/backend/internal/programme"
+	"github.com/magedmg/RSP-website/backend/internal/program"
 )
 
 // mondayUpdateRange reads the startDate and endDate parameters Monday update
 // reads require.
 func mondayUpdateRange(w http.ResponseWriter, r *http.Request) (string, string, bool) {
 	startDate, endDate := r.URL.Query().Get("startDate"), r.URL.Query().Get("endDate")
-	if _, err := programme.ParseMondayUpdateDate(startDate); err != nil {
+	if _, err := program.ParseMondayUpdateDate(startDate); err != nil {
 		writeErrorResponse(w, http.StatusBadRequest, err.Error())
 		return "", "", false
 	}
-	if _, err := programme.ParseMondayUpdateDate(endDate); err != nil {
+	if _, err := program.ParseMondayUpdateDate(endDate); err != nil {
 		writeErrorResponse(w, http.StatusBadRequest, err.Error())
 		return "", "", false
 	}
@@ -85,14 +85,14 @@ func (a *API) listMondayUpdates(w http.ResponseWriter, r *http.Request) {
 
 	pageInfo, err := pageInfoForKeyset(
 		a.cursorSecret, binding, "forward", boundary, items, more,
-		func(update programme.MondayUpdateRecord) string { return update.ID },
+		func(update program.MondayUpdateRecord) string { return update.ID },
 	)
 	if err != nil {
 		a.logger.Error("cursor encoding failed", "error", err)
 		writeErrorResponse(w, http.StatusInternalServerError, "The request could not be completed.")
 		return
 	}
-	writeJSONResponse(w, http.StatusOK, Page[programme.MondayUpdateRecord]{
+	writeJSONResponse(w, http.StatusOK, Page[program.MondayUpdateRecord]{
 		Items:      items,
 		PageInfo:   pageInfo,
 		TotalCount: total,
@@ -119,7 +119,7 @@ func (a *API) createMondayUpdate(w http.ResponseWriter, r *http.Request) {
 		writeErrorResponse(w, http.StatusBadRequest, err.Error())
 		return
 	}
-	if err := programme.ValidateMondayUpdateDates(request.StartDate, request.EndDate, time.Now()); err != nil {
+	if err := program.ValidateMondayUpdateDates(request.StartDate, request.EndDate, time.Now()); err != nil {
 		writeErrorResponse(w, http.StatusBadRequest, err.Error())
 		return
 	}
@@ -132,15 +132,15 @@ func (a *API) createMondayUpdate(w http.ResponseWriter, r *http.Request) {
 		writeErrorResponse(w, http.StatusBadRequest, "hours is required")
 		return
 	}
-	if err := programme.ValidateMondayUpdateHours(*request.Hours); err != nil {
+	if err := program.ValidateMondayUpdateHours(*request.Hours); err != nil {
 		writeErrorResponse(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
-	created, err := a.db.CreateMondayUpdate(r.Context(), programme.MondayUpdateRecord{
+	created, err := a.db.CreateMondayUpdate(r.Context(), program.MondayUpdateRecord{
 		ID:          id.New(),
 		SeasonID:    seasonID,
-		Student:     programme.PersonSummary{ID: actor.UserID},
+		Student:     program.PersonSummary{ID: actor.UserID},
 		StartDate:   request.StartDate,
 		EndDate:     request.EndDate,
 		ContentHTML: content,
@@ -187,7 +187,7 @@ func (a *API) putMondayUpdateMark(w http.ResponseWriter, r *http.Request) {
 		writeErrorResponse(w, http.StatusBadRequest, err.Error())
 		return
 	}
-	if !programme.ValidMondayUpdateMark(request.Mark) {
+	if !program.ValidMondayUpdateMark(request.Mark) {
 		writeErrorResponse(w, http.StatusBadRequest, "mark must be one of way_ahead, doing_good, on_track, a_bit_behind or at_risk")
 		return
 	}
@@ -206,10 +206,10 @@ func (a *API) putMondayUpdateMark(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	saved, err := a.db.UpsertMondayUpdateMark(r.Context(), programme.MondayUpdateMarkRecord{
+	saved, err := a.db.UpsertMondayUpdateMark(r.Context(), program.MondayUpdateMarkRecord{
 		ID:          id.New(),
 		UpdateID:    updateID,
-		Mentor:      programme.PersonSummary{ID: actor.UserID},
+		Mentor:      program.PersonSummary{ID: actor.UserID},
 		Mark:        request.Mark,
 		CommentHTML: a.sanitizeHTML(request.CommentHTML),
 	}, actor.UserID)
@@ -253,14 +253,14 @@ func (a *API) listMondayUpdateReview(w http.ResponseWriter, r *http.Request) {
 
 	pageInfo, err := pageInfoForKeyset(
 		a.cursorSecret, binding, "forward", boundary, items, more,
-		func(row programme.MondayUpdateReviewRow) string { return row.Student.ID },
+		func(row program.MondayUpdateReviewRow) string { return row.Student.ID },
 	)
 	if err != nil {
 		a.logger.Error("cursor encoding failed", "error", err)
 		writeErrorResponse(w, http.StatusInternalServerError, "The request could not be completed.")
 		return
 	}
-	writeJSONResponse(w, http.StatusOK, Page[programme.MondayUpdateReviewRow]{
+	writeJSONResponse(w, http.StatusOK, Page[program.MondayUpdateReviewRow]{
 		Items:      items,
 		PageInfo:   pageInfo,
 		TotalCount: total,

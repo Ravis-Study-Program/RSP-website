@@ -1,4 +1,4 @@
-package programme
+package program
 
 import (
 	"testing"

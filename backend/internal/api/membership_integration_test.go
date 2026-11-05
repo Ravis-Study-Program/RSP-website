@@ -11,7 +11,7 @@ import (
 
 	"github.com/magedmg/RSP-website/backend/internal/authz"
 	"github.com/magedmg/RSP-website/backend/internal/platform/id"
-	"github.com/magedmg/RSP-website/backend/internal/programme"
+	"github.com/magedmg/RSP-website/backend/internal/program"
 )
 
 func TestSeasonMemberRoleChangesAndRemoval(t *testing.T) {
@@ -23,7 +23,7 @@ func TestSeasonMemberRoleChangesAndRemoval(t *testing.T) {
 		t.Run(scenario.name, func(t *testing.T) {
 			fixture := newPostgresFixture(t)
 			now := time.Now().UTC()
-			if _, err := fixture.db.CreateMentorship(context.Background(), programme.MentorshipRecord{
+			if _, err := fixture.db.CreateMentorship(context.Background(), program.MentorshipRecord{
 				ID:            id.New(),
 				SeasonID:      seasonID,
 				MentorUserID:  otherID,
@@ -44,7 +44,7 @@ func TestSeasonMemberRoleChangesAndRemoval(t *testing.T) {
 			if response.Code != http.StatusOK {
 				t.Fatalf("status=%d body=%s", response.Code, response.Body)
 			}
-			var member programme.EnrollmentRecord
+			var member program.EnrollmentRecord
 			if err := json.Unmarshal(response.Body.Bytes(), &member); err != nil {
 				t.Fatal(err)
 			}

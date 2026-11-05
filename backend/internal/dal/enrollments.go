@@ -9,13 +9,13 @@ import (
 
 	"github.com/magedmg/RSP-website/backend/internal/platform/audit"
 	"github.com/magedmg/RSP-website/backend/internal/platform/id"
-	"github.com/magedmg/RSP-website/backend/internal/programme"
+	"github.com/magedmg/RSP-website/backend/internal/program"
 )
 
 const enrollmentColumns = `e.id,e.season_id,s.slug,e.user_id,e.role::text,e.student_level::text,e.state::text,e.assignment_state::text,CASE WHEN e.state IN ('kicked','withdrawn') THEN (SELECT reason FROM app.enrollment_removal_events WHERE enrollment_id=e.id ORDER BY occurred_at DESC,id DESC LIMIT 1) END`
 
-func scanEnrollment(row pgx.Row) (programme.EnrollmentRecord, error) {
-	var v programme.EnrollmentRecord
+func scanEnrollment(row pgx.Row) (program.EnrollmentRecord, error) {
+	var v program.EnrollmentRecord
 	if err := row.Scan(&v.ID, &v.SeasonID, &v.SeasonSlug, &v.UserID, &v.Role, &v.StudentLevel, &v.State, &v.AssignmentState, &v.RemovalReason); err != nil {
 		return v, noRows(err)
 	}
@@ -33,7 +33,7 @@ type EnrollmentQuery struct {
 	IncludeInactive bool
 }
 
-func (p *Store) ListEnrollments(ctx context.Context, q EnrollmentQuery) ([]programme.EnrollmentRecord, bool, int64, error) {
+func (p *Store) ListEnrollments(ctx context.Context, q EnrollmentQuery) ([]program.EnrollmentRecord, bool, int64, error) {
 	const filters = `e.season_id = @seasonID AND (e.deleted_at IS NULL OR (@includeInactive AND e.state IN ('kicked','withdrawn')))
 		AND (@role = '' OR e.role::text = @role) AND (@state = '' OR e.state::text = @state)
 		AND (@includeInactive OR e.state = 'active' OR (e.role = 'student' AND e.state = 'completed'))`
@@ -79,7 +79,7 @@ func (p *Store) ListEnrollments(ctx context.Context, q EnrollmentQuery) ([]progr
 	}
 
 	defer rows.Close()
-	items := make([]programme.EnrollmentRecord, 0, q.Limit+1)
+	items := make([]program.EnrollmentRecord, 0, q.Limit+1)
 	for rows.Next() {
 		v, scanErr := scanEnrollment(rows)
 		if scanErr != nil {
@@ -95,18 +95,18 @@ func (p *Store) ListEnrollments(ctx context.Context, q EnrollmentQuery) ([]progr
 	return items, more, total, nil
 }
 
-func (p *Store) ListEnrollmentsForUser(ctx context.Context, userID string) ([]programme.EnrollmentRecord, error) {
+func (p *Store) ListEnrollmentsForUser(ctx context.Context, userID string) ([]program.EnrollmentRecord, error) {
 	return p.listEnrollments(ctx, `e.user_id=$1`, userID)
 }
 
-func (p *Store) listEnrollments(ctx context.Context, predicate, value string) ([]programme.EnrollmentRecord, error) {
+func (p *Store) listEnrollments(ctx context.Context, predicate, value string) ([]program.EnrollmentRecord, error) {
 	rows, err := p.pool.Query(ctx, `SELECT `+enrollmentColumns+` FROM app.enrollments e JOIN app.seasons s ON s.id=e.season_id WHERE `+predicate+` AND (e.deleted_at IS NULL OR e.state IN ('kicked','withdrawn')) ORDER BY e.id`, value)
 	if err != nil {
 		return nil, err
 	}
 
 	defer rows.Close()
-	items := []programme.EnrollmentRecord{}
+	items := []program.EnrollmentRecord{}
 	for rows.Next() {
 		v, err := scanEnrollment(rows)
 		if err != nil {
@@ -118,11 +118,11 @@ func (p *Store) listEnrollments(ctx context.Context, predicate, value string) ([
 	return items, rows.Err()
 }
 
-func (p *Store) GetEnrollment(ctx context.Context, enrollmentID string) (programme.EnrollmentRecord, error) {
+func (p *Store) GetEnrollment(ctx context.Context, enrollmentID string) (program.EnrollmentRecord, error) {
 	return scanEnrollment(p.pool.QueryRow(ctx, `SELECT `+enrollmentColumns+` FROM app.enrollments e JOIN app.seasons s ON s.id=e.season_id WHERE e.id=$1 AND e.deleted_at IS NULL`, enrollmentID))
 }
 
-func (p *Store) CreateEnrollment(ctx context.Context, v programme.EnrollmentRecord, actorID string, at time.Time) (programme.EnrollmentRecord, error) {
+func (p *Store) CreateEnrollment(ctx context.Context, v program.EnrollmentRecord, actorID string, at time.Time) (program.EnrollmentRecord, error) {
 	tx, err := p.pool.Begin(ctx)
 	if err != nil {
 		return v, err
@@ -161,10 +161,10 @@ type UpdateEnrollmentRoleAndLevelInput struct {
 	ChangedAt    time.Time
 }
 
-func (p *Store) UpdateEnrollmentRoleAndLevel(ctx context.Context, input UpdateEnrollmentRoleAndLevelInput) (programme.EnrollmentRecord, error) {
+func (p *Store) UpdateEnrollmentRoleAndLevel(ctx context.Context, input UpdateEnrollmentRoleAndLevelInput) (program.EnrollmentRecord, error) {
 	tx, err := p.pool.Begin(ctx)
 	if err != nil {
-		return programme.EnrollmentRecord{}, err
+		return program.EnrollmentRecord{}, err
 	}
 
 	defer tx.Rollback(context.Background())
@@ -193,10 +193,10 @@ type PromoteEnrollmentInput struct {
 	ChangedAt    time.Time
 }
 
-func (p *Store) PromoteEnrollment(ctx context.Context, input PromoteEnrollmentInput) (programme.EnrollmentRecord, error) {
+func (p *Store) PromoteEnrollment(ctx context.Context, input PromoteEnrollmentInput) (program.EnrollmentRecord, error) {
 	tx, err := p.pool.Begin(ctx)
 	if err != nil {
-		return programme.EnrollmentRecord{}, err
+		return program.EnrollmentRecord{}, err
 	}
 
 	defer tx.Rollback(context.Background())
@@ -244,10 +244,10 @@ type RemoveEnrollmentInput struct {
 	ChangedAt    time.Time
 }
 
-func (p *Store) RemoveEnrollment(ctx context.Context, input RemoveEnrollmentInput) (programme.EnrollmentRecord, error) {
+func (p *Store) RemoveEnrollment(ctx context.Context, input RemoveEnrollmentInput) (program.EnrollmentRecord, error) {
 	tx, err := p.pool.Begin(ctx)
 	if err != nil {
-		return programme.EnrollmentRecord{}, err
+		return program.EnrollmentRecord{}, err
 	}
 
 	defer tx.Rollback(context.Background())
