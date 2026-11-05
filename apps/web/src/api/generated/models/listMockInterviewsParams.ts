@@ -18,6 +18,7 @@ export type ListMockInterviewsParams = {
   weekId?: string[];
   passed?: boolean;
   interviewerId?: string[];
+  intervieweeId?: string[];
   /**
    * Filter a member whose activity the viewer may read
    */

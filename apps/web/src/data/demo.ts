@@ -235,6 +235,7 @@ export const mockInterviews: MockInterview[] = [
     occurredAt: '2025-12-15T04:00:00Z',
     durationMinutes: 55,
     notes: 'Focus on clear communication and explicit trade-offs.',
+    intervieweeNotes: '',
     rounds: [
       {
         id: 'round_1',
@@ -270,6 +271,7 @@ export const mockInterviews: MockInterview[] = [
     occurredAt: '2025-12-12T06:30:00Z',
     durationMinutes: 45,
     notes: '',
+    intervieweeNotes: '',
     rounds: [
       {
         id: 'round_3',
@@ -293,6 +295,7 @@ export const mockInterviews: MockInterview[] = [
     occurredAt: '2025-01-19T03:00:00Z',
     durationMinutes: 60,
     notes: '',
+    intervieweeNotes: '',
     rounds: [
       {
         id: 'round_4',

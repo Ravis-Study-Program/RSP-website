@@ -89,6 +89,7 @@ export * from './mockIdentityCorrection';
 export * from './mockInterview';
 export * from './mockInterviewCreate';
 export * from './mockInterviewDayCount';
+export * from './mockIntervieweeNotes';
 export * from './mockInterviewMutation';
 export * from './mockInterviewPage';
 export * from './mockInterviewResult';

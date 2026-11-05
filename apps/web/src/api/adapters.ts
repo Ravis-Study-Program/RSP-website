@@ -247,13 +247,14 @@ export function adaptMockRound(round: ApiMockRound): MockRound {
     ...(round.problemId ? { problemId: round.problemId } : {}),
     ...(problem ? { catalogProblem: problem } : {}),
     ...(round.link ? { link: round.link } : {}),
+    ...(round.description ? { description: round.description } : {}),
     title:
       problem?.title ??
       (round.type === 'behavioural'
         ? 'Behavioural round'
         : round.type === 'leetcode'
           ? 'LeetCode round'
-          : 'Custom round'),
+          : round.description || 'Custom round'),
     score: values.length > 0 ? Math.min(...values) : null,
     scores,
     notes: round.content ?? '',
@@ -267,13 +268,47 @@ export interface MockInterviewContext {
   seasons: ReadonlyMap<string, Season>;
 }
 
+/** The interview-level review fields, derived from its rounds. */
+function mockReview(
+  rounds: Pick<MockRound, 'reviewed' | 'intervieweeComment'>[],
+): Pick<MockInterview, 'reviewStatus' | 'reviewComments'> {
+  const comments = rounds
+    .map((round) => round.intervieweeComment)
+    .filter(Boolean);
+  return {
+    reviewStatus: rounds.every((round) => round.reviewed)
+      ? 'reviewed'
+      : 'pending',
+    ...(comments.length > 0 ? { reviewComments: comments.join('\n\n') } : {}),
+  };
+}
+
+/** The interview with one round's review applied, as the server stores it. */
+export function withRoundReview(
+  interview: MockInterview,
+  roundId: string,
+  review: { reviewed: boolean; comment: string },
+): MockInterview {
+  const rounds = interview.rounds.map((round) =>
+    round.id === roundId
+      ? {
+          ...round,
+          reviewed: review.reviewed,
+          intervieweeComment: review.comment,
+        }
+      : round,
+  );
+  const next: MockInterview = { ...interview, rounds, ...mockReview(rounds) };
+  // mockReview omits the comments once none are left.
+  if (!rounds.some((round) => round.intervieweeComment))
+    delete next.reviewComments;
+  return next;
+}
+
 export function adaptMockInterview(
   interview: ApiMockInterview,
   context: MockInterviewContext,
 ): MockInterview {
-  const comments = interview.rounds
-    .map((round) => round.intervieweeComment)
-    .filter(Boolean);
   return {
     id: interview.id,
     interviewee:
@@ -290,11 +325,9 @@ export function adaptMockInterview(
     occurredAt: interview.occurredAt,
     durationMinutes: interview.durationMinutes,
     notes: interview.notes,
+    intervieweeNotes: interview.intervieweeNotes,
     rounds: interview.rounds.map(adaptMockRound),
-    reviewStatus: interview.rounds.every((round) => round.reviewed)
-      ? 'reviewed'
-      : 'pending',
-    ...(comments.length > 0 ? { reviewComments: comments.join('\n\n') } : {}),
+    ...mockReview(interview.rounds),
   };
 }
 

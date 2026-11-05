@@ -12,13 +12,13 @@ import (
 )
 
 const mockInterviewColumns = `mi.id,mi.interviewer_user_id,mi.interviewee_user_id,mi.activity_season_id,mi.activity_week_id,
-	mi.scheduled_at,mi.duration_minutes,COALESCE(mi.interviewer_notes_html,''),mi.deleted_at`
+	mi.scheduled_at,mi.duration_minutes,COALESCE(mi.interviewer_notes_html,''),COALESCE(mi.interviewee_notes_html,''),mi.deleted_at`
 
 func scanMockInterview(row pgx.Row) (mockinterviews.Interview, error) {
 	var interview mockinterviews.Interview
 	err := row.Scan(&interview.ID, &interview.InterviewerID, &interview.IntervieweeID,
 		&interview.SeasonID, &interview.WeekID, &interview.OccurredAt, &interview.DurationMinutes,
-		&interview.Notes, &interview.DeletedAt)
+		&interview.Notes, &interview.IntervieweeNotes, &interview.DeletedAt)
 	return interview, noRows(err)
 }
 
@@ -37,6 +37,7 @@ const (
 type MockInterviewQuery struct {
 	WeekIDs        []string
 	InterviewerIDs []string
+	IntervieweeIDs []string
 	Passed         *bool
 	TargetID       string
 	TargetMode     string
@@ -60,7 +61,7 @@ const mockPassedSQL = `SELECT COALESCE(bool_and(scores.value>=5),false)
 
 // mockInterviewFilter is the shared visibility and filter predicate for list and summary reads.
 func mockInterviewFilter(q MockInterviewQuery) (string, pgx.NamedArgs) {
-	args := pgx.NamedArgs{"viewerID": q.ViewerID, "targetID": q.TargetID, "targetMode": q.TargetMode, "seasonID": q.SeasonID, "year": q.Year, "interviewers": q.InterviewerIDs, "passed": q.Passed, "weeks": q.WeekIDs}
+	args := pgx.NamedArgs{"viewerID": q.ViewerID, "targetID": q.TargetID, "targetMode": q.TargetMode, "seasonID": q.SeasonID, "year": q.Year, "interviewers": q.InterviewerIDs, "interviewees": q.IntervieweeIDs, "passed": q.Passed, "weeks": q.WeekIDs}
 	where := `(mi.interviewer_user_id=@viewerID OR mi.interviewee_user_id=@viewerID)`
 	if q.Visibility == MockInterviewsGiven {
 		where = `mi.interviewer_user_id=@viewerID`
@@ -89,6 +90,7 @@ func mockInterviewFilter(q MockInterviewQuery) (string, pgx.NamedArgs) {
   (@targetMode<>'given' AND mi.interviewee_user_id=NULLIF(@targetID,'')::uuid) OR
   (@targetMode<>'received' AND mi.interviewer_user_id=NULLIF(@targetID,'')::uuid))`
 	where += ` AND (COALESCE(cardinality(@interviewers::uuid[]),0)=0 OR mi.interviewer_user_id=ANY(@interviewers::uuid[]))
+ AND (COALESCE(cardinality(@interviewees::uuid[]),0)=0 OR mi.interviewee_user_id=ANY(@interviewees::uuid[]))
  AND (COALESCE(cardinality(@weeks::uuid[]),0)=0 OR mi.activity_week_id=ANY(@weeks::uuid[]))
  AND (@passed::boolean IS NULL OR (` + mockPassedSQL + `)=@passed::boolean)`
 	return "mi.deleted_at IS NULL AND " + where, args
@@ -101,7 +103,7 @@ func (p *Store) SummarizeMockInterviews(ctx context.Context, q MockInterviewQuer
 	if q.TargetID == "" {
 		args["subjectID"] = q.ViewerID
 	}
-	summary := mockinterviews.Summary{Days: []mockinterviews.DayCount{}, Interviewers: []mockinterviews.ParticipantSummary{}}
+	summary := mockinterviews.Summary{Days: []mockinterviews.DayCount{}, Interviewers: []mockinterviews.ParticipantSummary{}, Interviewees: []mockinterviews.ParticipantSummary{}}
 	if err := p.pool.QueryRow(ctx, `SELECT count(*),
   count(*) FILTER (WHERE mi.interviewee_user_id=NULLIF(@subjectID,'')::uuid),
   count(*) FILTER (WHERE mi.interviewer_user_id=NULLIF(@subjectID,'')::uuid),
@@ -129,23 +131,36 @@ func (p *Store) SummarizeMockInterviews(ctx context.Context, q MockInterviewQuer
 		return mockinterviews.Summary{}, err
 	}
 	rows.Close()
-	rows, err = p.pool.Query(ctx, `SELECT u.id,p.slug,p.display_name,p.avatar_url FROM app.users u
- JOIN app.user_profiles p ON p.user_id=u.id
- WHERE u.deleted_at IS NULL AND u.account_state<>'deleted' AND u.id IN (
-  SELECT mi.interviewer_user_id FROM app.scoped_mock_interviews mi WHERE `+where+`)
- ORDER BY p.display_name,u.id`, args)
-	if err != nil {
+	if summary.Interviewers, err = p.mockParticipantsInScope(ctx, "mi.interviewer_user_id", where, args); err != nil {
 		return mockinterviews.Summary{}, err
 	}
-	defer rows.Close()
-	for rows.Next() {
-		var interviewer mockinterviews.ParticipantSummary
-		if err := rows.Scan(&interviewer.ID, &interviewer.Slug, &interviewer.Name, &interviewer.AvatarURL); err != nil {
-			return mockinterviews.Summary{}, err
-		}
-		summary.Interviewers = append(summary.Interviewers, interviewer)
+	if summary.Interviewees, err = p.mockParticipantsInScope(ctx, "mi.interviewee_user_id", where, args); err != nil {
+		return mockinterviews.Summary{}, err
 	}
-	return summary, rows.Err()
+	return summary, nil
+}
+
+// mockParticipantsInScope lists the people in one participant column of the
+// interviews a scope matches, ordered by name, for filter options.
+func (p *Store) mockParticipantsInScope(ctx context.Context, column, where string, args pgx.NamedArgs) ([]mockinterviews.ParticipantSummary, error) {
+	rows, err := p.pool.Query(ctx, `SELECT u.id,p.slug,p.display_name,p.avatar_url FROM app.users u
+ JOIN app.user_profiles p ON p.user_id=u.id
+ WHERE u.deleted_at IS NULL AND u.account_state<>'deleted' AND u.id IN (
+  SELECT `+column+` FROM app.scoped_mock_interviews mi WHERE `+where+`)
+ ORDER BY p.display_name,u.id`, args)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	people := []mockinterviews.ParticipantSummary{}
+	for rows.Next() {
+		var person mockinterviews.ParticipantSummary
+		if err := rows.Scan(&person.ID, &person.Slug, &person.Name, &person.AvatarURL); err != nil {
+			return nil, err
+		}
+		people = append(people, person)
+	}
+	return people, rows.Err()
 }
 
 func (p *Store) ListMockInterviews(ctx context.Context, q MockInterviewQuery) ([]mockinterviews.Interview, bool, int64, error) {
@@ -236,7 +251,7 @@ func loadMockRounds(ctx context.Context, db queryer, interviews []mockinterviews
 	rows, err := db.Query(ctx, `SELECT r.mock_interview_id,r.id,r.kind::text,r.review_status='reviewed',
 		COALESCE(r.interviewee_comment_html,''),b.behavioural_score,l.leetcode_problem_id,
 		l.clarify_question_score,l.algorithm_design_score,l.complexity_analysis_score,
-		l.coding_score,l.testing_score,COALESCE(b.content_html,l.content_html,c.content_html,''),COALESCE(c.url,''),c.score
+		l.coding_score,l.testing_score,COALESCE(b.content_html,l.content_html,c.content_html,''),COALESCE(c.url,''),c.score,COALESCE(c.description,'')
 		FROM app.mock_interview_rounds r
 		LEFT JOIN app.behavioural_mock_interview_rounds b ON b.mock_interview_round_id=r.id
 		LEFT JOIN app.leetcode_mock_interview_rounds l ON l.mock_interview_round_id=r.id
@@ -254,7 +269,7 @@ func loadMockRounds(ctx context.Context, db queryer, interviews []mockinterviews
 		var problemID *string
 		if err := rows.Scan(&interviewID, &round.ID, &kind, &round.Reviewed, &round.IntervieweeComment,
 			&behavioural, &problemID, &clarify, &algorithm, &complexity, &coding, &testing,
-			&round.Content, &round.Link, &custom); err != nil {
+			&round.Content, &round.Link, &custom, &round.Description); err != nil {
 			return err
 		}
 		round.Type = mockinterviews.RoundType(kind)
@@ -398,6 +413,14 @@ func (p *Store) ReviewMockInterviewRound(ctx context.Context, input ReviewMockIn
 			return ErrNotFound
 		}
 		return nil
+	})
+}
+
+// SetMockIntervieweeNotes changes only the interviewee's overall notes.
+func (p *Store) SetMockIntervieweeNotes(ctx context.Context, interview mockinterviews.Interview, actorID string, at time.Time) (mockinterviews.Interview, error) {
+	return p.writeMockInterview(ctx, interview, actorID, "interviewee notes", "mock_interview.interviewee_notes_changed", at, func(tx pgx.Tx) error {
+		_, err := tx.Exec(ctx, `UPDATE app.mock_interviews SET interviewee_notes_html=$1 WHERE id = $2`, nullableString(interview.IntervieweeNotes), interview.ID)
+		return err
 	})
 }
 
@@ -565,8 +588,8 @@ func saveMockRoundSubtype(ctx context.Context, tx pgx.Tx, round mockinterviews.R
 		if round.Scores.Custom == nil {
 			return mockinterviews.ErrInvalid
 		}
-		_, err := tx.Exec(ctx, `INSERT INTO app.custom_mock_interview_rounds(id,mock_interview_round_id,content_html,url,score)
-   VALUES($1,$2,$3,$4,$5) ON CONFLICT(mock_interview_round_id) DO UPDATE SET content_html=EXCLUDED.content_html,url=EXCLUDED.url,score=EXCLUDED.score`, id.New(), round.ID, round.Content, nullableString(round.Link), *round.Scores.Custom)
+		_, err := tx.Exec(ctx, `INSERT INTO app.custom_mock_interview_rounds(id,mock_interview_round_id,content_html,url,score,description)
+   VALUES($1,$2,$3,$4,$5,$6) ON CONFLICT(mock_interview_round_id) DO UPDATE SET content_html=EXCLUDED.content_html,url=EXCLUDED.url,score=EXCLUDED.score,description=EXCLUDED.description`, id.New(), round.ID, round.Content, nullableString(round.Link), *round.Scores.Custom, nullableString(round.Description))
 		return err
 	default:
 		return mockinterviews.ErrInvalid

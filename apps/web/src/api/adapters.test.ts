@@ -4,6 +4,7 @@ import {
   adaptMockInterviewPage,
   adaptSeasonPage,
   adaptUserPage,
+  withRoundReview,
 } from '@/api/adapters';
 import type {
   AttemptPage,
@@ -13,6 +14,7 @@ import type {
   SeasonPage,
   UserPage,
 } from '@/api/generated/models';
+import { mockInterviews } from '@/data/demo';
 
 const pageInfo = { nextCursor: null, previousCursor: null, hasMore: false };
 const problem: LeetcodeProblem = {
@@ -169,6 +171,7 @@ describe('OpenAPI DTO adapters', () => {
           },
           durationMinutes: 60,
           notes: '',
+          intervieweeNotes: 'Overall thoughts.',
           rounds: [
             {
               id: 'round-1',
@@ -194,6 +197,7 @@ describe('OpenAPI DTO adapters', () => {
       interviewer: { name: 'Mentor User' },
       reviewStatus: 'reviewed',
       reviewComments: 'Useful feedback.',
+      intervieweeNotes: 'Overall thoughts.',
       rounds: [
         {
           title: problem.title,
@@ -202,5 +206,34 @@ describe('OpenAPI DTO adapters', () => {
         },
       ],
     });
+  });
+});
+
+describe('withRoundReview', () => {
+  const [mock] = mockInterviews;
+
+  it('marks the interview pending until every round is reviewed', () => {
+    const changed = withRoundReview(mock, mock.rounds[0].id, {
+      reviewed: false,
+      comment: 'Second thoughts.',
+    });
+    expect(changed.reviewStatus).toBe('pending');
+    expect(changed.rounds[0]).toMatchObject({
+      reviewed: false,
+      intervieweeComment: 'Second thoughts.',
+    });
+    expect(changed.reviewComments).toBe(
+      'Second thoughts.\n\nThe feedback was specific and useful.',
+    );
+  });
+
+  it('drops the review comments once none are left', () => {
+    const changed = mock.rounds.reduce(
+      (interview, round) =>
+        withRoundReview(interview, round.id, { reviewed: true, comment: '' }),
+      mock,
+    );
+    expect(changed.reviewStatus).toBe('reviewed');
+    expect(changed).not.toHaveProperty('reviewComments');
   });
 });

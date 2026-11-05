@@ -1505,6 +1505,7 @@ function NewMockDialog({
       ),
       durationMinutes: values.durationMinutes,
       notes: '',
+      intervieweeNotes: '',
       rounds,
       reviewStatus: 'pending',
     };

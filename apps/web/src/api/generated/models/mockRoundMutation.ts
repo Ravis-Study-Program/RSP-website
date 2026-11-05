@@ -14,5 +14,10 @@ export interface MockRoundMutation {
   problemId?: string;
   content?: string;
   link?: string;
+  /**
+   * What a custom round covered; empty for other round types.
+   * @maxLength 200
+   */
+  description?: string;
   scores: Scores;
 }

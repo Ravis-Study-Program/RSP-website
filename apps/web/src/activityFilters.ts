@@ -8,6 +8,7 @@ export interface ActivityFilters {
   categories: string[];
   weeks: string[];
   interviewers: string[];
+  interviewees: string[];
   passed: string;
 }
 export const emptyActivityFilters: ActivityFilters = {
@@ -15,6 +16,7 @@ export const emptyActivityFilters: ActivityFilters = {
   categories: [],
   weeks: [],
   interviewers: [],
+  interviewees: [],
   passed: '',
 };
 const keys = {
@@ -22,6 +24,7 @@ const keys = {
   categories: 'category',
   weeks: 'weekId',
   interviewers: 'interviewerId',
+  interviewees: 'intervieweeId',
   passed: 'passed',
 } as const;
 
@@ -47,6 +50,7 @@ export function useActivityFilters(seasonId?: string) {
       categories: params.getAll('category'),
       weeks: seasonId ? params.getAll('weekId') : [],
       interviewers: params.getAll('interviewerId'),
+      interviewees: params.getAll('intervieweeId'),
       passed: params.get('passed') ?? '',
     }),
     [params, seasonId],
@@ -85,6 +89,8 @@ export function filterMocks(mocks: MockInterview[], filters: ActivityFilters) {
     (m) =>
       (!filters.interviewers.length ||
         filters.interviewers.includes(m.interviewer.id)) &&
+      (!filters.interviewees.length ||
+        filters.interviewees.includes(m.interviewee.id)) &&
       (!filters.passed || interviewPassed(m) === (filters.passed === 'true')) &&
       (!filters.weeks.length || filters.weeks.includes(m.weekId ?? '')),
   );

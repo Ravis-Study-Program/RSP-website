@@ -1345,6 +1345,13 @@ paths:
             schema: { type: array, items: { type: string, format: uuid } },
           },
           {
+            name: intervieweeId,
+            in: query,
+            style: form,
+            explode: true,
+            schema: { type: array, items: { type: string, format: uuid } },
+          },
+          {
             name: userId,
             in: query,
             description: Filter a member whose activity the viewer may read,
@@ -1404,6 +1411,13 @@ paths:
           { name: passed, in: query, schema: { type: boolean } },
           {
             name: interviewerId,
+            in: query,
+            style: form,
+            explode: true,
+            schema: { type: array, items: { type: string, format: uuid } },
+          },
+          {
+            name: intervieweeId,
             in: query,
             style: form,
             explode: true,
@@ -1551,6 +1565,40 @@ paths:
         '200':
           {
             description: Reviewed mock interview,
+            content:
+              {
+                application/json:
+                  {
+                    schema:
+                      { $ref: '#/components/schemas/MockInterviewResult' },
+                  },
+              },
+          }
+        '403': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+        '401': { $ref: '#/components/responses/Error' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+  /mock-interviews/{id}/interviewee-notes:
+    parameters: [{ $ref: '#/components/parameters/ID' }]
+    patch:
+      operationId: setMockIntervieweeNotes
+      description: The interviewee's notes on the interview as a whole. Only the interviewee can change them.
+      requestBody:
+        {
+          required: true,
+          content:
+            {
+              application/json:
+                {
+                  schema: { $ref: '#/components/schemas/MockIntervieweeNotes' },
+                },
+            },
+        }
+      responses:
+        default: { $ref: '#/components/responses/Error' }
+        '200':
+          {
+            description: Mock interview with the new notes,
             content:
               {
                 application/json:
@@ -2673,7 +2721,8 @@ components:
     MockInterviewSummary:
       type: object
       description: Counts for one mock interview list scope across all pages. received and given are relative to userId, or the viewer when userId is omitted.
-      required: [total, received, given, reviewed, days, interviewers]
+      required:
+        [total, received, given, reviewed, days, interviewers, interviewees]
       properties:
         total: { type: integer, minimum: 0 }
         received: { type: integer, minimum: 0 }
@@ -2691,6 +2740,10 @@ components:
         interviewers:
           type: array
           description: Everyone who conducted an interview in scope, ordered by name, for filter options.
+          items: { $ref: '#/components/schemas/MockParticipantSummary' }
+        interviewees:
+          type: array
+          description: Everyone interviewed in scope, ordered by name, for filter options.
           items: { $ref: '#/components/schemas/MockParticipantSummary' }
     MockInterviewDayCount:
       type: object
@@ -2941,6 +2994,12 @@ components:
           problem: { $ref: '#/components/schemas/LeetcodeProblem' },
           content: { type: string },
           link: { type: string },
+          description:
+            {
+              type: string,
+              maxLength: 200,
+              description: 'What a custom round covered; empty for other round types.',
+            },
           scores: { $ref: '#/components/schemas/Scores' },
           reviewed: { type: boolean },
           intervieweeComment: { type: string },
@@ -2956,6 +3015,12 @@ components:
           problemId: { type: string },
           content: { type: string },
           link: { type: string },
+          description:
+            {
+              type: string,
+              maxLength: 200,
+              description: 'What a custom round covered; empty for other round types.',
+            },
           scores: { $ref: '#/components/schemas/Scores' },
         }
     Participant:
@@ -3007,6 +3072,7 @@ components:
           occurredAt,
           durationMinutes,
           notes,
+          intervieweeNotes,
           rounds,
         ]
       properties:
@@ -3021,6 +3087,7 @@ components:
           occurredAt: { type: string, format: date-time },
           durationMinutes: { type: integer, minimum: 1 },
           notes: { type: string },
+          intervieweeNotes: { type: string },
           rounds:
             {
               type: array,
@@ -3029,7 +3096,7 @@ components:
             },
         }
     MockInterviewCreate:
-      description: Record a mock that happened today in Australia/Adelaide. Future timestamps are rejected. Current and former programme members can participate.
+      description: Record a mock that has already happened; future timestamps are rejected. Current and former programme members can participate.
       type: object
       additionalProperties: false
       required: [interviewee, occurredAt, durationMinutes, rounds]
@@ -3100,6 +3167,11 @@ components:
             },
           ],
       }
+    MockIntervieweeNotes:
+      type: object
+      additionalProperties: false
+      required: [notes]
+      properties: { notes: { type: string, maxLength: 10000 } }
     RoundReview:
       type: object
       additionalProperties: false

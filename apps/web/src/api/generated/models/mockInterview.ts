@@ -25,6 +25,7 @@ export interface MockInterview {
   /** @minimum 1 */
   durationMinutes: number;
   notes: string;
+  intervieweeNotes: string;
   /** @minItems 1 */
   rounds: MockRound[];
 }

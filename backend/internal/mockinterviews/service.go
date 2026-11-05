@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
+	"strings"
 	"time"
 
 	"github.com/magedmg/RSP-website/backend/internal/accounts"
@@ -46,12 +47,14 @@ type Round struct {
 	Type      RoundType `json:"type"`
 	ProblemID string    `json:"problemId,omitempty"`
 	// Problem is attached for responses; it is never part of version snapshots.
-	Problem            *practice.ProblemRecord `json:"problem,omitempty"`
-	Content            string                  `json:"content,omitempty"`
-	Link               string                  `json:"link,omitempty"`
-	Scores             Scores                  `json:"scores"`
-	Reviewed           bool                    `json:"reviewed"`
-	IntervieweeComment string                  `json:"intervieweeComment"`
+	Problem *practice.ProblemRecord `json:"problem,omitempty"`
+	Content string                  `json:"content,omitempty"`
+	Link    string                  `json:"link,omitempty"`
+	// Description says what a custom round covered; other round types have none.
+	Description        string `json:"description,omitempty"`
+	Scores             Scores `json:"scores"`
+	Reviewed           bool   `json:"reviewed"`
+	IntervieweeComment string `json:"intervieweeComment"`
 }
 
 type Interview struct {
@@ -65,8 +68,10 @@ type Interview struct {
 	OccurredAt      time.Time          `json:"occurredAt"`
 	DurationMinutes int                `json:"durationMinutes"`
 	Notes           string             `json:"notes"`
-	Rounds          []Round            `json:"rounds"`
-	DeletedAt       *time.Time         `json:"-"`
+	// IntervieweeNotes are the interviewee's notes on the interview as a whole.
+	IntervieweeNotes string     `json:"intervieweeNotes"`
+	Rounds           []Round    `json:"rounds"`
+	DeletedAt        *time.Time `json:"-"`
 }
 
 // Summary counts interviews in one list scope without exposing interview content.
@@ -79,6 +84,8 @@ type Summary struct {
 	Days     []DayCount `json:"days"`
 	// Interviewers lists everyone who conducted an interview in scope, for filter options.
 	Interviewers []ParticipantSummary `json:"interviewers"`
+	// Interviewees lists everyone interviewed in scope, for filter options.
+	Interviewees []ParticipantSummary `json:"interviewees"`
 }
 
 // DayCount is the number of interviews on one Australia/Adelaide calendar day.
@@ -191,6 +198,32 @@ func (s Service) ReviewRound(m Interview, input ReviewRoundInput) (Interview, er
 		return Interview{}, ErrInvalid
 	}
 	return candidate, nil
+}
+
+// SetIntervieweeNotes replaces the interviewee's overall notes without
+// changing the input. Only the interviewee may write them.
+func (s Service) SetIntervieweeNotes(m Interview, actorID, notes string) (Interview, error) {
+	if actorID != m.IntervieweeID {
+		return Interview{}, ErrForbidden
+	}
+	candidate := cloneInterview(m)
+	candidate.IntervieweeNotes = s.clean(notes)
+	return candidate, nil
+}
+
+// RedactedFor removes what the viewer may not read. The interviewee's notes,
+// overall and per round, are private from the interviewer; the interviewer's
+// notes stay visible to the interviewee. Review states are not hidden.
+func (m Interview) RedactedFor(viewerID string) Interview {
+	if viewerID != m.InterviewerID || viewerID == m.IntervieweeID {
+		return m
+	}
+	redacted := cloneInterview(m)
+	redacted.IntervieweeNotes = ""
+	for i := range redacted.Rounds {
+		redacted.Rounds[i].IntervieweeComment = ""
+	}
+	return redacted
 }
 
 type CorrectIdentitiesInput struct {
@@ -316,6 +349,10 @@ func (s *Service) cleanRounds(in []Round) []Round {
 	out := append([]Round(nil), in...)
 	for i := range out {
 		out[i].Content = s.clean(out[i].Content)
+		out[i].Description = strings.TrimSpace(out[i].Description)
+		if out[i].Type != Custom {
+			out[i].Description = ""
+		}
 		out[i].IntervieweeComment = s.clean(out[i].IntervieweeComment)
 	}
 	return out

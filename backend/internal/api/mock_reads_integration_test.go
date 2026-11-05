@@ -193,7 +193,8 @@ func TestMockSummaryCountsTheListScopeAcrossPages(t *testing.T) {
 	want := mockinterviews.Summary{Total: 4, Given: 4, Reviewed: 1, Days: []mockinterviews.DayCount{
 		{Date: day(base.OccurredAt.Add(-48 * time.Hour)), Count: 2},
 		{Date: day(base.OccurredAt), Count: 2},
-	}, Interviewers: []mockinterviews.ParticipantSummary{{ID: studentID, Slug: "student", Name: "Student"}}}
+	}, Interviewers: []mockinterviews.ParticipantSummary{{ID: studentID, Slug: "student", Name: "Student"}},
+		Interviewees: []mockinterviews.ParticipantSummary{{ID: otherID, Slug: "other", Name: "Other"}}}
 	if !reflect.DeepEqual(given, want) {
 		t.Fatalf("given summary=%#v want=%#v", given, want)
 	}
@@ -202,6 +203,12 @@ func TestMockSummaryCountsTheListScopeAcrossPages(t *testing.T) {
 	}
 	if own := summary("other", "mode=all&userId="+otherID); own.Total != 4 || own.Received != 4 || own.Given != 0 {
 		t.Fatalf("user-scoped summary must count that user's side: %#v", own)
+	}
+	if filtered := summary("student", "mode=given&intervieweeId="+studentID); filtered.Total != 0 || len(filtered.Interviewees) != 0 {
+		t.Fatalf("interviewee filter ignored: %#v", filtered)
+	}
+	if filtered := summary("student", "mode=given&intervieweeId="+otherID); filtered.Total != 4 {
+		t.Fatalf("interviewee filter dropped matches: %#v", filtered)
 	}
 	// Filters are applied server-side exactly as the list applies them.
 	if failed := summary("student", "mode=given&passed=false"); failed.Total != 0 {

@@ -1060,6 +1060,14 @@ export function useMockInterviewSummary(
             ]),
           ).values(),
         ].sort((left, right) => left.name.localeCompare(right.name)),
+        interviewees: [
+          ...new Map(
+            items.map(({ interviewee: { id, slug, name, avatarUrl } }) => [
+              id,
+              { id, slug, name, avatarUrl },
+            ]),
+          ).values(),
+        ].sort((left, right) => left.name.localeCompare(right.name)),
       });
     },
   });
