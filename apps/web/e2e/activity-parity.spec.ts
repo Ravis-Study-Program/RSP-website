@@ -1,6 +1,55 @@
 import { chooseOption, expectSelected } from './select';
 import { expect, test } from '@playwright/test';
 
+test('profile and dedicated practice histories reveal full notes and topics on demand', async ({
+  page,
+}, testInfo) => {
+  const views = [
+    ['/leetcode', 'Problem attempts'],
+    ['/people/amelia-chen', 'Amelia Chen practice history'],
+  ] as const;
+  for (const [path, label] of views) {
+    await page.goto(path);
+    const history = page.getByRole('region', { name: label, exact: true });
+    const notes = history.getByRole('region', {
+      name: 'Notes for Binary Tree Level Order Traversal',
+      exact: true,
+    });
+    await expect(history).toBeVisible();
+    await expect(notes).toHaveCount(0);
+    await history
+      .getByRole('button', {
+        name: 'Show notes for Binary Tree Level Order Traversal',
+      })
+      .click();
+    await expect(notes).toContainText(
+      'Used a queue and checked the empty tree first.',
+    );
+    await history.getByRole('button', { name: 'Show topics' }).first().click();
+    await expect(history.getByText('Trees', { exact: false })).toBeVisible();
+    if (path.startsWith('/people/')) {
+      await expect(
+        history.getByRole('button', {
+          name: /More actions for|^Edit$|Delete attempt/,
+        }),
+      ).toHaveCount(0);
+    }
+    await history.screenshot({
+      path: testInfo.outputPath(
+        path.startsWith('/people/')
+          ? 'profile-practice.png'
+          : 'dedicated-practice.png',
+      ),
+    });
+    await history
+      .getByRole('button', {
+        name: 'Hide notes for Binary Tree Level Order Traversal',
+      })
+      .click();
+    await expect(notes).toHaveCount(0);
+  }
+});
+
 test('practice charts follow filters and the picker accepts keyboard search', async ({
   page,
 }, testInfo) => {

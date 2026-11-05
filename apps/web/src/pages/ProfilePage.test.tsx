@@ -150,7 +150,6 @@ describe('profile slug suggestion', () => {
       'user-1',
       true,
       'season-1',
-      expect.any(Object),
     );
     // The mock tab is not shown, so its pages are scoped but not requested.
     expect(useMockInterviewPages).toHaveBeenLastCalledWith(

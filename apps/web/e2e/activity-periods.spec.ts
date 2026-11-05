@@ -154,8 +154,10 @@ test('mocks and both profile tabs support weeks inside a season', async ({
   await page.keyboard.press('Escape');
 
   await page.goto('/people/amelia-chen?seasonId=season_2026_s2');
-  await page.getByText('Season weeks: All', { exact: true }).click();
-  await toggleWeek(page, 3, true);
+  await page.getByRole('button', { name: /^Filters/ }).click();
+  await toggleWeekOption(page, 3, true);
+  await page.keyboard.press('Escape');
+  await page.keyboard.press('Escape');
   await expect(
     page
       .getByText('Binary Tree Level Order Traversal', { exact: true })
