@@ -65,6 +65,7 @@ import { RichTextEditor } from '@/components/RichTextEditor';
 import { RichTextContent } from '@/components/RichTextContent';
 import { ErrorState, InlineNotice } from '@/components/StatusViews';
 import { cn } from '@/lib/utils';
+import { recentDateFilterOptions, withinRecentDays } from '@/tableFilters';
 import { Field, FieldError, FieldLabel } from '@/components/ui/field';
 import type { Attempt, Difficulty } from '@/types';
 import {
@@ -155,13 +156,6 @@ const outcomeFilterOptions = (
     'unknown',
   ] as const
 ).map((value) => ({ label: outcomeLabel(value), value }));
-/** Values are a number of days back from now. */
-const attemptedFilterOptions = [
-  { label: 'Past 7 days', value: '7' },
-  { label: 'Past 30 days', value: '30' },
-  { label: 'Past 90 days', value: '90' },
-  { label: 'Past year', value: '365' },
-];
 
 const baseColumns: ColumnDef<Attempt, any>[] = [
   {
@@ -241,10 +235,8 @@ const baseColumns: ColumnDef<Attempt, any>[] = [
   {
     accessorKey: 'attemptedAt',
     header: 'Date Attempted',
-    meta: { width: 8.5, filterOptions: attemptedFilterOptions },
-    filterFn: (row, columnId, days: string) =>
-      Date.now() - new Date(row.getValue<string>(columnId)).getTime() <=
-      Number(days) * 24 * 60 * 60 * 1000,
+    meta: { width: 8.5, filterOptions: recentDateFilterOptions },
+    filterFn: withinRecentDays,
     cell: ({ getValue }) => formatDate(getValue()),
   },
 ];

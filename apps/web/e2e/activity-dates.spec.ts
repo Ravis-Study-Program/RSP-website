@@ -37,7 +37,14 @@ test('former students can record mocks today in Adelaide and filter their person
       .filter({ visible: true })
       .first(),
   ).toBeVisible();
-  await page.getByRole('button', { name: 'Edit details' }).first().click();
+  await page
+    .getByRole('button', {
+      name: /More actions for the interview with Amelia Chen/,
+    })
+    .filter({ visible: true })
+    .first()
+    .click();
+  await page.getByRole('menuitem', { name: 'Edit notes and scores' }).click();
   const edit = page.getByRole('dialog', { name: 'Edit interview details' });
   await expect(edit.getByText(/Recorded:/)).toBeVisible();
   await expect(
@@ -50,9 +57,9 @@ test('former students can record mocks today in Adelaide and filter their person
   await chooseOption(page, /^Season$/, 'Summer 2024/25');
   await page.keyboard.press('Escape');
   await expect(page).toHaveURL(/\/mock-interviews\?seasonId=season_2026_s1/);
-  await expect(page.getByRole('button', { name: 'Edit details' })).toHaveCount(
-    0,
-  );
+  await expect(
+    page.getByRole('button', { name: /More actions for the interview/ }),
+  ).toHaveCount(0);
   await page.getByRole('button', { name: /^Filters/ }).click();
   await chooseOption(page, /^Season$/, 'All time');
   await page.keyboard.press('Escape');

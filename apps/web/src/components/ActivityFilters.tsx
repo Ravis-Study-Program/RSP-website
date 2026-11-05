@@ -233,13 +233,21 @@ export function MockFilters({
   filters,
   onChange,
   embedded = false,
+  participant = 'interviewer',
 }: {
   seasonId?: string;
-  people: Person[];
+  /** The people offered for the participant filter. */
+  people: Pick<Person, 'id' | 'name'>[];
   filters: ActivityFilters;
   onChange: (change: Partial<ActivityFilters>) => void;
   embedded?: boolean;
+  /** Which side of the interviews the people filter applies to. */
+  participant?: 'interviewer' | 'interviewee';
 }) {
+  const participantKey =
+    participant === 'interviewer' ? 'interviewers' : 'interviewees';
+  const participantLabel =
+    participant === 'interviewer' ? 'Interviewers' : 'Interviewees';
   return (
     <div
       className={embedded ? 'grid gap-3' : 'flex flex-wrap items-end gap-3'}
@@ -252,7 +260,10 @@ export function MockFilters({
           value={filters.passed}
           onValueChange={(value) => onChange({ passed: value ?? '' })}
         >
-          <SelectTrigger aria-label="Result" className="min-w-40">
+          <SelectTrigger
+            aria-label="Result"
+            className={embedded ? 'w-full' : 'min-w-40'}
+          >
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -268,31 +279,37 @@ export function MockFilters({
       </label>
       {embedded ? (
         <>
-          <label className="grid gap-2 text-sm font-medium">
-            Interviewers
-            <Select
-              multiple
-              items={people.map((person) => ({
-                label: person.name,
-                value: person.id,
-              }))}
-              value={filters.interviewers}
-              onValueChange={(interviewers) => onChange({ interviewers })}
-            >
-              <SelectTrigger aria-label="Interviewers" className="w-full">
-                <SelectValue placeholder="All interviewers" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectGroup>
-                  {people.map((person) => (
-                    <SelectItem key={person.id} value={person.id}>
-                      {person.name}
-                    </SelectItem>
-                  ))}
-                </SelectGroup>
-              </SelectContent>
-            </Select>
-          </label>
+          {people.length ? (
+            <label className="grid gap-2 text-sm font-medium">
+              {participantLabel}
+              <Select
+                multiple
+                items={people.map((person) => ({
+                  label: person.name,
+                  value: person.id,
+                }))}
+                value={filters[participantKey]}
+                onValueChange={(selected) =>
+                  onChange({ [participantKey]: selected })
+                }
+              >
+                <SelectTrigger aria-label={participantLabel} className="w-full">
+                  <SelectValue
+                    placeholder={`All ${participantLabel.toLowerCase()}`}
+                  />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectGroup>
+                    {people.map((person) => (
+                      <SelectItem key={person.id} value={person.id}>
+                        {person.name}
+                      </SelectItem>
+                    ))}
+                  </SelectGroup>
+                </SelectContent>
+              </Select>
+            </label>
+          ) : null}
           {seasonId && (
             <SeasonWeekChoices
               seasonId={seasonId}

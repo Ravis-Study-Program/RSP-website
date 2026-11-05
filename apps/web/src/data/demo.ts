@@ -333,6 +333,7 @@ export const mockInterviews: MockInterview[] = [
         id: 'round_5',
         type: 'technical',
         apiType: 'leetcode',
+        problemId: 'lc_56',
         title: 'Merge Intervals',
         score: 6,
         scores: {
@@ -350,6 +351,7 @@ export const mockInterviews: MockInterview[] = [
         id: 'round_7',
         type: 'technical',
         apiType: 'leetcode',
+        problemId: 'lc_1',
         title: 'Two Sum',
         score: 7,
         scores: {
