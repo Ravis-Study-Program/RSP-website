@@ -103,6 +103,7 @@ test('profiles switch between seasons and all time with readable activity', asyn
     page.getByRole('heading', { name: 'Programme participation' }),
   ).toBeVisible();
   await page.getByRole('tab', { name: /Mock Interviews/ }).click();
+  await page.getByRole('button', { name: /^Filters/ }).click();
   await expect(
     page.getByRole('combobox', { name: 'Result', exact: true }),
   ).toBeVisible();

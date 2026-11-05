@@ -19,6 +19,89 @@ async function openDetails(page: Page, interviewee = 'Avery Example') {
     .click();
 }
 
+test('profile mocks reuse the dedicated details while remaining read-only', async ({
+  page,
+}, testInfo) => {
+  for (const path of ['/mock-interviews', '/profile']) {
+    await page.goto(path);
+    if (path === '/profile') {
+      await page
+        .getByRole('tab', { name: 'Mock Interviews', exact: true })
+        .click();
+    }
+    await page.getByRole('tab', { name: 'Received', exact: true }).click();
+    const history = page.getByRole('region', {
+      name:
+        path === '/profile'
+          ? 'Avery Example mock history'
+          : 'received mock interviews',
+      exact: true,
+    });
+    await expect(
+      history.getByRole('region', { name: 'Rounds and review' }),
+    ).toHaveCount(0);
+    await openDetails(page);
+    await expect(
+      history.getByLabel('Merge Intervals score breakdown'),
+    ).toContainText('Algorithm Design');
+    await expect(
+      history.getByRole('link', { name: '3. Merge Intervals' }),
+    ).toHaveAttribute('href', /search=Merge%20Intervals$/);
+    await expect(
+      history.getByLabel('Interviewee notes on Behavioural round'),
+    ).toContainText('Great session.');
+    if (path === '/profile') {
+      await expect(
+        history.getByRole('button', { name: /More actions|Edit|Delete/ }),
+      ).toHaveCount(0);
+      const reviews = history.getByRole('checkbox');
+      await expect(reviews).toHaveCount(5);
+      for (const checkbox of await reviews.all())
+        await expect(checkbox).toBeDisabled();
+    }
+    await history.screenshot({
+      path: testInfo.outputPath(
+        path === '/profile' ? 'profile-mocks.png' : 'dedicated-mocks.png',
+      ),
+    });
+  }
+});
+
+test('another profile uses its own given and received perspective and preserves note privacy', async ({
+  page,
+}) => {
+  await page.goto('/people/amelia-chen');
+  await page.getByRole('tab', { name: 'Mock Interviews', exact: true }).click();
+  const history = page.getByRole('region', {
+    name: 'Amelia Chen mock history',
+    exact: true,
+  });
+  await expect(
+    history
+      .locator('[data-slot=badge]')
+      .filter({ hasText: /^(Given|Received)$/ }),
+  ).toHaveText(['Received']);
+  await expect(
+    history.getByRole('link', { name: 'Avery Example' }),
+  ).toBeVisible();
+  await history
+    .getByRole('button', { name: 'Show details for Amelia Chen' })
+    .or(history.getByRole('button', { name: 'View details', exact: true }))
+    .click();
+  await expect(
+    history.getByLabel('Interviewer notes on Array and graph problem'),
+  ).toContainText('Clear baseline, then improved it.');
+  await expect(history.getByLabel(/^Interviewee notes on/)).toHaveCount(0);
+  await page.getByRole('tab', { name: 'Given', exact: true }).click();
+  await expect(
+    history.getByRole('heading', { name: 'No mocks in this period' }),
+  ).toBeVisible();
+  await page.getByRole('tab', { name: 'Received', exact: true }).click();
+  await expect(
+    history.getByRole('link', { name: 'Avery Example' }),
+  ).toBeVisible();
+});
+
 test('a saved review shows straight away without reloading', async ({
   page,
 }) => {

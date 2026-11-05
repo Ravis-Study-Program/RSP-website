@@ -1,18 +1,7 @@
 import { chooseOption, expectSelected } from './select';
 import { expect, test, type Page } from '@playwright/test';
 
-async function toggleWeek(page: Page, week: number, checked: boolean) {
-  const checkbox = page.getByRole('checkbox', {
-    name: `Week ${week}`,
-    exact: true,
-  });
-  await expect(checkbox).toBeChecked({ checked: !checked });
-  await checkbox.click();
-  // URL changes use a React navigation transition; wait for that state to settle.
-  await expect(checkbox).toBeChecked({ checked });
-}
-
-/** Toggles a week in the LeetCode table's Season weeks dropdown. */
+/** Toggles a week in an activity table's Season weeks dropdown. */
 async function toggleWeekOption(page: Page, week: number, selected: boolean) {
   const option = page.getByRole('option', {
     name: `Week ${week}`,
@@ -167,15 +156,18 @@ test('mocks and both profile tabs support weeks inside a season', async ({
     page.getByText('Valid Anagram', { exact: true }).filter({ visible: true }),
   ).toHaveCount(0);
   await page.getByRole('tab', { name: 'Mock Interviews', exact: true }).click();
-  await expect(
-    page.getByText('Season weeks (1)', { exact: true }),
-  ).toBeVisible();
-  await expect(
-    page.getByText('View feedback', { exact: true }).filter({ visible: true }),
-  ).toBeVisible();
-  await page.getByText('Season weeks (1)', { exact: true }).click();
-  await toggleWeek(page, 3, false);
-  await toggleWeek(page, 2, true);
+  const profileDetails = page
+    .getByRole('button', { name: 'Show details for Amelia Chen' })
+    .or(page.getByRole('button', { name: 'View details', exact: true }));
+  await expect(profileDetails).toBeVisible();
+  await page.getByRole('button', { name: /^Filters/ }).click();
+  await expect(page.getByRole('combobox', { name: 'Season weeks' })).toHaveText(
+    'Week 3',
+  );
+  await toggleWeekOption(page, 3, false);
+  await toggleWeekOption(page, 2, true);
+  await page.keyboard.press('Escape');
+  await page.keyboard.press('Escape');
   await expect(
     page.getByText('No mocks in this period', { exact: true }),
   ).toBeVisible();
@@ -185,9 +177,7 @@ test('mocks and both profile tabs support weeks inside a season', async ({
     page.getByRole('tab', { name: 'Mock Interviews', exact: true }),
   ).toHaveAttribute('aria-selected', 'true');
   await expect(page.getByText(/^Season weeks/)).toHaveCount(0);
-  await expect(
-    page.getByText('View feedback', { exact: true }).filter({ visible: true }),
-  ).toBeVisible();
+  await expect(profileDetails).toBeVisible();
 });
 
 test('season pickers only offer seasons where the member was a student', async ({

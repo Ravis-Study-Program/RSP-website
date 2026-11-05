@@ -1,4 +1,11 @@
-import { Badge } from '@/components/ui/badge';
+import { MockInterviewHistory } from '@/components/MockInterviewHistory';
+import {
+  MockInterviewViewTabs,
+  MockInterviewFilterControls,
+} from '@/components/MockInterviewFilters';
+import { RoundTitle } from '@/components/MockInterviewDetails';
+import { leetcodeScoreKeys, scoreLabel } from '@/mockInterviewScores';
+import type { MockInterviewMode } from '@/api/queries';
 import { Button } from '@/components/ui/button';
 import {
   Select,
@@ -19,28 +26,23 @@ import {
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { useActivityFilters, filterMocks } from '@/activityFilters';
-import { MockFilters } from '@/components/ActivityFilters';
 import { programmeTimezone } from '@/activityDates';
 import { ActivityPeriodFilter } from '@/components/ActivityPeriodFilter';
 import { useActivitySeason, useActivitySeasons } from '@/activityPeriod';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   IconArrowDown,
   IconArrowUp,
-  IconChevronDown,
-  IconChevronUp,
   IconDotsVertical,
   IconEdit,
-  IconInfoCircle,
   IconListDetails,
   IconPlus,
   IconTrash,
   IconUsers,
 } from '@tabler/icons-react';
-import type { ColumnDef, Row } from '@tanstack/react-table';
+import type { Row } from '@tanstack/react-table';
 import type { Resolver } from 'react-hook-form';
-import { Fragment, useMemo, useState, type ReactNode } from 'react';
+import { useMemo, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { useBeforeUnload, useNavigate } from 'react-router-dom';
 import { z } from 'zod';
@@ -67,17 +69,12 @@ import {
   useMockInterviewSummary,
   useMockParticipants,
 } from '@/api/queries';
-import { PageHeader, PersonIdentity, usePageTitle } from '@/components/Common';
+import { PageHeader, usePageTitle } from '@/components/Common';
 import { AppDatePicker } from '@/components/AppDatePicker';
-import { ExternalLink } from '@/components/ExternalLink';
-import { DataTable } from '@/components/DataTable';
 import { FormDialog, NamedConfirmation } from '@/components/Dialogs';
 import { ProblemSelect } from '@/components/ProblemSelect';
 import { ErrorState } from '@/components/StatusViews';
 import { RichTextEditor } from '@/components/RichTextEditor';
-import { RichTextContent } from '@/components/RichTextContent';
-import { cn } from '@/lib/utils';
-import { recentDateFilterOptions, withinRecentDays } from '@/tableFilters';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
   DropdownMenu,
@@ -93,20 +90,7 @@ import {
   FieldSet,
 } from '@/components/ui/field';
 import type { MockInterview, MockRound, Person, Season } from '@/types';
-import {
-  calendarDateKey,
-  formatDate,
-  interviewPassed,
-  problemName,
-  zonedDateTimeToUtc,
-} from '@/utils';
-
-const badgeClass = 'rounded-sm font-semibold';
-const outcomeTone = {
-  success: 'border-transparent bg-success-soft text-success',
-  warning: 'border-transparent bg-warning-soft text-warning',
-  danger: 'border-transparent bg-destructive-soft text-destructive',
-};
+import { calendarDateKey, formatDate, zonedDateTimeToUtc } from '@/utils';
 
 const mockSchema = z.object({
   intervieweeId: z.string().min(1, 'Choose an interviewee.'),
@@ -125,17 +109,6 @@ function recordedAt(date: string) {
     : zonedDateTimeToUtc(`${date}T12:00`, programmeTimezone);
 }
 
-/** A round passes at this score; an interview passes when every round does. */
-const passingScore = 5;
-
-const leetcodeScoreKeys = [
-  'confirmQuestions',
-  'algorithmDesign',
-  'complexityAnalysis',
-  'coding',
-  'testing',
-] as const;
-
 function demoMockSeason(person: Person, occurredAt: string, seasons: Season[]) {
   if (!(person.seasonRole === 'student' || person.roles.includes('student')))
     return null;
@@ -146,138 +119,6 @@ function demoMockSeason(person: Person, occurredAt: string, seasons: Season[]) {
         new Date(occurredAt) >= new Date(season.startsAt) &&
         new Date(occurredAt) <= new Date(season.endsAt),
     )?.name ?? null
-  );
-}
-
-// The criteria's names as interviewers know them.
-const scoreLabels: Record<string, string> = {
-  confirmQuestions: 'Confirming the Question',
-  algorithmDesign: 'Algorithm Design',
-  complexityAnalysis: 'Complexity Analysis',
-  coding: 'Coding',
-  testing: 'Testing',
-  behavioural: 'Behavioural',
-  custom: 'Custom',
-};
-
-/** One-line reminders of what each score is for, shown beside it. */
-const scoreHelp: Record<string, string> = {
-  confirmQuestions:
-    'Clarifying the problem, its inputs, constraints and edge cases before solving it.',
-  algorithmDesign:
-    'Finding a working approach and explaining it clearly before coding.',
-  complexityAnalysis:
-    "Working out and justifying the approach's time and space complexity.",
-  coding: 'Turning the approach into correct, clean and readable code.',
-  testing: 'Walking through examples and edge cases to find and fix bugs.',
-  behavioural:
-    'Answering with specific, well-structured examples from past experience.',
-  custom: 'How well the interviewee did on what this round covered.',
-};
-
-function scoreLabel(value: string) {
-  return (
-    scoreLabels[value] ??
-    value
-      .replaceAll(/([A-Z])/g, ' $1')
-      .replace(/^./, (letter) => letter.toUpperCase())
-  );
-}
-
-/**
- * A colour on a scale from danger (0) through warning (5) to success (10), so
- * scores read as a range rather than just pass or fail. The end colours are
- * the theme's status colours, which meet contrast in both themes.
- */
-function scoreColor(score: number) {
-  return score <= 5
-    ? `color-mix(in oklch, var(--destructive), var(--warning) ${score * 20}%)`
-    : `color-mix(in oklch, var(--warning), var(--success) ${(score - 5) * 20}%)`;
-}
-
-/** A round's scores, LeetCode parts first in their interview order. */
-function orderedScores(round: MockRound) {
-  const order: string[] = [...leetcodeScoreKeys];
-  return Object.entries(round.scores).sort(
-    ([left], [right]) =>
-      (order.indexOf(left) + 1 || order.length + 1) -
-      (order.indexOf(right) + 1 || order.length + 1),
-  );
-}
-
-/** Each part's score for rounds scored in parts, such as LeetCode rounds. */
-function RoundScoreParts({ round }: { round: MockRound }) {
-  const parts = orderedScores(round);
-  if (parts.length < 2) return null;
-  return (
-    <dl
-      className="mt-1.5 grid gap-1.5 text-xs"
-      aria-label={`${round.title} score breakdown`}
-    >
-      {parts.map(([criterion, score]) => (
-        <div
-          key={criterion}
-          className="grid grid-cols-[minmax(0,9rem)_1fr] items-center gap-x-3"
-        >
-          <dt className="flex min-w-0 items-center gap-1 text-muted-foreground">
-            <span className="truncate">{scoreLabel(criterion)}</span>
-            <ScoreHelp help={scoreHelp[criterion]} size={13} />
-          </dt>
-          <dd className="flex items-center gap-3">
-            <span
-              className="h-1 flex-1 overflow-hidden rounded-full bg-muted"
-              aria-hidden="true"
-            >
-              <span
-                className="block h-full rounded-full"
-                style={{
-                  width: `${score * 10}%`,
-                  background: scoreColor(score),
-                }}
-              />
-            </span>
-            <span
-              className="font-semibold tabular-nums"
-              style={{ color: scoreColor(score) }}
-            >
-              {score}/10
-            </span>
-          </dd>
-        </div>
-      ))}
-    </dl>
-  );
-}
-
-/**
- * A round's title. LeetCode rounds name their question with its number and
- * link to it, as on the LeetCode table.
- */
-function RoundTitle({ round }: { round: MockRound }) {
-  const problem = round.catalogProblem;
-  if (round.apiType !== 'leetcode' || !problem) return round.title;
-  return (
-    <ExternalLink href={problem.link}>{problemName(problem)}</ExternalLink>
-  );
-}
-
-/** A custom round's reference link, laid out like the part scores. */
-function RoundReference({ round }: { round: MockRound }) {
-  if (round.apiType !== 'custom' || !round.link) return null;
-  return (
-    <dl className="mt-1.5 grid grid-cols-[minmax(0,9rem)_1fr] items-center gap-x-3 text-xs">
-      <dt className="truncate text-muted-foreground">Reference link</dt>
-      <dd className="min-w-0 truncate">
-        <a
-          href={round.link}
-          target="_blank"
-          rel="noreferrer"
-          className="font-semibold underline decoration-[0.08em] underline-offset-[0.2em] hover:decoration-[0.14em]"
-        >
-          {round.link.replace(/^https?:\/\//, '')}
-        </a>
-      </dd>
-    </dl>
   );
 }
 
@@ -323,19 +164,6 @@ function interviewContext(
     seasons: new Map(seasons.map((season) => [season.id, season])),
   };
 }
-
-/** Which of your interviews the list shows. */
-type MockView = 'all' | 'received' | 'given';
-const mockTypeItems: { label: string; value: MockView }[] = [
-  { label: 'All', value: 'all' },
-  { label: 'Received', value: 'received' },
-  { label: 'Given', value: 'given' },
-];
-// Received and Given badges, styled like the Pass and Fail ones.
-const directionTone = {
-  received: 'border-transparent bg-info-soft text-info',
-  given: 'border-transparent bg-warning-soft text-warning',
-};
 
 // Round types in interview order: behavioural, then LeetCode, then custom.
 const roundTypeItems: { label: string; value: MockRound['apiType'] }[] = [
@@ -550,177 +378,6 @@ function RoundEditor({
   );
 }
 
-const columnsForSeason = (
-  seasonId: string | undefined,
-  viewerId: string | undefined,
-  cells: {
-    review: (mock: MockInterview) => ReactNode;
-    actions: (row: Row<MockInterview>) => ReactNode;
-  },
-): ColumnDef<MockInterview, any>[] => [
-  // Most important first: who, the result and scores, then the details.
-  {
-    id: 'expand',
-    header: 'Details',
-    meta: { width: 4.5 },
-    enableSorting: false,
-    enableHiding: false,
-    cell: ({ row }) => (
-      <Button
-        variant="ghost"
-        size="icon"
-        type="button"
-        aria-label={`${row.getIsExpanded() ? 'Hide' : 'Show'} details for ${row.original.interviewee.name}`}
-        aria-expanded={row.getIsExpanded()}
-        onClick={row.getToggleExpandedHandler()}
-      >
-        {row.getIsExpanded() ? (
-          <IconChevronUp size={18} />
-        ) : (
-          <IconChevronDown size={18} />
-        )}
-      </Button>
-    ),
-  },
-  {
-    accessorKey: 'interviewee.name',
-    id: 'interviewee',
-    header: 'Interviewee',
-    enableColumnFilter: false,
-    cell: ({ row }) => (
-      <PersonIdentity person={row.original.interviewee} seasonId={seasonId} />
-    ),
-  },
-  {
-    accessorKey: 'interviewer.name',
-    id: 'interviewer',
-    header: 'Interviewer',
-    // The Interviewers dropdown already filters by interviewer.
-    enableColumnFilter: false,
-    cell: ({ row }) => (
-      <PersonIdentity person={row.original.interviewer} seasonId={seasonId} />
-    ),
-  },
-  {
-    // In the All view: whoever you interviewed with.
-    id: 'with',
-    header: 'With',
-    enableColumnFilter: false,
-    accessorFn: (row) =>
-      (row.interviewer.id === viewerId ? row.interviewee : row.interviewer)
-        .name,
-    cell: ({ row }) => (
-      <PersonIdentity
-        person={
-          row.original.interviewer.id === viewerId
-            ? row.original.interviewee
-            : row.original.interviewer
-        }
-        seasonId={seasonId}
-      />
-    ),
-  },
-  {
-    id: 'type',
-    header: 'Type',
-    meta: { width: 6.5 },
-    enableColumnFilter: false,
-    accessorFn: (row) =>
-      row.interviewer.id === viewerId ? 'Given' : 'Received',
-    cell: ({ row }) => {
-      const given = row.original.interviewer.id === viewerId;
-      return (
-        <Badge
-          variant="outline"
-          className={cn(
-            badgeClass,
-            given ? directionTone.given : directionTone.received,
-          )}
-        >
-          {given ? 'Given' : 'Received'}
-        </Badge>
-      );
-    },
-  },
-  {
-    id: 'result',
-    header: 'Result',
-    meta: { width: 5.5 },
-    accessorFn: interviewPassed,
-    cell: ({ row }) => (
-      <Badge
-        variant="outline"
-        className={cn(
-          badgeClass,
-          interviewPassed(row.original)
-            ? outcomeTone.success
-            : outcomeTone.danger,
-        )}
-      >
-        {interviewPassed(row.original) ? 'Pass' : 'Fail'}
-      </Badge>
-    ),
-  },
-  {
-    id: 'score',
-    header: 'Scores',
-    // Wide enough for three rounds, the most an interview has.
-    meta: { width: 10.5 },
-    accessorFn: (row) =>
-      row.rounds
-        .map((round) => round.score)
-        .filter((score): score is number => score !== null)
-        .reduce((sum, score) => sum + score, 0),
-    // Each round's score, passing ones in green as on the LeetCode table.
-    cell: ({ row }) => (
-      <span className="font-semibold tabular-nums">
-        {row.original.rounds.map((round, index) => (
-          <Fragment key={round.id}>
-            {index > 0 ? ' · ' : null}
-            <span
-              className={
-                round.score !== null && round.score >= passingScore
-                  ? 'text-success'
-                  : undefined
-              }
-            >
-              {round.score === null ? '—' : `${round.score}/10`}
-            </span>
-          </Fragment>
-        ))}
-      </span>
-    ),
-  },
-  {
-    accessorKey: 'durationMinutes',
-    header: 'Duration',
-    meta: { width: 6 },
-    cell: ({ getValue }) => `${getValue()} min`,
-  },
-  {
-    accessorKey: 'occurredAt',
-    header: 'Date',
-    meta: { width: 7.5, filterOptions: recentDateFilterOptions },
-    filterFn: withinRecentDays,
-    cell: ({ getValue }) => formatDate(getValue()),
-  },
-  {
-    id: 'review',
-    header: 'Reviewed',
-    meta: { width: 5.5, wrap: true },
-    accessorFn: (row) => row.rounds.filter((round) => round.reviewed).length,
-    cell: ({ row }) => cells.review(row.original),
-  },
-  {
-    id: 'actions',
-    header: () => <span className="sr-only">Actions</span>,
-    meta: { width: 4, align: 'end' },
-    enableSorting: false,
-    enableHiding: false,
-    cell: ({ row }) => cells.actions(row),
-  },
-];
-
 export function MockInterviewsPage() {
   usePageTitle('Mock Interviews');
   const {
@@ -731,7 +388,7 @@ export function MockInterviewsPage() {
   const user = useCurrentUser();
   const peopleQuery = useMockParticipants();
   const [urlFilters, setFilters] = useActivityFilters(season?.id);
-  const [mode, setMode] = useState<MockView>('all');
+  const [mode, setMode] = useState<MockInterviewMode>('all');
   // Received interviews are filtered by interviewer and given ones by
   // interviewee; a filter carried over from another view must not apply, and
   // All has no people filter.
@@ -844,13 +501,6 @@ export function MockInterviewsPage() {
     if (changed) setUpdated((items) => ({ ...items, [changed.id]: changed }));
     else void query.refetch();
   };
-  const reviewCell = (mock: MockInterview) => (
-    <ReviewProgress
-      mock={mock}
-      canReview={mock.interviewee.id === user.data?.id}
-      onChanged={interviewChanged}
-    />
-  );
   const actionsCell = (row: Row<MockInterview>) => (
     <MockRowActions
       row={row}
@@ -863,17 +513,6 @@ export function MockInterviewsPage() {
       onChanged={interviewChanged}
     />
   );
-  // Each view names the other person its own way; only All needs a Type.
-  const hiddenColumns: Record<MockView, string[]> = {
-    all: ['interviewer', 'interviewee'],
-    received: ['interviewee', 'with', 'type'],
-    given: ['interviewer', 'with', 'type'],
-  };
-  const columns = columnsForSeason(season?.id, user.data?.id, {
-    review: reviewCell,
-    actions: actionsCell,
-  }).filter((column) => !hiddenColumns[mode].includes(column.id ?? ''));
-
   if (
     seasonsQuery.isError ||
     (hasSelection && !seasonsQuery.isLoading && !season)
@@ -906,28 +545,12 @@ export function MockInterviewsPage() {
         }
       />
       <div className="flex flex-col gap-6">
-        <DataTable
+        <MockInterviewHistory
           toolbarStart={
-            // Received or given, beside the search, at the search's height.
-            <Tabs
-              value={mode}
-              onValueChange={(value) => setMode(value as MockView)}
-            >
-              <TabsList
-                aria-label="Mock interview view"
-                className="group-data-[orientation=horizontal]/tabs:h-9"
-              >
-                {mockTypeItems.map((item) => (
-                  <TabsTrigger key={item.value} value={item.value}>
-                    {item.label}
-                  </TabsTrigger>
-                ))}
-              </TabsList>
-            </Tabs>
+            <MockInterviewViewTabs mode={mode} onModeChange={setMode} />
           }
           ariaLabel={`${mode} mock interviews`}
           data={filtered}
-          columns={columns}
           extraFilters={{
             content: (
               <>
@@ -937,35 +560,9 @@ export function MockInterviewsPage() {
                   season={season}
                   seasons={periodSeasons}
                 />
-                {/* The same choice as the toolbar tabs, one at a time. */}
-                <Field>
-                  <FieldLabel htmlFor="mock-type-filter">Type</FieldLabel>
-                  <Select
-                    items={mockTypeItems}
-                    value={mode}
-                    onValueChange={(value) => {
-                      if (value) setMode(value as MockView);
-                    }}
-                  >
-                    <SelectTrigger id="mock-type-filter" className="w-full">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectGroup>
-                        {mockTypeItems.map((item) => (
-                          <SelectItem key={item.value} value={item.value}>
-                            {item.label}
-                          </SelectItem>
-                        ))}
-                      </SelectGroup>
-                    </SelectContent>
-                  </Select>
-                </Field>
-                <MockFilters
-                  embedded
-                  participant={
-                    mode === 'received' ? 'interviewer' : 'interviewee'
-                  }
+                <MockInterviewFilterControls
+                  mode={mode}
+                  onModeChange={setMode}
                   seasonId={season?.id}
                   people={participantOptions}
                   filters={filters}
@@ -1017,183 +614,14 @@ export function MockInterviewsPage() {
                 ? 'Interviews you conduct will appear here.'
                 : 'Interviews you give or receive will appear here.'
           }
-          getRowId={(mock) => mock.id}
-          renderExpanded={(row) => (
-            <MockDetails
-              row={row}
-              currentUserId={user.data?.id}
-              onChanged={interviewChanged}
-            />
-          )}
-          renderCard={(row) => (
-            <div>
-              <div className="flex flex-wrap items-center gap-2.5">
-                <Badge
-                  variant="outline"
-                  className={cn(
-                    badgeClass,
-                    interviewPassed(row.original)
-                      ? outcomeTone.success
-                      : outcomeTone.danger,
-                  )}
-                >
-                  {interviewPassed(row.original) ? 'Pass' : 'Fail'}
-                </Badge>
-                {mode === 'all' ? (
-                  <Badge
-                    variant="outline"
-                    className={cn(
-                      badgeClass,
-                      row.original.interviewer.id === user.data?.id
-                        ? directionTone.given
-                        : directionTone.received,
-                    )}
-                  >
-                    {row.original.interviewer.id === user.data?.id
-                      ? 'Given'
-                      : 'Received'}
-                  </Badge>
-                ) : null}
-                {reviewCell(row.original)}
-                <div className="ml-auto">{actionsCell(row)}</div>
-              </div>
-              <h2 className="mt-3 text-base font-semibold tracking-tight">
-                <PersonIdentity
-                  person={
-                    row.original.interviewer.id === user.data?.id
-                      ? row.original.interviewee
-                      : row.original.interviewer
-                  }
-                  seasonId={season?.id}
-                />
-              </h2>
-              <p className="text-sm text-muted-foreground">
-                {formatDate(row.original.occurredAt)}
-              </p>
-              <p>
-                {row.original.durationMinutes} minutes,{' '}
-                {row.original.rounds.length}{' '}
-                {row.original.rounds.length === 1 ? 'round' : 'rounds'}
-              </p>
-              <Button
-                variant="outline"
-                type="button"
-                aria-expanded={row.getIsExpanded()}
-                onClick={row.getToggleExpandedHandler()}
-              >
-                View details
-              </Button>
-              {row.getIsExpanded() ? (
-                <div className="mt-3">
-                  <MockDetails
-                    row={row}
-                    currentUserId={user.data?.id}
-                    onChanged={interviewChanged}
-                  />
-                </div>
-              ) : null}
-            </div>
-          )}
+          seasonId={season?.id}
+          subjectId={user.data?.id}
+          viewerId={user.data?.id}
+          mode={mode}
+          onChanged={interviewChanged}
+          renderActions={actionsCell}
         />
       </div>
-    </div>
-  );
-}
-
-/**
- * Saves the reviewed state of some rounds, keeping each round's comment, and
- * reports the interview after each saved round so progress shows at once.
- */
-function useRoundReviewToggle(
-  mock: MockInterview,
-  onChanged: (changed?: MockInterview) => void,
-) {
-  const [pending, setPending] = useState(false);
-  const [error, setError] = useState('');
-  const setReviewed = async (roundIds: string[], reviewed: boolean) => {
-    setPending(true);
-    setError('');
-    let next = mock;
-    try {
-      for (const roundId of roundIds) {
-        const comment =
-          next.rounds.find((round) => round.id === roundId)
-            ?.intervieweeComment ?? '';
-        if (!demoMode) {
-          const body: RoundReview = { reviewed, comment };
-          await apiRequest<MockInterviewResult>(
-            `/mock-interviews/${encodeURIComponent(mock.id)}/rounds/${encodeURIComponent(roundId)}/review`,
-            { method: 'PATCH', body: JSON.stringify(body) },
-          );
-        }
-        next = withRoundReview(next, roundId, { reviewed, comment });
-      }
-    } catch (requestError) {
-      if (requestError instanceof ApiError && requestError.status === 409) {
-        onChanged();
-        setError(
-          'This interview changed elsewhere. Its latest version is loading.',
-        );
-      } else
-        setError(
-          requestError instanceof Error
-            ? requestError.message
-            : 'Unable to update the review.',
-        );
-    } finally {
-      // Rounds saved before any failure still count.
-      if (next !== mock) onChanged(next);
-      setPending(false);
-    }
-  };
-  return { setReviewed, pending, error };
-}
-
-/**
- * Whether the interviewee has reviewed every round: ticked when all are,
- * dashed when some are. The interviewee can tick it to mark every round
- * reviewed (or unreviewed) at once; for anyone else it only shows the state.
- */
-function ReviewProgress({
-  mock,
-  canReview,
-  onChanged,
-}: {
-  mock: MockInterview;
-  canReview: boolean;
-  onChanged: (changed?: MockInterview) => void;
-}) {
-  const { setReviewed, pending, error } = useRoundReviewToggle(mock, onChanged);
-  const total = mock.rounds.length;
-  const reviewed = mock.rounds.filter((round) => round.reviewed).length;
-  const complete = reviewed === total;
-  const progress = `${reviewed} of ${total} rounds reviewed`;
-  return (
-    <div className="grid gap-1">
-      <Checkbox
-        aria-label={
-          canReview
-            ? `${complete ? 'Mark every round unreviewed' : 'Mark every round reviewed'} (${progress})`
-            : progress
-        }
-        title={progress}
-        checked={complete}
-        indeterminate={!complete && reviewed > 0}
-        disabled={!canReview || pending}
-        onCheckedChange={() =>
-          void setReviewed(
-            mock.rounds
-              .filter((round) => round.reviewed === complete)
-              .map((round) => round.id),
-            !complete,
-          )
-        }
-      />
-      {error ? (
-        <p role="alert" className="text-xs text-destructive">
-          {error}
-        </p>
-      ) : null}
     </div>
   );
 }
@@ -1306,242 +734,6 @@ function MockRowActions({
         />
       ) : null}
     </>
-  );
-}
-
-// The heading row and each round row are separate grids, so every column
-// needs a fixed or fractional width; an auto column would size per row and
-// pull the headings out of line with their cells. The interviewer does not see
-// the interviewee's notes, so their rows have one column fewer.
-function roundRowClass(showIntervieweeNotes: boolean) {
-  return cn(
-    'grid gap-3 p-4 min-[56rem]:gap-x-4',
-    showIntervieweeNotes
-      ? 'min-[56rem]:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)_minmax(0,1fr)_5rem]'
-      : 'min-[56rem]:grid-cols-[minmax(0,1.2fr)_minmax(0,2fr)_5rem]',
-  );
-}
-const roundCellClass =
-  'grid content-start gap-1 min-[56rem]:border-l min-[56rem]:pl-4';
-
-/** An info icon whose hover text says what a score is for. */
-function ScoreHelp({ help, size = 15 }: { help?: string; size?: number }) {
-  if (!help) return null;
-  return (
-    <button
-      type="button"
-      title={help}
-      aria-label={help}
-      className="inline-flex rounded-sm text-muted-foreground outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
-    >
-      <IconInfoCircle size={size} aria-hidden="true" />
-    </button>
-  );
-}
-
-/**
- * The first details row: the lowest round score beside both people's notes
- * on the whole interview, and the interview's reviewed checkbox, mirroring
- * the one in the table row.
- */
-function OverallRow({
-  mock,
-  showIntervieweeNotes,
-  canReview,
-  onChanged,
-}: {
-  mock: MockInterview;
-  showIntervieweeNotes: boolean;
-  canReview: boolean;
-  onChanged: (changed?: MockInterview) => void;
-}) {
-  return (
-    <li className={roundRowClass(showIntervieweeNotes)}>
-      <article aria-label="Overall" className="grid content-start gap-1.5">
-        <strong className="inline-flex items-center gap-1.5 font-semibold">
-          Overall
-        </strong>
-      </article>
-      <div
-        aria-label="Interviewer notes on the interview"
-        className={roundCellClass}
-      >
-        <h3 className="text-xs font-semibold text-muted-foreground min-[56rem]:sr-only">
-          Interviewer notes
-        </h3>
-        <RichTextContent
-          html={mock.notes}
-          empty="No notes from the interviewer."
-        />
-      </div>
-      {showIntervieweeNotes ? (
-        <div
-          aria-label="Interviewee notes on the interview"
-          className={roundCellClass}
-        >
-          <h3 className="text-xs font-semibold text-muted-foreground min-[56rem]:sr-only">
-            Interviewee notes
-          </h3>
-          <RichTextContent
-            html={mock.intervieweeNotes}
-            empty="No notes from the interviewee."
-          />
-        </div>
-      ) : null}
-      <div className="flex items-center gap-2 self-stretch min-[56rem]:items-start min-[56rem]:border-l min-[56rem]:pt-0.5 min-[56rem]:pl-4">
-        <ReviewProgress
-          mock={mock}
-          canReview={canReview}
-          onChanged={onChanged}
-        />
-        <span className="text-sm font-medium min-[56rem]:sr-only">
-          Overall reviewed
-        </span>
-      </div>
-    </li>
-  );
-}
-
-/**
- * One row per round lining up its scores, the
- * interviewer's notes on it, the interviewee's notes on it, and whether the
- * interviewee has marked it reviewed.
- */
-function MockDetails({
-  row,
-  currentUserId,
-  onChanged,
-}: {
-  row: Row<MockInterview>;
-  currentUserId?: string;
-  onChanged: (changed?: MockInterview) => void;
-}) {
-  const mock = row.original;
-  const canReview = mock.interviewee.id === currentUserId;
-  // The interviewee's notes are private from the interviewer.
-  const showIntervieweeNotes = mock.interviewer.id !== currentUserId;
-  const rowClass = roundRowClass(showIntervieweeNotes);
-  const { setReviewed, pending, error } = useRoundReviewToggle(mock, onChanged);
-  const headingClass = 'text-sm font-semibold text-muted-foreground';
-  // Column headings show on wide screens; stacked rows label each part instead.
-  const cellHeadingClass =
-    'text-xs font-semibold text-muted-foreground min-[56rem]:sr-only';
-  return (
-    <div className="overflow-hidden rounded-lg border bg-card">
-      <section aria-label="Rounds and review" className="min-w-0">
-        <div className={cn(rowClass, 'hidden border-b py-3 min-[56rem]:grid')}>
-          <h2 className={headingClass}>Rounds and scores</h2>
-          <h2 className={cn(headingClass, 'pl-4')}>Interviewer notes</h2>
-          {showIntervieweeNotes ? (
-            <h2 className={cn(headingClass, 'pl-4')}>Interviewee notes</h2>
-          ) : null}
-          <h2 className={cn(headingClass, 'pl-4')}>Reviewed</h2>
-        </div>
-        <ol className="divide-y">
-          <OverallRow
-            mock={mock}
-            showIntervieweeNotes={showIntervieweeNotes}
-            canReview={canReview}
-            onChanged={onChanged}
-          />
-          {mock.rounds.map((round) => (
-            <li key={round.id} className={rowClass}>
-              <article
-                aria-label={round.title}
-                className="grid content-start gap-1.5"
-              >
-                <div className="flex items-baseline justify-between gap-3">
-                  <strong className="inline-flex items-center gap-1.5 font-semibold">
-                    <RoundTitle round={round} />
-                    {/* LeetCode rounds explain each part instead. */}
-                    {round.apiType === 'leetcode' ? null : (
-                      <ScoreHelp help={scoreHelp[round.apiType]} />
-                    )}
-                  </strong>
-                  {/* LeetCode rounds show each part's score instead. */}
-                  {round.apiType === 'leetcode' ? null : (
-                    <span
-                      className="font-semibold tabular-nums"
-                      style={
-                        round.score === null
-                          ? undefined
-                          : { color: scoreColor(round.score) }
-                      }
-                    >
-                      {round.score === null
-                        ? 'Not scored'
-                        : `${round.score}/10`}
-                    </span>
-                  )}
-                </div>
-                {round.score === null || round.apiType === 'leetcode' ? null : (
-                  <div className="h-1.5 overflow-hidden rounded-full bg-muted">
-                    <div
-                      className="h-full rounded-full"
-                      style={{
-                        width: `${round.score * 10}%`,
-                        background: scoreColor(round.score),
-                      }}
-                    />
-                  </div>
-                )}
-                <RoundScoreParts round={round} />
-                <RoundReference round={round} />
-              </article>
-              <div
-                aria-label={`Interviewer notes on ${round.title}`}
-                className={roundCellClass}
-              >
-                <h3 className={cellHeadingClass}>Interviewer notes</h3>
-                <RichTextContent
-                  html={round.notes}
-                  empty="No notes from the interviewer."
-                />
-              </div>
-              {showIntervieweeNotes ? (
-                <div
-                  aria-label={`Interviewee notes on ${round.title}`}
-                  className={roundCellClass}
-                >
-                  <h3 className={cellHeadingClass}>Interviewee notes</h3>
-                  <RichTextContent
-                    html={round.intervieweeComment}
-                    empty="No notes from the interviewee."
-                  />
-                </div>
-              ) : null}
-              <Field
-                orientation="horizontal"
-                className="w-auto items-center self-stretch min-[56rem]:items-start min-[56rem]:border-l min-[56rem]:pt-0.5 min-[56rem]:pl-4"
-              >
-                <Checkbox
-                  id={`round-reviewed-${round.id}`}
-                  checked={round.reviewed}
-                  disabled={!canReview || pending}
-                  onCheckedChange={(checked) =>
-                    void setReviewed([round.id], checked)
-                  }
-                />
-                <FieldLabel
-                  htmlFor={`round-reviewed-${round.id}`}
-                  className="min-[56rem]:sr-only"
-                >
-                  {round.title} reviewed
-                </FieldLabel>
-              </Field>
-            </li>
-          ))}
-        </ol>
-        {error ? (
-          <p
-            role="alert"
-            className="border-t px-4 py-3 text-sm text-destructive"
-          >
-            {error}
-          </p>
-        ) : null}
-      </section>
-    </div>
   );
 }
 
