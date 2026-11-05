@@ -56,6 +56,7 @@ import type {
   MockInterviewCreate,
   MockInterviewMutation,
   MockInterviewResult,
+  MockIntervieweeNotes,
   RoundReview,
 } from '@/api/generated/models';
 import {
@@ -1722,114 +1723,131 @@ function RoundReviewDialog({
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
-  const [roundId, setRoundId] = useState(mock.rounds[0]?.id ?? '');
-  const selected = mock.rounds.find((round) => round.id === roundId);
-  const [comment, setComment] = useState(selected?.intervieweeComment ?? '');
-  const [reviewed, setReviewed] = useState(selected?.reviewed ?? true);
+  const saved = () =>
+    Object.fromEntries(
+      mock.rounds.map((round) => [
+        round.id,
+        { comment: round.intervieweeComment, reviewed: round.reviewed },
+      ]),
+    );
+  const [drafts, setDrafts] = useState(saved);
+  const [overall, setOverall] = useState(mock.intervieweeNotes);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState('');
-  const dirty =
-    comment !== (selected?.intervieweeComment ?? '') ||
-    reviewed !== (selected?.reviewed ?? true);
+  const changed = mock.rounds.filter(
+    (round) =>
+      drafts[round.id].comment !== round.intervieweeComment ||
+      drafts[round.id].reviewed !== round.reviewed,
+  );
+  const overallChanged = overall !== mock.intervieweeNotes;
+  const dirty = overallChanged || changed.length > 0;
   useBeforeUnload((event) => {
     if (dirty) event.preventDefault();
   });
-  const chooseRound = (id: string) => {
-    const round = mock.rounds.find((item) => item.id === id);
-    setRoundId(id);
-    setComment(round?.intervieweeComment ?? '');
-    setReviewed(round?.reviewed ?? true);
-  };
+  const updateDraft = (
+    roundId: string,
+    change: Partial<{ comment: string; reviewed: boolean }>,
+  ) =>
+    setDrafts((items) => ({
+      ...items,
+      [roundId]: { ...items[roundId], ...change },
+    }));
   const save = async () => {
     setPending(true);
     setError('');
+    let next = mock;
     try {
-      if (!demoMode) {
-        const body: RoundReview = {
-          reviewed,
-          comment,
-        };
-        await apiRequest<MockInterviewResult>(
-          `/mock-interviews/${encodeURIComponent(mock.id)}/rounds/${encodeURIComponent(roundId)}/review`,
-          { method: 'PATCH', body: JSON.stringify(body) },
-        );
+      if (overallChanged) {
+        if (!demoMode) {
+          const body: MockIntervieweeNotes = { notes: overall };
+          await apiRequest<MockInterviewResult>(
+            `/mock-interviews/${encodeURIComponent(mock.id)}/interviewee-notes`,
+            { method: 'PATCH', body: JSON.stringify(body) },
+          );
+        }
+        next = { ...next, intervieweeNotes: overall };
       }
-      onChanged();
+      for (const round of changed) {
+        const review = drafts[round.id];
+        if (!demoMode) {
+          const body: RoundReview = review;
+          await apiRequest<MockInterviewResult>(
+            `/mock-interviews/${encodeURIComponent(mock.id)}/rounds/${encodeURIComponent(round.id)}/review`,
+            { method: 'PATCH', body: JSON.stringify(body) },
+          );
+        }
+        next = withRoundReview(next, round.id, review);
+      }
       setOpen(false);
     } catch (requestError) {
       if (requestError instanceof ApiError && requestError.status === 409) {
         onChanged();
         setError(
-          'This interview changed elsewhere. The latest version is being loaded; reopen the review before trying again.',
+          'This interview changed elsewhere. The latest version is being loaded; reopen your notes before trying again.',
         );
       } else
         setError(
           requestError instanceof Error
             ? requestError.message
-            : 'Unable to save your review.',
+            : 'Unable to save your notes.',
         );
     } finally {
+      // Show what was saved straight away, including rounds saved before a failure.
+      if (next !== mock) onChanged(next);
       setPending(false);
     }
   };
   const requestOpenChange = (next: boolean) => {
-    if (!next && dirty && !window.confirm('Discard your unsaved review?'))
+    if (!next && dirty && !window.confirm('Discard your unsaved notes?'))
       return;
-    if (next) chooseRound(mock.rounds[0]?.id ?? '');
+    if (next) {
+      setDrafts(saved());
+      setOverall(mock.intervieweeNotes);
+    }
     setOpen(next);
   };
   return (
-    <FormDialog
-      title="Review interview round"
-      description="Only the interviewee can change these review comments."
-      open={open}
-      onOpenChange={requestOpenChange}
-    >
+    <FormDialog title="Edit notes" open={open} onOpenChange={requestOpenChange}>
       <div className="grid gap-4">
         {error ? <FieldError>{error}</FieldError> : null}
-        <Field>
-          <FieldLabel htmlFor={`review-round-${mock.id}`}>Round</FieldLabel>
-          <Select
-            items={mock.rounds.map((round) => ({
-              label: round.title,
-              value: round.id,
-            }))}
-            value={roundId}
-            onValueChange={(value) => {
-              if (value) chooseRound(value);
-            }}
-          >
-            <SelectTrigger id={`review-round-${mock.id}`} className="w-full">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectGroup>
-                {mock.rounds.map((round) => (
-                  <SelectItem key={round.id} value={round.id}>
-                    {round.title}
-                  </SelectItem>
-                ))}
-              </SelectGroup>
-            </SelectContent>
-          </Select>
-        </Field>
         <RichTextEditor
-          id={`review-comment-${mock.id}`}
-          label="Comments"
-          value={comment}
-          onChange={setComment}
+          id={`interviewee-notes-${mock.id}`}
+          label="Overall notes"
+          value={overall}
+          onChange={setOverall}
         />
-        <Field orientation="horizontal">
-          <Checkbox
-            id={`review-reviewed-${mock.id}`}
-            checked={reviewed}
-            onCheckedChange={(checked) => setReviewed(checked)}
-          />
-          <FieldLabel htmlFor={`review-reviewed-${mock.id}`}>
-            Mark this round reviewed
-          </FieldLabel>
-        </Field>
-        <div className="mt-5 flex justify-end gap-2.5">
+        <FieldSet>
+          <FieldLegend className="sr-only">Rounds</FieldLegend>
+          {mock.rounds.map((round, index) => (
+            <article
+              key={round.id}
+              className="grid gap-3.5 py-4 border-t border-border"
+            >
+              <strong>
+                Round {index + 1}: <RoundTitle round={round} />
+              </strong>
+              <RichTextEditor
+                id={`review-comment-${round.id}`}
+                label="Notes"
+                value={drafts[round.id].comment}
+                onChange={(comment) => updateDraft(round.id, { comment })}
+              />
+              <Field orientation="horizontal">
+                <Checkbox
+                  id={`review-reviewed-${round.id}`}
+                  checked={drafts[round.id].reviewed}
+                  onCheckedChange={(reviewed) =>
+                    updateDraft(round.id, { reviewed })
+                  }
+                />
+                <FieldLabel htmlFor={`review-reviewed-${round.id}`}>
+                  Mark this round reviewed
+                </FieldLabel>
+              </Field>
+            </article>
+          ))}
+        </FieldSet>
+        <div className="flex justify-end gap-2.5 border-t border-border pt-4">
           <Button
             variant="outline"
             type="button"
@@ -1839,10 +1857,10 @@ function RoundReviewDialog({
           </Button>
           <Button
             type="button"
-            disabled={pending || !roundId || !dirty}
+            disabled={pending || !dirty}
             onClick={() => void save()}
           >
-            {pending ? 'Saving…' : 'Save review'}
+            {pending ? 'Saving…' : 'Save notes'}
           </Button>
         </div>
       </div>

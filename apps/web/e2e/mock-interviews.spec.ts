@@ -19,6 +19,50 @@ async function openDetails(page: Page, interviewee = 'Avery Example') {
     .click();
 }
 
+test('a saved review shows straight away without reloading', async ({
+  page,
+}) => {
+  await page.goto('/mock-interviews');
+  await openDetails(page);
+  const review = page
+    .getByLabel('Interviewee notes on Behavioural round')
+    .filter({ visible: true });
+  await expect(review.getByText('Great session.')).toBeVisible();
+
+  // The review opens from the row's menu, without expanding it.
+  await page
+    .getByRole('button', {
+      name: 'More actions for the interview with Noah Williams',
+    })
+    .filter({ visible: true })
+    .click();
+  await page.getByRole('menuitem', { name: 'Edit notes' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Edit notes' });
+  await dialog
+    .locator('#review-comment-round_4')
+    .fill('Clearer on trade-offs now.');
+  await dialog.getByRole('button', { name: 'Save notes' }).click();
+  await expect(dialog).toBeHidden();
+
+  await expect(review.getByText('Clearer on trade-offs now.')).toBeVisible();
+  // Every round's notes are edited in the same dialog.
+  await page
+    .getByRole('button', {
+      name: 'More actions for the interview with Noah Williams',
+    })
+    .filter({ visible: true })
+    .click();
+  await page.getByRole('menuitem', { name: 'Edit notes' }).click();
+  await expect(
+    page.getByRole('dialog', { name: 'Edit notes' }).getByText(/^Round \d:/),
+  ).toHaveText([
+    'Round 1: Behavioural round',
+    'Round 2: 3. Merge Intervals',
+    'Round 3: 4. Two Sum',
+  ]);
+  await expect(review.getByText('Great session.')).toHaveCount(0);
+});
+
 test('LeetCode rounds show the score for each part', async ({ page }) => {
   await page.goto('/mock-interviews');
   await openDetails(page);
