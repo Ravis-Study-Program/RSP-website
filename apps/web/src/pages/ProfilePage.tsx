@@ -61,7 +61,7 @@ import {
 } from '@/utils';
 
 const pageClass = 'mx-auto w-full max-w-[92rem]';
-const sectionClass = 'mt-6';
+const sectionClass = 'mt-6 flex flex-col';
 const sectionHeaderClass = 'mb-3 flex items-end justify-between gap-4';
 const sectionTitleClass = 'text-xl font-semibold tracking-tight';
 const formClass = 'flex flex-col gap-4';
@@ -344,7 +344,7 @@ export function ProfilePage() {
             <div className={sectionHeaderClass}>
               <h2 className={sectionTitleClass}>Programme participation</h2>
             </div>
-            <Card className="h-full">
+            <Card className="flex-1">
               <CardContent>
                 {participation.isLoading ? (
                   <p role="status">Loading participation…</p>
@@ -399,7 +399,7 @@ export function ProfilePage() {
             <div className={sectionHeaderClass}>
               <h2 className={sectionTitleClass}>Private account details</h2>
             </div>
-            <Card className="h-full">
+            <Card className="flex-1">
               <CardContent>
                 <ul className="m-0 list-none divide-y p-0">
                   <li className="flex items-center justify-between gap-4 py-3 first:pt-0 last:pb-0">
