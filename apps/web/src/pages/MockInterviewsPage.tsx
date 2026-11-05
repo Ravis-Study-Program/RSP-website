@@ -68,6 +68,7 @@ import {
   useMockParticipants,
 } from '@/api/queries';
 import { PageHeader, PersonIdentity, usePageTitle } from '@/components/Common';
+import { AppDatePicker } from '@/components/AppDatePicker';
 import { DataTable } from '@/components/DataTable';
 import { FormDialog, NamedConfirmation } from '@/components/Dialogs';
 import { ProblemSelect } from '@/components/ProblemSelect';
@@ -85,7 +86,6 @@ import {
 } from '@/components/ui/dropdown-menu';
 import {
   Field,
-  FieldDescription,
   FieldError,
   FieldLabel,
   FieldLegend,
@@ -95,7 +95,6 @@ import type { MockInterview, MockRound, Person, Season } from '@/types';
 import {
   calendarDateKey,
   formatDate,
-  formatDateTimeInput,
   interviewPassed,
   problemName,
   zonedDateTimeToUtc,
@@ -119,6 +118,13 @@ type MockFormValues = z.infer<typeof mockSchema>;
  * Mocks are dated, not timed. Today's interview keeps the current time so it
  * is never in the future; earlier days use noon in Adelaide, like attempts.
  */
+function recordedAt(date: string) {
+  return date === calendarDateKey(new Date(), programmeTimezone)
+    ? new Date().toISOString()
+    : zonedDateTimeToUtc(`${date}T12:00`, programmeTimezone);
+}
+
+/** A round passes at this score; an interview passes when every round does. */
 const passingScore = 5;
 
 const leetcodeScoreKeys = [
@@ -2131,12 +2137,10 @@ function NewMockDialog({
   onCreated: (mock: MockInterview) => void;
 }) {
   const [open, setOpen] = useState(false);
-  const [recordingDay, setRecordingDay] = useState(() =>
-    calendarDateKey(new Date(), programmeTimezone),
-  );
   const [rounds, setRounds] = useState<MockRound[]>(() => [newRound('custom')]);
   const [roundError, setRoundError] = useState('');
   const [roundsDirty, setRoundsDirty] = useState(false);
+  const [notes, setNotes] = useState('');
   const {
     control,
     register,
@@ -2147,12 +2151,12 @@ function NewMockDialog({
     resolver: zodResolver(mockSchema as never) as Resolver<MockFormValues>,
     defaultValues: {
       intervieweeId: '',
-      occurredAt: formatDateTimeInput(new Date(), programmeTimezone).slice(11),
+      occurredAt: calendarDateKey(new Date(), programmeTimezone),
       durationMinutes: 60,
     },
   });
   useBeforeUnload((event) => {
-    if (isDirty || roundsDirty) event.preventDefault();
+    if (isDirty || roundsDirty || notes) event.preventDefault();
   });
   const onSubmit = handleSubmit(async (values) => {
     const interviewee = people.find(
@@ -2185,23 +2189,15 @@ function NewMockDialog({
       interviewee,
       interviewer,
       season: null,
-      occurredAt: zonedDateTimeToUtc(
-        `${recordingDay}T${values.occurredAt}`,
-        programmeTimezone,
-      ),
+      occurredAt: recordedAt(values.occurredAt),
       durationMinutes: values.durationMinutes,
-      notes: '',
+      notes,
       intervieweeNotes: '',
       rounds,
       reviewStatus: 'pending',
     };
-    if (
-      recordingDay !== calendarDateKey(new Date(), programmeTimezone) ||
-      new Date(mock.occurredAt).getTime() > Date.now()
-    ) {
-      setRoundError(
-        'Choose a time today in Adelaide. Future times are not allowed. Reopen the form if the day has changed.',
-      );
+    if (values.occurredAt > calendarDateKey(new Date(), programmeTimezone)) {
+      setRoundError('Choose a date that has already happened.');
       return;
     }
     try {
@@ -2210,12 +2206,14 @@ function NewMockDialog({
           interviewee: { userId: values.intervieweeId },
           occurredAt: mock.occurredAt,
           durationMinutes: values.durationMinutes,
+          ...(notes ? { notes } : {}),
           rounds: rounds.map((round) => ({
             id: round.id,
             type: round.apiType,
             ...(round.problemId ? { problemId: round.problemId } : {}),
             ...(round.notes ? { content: round.notes } : {}),
             ...(round.link ? { link: round.link } : {}),
+            ...(round.description ? { description: round.description } : {}),
             scores: round.scores,
           })),
         };
@@ -2246,26 +2244,25 @@ function NewMockDialog({
     reset();
     setRounds([newRound('custom')]);
     setRoundsDirty(false);
+    setNotes('');
     setOpen(false);
   });
   const requestOpen = (next: boolean) => {
     if (
       !next &&
-      (isDirty || roundsDirty) &&
+      (isDirty || roundsDirty || notes) &&
       !window.confirm('Discard your unsaved interview?')
     )
       return;
     {
-      setRecordingDay(calendarDateKey(new Date(), programmeTimezone));
       reset({
         intervieweeId: '',
-        occurredAt: formatDateTimeInput(new Date(), programmeTimezone).slice(
-          11,
-        ),
+        occurredAt: calendarDateKey(new Date(), programmeTimezone),
         durationMinutes: 60,
       });
       setRounds([newRound('custom')]);
       setRoundsDirty(false);
+      setNotes('');
       setRoundError('');
     }
     setOpen(next);
@@ -2290,7 +2287,6 @@ function NewMockDialog({
   return (
     <FormDialog
       title="New mock interview"
-      description="You’re the interviewer. Ask a Director or System Admin to correct participants after saving."
       open={open}
       onOpenChange={requestOpen}
       trigger={
@@ -2349,23 +2345,19 @@ function NewMockDialog({
           ) : null}
         </Field>
         <div className="grid grid-cols-1 gap-3.5 min-[56rem]:grid-cols-2">
-          <Field>
-            <FieldLabel htmlFor="mock-recording-time">
-              Time (Adelaide)
-            </FieldLabel>
-            <Input
-              id="mock-recording-time"
-              type="time"
-              {...register('occurredAt')}
-            />
-            <FieldDescription>
-              Today in Adelaide: {recordingDay}. Record mocks on the day they
-              happen.
-            </FieldDescription>
-            {errors.occurredAt ? (
-              <FieldError>{errors.occurredAt.message}</FieldError>
-            ) : null}
-          </Field>
+          {/* Defaults to today; interviews cannot be recorded in the future. */}
+          <Controller
+            name="occurredAt"
+            control={control}
+            render={({ field }) => (
+              <AppDatePicker
+                label="Date"
+                value={field.value}
+                onChange={field.onChange}
+                error={errors.occurredAt?.message}
+              />
+            )}
+          />
           <Field>
             <FieldLabel htmlFor="mock-duration">Duration (minutes)</FieldLabel>
             <Input
@@ -2377,8 +2369,16 @@ function NewMockDialog({
             />
           </Field>
         </div>
+        <div className="border-t pt-4">
+          <RichTextEditor
+            id="new-mock-notes"
+            label="Overall notes"
+            value={notes}
+            onChange={setNotes}
+          />
+        </div>
         <FieldSet>
-          <FieldLegend variant="label">Interview rounds</FieldLegend>
+          <FieldLegend className="sr-only">Interview rounds</FieldLegend>
           {roundError ? <FieldError>{roundError}</FieldError> : null}
           {rounds.map((round, roundIndex) => (
             <RoundEditor
@@ -2396,26 +2396,12 @@ function NewMockDialog({
               onMove={(direction) => moveRound(roundIndex, direction)}
             />
           ))}
-          <div className="flex flex-wrap items-center gap-2.5">
-            {(['leetcode', 'custom', 'behavioural'] as const).map((type) => (
-              <Button
-                variant="outline"
-                type="button"
-                key={type}
-                onClick={() => {
-                  setRoundsDirty(true);
-                  setRounds((items) => [...items, newRound(type)]);
-                }}
-              >
-                <IconPlus size={17} aria-hidden="true" /> Add{' '}
-                {type === 'leetcode'
-                  ? 'LeetCode'
-                  : type === 'custom'
-                    ? 'custom'
-                    : 'behavioural'}
-              </Button>
-            ))}
-          </div>
+          <AddRoundButtons
+            onAdd={(type) => {
+              setRoundsDirty(true);
+              setRounds((items) => [...items, newRound(type)]);
+            }}
+          />
         </FieldSet>
         <div className="mt-5 flex justify-end gap-2.5">
           <Button

@@ -1,7 +1,7 @@
 import { chooseOption } from './select';
 import { expect, test } from '@playwright/test';
 
-test('former students can record mocks today in Adelaide and filter their personal history', async ({
+test('former students can record mocks on past days and filter their personal history', async ({
   page,
 }, testInfo) => {
   await page.clock.setFixedTime(new Date('2026-09-06T07:30:00Z'));
@@ -14,23 +14,36 @@ test('former students can record mocks today in Adelaide and filter their person
   ).toBeVisible();
   await page.getByRole('button', { name: 'New interview' }).click();
   const create = page.getByRole('dialog', { name: 'New mock interview' });
-  await expect(create.getByText(/Today in Adelaide: 2026-09-06/)).toBeVisible();
-  await expect(create.locator('input[type="date"]')).toHaveCount(0);
+  // Mocks are dated, not timed; the date defaults to today in Adelaide and
+  // reads day, month, year.
+  const when = create.getByRole('group', { name: 'Date' });
+  await expect(when).toHaveText('06/09/2026');
+  const setDate = async (digits: string) => {
+    await when.getByRole('spinbutton', { name: /^day/ }).click();
+    await page.keyboard.type(digits);
+  };
   await expect(create.getByLabel('Type', { exact: true })).toHaveAttribute(
     'id',
     /^round-type-[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/,
   );
   await chooseOption(create, 'Interviewee', 'Amelia Chen · student');
-  await create.getByLabel('Time (Adelaide)').fill('23:00');
+  await setDate('07092026');
   await create.getByRole('button', { name: 'Create interview' }).click();
-  await expect(create.getByText(/Future times are not allowed/)).toBeVisible();
-  await create.getByLabel('Time (Adelaide)').fill('16:30');
+  await expect(
+    create.getByText('Choose a date that has already happened.'),
+  ).toBeVisible();
+  // Interviews from earlier days can still be recorded.
+  await setDate('05092026');
   await create.screenshot({
     path: testInfo.outputPath('adelaide-recording.png'),
   });
   await create.getByRole('button', { name: 'Create interview' }).click();
   await expect(create).toBeHidden();
-  await page.getByRole('tab', { name: 'Given' }).click();
+  // All, the default view, already includes the interview just given.
+  await expect(page.getByRole('tab', { name: 'All' })).toHaveAttribute(
+    'aria-selected',
+    'true',
+  );
   await expect(
     page
       .getByRole('link', { name: 'Amelia Chen', exact: true })
