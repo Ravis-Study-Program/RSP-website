@@ -1,3 +1,5 @@
+import { compareFindings } from './compare-security-findings.mjs';
+
 const severities = ['info', 'low', 'moderate', 'high', 'critical'];
 
 export function normalizeAudit(report) {
@@ -70,33 +72,11 @@ export function normalizeAudit(report) {
 }
 
 export function compareAudits(baseReport, headReport) {
-  const base = normalizeAudit(baseReport);
-  const head = normalizeAudit(headReport);
-  const result = { added: [], changedExposure: [], inherited: [], removed: [] };
-  for (const [key, finding] of head) {
-    const previous = base.get(key);
-    if (!previous) {
-      result.added.push(finding);
-      continue;
-    }
-    for (const field of ['severity', 'updated', 'vulnerableVersions']) {
-      if (finding[field] !== previous[field]) {
-        throw new Error(`Advisory data changed between scans: ${finding.id}`);
-      }
-    }
-    const addedExposures = finding.exposures.filter(
-      (exposure) => !previous.exposures.includes(exposure),
-    );
-    if (addedExposures.length) {
-      result.changedExposure.push({ ...finding, addedExposures });
-    } else {
-      result.inherited.push(finding);
-    }
-  }
-  for (const [key, finding] of base) {
-    if (!head.has(key)) result.removed.push(finding);
-  }
-  return result;
+  return compareFindings(
+    normalizeAudit(baseReport),
+    normalizeAudit(headReport),
+    ['severity', 'updated', 'vulnerableVersions'],
+  );
 }
 
 export function renderComparison(result) {
@@ -115,7 +95,7 @@ export function renderComparison(result) {
     'Changed exposure means a new dependency path or affected version, not proven greater exploitability.',
     'Partial exposure removals remain inherited; complete advisory/package removals appear under removed.',
     'Both dependency trees use one frozen npm audit response. The artifact retains its request, response, and SHA-256 manifest.',
-    'This is not yet safe to use as an enforcement gate. Go, image, and targeted-remediation comparisons remain pending.',
+    'This remains a shadow report, not a regression gate. The separate remediation check verifies explicit targets.',
   );
   return `${lines.join('\n')}\n`;
 }

@@ -4,6 +4,7 @@ on:
   push:
     branches: [main]
   pull_request:
+    types: [opened, synchronize, reopened, edited, labeled, unlabeled]
   schedule:
     - cron: '0 6 * * *'
   workflow_dispatch:
@@ -351,6 +352,7 @@ jobs:
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: security-dependencies
+          overwrite: true
           path: security-reports
           if-no-files-found: warn
           retention-days: 14
@@ -381,9 +383,67 @@ jobs:
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: pnpm-security-shadow
+          overwrite: true
           path: security-shadow
           if-no-files-found: warn
           retention-days: 14
+
+  go-security-shadow:
+    name: Go baseline comparison (shadow)
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          path: .security-base
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache-dependency-path: go.sum
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - name: Compare Go findings against one local database snapshot
+        run: node scripts/ci/go-security-shadow.mjs .security-base . go-security-shadow
+      - name: Upload Go snapshot and comparison
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: go-security-shadow
+          overwrite: true
+          path: go-security-shadow
+          if-no-files-found: warn
+          retention-days: 14
+
+  scanner-contracts:
+    name: Pinned scanner contracts
+    if: github.event_name == 'pull_request' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: ${{ env.GO_VERSION }}
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
+        with:
+          version: ${{ env.PNPM_VERSION }}
+          run_install: false
+      - uses: aquasecurity/setup-trivy@3fb12ec12f41e471780db15c232d5dd185dcb514 # v0.2.6
+        with:
+          version: v0.70.0
+      - run: go install golang.org/x/vuln/cmd/govulncheck@v1.6.0
+      - name: Verify real scanner output and pnpm loopback capture
+        env:
+          SECURITY_CONTRACT_TESTS: 'true'
+        run: node --test scripts/ci/scanner-contracts.test.mjs scripts/ci/pnpm-shadow.test.mjs
 
   migration-fixture:
     if: github.event_name == 'push' || github.event_name == 'pull_request'
@@ -402,7 +462,7 @@ jobs:
   containers:
     name: Production images and Trivy
     runs-on: ubuntu-latest
-    timeout-minutes: 35
+    timeout-minutes: 40
     env:
       IMAGE_TAG: ci
       PUBLIC_ORIGIN: https://rsp.invalid
@@ -443,8 +503,8 @@ jobs:
         with:
           image-ref: rsp-api:ci
           version: v0.70.0
-          format: table
-          output: security-reports/api.txt
+          format: json
+          output: security-reports/api.json
           severity: HIGH,CRITICAL
           ignore-unfixed: true
           exit-code: 1
@@ -454,8 +514,8 @@ jobs:
         with:
           image-ref: rsp-auth:ci
           version: v0.70.0
-          format: table
-          output: security-reports/auth.txt
+          format: json
+          output: security-reports/auth.json
           severity: HIGH,CRITICAL
           ignore-unfixed: true
           exit-code: 1
@@ -465,8 +525,8 @@ jobs:
         with:
           image-ref: rsp-worker:ci
           version: v0.70.0
-          format: table
-          output: security-reports/worker.txt
+          format: json
+          output: security-reports/worker.json
           severity: HIGH,CRITICAL
           ignore-unfixed: true
           exit-code: 1
@@ -476,8 +536,8 @@ jobs:
         with:
           image-ref: rsp-web:ci
           version: v0.70.0
-          format: table
-          output: security-reports/web.txt
+          format: json
+          output: security-reports/web.json
           severity: HIGH,CRITICAL
           ignore-unfixed: true
           exit-code: 1
@@ -487,8 +547,8 @@ jobs:
         with:
           image-ref: rsp-migrations:ci
           version: v0.70.0
-          format: table
-          output: security-reports/migrations.txt
+          format: json
+          output: security-reports/migrations.json
           severity: HIGH,CRITICAL
           ignore-unfixed: true
           exit-code: 1
@@ -498,8 +558,8 @@ jobs:
         with:
           image-ref: rsp-ops:ci
           version: v0.70.0
-          format: table
-          output: security-reports/ops.txt
+          format: json
+          output: security-reports/ops.json
           severity: HIGH,CRITICAL
           ignore-unfixed: true
           exit-code: 1
@@ -508,7 +568,82 @@ jobs:
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: security-images
+          overwrite: true
           path: security-reports
+          if-no-files-found: warn
+          retention-days: 14
+
+  image-security-shadow:
+    name: Image baseline comparison (shadow)
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 65
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          path: .security-base
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - uses: aquasecurity/setup-trivy@3fb12ec12f41e471780db15c232d5dd185dcb514 # v0.2.6
+        with:
+          version: v0.70.0
+      - name: Build PR images on the isolated pilot runner
+        run: scripts/ci/containers.sh build
+      - name: Compare image sets against one frozen Trivy database
+        timeout-minutes: 25
+        run: node scripts/ci/image-security-shadow.mjs .security-base image-security-shadow
+      - name: Upload image snapshot and comparison
+        timeout-minutes: 5
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: image-security-shadow
+          overwrite: true
+          path: |
+            image-security-shadow/*.json
+            image-security-shadow/*.md
+            image-security-shadow/*.txt
+            image-security-shadow/cache/db/metadata.json
+          if-no-files-found: error
+          retention-days: 7
+
+  remediation-targets:
+    name: Explicit remediation targets
+    needs: [pnpm-security-shadow, go-security-shadow, image-security-shadow]
+    if: always() && github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      actions: read
+      contents: read
+      pull-requests: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - name: Read current PR intent and verify declared targets
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          SECURITY_SCAN_RESULTS: ${{ toJSON(needs) }}
+        run: |
+          gh api "repos/$GITHUB_REPOSITORY/pulls/$PR_NUMBER" > pull-request.json
+          node scripts/ci/check-remediation-targets.mjs pull-request.json "$GITHUB_EVENT_PATH" security-remediation
+      - name: Upload target evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: security-remediation
+          overwrite: true
+          path: |
+            security-remediation/*.json
+            security-remediation/*.md
+            security-remediation/*.txt
           if-no-files-found: warn
           retention-days: 14
 
