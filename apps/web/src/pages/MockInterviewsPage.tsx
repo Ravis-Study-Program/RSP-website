@@ -1,4 +1,4 @@
-import { Badge } from '@/components/ui/badge';
+import { StatusBadge } from '@/components/StatusBadge';
 import { Button } from '@/components/ui/button';
 import {
   Select,
@@ -20,7 +20,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { useActivityFilters, filterMocks } from '@/activityFilters';
 import { MockFilters } from '@/components/ActivityFilters';
-import { programmeTimezone } from '@/activityDates';
+import { programTimezone } from '@/activityDates';
 import { ActivityPeriodFilter } from '@/components/ActivityPeriodFilter';
 import { useActivitySeason, useActivitySeasons } from '@/activityPeriod';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -110,12 +110,7 @@ import {
   zonedDateTimeToUtc,
 } from '@/utils';
 
-const badgeClass = 'rounded-sm font-semibold';
-const outcomeTone = {
-  success: 'border-transparent bg-success-soft text-success',
-  warning: 'border-transparent bg-warning-soft text-warning',
-  danger: 'border-transparent bg-destructive-soft text-destructive',
-};
+const outcomeTone = { success: 'success', danger: 'danger' } as const;
 
 const mockSchema = z.object({
   intervieweeId: z.string().min(1, 'Choose an interviewee.'),
@@ -129,9 +124,9 @@ type MockFormValues = z.infer<typeof mockSchema>;
  * is never in the future; earlier days use noon in Adelaide, like attempts.
  */
 function recordedAt(date: string) {
-  return date === calendarDateKey(new Date(), programmeTimezone)
+  return date === calendarDateKey(new Date(), programTimezone)
     ? new Date().toISOString()
-    : zonedDateTimeToUtc(`${date}T12:00`, programmeTimezone);
+    : zonedDateTimeToUtc(`${date}T12:00`, programTimezone);
 }
 
 /** A round passes at this score; an interview passes when every round does. */
@@ -341,10 +336,7 @@ const mockTypeItems: { label: string; value: MockView }[] = [
   { label: 'Given', value: 'given' },
 ];
 // Received and Given badges, styled like the Pass and Fail ones.
-const directionTone = {
-  received: 'border-transparent bg-info-soft text-info',
-  given: 'border-transparent bg-warning-soft text-warning',
-};
+const directionTone = { received: 'info', given: 'warning' } as const;
 
 // Round types in interview order: behavioural, then LeetCode, then custom.
 const roundTypeItems: { label: string; value: MockRound['apiType'] }[] = [
@@ -639,15 +631,11 @@ const columnsForSeason = (
     cell: ({ row }) => {
       const given = row.original.interviewer.id === viewerId;
       return (
-        <Badge
-          variant="outline"
-          className={cn(
-            badgeClass,
-            given ? directionTone.given : directionTone.received,
-          )}
+        <StatusBadge
+          tone={given ? directionTone.given : directionTone.received}
         >
           {given ? 'Given' : 'Received'}
-        </Badge>
+        </StatusBadge>
       );
     },
   },
@@ -657,17 +645,15 @@ const columnsForSeason = (
     meta: { width: 5.5 },
     accessorFn: interviewPassed,
     cell: ({ row }) => (
-      <Badge
-        variant="outline"
-        className={cn(
-          badgeClass,
+      <StatusBadge
+        tone={
           interviewPassed(row.original)
             ? outcomeTone.success
-            : outcomeTone.danger,
-        )}
+            : outcomeTone.danger
+        }
       >
         {interviewPassed(row.original) ? 'Pass' : 'Fail'}
-      </Badge>
+      </StatusBadge>
     ),
   },
   {
@@ -873,7 +859,7 @@ export function MockInterviewsPage() {
     return (
       <div className="mx-auto w-full max-w-[92rem]">
         <ErrorState
-          title="Season unavailable"
+          title="Season Unavailable"
           message="The selected season could not be loaded."
           onRetry={() => void seasonsQuery.refetch()}
         />
@@ -964,7 +950,7 @@ export function MockInterviewsPage() {
             ])
           }
           emptyTitle={
-            mode === 'all' ? 'No mock interviews' : `No ${mode} mock interviews`
+            mode === 'all' ? 'No Mock Interviews' : `No ${mode} Mock Interviews`
           }
           emptyMessage={
             mode === 'received'
@@ -1125,31 +1111,27 @@ export function MockInterviewTable({
       renderCard={(row) => (
         <div>
           <div className="flex flex-wrap items-center gap-2.5">
-            <Badge
-              variant="outline"
-              className={cn(
-                badgeClass,
+            <StatusBadge
+              tone={
                 interviewPassed(row.original)
                   ? outcomeTone.success
-                  : outcomeTone.danger,
-              )}
+                  : outcomeTone.danger
+              }
             >
               {interviewPassed(row.original) ? 'Pass' : 'Fail'}
-            </Badge>
+            </StatusBadge>
             {view === 'all' ? (
-              <Badge
-                variant="outline"
-                className={cn(
-                  badgeClass,
+              <StatusBadge
+                tone={
                   row.original.interviewer.id === subjectId
                     ? directionTone.given
-                    : directionTone.received,
-                )}
+                    : directionTone.received
+                }
               >
                 {row.original.interviewer.id === subjectId
                   ? 'Given'
                   : 'Received'}
-              </Badge>
+              </StatusBadge>
             ) : null}
             {reviewCell(row.original)}
             {renderActions ? (
@@ -1465,7 +1447,7 @@ function OverallRow({
         className={roundCellClass}
       >
         <h3 className="text-xs font-semibold text-muted-foreground min-[56rem]:sr-only">
-          Interviewer notes
+          Interviewer Notes
         </h3>
         <RichTextContent
           html={mock.notes}
@@ -1478,7 +1460,7 @@ function OverallRow({
           className={roundCellClass}
         >
           <h3 className="text-xs font-semibold text-muted-foreground min-[56rem]:sr-only">
-            Interviewee notes
+            Interviewee Notes
           </h3>
           <RichTextContent
             html={mock.intervieweeNotes}
@@ -1528,10 +1510,10 @@ function MockDetails({
     <div className="overflow-hidden rounded-lg border bg-card">
       <section aria-label="Rounds and review" className="min-w-0">
         <div className={cn(rowClass, 'hidden border-b py-3 min-[56rem]:grid')}>
-          <h2 className={headingClass}>Rounds and scores</h2>
-          <h2 className={cn(headingClass, 'pl-4')}>Interviewer notes</h2>
+          <h2 className={headingClass}>Rounds and Scores</h2>
+          <h2 className={cn(headingClass, 'pl-4')}>Interviewer Notes</h2>
           {showIntervieweeNotes ? (
-            <h2 className={cn(headingClass, 'pl-4')}>Interviewee notes</h2>
+            <h2 className={cn(headingClass, 'pl-4')}>Interviewee Notes</h2>
           ) : null}
           <h2 className={cn(headingClass, 'pl-4')}>Reviewed</h2>
         </div>
@@ -1590,7 +1572,7 @@ function MockDetails({
                 aria-label={`Interviewer notes on ${round.title}`}
                 className={roundCellClass}
               >
-                <h3 className={cellHeadingClass}>Interviewer notes</h3>
+                <h3 className={cellHeadingClass}>Interviewer Notes</h3>
                 <RichTextContent
                   html={round.notes}
                   empty="No notes from the interviewer."
@@ -1601,7 +1583,7 @@ function MockDetails({
                   aria-label={`Interviewee notes on ${round.title}`}
                   className={roundCellClass}
                 >
-                  <h3 className={cellHeadingClass}>Interviewee notes</h3>
+                  <h3 className={cellHeadingClass}>Interviewee Notes</h3>
                   <RichTextContent
                     html={round.intervieweeComment}
                     empty="No notes from the interviewee."
@@ -1747,7 +1729,7 @@ function EditMockDialog({
   };
   return (
     <FormDialog
-      title="Edit notes and scores"
+      title="Edit Notes and Scores"
       open={open}
       onOpenChange={requestOpenChange}
     >
@@ -1952,7 +1934,7 @@ function RoundReviewDialog({
     setOpen(next);
   };
   return (
-    <FormDialog title="Edit notes" open={open} onOpenChange={requestOpenChange}>
+    <FormDialog title="Edit Notes" open={open} onOpenChange={requestOpenChange}>
       <div className="grid gap-4">
         {error ? <FieldError>{error}</FieldError> : null}
         <RichTextEditor
@@ -2124,7 +2106,7 @@ function IdentityCorrectionDialog({
   };
   return (
     <FormDialog
-      title="Correct interview identities"
+      title="Correct Interview Identities"
       open={open}
       onOpenChange={requestOpenChange}
     >
@@ -2248,7 +2230,7 @@ function NewMockDialog({
     resolver: zodResolver(mockSchema as never) as Resolver<MockFormValues>,
     defaultValues: {
       intervieweeId: '',
-      occurredAt: calendarDateKey(new Date(), programmeTimezone),
+      occurredAt: calendarDateKey(new Date(), programTimezone),
       durationMinutes: 60,
     },
   });
@@ -2293,7 +2275,7 @@ function NewMockDialog({
       rounds,
       reviewStatus: 'pending',
     };
-    if (values.occurredAt > calendarDateKey(new Date(), programmeTimezone)) {
+    if (values.occurredAt > calendarDateKey(new Date(), programTimezone)) {
       setRoundError('Choose a date that has already happened.');
       return;
     }
@@ -2354,7 +2336,7 @@ function NewMockDialog({
     {
       reset({
         intervieweeId: '',
-        occurredAt: calendarDateKey(new Date(), programmeTimezone),
+        occurredAt: calendarDateKey(new Date(), programTimezone),
         durationMinutes: 60,
       });
       setRounds([newRound('custom')]);
@@ -2383,7 +2365,7 @@ function NewMockDialog({
 
   return (
     <FormDialog
-      title="New mock interview"
+      title="New Mock Interview"
       open={open}
       onOpenChange={requestOpen}
       trigger={

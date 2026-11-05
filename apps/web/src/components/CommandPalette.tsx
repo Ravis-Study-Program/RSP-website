@@ -110,7 +110,7 @@ export function CommandPalette() {
               ? [
                   {
                     label: 'Seasons',
-                    description: 'Current and completed programmes',
+                    description: 'Current and completed programs',
                     to: '/seasons',
                   },
                   {
@@ -125,7 +125,7 @@ export function CommandPalette() {
                   },
                   {
                     label: 'Administration',
-                    description: 'Audited programme operations',
+                    description: 'Audited program operations',
                     to: '/admin',
                   },
                 ]

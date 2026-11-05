@@ -1,3 +1,4 @@
+import type { BadgeTone } from '@/badgeTones';
 import type {
   MondayUpdateMark,
   MondayUpdateMarkRecord,
@@ -19,13 +20,13 @@ export function markLabel(mark: MondayUpdateMark) {
 /** One colour per mark, from strongest (solid green) to weakest (solid red). */
 export const markTone: Record<
   MondayUpdateMark,
-  { badge: string; dot: string }
+  { badge: BadgeTone; dot: string }
 > = {
-  way_ahead: { badge: 'bg-success text-background', dot: 'bg-success' },
-  doing_good: { badge: 'bg-success-soft text-success', dot: 'bg-success/60' },
-  on_track: { badge: 'bg-info-soft text-info', dot: 'bg-info' },
-  a_bit_behind: { badge: 'bg-warning-soft text-warning', dot: 'bg-warning' },
-  at_risk: { badge: 'bg-destructive text-background', dot: 'bg-destructive' },
+  way_ahead: { badge: 'strongSuccess', dot: 'bg-success' },
+  doing_good: { badge: 'success', dot: 'bg-success/60' },
+  on_track: { badge: 'info', dot: 'bg-info' },
+  a_bit_behind: { badge: 'warning', dot: 'bg-warning' },
+  at_risk: { badge: 'strongDanger', dot: 'bg-destructive' },
 };
 
 /** The fields of an update a latest-mark summary needs. */

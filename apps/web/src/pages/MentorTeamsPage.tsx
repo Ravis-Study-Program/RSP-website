@@ -1,5 +1,5 @@
 import { Card } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
+import { StatusBadge } from '@/components/StatusBadge';
 import {
   Select,
   SelectContent,
@@ -68,15 +68,15 @@ export function MentorTeamsPage() {
               />
               <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
                 <h2 className="text-base font-semibold tracking-tight">
-                  Assigned students
+                  Assigned Students
                 </h2>
-                <Badge variant="secondary">
+                <StatusBadge>
                   {
                     students.filter(
                       (student) => student.mentorshipMentorId === mentor.id,
                     ).length
                   }
-                </Badge>
+                </StatusBadge>
               </div>
               <ul className="m-0 grid list-none gap-3 p-0">
                 {students
@@ -138,7 +138,7 @@ export function MentorTeamsPage() {
           </Card>
         ) : (
           <EmptyState
-            title="All students assigned"
+            title="All Students Assigned"
             message="Every active student has a mentor team."
           />
         )}
@@ -221,7 +221,7 @@ function MentorshipDialog({
   ];
   return (
     <FormDialog
-      title="Create mentorship"
+      title="Create Mentorship"
       open={open}
       onOpenChange={requestOpenChange}
       trigger={

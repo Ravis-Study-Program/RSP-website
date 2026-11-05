@@ -9,7 +9,7 @@ import type { ColumnDef } from '@tanstack/react-table';
 import { useCallback, useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
 
-import { programmeTimezone } from '@/activityDates';
+import { programTimezone } from '@/activityDates';
 import { apiRequest } from '@/api/client';
 import type { Enrollment, MondayUpdate } from '@/api/generated/models';
 import {
@@ -119,9 +119,9 @@ export function MenteesPage() {
   const seasonUpdateFilters = useMemo(
     () => ({
       startDate: season
-        ? calendarDateKey(season.startsAt, programmeTimezone)
+        ? calendarDateKey(season.startsAt, programTimezone)
         : '',
-      endDate: season ? calendarDateKey(season.endsAt, programmeTimezone) : '',
+      endDate: season ? calendarDateKey(season.endsAt, programTimezone) : '',
       studentIds: currentMenteeIds,
     }),
     [currentMenteeIds, season],
@@ -262,7 +262,7 @@ export function MenteesPage() {
       <PageHeader
         title={canManageEveryStudent ? 'All Students' : 'My Students'}
       />
-      <div className="mt-2 mb-4 flex min-h-6 items-center gap-2">
+      <div className="mb-6 flex min-h-6 items-center gap-2">
         <Checkbox
           id="include-previous-students"
           checked={showPrevious}
@@ -286,7 +286,7 @@ export function MenteesPage() {
             currentUser.refetch(),
           ])
         }
-        emptyTitle="No students in this view"
+        emptyTitle="No Students in This View"
         emptyMessage="A Coordinator can assign students to your mentor team."
         getRowId={(person) => person.id}
         renderCard={(row) => (

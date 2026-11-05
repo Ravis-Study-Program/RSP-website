@@ -125,7 +125,7 @@ function ProfileForm({
       aria-label="Edit profile and contact details"
       className="grid gap-6"
     >
-      <h3 className="text-base font-semibold">Profile and contact details</h3>
+      <h3 className="text-base font-semibold">Profile and Contact Details</h3>
       <form
         className={formStack}
         onSubmit={(e) => {

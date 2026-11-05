@@ -36,7 +36,7 @@ beforeEach(() => {
   vi.setSystemTime(new Date('2026-10-11T13:30:00Z'));
 });
 afterEach(() => vi.useRealTimers());
-it('links a Monday reminder directly to the missing programme week', () => {
+it('links a Monday reminder directly to the missing program week', () => {
   show();
   expect(screen.getByRole('alert')).toHaveTextContent(
     'Your Week 1 Monday update is due',

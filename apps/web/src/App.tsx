@@ -147,7 +147,7 @@ function RequireAdmin() {
 function RequireSeasonOperations() {
   const user = useCurrentUser();
   if (user.isLoading)
-    return <PageSkeleton label="Checking programme administration access" />;
+    return <PageSkeleton label="Checking program administration access" />;
   const allowed = Boolean(
     user.data &&
     (user.data.globalRoles.length > 0 ||

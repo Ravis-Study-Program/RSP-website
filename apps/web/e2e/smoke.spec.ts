@@ -200,7 +200,7 @@ test('keyboard users can skip navigation and open quick navigation', async ({
   ).toBeHidden();
 });
 
-test('role-aware navigation covers every major programme role', async ({
+test('role-aware navigation covers every major program role', async ({
   browser,
 }, testInfo) => {
   test.skip(testInfo.project.name.includes('mobile'), 'Desktop role matrix');
@@ -288,7 +288,7 @@ test('signed-out, unverified, unavailable, nonmember, forbidden and not-found st
   await unverifiedPage.goto('/dashboard');
   await expect(unverifiedPage).toHaveURL(/\/verify-email$/);
   await expect(
-    unverifiedPage.getByRole('heading', { name: 'Check your email' }),
+    unverifiedPage.getByRole('heading', { name: 'Check Your Email' }),
   ).toBeVisible();
   await unverifiedContext.close();
 
@@ -322,7 +322,7 @@ test('signed-out, unverified, unavailable, nonmember, forbidden and not-found st
       new RegExp(`/account-unavailable\\?state=${role}$`),
     );
     await expect(
-      unavailablePage.getByRole('heading', { name: 'Account unavailable' }),
+      unavailablePage.getByRole('heading', { name: 'Account Unavailable' }),
     ).toBeVisible();
     await expect(
       unavailablePage.getByText(message, { exact: false }),
@@ -333,11 +333,11 @@ test('signed-out, unverified, unavailable, nonmember, forbidden and not-found st
   await selectDemoRole(page, 'student');
   await page.goto('/forbidden');
   await expect(
-    page.getByRole('heading', { name: 'You do not have access' }),
+    page.getByRole('heading', { name: 'You Do Not Have Access' }),
   ).toBeVisible();
   await page.goto('/definitely-missing');
   await expect(
-    page.getByRole('heading', { name: 'Page not found' }),
+    page.getByRole('heading', { name: 'Page Not Found' }),
   ).toBeVisible();
 });
 
@@ -353,7 +353,7 @@ test('coordinator can reach season operations and create, edit and delete a week
   await expect(page.getByRole('heading', { name: 'Weeks' })).toBeVisible();
 
   await page.getByRole('button', { name: 'Create week' }).click();
-  const create = page.getByRole('dialog', { name: 'Create week' });
+  const create = page.getByRole('dialog', { name: 'Create Week' });
   await create.getByLabel('Week number').fill('15');
   await create
     .getByLabel('Resource URL (optional)')
@@ -371,7 +371,7 @@ test('coordinator can reach season operations and create, edit and delete a week
     .filter({ hasText: 'Week 15' })
     .getByRole('button', { name: 'Edit' })
     .click();
-  const edit = page.getByRole('dialog', { name: 'Edit week 15' });
+  const edit = page.getByRole('dialog', { name: 'Edit Week 15' });
   await edit.getByLabel('Week number').fill('16');
   await edit.getByRole('button', { name: 'Save week' }).click();
   await expect(
@@ -403,7 +403,7 @@ test('coordinator can enroll a verified nonmember without granting coordinator',
   await selectDemoRole(page, 'coordinator');
   await page.goto('/admin/enrollments');
   await page.getByRole('button', { name: 'Add member' }).click();
-  const dialog = page.getByRole('dialog', { name: 'Add season member' });
+  const dialog = page.getByRole('dialog', { name: 'Add Season Member' });
   await dialog.getByRole('combobox', { name: 'Season role' }).click();
   await expect(page.getByRole('option', { name: 'Student' })).toBeVisible();
   await expect(page.getByRole('option', { name: 'Coordinator' })).toHaveCount(
@@ -434,7 +434,7 @@ test('coordinator edits only season resources and mentorship forms protect dirty
   );
   await page.getByRole('button', { name: 'Edit resources' }).click();
   const resources = page.getByRole('dialog', {
-    name: /Edit resources for Summer 2025\/26/,
+    name: /Edit Resources for Summer 2025\/26/,
   });
   await resources
     .getByLabel('Season resources URL')
@@ -449,7 +449,7 @@ test('coordinator edits only season resources and mentorship forms protect dirty
 
   await page.goto('/admin/mentorships');
   await page.getByRole('button', { name: 'Create mentorship' }).click();
-  const mentorship = page.getByRole('dialog', { name: 'Create mentorship' });
+  const mentorship = page.getByRole('dialog', { name: 'Create Mentorship' });
   await chooseOption(mentorship, 'Mentor', 'Noah Williams');
   page.once('dialog', async (confirmation) => confirmation.dismiss());
   await page.keyboard.press('Escape');
@@ -523,7 +523,7 @@ test('attempt create, edit, delete and dirty-close confirmation work', async ({
   await selectDemoRole(page, 'student');
   await page.goto('/leetcode');
   await page.getByRole('button', { name: 'Log attempt' }).click();
-  const dialog = page.getByRole('dialog', { name: 'Log problem attempt' });
+  const dialog = page.getByRole('dialog', { name: 'Log Problem Attempt' });
   await dialog.getByLabel('Problem').fill('Two Sum');
   await page.getByRole('option').filter({ hasText: 'Two Sum' }).first().click();
   await dialog.getByLabel('Time taken (minutes)').fill('24');
@@ -582,7 +582,7 @@ test('director can create, edit and close a season', async ({
   await selectDemoRole(page, 'director');
   await page.goto('/seasons');
   await page.getByRole('button', { name: 'Create season' }).click();
-  const create = page.getByRole('dialog', { name: 'Create season' });
+  const create = page.getByRole('dialog', { name: 'Create Season' });
   await create.getByLabel('Name').fill('Summer 2027');
   await create.getByLabel('URL slug').fill('summer-2027');
   await create.getByLabel('Location').fill('Adelaide University');
@@ -611,7 +611,7 @@ test('director can create, edit and close a season', async ({
   const close = page.getByRole('dialog', {
     name: /Close season: Summer 2025\/26/,
   });
-  await close.getByLabel('Reason').fill('Programme completed successfully');
+  await close.getByLabel('Reason').fill('Program completed successfully');
   await close.getByLabel(/Type Summer 2025\/26/).fill('Summer 2025/26');
   await close.getByRole('button', { name: 'Close season' }).click();
   await expect(page.getByText('This season is read-only.')).toBeVisible();
@@ -630,7 +630,7 @@ test('mock interview create, round edit and named deletion work', async ({
   await selectDemoRole(page, 'director');
   await page.goto('/mock-interviews');
   await page.getByRole('button', { name: 'New interview' }).click();
-  const create = page.getByRole('dialog', { name: 'New mock interview' });
+  const create = page.getByRole('dialog', { name: 'New Mock Interview' });
   await chooseOption(create, 'Interviewee', 'Amelia Chen · student');
   await create.getByRole('button', { name: 'Add LeetCode' }).click();
   await create.getByLabel('LeetCode problem').fill('Two Sum');
@@ -652,7 +652,7 @@ test('mock interview create, round edit and named deletion work', async ({
     .first()
     .click();
   await page.getByRole('menuitem', { name: 'Edit notes and scores' }).click();
-  const edit = page.getByRole('dialog', { name: 'Edit notes and scores' });
+  const edit = page.getByRole('dialog', { name: 'Edit Notes and Scores' });
   await edit.getByLabel('Duration (minutes)').fill('65');
   await edit
     .getByLabel(/custom score/i)

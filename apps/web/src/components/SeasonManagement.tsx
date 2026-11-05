@@ -156,7 +156,7 @@ export function SeasonEditorDialog({
             location: mutation.location,
             imageUrl: mutation.imageUrl,
             resourcesUrl: mutation.resourcesUrl,
-            summary: `Current programme at ${mutation.location}.`,
+            summary: `Current program at ${mutation.location}.`,
           }
         : adaptSeason(
             await apiRequest<ApiSeason>(
@@ -191,7 +191,7 @@ export function SeasonEditorDialog({
 
   return (
     <FormDialog
-      title={season ? `Edit ${season.name}` : 'Create season'}
+      title={season ? `Edit ${season.name}` : 'Create Season'}
       open={open}
       onOpenChange={(next) => {
         if (
@@ -408,7 +408,7 @@ export function SeasonResourcesDialog({ season }: { season: Season }) {
 
   return (
     <FormDialog
-      title={`Edit resources for ${season.name}`}
+      title={`Edit Resources for ${season.name}`}
       open={open}
       onOpenChange={requestOpenChange}
       triggerVariant="outline"

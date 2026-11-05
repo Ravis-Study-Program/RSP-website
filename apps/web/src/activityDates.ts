@@ -1,7 +1,7 @@
 import type { Week } from '@/api/generated/models';
 import { calendarDateKey } from '@/utils';
 
-export const programmeTimezone = 'Australia/Adelaide';
+export const programTimezone = 'Australia/Adelaide';
 
 export interface MondayUpdateRange {
   startDate: string; // YYYY-MM-DD
@@ -28,7 +28,7 @@ function calendarWeekday(dateKey: string) {
 export function defaultMondayUpdateRange(
   now: Date = new Date(),
 ): MondayUpdateRange {
-  const today = calendarDateKey(now, programmeTimezone);
+  const today = calendarDateKey(now, programTimezone);
   const weekday = calendarWeekday(today);
   const daysBack = weekday + 6;
   const startDate = shiftCalendarDate(today, -daysBack);
@@ -40,11 +40,11 @@ export interface MondayUpdateWeek extends MondayUpdateRange {
   number: number;
 }
 
-/** Programme numbering is shared with the schedule; reporting dates are fixed. */
+/** Program numbering is shared with the schedule; reporting dates are fixed. */
 export function mondayUpdateWeeks(weeks: Week[]): MondayUpdateWeek[] {
   return weeks
     .map((week) => {
-      const day = calendarDateKey(week.startAt, programmeTimezone);
+      const day = calendarDateKey(week.startAt, programTimezone);
       const startDate = shiftCalendarDate(day, 1 - calendarWeekday(day));
       return {
         id: week.id,
@@ -59,7 +59,7 @@ export function mondayUpdateWeeks(weeks: Week[]): MondayUpdateWeek[] {
 }
 
 export function completedMondayUpdateWeeks(weeks: Week[], now = new Date()) {
-  const today = calendarDateKey(now, programmeTimezone);
+  const today = calendarDateKey(now, programTimezone);
   return mondayUpdateWeeks(weeks).filter((week) => week.endDate < today);
 }
 
@@ -70,15 +70,15 @@ export function sameUpdateWeek(
   return update.startDate === week.startDate && update.endDate === week.endDate;
 }
 
-/** A Monday reminder is due only during an active programme week. */
+/** A Monday reminder is due only during an active program week. */
 export function mondayReminderWeek(weeks: Week[], now = new Date()) {
-  const today = calendarDateKey(now, programmeTimezone);
+  const today = calendarDateKey(now, programTimezone);
   if (
     calendarWeekday(today) !== 1 ||
     !weeks.some(
       (week) =>
-        calendarDateKey(week.startAt, programmeTimezone) <= today &&
-        calendarDateKey(week.endAt, programmeTimezone) >= today,
+        calendarDateKey(week.startAt, programTimezone) <= today &&
+        calendarDateKey(week.endAt, programTimezone) >= today,
     )
   )
     return undefined;

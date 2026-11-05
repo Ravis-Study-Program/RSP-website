@@ -85,10 +85,10 @@ export function adaptSeason(season: ApiSeason): Season {
     memberCount: null,
     weekCount: null,
     summary: season.location
-      ? `${season.status === 'open' ? 'Current programme' : 'Completed programme'} at ${season.location}.`
+      ? `${season.status === 'open' ? 'Current program' : 'Completed program'} at ${season.location}.`
       : season.status === 'open'
-        ? 'Current programme.'
-        : 'Completed programme history.',
+        ? 'Current program.'
+        : 'Completed program history.',
   };
 }
 

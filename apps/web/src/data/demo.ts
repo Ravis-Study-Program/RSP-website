@@ -7,7 +7,7 @@ import type {
   MondayUpdateMock,
   PersonSummary,
 } from '@/api/generated/models';
-import { defaultMondayUpdateRange, programmeTimezone } from '@/activityDates';
+import { defaultMondayUpdateRange, programTimezone } from '@/activityDates';
 import type {
   Attempt,
   CurrentUser,
@@ -56,7 +56,7 @@ export const seasons: Season[] = [
     memberCount: 46,
     weekCount: 12,
     summary:
-      'The current programme for students building interview confidence through practice and mentoring.',
+      'The current program for students building interview confidence through practice and mentoring.',
   },
   {
     id: 'season_2026_s1',
@@ -71,7 +71,7 @@ export const seasons: Season[] = [
     memberCount: 39,
     weekCount: 12,
     summary:
-      'Completed programme history, available read-only to participants and alumni.',
+      'Completed program history, available read-only to participants and alumni.',
   },
 ];
 
@@ -604,7 +604,7 @@ function fixtureMondayUpdates(): MondayUpdate[] {
     const own = activity[student.id] ?? { attempts: [], mocks: [] };
     // The real API derives activity from the update's own Adelaide date range.
     const within = (at: string) => {
-      const dateKey = calendarDateKey(at, programmeTimezone);
+      const dateKey = calendarDateKey(at, programTimezone);
       return dateKey >= startDate && dateKey <= endDate;
     };
     return {

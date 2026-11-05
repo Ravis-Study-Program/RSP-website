@@ -1,4 +1,5 @@
-import { Badge } from '@/components/ui/badge';
+import { statusTone } from '@/badgeTones';
+import { StatusBadge } from '@/components/StatusBadge';
 import { buttonVariants } from '@/components/ui/button';
 import { IconArrowRight } from '@tabler/icons-react';
 import type { ColumnDef } from '@tanstack/react-table';
@@ -14,9 +15,6 @@ import { formatDate } from '@/utils';
 const pageClass = 'mx-auto w-full max-w-[92rem]';
 const inlineClass = 'flex flex-wrap items-center gap-2.5';
 const helperClass = 'text-sm text-muted-foreground';
-const statusBadgeClass = 'h-5 rounded-4xl px-2 text-xs font-medium';
-const badgeSuccessClass = 'bg-success-soft text-success';
-const badgeNeutralClass = 'bg-muted text-muted-foreground';
 
 export function SeasonsPage() {
   usePageTitle('Seasons');
@@ -63,14 +61,9 @@ export function SeasonsPage() {
       header: 'Status',
       meta: { width: 7.5 },
       cell: ({ getValue }) => (
-        <Badge
-          variant="secondary"
-          className={`${statusBadgeClass} ${
-            getValue() === 'open' ? badgeSuccessClass : badgeNeutralClass
-          }`}
-        >
+        <StatusBadge tone={statusTone(getValue())}>
           {getValue() === 'open' ? 'Open' : 'Closed'}
-        </Badge>
+        </StatusBadge>
       ),
     },
     {
@@ -124,23 +117,16 @@ export function SeasonsPage() {
         loading={query.isLoading || user.isLoading}
         error={query.isError || user.isError}
         onRetry={() => void Promise.all([query.refetch(), user.refetch()])}
-        emptyTitle="No seasons yet"
-        emptyMessage="Create the first programme season to begin."
+        emptyTitle="No Seasons Yet"
+        emptyMessage="Create the first program season to begin."
         getRowId={(season) => season.id}
         renderCard={(row) => (
           <div>
             <div className={inlineClass}>
-              <Badge
-                variant="secondary"
-                className={`${statusBadgeClass} ${
-                  row.original.status === 'open'
-                    ? badgeSuccessClass
-                    : badgeNeutralClass
-                }`}
-              >
+              <StatusBadge tone={statusTone(row.original.status)}>
                 {row.original.status.charAt(0).toUpperCase() +
                   row.original.status.slice(1)}
-              </Badge>
+              </StatusBadge>
             </div>
             <h2 className="mt-2.5 text-base font-semibold">
               <HighlightText text={row.original.name} />

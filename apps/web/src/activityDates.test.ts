@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   defaultMondayUpdateRange,
-  programmeTimezone,
+  programTimezone,
   mondayUpdateWeeks,
   completedMondayUpdateWeeks,
   mondayReminderWeek,
@@ -27,7 +27,7 @@ describe('defaultMondayUpdateRange', () => {
     '%s defaults to %s … %s … %s',
     (weekday, today, startDate, endDate) => {
       const now = adelaideInstant(today);
-      expect(calendarDateKey(now, programmeTimezone)).toBe(today);
+      expect(calendarDateKey(now, programTimezone)).toBe(today);
       expect(defaultMondayUpdateRange(now)).toEqual({ startDate, endDate });
     },
   );
@@ -46,7 +46,7 @@ describe('defaultMondayUpdateRange', () => {
     // 2026-10-16 is still Friday in UTC but already Saturday evening in Adelaide.
     const now = new Date('2026-10-16T20:00:00Z');
     expect(calendarDateKey(now, 'UTC')).toBe('2026-10-16');
-    expect(calendarDateKey(now, programmeTimezone)).toBe('2026-10-17');
+    expect(calendarDateKey(now, programTimezone)).toBe('2026-10-17');
     expect(defaultMondayUpdateRange(now)).toEqual({
       startDate: '2026-10-05',
       endDate: '2026-10-11',
@@ -56,7 +56,7 @@ describe('defaultMondayUpdateRange', () => {
   it('treats an Adelaide Monday as the previous week, not the UTC Sunday', () => {
     const now = new Date('2026-10-18T20:00:00Z');
     expect(calendarDateKey(now, 'UTC')).toBe('2026-10-18');
-    expect(calendarDateKey(now, programmeTimezone)).toBe('2026-10-19');
+    expect(calendarDateKey(now, programTimezone)).toBe('2026-10-19');
     expect(defaultMondayUpdateRange(now)).toEqual({
       startDate: '2026-10-12',
       endDate: '2026-10-18',
@@ -67,14 +67,14 @@ describe('defaultMondayUpdateRange', () => {
     const morning = new Date('2026-10-15T00:30:00Z');
     const evening = new Date('2026-10-15T13:00:00Z');
     const range = { startDate: '2026-10-05', endDate: '2026-10-11' };
-    expect(calendarDateKey(morning, programmeTimezone)).toBe('2026-10-15');
-    expect(calendarDateKey(evening, programmeTimezone)).toBe('2026-10-15');
+    expect(calendarDateKey(morning, programTimezone)).toBe('2026-10-15');
+    expect(calendarDateKey(evening, programTimezone)).toBe('2026-10-15');
     expect(defaultMondayUpdateRange(morning)).toEqual(range);
     expect(defaultMondayUpdateRange(evening)).toEqual(range);
   });
 });
 
-describe('numbered programme reporting weeks', () => {
+describe('numbered program reporting weeks', () => {
   const weeks = [
     {
       id: 'w1',
@@ -93,7 +93,7 @@ describe('numbered programme reporting weeks', () => {
       resourceUrl: '',
     },
   ];
-  it('uses the Adelaide Monday and keeps programme numbering', () => {
+  it('uses the Adelaide Monday and keeps program numbering', () => {
     expect(mondayUpdateWeeks(weeks)[0]).toEqual({
       id: 'w1',
       number: 1,

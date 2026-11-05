@@ -37,7 +37,7 @@ test('a saved review shows straight away without reloading', async ({
     .filter({ visible: true })
     .click();
   await page.getByRole('menuitem', { name: 'Edit notes' }).click();
-  const dialog = page.getByRole('dialog', { name: 'Edit notes' });
+  const dialog = page.getByRole('dialog', { name: 'Edit Notes' });
   await dialog
     .locator('#review-comment-round_4')
     .fill('Clearer on trade-offs now.');
@@ -54,7 +54,7 @@ test('a saved review shows straight away without reloading', async ({
     .click();
   await page.getByRole('menuitem', { name: 'Edit notes' }).click();
   await expect(
-    page.getByRole('dialog', { name: 'Edit notes' }).getByText(/^Round \d:/),
+    page.getByRole('dialog', { name: 'Edit Notes' }).getByText(/^Round \d:/),
   ).toHaveText([
     'Round 1: Behavioural round',
     'Round 2: 3. Merge Intervals',
@@ -232,7 +232,7 @@ test('the interviewer edits and deletes from the row menu', async ({
     await expect(checkbox).toBeDisabled();
   await page.getByRole('menuitem', { name: 'Edit notes and scores' }).click();
   await expect(
-    page.getByRole('dialog', { name: 'Edit notes and scores' }),
+    page.getByRole('dialog', { name: 'Edit Notes and Scores' }),
   ).toBeVisible();
 });
 

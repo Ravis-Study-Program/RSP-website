@@ -21,11 +21,11 @@ Secondary, all signed-in members (see `docs/role-matrix.md`):
 
 ## Product Purpose
 
-RSP Workspace ("RSP mentoring, practice and mock interview workspace") is the members-only, second-generation platform for a season-based mentoring programme that prepares students for technical interviews. Students build a record of practice, mock interviews, and weekly written updates. Mentors and coordinators use that record to guide and run the season. It replaces a legacy C#/Auth0 system. Success means members record activity reliably and staff can see progress without chasing people.
+RSP Workspace ("RSP mentoring, practice and mock interview workspace") is the members-only, second-generation platform for a season-based mentoring program that prepares students for technical interviews. Students build a record of practice, mock interviews, and weekly written updates. Mentors and coordinators use that record to guide and run the season. It replaces a legacy C#/Auth0 system. Success means members record activity reliably and staff can see progress without chasing people.
 
 ## Positioning
 
-A workspace built around one programme's own mechanics: seasons, programme weeks in the Adelaide timezone, mentor teams, Monday updates, student levels, and fixed practice time goals. It is not a generic LMS or a LeetCode clone.
+A workspace built around one program's own mechanics: seasons, program weeks in the Adelaide timezone, mentor teams, Monday updates, student levels, and fixed practice time goals. It is not a generic LMS or a LeetCode clone.
 
 ## Operating Context
 
@@ -33,7 +33,7 @@ A workspace built around one programme's own mechanics: seasons, programme weeks
 - Weekly ritual: each student writes a Monday update (a date-range record that can be deleted but not edited), and their mentor marks it.
 - Practice attempts are LeetCode-style problems with difficulty and topic, measured against fixed time goals (Easy 20 min, Medium 35 min, Hard 50 min).
 - Mock interviews can be recorded for today only (Adelaide date). Timestamps are immutable and edits are versioned.
-- History is filtered by season or all time and by programme week. Activity charts come with textual summaries.
+- History is filtered by season or all time and by program week. Activity charts come with textual summaries.
 - A workspace switcher sets season and role context. There is a command palette (Quick navigation).
 - Desktop and mobile are both real use contexts. Mobile has its own navigation.
 
@@ -42,7 +42,7 @@ A workspace built around one programme's own mechanics: seasons, programme weeks
 - Stack in place: React 19 + Vite, shadcn/ui on Base UI, Tailwind CSS 4, TanStack Query/Table, and Tiptap rich text. The Go API and Better Auth service sit behind Caddy on a single origin.
 - Members only: `/` redirects to `/dashboard`. The only public routes are the auth flows (sign-in, verify email, two-factor, reset password, account unavailable, accept invitation).
 - Privileged roles need TOTP MFA. Accounts can be deleted, with a 30-day recoverable grace period.
-- Programme calendar logic uses `Australia/Adelaide`. Storage is UTC. The UI renders each member's saved IANA timezone.
+- Program calendar logic uses `Australia/Adelaide`. Storage is UTC. The UI renders each member's saved IANA timezone.
 - English only (`en-AU` formatting). No i18n is planned in the repo.
 - Student levels: Novice, Beginner, Intermediate, Advance.
 - Terminology to preserve: season, week, enrollment, mentorship, mentor team, practice attempt, mock interview, Monday update, mark, level, kicked / withdrawn, graduate, invitation, workspace.
@@ -59,15 +59,15 @@ A workspace built around one programme's own mechanics: seasons, programme weeks
 - Real product docs: `docs/role-matrix.md`, `docs/season-browsing-and-administration.md`, `docs/accessibility.md`, `docs/product-backlog.md`.
 - `src/data/demo.ts` is fake fixture data (`VITE_USE_DEMO_DATA=true`). It is not real content.
 - There are no testimonials, outcome stats, member photos, or sponsor/university branding. Never fabricate them.
-- Programme content (application questions, email templates, documents, seminars, selection criteria) has not been supplied yet.
+- Program content (application questions, email templates, documents, seminars, selection criteria) has not been supplied yet.
 
 ## Product Principles
 
 1. Students log first: the most frequent student actions (record practice, log a mock, write the Monday update) stay the shortest paths.
 2. Show the role's own work: navigation and views follow the member's role and season context and do not expose every capability.
 3. Records are trustworthy: immutable timestamps, versioned edits, and explicit read-only states are visible, not hidden.
-4. Programme time is explicit: weeks and "today" follow the Adelaide programme calendar, and the UI says so where it matters.
-5. Use the programme's own terms, not generic LMS vocabulary.
+4. Program time is explicit: weeks and "today" follow the Adelaide program calendar, and the UI says so where it matters.
+5. Use the program's own terms, not generic LMS vocabulary.
 
 ## Accessibility & Inclusion
 

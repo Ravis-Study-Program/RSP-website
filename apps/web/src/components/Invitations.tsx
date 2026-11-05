@@ -147,7 +147,7 @@ export function Invitations({ season }: { season: Season }) {
               return;
             setOpen(next);
           }}
-          title="Invite a member"
+          title="Invite a Member"
           trigger={season.status === 'open' ? 'Invite a member' : undefined}
         >
           <form
@@ -260,7 +260,7 @@ export function Invitations({ season }: { season: Season }) {
         loading={query.isLoading}
         error={query.isError}
         onRetry={() => void query.refetch()}
-        emptyTitle="No invitations"
+        emptyTitle="No Invitations"
         emptyMessage="Invite someone using their name and email address."
         getRowId={(i) => i.id}
         renderCard={({ original: i }) => (

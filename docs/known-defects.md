@@ -46,5 +46,5 @@ values.
 ## Not product scope
 
 Unchecked items in `product-backlog.md` remain future decisions. The rewrite
-does not implicitly deliver applications, job tracking, hosted programme
+does not implicitly deliver applications, job tracking, hosted program
 content, announcements, video ingestion or company-directory workflows.

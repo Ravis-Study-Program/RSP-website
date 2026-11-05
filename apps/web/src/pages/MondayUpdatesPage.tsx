@@ -1,4 +1,4 @@
-import { Badge } from '@/components/ui/badge';
+import { StatusBadge } from '@/components/StatusBadge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -247,7 +247,7 @@ export function MondayUpdatesPage() {
     return (
       <div className={pageClass}>
         <ErrorState
-          title="Season not found"
+          title="Season Not Found"
           message="This season may have moved or you may not have access."
         />
       </div>
@@ -298,7 +298,7 @@ export function MondayUpdatesPage() {
       <PageHeader title="Monday Updates" />
       {weekItems.length > 0 ? (
         <Field className="mt-6 max-w-lg">
-          <FieldLabel htmlFor="monday-week">Programme week</FieldLabel>
+          <FieldLabel htmlFor="monday-week">Program week</FieldLabel>
           <Select
             items={weekItems}
             value={allHistory ? 'all' : (selectedWeek?.id ?? 'all')}
@@ -329,7 +329,7 @@ export function MondayUpdatesPage() {
             </p>
           ) : !selectedWeek ? (
             <p className="mt-6 text-sm text-muted-foreground">
-              Updates open after the first programme week ends.
+              Updates open after the first program week ends.
             </p>
           ) : submitted ? (
             <p role="status" className="mt-6 text-sm">
@@ -350,7 +350,7 @@ export function MondayUpdatesPage() {
           >
             <div className={sectionHeaderClass}>
               <h2 id="monday-history-title" className={sectionTitleClass}>
-                Your updates
+                Your Updates
               </h2>
               <span className={mutedClass}>{ownUpdates.length} posted</span>
             </div>
@@ -360,12 +360,12 @@ export function MondayUpdatesPage() {
               </p>
             ) : updates.isError ? (
               <ErrorState
-                title="Your updates could not be loaded"
+                title="Your Updates Could Not Be Loaded"
                 onRetry={() => void updates.refetch()}
               />
             ) : ownUpdates.length === 0 ? (
               <Card className={cardClass}>
-                <h3 className={cardTitleClass}>No updates yet</h3>
+                <h3 className={cardTitleClass}>No Updates Yet</h3>
               </Card>
             ) : (
               <div className={cleanListClass}>
@@ -390,7 +390,7 @@ export function MondayUpdatesPage() {
         <section className={sectionClass} aria-labelledby="monday-mentor-title">
           <div className={sectionHeaderClass}>
             <h2 id="monday-mentor-title" className={sectionTitleClass}>
-              Student updates
+              Student Updates
             </h2>
             <span className={mutedClass}>
               {selectedStudentIds.length} of {menteeIds.length} students
@@ -424,14 +424,14 @@ export function MondayUpdatesPage() {
           </FieldSet>
           {menteeIds.length === 0 ? (
             <Card className={cardClass}>
-              <h3 className={cardTitleClass}>No students assigned</h3>
+              <h3 className={cardTitleClass}>No Students Assigned</h3>
               <p className={mutedClass}>
                 A coordinator can assign students to your mentor team.
               </p>
             </Card>
           ) : selectedStudentIds.length === 0 ? (
             <Card className={cardClass}>
-              <h3 className={cardTitleClass}>No students selected</h3>
+              <h3 className={cardTitleClass}>No Students Selected</h3>
               <p className={mutedClass}>
                 Select at least one student above to review their Monday
                 updates.
@@ -443,7 +443,7 @@ export function MondayUpdatesPage() {
             </p>
           ) : updates.isError ? (
             <ErrorState
-              title="Updates could not be loaded"
+              title="Updates Could Not Be Loaded"
               onRetry={() => void updates.refetch()}
             />
           ) : (
@@ -464,11 +464,11 @@ export function MondayUpdatesPage() {
                         {studentLabel(studentId)}
                       </h3>
                       {studentUpdates.length ? (
-                        <Badge variant="secondary">
+                        <StatusBadge>
                           {studentUpdates.length === 1
                             ? '1 update in this range'
                             : `${studentUpdates.length} updates in this range`}
-                        </Badge>
+                        </StatusBadge>
                       ) : null}
                     </div>
                     {studentSlugs.get(studentId) ? (
@@ -504,7 +504,7 @@ export function MondayUpdatesPage() {
         <section className={sectionClass} aria-labelledby="monday-review-title">
           <div className={sectionHeaderClass}>
             <h2 id="monday-review-title" className={sectionTitleClass}>
-              Student review
+              Student Review
             </h2>
             <span className={mutedClass}>
               Expand a student to view updates and marks.
@@ -651,7 +651,7 @@ function StudentUpdateForm({
         </div>
         <section aria-labelledby="monday-range-activity-title">
           <h3 id="monday-range-activity-title" className={subTitleClass}>
-            Activity this week
+            Activity This Week
           </h3>
           {rangeActivity.isLoading ? (
             <p role="status" className={`${mutedClass} py-2.5`}>
@@ -659,7 +659,7 @@ function StudentUpdateForm({
             </p>
           ) : rangeActivity.isError ? (
             <ErrorState
-              title="Your activity could not be loaded"
+              title="Your Activity Could Not Be Loaded"
               onRetry={() => void rangeActivity.refetch()}
             />
           ) : rangeActivity.data ? (
@@ -893,9 +893,7 @@ function MentorUpdateCard({
               {ownMark ? (
                 <MarkBadge mark={ownMark.mark} />
               ) : (
-                <Badge variant="outline" className="text-muted-foreground">
-                  Not marked
-                </Badge>
+                <StatusBadge tone="muted">Not marked</StatusBadge>
               )}
             </div>
             <span className={mutedClass}>
@@ -903,7 +901,7 @@ function MentorUpdateCard({
             </span>
           </div>
           <FormDialog
-            title={`${ownMark ? 'Edit' : 'Add'} mark · ${update.student.name}`}
+            title={`${ownMark ? 'Edit' : 'Add'} Mark · ${update.student.name}`}
             description={label}
             open={dialogOpen}
             onOpenChange={(next) => {
@@ -1173,11 +1171,11 @@ function ReviewerTable({
           row.leetcodeCounts.medium +
           row.leetcodeCounts.hard,
         cell: ({ row }) => (
-          <Badge variant="secondary">
+          <StatusBadge>
             {row.original.leetcodeCounts.easy} /{' '}
             {row.original.leetcodeCounts.medium} /{' '}
             {row.original.leetcodeCounts.hard}
-          </Badge>
+          </StatusBadge>
         ),
       },
       {
@@ -1204,7 +1202,7 @@ function ReviewerTable({
       loading={loading}
       error={error}
       onRetry={onRetry}
-      emptyTitle="No students to review"
+      emptyTitle="No Students to Review"
       emptyMessage="No enrolled student has activity in this date range yet."
       getRowId={(row) => row.student.id}
       renderExpanded={(row) => (
@@ -1225,11 +1223,11 @@ function ReviewerTable({
             showMarker
           />
           <div className={rowClass}>
-            <Badge variant="secondary">
+            <StatusBadge>
               {row.original.leetcodeCounts.easy} /{' '}
               {row.original.leetcodeCounts.medium} /{' '}
               {row.original.leetcodeCounts.hard}
-            </Badge>
+            </StatusBadge>
             <span className={mutedClass}>easy / medium / hard</span>
           </div>
           <p className={mutedClass}>

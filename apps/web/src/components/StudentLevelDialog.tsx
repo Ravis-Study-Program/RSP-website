@@ -85,7 +85,7 @@ export function StudentLevelDialog({
     <FormDialog
       triggerVariant="outline"
       triggerSize="sm"
-      title={`Set ${person.name}'s level`}
+      title={`Set ${person.name}'s Level`}
       trigger={
         <>
           <IconArrowUp size={17} aria-hidden="true" /> Set level

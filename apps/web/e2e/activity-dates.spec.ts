@@ -13,7 +13,7 @@ test('former students can record mocks on past days and filter their personal hi
     page.getByRole('heading', { name: 'Mock Interviews', exact: true }),
   ).toBeVisible();
   await page.getByRole('button', { name: 'New interview' }).click();
-  const create = page.getByRole('dialog', { name: 'New mock interview' });
+  const create = page.getByRole('dialog', { name: 'New Mock Interview' });
   // Mocks are dated, not timed; the date defaults to today in Adelaide and
   // reads day, month, year.
   const when = create.getByRole('group', { name: 'Date' });
@@ -58,7 +58,7 @@ test('former students can record mocks on past days and filter their personal hi
     .first()
     .click();
   await page.getByRole('menuitem', { name: 'Edit notes and scores' }).click();
-  const edit = page.getByRole('dialog', { name: 'Edit notes and scores' });
+  const edit = page.getByRole('dialog', { name: 'Edit Notes and Scores' });
   // The date is shown but cannot be changed.
   await expect(edit.getByLabel('Date', { exact: true })).toHaveAttribute(
     'readonly',

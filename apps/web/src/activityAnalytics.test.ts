@@ -24,7 +24,9 @@ it('counts a success only when solved within the goal time', () => {
     { difficulty: 'Medium', outcome: 'solved', minutes: 35 },
     { difficulty: null, outcome: 'solved', minutes: 1 },
   ] as Attempt[];
-  expect(difficultySuccessRates(attempts)).toEqual([
+  expect(
+    difficultySuccessRates(attempts, { Easy: 20, Medium: 35, Hard: 50 }),
+  ).toEqual([
     { difficulty: 'Easy', count: 4, successes: 1 },
     { difficulty: 'Medium', count: 1, successes: 1 },
     { difficulty: 'Hard', count: 0, successes: 0 },

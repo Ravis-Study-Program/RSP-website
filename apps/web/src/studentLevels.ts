@@ -1,3 +1,4 @@
+import type { BadgeTone } from '@/badgeTones';
 import type { CurrentUser, Person, Season } from '@/types';
 
 export const studentLevels = {
@@ -8,11 +9,11 @@ export const studentLevels = {
 } as const;
 
 /** Each level's badge colours, from grey for beginners up to purple. */
-export const studentLevelTone: Record<keyof typeof studentLevels, string> = {
-  beginner: 'border-transparent bg-muted text-muted-foreground',
-  novice: 'border-transparent bg-success-soft text-success',
-  intermediate: 'border-transparent bg-info-soft text-info',
-  advanced: 'border-transparent bg-purple-soft text-purple',
+export const studentLevelTone: Record<keyof typeof studentLevels, BadgeTone> = {
+  beginner: 'muted',
+  novice: 'success',
+  intermediate: 'info',
+  advanced: 'purple',
 };
 
 export function studentLevelLabel(level?: Person['studentLevel']) {

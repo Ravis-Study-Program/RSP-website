@@ -87,7 +87,7 @@ test('student creates, edits, and deletes a Go-backed practice attempt', async (
     page.getByRole('heading', { name: 'LeetCode Practice' }),
   ).toBeVisible();
   await page.getByRole('button', { name: 'Log attempt' }).click();
-  const create = page.getByRole('dialog', { name: 'Log problem attempt' });
+  const create = page.getByRole('dialog', { name: 'Log Problem Attempt' });
   await create.getByLabel('Problem').fill('Two Sum');
   await page.getByRole('option').filter({ hasText: 'Two Sum' }).first().click();
   await create.getByLabel('Time taken (minutes)').fill('24');
@@ -155,7 +155,7 @@ test('coordinator MFA session creates, edits, and deletes an open-season week', 
   await expectSelected(page, 'Season', 'Development Season · Open');
 
   await page.getByRole('button', { name: 'Create week' }).click();
-  const create = page.getByRole('dialog', { name: 'Create week' });
+  const create = page.getByRole('dialog', { name: 'Create Week' });
   await create.getByLabel('Week number').fill(String(weekNumber));
   await create.getByLabel('Resource URL (optional)').fill(resourceUrl);
   await create.getByRole('button', { name: 'Create week' }).click();
@@ -169,7 +169,7 @@ test('coordinator MFA session creates, edits, and deletes an open-season week', 
   );
 
   await createdWeek.getByRole('button', { name: 'Edit' }).click();
-  const edit = page.getByRole('dialog', { name: `Edit week ${weekNumber}` });
+  const edit = page.getByRole('dialog', { name: `Edit Week ${weekNumber}` });
   await edit.getByLabel('Week number').fill(String(updatedWeekNumber));
   await edit.getByRole('button', { name: 'Save week' }).click();
   const updatedWeek = page
@@ -198,7 +198,7 @@ test('coordinator MFA session creates, edits, and deletes an open-season week', 
   await expect(page.getByRole('button', { name: 'Add member' })).toBeEnabled();
 
   await page.goto('/seasons/unknown-real-stack-season');
-  await expect(page.getByText('Season not found')).toBeVisible();
+  await expect(page.getByText('Season Not Found')).toBeVisible();
 });
 
 test('director MFA session creates, edits, closes, and reopens a throwaway season', async ({
@@ -211,7 +211,7 @@ test('director MFA session creates, edits, closes, and reopens a throwaway seaso
   await page.goto('/seasons');
   await expect(page.getByRole('heading', { name: 'Seasons' })).toBeVisible();
   await page.getByRole('button', { name: 'Create season' }).click();
-  const create = page.getByRole('dialog', { name: 'Create season' });
+  const create = page.getByRole('dialog', { name: 'Create Season' });
   await create.getByLabel('Name').fill(seasonName);
   await create.getByLabel('URL slug').fill(seasonSlug);
   await create.getByLabel('Location').fill('E2E Test Campus');
@@ -270,7 +270,7 @@ test('director MFA session creates, edits, closes, and reopens a throwaway seaso
 
   await page.goto('/admin/users');
   await expect(
-    page.getByRole('heading', { name: 'You do not have access' }),
+    page.getByRole('heading', { name: 'You Do Not Have Access' }),
   ).toBeVisible();
 });
 
@@ -320,7 +320,7 @@ test('an invited new member verifies their email and joins the season', async ({
   await page.goto('/admin/enrollments');
   await chooseOption(page, 'Season', 'Development Season · Open');
   await page.getByRole('button', { name: 'Invite a member' }).click();
-  const invite = page.getByRole('dialog', { name: 'Invite a member' });
+  const invite = page.getByRole('dialog', { name: 'Invite a Member' });
   await invite.getByLabel('Name', { exact: true }).fill('Invited E2E Member');
   await invite.getByLabel('Email', { exact: true }).fill(email);
   await invite.getByRole('button', { name: 'Send invitation' }).click();

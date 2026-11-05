@@ -4,11 +4,16 @@ import {
   filterMocks,
   type ActivityFilters,
 } from '@/activityFilters';
-import { programmeTimezone } from '@/activityDates';
-import { calendarDateKey, practiceGoalMinutes } from '@/utils';
+import { programTimezone } from '@/activityDates';
+import {
+  calendarDateKey,
+  defaultPracticeGoals,
+  type PracticeGoals,
+} from '@/utils';
 import {
   queryOptions,
   useInfiniteQuery,
+  useMutation,
   useQuery,
   useQueryClient,
 } from '@tanstack/react-query';
@@ -46,6 +51,7 @@ import type {
   PersonSummary,
   ProblemPage,
   PracticeSettings,
+  PracticeSettingsMutation,
   Participation,
   User as ApiUser,
   UserPrivate,
@@ -54,6 +60,7 @@ import type {
   WeekPage,
 } from '@/api/generated/models';
 import { fetchPracticeSettings } from '@/api/practiceSettingsClient';
+import { listSignInMethods } from '@/api/authClient';
 import {
   attempts,
   demoUser,
@@ -120,11 +127,12 @@ export async function fetchAllPages<T>(path: string): Promise<ApiPage<T>> {
   };
 }
 
-export const demoPracticeSettings: PracticeSettings = {
+// Demo goals can be changed for the session, as real ones are for everyone.
+export let demoPracticeSettings: PracticeSettings = {
   goalsEnabled: true,
-  easyMinutes: practiceGoalMinutes.Easy,
-  mediumMinutes: practiceGoalMinutes.Medium,
-  hardMinutes: practiceGoalMinutes.Hard,
+  easyMinutes: defaultPracticeGoals.Easy,
+  mediumMinutes: defaultPracticeGoals.Medium,
+  hardMinutes: defaultPracticeGoals.Hard,
 };
 
 function selectedDemoUser(): CurrentUser {
@@ -335,6 +343,52 @@ export function useSeasons(enabled = true) {
 
 export function usePracticeSettings() {
   return useQuery(practiceSettingsOptions);
+}
+
+/** Which sign-in methods the signed-in account has connected. */
+export function useSignInMethods() {
+  return useQuery({
+    queryKey: ['me', 'sign-in-methods'],
+    // Demo accounts sign in with a password and have two-factor on.
+    queryFn: () =>
+      demoMode
+        ? wait({ google: false, password: true, twoFactor: true })
+        : listSignInMethods(),
+    staleTime: 60_000,
+  });
+}
+
+/** The program's goal for each difficulty, or the defaults while loading. */
+export function usePracticeGoals(): PracticeGoals {
+  const settings = usePracticeSettings().data;
+  return settings
+    ? {
+        Easy: settings.easyMinutes,
+        Medium: settings.mediumMinutes,
+        Hard: settings.hardMinutes,
+      }
+    : defaultPracticeGoals;
+}
+
+/** Saves the program's goals for everyone. */
+export function useUpdatePracticeSettings() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (
+      goals: PracticeSettingsMutation,
+    ): Promise<PracticeSettings> => {
+      if (demoMode) {
+        demoPracticeSettings = { goalsEnabled: true, ...goals };
+        return wait(demoPracticeSettings);
+      }
+      return apiRequest<PracticeSettings>('/practice-settings', {
+        method: 'PUT',
+        body: JSON.stringify(goals),
+      });
+    },
+    onSuccess: (saved) =>
+      queryClient.setQueryData(practiceSettingsOptions.queryKey, saved),
+  });
 }
 
 export const seasonWeeksQueryKey = (seasonId?: string) =>
@@ -662,7 +716,7 @@ export function useMondayUpdateRangeActivity(
       if (demoMode) {
         // Demo activity lives on the demo updates; collect what falls in range.
         const inRange = (at: string) => {
-          const key = calendarDateKey(at, programmeTimezone);
+          const key = calendarDateKey(at, programTimezone);
           return key >= startDate && key <= endDate;
         };
         const updates = demoMondayUpdates().filter(
@@ -1035,7 +1089,7 @@ export function useMockInterviewSummary(
       const { items, subject } = demoMockInterviewsInScope(scope);
       const days = new Map<string, number>();
       for (const item of items) {
-        const day = calendarDateKey(item.occurredAt, programmeTimezone);
+        const day = calendarDateKey(item.occurredAt, programTimezone);
         days.set(day, (days.get(day) ?? 0) + 1);
       }
       return wait({

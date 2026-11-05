@@ -6,11 +6,11 @@ unreviewed database edit.
 
 ## Severity
 
-| Severity | Examples                                                                                                      | Initial response                                                                  |
-| -------- | ------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- |
-| SEV-1    | Confirmed credential/PII exposure, destructive corruption, total outage during a critical programme operation | Page incident lead/security/data owner immediately; freeze risky writes.          |
-| SEV-2    | Major role cannot work, widespread auth failure, worker repeatedly corrupting/duplicating data                | Assign incident lead and responder; mitigate within the current operating period. |
-| SEV-3    | Degraded non-critical workflow, isolated incorrect result with safe workaround                                | Track owner, evidence and bounded repair.                                         |
+| Severity | Examples                                                                                                    | Initial response                                                                  |
+| -------- | ----------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- |
+| SEV-1    | Confirmed credential/PII exposure, destructive corruption, total outage during a critical program operation | Page incident lead/security/data owner immediately; freeze risky writes.          |
+| SEV-2    | Major role cannot work, widespread auth failure, worker repeatedly corrupting/duplicating data              | Assign incident lead and responder; mitigate within the current operating period. |
+| SEV-3    | Degraded non-critical workflow, isolated incorrect result with safe workaround                              | Track owner, evidence and bounded repair.                                         |
 
 ## First 15 minutes
 

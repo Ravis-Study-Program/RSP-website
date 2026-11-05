@@ -1,4 +1,5 @@
-import { Badge } from '@/components/ui/badge';
+import { statusTone } from '@/badgeTones';
+import { StatusBadge } from '@/components/StatusBadge';
 import { Card } from '@/components/ui/card';
 import { Button, buttonVariants } from '@/components/ui/button';
 import {
@@ -82,12 +83,6 @@ import {
 import type { Page as ViewPage, Person, SeasonRole } from '@/types';
 import { formatDate, formatDateTimeInput, zonedDateTimeToUtc } from '@/utils';
 
-const statusTone = {
-  success: 'bg-success-soft text-success',
-  warning: 'bg-warning-soft text-warning',
-  neutral: 'border-border bg-muted text-muted-foreground',
-} as const;
-
 function statusLabel(status: string) {
   const text = status.replace(/_/g, ' ');
   return text.charAt(0).toUpperCase() + text.slice(1);
@@ -156,72 +151,77 @@ export function AdminPage() {
       currentUser.data?.globalRoles.includes('system_admin'),
   );
   return (
-    <div className="flex flex-col gap-6">
+    <div>
       <PageHeader title="Administration" />
-      <div className="grid gap-4 sm:grid-cols-2">
-        <MetricCard
-          label="Seasons"
-          value={seasons.data?.totalCount ?? '—'}
-          detail={`${seasons.data?.items.filter((season) => season.status === 'open').length ?? '—'} open`}
-        />
-        <MetricCard
-          label="Visible users"
-          value={people.data?.totalCount ?? '—'}
-          detail="Active members and alumni"
-        />
-      </div>
-      <div className="grid gap-4 md:grid-cols-2">
-        {visibleResources.map((resource, index) => {
-          const Icon = resource.icon;
-          const spansRow =
-            visibleResources.length % 2 === 1 &&
-            index === visibleResources.length - 1;
-          return (
-            <article
-              className={`flex flex-col items-start gap-3 rounded-lg border border-border bg-card p-5${spansRow ? ' md:col-span-2' : ''}`}
-              key={resource.slug}
-            >
-              <span className="inline-flex size-9 items-center justify-center rounded-full bg-primary text-primary-foreground">
-                <Icon size={20} aria-hidden="true" />
-              </span>
-              <h2 className="text-base font-semibold">{resource.title}</h2>
-              <div className="mt-4">
-                <Link
-                  to={`/admin/${resource.slug}`}
-                  className={buttonVariants({ variant: 'outline', size: 'sm' })}
-                >
-                  Manage {resource.title.toLowerCase()}
-                </Link>
-              </div>
-            </article>
-          );
-        })}
-      </div>
-      <section className="flex flex-col gap-3">
-        <div className="flex items-center justify-between gap-3">
-          <h2 className="text-lg font-semibold">Technical operations</h2>
+      <div className="flex flex-col gap-6">
+        <div className="grid gap-6 sm:grid-cols-2">
+          <MetricCard
+            label="Seasons"
+            value={seasons.data?.totalCount ?? '—'}
+            detail={`${seasons.data?.items.filter((season) => season.status === 'open').length ?? '—'} open`}
+          />
+          <MetricCard
+            label="Visible users"
+            value={people.data?.totalCount ?? '—'}
+            detail="Active members and alumni"
+          />
         </div>
-        <Card className="gap-4 p-5">
-          {syncStatus ? <p role="status">{syncStatus}</p> : null}
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <span>
-              <strong>LeetCode catalogue sync</strong>
-              <span className="block text-sm text-muted-foreground">
-                Scheduled for Sundays at 03:00 UTC.
-              </span>
-            </span>
-            <Button
-              variant="outline"
-              size="sm"
-              type="button"
-              disabled={syncPending}
-              onClick={() => void sync()}
-            >
-              {syncPending ? 'Queueing…' : 'Sync now'}
-            </Button>
+        <div className="grid gap-6 md:grid-cols-2">
+          {visibleResources.map((resource, index) => {
+            const Icon = resource.icon;
+            const spansRow =
+              visibleResources.length % 2 === 1 &&
+              index === visibleResources.length - 1;
+            return (
+              <article
+                className={`flex flex-col items-start gap-3 rounded-lg border border-border bg-card p-5${spansRow ? ' md:col-span-2' : ''}`}
+                key={resource.slug}
+              >
+                <span className="inline-flex size-9 items-center justify-center rounded-full bg-primary text-primary-foreground">
+                  <Icon size={20} aria-hidden="true" />
+                </span>
+                <h2 className="text-base font-semibold">{resource.title}</h2>
+                <div className="mt-4">
+                  <Link
+                    to={`/admin/${resource.slug}`}
+                    className={buttonVariants({
+                      variant: 'outline',
+                      size: 'sm',
+                    })}
+                  >
+                    Manage {resource.title.toLowerCase()}
+                  </Link>
+                </div>
+              </article>
+            );
+          })}
+        </div>
+        <section className="flex flex-col gap-3">
+          <div className="flex items-center justify-between gap-3">
+            <h2 className="text-lg font-semibold">Technical Operations</h2>
           </div>
-        </Card>
-      </section>
+          <Card className="gap-4 p-5">
+            {syncStatus ? <p role="status">{syncStatus}</p> : null}
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <span>
+                <strong>LeetCode catalogue sync</strong>
+                <span className="block text-sm text-muted-foreground">
+                  Scheduled for Sundays at 03:00 UTC.
+                </span>
+              </span>
+              <Button
+                variant="outline"
+                size="sm"
+                type="button"
+                disabled={syncPending}
+                onClick={() => void sync()}
+              >
+                {syncPending ? 'Queueing…' : 'Sync now'}
+              </Button>
+            </div>
+          </Card>
+        </section>
+      </div>
     </div>
   );
 }
@@ -233,14 +233,6 @@ interface AdminRow {
   status: string;
   detail: string;
   actions?: ReactNode;
-}
-
-function statusToneFor(status: string) {
-  return status === 'active' || status === 'open'
-    ? statusTone.success
-    : status === 'pending' || status === 'unassigned'
-      ? statusTone.warning
-      : statusTone.neutral;
 }
 
 const columns: ColumnDef<AdminRow, any>[] = [
@@ -261,9 +253,9 @@ const columns: ColumnDef<AdminRow, any>[] = [
     header: 'Status',
     meta: { width: 9 },
     cell: ({ getValue }) => (
-      <Badge variant="outline" className={statusToneFor(getValue())}>
+      <StatusBadge tone={statusTone(getValue())}>
         {statusLabel(getValue())}
-      </Badge>
+      </StatusBadge>
     ),
   },
   { accessorKey: 'detail', header: 'Details' },
@@ -540,84 +532,90 @@ export function AdminResourcePage({
     ) : undefined;
 
   return (
-    <div className="flex flex-col gap-6">
+    <div>
       <PageHeader title={config.title} actions={createAction} />
-      {resource !== 'seasons' && resource !== 'users' ? (
-        <div className="rounded-lg border border-border bg-card p-4">
-          <Field>
-            <FieldLabel htmlFor={`admin-${resource}-season`}>Season</FieldLabel>
-            <Select
-              items={seasonItems}
-              value={selectedSeason?.slug ?? ''}
-              disabled={!manageableSeasons.length}
-              onValueChange={(value) => {
-                const season = manageableSeasons.find(
-                  (item) => item.slug === value,
-                );
-                setSelectedSeasonId(season?.id ?? '');
-              }}
-            >
-              <SelectTrigger id={`admin-${resource}-season`} className="w-full">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectGroup>
-                  {seasonItems.map((item) => (
-                    <SelectItem key={item.value} value={item.value}>
-                      {item.label}
-                    </SelectItem>
-                  ))}
-                </SelectGroup>
-              </SelectContent>
-            </Select>
-          </Field>
-        </div>
-      ) : null}
-      {resource === 'enrollments' && selectedSeason ? (
-        <Invitations key={selectedSeason.id} season={selectedSeason} />
-      ) : null}
-      <DataTable
-        ariaLabel={`Admin ${config.title}`}
-        data={rows}
-        columns={columns}
-        loading={loading}
-        error={error}
-        onRetry={() =>
-          void Promise.all([
-            seasons.refetch(),
-            resource === 'users' ? adminUsers.refetch() : people.refetch(),
-            selectedQuery?.refetch(),
-            resource === 'enrollments'
-              ? enrollmentCandidates.refetch()
-              : undefined,
-          ])
-        }
-        emptyTitle={`No ${config.title.toLowerCase()}`}
-        emptyMessage="Create the first record when the programme is ready."
-        getRowId={(row) => row.id}
-        renderCard={(row) => (
-          <div className="flex flex-col gap-2">
-            <div className="flex items-center gap-2">
-              <Badge
-                variant="outline"
-                className={statusToneFor(row.original.status)}
+      <div className="flex flex-col gap-6">
+        {resource !== 'seasons' && resource !== 'users' ? (
+          <div className="rounded-lg border border-border bg-card p-4">
+            <Field>
+              <FieldLabel htmlFor={`admin-${resource}-season`}>
+                Season
+              </FieldLabel>
+              <Select
+                items={seasonItems}
+                value={selectedSeason?.slug ?? ''}
+                disabled={!manageableSeasons.length}
+                onValueChange={(value) => {
+                  const season = manageableSeasons.find(
+                    (item) => item.slug === value,
+                  );
+                  setSelectedSeasonId(season?.id ?? '');
+                }}
               >
-                {statusLabel(row.original.status)}
-              </Badge>
-            </div>
-            <h2 className="text-base font-semibold">{row.original.primary}</h2>
-            <p className="text-sm text-muted-foreground">
-              {row.original.secondary}
-            </p>
-            <p>{row.original.detail}</p>
-            {row.original.actions ? (
-              <div className="flex flex-wrap justify-end gap-2">
-                {row.original.actions}
-              </div>
-            ) : null}
+                <SelectTrigger
+                  id={`admin-${resource}-season`}
+                  className="w-full"
+                >
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectGroup>
+                    {seasonItems.map((item) => (
+                      <SelectItem key={item.value} value={item.value}>
+                        {item.label}
+                      </SelectItem>
+                    ))}
+                  </SelectGroup>
+                </SelectContent>
+              </Select>
+            </Field>
           </div>
-        )}
-      />
+        ) : null}
+        {resource === 'enrollments' && selectedSeason ? (
+          <Invitations key={selectedSeason.id} season={selectedSeason} />
+        ) : null}
+        <DataTable
+          ariaLabel={`Admin ${config.title}`}
+          data={rows}
+          columns={columns}
+          loading={loading}
+          error={error}
+          onRetry={() =>
+            void Promise.all([
+              seasons.refetch(),
+              resource === 'users' ? adminUsers.refetch() : people.refetch(),
+              selectedQuery?.refetch(),
+              resource === 'enrollments'
+                ? enrollmentCandidates.refetch()
+                : undefined,
+            ])
+          }
+          emptyTitle={`No ${config.title.toLowerCase()}`}
+          emptyMessage="Create the first record when the program is ready."
+          getRowId={(row) => row.id}
+          renderCard={(row) => (
+            <div className="flex flex-col gap-2">
+              <div className="flex items-center gap-2">
+                <StatusBadge tone={statusTone(row.original.status)}>
+                  {statusLabel(row.original.status)}
+                </StatusBadge>
+              </div>
+              <h2 className="text-base font-semibold">
+                {row.original.primary}
+              </h2>
+              <p className="text-sm text-muted-foreground">
+                {row.original.secondary}
+              </p>
+              <p>{row.original.detail}</p>
+              {row.original.actions ? (
+                <div className="flex flex-wrap justify-end gap-2">
+                  {row.original.actions}
+                </div>
+              ) : null}
+            </div>
+          )}
+        />
+      </div>
     </div>
   );
 }
@@ -895,20 +893,13 @@ function UserAdministrationDialog({
                 id={`account-state-${person.id}`}
                 className="text-base font-semibold"
               >
-                Account lifecycle
+                Account Lifecycle
               </h3>
               <p className="text-sm text-muted-foreground">
                 {user.email} ·{' '}
-                <Badge
-                  variant="outline"
-                  className={
-                    user.accountState === 'active'
-                      ? statusTone.success
-                      : statusTone.warning
-                  }
-                >
+                <StatusBadge tone={statusTone(user.accountState)}>
                   {statusLabel(user.accountState)}
-                </Badge>{' '}
+                </StatusBadge>{' '}
               </p>
               <Field>
                 <FieldLabel htmlFor={`account-reason-${person.id}`}>
@@ -974,7 +965,7 @@ function UserAdministrationDialog({
                 id={`global-roles-${person.id}`}
                 className="text-base font-semibold"
               >
-                Global roles
+                Global Roles
               </h3>
               {assignments.length ? (
                 <ul className="m-0 flex list-none flex-col p-0">
@@ -1244,7 +1235,7 @@ function WeekDialog({ seasonId, week }: { seasonId: string; week?: Week }) {
   };
   return (
     <FormDialog
-      title={week ? `Edit week ${week.number}` : 'Create week'}
+      title={week ? `Edit Week ${week.number}` : 'Create Week'}
       open={open}
       onOpenChange={requestOpenChange}
       triggerVariant={week ? 'outline' : undefined}
@@ -1263,7 +1254,7 @@ function WeekDialog({ seasonId, week }: { seasonId: string; week?: Week }) {
     >
       <div className="flex flex-col gap-4">
         {error ? <FieldError>{error}</FieldError> : null}
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="grid gap-6 sm:grid-cols-2">
           <Field>
             <FieldLabel htmlFor={`week-number-${week?.id ?? 'new'}`}>
               Week number
@@ -1531,7 +1522,7 @@ export function EnrollmentDialog({
   };
   return (
     <FormDialog
-      title={enrollment ? 'Edit enrollment' : 'Add season member'}
+      title={enrollment ? 'Edit Enrollment' : 'Add Season Member'}
       open={open}
       onOpenChange={requestOpenChange}
       triggerVariant="outline"
@@ -1893,7 +1884,7 @@ function MentorshipDialog({
   };
   return (
     <FormDialog
-      title={mentorship ? 'Edit mentorship' : 'Create mentorship'}
+      title={mentorship ? 'Edit Mentorship' : 'Create Mentorship'}
       open={open}
       onOpenChange={requestOpenChange}
       triggerVariant={mentorship ? 'outline' : undefined}

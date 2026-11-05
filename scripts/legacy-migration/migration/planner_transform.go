@@ -34,7 +34,7 @@ func transformSnapshot(snapshot Snapshot, now time.Time, autoFixes *[]AutoFix) (
 	if err := t.transformUsers(); err != nil {
 		return nil, nil, err
 	}
-	if err := t.transformProgramme(); err != nil {
+	if err := t.transformProgram(); err != nil {
 		return nil, nil, err
 	}
 	if err := t.transformProblems(); err != nil {
@@ -164,7 +164,7 @@ func (t *snapshotTransformer) transformUsers() error {
 	return nil
 }
 
-func (t *snapshotTransformer) transformProgramme() error {
+func (t *snapshotTransformer) transformProgram() error {
 	for _, source := range t.snapshot.Tables["SeasonWeek"] {
 		id := sourceID("SeasonWeek", source)
 		values := Row{"id": id, "season_id": source["SeasonId"], "week_number": source["WeekNumber"], "start_at": source["StartDate"], "end_at": source["EndDate"], "deleted_at": source["DeletedAtUtc"], "created_at": source["CreatedAtUtc"], "updated_at": source["UpdatedAtUtc"]}
@@ -256,7 +256,7 @@ func (t *snapshotTransformer) transformProgramme() error {
 // enrollmentEndedAt reports when an enrollment stopped being a live member of
 // its season, or nil while it is still active or merely completed by a season
 // close. A kick event is authoritative over the soft-delete timestamp because
-// the kick carries the real moment; transformProgramme derives the enrollment
+// the kick carries the real moment; transformProgram derives the enrollment
 // state the same way.
 func (t *snapshotTransformer) enrollmentEndedAt(enrollment Row) any {
 	if enrollment == nil {
