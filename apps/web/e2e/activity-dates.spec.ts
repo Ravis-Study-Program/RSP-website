@@ -16,7 +16,7 @@ test('former students can record mocks today in Adelaide and filter their person
   const create = page.getByRole('dialog', { name: 'New mock interview' });
   await expect(create.getByText(/Today in Adelaide: 2026-09-06/)).toBeVisible();
   await expect(create.locator('input[type="date"]')).toHaveCount(0);
-  await expect(create.getByLabel('Round type')).toHaveAttribute(
+  await expect(create.getByLabel('Type', { exact: true })).toHaveAttribute(
     'id',
     /^round-type-[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/,
   );
@@ -45,8 +45,11 @@ test('former students can record mocks today in Adelaide and filter their person
     .first()
     .click();
   await page.getByRole('menuitem', { name: 'Edit notes and scores' }).click();
-  const edit = page.getByRole('dialog', { name: 'Edit interview details' });
-  await expect(edit.getByText(/Recorded:/)).toBeVisible();
+  const edit = page.getByRole('dialog', { name: 'Edit notes and scores' });
+  // The date is shown but cannot be changed.
+  await expect(edit.getByLabel('Date', { exact: true })).toHaveAttribute(
+    'readonly',
+  );
   await expect(
     edit.locator('input[type="date"], input[type="time"]'),
   ).toHaveCount(0);

@@ -644,7 +644,7 @@ test('mock interview create, round edit and named deletion work', async ({
     .first()
     .click();
   await page.getByRole('menuitem', { name: 'Edit notes and scores' }).click();
-  const edit = page.getByRole('dialog', { name: 'Edit interview details' });
+  const edit = page.getByRole('dialog', { name: 'Edit notes and scores' });
   await edit.getByLabel('Duration (minutes)').fill('65');
   await edit
     .getByLabel(/custom score/i)

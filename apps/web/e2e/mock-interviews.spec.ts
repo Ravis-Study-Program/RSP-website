@@ -196,6 +196,46 @@ test('the row menu shows details and holds the review', async ({ page }) => {
   await expect(details).toHaveCount(0);
 });
 
+test('the interviewer edits and deletes from the row menu', async ({
+  page,
+}) => {
+  await page.goto('/mock-interviews');
+  await openDetails(page);
+  await page.getByRole('tab', { name: 'Given' }).click();
+  await openDetails(page, 'Amelia Chen');
+  // Only the interviewee can change review state.
+  await expect(
+    page
+      .getByRole('checkbox', { name: 'Array and graph problem reviewed' })
+      .filter({ visible: true }),
+  ).toBeDisabled();
+
+  const menu = page
+    .getByRole('button', {
+      name: 'More actions for the interview with Amelia Chen',
+    })
+    .filter({ visible: true });
+  await menu.click();
+  await expect(page.getByRole('menuitem')).toHaveText([
+    'Hide details',
+    'Edit notes and scores',
+    'Correct identities',
+    'Delete interview',
+  ]);
+  // Only the interviewee reviews, and only they can tick the row's checkbox
+  // or its mirror in the details.
+  const reviewed = page
+    .getByRole('checkbox', { name: '3 of 3 rounds reviewed' })
+    .filter({ visible: true });
+  await expect(reviewed).toHaveCount(2);
+  for (const checkbox of await reviewed.all())
+    await expect(checkbox).toBeDisabled();
+  await page.getByRole('menuitem', { name: 'Edit notes and scores' }).click();
+  await expect(
+    page.getByRole('dialog', { name: 'Edit notes and scores' }),
+  ).toBeVisible();
+});
+
 test('All shows given and received interviews, marked by type', async ({
   page,
 }) => {

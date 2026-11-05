@@ -95,7 +95,6 @@ import type { MockInterview, MockRound, Person, Season } from '@/types';
 import {
   calendarDateKey,
   formatDate,
-  formatDateTime,
   formatDateTimeInput,
   interviewPassed,
   problemName,
@@ -341,6 +340,29 @@ const roundTypeItems: { label: string; value: MockRound['apiType'] }[] = [
 ];
 
 /** One equal-width button per round type, filling the row. */
+function AddRoundButtons({
+  onAdd,
+}: {
+  onAdd: (type: MockRound['apiType']) => void;
+}) {
+  return (
+    <div className="grid grid-cols-1 gap-2.5 border-t border-border pt-4 min-[30rem]:grid-cols-3">
+      {roundTypeItems.map((item) => (
+        <Button
+          variant="outline"
+          type="button"
+          key={item.value}
+          className="w-full"
+          onClick={() => onAdd(item.value)}
+        >
+          <IconPlus size={17} aria-hidden="true" /> Add{' '}
+          {item.value === 'leetcode' ? item.label : item.label.toLowerCase()}
+        </Button>
+      ))}
+    </div>
+  );
+}
+
 function RoundEditor({
   round,
   index,
@@ -370,11 +392,12 @@ function RoundEditor({
       problemId: undefined,
       catalogProblem: undefined,
       link: undefined,
+      description: undefined,
       score: 5,
       scores: scoresForType(apiType),
     });
   return (
-    <article className="py-4 first:pt-0 [&+&]:border-t [&+&]:border-border">
+    <article className="grid gap-3.5 py-4 border-t border-border">
       <div className="flex flex-wrap items-center justify-between gap-2.5">
         <strong>Round {index + 1}</strong>
         <div className="flex flex-wrap items-center gap-2.5">
@@ -407,7 +430,7 @@ function RoundEditor({
       </div>
       <div className="grid grid-cols-1 gap-3.5 min-[56rem]:grid-cols-2">
         <Field>
-          <FieldLabel htmlFor={`round-type-${round.id}`}>Round type</FieldLabel>
+          <FieldLabel htmlFor={`round-type-${round.id}`}>Type</FieldLabel>
           <Select
             items={roundTypeItems}
             value={round.apiType}
@@ -446,6 +469,26 @@ function RoundEditor({
                   link: problem?.link,
                 });
               }}
+            />
+          </Field>
+        ) : null}
+        {round.apiType === 'custom' ? (
+          <Field>
+            <FieldLabel htmlFor={`round-description-${round.id}`}>
+              Description
+            </FieldLabel>
+            <Input
+              id={`round-description-${round.id}`}
+              maxLength={200}
+              placeholder="What the round covered"
+              value={round.description ?? ''}
+              onChange={(event) =>
+                onChange({
+                  ...round,
+                  description: event.target.value || undefined,
+                  title: event.target.value.trim() || 'Custom round',
+                })
+              }
             />
           </Field>
         ) : null}
@@ -494,7 +537,7 @@ function RoundEditor({
       </div>
       <RichTextEditor
         id={`round-content-${round.id}`}
-        label="Round notes"
+        label="Notes"
         value={round.notes}
         onChange={(notes) => onChange({ ...round, notes })}
       />
@@ -1560,6 +1603,7 @@ function EditMockDialog({
             ...(round.problemId ? { problemId: round.problemId } : {}),
             ...(round.notes ? { content: round.notes } : {}),
             ...(round.link ? { link: round.link } : {}),
+            ...(round.description ? { description: round.description } : {}),
             scores: round.scores,
           })),
         };
@@ -1600,14 +1644,24 @@ function EditMockDialog({
   };
   return (
     <FormDialog
-      title="Edit interview details"
+      title="Edit notes and scores"
       open={open}
       onOpenChange={requestOpenChange}
     >
       <div className="grid gap-4">
         {error ? <FieldError>{error}</FieldError> : null}
         <div className="grid grid-cols-1 gap-3.5 min-[56rem]:grid-cols-2">
-          <p>Recorded: {formatDateTime(mock.occurredAt)}</p>
+          <Field>
+            <FieldLabel htmlFor={`edit-date-${mock.id}`}>Date</FieldLabel>
+            {/* Recorded on the day; the date cannot be changed afterwards. */}
+            <Input
+              id={`edit-date-${mock.id}`}
+              value={formatDate(mock.occurredAt)}
+              readOnly
+              aria-readonly="true"
+              className="text-muted-foreground"
+            />
+          </Field>
           <Field>
             <FieldLabel htmlFor={`edit-duration-${mock.id}`}>
               Duration (minutes)
@@ -1623,14 +1677,16 @@ function EditMockDialog({
             />
           </Field>
         </div>
-        <RichTextEditor
-          id={`edit-notes-${mock.id}`}
-          label="Interview notes"
-          value={notes}
-          onChange={setNotes}
-        />
+        <div className="border-t pt-4">
+          <RichTextEditor
+            id={`edit-notes-${mock.id}`}
+            label="Overall notes"
+            value={notes}
+            onChange={setNotes}
+          />
+        </div>
         <FieldSet>
-          <FieldLegend variant="label">Rounds and scores</FieldLegend>
+          <FieldLegend className="sr-only">Rounds and scores</FieldLegend>
           {rounds.map((round, roundIndex) => (
             <RoundEditor
               key={round.id}
@@ -1662,23 +1718,9 @@ function EditMockDialog({
               }
             />
           ))}
-          <div className="flex flex-wrap items-center gap-2.5">
-            {(['leetcode', 'custom', 'behavioural'] as const).map((type) => (
-              <Button
-                variant="outline"
-                type="button"
-                key={type}
-                onClick={() => setRounds((items) => [...items, newRound(type)])}
-              >
-                <IconPlus size={17} aria-hidden="true" /> Add{' '}
-                {type === 'leetcode'
-                  ? 'LeetCode'
-                  : type === 'custom'
-                    ? 'custom'
-                    : 'behavioural'}
-              </Button>
-            ))}
-          </div>
+          <AddRoundButtons
+            onAdd={(type) => setRounds((items) => [...items, newRound(type)])}
+          />
         </FieldSet>
         <div className="mt-5 flex justify-end gap-2.5">
           <Button
