@@ -366,10 +366,6 @@ export function AppShell() {
       <div className="min-w-0 min-[56rem]:ml-sidebar">
         <header className="flex h-14 items-center justify-between gap-2 border-b border-border px-4 min-[56rem]:h-16 min-[56rem]:gap-4 min-[56rem]:px-8">
           <div className="flex min-w-0 items-center gap-3 text-sm">
-            <span className="text-muted-foreground">Workspace</span>
-            <span className="text-border" aria-hidden="true">
-              /
-            </span>
             <span className="min-w-0 truncate font-medium">
               {pageTitle ||
                 navItems.find((item) => location.pathname === item.to)?.label}
