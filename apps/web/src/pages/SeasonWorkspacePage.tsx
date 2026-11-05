@@ -42,7 +42,8 @@ const sectionHeaderClass = 'mb-3 flex items-end justify-between gap-4';
 const sectionTitleClass = 'text-xl font-semibold tracking-tight';
 const inlineClass = 'flex flex-wrap items-center gap-2.5';
 const helperClass = 'text-sm text-muted-foreground';
-const metricGridClass = 'mt-4 grid grid-cols-2 gap-3 min-[56rem]:gap-4';
+// Panels sit 1.5rem apart, as everywhere else (see DESIGN.md).
+const metricGridClass = 'mt-6 grid grid-cols-2 gap-6';
 const resourceLinkClass =
   'flex min-h-11 items-center justify-between gap-4 py-3 font-medium text-foreground hover:underline';
 

@@ -308,7 +308,7 @@ export function ProfilePage() {
         </div>
       ) : null}
       {showProgrammeDetails ? (
-        <div className="mt-4 grid grid-cols-3 gap-4 max-[56rem]:grid-cols-1">
+        <div className="mt-4 grid grid-cols-3 gap-6 max-[56rem]:grid-cols-1">
           <MetricCard
             label="Leetcodes"
             value={summary.data?.attemptCount ?? '—'}
