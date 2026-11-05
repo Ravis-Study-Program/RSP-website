@@ -14,9 +14,11 @@ var programmeTimezone = func() *time.Location {
 	return zone
 }()
 
+// ValidateRecordingTime accepts any time up to now. Interviews can be recorded
+// after the day they happened, but never in the future.
 func ValidateRecordingTime(occurredAt, now time.Time) error {
-	if occurredAt.IsZero() || occurredAt.After(now) || occurredAt.In(programmeTimezone).Format("2006-01-02") != now.In(programmeTimezone).Format("2006-01-02") {
-		return errors.New("mock interviews must be recorded on the day they happen in Australia/Adelaide time; future times are not allowed")
+	if occurredAt.IsZero() || occurredAt.After(now) {
+		return errors.New("mock interviews cannot be recorded in the future")
 	}
 	return nil
 }

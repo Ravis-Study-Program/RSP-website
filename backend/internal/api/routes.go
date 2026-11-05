@@ -98,6 +98,7 @@ func registerMockInterviewRoutes(mux *http.ServeMux, a *API) {
 	mux.HandleFunc("DELETE /api/v2/mock-interviews/{id}", a.protected(ratelimit.Write, a.deleteMockInterview))
 	mux.HandleFunc("POST /api/v2/mock-interviews/{id}/identity-correction", a.protected(ratelimit.Write, a.correctMockInterviewIdentities))
 	mux.HandleFunc("PATCH /api/v2/mock-interviews/{id}/rounds/{roundId}/review", a.protected(ratelimit.Write, a.reviewMockInterviewRound))
+	mux.HandleFunc("PATCH /api/v2/mock-interviews/{id}/interviewee-notes", a.protected(ratelimit.Write, a.setMockIntervieweeNotes))
 }
 
 func registerAdminRoutes(mux *http.ServeMux, a *API) {

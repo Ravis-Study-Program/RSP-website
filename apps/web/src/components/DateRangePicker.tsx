@@ -42,7 +42,7 @@ export function DateRangePicker({
   };
   // A one-day draft while the second click is pending.
   const [draft, setDraft] = useState<DateRange | undefined>();
-  const display = (date: Date) => format(date, 'd MMM yyyy');
+  const display = (date: Date) => format(date, 'dd/MM/yy');
 
   return (
     <Field className="w-full max-w-80">

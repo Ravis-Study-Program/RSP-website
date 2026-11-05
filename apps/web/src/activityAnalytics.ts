@@ -1,4 +1,8 @@
-import { calendarDateKey, practiceGoalMinutes } from '@/utils';
+import {
+  calendarDateKey,
+  formatCalendarDay,
+  practiceGoalMinutes,
+} from '@/utils';
 import { programmeTimezone } from '@/activityDates';
 import type { MockInterviewDayCount } from '@/api/generated/models';
 import type { Attempt, Difficulty, Season } from '@/types';
@@ -35,12 +39,10 @@ export function activitySeries(
   while (cursor.toISOString().slice(0, 10) <= end) {
     const bucketKey = key(cursor.toISOString().slice(0, 10));
     buckets.set(bucketKey, {
-      week: new Intl.DateTimeFormat('en-AU', {
-        month: 'short',
-        year: 'numeric',
-        ...(monthly ? {} : { day: 'numeric' }),
-        timeZone: 'UTC',
-      }).format(cursor),
+      // Month buckets read mm/yy; week buckets are dated dd/mm/yy.
+      week: monthly
+        ? formatCalendarDay(cursor).slice(3)
+        : formatCalendarDay(cursor),
       attempts: 0,
       interviews: 0,
     });

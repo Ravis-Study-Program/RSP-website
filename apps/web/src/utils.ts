@@ -132,27 +132,37 @@ function calendarDay(value: string | Date, timezone = displayTimezone) {
   return Date.UTC(year, month - 1, day);
 }
 
-export function formatDate(
-  value: string,
-  options: Intl.DateTimeFormatOptions = {},
-) {
-  return new Intl.DateTimeFormat(undefined, {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
+// Every date on the site reads dd/mm/yy, whatever the browser's locale.
+const dayMonthYear = {
+  day: '2-digit',
+  month: '2-digit',
+  year: '2-digit',
+} as const;
+
+/** A date as dd/mm/yy in the member's saved timezone. */
+export function formatDate(value: string | number | Date) {
+  return new Intl.DateTimeFormat('en-GB', {
+    ...dayMonthYear,
     timeZone: displayTimezone,
-    ...options,
   }).format(new Date(value));
 }
 
-export function formatDateTime(value: string) {
-  return new Intl.DateTimeFormat(undefined, {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-    hour: 'numeric',
+/** A date and 24-hour time as "dd/mm/yy, hh:mm" in the saved timezone. */
+export function formatDateTime(value: string | number | Date) {
+  return new Intl.DateTimeFormat('en-GB', {
+    ...dayMonthYear,
+    hour: '2-digit',
     minute: '2-digit',
+    hourCycle: 'h23',
     timeZone: displayTimezone,
+  }).format(new Date(value));
+}
+
+/** A calendar day already in UTC, such as a chart bucket, as dd/mm/yy. */
+export function formatCalendarDay(value: number | Date) {
+  return new Intl.DateTimeFormat('en-GB', {
+    ...dayMonthYear,
+    timeZone: 'UTC',
   }).format(new Date(value));
 }
 
@@ -221,11 +231,7 @@ export function recentActivitySeries(
     return {
       start,
       end,
-      week: new Intl.DateTimeFormat(undefined, {
-        day: 'numeric',
-        month: 'short',
-        timeZone: 'UTC',
-      }).format(new Date(start)),
+      week: formatCalendarDay(start),
       attempts: 0,
       interviews: 0,
     };

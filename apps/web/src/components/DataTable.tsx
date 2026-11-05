@@ -110,6 +110,8 @@ export interface DataTableProps<TData> {
   renderSummary?: (rows: TData[]) => ReactNode;
   /** Filters beyond the column text filters, shown in the Filters popover. */
   extraFilters?: ExtraFilters;
+  /** Controls shown beside the search box, such as a view switch. */
+  toolbarStart?: ReactNode;
   /** `data` holds the loaded server pages; more rows load on demand. */
   serverPagination?: ServerPagination;
 }
@@ -158,6 +160,7 @@ export function DataTable<TData>({
   getRowId,
   renderSummary,
   extraFilters,
+  toolbarStart,
   serverPagination,
 }: DataTableProps<TData>) {
   const [sorting, setSorting] = useState<SortingState>([]);
@@ -275,23 +278,26 @@ export function DataTable<TData>({
           aria-label={ariaLabel}
         >
           <div className={toolbarClass}>
-            <div className="relative w-full max-w-96">
-              <IconSearch
-                className="pointer-events-none absolute top-1/2 left-2.5 -translate-y-1/2 text-muted-foreground"
-                size={18}
-                aria-hidden="true"
-              />
-              <label className="sr-only" htmlFor={`${ariaLabel}-search`}>
-                Search {ariaLabel.toLowerCase()}
-              </label>
-              <Input
-                id={`${ariaLabel}-search`}
-                className="h-9 pl-9"
-                type="search"
-                placeholder={searchPlaceholder}
-                value={globalFilter}
-                onChange={(event) => setGlobalFilter(event.target.value)}
-              />
+            <div className="flex min-w-0 flex-1 flex-wrap items-center gap-3">
+              <div className="relative w-full max-w-96">
+                <IconSearch
+                  className="pointer-events-none absolute top-1/2 left-2.5 -translate-y-1/2 text-muted-foreground"
+                  size={18}
+                  aria-hidden="true"
+                />
+                <label className="sr-only" htmlFor={`${ariaLabel}-search`}>
+                  Search {ariaLabel.toLowerCase()}
+                </label>
+                <Input
+                  id={`${ariaLabel}-search`}
+                  className="h-9 pl-9"
+                  type="search"
+                  placeholder={searchPlaceholder}
+                  value={globalFilter}
+                  onChange={(event) => setGlobalFilter(event.target.value)}
+                />
+              </div>
+              {toolbarStart}
             </div>
             <div className="flex flex-wrap items-center gap-2 max-[56rem]:justify-between">
               <Button
@@ -679,7 +685,9 @@ function DataTableRecord<TData>({
         {row.getVisibleCells().map((cell) => (
           <TableCell
             className={cn(
-              'px-4 py-3',
+              // TableCell drops the right padding around checkboxes, which suits
+              // selection columns; these tables have none, so keep the inset.
+              'px-4 py-3 [&:has([role=checkbox])]:pr-4',
               cell.column.columnDef.meta?.wrap
                 ? 'whitespace-normal'
                 : truncateCellClass,
@@ -695,7 +703,7 @@ function DataTableRecord<TData>({
       {row.getIsExpanded() && renderExpanded ? (
         <TableRow className="hover:bg-transparent">
           <TableCell
-            className="whitespace-normal bg-muted/50 px-4 py-4"
+            className="whitespace-normal bg-muted/50 px-4 py-4 [&:has([role=checkbox])]:pr-4"
             colSpan={row.getVisibleCells().length}
           >
             {renderExpanded(row)}

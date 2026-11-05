@@ -15,24 +15,26 @@ import (
 )
 
 type mockRoundRequest struct {
-	ID        string                   `json:"id"`
-	Type      mockinterviews.RoundType `json:"type"`
-	ProblemID string                   `json:"problemId"`
-	Content   string                   `json:"content"`
-	Link      string                   `json:"link"`
-	Scores    mockinterviews.Scores    `json:"scores"`
+	ID          string                   `json:"id"`
+	Type        mockinterviews.RoundType `json:"type"`
+	ProblemID   string                   `json:"problemId"`
+	Content     string                   `json:"content"`
+	Link        string                   `json:"link"`
+	Description string                   `json:"description"`
+	Scores      mockinterviews.Scores    `json:"scores"`
 }
 
 func mockRoundsFromRequest(rounds []mockRoundRequest) []mockinterviews.Round {
 	result := make([]mockinterviews.Round, len(rounds))
 	for i, round := range rounds {
 		result[i] = mockinterviews.Round{
-			ID:        round.ID,
-			Type:      round.Type,
-			ProblemID: round.ProblemID,
-			Content:   round.Content,
-			Link:      round.Link,
-			Scores:    round.Scores,
+			ID:          round.ID,
+			Type:        round.Type,
+			ProblemID:   round.ProblemID,
+			Content:     round.Content,
+			Link:        round.Link,
+			Description: round.Description,
+			Scores:      round.Scores,
 		}
 	}
 	return result
@@ -147,6 +149,11 @@ func (a *API) mockInterviewScope(w http.ResponseWriter, r *http.Request) (query 
 		writeErrorResponse(w, http.StatusBadRequest, err.Error())
 		return query, "", false
 	}
+	interviewees, err := selection(r.URL.Query(), "intervieweeId", uuidSelection)
+	if err != nil {
+		writeErrorResponse(w, http.StatusBadRequest, err.Error())
+		return query, "", false
+	}
 	var passed *bool
 	if value := r.URL.Query().Get("passed"); value != "" {
 		if value != "true" && value != "false" {
@@ -161,14 +168,19 @@ func (a *API) mockInterviewScope(w http.ResponseWriter, r *http.Request) (query 
 		writeErrorResponse(w, http.StatusBadRequest, "Week filters require a season and valid week IDs.")
 		return query, "", false
 	}
-	filterBinding, _ := json.Marshal(struct{ Interviewers, Weeks []string }{interviewers, weeks})
+	filterBinding, _ := json.Marshal(struct{ Interviewers, Interviewees, Weeks []string }{interviewers, interviewees, weeks})
 	binding = "mock-interviews|user=" + targetID + "|interviewers=" + string(filterBinding) + "|passed=" + r.URL.Query().Get("passed") + "|mode=" + mode + fmt.Sprintf("|season=%s|year=%d", seasonID, year)
 
 	visibility := dal.MockInterviewsReceived
 	if mode == "given" {
 		visibility = dal.MockInterviewsGiven
 	}
-	if mode == "all" || targetID != "" {
+	if mode == "all" && targetID == "" {
+		// Without a member to look at, "all" combines the viewer's own received
+		// and given interviews rather than every interview they could read.
+		visibility = dal.MockInterviewsParticipated
+	}
+	if targetID != "" {
 		visibility = dal.MockInterviewsRelated
 		if actor.CanReadSharedActivity() {
 			visibility = dal.MockInterviewsShared
@@ -178,7 +190,7 @@ func (a *API) mockInterviewScope(w http.ResponseWriter, r *http.Request) (query 
 		}
 	}
 	return dal.MockInterviewQuery{
-		SeasonID: seasonID, Year: year, TargetID: targetID, TargetMode: mode, InterviewerIDs: interviewers, Passed: passed, WeekIDs: weeks,
+		SeasonID: seasonID, Year: year, TargetID: targetID, TargetMode: mode, InterviewerIDs: interviewers, IntervieweeIDs: interviewees, Passed: passed, WeekIDs: weeks,
 		ViewerID:   actor.UserID,
 		Visibility: visibility,
 	}, binding, true
@@ -252,7 +264,7 @@ func (a *API) listMockInterviews(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	for index := range items {
-		items[index] = withMockParticipantSummaries(items[index], summaries)
+		items[index] = withMockParticipantSummaries(items[index], summaries).RedactedFor(actor.UserID)
 	}
 	if err := a.attachRoundProblems(r.Context(), items); err != nil {
 		a.writeStoreErrorResponse(w, err)
@@ -491,6 +503,50 @@ func (a *API) reviewMockInterviewRound(w http.ResponseWriter, r *http.Request) {
 	a.writeMockInterviewResult(w, r, http.StatusOK, storedInterview)
 }
 
+type mockIntervieweeNotesRequest struct {
+	Notes string `json:"notes"`
+}
+
+// setMockIntervieweeNotes lets the interviewee write notes on the whole interview.
+func (a *API) setMockIntervieweeNotes(w http.ResponseWriter, r *http.Request) {
+	actor := actorFrom(r.Context())
+	memberStatus, err := a.db.GetMemberStatus(r.Context(), actor.UserID)
+	if err != nil && !errors.Is(err, dal.ErrNotFound) {
+		a.writeStoreErrorResponse(w, err)
+		return
+	}
+	if !(err == nil && memberStatus.CanBeMockInterviewParticipant()) && !actor.IsDirectorOrSystemAdmin() {
+		writeErrorResponse(w, http.StatusForbidden, "Only current or former programme members may review mock interviews.")
+		return
+	}
+	var request mockIntervieweeNotesRequest
+	if err := decodeJSON(r.Body, &request); err != nil {
+		writeErrorResponse(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	storedInterview, err := a.db.GetMockInterview(r.Context(), r.PathValue("id"))
+	if err != nil {
+		a.writeStoreErrorResponse(w, err)
+		return
+	}
+	// As for round reviews, other people learn nothing about the interview.
+	if actor.UserID != storedInterview.IntervieweeID {
+		writeErrorResponse(w, http.StatusNotFound, "The requested resource does not exist.")
+		return
+	}
+	storedInterview, err = a.mockRules.SetIntervieweeNotes(storedInterview, actor.UserID, request.Notes)
+	if err != nil {
+		a.writeMockErrorResponse(w, err)
+		return
+	}
+	storedInterview, err = a.db.SetMockIntervieweeNotes(r.Context(), storedInterview, actor.UserID, time.Now().UTC())
+	if err != nil {
+		a.writeStoreErrorResponse(w, err)
+		return
+	}
+	a.writeMockInterviewResult(w, r, http.StatusOK, storedInterview)
+}
+
 type correctMockInterviewIdentitiesRequest struct {
 	InterviewerID string `json:"interviewerId"`
 	IntervieweeID string `json:"intervieweeId"`
@@ -579,7 +635,8 @@ func (a *API) writeMockInterviewResult(w http.ResponseWriter, r *http.Request, s
 		a.writeStoreErrorResponse(w, err)
 		return
 	}
-	interviews := []mockinterviews.Interview{withMockParticipantSummaries(storedInterview, summaries)}
+	viewerID := actorFrom(r.Context()).UserID
+	interviews := []mockinterviews.Interview{withMockParticipantSummaries(storedInterview, summaries).RedactedFor(viewerID)}
 	if err := a.attachRoundProblems(r.Context(), interviews); err != nil {
 		a.writeStoreErrorResponse(w, err)
 		return

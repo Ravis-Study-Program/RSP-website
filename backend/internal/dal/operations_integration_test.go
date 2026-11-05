@@ -71,4 +71,34 @@ func TestStoreOperations(t *testing.T) {
 	if err := db.pool.QueryRow(ctx, `SELECT count(*) FROM app.seasons WHERE slug='dev-season'`).Scan(&seasons); err != nil || seasons != 1 {
 		t.Fatalf("seed seasons=%d error=%v", seasons, err)
 	}
+
+	// Seeded mocks use only the round layouts real interviews use, and the
+	// interviewer leaves notes on every round.
+	rows, err := db.pool.Query(ctx, `SELECT string_agg(r.kind::text, ',' ORDER BY r.position),
+		bool_and(COALESCE(b.content_html, l.content_html, c.content_html, '') <> '')
+		FROM app.mock_interview_rounds r
+		LEFT JOIN app.behavioural_mock_interview_rounds b ON b.mock_interview_round_id=r.id
+		LEFT JOIN app.leetcode_mock_interview_rounds l ON l.mock_interview_round_id=r.id
+		LEFT JOIN app.custom_mock_interview_rounds c ON c.mock_interview_round_id=r.id
+		GROUP BY r.mock_interview_id`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer rows.Close()
+	shapes := map[string]bool{"behavioural,leetcode,leetcode": true, "behavioural": true, "custom": true, "custom,custom,custom": true}
+	seeded := 0
+	for rows.Next() {
+		var shape string
+		var noted bool
+		if err := rows.Scan(&shape, &noted); err != nil {
+			t.Fatal(err)
+		}
+		if !shapes[shape] || !noted {
+			t.Fatalf("seeded mock rounds=%s every round noted=%t", shape, noted)
+		}
+		seeded++
+	}
+	if err := rows.Err(); err != nil || seeded == 0 {
+		t.Fatalf("seeded mocks=%d error=%v", seeded, err)
+	}
 }

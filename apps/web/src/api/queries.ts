@@ -999,9 +999,8 @@ function demoMockInterviewsInScope({
         (mode !== 'received' || item.interviewee.id === subject) &&
         (mode !== 'given' || item.interviewer.id === subject) &&
         (mode !== 'all' ||
-          !userId ||
-          item.interviewee.id === userId ||
-          item.interviewer.id === userId) &&
+          item.interviewee.id === subject ||
+          item.interviewer.id === subject) &&
         (!seasonId ||
           Boolean(
             season &&
@@ -1056,6 +1055,14 @@ export function useMockInterviewSummary(
         interviewers: [
           ...new Map(
             items.map(({ interviewer: { id, slug, name, avatarUrl } }) => [
+              id,
+              { id, slug, name, avatarUrl },
+            ]),
+          ).values(),
+        ].sort((left, right) => left.name.localeCompare(right.name)),
+        interviewees: [
+          ...new Map(
+            items.map(({ interviewee: { id, slug, name, avatarUrl } }) => [
               id,
               { id, slug, name, avatarUrl },
             ]),
@@ -1150,8 +1157,22 @@ export function useUserParticipation(
       if (demoMode)
         return page(
           seasons.flatMap((season) =>
-            demoEnrollmentPage(season.id)
-              .items.filter((e) => e.userId === userId)
+            [
+              ...demoEnrollmentPage(season.id).items,
+              // The demo account is a graduate who practised as a student in
+              // every demo season, which is where its practice and mocks sit.
+              {
+                id: `enrol_${season.id}_${demoUser.id}`,
+                seasonId: season.id,
+                userId: demoUser.id,
+                role: 'student' as const,
+                studentLevel: 'intermediate' as const,
+                state: 'completed' as const,
+                assignmentState: 'active' as const,
+                removalReason: null,
+              },
+            ]
+              .filter((e) => e.userId === userId)
               .map((e) => ({
                 ...e,
                 seasonName: season.name,

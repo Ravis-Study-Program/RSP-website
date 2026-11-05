@@ -32,11 +32,15 @@ func TestSharedFeedbackRetainsOwnershipAndContactProtection(t *testing.T) {
 		t.Fatal(err)
 	}
 	mock := createMockForWrites(t, f)
-	for _, path := range []string{"/api/v2/problem-attempts?userId=" + otherID, "/api/v2/mock-interviews?mode=all"} {
+	for _, path := range []string{"/api/v2/problem-attempts?userId=" + otherID, "/api/v2/mock-interviews?mode=all&userId=" + otherID} {
 		res := testRequest(t, handler, http.MethodGet, path, "reader", "")
 		if res.Code != http.StatusOK || (strings.Contains(path, "problem-attempts") && !strings.Contains(res.Body.String(), "Shared practice feedback")) || (strings.Contains(path, "mock-interviews") && !strings.Contains(res.Body.String(), mock.ID)) {
 			t.Fatalf("shared read %s: %d %s", path, res.Code, res.Body)
 		}
+	}
+	// Without a member, "all" is only the reader's own interviews, not everyone's.
+	if res := testRequest(t, handler, http.MethodGet, "/api/v2/mock-interviews?mode=all", "reader", ""); res.Code != http.StatusOK || strings.Contains(res.Body.String(), mock.ID) {
+		t.Fatalf("mode=all without userId leaked another member's mock: %d %s", res.Code, res.Body)
 	}
 	res := testRequest(t, handler, http.MethodGet, "/api/v2/users/"+otherID, "reader", "")
 	if res.Code != http.StatusOK || strings.Contains(res.Body.String(), "other@example.com") {

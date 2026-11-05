@@ -150,7 +150,7 @@ export function DashboardPage() {
       </header>
 
       <div
-        className={`mt-4 grid gap-4 max-[56rem]:grid-cols-1 ${
+        className={`mt-4 grid gap-6 max-[56rem]:grid-cols-1 ${
           ['mentor', 'coordinator', 'director', 'system_admin'].includes(role)
             ? 'grid-cols-3'
             : 'grid-cols-2'

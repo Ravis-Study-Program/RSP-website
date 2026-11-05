@@ -77,6 +77,42 @@ var seedMockNotes = []string{
 	"Rushed the coding phase. Slow down and narrate the invariant.",
 }
 
+// seedMockShapes are the round layouts real interviews use; every seeded mock
+// takes one, the first most often.
+var seedMockShapes = [][]string{
+	{"behavioural", "leetcode", "leetcode"},
+	{"behavioural"},
+	{"custom"},
+	{"custom", "custom", "custom"},
+}
+
+// seedRoundNotes are interviewer notes on a single round, by round kind.
+var seedRoundNotes = map[string][]string{
+	"behavioural": {
+		"Clear situation and task; the result needs a number.",
+		"Good self-awareness when describing the conflict.",
+		"Answer wandered; lead with the outcome next time.",
+	},
+	"leetcode": {
+		"Asked about duplicates before coding. Good habit.",
+		"Brute force first, then a clean optimisation.",
+		"Missed the empty-input case until prompted.",
+	},
+	"custom": {
+		"Sensible design; talk through failure modes sooner.",
+		"Strong debugging: read the error before changing code.",
+		"Got there, but spent too long before asking a question.",
+	},
+}
+
+// seedCustomRoundDescriptions say what a seeded custom round covered.
+var seedCustomRoundDescriptions = []string{
+	"Design a rate limiter",
+	"Debug a failing test suite",
+	"Model a library loans system",
+	"Explain a past project end to end",
+}
+
 var seedMockReflections = []string{
 	"Nervous at the start but settled once I wrote out examples.",
 	"I should have asked about input size before choosing an approach.",
@@ -260,11 +296,11 @@ func seedMondayActivity(ctx context.Context, tx pgx.Tx, seasonID string, now tim
 				"<p>"+seedMockNotes[rng.IntN(len(seedMockNotes))]+"</p>").Scan(&mockID); err != nil {
 				return fmt.Errorf("seed mock interview: %w", err)
 			}
-			kinds := []string{"leetcode"}
-			if duration >= 60 && rng.IntN(2) == 0 {
-				kinds = append(kinds, "behavioural")
-			}
+			// Mostly a behavioural round then two LeetCode rounds.
+			kinds := seedMockShapes[[]int{0, 0, 0, 0, 0, 1, 1, 2, 2, 3}[rng.IntN(10)]]
 			for position, kind := range kinds {
+				notes := seedRoundNotes[kind]
+				roundNotes := "<p>" + notes[rng.IntN(len(notes))] + "</p>"
 				reviewedAt := when.Add(time.Duration(duration)*time.Minute + time.Duration(1+rng.IntN(30))*time.Hour)
 				status, comment := "pending", any(nil)
 				var reviewed any
@@ -278,13 +314,17 @@ func seedMondayActivity(ctx context.Context, tx pgx.Tx, seasonID string, now tim
 					mockID, position+1, kind, status, comment, reviewed).Scan(&roundID); err != nil {
 					return fmt.Errorf("seed mock round: %w", err)
 				}
-				if kind == "behavioural" {
-					_, err = tx.Exec(ctx, `INSERT INTO app.behavioural_mock_interview_rounds(mock_interview_round_id,behavioural_score) VALUES($1,$2)`, roundID, score(skill))
-				} else {
+				switch kind {
+				case "behavioural":
+					_, err = tx.Exec(ctx, `INSERT INTO app.behavioural_mock_interview_rounds(mock_interview_round_id,behavioural_score,content_html) VALUES($1,$2,$3)`, roundID, score(skill), roundNotes)
+				case "leetcode":
 					problem := pick(skill)
 					_, err = tx.Exec(ctx, `INSERT INTO app.leetcode_mock_interview_rounds(mock_interview_round_id,leetcode_problem_id,
-						clarify_question_score,algorithm_design_score,complexity_analysis_score,coding_score,testing_score)
-						VALUES($1,$2,$3,$4,$5,$6,$7)`, roundID, problem.leetcodeID, score(skill), score(skill), score(skill), score(skill), score(skill))
+						clarify_question_score,algorithm_design_score,complexity_analysis_score,coding_score,testing_score,content_html)
+						VALUES($1,$2,$3,$4,$5,$6,$7,$8)`, roundID, problem.leetcodeID, score(skill), score(skill), score(skill), score(skill), score(skill), roundNotes)
+				default:
+					description := seedCustomRoundDescriptions[rng.IntN(len(seedCustomRoundDescriptions))]
+					_, err = tx.Exec(ctx, `INSERT INTO app.custom_mock_interview_rounds(mock_interview_round_id,content_html,score,description) VALUES($1,$2,$3,$4)`, roundID, roundNotes, score(skill), description)
 				}
 				if err != nil {
 					return fmt.Errorf("seed mock round detail: %w", err)

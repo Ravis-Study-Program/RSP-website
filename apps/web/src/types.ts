@@ -96,6 +96,8 @@ export interface MockRound {
   problemId?: string;
   catalogProblem?: LeetcodeProblem;
   link?: string;
+  /** What a custom round covered; shown as its title. */
+  description?: string;
   title: string;
   score: number | null;
   scores: Record<string, number>;
@@ -114,6 +116,8 @@ export interface MockInterview {
   occurredAt: string;
   durationMinutes: number;
   notes: string;
+  /** The interviewee's notes on the interview as a whole. */
+  intervieweeNotes: string;
   rounds: MockRound[];
   reviewStatus: 'pending' | 'reviewed';
   reviewComments?: string;

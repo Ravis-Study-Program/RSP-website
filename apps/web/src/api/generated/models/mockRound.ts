@@ -16,6 +16,11 @@ export interface MockRound {
   problem?: LeetcodeProblem;
   content?: string;
   link?: string;
+  /**
+   * What a custom round covered; empty for other round types.
+   * @maxLength 200
+   */
+  description?: string;
   scores: Scores;
   reviewed: boolean;
   intervieweeComment: string;

@@ -18,6 +18,7 @@ export type ListMockInterviewsParams = {
   weekId?: string[];
   passed?: boolean;
   interviewerId?: string[];
+  intervieweeId?: string[];
   /**
    * Filter a member whose activity the viewer may read
    */
@@ -30,6 +31,9 @@ export type ListMockInterviewsParams = {
   cursor?: CursorParameter;
   direction?: DirectionParameter;
   sort?: SortParameter;
+  /**
+   * With userId, all is that member's received and given interviews; without it, all is the viewer's own received and given interviews.
+   */
   mode?: ListMockInterviewsMode;
   /**
    * Filter by the season derived from activity time and student participation.

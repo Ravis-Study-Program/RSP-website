@@ -105,7 +105,8 @@ func TestMockRecordingTodayAndAfterLeaving(t *testing.T) {
 	body := func(at time.Time) string {
 		return fmt.Sprintf(`{"interviewee":{"userId":%q},"occurredAt":%q,"durationMinutes":30,"rounds":[{"id":%q,"type":"behavioural","scores":{"behavioural":7}}]}`, studentID, at.Format(time.RFC3339), id.New())
 	}
-	for _, at := range []time.Time{now.Add(-48 * time.Hour), now.Add(time.Hour)} {
+	// Past days are allowed; only future times are rejected.
+	for _, at := range []time.Time{now.Add(time.Hour), {}} {
 		res := testRequest(t, f.handler, http.MethodPost, "/api/v2/mock-interviews", "other", body(at))
 		if res.Code != 400 {
 			t.Fatalf("invalid time status=%d body=%s", res.Code, res.Body)

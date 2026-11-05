@@ -858,7 +858,6 @@ function UserAdministrationDialog({
   return (
     <FormDialog
       title={`Administer ${person.name}`}
-      description="Confirm your identity before making account changes. Changes are recorded."
       open={open}
       onOpenChange={onOpenChange}
       triggerVariant="outline"
@@ -1533,7 +1532,6 @@ export function EnrollmentDialog({
   return (
     <FormDialog
       title={enrollment ? 'Edit enrollment' : 'Add season member'}
-      description="Assign exactly one season role to an existing account."
       open={open}
       onOpenChange={requestOpenChange}
       triggerVariant="outline"
@@ -1896,7 +1894,6 @@ function MentorshipDialog({
   return (
     <FormDialog
       title={mentorship ? 'Edit mentorship' : 'Create mentorship'}
-      description="Both people must have active roles in the selected season."
       open={open}
       onOpenChange={requestOpenChange}
       triggerVariant={mentorship ? 'outline' : undefined}

@@ -18,7 +18,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { IconEdit, IconLock, IconMail, IconWorld } from '@tabler/icons-react';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { Resolver } from 'react-hook-form';
 import { useForm } from 'react-hook-form';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
@@ -41,6 +41,11 @@ import { useQueryClient } from '@tanstack/react-query';
 import { MetricCard, RoleBadge, usePageTitle } from '@/components/Common';
 import { ProfileActivity } from '@/components/ProfileActivity';
 import { studentLevelLabel } from '@/studentLevels';
+import {
+  activitySeasons,
+  rememberActivitySeason,
+  rememberedActivitySeason,
+} from '@/activityPeriod';
 import { FormDialog } from '@/components/Dialogs';
 import { TimezoneSelect } from '@/components/TimezoneSelect';
 import {
@@ -115,11 +120,9 @@ export function ProfilePage() {
       ? adaptCurrentPerson(user.data, seasons.data?.items)
       : undefined
     : (publicProfile.data ?? undefined);
-  const participation = useUserParticipation(
-    person?.id,
-    hasProgrammeAccess,
-    seasonId,
-  );
+  // The whole history, not just the selected season: it also decides which
+  // seasons the activity picker offers.
+  const participation = useUserParticipation(person?.id, hasProgrammeAccess);
   const summary = useActivitySummary(
     hasProgrammeAccess ? person?.id : undefined,
     hasProgrammeAccess ? seasonId : undefined,
@@ -131,6 +134,28 @@ export function ProfilePage() {
   const [savedName, setSavedName] = useState<string | null>(null);
   const [savedSlug, setSavedSlug] = useState<string | null>(null);
   const [activityTab, setActivityTab] = useState('leetcode');
+  // Apply the season last chosen in any table when the address names none,
+  // if this person was a student in it.
+  useEffect(() => {
+    if (seasonId || !participation.data || !seasons.data) return;
+    const remembered = rememberedActivitySeason();
+    if (!remembered || remembered === 'all') return;
+    const offered = activitySeasons(
+      seasons.data.items,
+      participation.data.items,
+      {},
+    );
+    if (!offered.some((season) => season.id === remembered)) return;
+    const next = new URLSearchParams(searchParams);
+    next.set('seasonId', remembered);
+    setSearchParams(next, { replace: true });
+  }, [
+    participation.data,
+    searchParams,
+    seasonId,
+    seasons.data,
+    setSearchParams,
+  ]);
   usePageTitle(person?.name ?? 'Profile');
 
   if (
@@ -177,6 +202,10 @@ export function ProfilePage() {
       </div>
     );
   const displayName = savedName ?? person.name;
+  // With a season selected, the participation list shows just that season.
+  const shownParticipation = (participation.data?.items ?? []).filter(
+    (entry) => !seasonId || entry.seasonId === seasonId,
+  );
   const selectedParticipation = participation.data?.items.find(
     (entry) => entry.seasonId === seasonId,
   );
@@ -184,17 +213,15 @@ export function ProfilePage() {
     ? [selectedParticipation.role]
     : person.roles;
   const displayedStatus = selectedParticipation?.state ?? person.status;
+  // A member's practice and mocks only belong to seasons where they were a
+  // student, so only those seasons are offered.
   const seasonItems = [
     { label: 'All time', value: '' },
-    ...(seasons.data?.items ?? [])
-      .filter(
-        (season) =>
-          season.id === seasonId ||
-          participation.data?.items.some(
-            (entry) => entry.seasonId === season.id,
-          ),
-      )
-      .map((season) => ({ label: season.name, value: season.id })),
+    ...activitySeasons(
+      seasons.data?.items ?? [],
+      participation.data?.items ?? [],
+      { selectedId: seasonId },
+    ).map((season) => ({ label: season.name, value: season.id })),
   ];
   return (
     <div className={pageClass}>
@@ -216,6 +243,7 @@ export function ProfilePage() {
             items={seasonItems}
             value={seasonId ?? ''}
             onValueChange={(value) => {
+              rememberActivitySeason(value || undefined);
               const next = new URLSearchParams(searchParams);
               next.delete('weekId');
               next.delete('year');
@@ -280,7 +308,7 @@ export function ProfilePage() {
         </div>
       ) : null}
       {showProgrammeDetails ? (
-        <div className="mt-4 grid grid-cols-3 gap-4 max-[56rem]:grid-cols-1">
+        <div className="mt-4 grid grid-cols-3 gap-6 max-[56rem]:grid-cols-1">
           <MetricCard
             label="Leetcodes"
             value={summary.data?.attemptCount ?? '—'}
@@ -327,7 +355,7 @@ export function ProfilePage() {
                   />
                 ) : (
                   <ol className="relative grid gap-0">
-                    {(participation.data?.items ?? []).map((entry) => (
+                    {shownParticipation.map((entry) => (
                       <li key={entry.id} className="pb-4 last:pb-0">
                         <div className="min-w-0">
                           <Link
@@ -357,7 +385,7 @@ export function ProfilePage() {
                         </div>
                       </li>
                     ))}
-                    {!participation.data?.items.length ? (
+                    {!shownParticipation.length ? (
                       <li>No recorded season participation.</li>
                     ) : null}
                   </ol>

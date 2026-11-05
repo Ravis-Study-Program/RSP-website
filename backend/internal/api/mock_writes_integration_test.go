@@ -109,12 +109,13 @@ func mockUpdateBody(interview mockinterviews.Interview) map[string]any {
 	rounds := make([]mockRoundRequest, len(interview.Rounds))
 	for i, round := range interview.Rounds {
 		rounds[i] = mockRoundRequest{
-			ID:        round.ID,
-			Type:      round.Type,
-			ProblemID: round.ProblemID,
-			Content:   round.Content,
-			Link:      round.Link,
-			Scores:    round.Scores,
+			ID:          round.ID,
+			Type:        round.Type,
+			ProblemID:   round.ProblemID,
+			Content:     round.Content,
+			Link:        round.Link,
+			Description: round.Description,
+			Scores:      round.Scores,
 		}
 	}
 	return map[string]any{"occurredAt": interview.OccurredAt,
@@ -331,4 +332,110 @@ func readColumn[T any](t *testing.T, pool *pgxpool.Pool, query string, args ...a
 		t.Fatal(err)
 	}
 	return values
+}
+
+func TestMockRoundNotesPersistForEveryRoundType(t *testing.T) {
+	fixture := newPostgresFixture(t)
+	interview := createMockForWrites(t, fixture)
+	notes := []string{"<p>Behavioural notes</p>", "<p>LeetCode notes</p>", "<p>Custom notes</p>"}
+	for i := range interview.Rounds {
+		interview.Rounds[i].Content = notes[i]
+	}
+	mockRequest(t, fixture.handler, http.MethodPatch, "/api/v2/mock-interviews/"+interview.ID, "student", mockUpdateBody(interview), http.StatusOK)
+
+	// Read back through the list, so the notes come from the database.
+	response := testRequest(t, fixture.handler, http.MethodGet, "/api/v2/mock-interviews?mode=given", "student", "")
+	var list struct {
+		Items []mockinterviews.Interview `json:"items"`
+	}
+	if err := json.Unmarshal(response.Body.Bytes(), &list); err != nil {
+		t.Fatal(err)
+	}
+	if len(list.Items) != 1 || len(list.Items[0].Rounds) != 3 {
+		t.Fatalf("unexpected list: %s", response.Body)
+	}
+	for i, round := range list.Items[0].Rounds {
+		if round.Content != notes[i] {
+			t.Fatalf("%s round notes=%q want %q", round.Type, round.Content, notes[i])
+		}
+	}
+}
+
+func TestMockIntervieweeNotesBelongToTheInterviewee(t *testing.T) {
+	fixture := newPostgresFixture(t)
+	interview := createMockForWrites(t, fixture)
+	path := "/api/v2/mock-interviews/" + interview.ID + "/interviewee-notes"
+	body := map[string]string{"notes": "<p>Overall, I rushed the testing.</p>"}
+
+	// The interviewer cannot write the interviewee's notes.
+	mockRequest(t, fixture.handler, http.MethodPatch, path, "student", body, http.StatusNotFound)
+	saved := mockRequest(t, fixture.handler, http.MethodPatch, path, "other", body, http.StatusOK)
+	if saved.IntervieweeNotes != body["notes"] {
+		t.Fatalf("saved notes=%q", saved.IntervieweeNotes)
+	}
+
+	// The interviewer's own edit keeps them.
+	interview.DurationMinutes = 75
+	mockRequest(t, fixture.handler, http.MethodPatch, "/api/v2/mock-interviews/"+interview.ID, "student", mockUpdateBody(interview), http.StatusOK)
+	response := testRequest(t, fixture.handler, http.MethodGet, "/api/v2/mock-interviews?mode=received", "other", "")
+	var list struct {
+		Items []mockinterviews.Interview `json:"items"`
+	}
+	if err := json.Unmarshal(response.Body.Bytes(), &list); err != nil {
+		t.Fatal(err)
+	}
+	if len(list.Items) != 1 || list.Items[0].IntervieweeNotes != body["notes"] || list.Items[0].DurationMinutes != 75 {
+		t.Fatalf("read back: %s", response.Body)
+	}
+}
+
+func TestIntervieweeNotesArePrivateFromTheInterviewer(t *testing.T) {
+	fixture := newPostgresFixture(t)
+	interview := createMockForWrites(t, fixture)
+	notes := map[string]string{"notes": "<p>Only for me.</p>"}
+	mockRequest(t, fixture.handler, http.MethodPatch, "/api/v2/mock-interviews/"+interview.ID+"/interviewee-notes", "other", notes, http.StatusOK)
+	reviewed := mockRequest(t, fixture.handler, http.MethodPatch, "/api/v2/mock-interviews/"+interview.ID+"/rounds/"+mockRoundID+"/review", "other",
+		map[string]any{"reviewed": true, "comment": "<p>My round notes.</p>"}, http.StatusOK)
+	if reviewed.Rounds[0].IntervieweeComment == "" || reviewed.IntervieweeNotes == "" {
+		t.Fatalf("the interviewee sees their own notes: %+v", reviewed)
+	}
+
+	read := func(actor, mode string) mockinterviews.Interview {
+		t.Helper()
+		response := testRequest(t, fixture.handler, http.MethodGet, "/api/v2/mock-interviews?mode="+mode, actor, "")
+		var list struct {
+			Items []mockinterviews.Interview `json:"items"`
+		}
+		if err := json.Unmarshal(response.Body.Bytes(), &list); err != nil || len(list.Items) != 1 {
+			t.Fatalf("%s list: %s", actor, response.Body)
+		}
+		return list.Items[0]
+	}
+	given := read("student", "given")
+	if given.IntervieweeNotes != "" || given.Rounds[0].IntervieweeComment != "" {
+		t.Fatalf("the interviewer read the interviewee's notes: %+v", given)
+	}
+	if !given.Rounds[0].Reviewed || given.Notes == "" {
+		t.Fatalf("the interviewer still sees review state and their own notes: %+v", given)
+	}
+	// Editing returns the interview without the interviewee's notes too.
+	edited := mockRequest(t, fixture.handler, http.MethodPatch, "/api/v2/mock-interviews/"+interview.ID, "student", mockUpdateBody(given), http.StatusOK)
+	if edited.IntervieweeNotes != "" || edited.Rounds[0].IntervieweeComment != "" {
+		t.Fatalf("the edit response leaked the interviewee's notes: %+v", edited)
+	}
+	// The interviewer's edit does not erase them.
+	if received := read("other", "received"); received.IntervieweeNotes != notes["notes"] || received.Rounds[0].IntervieweeComment != "<p>My round notes.</p>" {
+		t.Fatalf("the interviewee lost their notes: %+v", received)
+	}
+}
+
+func TestCustomRoundsKeepADescription(t *testing.T) {
+	fixture := newPostgresFixture(t)
+	interview := createMockForWrites(t, fixture)
+	interview.Rounds[0].Description = "Ignored for a behavioural round"
+	interview.Rounds[2].Description = "  Design a cache  "
+	saved := mockRequest(t, fixture.handler, http.MethodPatch, "/api/v2/mock-interviews/"+interview.ID, "student", mockUpdateBody(interview), http.StatusOK)
+	if saved.Rounds[0].Description != "" || saved.Rounds[2].Description != "Design a cache" {
+		t.Fatalf("descriptions: %q %q", saved.Rounds[0].Description, saved.Rounds[2].Description)
+	}
 }

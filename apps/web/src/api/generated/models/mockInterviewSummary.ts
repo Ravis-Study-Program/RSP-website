@@ -27,4 +27,6 @@ export interface MockInterviewSummary {
   days: MockInterviewDayCount[];
   /** Everyone who conducted an interview in scope, ordered by name, for filter options. */
   interviewers: MockParticipantSummary[];
+  /** Everyone interviewed in scope, ordered by name, for filter options. */
+  interviewees: MockParticipantSummary[];
 }

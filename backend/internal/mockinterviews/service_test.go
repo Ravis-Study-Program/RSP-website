@@ -104,3 +104,20 @@ func TestAllApplicableScoresMustPass(t *testing.T) {
 		t.Fatal("passing scores failed")
 	}
 }
+
+func TestRedactedForHidesIntervieweeNotesFromTheInterviewer(t *testing.T) {
+	interview := Interview{InterviewerID: "interviewer", IntervieweeID: "interviewee", Notes: "theirs",
+		IntervieweeNotes: "mine", Rounds: []Round{{IntervieweeComment: "round", Reviewed: true}}}
+	hidden := interview.RedactedFor("interviewer")
+	if hidden.IntervieweeNotes != "" || hidden.Rounds[0].IntervieweeComment != "" || !hidden.Rounds[0].Reviewed || hidden.Notes != "theirs" {
+		t.Fatalf("interviewer view: %+v", hidden)
+	}
+	if interview.Rounds[0].IntervieweeComment != "round" {
+		t.Fatal("redaction changed the original interview")
+	}
+	for _, viewer := range []string{"interviewee", "director"} {
+		if shown := interview.RedactedFor(viewer); shown.IntervieweeNotes != "mine" || shown.Rounds[0].IntervieweeComment != "round" {
+			t.Fatalf("%s view: %+v", viewer, shown)
+		}
+	}
+}

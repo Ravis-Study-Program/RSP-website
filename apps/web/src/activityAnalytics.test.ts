@@ -16,10 +16,8 @@ it('charts a short summer season across New Year using Adelaide dates', () => {
   ] as Attempt[];
   const data = activitySeries(attempts, [], { season });
   expect(data).toHaveLength(14);
-  expect(data[0]).toMatchObject({ week: '25 Nov 2024', attempts: 0 });
-  expect(data.find((bucket) => bucket.week === '30 Dec 2024')?.attempts).toBe(
-    1,
-  );
+  expect(data[0]).toMatchObject({ week: '25/11/24', attempts: 0 });
+  expect(data.find((bucket) => bucket.week === '30/12/24')?.attempts).toBe(1);
   expect(data.reduce((n, d) => n + d.attempts, 0)).toBe(1);
   expect(difficultyBreakdown(attempts)).toEqual([
     { name: 'Easy', value: 1 },

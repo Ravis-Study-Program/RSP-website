@@ -21,7 +21,7 @@ import {
   sanitizeRichTextForDisplay,
 } from '@/components/RichTextContent';
 import type { Attempt, MockInterview, Person } from '@/types';
-import { formatDateTime, interviewPassed } from '@/utils';
+import { formatDate, formatDateTime, interviewPassed } from '@/utils';
 
 /** Sanitised notes flattened to one line, so table rows stay one height. */
 function richTextPreview(html: string) {
@@ -129,8 +129,9 @@ export function ProfileActivity({
     {
       accessorKey: 'occurredAt',
       header: 'Recorded',
-      meta: { width: 11.5 },
-      cell: ({ getValue }) => formatDateTime(getValue()),
+      meta: { width: 7.5 },
+      // Mocks are dated, not timed.
+      cell: ({ getValue }) => formatDate(getValue()),
     },
     {
       accessorKey: 'interviewee.name',
@@ -256,7 +257,7 @@ export function ProfileActivity({
               <p>Interviewer</p>
               <PersonIdentity person={m.interviewer} seasonId={seasonId} />
               <p>
-                {formatDateTime(m.occurredAt)} · {m.durationMinutes} min
+                {formatDate(m.occurredAt)} · {m.durationMinutes} min
               </p>
               <details>
                 <summary>View feedback</summary>

@@ -32,7 +32,7 @@ import {
 import { ActivityChart } from '@/components/ActivityChart';
 import { legendLabel } from '@/lib/chartLegend';
 import type { Attempt, Difficulty, Season } from '@/types';
-import { practiceGoalMinutes } from '@/utils';
+import { formatDate, formatDateTime, practiceGoalMinutes } from '@/utils';
 
 const breakdownColor = (name: string) =>
   difficultyColor[name as Difficulty] ?? 'var(--chart-secondary)';
@@ -43,17 +43,6 @@ const difficultyColor: Record<Difficulty, string> = {
   Medium: 'var(--warning)',
   Hard: 'var(--danger)',
 };
-const shortDate = new Intl.DateTimeFormat(undefined, {
-  month: 'short',
-  day: 'numeric',
-});
-const fullDateTime = new Intl.DateTimeFormat(undefined, {
-  month: 'short',
-  day: 'numeric',
-  year: 'numeric',
-  hour: 'numeric',
-  minute: '2-digit',
-});
 
 type TimedPoint = {
   name: string;
@@ -84,8 +73,7 @@ function TimedTooltip({
         {point.name}
       </span>
       <span className="text-muted-foreground">
-        {point.difficulty} · {point.minutes} min ·{' '}
-        {fullDateTime.format(point.at)}
+        {point.difficulty} · {point.minutes} min · {formatDateTime(point.at)}
       </span>
     </Card>
   );
@@ -145,7 +133,7 @@ export function PracticeAnalytics({
     allowDecimals: false,
     padding: { left: 16, right: 16 },
     tickFormatter: (value: number) =>
-      points[value] ? shortDate.format(points[value].at) : '',
+      points[value] ? formatDate(points[value].at) : '',
     tick: { fill: 'var(--text-muted)', fontSize: 12 },
     stroke: 'var(--border-strong)',
   };

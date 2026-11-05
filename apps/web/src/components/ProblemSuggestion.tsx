@@ -57,17 +57,7 @@ export function ProblemSuggestion() {
     }
   }
   return (
-    <section
-      aria-labelledby="question-suggestion-title"
-      className="flex flex-col gap-2"
-    >
-      {/* Sized like a field label, matching "View activity" below. */}
-      <h2
-        id="question-suggestion-title"
-        className="text-sm leading-snug font-medium"
-      >
-        Question suggestion
-      </h2>
+    <section aria-label="Question suggestion" className="flex flex-col">
       <Card className="gap-0 p-4">
         <div className="flex flex-wrap items-center gap-3">
           <Choices

@@ -24,7 +24,7 @@ import { ProblemSuggestion } from '@/components/ProblemSuggestion';
 import { Spoiler } from '@/components/Spoiler';
 import { SeasonWeekChoices } from '@/components/ActivityFilters';
 import { ActivityPeriodFilter } from '@/components/ActivityPeriodFilter';
-import { useActivitySeason } from '@/activityPeriod';
+import { useActivitySeason, useActivitySeasons } from '@/activityPeriod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import {
   IconChevronDown,
@@ -43,13 +43,19 @@ import { useBeforeUnload, useNavigate } from 'react-router-dom';
 import { z } from 'zod';
 
 import { adaptAttempt, displayDifficulty } from '@/api/adapters';
+import { ExternalLink } from '@/components/ExternalLink';
 import { ApiError, apiRequest } from '@/api/client';
 import type {
   Attempt as ApiAttempt,
   AttemptMutation,
   LeetcodeProblem,
 } from '@/api/generated/models';
-import { demoMode, demoActivityWeekId, useAttempts } from '@/api/queries';
+import {
+  demoMode,
+  demoActivityWeekId,
+  useAttempts,
+  useCurrentUser,
+} from '@/api/queries';
 import { PracticeAnalytics } from '@/components/PracticeAnalytics';
 import { AppDatePicker } from '@/components/AppDatePicker';
 import { PageHeader, usePageTitle } from '@/components/Common';
@@ -60,6 +66,7 @@ import { RichTextEditor } from '@/components/RichTextEditor';
 import { RichTextContent } from '@/components/RichTextContent';
 import { ErrorState, InlineNotice } from '@/components/StatusViews';
 import { cn } from '@/lib/utils';
+import { recentDateFilterOptions, withinRecentDays } from '@/tableFilters';
 import { Field, FieldError, FieldLabel } from '@/components/ui/field';
 import type { Attempt, Difficulty } from '@/types';
 import {
@@ -150,13 +157,6 @@ const outcomeFilterOptions = (
     'unknown',
   ] as const
 ).map((value) => ({ label: outcomeLabel(value), value }));
-/** Values are a number of days back from now. */
-const attemptedFilterOptions = [
-  { label: 'Past 7 days', value: '7' },
-  { label: 'Past 30 days', value: '30' },
-  { label: 'Past 90 days', value: '90' },
-  { label: 'Past year', value: '365' },
-];
 
 const baseColumns: ColumnDef<Attempt, any>[] = [
   {
@@ -166,9 +166,9 @@ const baseColumns: ColumnDef<Attempt, any>[] = [
       <div>
         <strong>
           {row.original.problemUrl ? (
-            <a href={row.original.problemUrl} target="_blank" rel="noreferrer">
+            <ExternalLink href={row.original.problemUrl}>
               <HighlightText text={row.original.problem} />
-            </a>
+            </ExternalLink>
           ) : (
             <HighlightText text={row.original.problem} />
           )}
@@ -236,10 +236,8 @@ const baseColumns: ColumnDef<Attempt, any>[] = [
   {
     accessorKey: 'attemptedAt',
     header: 'Date Attempted',
-    meta: { width: 8.5, filterOptions: attemptedFilterOptions },
-    filterFn: (row, columnId, days: string) =>
-      Date.now() - new Date(row.getValue<string>(columnId)).getTime() <=
-      Number(days) * 24 * 60 * 60 * 1000,
+    meta: { width: 8.5, filterOptions: recentDateFilterOptions },
+    filterFn: withinRecentDays,
     cell: ({ getValue }) => formatDate(getValue()),
   },
 ];
@@ -247,7 +245,14 @@ const baseColumns: ColumnDef<Attempt, any>[] = [
 export function LeetCodePage() {
   const navigate = useNavigate();
   usePageTitle('LeetCode');
-  const { seasons, season, hasSelection } = useActivitySeason();
+  const { seasons, season, hasSelection } = useActivitySeason('leetcode');
+  const user = useCurrentUser();
+  // Practice only belongs to seasons where you were a student.
+  const studentSeasons = useActivitySeasons(
+    user.data?.id,
+    seasons.data?.items ?? [],
+    { selectedId: season?.id },
+  );
   const [urlFilters, setFilters] = useActivityFilters(season?.id);
   // Only season weeks narrow the table; difficulty and topics are just for
   // suggesting a question, so stale URL parameters must not hide attempts.
@@ -440,7 +445,7 @@ export function LeetCodePage() {
                     label="Season"
                     section="leetcode"
                     season={season}
-                    seasons={seasons.data?.items ?? []}
+                    seasons={studentSeasons}
                   />
                   {season && (
                     <SeasonWeekChoices
@@ -500,13 +505,13 @@ export function LeetCodePage() {
                   </Badge>
                 </div>
                 <h3 className="mt-3 text-base font-semibold tracking-tight">
-                  <a
-                    href={row.original.problemUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                  >
+                  {row.original.problemUrl ? (
+                    <ExternalLink href={row.original.problemUrl}>
+                      <HighlightText text={row.original.problem} />
+                    </ExternalLink>
+                  ) : (
                     <HighlightText text={row.original.problem} />
-                  </a>
+                  )}
                 </h3>
                 <p className="text-sm text-muted-foreground">
                   {row.original.category ? (

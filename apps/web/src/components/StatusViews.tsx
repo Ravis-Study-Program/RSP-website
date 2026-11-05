@@ -20,7 +20,7 @@ export function PageSkeleton({ label = 'Loading page' }: { label?: string }) {
       <Skeleton className="mt-3 h-10 w-[min(28rem,85%)] text-transparent">
         Loading
       </Skeleton>
-      <div className="mt-4 grid grid-cols-1 gap-4 min-[56rem]:grid-cols-2 min-[70rem]:grid-cols-3">
+      <div className="mt-4 grid grid-cols-1 gap-6 min-[56rem]:grid-cols-2 min-[70rem]:grid-cols-3">
         {[1, 2, 3].map((item) => (
           <Skeleton key={item} className="h-32 text-transparent">
             Loading

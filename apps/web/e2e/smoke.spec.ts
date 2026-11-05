@@ -471,14 +471,15 @@ test('received mock interviews start with their detail rows expanded', async ({
   await expect(
     page.getByRole('heading', { name: 'Mock Interviews' }),
   ).toBeVisible();
+  // Rows start collapsed; the chevron opens the details.
+  const details = page.getByRole('button', {
+    name: 'Show details for Avery Example',
+  });
+  await expect(details).toHaveAttribute('aria-expanded', 'false');
+  await details.click();
+  await expect(page.getByText('Behavioural round').first()).toBeVisible();
   await expect(
-    page.getByRole('button', { name: 'Hide details for Avery Example' }),
-  ).toHaveAttribute('aria-expanded', 'true');
-  await expect(
-    page.getByText('Data structure implementation').first(),
-  ).toBeVisible();
-  await expect(
-    page.getByText('Excellent testing discipline.').first(),
+    page.getByText('Excellent structure, with a measurable result.').first(),
   ).toBeVisible();
 });
 
@@ -635,8 +636,15 @@ test('mock interview create, round edit and named deletion work', async ({
       .first(),
   ).toBeVisible();
 
-  await page.getByRole('button', { name: 'Edit details' }).first().click();
-  const edit = page.getByRole('dialog', { name: 'Edit interview details' });
+  await page
+    .getByRole('button', {
+      name: /More actions for the interview with Amelia Chen/,
+    })
+    .filter({ visible: true })
+    .first()
+    .click();
+  await page.getByRole('menuitem', { name: 'Edit notes and scores' }).click();
+  const edit = page.getByRole('dialog', { name: 'Edit notes and scores' });
   await edit.getByLabel('Duration (minutes)').fill('65');
   await edit
     .getByLabel(/custom score/i)
@@ -645,7 +653,14 @@ test('mock interview create, round edit and named deletion work', async ({
   await edit.getByRole('button', { name: 'Save changes' }).click();
   await expect(page.getByText('65 min').first()).toBeVisible();
 
-  await page.getByRole('button', { name: 'Delete interview' }).first().click();
+  await page
+    .getByRole('button', {
+      name: /More actions for the interview with Amelia Chen/,
+    })
+    .filter({ visible: true })
+    .first()
+    .click();
+  await page.getByRole('menuitem', { name: 'Delete interview' }).click();
   const confirmation = page.getByRole('alertdialog', {
     name: /Delete interview/,
   });
