@@ -192,7 +192,6 @@ export function SeasonEditorDialog({
   return (
     <FormDialog
       title={season ? `Edit ${season.name}` : 'Create season'}
-      description="These dates determine which activity counts toward the season."
       open={open}
       onOpenChange={(next) => {
         if (
@@ -410,7 +409,6 @@ export function SeasonResourcesDialog({ season }: { season: Season }) {
   return (
     <FormDialog
       title={`Edit resources for ${season.name}`}
-      description="Coordinators can update only this resource link; season dates and identity remain Director-managed."
       open={open}
       onOpenChange={requestOpenChange}
       triggerVariant="outline"

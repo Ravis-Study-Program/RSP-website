@@ -86,7 +86,6 @@ export function StudentLevelDialog({
       triggerVariant="outline"
       triggerSize="sm"
       title={`Set ${person.name}'s level`}
-      description="Choose this student's level for the season."
       trigger={
         <>
           <IconArrowUp size={17} aria-hidden="true" /> Set level

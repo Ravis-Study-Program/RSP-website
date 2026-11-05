@@ -148,7 +148,6 @@ export function Invitations({ season }: { season: Season }) {
             setOpen(next);
           }}
           title="Invite a member"
-          description="The recipient joins this season after accepting with the matching verified email address."
           trigger={season.status === 'open' ? 'Invite a member' : undefined}
         >
           <form

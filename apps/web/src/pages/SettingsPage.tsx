@@ -474,7 +474,6 @@ function MfaSetupDialog({ onComplete }: { onComplete: () => void }) {
   return (
     <FormDialog
       title="Set up two-factor authentication"
-      description="Confirm your identity, add this account to your authenticator app, then enter a code."
       open={open}
       onOpenChange={setOpen}
       triggerVariant="outline"
@@ -639,7 +638,6 @@ function ChangeEmailDialog({ onRequested }: { onRequested: () => void }) {
   return (
     <FormDialog
       title="Change account email"
-      description="Confirm your identity to change your email. You’ll need to verify the new address."
       open={open}
       onOpenChange={setOpen}
       triggerVariant="outline"
