@@ -82,7 +82,8 @@ func newMondayUpdateFixture(t *testing.T) *Store {
 			VALUES($1,$2,$3,$4,20,$5)`, mondayFixtureID(attempt.number), mondayFixtureID(1),
 			mondayFixtureID(40+attempt.problem), attempt.attemptedAt, attempt.outcome)
 	}
-	// Deleted inside the range and unknown outcomes must never appear or count.
+	// Deleted attempts must never appear or count. An unknown outcome counts
+	// as solved.
 	exec(`INSERT INTO app.problem_attempts(id,user_id,problem_id,attempted_at,time_taken_minutes,outcome,deleted_at)
 		VALUES($1,$2,$3,'2026-03-05T10:00:00Z',20,'independently_solved',now())`, mondayFixtureID(66), mondayFixtureID(1), mondayFixtureID(41))
 	exec(`INSERT INTO app.problem_attempts(id,user_id,problem_id,attempted_at,time_taken_minutes,outcome)
@@ -335,9 +336,10 @@ func TestMondayUpdateReviewCountsAndDedup(t *testing.T) {
 		t.Fatalf("items=%+v", []programme.PersonSummary{items[0].Student, items[1].Student})
 	}
 	ada := items[0]
-	// Solved-only, and deduplicated across Ada's two overlapping updates: the
-	// 2026-03-03 attempt falls inside both, so easy would be 3 without DISTINCT.
-	if ada.LeetCodeCounts != (programme.MondayUpdateDifficultyCounts{Easy: 2, Medium: 1, Hard: 1}) {
+	// Solved-only (independently solved or unknown; solving with hints does not
+	// count), and deduplicated across Ada's two overlapping updates: the
+	// 2026-03-03 attempt falls inside both, so easy would be 4 without DISTINCT.
+	if ada.LeetCodeCounts != (programme.MondayUpdateDifficultyCounts{Easy: 3, Medium: 0, Hard: 1}) {
 		t.Fatalf("counts=%+v", ada.LeetCodeCounts)
 	}
 	if ada.MockCount != 2 || ada.UpdateCount != 2 {

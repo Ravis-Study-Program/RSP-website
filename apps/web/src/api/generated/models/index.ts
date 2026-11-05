@@ -17,6 +17,7 @@ export * from './attemptMutation';
 export * from './attemptMutationOutcome';
 export * from './attemptOutcome';
 export * from './attemptPage';
+export * from './attemptReview';
 export * from './attemptUpdate';
 export * from './canaryAccess';
 export * from './canaryAccessSeason';

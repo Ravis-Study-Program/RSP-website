@@ -23,7 +23,7 @@ export function difficultySuccessRates(attempts: Attempt[]) {
       count: matching.length,
       successes: matching.filter(
         (a) =>
-          a.outcome === 'independently_solved' &&
+          a.outcome === 'solved' &&
           a.minutes !== null &&
           a.minutes <= practiceGoalMinutes[difficulty],
       ).length,

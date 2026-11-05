@@ -245,14 +245,14 @@ func seedMondayActivity(ctx context.Context, tx pgx.Tx, seasonID string, now tim
 			}
 			problem := pick(skill)
 			roll := rng.Float64()
-			outcome, confidence := "not_solved", any(1+rng.IntN(2))
+			outcome := "not_solved"
 			switch {
 			case roll < 0.05:
-				outcome, confidence = "unknown", nil
+				outcome = "unknown"
 			case roll < 0.05+skill*0.7:
-				outcome, confidence = "independently_solved", 4+rng.IntN(2)
+				outcome = "independently_solved"
 			case roll < 0.05+skill*0.7+0.25:
-				outcome, confidence = "solved_with_hints", 2+rng.IntN(3)
+				outcome = "solved_with_hints"
 			}
 			base := map[string]int{"easy": 8, "medium": 18, "hard": 35}[problem.difficulty]
 			minutes := base + rng.IntN(base*2)
@@ -260,8 +260,8 @@ func seedMondayActivity(ctx context.Context, tx pgx.Tx, seasonID string, now tim
 			if rng.IntN(3) == 0 {
 				notes = "<p>" + seedAttemptNotes[rng.IntN(len(seedAttemptNotes))] + "</p>"
 			}
-			if _, err := tx.Exec(ctx, `INSERT INTO app.problem_attempts(user_id,problem_id,enrollment_id,attempted_at,time_taken_minutes,outcome,confidence,notes_html)
-				VALUES($1,$2,$3,$4,$5,$6::app.attempt_outcome,$7,$8)`, u.studentID, problem.problemID, u.enrollmentID, when, minutes, outcome, confidence, notes); err != nil {
+			if _, err := tx.Exec(ctx, `INSERT INTO app.problem_attempts(user_id,problem_id,enrollment_id,attempted_at,time_taken_minutes,outcome,notes_html)
+				VALUES($1,$2,$3,$4,$5,$6::app.attempt_outcome,$7)`, u.studentID, problem.problemID, u.enrollmentID, when, minutes, outcome, notes); err != nil {
 				return fmt.Errorf("seed attempt: %w", err)
 			}
 		}

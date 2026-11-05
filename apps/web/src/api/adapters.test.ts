@@ -132,8 +132,8 @@ describe('OpenAPI DTO adapters', () => {
           id: 'attempt-1',
           problemId: problem.id,
           problem,
-          outcome: 'solved_with_hints',
-          confidence: 3,
+          outcome: 'unsolved',
+          reviewed: true,
           minutes: 32,
           notes: '<p>Used a heap.</p>',
           attemptedAt: '2026-08-13T00:00:00Z',
@@ -146,6 +146,8 @@ describe('OpenAPI DTO adapters', () => {
       difficulty: 'Medium',
       category: 'Hash maps, Sorting',
       categories: ['Hash maps', 'Sorting'],
+      outcome: 'unsolved',
+      reviewed: true,
     });
   });
 

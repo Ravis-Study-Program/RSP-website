@@ -86,6 +86,7 @@ func registerPracticeRoutes(mux *http.ServeMux, a *API) {
 	mux.HandleFunc("GET /api/v2/problem-attempts", a.protected(ratelimit.Read, a.listProblemAttempts))
 	mux.HandleFunc("POST /api/v2/problem-attempts", a.protected(ratelimit.Write, a.createProblemAttempt))
 	mux.HandleFunc("PATCH /api/v2/problem-attempts/{id}", a.protected(ratelimit.Write, a.updateProblemAttempt))
+	mux.HandleFunc("PATCH /api/v2/problem-attempts/{id}/review", a.protected(ratelimit.Write, a.reviewProblemAttempt))
 	mux.HandleFunc("DELETE /api/v2/problem-attempts/{id}", a.protected(ratelimit.Write, a.deleteProblemAttempt))
 }
 

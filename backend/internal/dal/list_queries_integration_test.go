@@ -321,14 +321,14 @@ func TestStoreListQueries(t *testing.T) {
 		expectListPage(t, []int{702}, false, 1, id)(db.ListAttempts(ctx, AttemptQuery{
 			UserID:     queryFixtureID(1),
 			Limit:      2,
-			Outcome:    "not_solved",
+			Outcome:    "unsolved",
 			Difficulty: "easy",
 			Direction:  "forward",
 		}))
 		expectListPage(t, nil, false, 0, id)(db.ListAttempts(ctx, AttemptQuery{
 			UserID:     queryFixtureID(1),
 			Limit:      2,
-			Outcome:    "not_solved",
+			Outcome:    "unsolved",
 			Difficulty: "hard",
 			Direction:  "forward",
 		}))

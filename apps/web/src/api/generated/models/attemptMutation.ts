@@ -10,12 +10,6 @@ import type { AttemptMutationOutcome } from './attemptMutationOutcome';
 export interface AttemptMutation {
   problemId: string;
   outcome: AttemptMutationOutcome;
-  /**
-   * @minimum 1
-   * @maximum 5
-   * @nullable
-   */
-  confidence?: number | null;
   /** @minimum 1 */
   minutes: number;
   /** @maxLength 10000 */

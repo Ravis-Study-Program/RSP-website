@@ -15,14 +15,14 @@ it('counts attempts by difficulty', () => {
   ]);
 });
 
-it('counts a success only when solved independently within the goal time', () => {
+it('counts a success only when solved within the goal time', () => {
   const attempts = [
-    { difficulty: 'Easy', outcome: 'independently_solved', minutes: 20 },
-    { difficulty: 'Easy', outcome: 'independently_solved', minutes: 21 },
-    { difficulty: 'Easy', outcome: 'solved_with_hints', minutes: 5 },
-    { difficulty: 'Easy', outcome: 'independently_solved', minutes: null },
-    { difficulty: 'Medium', outcome: 'independently_solved', minutes: 35 },
-    { difficulty: null, outcome: 'independently_solved', minutes: 1 },
+    { difficulty: 'Easy', outcome: 'solved', minutes: 20 },
+    { difficulty: 'Easy', outcome: 'solved', minutes: 21 },
+    { difficulty: 'Easy', outcome: 'unsolved', minutes: 5 },
+    { difficulty: 'Easy', outcome: 'solved', minutes: null },
+    { difficulty: 'Medium', outcome: 'solved', minutes: 35 },
+    { difficulty: null, outcome: 'solved', minutes: 1 },
   ] as Attempt[];
   expect(difficultySuccessRates(attempts)).toEqual([
     { difficulty: 'Easy', count: 4, successes: 1 },

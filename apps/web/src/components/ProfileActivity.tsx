@@ -15,7 +15,7 @@ import {
   MockTypeField,
   type MockView,
 } from '@/pages/MockInterviewsPage';
-import type { MockInterview, Person } from '@/types';
+import type { Attempt, MockInterview, Person } from '@/types';
 
 /**
  * A person's LeetCode attempts and mock interviews, in the same tables as the
@@ -69,6 +69,9 @@ export function ProfileActivity({
         ? participants.data?.interviewees
         : undefined) ?? [];
   const [updated, setUpdated] = useState<Record<string, MockInterview>>({});
+  const [reviewedAttempts, setReviewedAttempts] = useState<
+    Record<string, Attempt>
+  >({});
   const visibleMocks = useMemo(
     () =>
       (mocks.data?.pages.flatMap((page) => page.items) ?? []).map(
@@ -92,8 +95,17 @@ export function ProfileActivity({
         <AttemptTable
           toolbarLead={activityTabs}
           ariaLabel={`${person.name} practice history`}
-          data={attempts.data?.items ?? []}
+          data={(attempts.data?.items ?? []).map(
+            (attempt) => reviewedAttempts[attempt.id] ?? attempt,
+          )}
           showNotes={isSelf}
+          canReview={isSelf}
+          onReviewed={(attempt) =>
+            setReviewedAttempts((items) => ({
+              ...items,
+              [attempt.id]: attempt,
+            }))
+          }
           renderSummary={(rows) => <PracticeAnalytics attempts={rows} />}
           loading={attempts.isLoading}
           error={attempts.isError}

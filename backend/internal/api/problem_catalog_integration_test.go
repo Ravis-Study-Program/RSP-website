@@ -88,7 +88,7 @@ func TestAttemptsAndMockRoundsEmbedTheirProblem(t *testing.T) {
 		}
 	}
 
-	body := `{"problemId":"` + leetcodeProblemID + `","outcome":"independently_solved","minutes":25,"attemptedAt":"2026-09-01T00:00:00Z"}`
+	body := `{"problemId":"` + leetcodeProblemID + `","outcome":"solved","minutes":25,"attemptedAt":"2026-09-01T00:00:00Z"}`
 	res := testRequest(t, f.handler, http.MethodPost, "/api/v2/problem-attempts", "student", body)
 	var created struct {
 		ID string `json:"id"`

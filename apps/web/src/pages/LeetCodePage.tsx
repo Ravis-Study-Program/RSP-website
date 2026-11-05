@@ -64,13 +64,7 @@ import { calendarDateKey, zonedDateTimeToUtc } from '@/utils';
 
 const attemptSchema = z.object({
   problemId: z.string().min(1, 'Choose a problem.'),
-  outcome: z.enum(['independently_solved', 'solved_with_hints', 'not_solved']),
-  confidence: z
-    .string()
-    .refine(
-      (value) => value === '' || /^[1-5]$/.test(value),
-      'Enter a whole number from 1 to 5, or leave it blank.',
-    ),
+  outcome: z.enum(['solved', 'unsolved']),
   minutes: z
     .number()
     .int()
@@ -86,16 +80,14 @@ function attemptFormValues(attempt?: Attempt): AttemptFormValues {
   return attempt
     ? {
         problemId: attempt.problemId,
-        outcome: attempt.outcome === 'unknown' ? 'not_solved' : attempt.outcome,
-        confidence: attempt.confidence?.toString() ?? '',
+        outcome: attempt.outcome,
         minutes: attempt.minutes ?? 35,
         attemptedAt: attempt.attemptedAt.slice(0, 10),
         notes: attempt.notes,
       }
     : {
         problemId: '',
-        outcome: 'independently_solved',
-        confidence: '',
+        outcome: 'solved',
         minutes: 35,
         attemptedAt: calendarDateKey(new Date()),
         notes: '',
@@ -276,6 +268,19 @@ export function LeetCodePage() {
             error={attemptsQuery.isError}
             onRetry={() => void attemptsQuery.refetch()}
             emptyTitle="No attempts recorded"
+            canReview
+            onReviewed={(attempt) =>
+              attempt.id.startsWith('attempt_local_')
+                ? setLocalAttempts((items) =>
+                    items.map((item) =>
+                      item.id === attempt.id ? attempt : item,
+                    ),
+                  )
+                : setUpdatedAttempts((items) => ({
+                    ...items,
+                    [attempt.id]: attempt,
+                  }))
+            }
             renderActions={(row) => (
               <AttemptRowMenu
                 attempt={row.original}
@@ -384,9 +389,8 @@ const outcomeItems: {
   label: string;
   value: AttemptFormValues['outcome'];
 }[] = [
-  { label: 'Solved', value: 'independently_solved' },
-  { label: 'Solved with hints', value: 'solved_with_hints' },
-  { label: 'Not solved', value: 'not_solved' },
+  { label: 'Solved', value: 'solved' },
+  { label: 'Unsolved', value: 'unsolved' },
 ];
 
 function AttemptDialog({
@@ -434,8 +438,6 @@ function AttemptDialog({
   const onSubmit = handleSubmit(async (values) => {
     setRequestError('');
     const attemptedAt = zonedDateTimeToUtc(`${values.attemptedAt}T12:00`);
-    const confidence =
-      values.confidence === '' ? null : Number(values.confidence);
     const problem = selectedProblem;
     if (!problem || problem.id !== values.problemId) return;
     const saved: Attempt = {
@@ -448,8 +450,8 @@ function AttemptDialog({
       category: problem.categories.join(', ') || null,
       categories: problem.categories,
       outcome: values.outcome,
-      confidence,
       minutes: values.minutes,
+      reviewed: attempt?.reviewed ?? false,
       notes: values.notes,
       attemptedAt,
     };
@@ -457,7 +459,6 @@ function AttemptDialog({
       try {
         const mutation: AttemptMutation = {
           ...values,
-          confidence,
           attemptedAt,
         };
         const apiSaved = await apiRequest<ApiAttempt>(
@@ -587,28 +588,6 @@ function AttemptDialog({
                   </Select>
                 )}
               />
-            </Field>
-            <Field>
-              <FieldLabel htmlFor="attempt-confidence">
-                Confidence (1–5)
-              </FieldLabel>
-              <Input
-                id="attempt-confidence"
-                type="number"
-                min="1"
-                max="5"
-                placeholder="Optional"
-                aria-invalid={Boolean(errors.confidence)}
-                aria-describedby={
-                  errors.confidence ? 'attempt-confidence-error' : undefined
-                }
-                {...register('confidence')}
-              />
-              {errors.confidence ? (
-                <FieldError id="attempt-confidence-error">
-                  {errors.confidence.message}
-                </FieldError>
-              ) : null}
             </Field>
             <Field>
               <FieldLabel htmlFor="attempt-minutes">

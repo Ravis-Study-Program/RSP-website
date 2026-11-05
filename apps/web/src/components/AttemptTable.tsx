@@ -1,8 +1,16 @@
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
+import { adaptAttempt } from '@/api/adapters';
+import { apiRequest } from '@/api/client';
+import type {
+  Attempt as ApiAttempt,
+  AttemptReview,
+} from '@/api/generated/models';
+import { demoMode } from '@/api/queries';
 import { IconChevronDown, IconChevronUp } from '@tabler/icons-react';
 import type { ColumnDef, Row } from '@tanstack/react-table';
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import {
   DataTable,
   HighlightText,
@@ -48,14 +56,18 @@ function AttemptTime({ attempt }: { attempt: Attempt }) {
 const difficultyFilterOptions = (['Easy', 'Medium', 'Hard'] as const).map(
   (value) => ({ label: value, value }),
 );
-const outcomeFilterOptions = (
-  [
-    'independently_solved',
-    'solved_with_hints',
-    'not_solved',
-    'unknown',
-  ] as const
-).map((value) => ({ label: outcomeLabel(value), value }));
+const outcomeFilterOptions = (['solved', 'unsolved'] as const).map((value) => ({
+  label: outcomeLabel(value),
+  value,
+}));
+
+/** Solved reads green and Unsolved red. */
+function outcomeClass(outcome: Attempt['outcome']) {
+  return cn(
+    badgeClass,
+    outcome === 'solved' ? outcomeTone.success : outcomeTone.danger,
+  );
+}
 
 const baseColumns: ColumnDef<Attempt, any>[] = [
   {
@@ -101,29 +113,13 @@ const baseColumns: ColumnDef<Attempt, any>[] = [
   {
     accessorKey: 'outcome',
     header: 'Outcome',
-    meta: { width: 10.5, filterOptions: outcomeFilterOptions },
+    meta: { width: 6.5, filterOptions: outcomeFilterOptions },
     filterFn: 'equalsString',
     cell: ({ getValue }) => (
-      <Badge
-        variant="outline"
-        className={cn(
-          badgeClass,
-          getValue() === 'independently_solved'
-            ? outcomeTone.success
-            : getValue() === 'not_solved'
-              ? outcomeTone.danger
-              : outcomeTone.warning,
-        )}
-      >
+      <Badge variant="outline" className={outcomeClass(getValue())}>
         {outcomeLabel(getValue())}
       </Badge>
     ),
-  },
-  {
-    accessorKey: 'confidence',
-    header: 'Confidence',
-    meta: { width: 6.5 },
-    cell: ({ getValue }) => (getValue() ? `${getValue()}/5` : '—'),
   },
   {
     accessorKey: 'minutes',
@@ -142,6 +138,62 @@ const baseColumns: ColumnDef<Attempt, any>[] = [
 ];
 
 /**
+ * Whether the attempt's owner has reviewed it, as a checkbox like a mock
+ * interview's. Only the owner can tick it; everyone else sees its state.
+ */
+function AttemptReviewed({
+  attempt,
+  canReview,
+  onReviewed,
+}: {
+  attempt: Attempt;
+  canReview: boolean;
+  onReviewed?: (attempt: Attempt) => void;
+}) {
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState('');
+  const setReviewed = async (reviewed: boolean) => {
+    setPending(true);
+    setError('');
+    try {
+      const body: AttemptReview = { reviewed };
+      const saved = demoMode
+        ? { ...attempt, reviewed }
+        : adaptAttempt(
+            await apiRequest<ApiAttempt>(
+              `/problem-attempts/${encodeURIComponent(attempt.id)}/review`,
+              { method: 'PATCH', body: JSON.stringify(body) },
+            ),
+          );
+      onReviewed?.(saved);
+    } catch (requestError) {
+      setError(
+        requestError instanceof Error
+          ? requestError.message
+          : 'Unable to update the review.',
+      );
+    } finally {
+      setPending(false);
+    }
+  };
+  return (
+    <div className="grid gap-1">
+      <Checkbox
+        aria-label={`${attempt.problem} reviewed`}
+        checked={attempt.reviewed}
+        disabled={!canReview || pending}
+        onCheckedChange={(checked) => void setReviewed(checked)}
+      />
+      {error ? (
+        <p role="alert" className="text-xs text-destructive">
+          {error}
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
+/**
  * LeetCode attempts as the LeetCode page lists them: a chevron opens an
  * attempt's notes, and the page supplies any row actions. Profiles show the
  * same table without actions, and without notes unless they are your own.
@@ -150,6 +202,8 @@ export function AttemptTable({
   renderActions,
   renderCardActions,
   showNotes = true,
+  canReview = false,
+  onReviewed,
   ...props
 }: {
   ariaLabel: string;
@@ -168,7 +222,18 @@ export function AttemptTable({
   renderCardActions?: (attempt: Attempt) => ReactNode;
   /** False hides every attempt's notes, such as on someone else's profile. */
   showNotes?: boolean;
+  /** Whether the viewer owns these attempts and can mark them reviewed. */
+  canReview?: boolean;
+  /** Called with an attempt once its reviewed state is saved. */
+  onReviewed?: (attempt: Attempt) => void;
 }) {
+  const reviewCell = (attempt: Attempt) => (
+    <AttemptReviewed
+      attempt={attempt}
+      canReview={canReview}
+      onReviewed={onReviewed}
+    />
+  );
   const expandColumn: ColumnDef<Attempt, any> = {
     id: 'expand',
     header: 'Notes',
@@ -195,6 +260,14 @@ export function AttemptTable({
   const columns: ColumnDef<Attempt, any>[] = [
     ...(showNotes ? [expandColumn] : []),
     ...baseColumns,
+    {
+      id: 'reviewed',
+      header: 'Reviewed',
+      meta: { width: 5.5, wrap: true },
+      accessorFn: (attempt) => attempt.reviewed,
+      enableColumnFilter: false,
+      cell: ({ row }) => reviewCell(row.original),
+    },
     ...(renderActions
       ? [
           {
@@ -237,17 +310,11 @@ export function AttemptTable({
             </Badge>
             <Badge
               variant="outline"
-              className={cn(
-                badgeClass,
-                row.original.outcome === 'independently_solved'
-                  ? outcomeTone.success
-                  : row.original.outcome === 'not_solved'
-                    ? outcomeTone.danger
-                    : outcomeTone.warning,
-              )}
+              className={outcomeClass(row.original.outcome)}
             >
               {outcomeLabel(row.original.outcome)}
             </Badge>
+            <div className="ml-auto">{reviewCell(row.original)}</div>
           </div>
           <h3 className="mt-3 text-base font-semibold tracking-tight">
             {row.original.problemUrl ? (
@@ -271,11 +338,7 @@ export function AttemptTable({
               <AttemptTime attempt={row.original} />
             ) : (
               'No time recorded'
-            )}{' '}
-            ·{' '}
-            {row.original.confidence
-              ? `confidence ${row.original.confidence}/5`
-              : 'confidence not recorded'}
+            )}
           </p>
           {showNotes ? <RichTextContent html={row.original.notes} /> : null}
           {renderCardActions ? (

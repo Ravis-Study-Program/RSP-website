@@ -710,9 +710,7 @@ function UpdateActivitySummary({
 }) {
   const counts = { easy: 0, medium: 0, hard: 0 };
   for (const attempt of activity.attempts) {
-    const solved =
-      attempt.outcome === 'independently_solved' ||
-      attempt.outcome === 'solved_with_hints';
+    const solved = attempt.outcome === 'solved';
     if (solved && attempt.difficulty in counts)
       counts[attempt.difficulty as keyof typeof counts] += 1;
   }

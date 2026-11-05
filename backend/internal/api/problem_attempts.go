@@ -32,6 +32,10 @@ func (a *API) listProblemAttempts(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	outcome := r.URL.Query().Get("outcome")
+	if outcome != "" && outcome != practice.Solved && outcome != practice.Unsolved {
+		writeErrorResponse(w, http.StatusBadRequest, "outcome must be solved or unsolved")
+		return
+	}
 	difficulties, err := selection(r.URL.Query(), "difficulty", difficultySelection)
 	if err != nil {
 		writeErrorResponse(w, http.StatusBadRequest, err.Error())
@@ -117,7 +121,6 @@ func (a *API) listProblemAttempts(w http.ResponseWriter, r *http.Request) {
 
 type attemptInput struct {
 	ProblemID, Outcome, Notes string
-	Confidence                *int
 	Minutes                   int
 	AttemptedAt               time.Time
 }
@@ -132,13 +135,8 @@ func validateAttempt(request attemptInput) error {
 	if request.AttemptedAt.IsZero() {
 		return fmt.Errorf("attemptedAt is required")
 	}
-	switch request.Outcome {
-	case string(practice.Independent), string(practice.WithHints), string(practice.NotSolved):
-	default:
-		return fmt.Errorf("outcome must be independently_solved, solved_with_hints, or not_solved")
-	}
-	if request.Confidence != nil && (*request.Confidence < 1 || *request.Confidence > 5) {
-		return fmt.Errorf("confidence must be between 1 and 5")
+	if _, ok := practice.StoredOutcome(request.Outcome); !ok {
+		return fmt.Errorf("outcome must be solved or unsolved")
 	}
 	return nil
 }
@@ -163,8 +161,7 @@ func (a *API) createProblemAttempt(w http.ResponseWriter, r *http.Request) {
 		ID:          id.New(),
 		UserID:      actor.UserID,
 		ProblemID:   request.ProblemID,
-		Outcome:     request.Outcome,
-		Confidence:  request.Confidence,
+		Outcome:     storedOutcome(request.Outcome),
 		Minutes:     request.Minutes,
 		Notes:       sanitize.New().String(request.Notes),
 		AttemptedAt: request.AttemptedAt.UTC(),
@@ -203,8 +200,7 @@ func (a *API) updateProblemAttempt(w http.ResponseWriter, r *http.Request) {
 		AttemptID:   r.PathValue("id"),
 		UserID:      actor.UserID,
 		ProblemID:   request.ProblemID,
-		Outcome:     request.Outcome,
-		Confidence:  request.Confidence,
+		Outcome:     storedOutcome(request.Outcome),
 		Minutes:     request.Minutes,
 		Notes:       sanitize.New().String(request.Notes),
 		AttemptedAt: request.AttemptedAt.UTC(),
@@ -215,6 +211,40 @@ func (a *API) updateProblemAttempt(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	attempts := []practice.AttemptRecord{updated}
+	if err := a.attachAttemptProblems(r.Context(), attempts); err != nil {
+		a.writeStoreErrorResponse(w, err)
+		return
+	}
+	writeJSONResponse(w, http.StatusOK, attempts[0])
+}
+
+// storedOutcome is the stored outcome for a validated Solved or Unsolved.
+func storedOutcome(public string) string {
+	outcome, _ := practice.StoredOutcome(public)
+	return string(outcome)
+}
+
+// reviewProblemAttempt marks the caller's own attempt reviewed or not.
+func (a *API) reviewProblemAttempt(w http.ResponseWriter, r *http.Request) {
+	actor := actorFrom(r.Context())
+	if !actor.CanRecordActivity() && !actor.IsDirectorOrSystemAdmin() {
+		writeErrorResponse(w, http.StatusForbidden, "No season access yet.")
+		return
+	}
+	var request struct {
+		Reviewed bool `json:"reviewed"`
+	}
+	if err := decodeJSON(r.Body, &request); err != nil {
+		writeErrorResponse(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	// Only the owner's attempts match, so anyone else's reads as not found.
+	updated, err := a.db.SetAttemptReviewed(r.Context(), r.PathValue("id"), actor.UserID, request.Reviewed, time.Now().UTC())
+	if err != nil {
+		a.writeStoreErrorResponse(w, err)
+		return
+	}
 	attempts := []practice.AttemptRecord{updated}
 	if err := a.attachAttemptProblems(r.Context(), attempts); err != nil {
 		a.writeStoreErrorResponse(w, err)

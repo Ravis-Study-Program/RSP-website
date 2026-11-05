@@ -10,7 +10,6 @@ export type AttemptMutationOutcome =
   (typeof AttemptMutationOutcome)[keyof typeof AttemptMutationOutcome];
 
 export const AttemptMutationOutcome = {
-  independently_solved: 'independently_solved',
-  solved_with_hints: 'solved_with_hints',
-  not_solved: 'not_solved',
+  solved: 'solved',
+  unsolved: 'unsolved',
 } as const;
