@@ -1,4 +1,4 @@
-import { chooseOption, expectSelected } from './select';
+import { chooseOption } from './select';
 import { expect, test } from '@playwright/test';
 
 test('practice charts follow filters and the picker accepts keyboard search', async ({
@@ -41,19 +41,46 @@ test('practice charts follow filters and the picker accepts keyboard search', as
   });
 });
 
-test('profiles switch between seasons and all time with readable activity', async ({
+test('profiles show all-time activity in the same tables as the dedicated pages', async ({
   page,
 }, testInfo) => {
-  await page.goto('/people/amelia-chen?seasonId=season_2026_s2');
-  await expectSelected(page, 'View activity', 'Summer 2025/26');
-  await chooseOption(page, 'View activity', 'Summer 2024/25');
-  await expect(page).toHaveURL(/seasonId=season_2026_s1/);
-  await chooseOption(page, 'View activity', 'All time');
-  await expect(page).not.toHaveURL(/seasonId=/);
+  await page.goto('/people/amelia-chen');
+  // Profiles are all time only, with seasons as badges instead of a picker.
+  await expect(page.getByLabel('View activity')).toHaveCount(0);
+  await expect(page.getByLabel(/^Season 25\/26/)).toBeVisible();
   await expect(
     page.getByRole('heading', { name: 'Programme participation' }),
+  ).toHaveCount(0);
+  // The LeetCode table is the LeetCode page's, read-only, and someone
+  // else's notes stay private.
+  const practice = page.getByRole('region', {
+    name: 'Amelia Chen practice history',
+  });
+  await expect(
+    practice
+      .getByText('Binary Tree Level Order Traversal')
+      .filter({ visible: true }),
   ).toBeVisible();
-  await page.getByRole('tab', { name: /Mock Interviews/ }).click();
+  await expect(practice.getByRole('button', { name: /notes for/ })).toHaveCount(
+    0,
+  );
+  await expect(
+    practice.getByRole('button', { name: /More actions for/ }),
+  ).toHaveCount(0);
+  // The table tabs sit in the toolbar, beside the search.
+  await practice.getByRole('tab', { name: 'Mock interviews' }).click();
+  const mocks = page.getByRole('region', { name: 'Amelia Chen mock history' });
+  await expect(
+    mocks.getByRole('tablist', { name: 'Mock interview view' }),
+  ).toBeVisible();
+  // You gave Amelia's interview, so you can open its details.
+  await expect(
+    mocks
+      .getByRole('button', { name: 'Show details for Amelia Chen' })
+      .or(mocks.getByRole('button', { name: 'View details' })),
+  ).toBeVisible();
+  await mocks.getByRole('button', { name: /^Filters/ }).click();
+  await expect(page.getByRole('combobox', { name: 'Type' })).toBeVisible();
   await expect(
     page.getByRole('combobox', { name: 'Result', exact: true }),
   ).toBeVisible();
@@ -61,6 +88,29 @@ test('profiles switch between seasons and all time with readable activity', asyn
     path: testInfo.outputPath('profile-history.png'),
     fullPage: true,
   });
+});
+
+test('profiles hide details of interviews you were not part of', async ({
+  page,
+}) => {
+  // Zara's only interview was between her and Liam.
+  await page.goto('/people/zara-ahmed');
+  await page.getByRole('tab', { name: 'Mock interviews' }).click();
+  const mocks = page.getByRole('region', { name: 'Zara Ahmed mock history' });
+  await expect(
+    mocks.getByText('Liam Foster').filter({ visible: true }).first(),
+  ).toBeVisible();
+  await expect(mocks.getByRole('button', { name: /details/i })).toHaveCount(0);
+});
+
+test('the sidebar account card opens your profile', async ({
+  page,
+  isMobile,
+}) => {
+  test.skip(isMobile, 'The sidebar is shown on wide screens only.');
+  await page.goto('/dashboard');
+  await page.getByRole('link', { name: /^Your profile/ }).click();
+  await expect(page).toHaveURL(/\/profile$/);
 });
 
 test('suggesting a question leaves practice counts unchanged', async ({

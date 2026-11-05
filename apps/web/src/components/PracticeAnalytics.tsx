@@ -25,13 +25,11 @@ import {
   YAxis,
 } from 'recharts';
 import {
-  activitySeries,
   difficultyBreakdown,
   difficultySuccessRates,
 } from '@/activityAnalytics';
-import { ActivityChart } from '@/components/ActivityChart';
 import { legendLabel } from '@/lib/chartLegend';
-import type { Attempt, Difficulty, Season } from '@/types';
+import type { Attempt, Difficulty } from '@/types';
 import { formatDate, formatDateTime, practiceGoalMinutes } from '@/utils';
 
 const breakdownColor = (name: string) =>
@@ -95,15 +93,7 @@ function DifficultyKey() {
     </ul>
   );
 }
-export function PracticeAnalytics({
-  attempts,
-  season,
-  showActivity = true,
-}: {
-  attempts: Attempt[];
-  season?: Season;
-  showActivity?: boolean;
-}) {
+export function PracticeAnalytics({ attempts }: { attempts: Attempt[] }) {
   const [goals, setGoals] = useState(true);
   const breakdown = difficultyBreakdown(attempts);
   const successRates = difficultySuccessRates(attempts);
@@ -149,9 +139,6 @@ export function PracticeAnalytics({
   return (
     <section aria-label="Practice charts">
       <div className="grid gap-6">
-        {showActivity ? (
-          <ActivityChart data={activitySeries(attempts, [], { season })} />
-        ) : null}
         <div className="grid gap-6 grid-cols-[repeat(auto-fit,minmax(min(100%,20rem),1fr))]">
           <Card
             role="region"

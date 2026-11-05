@@ -306,18 +306,25 @@ export function AppShell() {
             onToggle={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
             inverse
           />
-          <div className="flex items-center gap-3 border-t border-sidebar-border px-1.5 py-3">
-            <span className={avatarClass}>
-              {initials(userQuery.data?.name ?? 'RSP')}
-            </span>
-            <span className="grid min-w-0 leading-snug">
-              <strong className="truncate text-sm font-semibold">
-                {userQuery.data?.name ?? 'Loading account…'}
-              </strong>
-              <span className="truncate text-xs text-sidebar-muted">
-                {activeWorkspace?.role?.replace('_', ' ') ?? 'Personal account'}
+          <div className="border-t border-sidebar-border pt-3">
+            <Link
+              to="/profile"
+              aria-label={`Your profile, ${userQuery.data?.name ?? 'account'}`}
+              className="flex items-center gap-3 rounded-lg px-1.5 py-2 text-sidebar-foreground no-underline outline-none hover:bg-sidebar-accent focus-visible:ring-3 focus-visible:ring-ring/50"
+            >
+              <span className={avatarClass}>
+                {initials(userQuery.data?.name ?? 'RSP')}
               </span>
-            </span>
+              <span className="grid min-w-0 leading-snug">
+                <strong className="truncate text-sm font-semibold">
+                  {userQuery.data?.name ?? 'Loading account…'}
+                </strong>
+                <span className="truncate text-xs text-sidebar-muted">
+                  {activeWorkspace?.role?.replace('_', ' ') ??
+                    'Personal account'}
+                </span>
+              </span>
+            </Link>
           </div>
           <Button
             variant="ghost"

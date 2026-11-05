@@ -174,8 +174,8 @@ describe('season people directory', () => {
       (await screen.findAllByRole('option')).map(
         (option) => option.textContent,
       ),
-    ).toEqual(['Novice', 'Beginner', 'Intermediate', 'Advance']);
-    await user.click(await screen.findByRole('option', { name: 'Advance' }));
+    ).toEqual(['Novice', 'Beginner', 'Intermediate', 'Advanced']);
+    await user.click(await screen.findByRole('option', { name: 'Advanced' }));
     await user.click(screen.getByRole('button', { name: 'Save level' }));
     expect(apiRequest).toHaveBeenCalledWith(
       '/seasons/season-1/members/enrollment-student/student-level',

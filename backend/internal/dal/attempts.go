@@ -13,13 +13,14 @@ import (
 
 func scanAttempt(row pgx.Row) (practice.AttemptRecord, error) {
 	var v practice.AttemptRecord
-	if err := row.Scan(&v.ID, &v.UserID, &v.ProblemID, &v.Outcome, &v.Confidence, &v.Minutes, &v.Notes, &v.AttemptedAt, &v.SeasonID, &v.WeekID, &v.DeletedAt); err != nil {
+	if err := row.Scan(&v.ID, &v.UserID, &v.ProblemID, &v.Outcome, &v.Reviewed, &v.Minutes, &v.Notes, &v.AttemptedAt, &v.SeasonID, &v.WeekID, &v.DeletedAt); err != nil {
 		return v, noRows(err)
 	}
+	v.Outcome = practice.PublicOutcome(v.Outcome)
 	return v, nil
 }
 
-const attemptColumns = `a.id,a.user_id,COALESCE((SELECT id FROM app.leetcode_problems WHERE problem_id=a.problem_id),a.problem_id),a.outcome::text,a.confidence,a.time_taken_minutes,COALESCE(a.notes_html,''),a.attempted_at,a.activity_season_id,a.activity_week_id,a.deleted_at`
+const attemptColumns = `a.id,a.user_id,COALESCE((SELECT id FROM app.leetcode_problems WHERE problem_id=a.problem_id),a.problem_id),a.outcome::text,a.reviewed,a.time_taken_minutes,COALESCE(a.notes_html,''),a.attempted_at,a.activity_season_id,a.activity_week_id,a.deleted_at`
 
 func (p *Store) GetAttempt(ctx context.Context, id string) (practice.AttemptRecord, error) {
 	return scanAttempt(p.pool.QueryRow(ctx, `SELECT `+attemptColumns+`
@@ -45,7 +46,7 @@ func (p *Store) ListAttempts(ctx context.Context, q AttemptQuery) ([]practice.At
 	const filters = `a.user_id = @userID AND a.deleted_at IS NULL
  AND (@seasonID = '' OR a.activity_season_id=NULLIF(@seasonID,'')::uuid)
  AND (@year = 0 OR EXTRACT(YEAR FROM a.attempted_at AT TIME ZONE 'Australia/Adelaide')=@year)
-		AND (@outcome = '' OR a.outcome::text = @outcome)
+		AND (COALESCE(cardinality(@outcomes::text[]),0)=0 OR a.outcome::text=ANY(@outcomes::text[]))
   AND (COALESCE(cardinality(@weeks::uuid[]),0)=0 OR a.activity_week_id=ANY(@weeks::uuid[]))
   AND (COALESCE(cardinality(@difficulties::text[]),0)=0 OR EXISTS (
    SELECT 1 FROM app.leetcode_problems l WHERE l.problem_id=a.problem_id AND l.difficulty::text=ANY(@difficulties::text[]) AND l.deleted_at IS NULL))
@@ -58,11 +59,19 @@ func (p *Store) ListAttempts(ctx context.Context, q AttemptQuery) ([]practice.At
 	if q.Difficulty != "" {
 		difficulties = append(append([]string{}, difficulties...), q.Difficulty)
 	}
+	// Solved and Unsolved each cover several stored outcomes.
+	var outcomes []string
+	switch q.Outcome {
+	case practice.Solved:
+		outcomes = practice.OutcomeNames(practice.SolvedOutcomes())
+	case practice.Unsolved:
+		outcomes = practice.OutcomeNames(practice.UnsolvedOutcomes())
+	}
 	args := pgx.NamedArgs{
 		"userID":       q.UserID,
 		"seasonID":     q.SeasonID,
 		"year":         q.Year,
-		"outcome":      q.Outcome,
+		"outcomes":     outcomes,
 		"difficulties": difficulties,
 		"categories":   q.Categories, "weeks": q.WeekIDs,
 	}
@@ -114,8 +123,9 @@ func (p *Store) CreateAttempt(ctx context.Context, v practice.AttemptRecord) (pr
 	if err != nil {
 		return practice.AttemptRecord{}, noRows(err)
 	}
-	_, err = tx.Exec(ctx, `INSERT INTO app.problem_attempts(id,user_id,problem_id,enrollment_id,season_week_id,attempted_at,time_taken_minutes,outcome,confidence,notes_html)
-	 VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`, v.ID, v.UserID, baseProblemID, nil, nil, v.AttemptedAt.UTC(), v.Minutes, v.Outcome, v.Confidence, v.Notes)
+	// Outcome is the stored outcome here; confidence is no longer recorded.
+	_, err = tx.Exec(ctx, `INSERT INTO app.problem_attempts(id,user_id,problem_id,enrollment_id,season_week_id,attempted_at,time_taken_minutes,outcome,notes_html)
+	 VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)`, v.ID, v.UserID, baseProblemID, nil, nil, v.AttemptedAt.UTC(), v.Minutes, v.Outcome, v.Notes)
 	if err != nil {
 		return v, mapDatabaseError(err)
 	}
@@ -139,11 +149,11 @@ func (p *Store) CreateAttempt(ctx context.Context, v practice.AttemptRecord) (pr
 }
 
 type UpdateAttemptInput struct {
-	AttemptID   string
-	UserID      string
-	ProblemID   string
+	AttemptID string
+	UserID    string
+	ProblemID string
+	// Outcome is the stored outcome to save.
 	Outcome     string
-	Confidence  *int
 	Minutes     int
 	Notes       string
 	AttemptedAt time.Time
@@ -167,7 +177,6 @@ func (p *Store) UpdateAttempt(ctx context.Context, input UpdateAttemptInput) (pr
 	}
 	v.ProblemID = input.ProblemID
 	v.Outcome = input.Outcome
-	v.Confidence = input.Confidence
 	v.Minutes = input.Minutes
 	v.Notes = input.Notes
 	v.AttemptedAt = input.AttemptedAt
@@ -176,7 +185,7 @@ func (p *Store) UpdateAttempt(ctx context.Context, input UpdateAttemptInput) (pr
 		return v, noRows(err)
 	}
 
-	_, err = tx.Exec(ctx, `UPDATE app.problem_attempts SET problem_id=$1,enrollment_id=$2,attempted_at=$3,time_taken_minutes=$4,outcome=$5,confidence=$6,notes_html=$7,season_week_id=$8 WHERE id = $9 AND user_id = $10`, baseProblemID, nil, v.AttemptedAt.UTC(), v.Minutes, v.Outcome, v.Confidence, v.Notes, nil, input.AttemptID, input.UserID)
+	_, err = tx.Exec(ctx, `UPDATE app.problem_attempts SET problem_id=$1,enrollment_id=$2,attempted_at=$3,time_taken_minutes=$4,outcome=$5,notes_html=$6,season_week_id=$7 WHERE id = $8 AND user_id = $9`, baseProblemID, nil, v.AttemptedAt.UTC(), v.Minutes, v.Outcome, v.Notes, nil, input.AttemptID, input.UserID)
 	if err != nil {
 		return v, mapDatabaseError(err)
 	}
@@ -187,6 +196,29 @@ func (p *Store) UpdateAttempt(ctx context.Context, input UpdateAttemptInput) (pr
 		return v, err
 	}
 	return p.GetAttempt(ctx, v.ID)
+}
+
+// SetAttemptReviewed marks the owner's attempt reviewed or not.
+func (p *Store) SetAttemptReviewed(ctx context.Context, attemptID, userID string, reviewed bool, changedAt time.Time) (practice.AttemptRecord, error) {
+	tx, err := p.pool.Begin(ctx)
+	if err != nil {
+		return practice.AttemptRecord{}, err
+	}
+	defer tx.Rollback(context.Background())
+	result, err := tx.Exec(ctx, `UPDATE app.problem_attempts SET reviewed=$1 WHERE id=$2 AND user_id=$3 AND deleted_at IS NULL`, reviewed, attemptID, userID)
+	if err != nil {
+		return practice.AttemptRecord{}, err
+	}
+	if result.RowsAffected() == 0 {
+		return practice.AttemptRecord{}, ErrNotFound
+	}
+	if err := appendAuditTx(ctx, tx, newAudit(userID, "attempt.reviewed", "problem_attempt", attemptID, map[string]any{"reviewed": reviewed}, changedAt)); err != nil {
+		return practice.AttemptRecord{}, err
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return practice.AttemptRecord{}, err
+	}
+	return p.GetAttempt(ctx, attemptID)
 }
 
 func (p *Store) DeleteAttempt(ctx context.Context, id, userID string) error {

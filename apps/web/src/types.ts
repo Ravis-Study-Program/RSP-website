@@ -5,8 +5,7 @@ export type SeasonRole = 'student' | 'mentor' | 'coordinator';
 export type Role = GlobalRole | SeasonRole | 'graduate' | 'former_member';
 export type SeasonStatus = 'open' | 'closed';
 export type Difficulty = 'Easy' | 'Medium' | 'Hard';
-export type AttemptOutcome =
-  'independently_solved' | 'solved_with_hints' | 'not_solved' | 'unknown';
+export type AttemptOutcome = 'solved' | 'unsolved';
 
 export interface CurrentUser {
   id: string;
@@ -59,8 +58,9 @@ export interface Attempt {
   categories?: string[];
   weekId?: string | null;
   outcome: AttemptOutcome;
-  confidence: number | null;
   minutes: number | null;
+  /** Set by the attempt's owner once they have reviewed it. */
+  reviewed: boolean;
   attemptedAt: string;
   notes: string;
 }

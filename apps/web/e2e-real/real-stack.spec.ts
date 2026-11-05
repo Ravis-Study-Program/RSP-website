@@ -117,13 +117,16 @@ test('student creates, edits, and deletes a Go-backed practice attempt', async (
   await expect(edit.locator('#attempt-notes')).toContainText(
     'Real-stack note with structured details.',
   );
-  await edit.getByLabel('Confidence (1–5)').fill('5');
+  await chooseOption(edit, 'Outcome', 'Unsolved');
   await edit
     .locator('#attempt-notes')
     .fill('Updated real-stack note with rich-text persistence.');
   await edit.getByRole('button', { name: 'Update attempt' }).click();
   await expect(page.getByText('1. Two Sum was saved.')).toBeVisible();
-  await expect(row).toContainText('5/5');
+  await expect(row).toContainText('Unsolved');
+  const reviewed = row.getByRole('checkbox', { name: '1. Two Sum reviewed' });
+  await reviewed.click();
+  await expect(reviewed).toBeChecked();
   await expect(
     page.getByRole('region', { name: 'Notes for 1. Two Sum' }),
   ).toContainText('Updated real-stack note with rich-text persistence.');

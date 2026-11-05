@@ -466,7 +466,6 @@ func TestPostgres18MigrationsAndDAL(t *testing.T) {
 		UserID:      "00000000-0000-7000-8000-000000000033",
 		ProblemID:   "00000000-0000-7000-8000-000000000025",
 		Outcome:     "independently_solved",
-		Confidence:  intPointer(5),
 		Minutes:     12,
 		AttemptedAt: time.Now().UTC(),
 	})

@@ -503,11 +503,7 @@ function demoMondayUpdateReview(
       // Per-student totals deduplicate activity across overlapping updates.
       const attempts = uniqueById(
         updates.flatMap((update) => update.activity.attempts),
-      ).filter(
-        (attempt) =>
-          attempt.outcome === 'independently_solved' ||
-          attempt.outcome === 'solved_with_hints',
-      );
+      ).filter((attempt) => attempt.outcome === 'solved');
       const leetcodeCounts: MondayUpdateDifficultyCounts = {
         easy: 0,
         medium: 0,

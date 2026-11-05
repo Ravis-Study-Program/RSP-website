@@ -16,14 +16,10 @@ export interface Attempt {
   problemId: string;
   problem?: LeetcodeProblem;
   outcome: AttemptOutcome;
-  /**
-   * @minimum 1
-   * @maximum 5
-   * @nullable
-   */
-  confidence?: number | null;
   /** @minimum 1 */
   minutes: number;
+  /** Set by the attempt's owner once they have reviewed it. */
+  reviewed: boolean;
   notes: string;
   attemptedAt: string;
   /** @nullable */

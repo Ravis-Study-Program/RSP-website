@@ -17,13 +17,10 @@ import {
 } from '@/components/ui/select';
 import { IconChevronDown } from '@tabler/icons-react';
 import { useId, useState } from 'react';
-import { useLeetcodeCategories, useSeasonWeeks } from '@/api/queries';
-import { emptyActivityFilters, type ActivityFilters } from '@/activityFilters';
+import { useSeasonWeeks } from '@/api/queries';
+import { type ActivityFilters } from '@/activityFilters';
 import type { Person } from '@/types';
 import { Field, FieldLabel } from '@/components/ui/field';
-
-const clearFilterClass =
-  'justify-start px-0 max-[56rem]:basis-full max-[56rem]:self-start';
 
 export function Choices({
   label,
@@ -167,60 +164,6 @@ export function SeasonWeekChoices({
   );
 }
 
-export function PracticeFilters({
-  seasonId,
-  filters,
-  onChange,
-}: {
-  seasonId?: string;
-  filters: ActivityFilters;
-  onChange: (change: Partial<ActivityFilters>) => void;
-}) {
-  const categoriesQuery = useLeetcodeCategories();
-  const categories = categoriesQuery.data ?? [];
-  return (
-    <div
-      className="flex flex-wrap items-end gap-3"
-      aria-label="Practice filters"
-    >
-      <Choices
-        label="Difficulty"
-        options={['Easy', 'Medium', 'Hard'].map((label) => ({
-          label,
-          value: label.toLowerCase(),
-        }))}
-        selected={filters.difficulties}
-        onChange={(difficulties) => onChange({ difficulties })}
-      />
-      <Choices
-        label="Topics"
-        options={categories.map((label) => ({ label, value: label }))}
-        selected={filters.categories}
-        onChange={(categories) => onChange({ categories })}
-      />
-      <SeasonWeekFilter
-        seasonId={seasonId}
-        filters={filters}
-        onChange={onChange}
-      />
-      <Button
-        variant="ghost"
-        size="sm"
-        type="button"
-        className={clearFilterClass}
-        onClick={() =>
-          onChange({ difficulties: [], categories: [], weeks: [] })
-        }
-      >
-        Clear practice filters
-      </Button>
-      {categoriesQuery.isError ? (
-        <p role="alert">Some filter choices could not be loaded.</p>
-      ) : null}
-    </div>
-  );
-}
-
 const resultItems = [
   { label: 'All results', value: '' },
   { label: 'Pass', value: 'true' },
@@ -232,7 +175,6 @@ export function MockFilters({
   people,
   filters,
   onChange,
-  embedded = false,
   participant = 'interviewer',
 }: {
   seasonId?: string;
@@ -240,7 +182,6 @@ export function MockFilters({
   people: Pick<Person, 'id' | 'name'>[];
   filters: ActivityFilters;
   onChange: (change: Partial<ActivityFilters>) => void;
-  embedded?: boolean;
   /** Which side of the interviews the people filter applies to. */
   participant?: 'interviewer' | 'interviewee';
 }) {
@@ -249,10 +190,7 @@ export function MockFilters({
   const participantLabel =
     participant === 'interviewer' ? 'Interviewers' : 'Interviewees';
   return (
-    <div
-      className={embedded ? 'grid gap-3' : 'flex flex-wrap items-end gap-3'}
-      aria-label="Mock filters"
-    >
+    <div className="grid gap-3" aria-label="Mock filters">
       <label className="grid gap-2 text-sm font-medium">
         Result
         <Select
@@ -260,10 +198,7 @@ export function MockFilters({
           value={filters.passed}
           onValueChange={(value) => onChange({ passed: value ?? '' })}
         >
-          <SelectTrigger
-            aria-label="Result"
-            className={embedded ? 'w-full' : 'min-w-40'}
-          >
+          <SelectTrigger aria-label="Result" className="w-full">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -277,108 +212,44 @@ export function MockFilters({
           </SelectContent>
         </Select>
       </label>
-      {embedded ? (
-        <>
-          {people.length ? (
-            <label className="grid gap-2 text-sm font-medium">
-              {participantLabel}
-              <Select
-                multiple
-                items={people.map((person) => ({
-                  label: person.name,
-                  value: person.id,
-                }))}
-                value={filters[participantKey]}
-                onValueChange={(selected) =>
-                  onChange({ [participantKey]: selected })
-                }
-              >
-                <SelectTrigger aria-label={participantLabel} className="w-full">
-                  <SelectValue
-                    placeholder={`All ${participantLabel.toLowerCase()}`}
-                  />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectGroup>
-                    {people.map((person) => (
-                      <SelectItem key={person.id} value={person.id}>
-                        {person.name}
-                      </SelectItem>
-                    ))}
-                  </SelectGroup>
-                </SelectContent>
-              </Select>
-            </label>
-          ) : null}
-          {seasonId && (
-            <SeasonWeekChoices
-              seasonId={seasonId}
-              selected={filters.weeks}
-              onChange={(weeks) => onChange({ weeks })}
-            />
-          )}
-        </>
-      ) : (
-        <>
-          <Choices
-            label="Interviewers"
-            options={people.map((p) => ({ label: p.name, value: p.id }))}
-            selected={filters.interviewers}
-            onChange={(interviewers) => onChange({ interviewers })}
-          />
-          <SeasonWeekFilter
-            seasonId={seasonId}
-            filters={filters}
-            onChange={onChange}
-          />
-        </>
-      )}
-      {!embedded && (
-        <Button
-          variant="ghost"
-          size="sm"
-          type="button"
-          className={clearFilterClass}
-          onClick={() =>
-            onChange({
-              passed: emptyActivityFilters.passed,
-              interviewers: [],
-              weeks: [],
-            })
-          }
-        >
-          Clear mock filters
-        </Button>
+      {people.length ? (
+        <label className="grid gap-2 text-sm font-medium">
+          {participantLabel}
+          <Select
+            multiple
+            items={people.map((person) => ({
+              label: person.name,
+              value: person.id,
+            }))}
+            value={filters[participantKey]}
+            onValueChange={(selected) =>
+              onChange({ [participantKey]: selected })
+            }
+          >
+            <SelectTrigger aria-label={participantLabel} className="w-full">
+              <SelectValue
+                placeholder={`All ${participantLabel.toLowerCase()}`}
+              />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectGroup>
+                {people.map((person) => (
+                  <SelectItem key={person.id} value={person.id}>
+                    {person.name}
+                  </SelectItem>
+                ))}
+              </SelectGroup>
+            </SelectContent>
+          </Select>
+        </label>
+      ) : null}
+      {seasonId && (
+        <SeasonWeekChoices
+          seasonId={seasonId}
+          selected={filters.weeks}
+          onChange={(weeks) => onChange({ weeks })}
+        />
       )}
     </div>
-  );
-}
-
-function SeasonWeekFilter({
-  seasonId,
-  filters,
-  onChange,
-}: {
-  seasonId?: string;
-  filters: ActivityFilters;
-  onChange: (change: Partial<ActivityFilters>) => void;
-}) {
-  const weeks = useSeasonWeeks(seasonId);
-  if (!seasonId) return null;
-  return (
-    <>
-      <Choices
-        label="Season weeks"
-        options={(weeks.data?.items ?? []).map((week) => ({
-          label: `Week ${week.number}`,
-          value: week.id,
-        }))}
-        selected={filters.weeks}
-        onChange={(weeks) => onChange({ weeks })}
-      />
-      {weeks.isError ? (
-        <p role="alert">Season weeks could not be loaded.</p>
-      ) : null}
-    </>
   );
 }

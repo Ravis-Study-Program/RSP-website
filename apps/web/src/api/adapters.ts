@@ -216,7 +216,7 @@ export function adaptAttempt(attempt: ApiAttempt): Attempt {
     categories: problem?.categories ?? [],
     weekId: attempt.weekId,
     outcome: attempt.outcome,
-    confidence: attempt.confidence ?? null,
+    reviewed: attempt.reviewed,
     minutes: attempt.minutes,
     attemptedAt: attempt.attemptedAt,
     seasonId: attempt.seasonId,

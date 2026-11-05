@@ -136,7 +136,7 @@ func TestRequestCannotSupplyItsOwnActorID(t *testing.T) {
 			Enrollments:   []authz.Enrollment{{SeasonID: "season", Role: authz.Student, State: authz.Active}},
 		}, nil
 	})
-	body := `{"problemId":"problem","outcome":"independently_solved","confidence":5,"minutes":12,"attemptedAt":"2026-09-01T00:00:00Z","userId":"someone-else"}`
+	body := `{"problemId":"problem","outcome":"solved","minutes":12,"attemptedAt":"2026-09-01T00:00:00Z","userId":"someone-else"}`
 	response := testRequest(t, testHandler(authenticator), http.MethodPost, "/api/v2/problem-attempts", "student", body)
 
 	if response.Code != http.StatusBadRequest || errorMessage(t, response) != `json: unknown field "userId"` {

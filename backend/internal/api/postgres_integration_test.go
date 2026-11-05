@@ -169,21 +169,32 @@ func TestPostgresBackedProfileAndPracticeFlow(t *testing.T) {
 		t.Fatalf("public profile status=%d body=%s", response.Code, response.Body.String())
 	}
 
-	body := `{"problemId":"` + leetcodeProblemID + `","outcome":"independently_solved","confidence":5,"minutes":25,"notes":"<p><strong>kept</strong><script>removed()</script></p>","attemptedAt":"2026-09-01T00:00:00Z"}`
+	body := `{"problemId":"` + leetcodeProblemID + `","outcome":"solved","minutes":25,"notes":"<p><strong>kept</strong><script>removed()</script></p>","attemptedAt":"2026-09-01T00:00:00Z"}`
 	response = testRequest(t, fixture.handler, http.MethodPost, "/api/v2/problem-attempts", "student", body)
 	if response.Code != http.StatusCreated {
 		t.Fatalf("attempt status=%d body=%s", response.Code, response.Body.String())
 	}
 	var attempt struct {
-		ID    string `json:"id"`
-		Notes string `json:"notes"`
+		ID       string `json:"id"`
+		Notes    string `json:"notes"`
+		Outcome  string `json:"outcome"`
+		Reviewed bool   `json:"reviewed"`
 	}
-	if err := json.Unmarshal(response.Body.Bytes(), &attempt); err != nil || attempt.ID == "" || strings.Contains(attempt.Notes, "script") || !strings.Contains(attempt.Notes, "<strong>kept</strong>") {
+	if err := json.Unmarshal(response.Body.Bytes(), &attempt); err != nil || attempt.ID == "" || strings.Contains(attempt.Notes, "script") || !strings.Contains(attempt.Notes, "<strong>kept</strong>") || attempt.Outcome != "solved" || attempt.Reviewed {
 		t.Fatalf("attempt body=%s error=%v", response.Body.String(), err)
 	}
 	var count int64
-	if err := fixture.pool.QueryRow(context.Background(), `SELECT count(*) FROM app.problem_attempts WHERE id=$1 AND user_id=$2`, attempt.ID, studentID).Scan(&count); err != nil || count != 1 {
+	if err := fixture.pool.QueryRow(context.Background(), `SELECT count(*) FROM app.problem_attempts WHERE id=$1 AND user_id=$2 AND outcome='independently_solved'`, attempt.ID, studentID).Scan(&count); err != nil || count != 1 {
 		t.Fatalf("stored attempts=%d error=%v", count, err)
+	}
+	// Only the owner marks an attempt reviewed.
+	response = testRequest(t, fixture.handler, http.MethodPatch, "/api/v2/problem-attempts/"+foreignAttemptID+"/review", "student", `{"reviewed":true}`)
+	if response.Code != http.StatusNotFound {
+		t.Fatalf("foreign review status=%d body=%s", response.Code, response.Body.String())
+	}
+	response = testRequest(t, fixture.handler, http.MethodPatch, "/api/v2/problem-attempts/"+attempt.ID+"/review", "student", `{"reviewed":true}`)
+	if response.Code != http.StatusOK || !strings.Contains(response.Body.String(), `"reviewed":true`) {
+		t.Fatalf("review status=%d body=%s", response.Code, response.Body.String())
 	}
 	response = testRequest(t, fixture.handler, http.MethodDelete, "/api/v2/problem-attempts/"+foreignAttemptID+"", "student", "")
 	if response.Code != http.StatusNotFound {

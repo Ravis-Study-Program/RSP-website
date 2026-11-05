@@ -544,11 +544,19 @@ test('attempt create, edit, delete and dirty-close confirmation work', async ({
   const edit = page.getByRole('dialog', {
     name: /Edit Binary Tree Level Order Traversal/,
   });
-  await edit.getByLabel('Confidence (1–5)').fill('5');
+  await chooseOption(edit, 'Outcome', 'Unsolved');
   await edit.getByRole('button', { name: 'Update attempt' }).click();
   await expect(
     page.getByText('Binary Tree Level Order Traversal was saved.'),
   ).toBeVisible();
+  await expect(localRow).toContainText('Unsolved');
+  // You mark your own attempts reviewed, as on mock interviews.
+  const reviewed = localRow.getByRole('checkbox', {
+    name: 'Binary Tree Level Order Traversal reviewed',
+  });
+  const wasReviewed = await reviewed.isChecked();
+  await reviewed.click();
+  await expect(reviewed).toBeChecked({ checked: !wasReviewed });
 
   await localRow.getByRole('button', { name: /More actions for/ }).click();
   await page.getByRole('menuitem', { name: 'Delete attempt' }).click();

@@ -173,7 +173,7 @@ func TestMockRecordingTodayAndAfterLeaving(t *testing.T) {
 	if res.Code != 200 {
 		t.Fatalf("former history status=%d body=%s", res.Code, res.Body)
 	}
-	res = testRequest(t, handler, http.MethodPost, "/api/v2/problem-attempts", "former", fmt.Sprintf(`{"problemId":%q,"outcome":"independently_solved","minutes":20,"attemptedAt":%q}`, leetcodeProblemID, now.Format(time.RFC3339)))
+	res = testRequest(t, handler, http.MethodPost, "/api/v2/problem-attempts", "former", fmt.Sprintf(`{"problemId":%q,"outcome":"solved","minutes":20,"attemptedAt":%q}`, leetcodeProblemID, now.Format(time.RFC3339)))
 	if res.Code != 201 {
 		t.Fatalf("former practice status=%d body=%s", res.Code, res.Body)
 	}

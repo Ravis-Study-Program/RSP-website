@@ -1290,6 +1290,35 @@ paths:
         '401': { $ref: '#/components/responses/Error' }
         '403': { $ref: '#/components/responses/Error' }
         '429': { $ref: '#/components/responses/RateLimited' }
+  /problem-attempts/{id}/review:
+    parameters: [{ $ref: '#/components/parameters/ID' }]
+    patch:
+      operationId: reviewProblemAttempt
+      description: Marks the caller's own attempt reviewed or not. Anyone else's attempt reads as not found.
+      requestBody:
+        {
+          required: true,
+          content:
+            {
+              application/json:
+                { schema: { $ref: '#/components/schemas/AttemptReview' } },
+            },
+        }
+      responses:
+        default: { $ref: '#/components/responses/Error' }
+        '200':
+          {
+            description: Reviewed attempt,
+            content:
+              {
+                application/json:
+                  { schema: { $ref: '#/components/schemas/Attempt' } },
+              },
+          }
+        '404': { $ref: '#/components/responses/Error' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '429': { $ref: '#/components/responses/RateLimited' }
   /mock-interviews/participants:
     get:
       operationId: listMockInterviewParticipants
@@ -2280,14 +2309,11 @@ components:
     Difficulty: { type: string, enum: [easy, medium, hard] }
     AttemptOutcome:
       {
+        description: 'Solved covers attempts solved independently or with no recorded outcome; Unsolved covers attempts solved with hints or not solved.',
         type: string,
-        enum: [independently_solved, solved_with_hints, not_solved, unknown],
+        enum: [solved, unsolved],
       }
-    AttemptMutationOutcome:
-      {
-        type: string,
-        enum: [independently_solved, solved_with_hints, not_solved],
-      }
+    AttemptMutationOutcome: { type: string, enum: [solved, unsolved] }
     PageInfo:
       type: object
       required: [nextCursor, previousCursor, hasMore]
@@ -2921,15 +2947,19 @@ components:
     Attempt:
       description: Season and week are calculated from attemptedAt and the student participation history using current season dates.
       type: object
-      required: [id, problemId, outcome, minutes, notes, attemptedAt]
+      required: [id, problemId, outcome, minutes, notes, attemptedAt, reviewed]
       properties:
         {
           id: { type: string },
           problemId: { type: string },
           problem: { $ref: '#/components/schemas/LeetcodeProblem' },
           outcome: { $ref: '#/components/schemas/AttemptOutcome' },
-          confidence: { type: integer, minimum: 1, maximum: 5, nullable: true },
           minutes: { type: integer, minimum: 1 },
+          reviewed:
+            {
+              type: boolean,
+              description: Set by the attempt's owner once they have reviewed it.,
+            },
           notes: { type: string },
           attemptedAt: { type: string, format: date-time },
           seasonId: { type: string, nullable: true },
@@ -2943,11 +2973,15 @@ components:
         {
           problemId: { type: string },
           outcome: { $ref: '#/components/schemas/AttemptMutationOutcome' },
-          confidence: { type: integer, minimum: 1, maximum: 5, nullable: true },
           minutes: { type: integer, minimum: 1 },
           notes: { type: string, maxLength: 10000 },
           attemptedAt: { type: string, format: date-time },
         }
+    AttemptReview:
+      type: object
+      additionalProperties: false
+      required: [reviewed]
+      properties: { reviewed: { type: boolean } }
     AttemptUpdate:
       allOf:
         - $ref: '#/components/schemas/AttemptMutation'

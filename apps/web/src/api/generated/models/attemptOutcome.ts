@@ -6,12 +6,13 @@
  * OpenAPI spec version: 2.0.0
  */
 
+/**
+ * Solved covers attempts solved independently or with no recorded outcome; Unsolved covers attempts solved with hints or not solved.
+ */
 export type AttemptOutcome =
   (typeof AttemptOutcome)[keyof typeof AttemptOutcome];
 
 export const AttemptOutcome = {
-  independently_solved: 'independently_solved',
-  solved_with_hints: 'solved_with_hints',
-  not_solved: 'not_solved',
-  unknown: 'unknown',
+  solved: 'solved',
+  unsolved: 'unsolved',
 } as const;

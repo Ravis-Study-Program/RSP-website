@@ -24,7 +24,6 @@ import { programmeTimezone } from '@/activityDates';
 import { ActivityPeriodFilter } from '@/components/ActivityPeriodFilter';
 import { useActivitySeason, useActivitySeasons } from '@/activityPeriod';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   IconArrowDown,
   IconArrowUp,
@@ -38,7 +37,12 @@ import {
   IconTrash,
   IconUsers,
 } from '@tabler/icons-react';
-import type { ColumnDef, Row } from '@tanstack/react-table';
+import {
+  flexRender,
+  type CellContext,
+  type ColumnDef,
+  type Row,
+} from '@tanstack/react-table';
 import type { Resolver } from 'react-hook-form';
 import { Fragment, useMemo, useState, type ReactNode } from 'react';
 import { Controller, useForm } from 'react-hook-form';
@@ -70,7 +74,6 @@ import {
 import { PageHeader, PersonIdentity, usePageTitle } from '@/components/Common';
 import { AppDatePicker } from '@/components/AppDatePicker';
 import { ExternalLink } from '@/components/ExternalLink';
-import { DataTable } from '@/components/DataTable';
 import { FormDialog, NamedConfirmation } from '@/components/Dialogs';
 import { ProblemSelect } from '@/components/ProblemSelect';
 import { ErrorState } from '@/components/StatusViews';
@@ -79,6 +82,12 @@ import { RichTextContent } from '@/components/RichTextContent';
 import { cn } from '@/lib/utils';
 import { recentDateFilterOptions, withinRecentDays } from '@/tableFilters';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import {
+  DataTable,
+  type ExtraFilters,
+  type ServerPagination,
+} from '@/components/DataTable';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -325,7 +334,7 @@ function interviewContext(
 }
 
 /** Which of your interviews the list shows. */
-type MockView = 'all' | 'received' | 'given';
+export type MockView = 'all' | 'received' | 'given';
 const mockTypeItems: { label: string; value: MockView }[] = [
   { label: 'All', value: 'all' },
   { label: 'Received', value: 'received' },
@@ -844,13 +853,6 @@ export function MockInterviewsPage() {
     if (changed) setUpdated((items) => ({ ...items, [changed.id]: changed }));
     else void query.refetch();
   };
-  const reviewCell = (mock: MockInterview) => (
-    <ReviewProgress
-      mock={mock}
-      canReview={mock.interviewee.id === user.data?.id}
-      onChanged={interviewChanged}
-    />
-  );
   const actionsCell = (row: Row<MockInterview>) => (
     <MockRowActions
       row={row}
@@ -863,16 +865,6 @@ export function MockInterviewsPage() {
       onChanged={interviewChanged}
     />
   );
-  // Each view names the other person its own way; only All needs a Type.
-  const hiddenColumns: Record<MockView, string[]> = {
-    all: ['interviewer', 'interviewee'],
-    received: ['interviewee', 'with', 'type'],
-    given: ['interviewer', 'with', 'type'],
-  };
-  const columns = columnsForSeason(season?.id, user.data?.id, {
-    review: reviewCell,
-    actions: actionsCell,
-  }).filter((column) => !hiddenColumns[mode].includes(column.id ?? ''));
 
   if (
     seasonsQuery.isError ||
@@ -906,28 +898,16 @@ export function MockInterviewsPage() {
         }
       />
       <div className="flex flex-col gap-6">
-        <DataTable
-          toolbarStart={
-            // Received or given, beside the search, at the search's height.
-            <Tabs
-              value={mode}
-              onValueChange={(value) => setMode(value as MockView)}
-            >
-              <TabsList
-                aria-label="Mock interview view"
-                className="group-data-[orientation=horizontal]/tabs:h-9"
-              >
-                {mockTypeItems.map((item) => (
-                  <TabsTrigger key={item.value} value={item.value}>
-                    {item.label}
-                  </TabsTrigger>
-                ))}
-              </TabsList>
-            </Tabs>
-          }
+        <MockInterviewTable
+          view={mode}
+          onViewChange={setMode}
+          mocks={filtered}
+          subjectId={user.data?.id}
+          viewerId={user.data?.id}
+          seasonId={season?.id}
+          onChanged={interviewChanged}
+          renderActions={actionsCell}
           ariaLabel={`${mode} mock interviews`}
-          data={filtered}
-          columns={columns}
           extraFilters={{
             content: (
               <>
@@ -937,32 +917,8 @@ export function MockInterviewsPage() {
                   season={season}
                   seasons={periodSeasons}
                 />
-                {/* The same choice as the toolbar tabs, one at a time. */}
-                <Field>
-                  <FieldLabel htmlFor="mock-type-filter">Type</FieldLabel>
-                  <Select
-                    items={mockTypeItems}
-                    value={mode}
-                    onValueChange={(value) => {
-                      if (value) setMode(value as MockView);
-                    }}
-                  >
-                    <SelectTrigger id="mock-type-filter" className="w-full">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectGroup>
-                        {mockTypeItems.map((item) => (
-                          <SelectItem key={item.value} value={item.value}>
-                            {item.label}
-                          </SelectItem>
-                        ))}
-                      </SelectGroup>
-                    </SelectContent>
-                  </Select>
-                </Field>
+                <MockTypeField view={mode} onViewChange={setMode} />
                 <MockFilters
-                  embedded
                   participant={
                     mode === 'received' ? 'interviewer' : 'interviewee'
                   }
@@ -1017,86 +973,228 @@ export function MockInterviewsPage() {
                 ? 'Interviews you conduct will appear here.'
                 : 'Interviews you give or receive will appear here.'
           }
-          getRowId={(mock) => mock.id}
-          renderExpanded={(row) => (
-            <MockDetails
-              row={row}
-              currentUserId={user.data?.id}
-              onChanged={interviewChanged}
-            />
-          )}
-          renderCard={(row) => (
-            <div>
-              <div className="flex flex-wrap items-center gap-2.5">
-                <Badge
-                  variant="outline"
-                  className={cn(
-                    badgeClass,
-                    interviewPassed(row.original)
-                      ? outcomeTone.success
-                      : outcomeTone.danger,
-                  )}
-                >
-                  {interviewPassed(row.original) ? 'Pass' : 'Fail'}
-                </Badge>
-                {mode === 'all' ? (
-                  <Badge
-                    variant="outline"
-                    className={cn(
-                      badgeClass,
-                      row.original.interviewer.id === user.data?.id
-                        ? directionTone.given
-                        : directionTone.received,
-                    )}
-                  >
-                    {row.original.interviewer.id === user.data?.id
-                      ? 'Given'
-                      : 'Received'}
-                  </Badge>
-                ) : null}
-                {reviewCell(row.original)}
-                <div className="ml-auto">{actionsCell(row)}</div>
-              </div>
-              <h2 className="mt-3 text-base font-semibold tracking-tight">
-                <PersonIdentity
-                  person={
-                    row.original.interviewer.id === user.data?.id
-                      ? row.original.interviewee
-                      : row.original.interviewer
-                  }
-                  seasonId={season?.id}
-                />
-              </h2>
-              <p className="text-sm text-muted-foreground">
-                {formatDate(row.original.occurredAt)}
-              </p>
-              <p>
-                {row.original.durationMinutes} minutes,{' '}
-                {row.original.rounds.length}{' '}
-                {row.original.rounds.length === 1 ? 'round' : 'rounds'}
-              </p>
-              <Button
-                variant="outline"
-                type="button"
-                aria-expanded={row.getIsExpanded()}
-                onClick={row.getToggleExpandedHandler()}
-              >
-                View details
-              </Button>
-              {row.getIsExpanded() ? (
-                <div className="mt-3">
-                  <MockDetails
-                    row={row}
-                    currentUserId={user.data?.id}
-                    onChanged={interviewChanged}
-                  />
-                </div>
-              ) : null}
-            </div>
-          )}
         />
       </div>
     </div>
+  );
+}
+
+/** The Type filter: the same choice as the table's All, Received and Given tabs. */
+export function MockTypeField({
+  view,
+  onViewChange,
+}: {
+  view: MockView;
+  onViewChange: (view: MockView) => void;
+}) {
+  return (
+    <Field>
+      <FieldLabel htmlFor="mock-type-filter">Type</FieldLabel>
+      <Select
+        items={mockTypeItems}
+        value={view}
+        onValueChange={(value) => {
+          if (value) onViewChange(value as MockView);
+        }}
+      >
+        <SelectTrigger id="mock-type-filter" className="w-full">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectGroup>
+            {mockTypeItems.map((item) => (
+              <SelectItem key={item.value} value={item.value}>
+                {item.label}
+              </SelectItem>
+            ))}
+          </SelectGroup>
+        </SelectContent>
+      </Select>
+    </Field>
+  );
+}
+
+/**
+ * Mock interviews as the Mock Interviews page lists them, for the page and
+ * for profiles. Received and Given are relative to `subjectId`, the person
+ * whose interviews these are; review checkboxes and private notes follow the
+ * viewer. Without `renderActions` the table is read-only, and
+ * `canViewDetails` limits whose details can be opened.
+ */
+export function MockInterviewTable({
+  view,
+  onViewChange,
+  mocks,
+  subjectId,
+  viewerId,
+  seasonId,
+  onChanged,
+  renderActions,
+  canViewDetails = () => true,
+  ...props
+}: {
+  view: MockView;
+  onViewChange: (view: MockView) => void;
+  mocks: MockInterview[];
+  subjectId?: string;
+  viewerId?: string;
+  seasonId?: string;
+  onChanged: (changed?: MockInterview) => void;
+  renderActions?: (row: Row<MockInterview>) => ReactNode;
+  /** Whether the viewer may open an interview's details and notes. */
+  canViewDetails?: (mock: MockInterview) => boolean;
+  ariaLabel: string;
+  loading?: boolean;
+  error?: boolean;
+  onRetry?: () => void;
+  emptyTitle: string;
+  emptyMessage?: string;
+  extraFilters?: ExtraFilters;
+  serverPagination?: ServerPagination;
+  renderSummary?: (rows: MockInterview[]) => ReactNode;
+  toolbarLead?: ReactNode;
+}) {
+  const reviewCell = (mock: MockInterview) => (
+    <ReviewProgress
+      mock={mock}
+      canReview={mock.interviewee.id === viewerId}
+      onChanged={onChanged}
+    />
+  );
+  // Each view names the other person its own way; only All needs a Type.
+  const hiddenColumns: Record<MockView, string[]> = {
+    all: ['interviewer', 'interviewee'],
+    received: ['interviewee', 'with', 'type'],
+    given: ['interviewer', 'with', 'type'],
+  };
+  const columns = columnsForSeason(seasonId, subjectId, {
+    review: reviewCell,
+    actions: (row) => renderActions?.(row),
+  })
+    .filter(
+      (column) =>
+        !hiddenColumns[view].includes(column.id ?? '') &&
+        (renderActions || column.id !== 'actions') &&
+        // No Details column when none of the details can be opened.
+        (column.id !== 'expand' || mocks.some(canViewDetails)),
+    )
+    .map((column) =>
+      column.id === 'expand'
+        ? {
+            ...column,
+            cell: (context: CellContext<MockInterview, unknown>) =>
+              canViewDetails(context.row.original)
+                ? flexRender(column.cell, context)
+                : null,
+          }
+        : column,
+    );
+  return (
+    <DataTable
+      {...props}
+      toolbarStart={
+        // Received or given, beside the search, at the search's height.
+        <Tabs
+          value={view}
+          onValueChange={(value) => onViewChange(value as MockView)}
+        >
+          <TabsList
+            aria-label="Mock interview view"
+            className="group-data-[orientation=horizontal]/tabs:h-9"
+          >
+            {mockTypeItems.map((item) => (
+              <TabsTrigger key={item.value} value={item.value}>
+                {item.label}
+              </TabsTrigger>
+            ))}
+          </TabsList>
+        </Tabs>
+      }
+      data={mocks}
+      columns={columns}
+      getRowId={(mock) => mock.id}
+      renderExpanded={(row) =>
+        canViewDetails(row.original) ? (
+          <MockDetails
+            row={row}
+            currentUserId={viewerId}
+            onChanged={onChanged}
+          />
+        ) : null
+      }
+      renderCard={(row) => (
+        <div>
+          <div className="flex flex-wrap items-center gap-2.5">
+            <Badge
+              variant="outline"
+              className={cn(
+                badgeClass,
+                interviewPassed(row.original)
+                  ? outcomeTone.success
+                  : outcomeTone.danger,
+              )}
+            >
+              {interviewPassed(row.original) ? 'Pass' : 'Fail'}
+            </Badge>
+            {view === 'all' ? (
+              <Badge
+                variant="outline"
+                className={cn(
+                  badgeClass,
+                  row.original.interviewer.id === subjectId
+                    ? directionTone.given
+                    : directionTone.received,
+                )}
+              >
+                {row.original.interviewer.id === subjectId
+                  ? 'Given'
+                  : 'Received'}
+              </Badge>
+            ) : null}
+            {reviewCell(row.original)}
+            {renderActions ? (
+              <div className="ml-auto">{renderActions(row)}</div>
+            ) : null}
+          </div>
+          <h2 className="mt-3 text-base font-semibold tracking-tight">
+            <PersonIdentity
+              person={
+                row.original.interviewer.id === subjectId
+                  ? row.original.interviewee
+                  : row.original.interviewer
+              }
+              seasonId={seasonId}
+            />
+          </h2>
+          <p className="text-sm text-muted-foreground">
+            {formatDate(row.original.occurredAt)}
+          </p>
+          <p>
+            {row.original.durationMinutes} minutes, {row.original.rounds.length}{' '}
+            {row.original.rounds.length === 1 ? 'round' : 'rounds'}
+          </p>
+          {canViewDetails(row.original) ? (
+            <Button
+              variant="outline"
+              type="button"
+              aria-expanded={row.getIsExpanded()}
+              onClick={row.getToggleExpandedHandler()}
+            >
+              View details
+            </Button>
+          ) : null}
+          {row.getIsExpanded() && canViewDetails(row.original) ? (
+            <div className="mt-3">
+              <MockDetails
+                row={row}
+                currentUserId={viewerId}
+                onChanged={onChanged}
+              />
+            </div>
+          ) : null}
+        </div>
+      )}
+    />
   );
 }
 

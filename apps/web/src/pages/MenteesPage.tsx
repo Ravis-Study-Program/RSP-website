@@ -19,12 +19,17 @@ import {
   useSeasons,
   useSeasonPeople,
 } from '@/api/queries';
-import { PageHeader, PersonIdentity, usePageTitle } from '@/components/Common';
+import {
+  PageHeader,
+  PersonIdentity,
+  StudentLevelBadge,
+  usePageTitle,
+} from '@/components/Common';
 import { DataTable } from '@/components/DataTable';
 import { LatestMarkCell } from '@/components/MondayMark';
 import { latestMarkRank, pickLatestMark, type LatestMark } from '@/mondayMarks';
 import { StudentLevelDialog } from '@/components/StudentLevelDialog';
-import { canSetStudentLevel, studentLevelLabel } from '@/studentLevels';
+import { canSetStudentLevel } from '@/studentLevels';
 import { FormDialog } from '@/components/Dialogs';
 import type { Person } from '@/types';
 import { calendarDateKey, formatDateTime } from '@/utils';
@@ -171,7 +176,13 @@ export function MenteesPage() {
         accessorKey: 'studentLevel',
         header: 'Level',
         meta: { width: 8 },
-        cell: ({ row }) => studentLevelLabel(row.original.studentLevel),
+        cell: ({ row }) =>
+          row.original.studentLevel &&
+          row.original.studentLevel !== 'not_applicable' ? (
+            <StudentLevelBadge level={row.original.studentLevel} />
+          ) : (
+            '—'
+          ),
       },
       { accessorKey: 'attempts', header: 'Attempts', meta: { width: 7 } },
       {

@@ -10,7 +10,9 @@ import { IconArrowUpRight } from '@tabler/icons-react';
 import { useEffect, useSyncExternalStore, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 
+import { studentLevelLabel, studentLevelTone } from '@/studentLevels';
 import type { Person, Role } from '@/types';
+import { formatDate } from '@/utils';
 
 let currentPageTitle = '';
 const pageTitleListeners = new Set<() => void>();
@@ -86,12 +88,73 @@ export function PageHeader({
   );
 }
 
-export function RoleBadge({ role }: { role: Role }) {
+export function RoleBadge({
+  role,
+  className,
+}: {
+  role: Role;
+  className?: string;
+}) {
   const label =
     role === 'system_admin'
       ? 'System Admin'
       : role[0].toUpperCase() + role.slice(1);
-  return <Badge variant="secondary">{label}</Badge>;
+  return (
+    <Badge variant="secondary" className={className}>
+      {label}
+    </Badge>
+  );
+}
+
+// A colour per season, starting at 20/21 and repeating every seven seasons.
+const seasonTones = [
+  'border-transparent bg-destructive-soft text-destructive',
+  'border-transparent bg-orange-soft text-orange',
+  'border-transparent bg-warning-soft text-warning',
+  'border-transparent bg-success-soft text-success',
+  'border-transparent bg-info-soft text-info',
+  'border-transparent bg-purple-soft text-purple',
+  'border-transparent bg-pink-soft text-pink',
+];
+
+/**
+ * A season named by the two years it spans, "24/25", in its colour (24/25
+ * is blue). The full name shows on hover.
+ */
+export function SeasonBadge({
+  name,
+  startsAt,
+}: {
+  name: string;
+  startsAt: string;
+}) {
+  if (Number.isNaN(Date.parse(startsAt))) return name;
+  const start = Number(formatDate(startsAt).slice(-2));
+  const label = `${String(start).padStart(2, '0')}/${String((start + 1) % 100).padStart(2, '0')}`;
+  return (
+    <Badge
+      variant="secondary"
+      title={name}
+      aria-label={`Season ${label}: ${name}`}
+      className={seasonTones[(((start - 20) % 7) + 7) % 7]}
+    >
+      {label}
+    </Badge>
+  );
+}
+
+/** A student level, coloured by level; nothing when there is none. */
+export function StudentLevelBadge({
+  level,
+}: {
+  level?: Person['studentLevel'];
+}) {
+  if (!level || level === 'not_applicable') return null;
+  return (
+    <Badge variant="secondary" className={studentLevelTone[level]}>
+      {studentLevelLabel(level)}
+    </Badge>
+  );
 }
 
 export function PersonIdentity({

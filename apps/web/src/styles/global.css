@@ -32,6 +32,12 @@
   --color-warning-soft: var(--warning-soft);
   --color-info: var(--info);
   --color-info-soft: var(--info-soft);
+  --color-purple: var(--purple);
+  --color-purple-soft: var(--purple-soft);
+  --color-pink: var(--pink);
+  --color-pink-soft: var(--pink-soft);
+  --color-orange: var(--orange);
+  --color-orange-soft: var(--orange-soft);
   --color-destructive-soft: var(--danger-soft);
   --color-border-strong: var(--border-strong);
   --color-chart-1: var(--primary);

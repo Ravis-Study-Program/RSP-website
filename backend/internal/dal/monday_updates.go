@@ -72,12 +72,7 @@ func mondayUpdateRecordIDs(items []programme.MondayUpdateRecord) ([]string, map[
 }
 
 func solvedOutcomeNames() []string {
-	outcomes := practice.SolvedOutcomes()
-	names := make([]string, len(outcomes))
-	for i, outcome := range outcomes {
-		names[i] = string(outcome)
-	}
-	return names
+	return practice.OutcomeNames(practice.SolvedOutcomes())
 }
 
 type MondayUpdateQuery struct {
@@ -238,6 +233,7 @@ func (p *Store) loadMondayUpdateActivity(ctx context.Context, items []programme.
 			&attempt.Difficulty, &attempt.Outcome, &attempt.Minutes, &attempt.AttemptedAt); err != nil {
 			return err
 		}
+		attempt.Outcome = practice.PublicOutcome(attempt.Outcome)
 		record := byID[updateID]
 		record.Activity.Attempts = append(record.Activity.Attempts, attempt)
 	}
@@ -291,6 +287,7 @@ func (p *Store) GetMondayUpdateRangeActivity(ctx context.Context, userID, startD
 			&attempt.Difficulty, &attempt.Outcome, &attempt.Minutes, &attempt.AttemptedAt); err != nil {
 			return activity, err
 		}
+		attempt.Outcome = practice.PublicOutcome(attempt.Outcome)
 		activity.Attempts = append(activity.Attempts, attempt)
 	}
 	if err := attemptRows.Err(); err != nil {
