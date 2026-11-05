@@ -1,6 +1,14 @@
 *.log
 .DS_Store
 .cache/
+# Generated security CI inputs and reports.
+/.security-base/
+/security-reports/
+/security-shadow/
+/go-security-shadow/
+/image-security-shadow/
+/security-remediation/
+/pull-request.json
 .direnv
 bin/
 result

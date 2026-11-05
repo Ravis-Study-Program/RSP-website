@@ -60,6 +60,10 @@
   "vulnerabilityAlerts": {
     "enabled": true,
     "groupName": "security remediation",
+    "labels": ["security-remediation"],
+    "prBodyNotes": [
+      "A maintainer must add explicit advisory targets to this PR body before the remediation check passes. See SECURITY.md#remediation-targets."
+    ],
     "automerge": false,
     "vulnerabilityFixStrategy": "lowest"
   }
