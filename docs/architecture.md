@@ -32,7 +32,7 @@ Caddy routes the single local origin and denies public metrics paths.
 | Identity    | `apps/auth`                                                             | Better Auth sessions, password/Google providers, verification, MFA, JWT/JWKS, credential lifecycle and email. |
 | Contract    | `api/openapi.yaml`                                                      | Frontend API client/types and API documentation; Go handlers own server-side decoding and validation.         |
 | Transport   | `backend/internal/api`                                                  | HTTP decoding/validation, authentication boundary, status codes and serialization.                            |
-| Domain      | `backend/internal/{accounts,programme,practice,mockinterviews}`         | Authorization relationships and programme rules independent of HTTP.                                          |
+| Domain      | `backend/internal/{accounts,program,practice,mockinterviews}`           | Authorization relationships and program rules independent of HTTP.                                            |
 | Persistence | `backend/internal/dal`                                                  | Native pgx queries, row mapping, and atomic data/history/audit writes.                                        |
 | Jobs        | `backend/cmd/worker`, `backend/internal/worker`, `backend/internal/dal` | Scheduled LeetCode synchronization, catch-up, retry, advisory locking and PostgreSQL run state.               |
 | Operations  | `deploy`, `compose.yaml`, `scripts/legacy-migration`                    | Local ingress, container topology, and one-time legacy import tooling.                                        |
@@ -98,10 +98,10 @@ for internal operations.
 
 One PostgreSQL database contains isolated schemas:
 
-| Schema | Owner in code       | Contents                                                                                       |
-| ------ | ------------------- | ---------------------------------------------------------------------------------------------- |
-| `app`  | Go API and worker   | Programme users, roles, seasons, mentoring, practice, interviews and append-only audit events. |
-| `auth` | Better Auth service | Credentials, provider accounts, sessions, verification, MFA and JWKS keys.                     |
+| Schema | Owner in code       | Contents                                                                                     |
+| ------ | ------------------- | -------------------------------------------------------------------------------------------- |
+| `app`  | Go API and worker   | Program users, roles, seasons, mentoring, practice, interviews and append-only audit events. |
+| `auth` | Better Auth service | Credentials, provider accounts, sessions, verification, MFA and JWKS keys.                   |
 
 `app.users` stores only the account ID, lifecycle state, deletion marker, and
 timestamps. Profile data lives in `user_profiles`, preferences

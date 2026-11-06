@@ -203,7 +203,7 @@ export function LeetCodePage() {
     return (
       <div className="mx-auto w-full max-w-[92rem]">
         <ErrorState
-          title="Season unavailable"
+          title="Season Unavailable"
           message="The selected season could not be loaded."
           onRetry={() => void seasons.refetch()}
         />
@@ -267,7 +267,7 @@ export function LeetCodePage() {
             loading={attemptsQuery.isLoading || seasons.isLoading}
             error={attemptsQuery.isError}
             onRetry={() => void attemptsQuery.refetch()}
-            emptyTitle="No attempts recorded"
+            emptyTitle="No Attempts Recorded"
             canReview
             onReviewed={(attempt) =>
               attempt.id.startsWith('attempt_local_')
@@ -508,7 +508,7 @@ function AttemptDialog({
   return (
     <>
       <FormDialog
-        title={attempt ? `Edit ${attempt.problem}` : 'Log problem attempt'}
+        title={attempt ? `Edit ${attempt.problem}` : 'Log Problem Attempt'}
         open={open}
         onOpenChange={requestOpenChange}
         trigger={

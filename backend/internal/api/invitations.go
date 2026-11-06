@@ -14,7 +14,7 @@ import (
 
 	"github.com/magedmg/RSP-website/backend/internal/authadmin"
 	"github.com/magedmg/RSP-website/backend/internal/platform/id"
-	"github.com/magedmg/RSP-website/backend/internal/programme"
+	"github.com/magedmg/RSP-website/backend/internal/program"
 )
 
 func invitationToken() (string, string, error) {
@@ -62,14 +62,14 @@ func (a *API) listInvitations(w http.ResponseWriter, r *http.Request) {
 		a.writeStoreErrorResponse(w, err)
 		return
 	}
-	pageInfo, err := pageInfoForKeyset(a.cursorSecret, binding, "forward", boundary, items, more, func(v programme.Invitation) string { return v.ID })
+	pageInfo, err := pageInfoForKeyset(a.cursorSecret, binding, "forward", boundary, items, more, func(v program.Invitation) string { return v.ID })
 	if err != nil {
 		a.writeStoreErrorResponse(w, err)
 		return
 	}
-	writeJSONResponse(w, 200, Page[programme.Invitation]{Items: items, PageInfo: pageInfo, TotalCount: total})
+	writeJSONResponse(w, 200, Page[program.Invitation]{Items: items, PageInfo: pageInfo, TotalCount: total})
 }
-func (a *API) sendInvitationEmail(r *http.Request, v *programme.Invitation, token string) {
+func (a *API) sendInvitationEmail(r *http.Request, v *program.Invitation, token string) {
 	if a.sendInvitation == nil {
 		return
 	}
@@ -119,7 +119,7 @@ func (a *API) createInvitation(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	at := time.Now().UTC()
-	v, err := a.db.CreateInvitation(r.Context(), programme.Invitation{ID: id.New(), SeasonID: r.PathValue("id"), Name: request.Name, Email: request.Email, Role: request.Role, DeliveryID: id.New(), ExpiresAt: at.Add(7 * 24 * time.Hour)}, hash, actorFrom(r.Context()).UserID, at)
+	v, err := a.db.CreateInvitation(r.Context(), program.Invitation{ID: id.New(), SeasonID: r.PathValue("id"), Name: request.Name, Email: request.Email, Role: request.Role, DeliveryID: id.New(), ExpiresAt: at.Add(7 * 24 * time.Hour)}, hash, actorFrom(r.Context()).UserID, at)
 	if err != nil {
 		a.writeStoreErrorResponse(w, err)
 		return

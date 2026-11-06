@@ -8,11 +8,11 @@ import (
 
 	"github.com/magedmg/RSP-website/backend/internal/platform/audit"
 	"github.com/magedmg/RSP-website/backend/internal/platform/id"
-	"github.com/magedmg/RSP-website/backend/internal/programme"
+	"github.com/magedmg/RSP-website/backend/internal/program"
 )
 
-func scanSeason(row pgx.Row) (programme.SeasonRecord, error) {
-	var v programme.SeasonRecord
+func scanSeason(row pgx.Row) (program.SeasonRecord, error) {
+	var v program.SeasonRecord
 	if err := row.Scan(&v.ID, &v.Slug, &v.Name, &v.Status, &v.StartAt, &v.EndAt, &v.Location, &v.ImageURL, &v.ResourcesURL); err != nil {
 		return v, noRows(err)
 	}
@@ -21,7 +21,7 @@ func scanSeason(row pgx.Row) (programme.SeasonRecord, error) {
 
 const seasonColumns = `id,slug,name,status::text,start_at,end_at,location,image_url,resources_url`
 
-func (p *Store) GetSeason(ctx context.Context, id string) (programme.SeasonRecord, error) {
+func (p *Store) GetSeason(ctx context.Context, id string) (program.SeasonRecord, error) {
 	return scanSeason(p.pool.QueryRow(ctx, `SELECT `+seasonColumns+` FROM app.seasons WHERE id=$1 AND deleted_at IS NULL`, id))
 }
 
@@ -32,7 +32,7 @@ type SeasonQuery struct {
 	Status    string
 }
 
-func (p *Store) ListSeasons(ctx context.Context, q SeasonQuery) ([]programme.SeasonRecord, bool, int64, error) {
+func (p *Store) ListSeasons(ctx context.Context, q SeasonQuery) ([]program.SeasonRecord, bool, int64, error) {
 	const filters = `deleted_at IS NULL AND (@status = '' OR status::text = @status)`
 	args := pgx.NamedArgs{"status": q.Status}
 	var total int64
@@ -57,7 +57,7 @@ func (p *Store) ListSeasons(ctx context.Context, q SeasonQuery) ([]programme.Sea
 	}
 
 	defer rows.Close()
-	out := []programme.SeasonRecord{}
+	out := []program.SeasonRecord{}
 	for rows.Next() {
 		v, err := scanSeason(rows)
 		if err != nil {
@@ -70,7 +70,7 @@ func (p *Store) ListSeasons(ctx context.Context, q SeasonQuery) ([]programme.Sea
 	return out, more, total, rows.Err()
 }
 
-func (p *Store) CreateSeason(ctx context.Context, v programme.SeasonRecord, actorID string, at time.Time) (programme.SeasonRecord, error) {
+func (p *Store) CreateSeason(ctx context.Context, v program.SeasonRecord, actorID string, at time.Time) (program.SeasonRecord, error) {
 	tx, err := p.pool.Begin(ctx)
 	if err != nil {
 		return v, err
@@ -103,10 +103,10 @@ type UpdateSeasonDefinitionInput struct {
 	EndAt        time.Time
 }
 
-func (p *Store) UpdateSeasonDefinition(ctx context.Context, input UpdateSeasonDefinitionInput) (programme.SeasonRecord, error) {
+func (p *Store) UpdateSeasonDefinition(ctx context.Context, input UpdateSeasonDefinitionInput) (program.SeasonRecord, error) {
 	tx, err := p.pool.Begin(ctx)
 	if err != nil {
-		return programme.SeasonRecord{}, err
+		return program.SeasonRecord{}, err
 	}
 
 	defer tx.Rollback(context.Background())
@@ -152,10 +152,10 @@ type UpdateSeasonResourcesInput struct {
 	ResourcesURL string
 }
 
-func (p *Store) UpdateSeasonResources(ctx context.Context, input UpdateSeasonResourcesInput) (programme.SeasonRecord, error) {
+func (p *Store) UpdateSeasonResources(ctx context.Context, input UpdateSeasonResourcesInput) (program.SeasonRecord, error) {
 	tx, err := p.pool.Begin(ctx)
 	if err != nil {
-		return programme.SeasonRecord{}, err
+		return program.SeasonRecord{}, err
 	}
 
 	defer tx.Rollback(context.Background())
@@ -196,38 +196,38 @@ type CloseSeasonInput struct {
 	ChangedAt time.Time
 }
 
-func (p *Store) CloseSeason(ctx context.Context, input CloseSeasonInput) (programme.SeasonRecord, error) {
+func (p *Store) CloseSeason(ctx context.Context, input CloseSeasonInput) (program.SeasonRecord, error) {
 	tx, err := p.pool.Begin(ctx)
 	if err != nil {
-		return programme.SeasonRecord{}, err
+		return program.SeasonRecord{}, err
 	}
 
 	defer tx.Rollback(context.Background())
-	domainSeason, enrollments, err := loadProgrammeSeason(ctx, tx, input.SeasonID)
+	domainSeason, enrollments, err := loadProgramSeason(ctx, tx, input.SeasonID)
 	if err != nil {
-		return programme.SeasonRecord{}, err
+		return program.SeasonRecord{}, err
 	}
 	closedAt := input.ChangedAt.UTC()
 	closeEventID := id.New()
-	transition, err := programme.Close(domainSeason, input.ActorID, input.Reason, closeEventID, closedAt)
+	transition, err := program.Close(domainSeason, input.ActorID, input.Reason, closeEventID, closedAt)
 	if err != nil {
-		return programme.SeasonRecord{}, ErrConflict
+		return program.SeasonRecord{}, ErrConflict
 	}
 	if _, err := tx.Exec(ctx, `INSERT INTO app.season_close_events(id,season_id,closed_by_user_id,close_reason,closed_at) VALUES($1,$2,$3,$4,$5)`, closeEventID, input.SeasonID, input.ActorID, input.Reason, closedAt); err != nil {
-		return programme.SeasonRecord{}, mapDatabaseError(err)
+		return program.SeasonRecord{}, mapDatabaseError(err)
 	}
 	for index, enrollment := range transition.Season.Enrollments {
 		if enrollments[index].State != "active" || enrollment.State != "completed" {
 			continue
 		}
 		if _, err := tx.Exec(ctx, `UPDATE app.enrollments SET state='completed',completed_by_close_id=$2,state_changed_at=$3,close_assignment_state=assignment_state,close_activated_at=activated_at,assignment_state='revoked',activated_at=NULL WHERE id=$1 AND state='active' AND deleted_at IS NULL`, enrollment.ID, closeEventID, closedAt); err != nil {
-			return programme.SeasonRecord{}, err
+			return program.SeasonRecord{}, err
 		}
 	}
 
 	v, err := scanSeason(tx.QueryRow(ctx, `UPDATE app.seasons SET status='closed',closed_at=$2 WHERE id=$1 AND status='open' AND deleted_at IS NULL RETURNING `+seasonColumns, input.SeasonID, closedAt))
 	if err != nil {
-		return programme.SeasonRecord{}, err
+		return program.SeasonRecord{}, err
 	}
 	if err := appendAuditTx(ctx, tx, audit.Event{
 		ID:          id.New(),
@@ -238,10 +238,10 @@ func (p *Store) CloseSeason(ctx context.Context, input CloseSeasonInput) (progra
 		Data:        map[string]any{"reason": input.Reason, "closeEventId": closeEventID},
 		OccurredAt:  closedAt,
 	}); err != nil {
-		return programme.SeasonRecord{}, err
+		return program.SeasonRecord{}, err
 	}
 	if err := tx.Commit(ctx); err != nil {
-		return programme.SeasonRecord{}, err
+		return program.SeasonRecord{}, err
 	}
 	return v, nil
 }
@@ -254,39 +254,39 @@ type ReopenSeasonInput struct {
 	ChangedAt time.Time
 }
 
-func (p *Store) ReopenSeason(ctx context.Context, input ReopenSeasonInput) (programme.SeasonRecord, error) {
+func (p *Store) ReopenSeason(ctx context.Context, input ReopenSeasonInput) (program.SeasonRecord, error) {
 	tx, err := p.pool.Begin(ctx)
 	if err != nil {
-		return programme.SeasonRecord{}, err
+		return program.SeasonRecord{}, err
 	}
 
 	defer tx.Rollback(context.Background())
 	var closeEventID string
 	if err := tx.QueryRow(ctx, `SELECT id FROM app.season_close_events WHERE season_id=$1 AND reopened_at IS NULL FOR UPDATE`, input.SeasonID).Scan(&closeEventID); err != nil {
-		return programme.SeasonRecord{}, noRows(err)
+		return program.SeasonRecord{}, noRows(err)
 	}
-	domainSeason, enrollments, err := loadProgrammeReopenSeason(ctx, tx, input.SeasonID, closeEventID)
+	domainSeason, enrollments, err := loadProgramReopenSeason(ctx, tx, input.SeasonID, closeEventID)
 	if err != nil {
-		return programme.SeasonRecord{}, err
+		return program.SeasonRecord{}, err
 	}
 
 	reopenedAt := input.ChangedAt.UTC()
-	reopened := programme.Reopen(domainSeason, programme.CloseEvent{ID: closeEventID})
+	reopened := program.Reopen(domainSeason, program.CloseEvent{ID: closeEventID})
 	if _, err := tx.Exec(ctx, `UPDATE app.season_close_events SET reopened_by_user_id=$2,reopen_reason=$3,reopened_at=$4 WHERE id=$1 AND reopened_at IS NULL`, closeEventID, input.ActorID, input.Reason, reopenedAt); err != nil {
-		return programme.SeasonRecord{}, err
+		return program.SeasonRecord{}, err
 	}
 	for index, enrollment := range reopened.Enrollments {
 		if enrollments[index].State != "completed" || enrollment.State != "active" {
 			continue
 		}
 		if _, err := tx.Exec(ctx, `UPDATE app.enrollments SET state='active',completed_by_close_id=NULL,state_changed_at=$2::timestamptz,assignment_state=COALESCE(close_assignment_state,'active'::app.assignment_state),activated_at=CASE WHEN COALESCE(close_assignment_state,'active'::app.assignment_state)='active' THEN COALESCE(close_activated_at,$2::timestamptz) ELSE NULL END,close_assignment_state=NULL,close_activated_at=NULL WHERE id=$1 AND completed_by_close_id=$3 AND state='completed' AND deleted_at IS NULL`, enrollment.ID, reopenedAt, closeEventID); err != nil {
-			return programme.SeasonRecord{}, err
+			return program.SeasonRecord{}, err
 		}
 	}
 
 	v, err := scanSeason(tx.QueryRow(ctx, `UPDATE app.seasons SET status='open',closed_at=NULL WHERE id=$1 AND status='closed' AND deleted_at IS NULL RETURNING `+seasonColumns, input.SeasonID))
 	if err != nil {
-		return programme.SeasonRecord{}, err
+		return program.SeasonRecord{}, err
 	}
 	if err := appendAuditTx(ctx, tx, audit.Event{
 		ID:          id.New(),
@@ -297,10 +297,10 @@ func (p *Store) ReopenSeason(ctx context.Context, input ReopenSeasonInput) (prog
 		Data:        map[string]any{"reason": input.Reason, "closeEventId": closeEventID},
 		OccurredAt:  reopenedAt,
 	}); err != nil {
-		return programme.SeasonRecord{}, err
+		return program.SeasonRecord{}, err
 	}
 	if err := tx.Commit(ctx); err != nil {
-		return programme.SeasonRecord{}, err
+		return program.SeasonRecord{}, err
 	}
 	return v, nil
 }

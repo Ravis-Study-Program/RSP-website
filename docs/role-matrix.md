@@ -5,7 +5,7 @@ enrollment state, mentorship and resource ownership. A broader role does not
 erase lifecycle checks: suspended, deletion-pending and deleted accounts cannot
 use protected product features.
 
-## Programme operations
+## Program operations
 
 | Operation                               |   Student   |     Mentor      |   Coordinator   |     Director     |   System Admin   |
 | --------------------------------------- | :---------: | :-------------: | :-------------: | :--------------: | :--------------: |
@@ -84,7 +84,7 @@ flag.
 | Kicked/withdrawn                  | Personal practice and mocks              | No                         | Earlier season activity and personal history retained |
 | Suspended                         | No                                       | No                         | Retained for authorized administration                |
 | Deletion pending                  | No; sessions revoked immediately         | No                         | Recoverable for 30 days                               |
-| Deleted                           | No                                       | No                         | Pseudonymized programme history only                  |
+| Deleted                           | No                                       | No                         | Pseudonymized program history only                    |
 
 Alumni derives only from a completed student enrollment. Kicked/withdrawn
 enrollments never grant alumni access, although a different completed student
@@ -96,7 +96,7 @@ access is unavailable.
 
 ## Mock interview authority
 
-- Eligible participants are current or former programme members, including
+- Eligible participants are current or former program members, including
   kicked/withdrawn members. Suspended, deleted and unaffiliated accounts cannot participate.
 - The participant picker exposes only the summaries needed to record mocks.
   It does not grant general directory access to former members.
@@ -115,8 +115,8 @@ access is unavailable.
 
 ## Monday update authority
 
-A Monday update is one student's written record for a completed programme week.
-It uses the programme's week number and the Monday–Sunday dates containing that
+A Monday update is one student's written record for a completed program week.
+It uses the program's week number and the Monday–Sunday dates containing that
 week's start in Australia/Adelaide. Students choose a completed week, never custom
 dates. One update per student per week is allowed; missed weeks can be submitted
 late while the season is open. It records the season it was written in; the LeetCode attempts and mock interviews

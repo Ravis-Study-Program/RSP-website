@@ -105,7 +105,7 @@ export function EnrollmentCorrection({
   }
   return (
     <FormDialog
-      title={`Correct enrollment for ${name}`}
+      title={`Correct Enrollment for ${name}`}
       description="Choose the correct person and season. Participation dates are retained and affected mentor assignments are cleared. Recorded practice and mocks stay with their original owners."
       trigger="Correct person or season"
       triggerVariant="outline"

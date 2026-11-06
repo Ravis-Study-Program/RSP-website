@@ -1,5 +1,6 @@
 import { buttonVariants } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
+import { statusTone } from '@/badgeTones';
+import { StatusBadge } from '@/components/StatusBadge';
 import { IconMail } from '@tabler/icons-react';
 import type { ColumnDef } from '@tanstack/react-table';
 import { useMemo } from 'react';
@@ -31,10 +32,6 @@ import { formatDateTime } from '@/utils';
 const pageClass = 'mx-auto w-full max-w-[92rem]';
 const inlineClass = 'flex flex-wrap items-center gap-2.5';
 const helperClass = 'text-sm text-muted-foreground';
-const badgeSuccessClass = 'bg-success-soft text-success';
-const badgeWarningClass = 'bg-warning-soft text-warning';
-const badgeNeutralClass = 'bg-muted text-muted-foreground';
-const statusBadgeClass = 'h-5 rounded-4xl px-2 text-xs font-medium';
 const personCellClass =
   'min-w-48 whitespace-normal [&_a]:whitespace-normal [&_span]:whitespace-normal';
 
@@ -169,18 +166,9 @@ export function PeoplePage() {
         header: 'Status',
         meta: { width: 8 },
         cell: ({ getValue }) => (
-          <Badge
-            variant="secondary"
-            className={`${statusBadgeClass} ${
-              getValue() === 'active'
-                ? badgeSuccessClass
-                : getValue() === 'unassigned'
-                  ? badgeWarningClass
-                  : badgeNeutralClass
-            }`}
-          >
+          <StatusBadge tone={statusTone(getValue())}>
             {statusLabel(getValue())}
-          </Badge>
+          </StatusBadge>
         ),
       },
       { accessorKey: 'attempts', header: 'Attempts', meta: { width: 7 } },
@@ -225,8 +213,8 @@ export function PeoplePage() {
         onRetry={() => void query.refetch()}
         emptyTitle={
           graduatesOnly
-            ? 'No graduated students yet'
-            : 'No current students yet'
+            ? 'No Graduated Students Yet'
+            : 'No Current Students Yet'
         }
         getRowId={(person) => person.id}
         renderCard={(row) => (
@@ -241,18 +229,9 @@ export function PeoplePage() {
               {row.original.roles.map((role) => (
                 <RoleBadge key={role} role={role} />
               ))}
-              <Badge
-                variant="secondary"
-                className={`${statusBadgeClass} ${
-                  row.original.status === 'active'
-                    ? badgeSuccessClass
-                    : row.original.status === 'unassigned'
-                      ? badgeWarningClass
-                      : badgeNeutralClass
-                }`}
-              >
+              <StatusBadge tone={statusTone(row.original.status)}>
                 {statusLabel(row.original.status)}
-              </Badge>
+              </StatusBadge>
             </div>
             <p>{row.original.season}</p>
             {season && row.original.seasonRole === 'student' ? (

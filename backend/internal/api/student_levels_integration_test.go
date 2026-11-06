@@ -12,7 +12,7 @@ import (
 	"github.com/magedmg/RSP-website/backend/internal/authz"
 	"github.com/magedmg/RSP-website/backend/internal/platform/id"
 	"github.com/magedmg/RSP-website/backend/internal/practice"
-	"github.com/magedmg/RSP-website/backend/internal/programme"
+	"github.com/magedmg/RSP-website/backend/internal/program"
 )
 
 func TestAnySeasonMentorCanSetStudentLevel(t *testing.T) {
@@ -25,7 +25,7 @@ func TestAnySeasonMentorCanSetStudentLevel(t *testing.T) {
 		if response.Code != http.StatusOK {
 			t.Fatalf("level=%s status=%d body=%s", level, response.Code, response.Body)
 		}
-		var member programme.EnrollmentRecord
+		var member program.EnrollmentRecord
 		if err := json.Unmarshal(response.Body.Bytes(), &member); err != nil {
 			t.Fatal(err)
 		}
@@ -34,7 +34,7 @@ func TestAnySeasonMentorCanSetStudentLevel(t *testing.T) {
 		}
 	}
 	// An existing mentor assignment must survive a level change too.
-	if _, err := fixture.db.CreateMentorship(ctx, programme.MentorshipRecord{
+	if _, err := fixture.db.CreateMentorship(ctx, program.MentorshipRecord{
 		ID: id.New(), SeasonID: seasonID, MentorUserID: otherID, StudentUserID: studentID,
 	}, otherID, time.Now()); err != nil {
 		t.Fatal(err)
@@ -97,7 +97,7 @@ func TestStudentLevelRestrictions(t *testing.T) {
 	}
 }
 
-func TestPracticeGoalsAreFixed(t *testing.T) {
+func TestPracticeGoalsApplyToEveryone(t *testing.T) {
 	fixture := newPostgresFixture(t)
 	for _, legacy := range []bool{false, true} {
 		if legacy {
@@ -110,12 +110,19 @@ func TestPracticeGoalsAreFixed(t *testing.T) {
 		if err := json.Unmarshal(response.Body.Bytes(), &settings); err != nil {
 			t.Fatal(err)
 		}
-		if response.Code != http.StatusOK || settings != practice.FixedSettings() {
+		if response.Code != http.StatusOK || settings != practice.DefaultSettings() {
 			t.Fatalf("status=%d settings=%+v", response.Code, settings)
 		}
 	}
 	response := testRequest(t, fixture.handler, http.MethodPatch, "/api/v2/me/practice-settings", "student", `{"easyMinutes":25,"mediumMinutes":40,"hardMinutes":60}`)
 	if response.Code != http.StatusMethodNotAllowed {
 		t.Fatalf("custom goals status=%d body=%s", response.Code, response.Body)
+	}
+	// Only coordinators and administrators change the program's goals.
+	for _, actor := range []string{"student", "other"} {
+		response = testRequest(t, fixture.handler, http.MethodPut, "/api/v2/practice-settings", actor, `{"easyMinutes":15,"mediumMinutes":30,"hardMinutes":45}`)
+		if response.Code != http.StatusForbidden {
+			t.Fatalf("%s goals status=%d body=%s", actor, response.Code, response.Body)
+		}
 	}
 }

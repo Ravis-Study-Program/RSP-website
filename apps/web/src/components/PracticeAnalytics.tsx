@@ -30,7 +30,8 @@ import {
 } from '@/activityAnalytics';
 import { legendLabel } from '@/lib/chartLegend';
 import type { Attempt, Difficulty } from '@/types';
-import { formatDate, formatDateTime, practiceGoalMinutes } from '@/utils';
+import { usePracticeGoals } from '@/api/queries';
+import { formatDate, formatDateTime } from '@/utils';
 
 const breakdownColor = (name: string) =>
   difficultyColor[name as Difficulty] ?? 'var(--chart-secondary)';
@@ -96,7 +97,8 @@ function DifficultyKey() {
 export function PracticeAnalytics({ attempts }: { attempts: Attempt[] }) {
   const [goals, setGoals] = useState(true);
   const breakdown = difficultyBreakdown(attempts);
-  const successRates = difficultySuccessRates(attempts);
+  const practiceGoals = usePracticeGoals();
+  const successRates = difficultySuccessRates(attempts, practiceGoals);
   const points: TimedPoint[] = attempts
     .filter((a) => a.minutes !== null && a.difficulty)
     .map((a) => ({
@@ -145,7 +147,7 @@ export function PracticeAnalytics({ attempts }: { attempts: Attempt[] }) {
             aria-label="Difficulty breakdown"
             className="gap-3 p-4"
           >
-            <h3 className="text-base font-semibold">Difficulty breakdown</h3>
+            <h3 className="text-base font-semibold">Difficulty Breakdown</h3>
             {breakdown.length ? (
               <>
                 <div
@@ -227,13 +229,14 @@ export function PracticeAnalytics({ attempts }: { attempts: Attempt[] }) {
             aria-label="Time by difficulty"
             className="gap-3 p-4"
           >
-            <h3 className="text-base font-semibold">Time by difficulty</h3>
+            <h3 className="text-base font-semibold">Time by Difficulty</h3>
             <Label className="font-normal">
               <Checkbox
                 checked={goals}
                 onCheckedChange={(checked) => setGoals(checked)}
               />
-              Show practice goals (20 / 35 / 50 minutes)
+              Show practice goals ({practiceGoals.Easy} / {practiceGoals.Medium}{' '}
+              / {practiceGoals.Hard} minutes)
             </Label>
             {points.length ? (
               <>
@@ -262,7 +265,7 @@ export function PracticeAnalytics({ attempts }: { attempts: Attempt[] }) {
                           ? difficultyOrder.map((difficulty) => (
                               <ReferenceLine
                                 key={difficulty}
-                                y={practiceGoalMinutes[difficulty]}
+                                y={practiceGoals[difficulty]}
                                 stroke={difficultyColor[difficulty]}
                                 strokeOpacity={0.55}
                                 strokeDasharray="4 4"

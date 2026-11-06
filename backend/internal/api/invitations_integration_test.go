@@ -16,7 +16,7 @@ import (
 	"github.com/magedmg/RSP-website/backend/internal/authadmin"
 	"github.com/magedmg/RSP-website/backend/internal/authz"
 	"github.com/magedmg/RSP-website/backend/internal/platform/id"
-	"github.com/magedmg/RSP-website/backend/internal/programme"
+	"github.com/magedmg/RSP-website/backend/internal/program"
 )
 
 func TestInvitationLifecycleAndVerifiedEmail(t *testing.T) {
@@ -40,10 +40,10 @@ func TestInvitationLifecycleAndVerifiedEmail(t *testing.T) {
 		emails = append(emails, email)
 		return nil
 	}}).Handler()
-	create := func() programme.Invitation {
+	create := func() program.Invitation {
 		t.Helper()
 		res := testRequest(t, handler, http.MethodPost, "/api/v2/seasons/"+newSeason+"/invitations", "admin", `{"name":"New member","email":"PRIVATE@example.com","role":"coordinator"}`)
-		var v programme.Invitation
+		var v program.Invitation
 		if err := json.Unmarshal(res.Body.Bytes(), &v); err != nil || res.Code != 201 || v.SentAt == nil {
 			t.Fatalf("create=%d %s %v", res.Code, res.Body, err)
 		}

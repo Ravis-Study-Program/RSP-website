@@ -1,10 +1,12 @@
 import type { MondayUpdateMark } from '@/api/generated/models';
-import { Badge } from '@/components/ui/badge';
+import { StatusBadge } from '@/components/StatusBadge';
 import { markLabel, markTone, type LatestMark } from '@/mondayMarks';
 import { formatDate } from '@/utils';
 
 export function MarkBadge({ mark }: { mark: MondayUpdateMark }) {
-  return <Badge className={markTone[mark].badge}>{markLabel(mark)}</Badge>;
+  return (
+    <StatusBadge tone={markTone[mark].badge}>{markLabel(mark)}</StatusBadge>
+  );
 }
 
 /**

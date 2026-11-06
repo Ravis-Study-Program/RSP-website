@@ -1,4 +1,5 @@
-import { Badge } from '@/components/ui/badge';
+import type { BadgeTone } from '@/badgeTones';
+import { StatusBadge } from '@/components/StatusBadge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { adaptAttempt } from '@/api/adapters';
@@ -7,7 +8,7 @@ import type {
   Attempt as ApiAttempt,
   AttemptReview,
 } from '@/api/generated/models';
-import { demoMode } from '@/api/queries';
+import { demoMode, usePracticeGoals } from '@/api/queries';
 import { IconChevronDown, IconChevronUp } from '@tabler/icons-react';
 import type { ColumnDef, Row } from '@tanstack/react-table';
 import { useState, type ReactNode } from 'react';
@@ -19,31 +20,25 @@ import {
 import { ExternalLink } from '@/components/ExternalLink';
 import { RichTextContent } from '@/components/RichTextContent';
 import { Spoiler } from '@/components/Spoiler';
-import { cn } from '@/lib/utils';
 import { recentDateFilterOptions, withinRecentDays } from '@/tableFilters';
 import type { Attempt, Difficulty } from '@/types';
-import { difficultyGoal, formatDate, outcomeLabel } from '@/utils';
+import { formatDate, outcomeLabel } from '@/utils';
 
-const badgeClass = 'rounded-sm font-semibold';
-const outcomeTone = {
-  success: 'border-transparent bg-success-soft text-success',
-  warning: 'border-transparent bg-warning-soft text-warning',
-  danger: 'border-transparent bg-destructive-soft text-destructive',
-};
-const difficultyTone: Record<Difficulty, string> = {
-  Easy: outcomeTone.success,
-  Medium: outcomeTone.warning,
-  Hard: outcomeTone.danger,
+const difficultyTone: Record<Difficulty, BadgeTone> = {
+  Easy: 'success',
+  Medium: 'warning',
+  Hard: 'danger',
 };
 
 /** Minutes taken, highlighted when within the difficulty's practice goal. */
 function AttemptTime({ attempt }: { attempt: Attempt }) {
+  const goals = usePracticeGoals();
   return (
     <span
       className={
         attempt.difficulty &&
         attempt.minutes !== null &&
-        attempt.minutes <= difficultyGoal(attempt.difficulty)
+        attempt.minutes <= goals[attempt.difficulty]
           ? 'font-semibold text-success'
           : undefined
       }
@@ -62,11 +57,8 @@ const outcomeFilterOptions = (['solved', 'unsolved'] as const).map((value) => ({
 }));
 
 /** Solved reads green and Unsolved red. */
-function outcomeClass(outcome: Attempt['outcome']) {
-  return cn(
-    badgeClass,
-    outcome === 'solved' ? outcomeTone.success : outcomeTone.danger,
-  );
+function outcomeTone(outcome: Attempt['outcome']): BadgeTone {
+  return outcome === 'solved' ? 'success' : 'danger';
 }
 
 const baseColumns: ColumnDef<Attempt, any>[] = [
@@ -102,12 +94,9 @@ const baseColumns: ColumnDef<Attempt, any>[] = [
     meta: { width: 6.5, filterOptions: difficultyFilterOptions },
     filterFn: 'equalsString',
     cell: ({ getValue }) => (
-      <Badge
-        variant="outline"
-        className={cn(badgeClass, difficultyTone[getValue() as Difficulty])}
-      >
+      <StatusBadge tone={difficultyTone[getValue() as Difficulty]}>
         {getValue()}
-      </Badge>
+      </StatusBadge>
     ),
   },
   {
@@ -116,9 +105,9 @@ const baseColumns: ColumnDef<Attempt, any>[] = [
     meta: { width: 6.5, filterOptions: outcomeFilterOptions },
     filterFn: 'equalsString',
     cell: ({ getValue }) => (
-      <Badge variant="outline" className={outcomeClass(getValue())}>
+      <StatusBadge tone={outcomeTone(getValue())}>
         {outcomeLabel(getValue())}
-      </Badge>
+      </StatusBadge>
     ),
   },
   {
@@ -298,22 +287,14 @@ export function AttemptTable({
       renderCard={(row) => (
         <div>
           <div className="flex flex-wrap items-center gap-2.5">
-            <Badge
-              variant="outline"
-              className={cn(
-                badgeClass,
-                row.original.difficulty &&
-                  difficultyTone[row.original.difficulty],
-              )}
-            >
-              {row.original.difficulty}
-            </Badge>
-            <Badge
-              variant="outline"
-              className={outcomeClass(row.original.outcome)}
-            >
+            {row.original.difficulty ? (
+              <StatusBadge tone={difficultyTone[row.original.difficulty]}>
+                {row.original.difficulty}
+              </StatusBadge>
+            ) : null}
+            <StatusBadge tone={outcomeTone(row.original.outcome)}>
               {outcomeLabel(row.original.outcome)}
-            </Badge>
+            </StatusBadge>
             <div className="ml-auto">{reviewCell(row.original)}</div>
           </div>
           <h3 className="mt-3 text-base font-semibold tracking-tight">

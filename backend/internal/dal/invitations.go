@@ -4,7 +4,7 @@ import (
 	"context"
 	"github.com/jackc/pgx/v5"
 	"github.com/magedmg/RSP-website/backend/internal/platform/id"
-	"github.com/magedmg/RSP-website/backend/internal/programme"
+	"github.com/magedmg/RSP-website/backend/internal/program"
 	"time"
 )
 
@@ -12,8 +12,8 @@ const invitationColumns = `i.id,i.season_id,s.name,s.slug,i.name,i.email,i.role:
  CASE WHEN i.accepted_at IS NOT NULL THEN 'accepted' WHEN i.cancelled_at IS NOT NULL THEN 'cancelled' WHEN i.expires_at<=now() THEN 'expired' ELSE 'pending' END,
  i.expires_at,i.sent_at,i.delivery_id`
 
-func scanInvitation(row pgx.Row) (programme.Invitation, error) {
-	var v programme.Invitation
+func scanInvitation(row pgx.Row) (program.Invitation, error) {
+	var v program.Invitation
 	err := row.Scan(&v.ID, &v.SeasonID, &v.SeasonName, &v.SeasonSlug, &v.Name, &v.Email, &v.Role, &v.Status, &v.ExpiresAt, &v.SentAt, &v.DeliveryID)
 	return v, noRows(err)
 }
@@ -31,7 +31,7 @@ func lockOpenSeason(ctx context.Context, tx pgx.Tx, seasonID string) error {
 	return nil
 }
 
-func (p *Store) ListInvitations(ctx context.Context, seasonID, boundary string, limit int) ([]programme.Invitation, bool, int64, error) {
+func (p *Store) ListInvitations(ctx context.Context, seasonID, boundary string, limit int) ([]program.Invitation, bool, int64, error) {
 	var total int64
 	if err := p.pool.QueryRow(ctx, `SELECT count(*) FROM app.season_invitations WHERE season_id=$1`, seasonID).Scan(&total); err != nil {
 		return nil, false, 0, err
@@ -41,7 +41,7 @@ func (p *Store) ListInvitations(ctx context.Context, seasonID, boundary string, 
 		return nil, false, 0, err
 	}
 	defer rows.Close()
-	items := []programme.Invitation{}
+	items := []program.Invitation{}
 	for rows.Next() {
 		v, err := scanInvitation(rows)
 		if err != nil {
@@ -53,7 +53,7 @@ func (p *Store) ListInvitations(ctx context.Context, seasonID, boundary string, 
 	return items, more, total, rows.Err()
 }
 
-func (p *Store) CreateInvitation(ctx context.Context, v programme.Invitation, hash, actorID string, at time.Time) (programme.Invitation, error) {
+func (p *Store) CreateInvitation(ctx context.Context, v program.Invitation, hash, actorID string, at time.Time) (program.Invitation, error) {
 	tx, err := p.pool.Begin(ctx)
 	if err != nil {
 		return v, err
@@ -82,14 +82,14 @@ func (p *Store) CreateInvitation(ctx context.Context, v programme.Invitation, ha
 	return v, tx.Commit(ctx)
 }
 
-func (p *Store) ChangeInvitation(ctx context.Context, seasonID, inviteID, hash, deliveryID, actorID string, cancel bool, at time.Time) (programme.Invitation, error) {
+func (p *Store) ChangeInvitation(ctx context.Context, seasonID, inviteID, hash, deliveryID, actorID string, cancel bool, at time.Time) (program.Invitation, error) {
 	tx, err := p.pool.Begin(ctx)
 	if err != nil {
-		return programme.Invitation{}, err
+		return program.Invitation{}, err
 	}
 	defer tx.Rollback(context.Background())
 	if err = lockOpenSeason(ctx, tx, seasonID); err != nil {
-		return programme.Invitation{}, err
+		return program.Invitation{}, err
 	}
 	v, err := scanInvitation(tx.QueryRow(ctx, `SELECT `+invitationColumns+` FROM app.season_invitations i JOIN app.seasons s ON s.id=i.season_id WHERE i.id=$1 AND i.season_id=$2 AND i.accepted_at IS NULL AND i.cancelled_at IS NULL FOR UPDATE OF i`, inviteID, seasonID))
 	if err != nil {
@@ -120,29 +120,29 @@ func (p *Store) MarkInvitationSent(ctx context.Context, inviteID, deliveryID str
 	return err
 }
 
-func (p *Store) InvitationForUser(ctx context.Context, hash, userID string) (programme.Invitation, error) {
+func (p *Store) InvitationForUser(ctx context.Context, hash, userID string) (program.Invitation, error) {
 	return scanInvitation(p.pool.QueryRow(ctx, `SELECT `+invitationColumns+` FROM app.season_invitations i JOIN app.seasons s ON s.id=i.season_id JOIN app.user_contacts c ON lower(c.email)=i.email JOIN app.users u ON u.id=c.user_id
  WHERE i.token_hash=$1 AND c.user_id=$2 AND u.account_state='active' AND u.deleted_at IS NULL AND i.expires_at>now() AND i.accepted_at IS NULL AND i.cancelled_at IS NULL AND s.deleted_at IS NULL`, hash, userID))
 }
-func (p *Store) AcceptInvitation(ctx context.Context, hash, userID string, at time.Time) (programme.EnrollmentRecord, error) {
+func (p *Store) AcceptInvitation(ctx context.Context, hash, userID string, at time.Time) (program.EnrollmentRecord, error) {
 	v, err := p.InvitationForUser(ctx, hash, userID)
 	if err != nil {
-		return programme.EnrollmentRecord{}, err
+		return program.EnrollmentRecord{}, err
 	}
 	tx, err := p.pool.Begin(ctx)
 	if err != nil {
-		return programme.EnrollmentRecord{}, err
+		return program.EnrollmentRecord{}, err
 	}
 	defer tx.Rollback(context.Background())
 	if err = lockOpenSeason(ctx, tx, v.SeasonID); err != nil {
-		return programme.EnrollmentRecord{}, err
+		return program.EnrollmentRecord{}, err
 	}
 	var inviteID string
 	err = tx.QueryRow(ctx, `SELECT i.id FROM app.season_invitations i JOIN app.user_contacts c ON lower(c.email)=i.email JOIN app.users u ON u.id=c.user_id WHERE i.token_hash=$1 AND c.user_id=$2 AND u.account_state='active' AND u.deleted_at IS NULL AND i.expires_at>$3 AND i.accepted_at IS NULL AND i.cancelled_at IS NULL FOR UPDATE OF i,c,u`, hash, userID, at).Scan(&inviteID)
 	if err != nil {
-		return programme.EnrollmentRecord{}, noRows(err)
+		return program.EnrollmentRecord{}, noRows(err)
 	}
-	member := programme.EnrollmentRecord{ID: id.New(), SeasonID: v.SeasonID, SeasonSlug: v.SeasonSlug, UserID: userID, Role: v.Role, State: "active", StudentLevel: "not_applicable", AssignmentState: "active"}
+	member := program.EnrollmentRecord{ID: id.New(), SeasonID: v.SeasonID, SeasonSlug: v.SeasonSlug, UserID: userID, Role: v.Role, State: "active", StudentLevel: "not_applicable", AssignmentState: "active"}
 	if member.Role == "student" {
 		member.StudentLevel = "novice"
 	}

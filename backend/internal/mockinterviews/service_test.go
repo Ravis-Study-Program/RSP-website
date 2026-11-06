@@ -89,7 +89,7 @@ func TestParticipantEligibility(t *testing.T) {
 		}
 	}
 	former := accounts.MemberStatus{UserID: "former", FormerMember: true}
-	if !former.CanBeMockInterviewParticipant() || !former.CanAccessProgramme() {
+	if !former.CanBeMockInterviewParticipant() || !former.CanAccessProgram() {
 		t.Fatalf("former member target/caller eligibility was not separated: %#v", former)
 	}
 }

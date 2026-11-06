@@ -11,7 +11,7 @@ var (
 	ErrNotFound              = errors.New("not found")
 	ErrConflict              = errors.New("conflict")
 	ErrDuplicate             = errors.New("duplicate")
-	ErrMondayUpdateWeek      = errors.New("updates must match a configured programme week")
+	ErrMondayUpdateWeek      = errors.New("updates must match a configured program week")
 	ErrMondayUpdateSubmitted = errors.New("you have already submitted an update for this week")
 )
 

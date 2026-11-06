@@ -7,7 +7,7 @@ import (
 
 	"github.com/magedmg/RSP-website/backend/internal/dal"
 	"github.com/magedmg/RSP-website/backend/internal/platform/id"
-	"github.com/magedmg/RSP-website/backend/internal/programme"
+	"github.com/magedmg/RSP-website/backend/internal/program"
 )
 
 func (a *API) listMentorships(w http.ResponseWriter, r *http.Request) {
@@ -59,14 +59,14 @@ func (a *API) listMentorships(w http.ResponseWriter, r *http.Request) {
 
 	pageInfo, err := pageInfoForKeyset(
 		a.cursorSecret, binding, direction, boundary, items, more,
-		func(mentorship programme.MentorshipRecord) string { return mentorship.ID },
+		func(mentorship program.MentorshipRecord) string { return mentorship.ID },
 	)
 	if err != nil {
 		a.logger.Error("cursor encoding failed", "error", err)
 		writeErrorResponse(w, http.StatusInternalServerError, "The request could not be completed.")
 		return
 	}
-	response := Page[programme.MentorshipRecord]{
+	response := Page[program.MentorshipRecord]{
 		Items:      items,
 		PageInfo:   pageInfo,
 		TotalCount: total,
@@ -116,7 +116,7 @@ func (a *API) createMentorship(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	mentorship := programme.MentorshipRecord{
+	mentorship := program.MentorshipRecord{
 		ID:            id.New(),
 		SeasonID:      r.PathValue("id"),
 		MentorUserID:  request.MentorUserID,

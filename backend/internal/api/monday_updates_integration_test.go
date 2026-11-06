@@ -13,7 +13,7 @@ import (
 
 	"github.com/magedmg/RSP-website/backend/internal/authz"
 	"github.com/magedmg/RSP-website/backend/internal/dal"
-	"github.com/magedmg/RSP-website/backend/internal/programme"
+	"github.com/magedmg/RSP-website/backend/internal/program"
 )
 
 const (
@@ -27,7 +27,7 @@ const (
 
 // mondayTestDate offsets from the last completed Sunday in Adelaide.
 func mondayTestDate(offsetDays int) string {
-	end, _ := time.Parse(time.DateOnly, programme.CurrentMondayUpdateWeekEnd(time.Now()))
+	end, _ := time.Parse(time.DateOnly, program.CurrentMondayUpdateWeekEnd(time.Now()))
 	return end.AddDate(0, 0, offsetDays-7).Format(time.DateOnly)
 }
 
@@ -102,33 +102,33 @@ func mondayReviewQuery(extra string) string {
 	return mondayReviewPath() + "?startDate=" + mondayTestDate(-1) + "&endDate=" + mondayTestDate(0) + extra
 }
 
-func createMondayUpdateFor(t *testing.T, fixture postgresFixture, actor, content string) programme.MondayUpdateRecord {
+func createMondayUpdateFor(t *testing.T, fixture postgresFixture, actor, content string) program.MondayUpdateRecord {
 	t.Helper()
 	return createMondayUpdateRange(t, fixture, actor, mondayTestDate(-6), mondayTestDate(0), content)
 }
 
-func createMondayUpdateRange(t *testing.T, fixture postgresFixture, actor, startDate, endDate, content string) programme.MondayUpdateRecord {
+func createMondayUpdateRange(t *testing.T, fixture postgresFixture, actor, startDate, endDate, content string) program.MondayUpdateRecord {
 	t.Helper()
 	response := testRequest(t, fixture.handler, http.MethodPost, mondayUpdatesPath(), actor,
 		`{"startDate":"`+startDate+`","endDate":"`+endDate+`","contentHtml":"`+content+`","hours":12.5}`)
 	if response.Code != http.StatusCreated {
 		t.Fatalf("create status=%d body=%s", response.Code, response.Body)
 	}
-	var created programme.MondayUpdateRecord
+	var created program.MondayUpdateRecord
 	if err := json.Unmarshal(response.Body.Bytes(), &created); err != nil {
 		t.Fatal(err)
 	}
 	return created
 }
 
-func listMondayUpdates(t *testing.T, fixture postgresFixture, actor, extra string) Page[programme.MondayUpdateRecord] {
+func listMondayUpdates(t *testing.T, fixture postgresFixture, actor, extra string) Page[program.MondayUpdateRecord] {
 	t.Helper()
 	path := mondayUpdatesPath() + "?startDate=" + mondayTestDate(-1) + "&endDate=" + mondayTestDate(0) + extra
 	response := testRequest(t, fixture.handler, http.MethodGet, path, actor, "")
 	if response.Code != http.StatusOK {
 		t.Fatalf("list status=%d body=%s", response.Code, response.Body)
 	}
-	var page Page[programme.MondayUpdateRecord]
+	var page Page[program.MondayUpdateRecord]
 	if err := json.Unmarshal(response.Body.Bytes(), &page); err != nil {
 		t.Fatal(err)
 	}
@@ -217,7 +217,7 @@ func TestMondayUpdateMentorScopeAndMarkUpsert(t *testing.T) {
 	if response.Code != http.StatusOK {
 		t.Fatalf("mark status=%d body=%s", response.Code, response.Body)
 	}
-	var first programme.MondayUpdateMarkRecord
+	var first program.MondayUpdateMarkRecord
 	if err := json.Unmarshal(response.Body.Bytes(), &first); err != nil {
 		t.Fatal(err)
 	}
@@ -233,7 +233,7 @@ func TestMondayUpdateMentorScopeAndMarkUpsert(t *testing.T) {
 	if response.Code != http.StatusOK {
 		t.Fatalf("second mark status=%d body=%s", response.Code, response.Body)
 	}
-	var second programme.MondayUpdateMarkRecord
+	var second program.MondayUpdateMarkRecord
 	if err := json.Unmarshal(response.Body.Bytes(), &second); err != nil {
 		t.Fatal(err)
 	}
@@ -282,7 +282,7 @@ func TestMondayUpdateReviewAuthorizationAndRows(t *testing.T) {
 	if response.Code != http.StatusOK {
 		t.Fatalf("review status=%d body=%s", response.Code, response.Body)
 	}
-	var page Page[programme.MondayUpdateReviewRow]
+	var page Page[program.MondayUpdateReviewRow]
 	if err := json.Unmarshal(response.Body.Bytes(), &page); err != nil {
 		t.Fatal(err)
 	}
@@ -312,7 +312,7 @@ func TestMondayUpdateReviewAuthorizationAndRows(t *testing.T) {
 	if response.Code != http.StatusOK {
 		t.Fatalf("first page status=%d body=%s", response.Code, response.Body)
 	}
-	var firstPage Page[programme.MondayUpdateReviewRow]
+	var firstPage Page[program.MondayUpdateReviewRow]
 	if err := json.Unmarshal(response.Body.Bytes(), &firstPage); err != nil {
 		t.Fatal(err)
 	}
@@ -323,7 +323,7 @@ func TestMondayUpdateReviewAuthorizationAndRows(t *testing.T) {
 	if response.Code != http.StatusOK {
 		t.Fatalf("second page status=%d body=%s", response.Code, response.Body)
 	}
-	var secondPage Page[programme.MondayUpdateReviewRow]
+	var secondPage Page[program.MondayUpdateReviewRow]
 	if err := json.Unmarshal(response.Body.Bytes(), &secondPage); err != nil {
 		t.Fatal(err)
 	}
@@ -502,7 +502,7 @@ func TestMondayUpdateRangeActivityBoundsAndOwnership(t *testing.T) {
 	if response.Code != http.StatusOK {
 		t.Fatalf("status=%d body=%s", response.Code, response.Body)
 	}
-	var activity programme.MondayUpdateActivity
+	var activity program.MondayUpdateActivity
 	if err := json.Unmarshal(response.Body.Bytes(), &activity); err != nil {
 		t.Fatal(err)
 	}
@@ -527,7 +527,7 @@ func TestMondayUpdateFixedWeeksAndConcurrentSubmission(t *testing.T) {
 	body := func(start, end string) string {
 		return `{"startDate":"` + start + `","endDate":"` + end + `","contentHtml":"<p>Weekly progress</p>","hours":30}`
 	}
-	// Completed dates outside the configured programme cannot be posted.
+	// Completed dates outside the configured program cannot be posted.
 	response := testRequest(t, fixture.handler, http.MethodPost, mondayUpdatesPath(), "student", body(mondayTestDate(-20), mondayTestDate(-14)))
 	if response.Code != http.StatusBadRequest {
 		t.Fatalf("unconfigured week: %d %s", response.Code, response.Body)

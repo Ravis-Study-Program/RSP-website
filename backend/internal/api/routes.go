@@ -9,7 +9,7 @@ import (
 func registerRoutes(mux *http.ServeMux, a *API) {
 	registerSystemRoutes(mux, a)
 	registerAccountRoutes(mux, a)
-	registerProgrammeRoutes(mux, a)
+	registerProgramRoutes(mux, a)
 	registerPracticeRoutes(mux, a)
 	registerMockInterviewRoutes(mux, a)
 	registerAdminRoutes(mux, a)
@@ -37,7 +37,7 @@ func registerAccountRoutes(mux *http.ServeMux, a *API) {
 	mux.HandleFunc("DELETE /api/v2/admin/users/{id}/global-roles/{role}", a.protected(ratelimit.Sensitive, a.revokeUserGlobalRole))
 }
 
-func registerProgrammeRoutes(mux *http.ServeMux, a *API) {
+func registerProgramRoutes(mux *http.ServeMux, a *API) {
 	mux.HandleFunc("GET /api/v2/seasons/{id}/invitations", a.protected(ratelimit.Read, a.listInvitations))
 	mux.HandleFunc("POST /api/v2/seasons/{id}/invitations", a.protected(ratelimit.Sensitive, a.createInvitation))
 	mux.HandleFunc("POST /api/v2/seasons/{id}/invitations/{invitationId}/resend", a.protected(ratelimit.Sensitive, a.resendInvitation))
@@ -80,6 +80,7 @@ func registerProgrammeRoutes(mux *http.ServeMux, a *API) {
 func registerPracticeRoutes(mux *http.ServeMux, a *API) {
 	mux.HandleFunc("GET /api/v2/me/practice-settings", a.protected(ratelimit.Read, a.getCurrentUserPracticeSettings))
 	mux.HandleFunc("GET /api/v2/users/{id}/practice-settings", a.protected(ratelimit.Read, a.getUserPracticeSettings))
+	mux.HandleFunc("PUT /api/v2/practice-settings", a.protected(ratelimit.Write, a.updatePracticeSettings))
 	mux.HandleFunc("GET /api/v2/me/problem-suggestion", a.protected(ratelimit.Read, a.suggestProblem))
 	mux.HandleFunc("GET /api/v2/leetcode-problems", a.protected(ratelimit.Read, a.listLeetCodeProblems))
 	mux.HandleFunc("GET /api/v2/leetcode-categories", a.protected(ratelimit.Read, a.listLeetCodeCategories))

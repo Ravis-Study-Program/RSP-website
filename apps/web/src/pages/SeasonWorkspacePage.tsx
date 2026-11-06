@@ -1,4 +1,4 @@
-import { Badge } from '@/components/ui/badge';
+import { StatusBadge } from '@/components/StatusBadge';
 import { buttonVariants } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import {
@@ -71,7 +71,7 @@ export function SeasonWorkspacePage() {
     return (
       <div className={pageClass}>
         <ErrorState
-          title="Season not found"
+          title="Season Not Found"
           message="This season may have moved or you may not have access."
         />
       </div>
@@ -124,9 +124,12 @@ export function SeasonWorkspacePage() {
       <PageHeader
         title={season.name}
         status={
-          <Badge variant="outline" className="h-7 rounded-md px-2.5 text-sm">
+          <StatusBadge
+            tone={season.status === 'open' ? 'success' : 'muted'}
+            className="h-7 px-2.5 text-sm"
+          >
             {season.status === 'open' ? 'Open' : 'Closed'}
-          </Badge>
+          </StatusBadge>
         }
         actions={
           canEditDefinition || canEditResources || canClose || canReopen ? (
@@ -166,7 +169,7 @@ export function SeasonWorkspacePage() {
           }
         />
         <MetricCard
-          label="Programme Weeks"
+          label="Program Weeks"
           value={weeks.data?.totalCount ?? '—'}
           detail={`${formatDate(season.startsAt)} – ${formatDate(season.endsAt)}`}
         />
@@ -183,7 +186,7 @@ export function SeasonWorkspacePage() {
       </div>
       {activity.isError ? (
         <ErrorState
-          title="Activity totals unavailable"
+          title="Activity Totals Unavailable"
           onRetry={() => void activity.refetch()}
         />
       ) : null}
@@ -191,7 +194,7 @@ export function SeasonWorkspacePage() {
         <section className={sectionClass} aria-labelledby="schedule-title">
           <div className="mb-3 flex items-center justify-between gap-4">
             <h2 id="schedule-title" className={sectionTitleClass}>
-              Programme schedule
+              Program Schedule
             </h2>
             <Link
               to={`/seasons/${season.slug}/leetcode`}
@@ -203,11 +206,11 @@ export function SeasonWorkspacePage() {
           <Card>
             <CardContent>
               {weeks.isLoading ? (
-                <p role="status">Loading programme weeks…</p>
+                <p role="status">Loading program weeks…</p>
               ) : weeks.isError ? (
                 <ErrorState
-                  title="Schedule unavailable"
-                  message="The programme schedule could not be loaded."
+                  title="Schedule Unavailable"
+                  message="The program schedule could not be loaded."
                   onRetry={() => void weeks.refetch()}
                 />
               ) : orderedWeeks.length === 0 ? (
@@ -234,7 +237,7 @@ export function SeasonWorkspacePage() {
                             Week {week.number}
                           </h3>
                           {week.id === currentWeek?.id ? (
-                            <Badge variant="secondary">Current week</Badge>
+                            <StatusBadge>Current week</StatusBadge>
                           ) : null}
                         </div>
                         <p className="text-sm">

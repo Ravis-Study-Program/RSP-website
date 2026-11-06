@@ -14,7 +14,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/magedmg/RSP-website/backend/internal/platform/id"
-	"github.com/magedmg/RSP-website/backend/internal/programme"
+	"github.com/magedmg/RSP-website/backend/internal/program"
 )
 
 func mondayFixtureID(number int) string {
@@ -148,7 +148,7 @@ func countedMondayStore(t *testing.T, db *Store) (*Store, *mondayQueryCounter) {
 	return store, counter
 }
 
-func mondayRecordIDs(items []programme.MondayUpdateRecord) []string {
+func mondayRecordIDs(items []program.MondayUpdateRecord) []string {
 	ids := make([]string, len(items))
 	for i := range items {
 		ids[i] = items[i].ID
@@ -156,7 +156,7 @@ func mondayRecordIDs(items []programme.MondayUpdateRecord) []string {
 	return ids
 }
 
-func mondayAttemptIDs(attempts []programme.MondayUpdateAttempt) []string {
+func mondayAttemptIDs(attempts []program.MondayUpdateAttempt) []string {
 	ids := make([]string, len(attempts))
 	for i := range attempts {
 		ids[i] = attempts[i].ID
@@ -164,7 +164,7 @@ func mondayAttemptIDs(attempts []programme.MondayUpdateAttempt) []string {
 	return ids
 }
 
-func mondayMockIDs(mocks []programme.MondayUpdateMock) []string {
+func mondayMockIDs(mocks []program.MondayUpdateMock) []string {
 	ids := make([]string, len(mocks))
 	for i := range mocks {
 		ids[i] = mocks[i].ID
@@ -189,7 +189,7 @@ func TestMondayUpdateListSelectionAndActivity(t *testing.T) {
 	if ids := mondayRecordIDs(items); !slices.Equal(ids, []string{mondayFixtureID(84), mondayFixtureID(81)}) {
 		t.Fatalf("ids=%v", ids)
 	}
-	byID := make(map[string]programme.MondayUpdateRecord, len(items))
+	byID := make(map[string]program.MondayUpdateRecord, len(items))
 	for _, item := range items {
 		byID[item.ID] = item
 	}
@@ -234,7 +234,7 @@ func TestMondayUpdateListSelectionAndActivity(t *testing.T) {
 		t.Fatalf("detail=%+v error=%v", detail, err)
 	}
 	row, err := db.GetMondayUpdate(ctx, mondayFixtureID(11), mondayFixtureID(84))
-	if err != nil || !reflect.DeepEqual(row.Marks, []programme.MondayUpdateMarkRecord{}) || len(row.Activity.Attempts) != 0 || len(row.Activity.Mocks) != 0 {
+	if err != nil || !reflect.DeepEqual(row.Marks, []program.MondayUpdateMarkRecord{}) || len(row.Activity.Attempts) != 0 || len(row.Activity.Mocks) != 0 {
 		t.Fatalf("row=%+v error=%v", row, err)
 	}
 	if _, err := db.GetMondayUpdate(ctx, mondayFixtureID(84), mondayFixtureID(84)); !errors.Is(err, ErrNotFound) {
@@ -333,13 +333,13 @@ func TestMondayUpdateReviewCountsAndDedup(t *testing.T) {
 	// Every enrolled student appears, ordered by display name.
 	if items[0].Student.ID != mondayFixtureID(1) || items[0].Student.Name != "Ada Lovelace" ||
 		items[1].Student.ID != mondayFixtureID(2) || items[1].Student.Name != "Ben Bell" {
-		t.Fatalf("items=%+v", []programme.PersonSummary{items[0].Student, items[1].Student})
+		t.Fatalf("items=%+v", []program.PersonSummary{items[0].Student, items[1].Student})
 	}
 	ada := items[0]
 	// Solved-only (independently solved or unknown; solving with hints does not
 	// count), and deduplicated across Ada's two overlapping updates: the
 	// 2026-03-03 attempt falls inside both, so easy would be 4 without DISTINCT.
-	if ada.LeetCodeCounts != (programme.MondayUpdateDifficultyCounts{Easy: 3, Medium: 0, Hard: 1}) {
+	if ada.LeetCodeCounts != (program.MondayUpdateDifficultyCounts{Easy: 3, Medium: 0, Hard: 1}) {
 		t.Fatalf("counts=%+v", ada.LeetCodeCounts)
 	}
 	if ada.MockCount != 2 || ada.UpdateCount != 2 {
@@ -362,7 +362,7 @@ func TestMondayUpdateReviewCountsAndDedup(t *testing.T) {
 	// A student with no update in the range still gets a row, with no activity
 	// counted even though they were active inside the selected range.
 	ben := items[1]
-	if ben.UpdateCount != 0 || ben.MockCount != 0 || ben.LeetCodeCounts != (programme.MondayUpdateDifficultyCounts{}) {
+	if ben.UpdateCount != 0 || ben.MockCount != 0 || ben.LeetCodeCounts != (program.MondayUpdateDifficultyCounts{}) {
 		t.Fatalf("ben=%+v", ben)
 	}
 	if ben.Updates == nil || len(ben.Updates) != 0 {
@@ -405,10 +405,10 @@ func TestMondayUpdateLifecycle(t *testing.T) {
 		VALUES($1,1,'2026-03-09T00:00:00+10:30','2026-03-15T23:59:59+10:30')`, mondayFixtureID(11)); err != nil {
 		t.Fatal(err)
 	}
-	created, err := db.CreateMondayUpdate(ctx, programme.MondayUpdateRecord{
+	created, err := db.CreateMondayUpdate(ctx, program.MondayUpdateRecord{
 		ID:          id.New(),
 		SeasonID:    mondayFixtureID(11),
-		Student:     programme.PersonSummary{ID: actor},
+		Student:     program.PersonSummary{ID: actor},
 		StartDate:   "2026-03-09",
 		EndDate:     "2026-03-15",
 		ContentHTML: "<p>Fresh</p>",
@@ -428,10 +428,10 @@ func TestMondayUpdateLifecycle(t *testing.T) {
 		t.Fatalf("marks=%+v", created.Marks)
 	}
 
-	mark := programme.MondayUpdateMarkRecord{
+	mark := program.MondayUpdateMarkRecord{
 		ID:          id.New(),
 		UpdateID:    mondayFixtureID(84),
-		Mentor:      programme.PersonSummary{ID: mondayFixtureID(3)},
+		Mentor:      program.PersonSummary{ID: mondayFixtureID(3)},
 		Mark:        "doing_good",
 		CommentHTML: "<p>Nice</p>",
 	}
@@ -452,10 +452,10 @@ func TestMondayUpdateLifecycle(t *testing.T) {
 	if second.ID != first.ID || second.Mark != "at_risk" || second.CommentHTML != "<p>Watch this</p>" {
 		t.Fatalf("second mark=%+v first=%+v", second, first)
 	}
-	third, err := db.UpsertMondayUpdateMark(ctx, programme.MondayUpdateMarkRecord{
+	third, err := db.UpsertMondayUpdateMark(ctx, program.MondayUpdateMarkRecord{
 		ID:       id.New(),
 		UpdateID: mondayFixtureID(84),
-		Mentor:   programme.PersonSummary{ID: mondayFixtureID(4)},
+		Mentor:   program.PersonSummary{ID: mondayFixtureID(4)},
 		Mark:     "way_ahead",
 	}, mondayFixtureID(4))
 	if err != nil {

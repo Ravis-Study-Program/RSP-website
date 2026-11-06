@@ -9,14 +9,14 @@ test('practice charts follow filters and the picker accepts keyboard search', as
     page.getByRole('heading', { name: 'LeetCode Practice' }),
   ).toBeVisible();
   await expect(
-    page.getByRole('heading', { name: 'Difficulty breakdown' }),
+    page.getByRole('heading', { name: 'Difficulty Breakdown' }),
   ).toBeVisible();
   await expect(
-    page.getByRole('heading', { name: 'Time by difficulty' }),
+    page.getByRole('heading', { name: 'Time by Difficulty' }),
   ).toBeVisible();
   await page
     .getByRole('checkbox', {
-      name: 'Show practice goals (20 / 35 / 50 minutes)',
+      name: 'Show practice goals (10 / 25 / 40 minutes)',
     })
     .uncheck();
   await page
@@ -49,7 +49,7 @@ test('profiles show all-time activity in the same tables as the dedicated pages'
   await expect(page.getByLabel('View activity')).toHaveCount(0);
   await expect(page.getByLabel(/^Season 25\/26/)).toBeVisible();
   await expect(
-    page.getByRole('heading', { name: 'Programme participation' }),
+    page.getByRole('heading', { name: 'Program participation' }),
   ).toHaveCount(0);
   // The LeetCode table is the LeetCode page's, read-only, and someone
   // else's notes stay private.
@@ -146,7 +146,7 @@ test('administrators create, resend and cancel season invitations', async ({
   );
   await page.goto('/admin/enrollments');
   await page.getByRole('button', { name: 'Invite a member' }).click();
-  const dialog = page.getByRole('dialog', { name: 'Invite a member' });
+  const dialog = page.getByRole('dialog', { name: 'Invite a Member' });
   await dialog.getByLabel('Name', { exact: true }).fill('Invited member');
   await dialog
     .getByLabel('Email', { exact: true })
@@ -218,7 +218,7 @@ test('administrators can correct the person attached to an enrollment', async ({
     .filter({ visible: true })
     .first()
     .click();
-  const dialog = page.getByRole('dialog', { name: /Correct enrollment for/ });
+  const dialog = page.getByRole('dialog', { name: /Correct Enrollment for/ });
   await expect(dialog.getByLabel('Correct person')).toBeEnabled();
   await chooseOption(dialog, 'Correct person', 'Priya Singh (priya-singh)');
   await dialog.getByRole('button', { name: 'Save correction' }).click();
@@ -274,7 +274,7 @@ test('administrators delete empty seasons and retain populated seasons', async (
   await confirmation.getByRole('button', { name: 'Cancel' }).click();
 
   await page.getByRole('button', { name: 'Create season' }).click();
-  const create = page.getByRole('dialog', { name: 'Create season' });
+  const create = page.getByRole('dialog', { name: 'Create Season' });
   await create.getByLabel('Name').fill('Empty test season');
   await create.getByLabel('URL slug').fill('empty-test-season');
   await create.getByLabel('Location').fill('Test campus');

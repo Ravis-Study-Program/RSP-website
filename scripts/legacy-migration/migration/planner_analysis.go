@@ -8,7 +8,7 @@ func analyzeSnapshot(snapshot Snapshot) []Anomaly {
 	result := make([]Anomaly, 0)
 	result = append(result, analyzeSourceKeys(snapshot)...)
 	result = append(result, analyzeUsers(snapshot)...)
-	result = append(result, analyzeProgramme(snapshot)...)
+	result = append(result, analyzeProgram(snapshot)...)
 	result = append(result, analyzePractice(snapshot)...)
 	result = append(result, analyzeMockInterviews(snapshot)...)
 	result = append(result, analyzeRemovalEvents(snapshot)...)
@@ -87,7 +87,7 @@ func analyzeUsers(snapshot Snapshot) []Anomaly {
 	return result
 }
 
-func analyzeProgramme(snapshot Snapshot) []Anomaly {
+func analyzeProgram(snapshot Snapshot) []Anomaly {
 	result := make([]Anomaly, 0)
 	users := indexRows(snapshot, "User")
 	seasons := indexRows(snapshot, "Season")

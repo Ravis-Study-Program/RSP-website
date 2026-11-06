@@ -1,4 +1,4 @@
-import { practiceGoalMinutes } from '@/utils';
+import type { PracticeGoals } from '@/utils';
 import type { Attempt, Difficulty } from '@/types';
 
 export function difficultyBreakdown(attempts: Attempt[]) {
@@ -15,7 +15,11 @@ export function difficultyBreakdown(attempts: Attempt[]) {
  * Per-difficulty counts and successes, where a success is an attempt solved
  * independently within that difficulty's practice goal.
  */
-export function difficultySuccessRates(attempts: Attempt[]) {
+/** A success is a solved attempt within its difficulty's goal. */
+export function difficultySuccessRates(
+  attempts: Attempt[],
+  goals: PracticeGoals,
+) {
   return (['Easy', 'Medium', 'Hard'] as Difficulty[]).map((difficulty) => {
     const matching = attempts.filter((a) => a.difficulty === difficulty);
     return {
@@ -25,7 +29,7 @@ export function difficultySuccessRates(attempts: Attempt[]) {
         (a) =>
           a.outcome === 'solved' &&
           a.minutes !== null &&
-          a.minutes <= practiceGoalMinutes[difficulty],
+          a.minutes <= goals[difficulty],
       ).length,
     };
   });

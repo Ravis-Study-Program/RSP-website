@@ -6,7 +6,7 @@ import (
 	_ "time/tzdata"
 )
 
-var programmeTimezone = func() *time.Location {
+var programTimezone = func() *time.Location {
 	zone, err := time.LoadLocation("Australia/Adelaide")
 	if err != nil {
 		panic(err)

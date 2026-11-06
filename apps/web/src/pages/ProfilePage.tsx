@@ -1,4 +1,5 @@
-import { Badge } from '@/components/ui/badge';
+import { statusTone } from '@/badgeTones';
+import { StatusBadge } from '@/components/StatusBadge';
 import { cn } from '@/lib/utils';
 import {
   Field,
@@ -47,8 +48,6 @@ const pageClass = 'mx-auto w-full max-w-[92rem]';
 const formClass = 'flex flex-col gap-4';
 const inlineClass = 'flex flex-wrap items-center gap-2.5';
 const dialogActionsClass = 'mt-5 flex justify-end gap-2.5';
-const badgeSuccessClass = 'bg-success-soft text-success';
-const badgeNeutralClass = 'bg-muted text-muted-foreground';
 
 function statusLabel(status: string | null | undefined) {
   const text = (status ?? '').replace(/_/g, ' ');
@@ -84,25 +83,23 @@ export function ProfilePage() {
   const { slug } = useParams();
   const user = useCurrentUser();
   const isSelf = !slug || slug === user.data?.slug;
-  const hasProgrammeAccess = Boolean(
+  const hasProgramAccess = Boolean(
     user.data &&
     (user.data.seasonRoles.length > 0 ||
       user.data.globalRoles.length > 0 ||
       user.data.alumni),
   );
-  const seasons = useSeasons(hasProgrammeAccess);
+  const seasons = useSeasons(hasProgramAccess);
   const publicProfile = useUserProfile(isSelf ? undefined : slug);
   const person = isSelf
     ? user.data
       ? adaptCurrentPerson(user.data, seasons.data?.items)
       : undefined
     : (publicProfile.data ?? undefined);
-  const participation = useUserParticipation(person?.id, hasProgrammeAccess);
+  const participation = useUserParticipation(person?.id, hasProgramAccess);
   // Profiles always show all-time activity.
-  const summary = useActivitySummary(
-    hasProgrammeAccess ? person?.id : undefined,
-  );
-  const showProgrammeDetails = !isSelf || hasProgrammeAccess;
+  const summary = useActivitySummary(hasProgramAccess ? person?.id : undefined);
+  const showProgramDetails = !isSelf || hasProgramAccess;
   const [savedName, setSavedName] = useState<string | null>(null);
   const [savedSlug, setSavedSlug] = useState<string | null>(null);
   const [activityTab, setActivityTab] = useState('leetcode');
@@ -111,13 +108,13 @@ export function ProfilePage() {
   if (
     publicProfile.isLoading ||
     user.isLoading ||
-    (showProgrammeDetails && seasons.isLoading)
+    (showProgramDetails && seasons.isLoading)
   )
     return <PageSkeleton label="Loading profile" />;
   if (
     publicProfile.isError ||
     user.isError ||
-    (showProgrammeDetails && seasons.isError)
+    (showProgramDetails && seasons.isError)
   )
     return (
       <div className={pageClass}>
@@ -136,7 +133,7 @@ export function ProfilePage() {
     return (
       <div className={pageClass}>
         <ErrorState
-          title="Profile not found"
+          title="Profile Not Found"
           message="This person may no longer be visible to your account."
         />
       </div>
@@ -172,7 +169,7 @@ export function ProfilePage() {
               <p className="text-muted-foreground">
                 @{savedSlug ?? person.slug}
               </p>
-              {showProgrammeDetails ? (
+              {showProgramDetails ? (
                 <>
                   {person.roles.map((role) => (
                     <RoleBadge role={role} key={role} />
@@ -185,16 +182,9 @@ export function ProfilePage() {
                     />
                   ))}
                   <StudentLevelBadge level={studentLevel} />
-                  <Badge
-                    variant="secondary"
-                    className={
-                      person.status === 'active'
-                        ? badgeSuccessClass
-                        : badgeNeutralClass
-                    }
-                  >
+                  <StatusBadge tone={statusTone(person.status)}>
                     {statusLabel(person.status)}
-                  </Badge>
+                  </StatusBadge>
                 </>
               ) : null}
             </div>
@@ -203,7 +193,7 @@ export function ProfilePage() {
         {isSelf && user.data ? (
           <EditProfileDialog
             user={user.data}
-            showProgrammeDetails={showProgrammeDetails}
+            showProgramDetails={showProgramDetails}
             onSaved={(values) => {
               setSavedName(values.name);
               setSavedSlug(values.slug);
@@ -211,7 +201,7 @@ export function ProfilePage() {
           />
         ) : null}
       </header>
-      {showProgrammeDetails ? (
+      {showProgramDetails ? (
         <div className="grid grid-cols-3 gap-6 max-[56rem]:grid-cols-1">
           <MetricCard
             label="Leetcodes"
@@ -235,13 +225,13 @@ export function ProfilePage() {
           />
         </div>
       ) : null}
-      {showProgrammeDetails && summary.isError ? (
+      {showProgramDetails && summary.isError ? (
         <ErrorState
-          title="Activity totals unavailable"
+          title="Activity Totals Unavailable"
           onRetry={() => void summary.refetch()}
         />
       ) : null}
-      {showProgrammeDetails ? (
+      {showProgramDetails ? (
         <div>
           <ProfileActivity
             person={person}
@@ -256,11 +246,11 @@ export function ProfilePage() {
 
 function EditProfileDialog({
   user,
-  showProgrammeDetails,
+  showProgramDetails,
   onSaved,
 }: {
   user: CurrentUser;
-  showProgrammeDetails: boolean;
+  showProgramDetails: boolean;
   onSaved: (values: ProfileValues) => void;
 }) {
   const [open, setOpen] = useState(false);
@@ -355,9 +345,9 @@ function EditProfileDialog({
   };
   return (
     <FormDialog
-      title="Edit profile"
+      title="Edit Profile"
       description={
-        showProgrammeDetails
+        showProgramDetails
           ? 'Your name and slug are visible to approved active members and alumni.'
           : 'Set the name shown on your account.'
       }
@@ -382,7 +372,7 @@ function EditProfileDialog({
           />
           {errors.name ? <FieldError>{errors.name.message}</FieldError> : null}
         </Field>
-        {showProgrammeDetails ? (
+        {showProgramDetails ? (
           <Field>
             <FieldLabel htmlFor="profile-slug">Profile slug</FieldLabel>
             <div className={inlineClass}>

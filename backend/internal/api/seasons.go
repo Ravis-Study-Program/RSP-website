@@ -10,7 +10,7 @@ import (
 	"github.com/magedmg/RSP-website/backend/internal/dal"
 	"github.com/magedmg/RSP-website/backend/internal/platform/cursor"
 	"github.com/magedmg/RSP-website/backend/internal/platform/id"
-	"github.com/magedmg/RSP-website/backend/internal/programme"
+	"github.com/magedmg/RSP-website/backend/internal/program"
 )
 
 func (a *API) listSeasons(w http.ResponseWriter, r *http.Request) {
@@ -60,14 +60,14 @@ func (a *API) listSeasons(w http.ResponseWriter, r *http.Request) {
 		}
 		pageInfo, err := pageInfoForKeyset(
 			a.cursorSecret, binding, direction, boundary, items, more,
-			func(seasonRecord programme.SeasonRecord) string { return seasonRecord.ID },
+			func(seasonRecord program.SeasonRecord) string { return seasonRecord.ID },
 		)
 		if err != nil {
 			a.logger.Error("cursor encoding failed", "error", err)
 			writeErrorResponse(w, http.StatusInternalServerError, "The request could not be completed.")
 			return
 		}
-		response := Page[programme.SeasonRecord]{
+		response := Page[program.SeasonRecord]{
 			Items:      items,
 			PageInfo:   pageInfo,
 			TotalCount: total,
@@ -76,7 +76,7 @@ func (a *API) listSeasons(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	items := []programme.SeasonRecord{}
+	items := []program.SeasonRecord{}
 	seen := map[string]bool{}
 	for _, enrollment := range actor.Enrollments {
 		if seen[enrollment.SeasonID] {
@@ -103,13 +103,13 @@ func (a *API) listSeasons(w http.ResponseWriter, r *http.Request) {
 		writeErrorResponse(w, http.StatusBadRequest, cursor.ErrInvalid.Error())
 		return
 	}
-	page, pageInfo, err := paginateOrdered(a.cursorSecret, binding, direction, boundary, limit, items, func(seasonRecord programme.SeasonRecord) string { return seasonRecord.ID })
+	page, pageInfo, err := paginateOrdered(a.cursorSecret, binding, direction, boundary, limit, items, func(seasonRecord program.SeasonRecord) string { return seasonRecord.ID })
 	if err != nil {
 		writeErrorResponse(w, http.StatusBadRequest, "The cursor does not match the selected season sort.")
 		return
 	}
 
-	response := Page[programme.SeasonRecord]{
+	response := Page[program.SeasonRecord]{
 		Items:      page,
 		PageInfo:   pageInfo,
 		TotalCount: int64(len(items)),
@@ -199,7 +199,7 @@ func (a *API) createSeason(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	seasonRecord := programme.SeasonRecord{
+	seasonRecord := program.SeasonRecord{
 		ID:           id.New(),
 		Slug:         request.Slug,
 		Name:         request.Name,

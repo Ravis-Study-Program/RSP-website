@@ -318,7 +318,7 @@ describe('student Monday Updates', () => {
     renderPage();
 
     expect(
-      screen.getByRole('combobox', { name: 'Programme week' }),
+      screen.getByRole('combobox', { name: 'Program week' }),
     ).toHaveTextContent('Week 1');
     expect(screen.queryByLabelText('Dates')).not.toBeInTheDocument();
 
@@ -331,7 +331,7 @@ describe('student Monday Updates', () => {
       range.endDate,
     );
     const rangeActivity = screen.getByRole('region', {
-      name: 'Activity this week',
+      name: 'Activity This Week',
     });
     const [solved, mocks] = within(rangeActivity).getAllByRole('definition');
     expect(solved).toHaveTextContent(/^2 solved1Easy0Medium1Hard$/);
@@ -772,7 +772,7 @@ describe('fixed weekly submissions', () => {
     );
     const user = userEvent.setup();
     renderPage();
-    screen.getByRole('combobox', { name: 'Programme week' }).focus();
+    screen.getByRole('combobox', { name: 'Program week' }).focus();
     await user.keyboard('[ArrowDown]');
     expect(
       screen.queryByRole('option', { name: /Week 3/ }),

@@ -110,7 +110,7 @@ export function ProfileActivity({
           loading={attempts.isLoading}
           error={attempts.isError}
           onRetry={() => void attempts.refetch()}
-          emptyTitle="No practice in this period"
+          emptyTitle="No Practice in This Period"
           emptyMessage="Recorded practice will appear here."
         />
       </TabsContent>
@@ -168,7 +168,7 @@ export function ProfileActivity({
             loadingMore: mocks.isFetchingNextPage,
             onLoadMore: () => void mocks.fetchNextPage(),
           }}
-          emptyTitle="No mocks in this period"
+          emptyTitle="No Mocks in This Period"
           emptyMessage="Received and given interviews will appear here."
         />
       </TabsContent>

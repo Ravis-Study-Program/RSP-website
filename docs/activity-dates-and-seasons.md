@@ -4,7 +4,7 @@ Practice and mock records belong to people. An attempt stores `attemptedAt`; a
 mock stores `occurredAt`. The API calculates their season when reading them.
 Clients cannot assign a season or week when creating or editing activity.
 
-A season is a short Australian summer programme, usually about three months.
+A season is a short Australian summer program, usually about three months.
 Its configured dates define its duration. For example, Summer 2025/26 can mean
 December 2025 to February 2026; the name does not mean two full calendar years.
 
@@ -22,17 +22,17 @@ December 2025 to February 2026; the name does not mean two full calendar years.
 
 ## Monday updates
 
-Reporting weeks share the configured programme week numbers. Each covers the
-Monday–Sunday containing the programme week's start date in Australia/Adelaide.
-The form defaults to the latest completed programme week. Students can select an
+Reporting weeks share the configured program week numbers. Each covers the
+Monday–Sunday containing the program week's start date in Australia/Adelaide.
+The form defaults to the latest completed program week. Students can select an
 earlier completed week to submit late; they cannot edit dates or submit a week
 before it ends. The API checks the dates and configured week and serializes
 submissions per student to prevent duplicates. Existing free-date reports are
 preserved, and staff can use All updates to find older reports.
 
 On Mondays, an active student in an open season sees a red dashboard reminder
-when today falls in a programme week and the preceding calendar week's report is
-missing. There is no reminder before Week 1, during gaps, or after the programme.
+when today falls in a program week and the preceding calendar week's report is
+missing. There is no reminder before Week 1, during gaps, or after the program.
 Submitting the matching report clears the reminder. Other missed weeks remain
 available on the Monday Updates page.
 
@@ -57,7 +57,7 @@ For example, a student removed on 20 January keeps qualifying records before
 20 January in that summer season. Their later records stay in All time. Enrolling
 in the next summer season makes qualifying new records appear there. All time
 includes both season activity and activity recorded between seasons or after
-leaving the programme.
+leaving the program.
 
 Changing season or week dates recalculates existing records on the next read.
 Existing weeks must still fit within their season; adjust them before shrinking
@@ -66,7 +66,7 @@ workflow. Historical audit/version snapshots remain as originally recorded.
 
 Profiles, practice and mock history offer Season / All time, without calendar-year
 selectors. In a selected season, practice and mock lists (including profile tabs)
-can be narrowed to one or more programme weeks. Switching seasons or selecting
+can be narrowed to one or more program weeks. Switching seasons or selecting
 All time clears the week selection. Other filters, such as difficulty and result,
 remain available. Charts follow the selected activity.
 

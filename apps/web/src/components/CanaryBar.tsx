@@ -91,7 +91,7 @@ function CanaryRoleDialog() {
 
   return (
     <FormDialog
-      title="Switch roles"
+      title="Switch Roles"
       description={`Choose your own access. Season roles apply to ${access.data?.season.name ?? 'the seeded season'}.`}
       trigger={
         <>

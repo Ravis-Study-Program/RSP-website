@@ -1,6 +1,7 @@
 import type {
   Attempt,
   AttemptOutcome,
+  CurrentUser,
   Difficulty,
   MockInterview,
 } from '@/types';
@@ -25,11 +26,16 @@ export function supportedTimezones(...preferred: string[]) {
       ...preferred.filter((zone) => zone && !zone.startsWith('Etc/')),
       'UTC',
     ]),
-  ).sort((left, right) => left.localeCompare(right));
+  ).sort(
+    // Smallest UTC offset first, then by name within an offset.
+    (left, right) =>
+      timezoneOffsetMinutes(left) - timezoneOffsetMinutes(right) ||
+      left.localeCompare(right),
+  );
 }
 
-export function formatTimezoneOption(timezone: string, label = timezone) {
-  let offset = '+00:00';
+/** The zone's current UTC offset as sign, hours and minutes. */
+function timezoneOffset(timezone: string) {
   try {
     const offsetName = new Intl.DateTimeFormat('en', {
       timeZone: timezone,
@@ -39,10 +45,25 @@ export function formatTimezoneOption(timezone: string, label = timezone) {
       .find((part) => part.type === 'timeZoneName')?.value;
     const match = /^GMT([+-])(\d{1,2})(?::(\d{2}))?$/.exec(offsetName ?? '');
     if (match)
-      offset = `${match[1]}${match[2].padStart(2, '0')}:${match[3] ?? '00'}`;
+      return {
+        sign: match[1] as '+' | '-',
+        hours: Number(match[2]),
+        minutes: Number(match[3] ?? '0'),
+      };
   } catch {
-    // Keep a readable fallback for an invalid or unsupported timezone.
+    // An invalid or unsupported timezone reads as UTC.
   }
+  return { sign: '+' as const, hours: 0, minutes: 0 };
+}
+
+function timezoneOffsetMinutes(timezone: string) {
+  const { sign, hours, minutes } = timezoneOffset(timezone);
+  return (sign === '-' ? -1 : 1) * (hours * 60 + minutes);
+}
+
+export function formatTimezoneOption(timezone: string, label = timezone) {
+  const { sign, hours, minutes } = timezoneOffset(timezone);
+  const offset = `${sign}${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
   return `${offset} ${label.replaceAll('_', ' ')}`;
 }
 
@@ -193,10 +214,28 @@ export function problemName({
   return title.startsWith(prefix) ? title : `${prefix}${title}`;
 }
 
-export const practiceGoalMinutes = { Easy: 20, Medium: 35, Hard: 50 } as const;
+/** Minutes per difficulty that an attempt aims to finish within. */
+export type PracticeGoals = Record<Difficulty, number>;
 
-export function difficultyGoal(difficulty: Difficulty) {
-  return practiceGoalMinutes[difficulty];
+/** The program's goals until someone changes them; the API has the rest. */
+export const defaultPracticeGoals: PracticeGoals = {
+  Easy: 10,
+  Medium: 25,
+  Hard: 40,
+};
+
+/** Directors, system admins and active coordinators set practice goals. */
+export function canSetPracticeGoals(user?: CurrentUser) {
+  return Boolean(
+    user &&
+    (user.globalRoles.some(
+      (role) => role === 'director' || role === 'system_admin',
+    ) ||
+      user.seasonRoles.some(
+        (membership) =>
+          membership.role === 'coordinator' && membership.state === 'active',
+      )),
+  );
 }
 
 export function outcomeLabel(outcome: AttemptOutcome) {

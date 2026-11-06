@@ -387,7 +387,7 @@ export function ResetPasswordPage() {
   return (
     <StateLayout
       icon={<IconLock size={48} aria-hidden="true" />}
-      title="Choose a new password"
+      title="Choose a New Password"
       message="This link can only be used once. Resetting your password signs you out on all devices."
     >
       <form
@@ -462,7 +462,7 @@ export function VerifyEmailPage() {
   return (
     <StateLayout
       icon={<IconMailCheck size={48} aria-hidden="true" />}
-      title="Check your email"
+      title="Check Your Email"
       message="Verify your email to continue."
     >
       <div className="grid w-full gap-4 text-left">
@@ -522,7 +522,7 @@ export function TwoFactorPage() {
   return (
     <StateLayout
       icon={<IconLock size={48} aria-hidden="true" />}
-      title="Complete two-factor verification"
+      title="Complete Two-Factor Verification"
       message="Enter a current authenticator code or one of your single-use backup codes."
     >
       <form
@@ -568,8 +568,8 @@ export function ForbiddenPage() {
   return (
     <StateLayout
       icon={<IconLock size={48} aria-hidden="true" />}
-      title="You do not have access"
-      message="This workspace or action is outside your current programme role."
+      title="You Do Not Have Access"
+      message="This workspace or action is outside your current program role."
     >
       <Link to="/dashboard" className={buttonVariants({ variant: 'default' })}>
         Back to dashboard
@@ -591,7 +591,7 @@ export function AccountUnavailablePage() {
   return (
     <StateLayout
       icon={<IconLock size={48} aria-hidden="true" />}
-      title="Account unavailable"
+      title="Account Unavailable"
       message={message}
     >
       <Link to="/sign-in" className={buttonVariants({ variant: 'outline' })}>
@@ -606,7 +606,7 @@ export function NotFoundPage() {
   return (
     <StateLayout
       icon={<IconMoodSad size={48} aria-hidden="true" />}
-      title="Page not found"
+      title="Page Not Found"
       message="The link may be outdated, or this page may have moved."
     >
       <Link to="/dashboard" className={buttonVariants({ variant: 'default' })}>
@@ -627,7 +627,7 @@ export function RouteErrorPage() {
   return (
     <StateLayout
       icon={<IconAlertTriangle size={48} aria-hidden="true" />}
-      title={`Something went wrong (${status})`}
+      title={`Something Went Wrong (${status})`}
       message={message}
     >
       <Button type="button" onClick={() => window.location.reload()}>

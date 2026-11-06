@@ -3,7 +3,7 @@ package dal
 import (
 	"context"
 	"encoding/json"
-	"github.com/magedmg/RSP-website/backend/internal/programme"
+	"github.com/magedmg/RSP-website/backend/internal/program"
 	"sort"
 	"time"
 )
@@ -19,10 +19,10 @@ type CorrectEnrollmentInput struct {
 
 // CorrectEnrollment retains the membership's participation periods. Activities
 // continue to belong to their original recorder; their season is derived again.
-func (p *Store) CorrectEnrollment(ctx context.Context, input CorrectEnrollmentInput) (programme.EnrollmentRecord, error) {
+func (p *Store) CorrectEnrollment(ctx context.Context, input CorrectEnrollmentInput) (program.EnrollmentRecord, error) {
 	tx, err := p.pool.Begin(ctx)
 	if err != nil {
-		return programme.EnrollmentRecord{}, err
+		return program.EnrollmentRecord{}, err
 	}
 	defer tx.Rollback(context.Background())
 	seasons := []string{input.SourceSeasonID}
@@ -32,7 +32,7 @@ func (p *Store) CorrectEnrollment(ctx context.Context, input CorrectEnrollmentIn
 	sort.Strings(seasons)
 	for _, seasonID := range seasons {
 		if err = lockOpenSeason(ctx, tx, seasonID); err != nil {
-			return programme.EnrollmentRecord{}, err
+			return program.EnrollmentRecord{}, err
 		}
 	}
 	before, err := scanEnrollment(tx.QueryRow(ctx, `SELECT `+enrollmentColumns+` FROM app.enrollments e JOIN app.seasons s ON s.id=e.season_id WHERE e.id=$1 AND e.season_id=$2 AND (e.deleted_at IS NULL OR e.state IN ('kicked','withdrawn')) FOR UPDATE OF e`, input.EnrollmentID, input.SourceSeasonID))

@@ -2,7 +2,7 @@
 
 ## Profiles and activity
 
-Seasons represent short Australian summer programmes, usually around three months,
+Seasons represent short Australian summer programs, usually around three months,
 with explicitly configured start and end dates. Opening a profile from a season keeps that season selected. The profile offers
 other seasons the person participated in and an All time view, with practice
 counts, mock counts, lists and charts calculated for the selected period.
@@ -13,7 +13,7 @@ People lists the season's members. My students lists a mentor's assigned student
 and can include previous assignments; coordinators see All students. Closed
 seasons include previous assignments by default.
 
-Practice and mock history also offer Season / All time. Both support programme
+Practice and mock history also offer Season / All time. Both support program
 week filters within a selected season, including on profiles. All time has no week
 filter, and changing the period clears selected weeks.
 
@@ -70,4 +70,4 @@ requires no enrollment history, no linked activity, and no pending unexpired
 invitations. Removed enrollments and deleted activity still count as history.
 Its weeks are hidden with the season and the deletion audit is retained. The
 database serializes deletion with new memberships, weeks and invitations so a
-concurrent action cannot erase newly created programme records.
+concurrent action cannot erase newly created program records.

@@ -71,109 +71,111 @@ export function InvitationAcceptPage() {
     }
   }
   return (
-    <main className="mx-auto grid w-full max-w-[92rem] content-start gap-4">
+    <main className="mx-auto w-full max-w-[92rem]">
       <PageHeader
-        title="Accept your invitation"
+        title="Accept Your Invitation"
         description="Join your season using the email address that received the invitation."
       />
-      {!token ? (
-        <p>Open the invitation link from your email.</p>
-      ) : accepted ? (
-        <Card className="gap-4 p-5">
-          <h2 className="text-xl font-semibold tracking-tight">
-            You have joined {preview.data?.seasonName ?? 'the season'}.
-          </h2>
-          {accepted.assignmentState === 'pending_mfa' ? (
-            <p>Set up MFA in Settings to activate your coordinator access.</p>
-          ) : null}
-          <Link
-            to={
-              accepted.assignmentState === 'pending_mfa'
-                ? '/settings'
-                : `/seasons/${preview.data?.seasonSlug}`
-            }
-            className={buttonVariants({ variant: 'default' })}
-          >
-            Continue
-          </Link>
-        </Card>
-      ) : session.isLoading || user.isLoading ? (
-        <p role="status">Checking your account…</p>
-      ) : !session.data?.user ? (
-        <Card className="gap-4 p-5">
-          <p>
-            Sign in or create an account with the invited email address. Your
-            invitation will be waiting when you return.
-          </p>
-          <Link
-            to="/sign-in"
-            className={buttonVariants({ variant: 'default' })}
-          >
-            Sign in or create an account
-          </Link>
-        </Card>
-      ) : !verified ? (
-        <Card className="gap-4 p-5">
-          <p>Verify your email address before accepting.</p>
-          <Link
-            to="/verify-email"
-            className={buttonVariants({ variant: 'default' })}
-          >
-            Verify email
-          </Link>
-        </Card>
-      ) : preview.isLoading ? (
-        <p role="status">Checking the invitation…</p>
-      ) : preview.isError ? (
-        <p role="alert" className="text-sm text-destructive">
-          {preview.error.message} Check that you are signed in with the email
-          address that received the invitation.
-        </p>
-      ) : preview.data ? (
-        <Card className="gap-4 p-5">
-          <h2 className="text-xl font-semibold tracking-tight">
-            {preview.data.seasonName}
-          </h2>
-          <p>
-            {preview.data.email} has been invited as a {preview.data.role}.
-          </p>
-          <Button type="submit" disabled={busy} onClick={() => void accept()}>
-            {busy ? 'Joining…' : 'Accept invitation'}
-          </Button>
-          {error ? (
-            <p role="alert" className="text-sm text-destructive">
-              {error}
+      <div className="flex flex-col gap-6">
+        {!token ? (
+          <p>Open the invitation link from your email.</p>
+        ) : accepted ? (
+          <Card className="gap-4 p-5">
+            <h2 className="text-xl font-semibold tracking-tight">
+              You have joined {preview.data?.seasonName ?? 'the season'}.
+            </h2>
+            {accepted.assignmentState === 'pending_mfa' ? (
+              <p>Set up MFA in Settings to activate your coordinator access.</p>
+            ) : null}
+            <Link
+              to={
+                accepted.assignmentState === 'pending_mfa'
+                  ? '/settings'
+                  : `/seasons/${preview.data?.seasonSlug}`
+              }
+              className={buttonVariants({ variant: 'default' })}
+            >
+              Continue
+            </Link>
+          </Card>
+        ) : session.isLoading || user.isLoading ? (
+          <p role="status">Checking your account…</p>
+        ) : !session.data?.user ? (
+          <Card className="gap-4 p-5">
+            <p>
+              Sign in or create an account with the invited email address. Your
+              invitation will be waiting when you return.
             </p>
-          ) : null}
-        </Card>
-      ) : null}
-      {session.data?.user && !accepted ? (
+            <Link
+              to="/sign-in"
+              className={buttonVariants({ variant: 'default' })}
+            >
+              Sign in or create an account
+            </Link>
+          </Card>
+        ) : !verified ? (
+          <Card className="gap-4 p-5">
+            <p>Verify your email address before accepting.</p>
+            <Link
+              to="/verify-email"
+              className={buttonVariants({ variant: 'default' })}
+            >
+              Verify email
+            </Link>
+          </Card>
+        ) : preview.isLoading ? (
+          <p role="status">Checking the invitation…</p>
+        ) : preview.isError ? (
+          <p role="alert" className="text-sm text-destructive">
+            {preview.error.message} Check that you are signed in with the email
+            address that received the invitation.
+          </p>
+        ) : preview.data ? (
+          <Card className="gap-4 p-5">
+            <h2 className="text-xl font-semibold tracking-tight">
+              {preview.data.seasonName}
+            </h2>
+            <p>
+              {preview.data.email} has been invited as a {preview.data.role}.
+            </p>
+            <Button type="submit" disabled={busy} onClick={() => void accept()}>
+              {busy ? 'Joining…' : 'Accept invitation'}
+            </Button>
+            {error ? (
+              <p role="alert" className="text-sm text-destructive">
+                {error}
+              </p>
+            ) : null}
+          </Card>
+        ) : null}
+        {session.data?.user && !accepted ? (
+          <Button
+            variant="outline"
+            type="submit"
+            onClick={() => {
+              void signOut()
+                .then(() => {
+                  clearAccessToken();
+                  client.clear();
+                  window.location.assign('/sign-in');
+                })
+                .catch(() => setError('Could not sign out. Please try again.'));
+            }}
+          >
+            Use another account
+          </Button>
+        ) : null}
         <Button
-          variant="outline"
+          variant="ghost"
           type="submit"
           onClick={() => {
-            void signOut()
-              .then(() => {
-                clearAccessToken();
-                client.clear();
-                window.location.assign('/sign-in');
-              })
-              .catch(() => setError('Could not sign out. Please try again.'));
+            sessionStorage.removeItem(pendingInvitationKey);
+            navigate('/profile');
           }}
         >
-          Use another account
+          Dismiss invitation
         </Button>
-      ) : null}
-      <Button
-        variant="ghost"
-        type="submit"
-        onClick={() => {
-          sessionStorage.removeItem(pendingInvitationKey);
-          navigate('/profile');
-        }}
-      >
-        Dismiss invitation
-      </Button>
+      </div>
     </main>
   );
 }

@@ -7,11 +7,11 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/magedmg/RSP-website/backend/internal/programme"
+	"github.com/magedmg/RSP-website/backend/internal/program"
 )
 
-func scanWeek(row pgx.Row) (programme.WeekRecord, error) {
-	var v programme.WeekRecord
+func scanWeek(row pgx.Row) (program.WeekRecord, error) {
+	var v program.WeekRecord
 	if err := row.Scan(&v.ID, &v.SeasonID, &v.Number, &v.StartAt, &v.EndAt, &v.ResourceURL); err != nil {
 		return v, noRows(err)
 	}
@@ -26,7 +26,7 @@ type WeekQuery struct {
 	Direction string
 }
 
-func (p *Store) ListWeeks(ctx context.Context, q WeekQuery) ([]programme.WeekRecord, bool, int64, error) {
+func (p *Store) ListWeeks(ctx context.Context, q WeekQuery) ([]program.WeekRecord, bool, int64, error) {
 	args := pgx.NamedArgs{"seasonID": q.SeasonID}
 	var total int64
 	if err := p.pool.QueryRow(ctx, `SELECT count(*) FROM app.season_weeks WHERE season_id = @seasonID AND deleted_at IS NULL`, args).Scan(&total); err != nil {
@@ -64,7 +64,7 @@ func (p *Store) ListWeeks(ctx context.Context, q WeekQuery) ([]programme.WeekRec
 	}
 
 	defer rows.Close()
-	items := make([]programme.WeekRecord, 0, q.Limit+1)
+	items := make([]program.WeekRecord, 0, q.Limit+1)
 	for rows.Next() {
 		v, scanErr := scanWeek(rows)
 		if scanErr != nil {
@@ -80,7 +80,7 @@ func (p *Store) ListWeeks(ctx context.Context, q WeekQuery) ([]programme.WeekRec
 	return items, more, total, nil
 }
 
-func (p *Store) CreateWeek(ctx context.Context, v programme.WeekRecord, actorID string, at time.Time) (programme.WeekRecord, error) {
+func (p *Store) CreateWeek(ctx context.Context, v program.WeekRecord, actorID string, at time.Time) (program.WeekRecord, error) {
 	tx, err := p.pool.Begin(ctx)
 	if err != nil {
 		return v, err
@@ -103,15 +103,15 @@ func (p *Store) CreateWeek(ctx context.Context, v programme.WeekRecord, actorID 
 type UpdateWeekInput struct {
 	SeasonID  string
 	WeekID    string
-	Week      programme.WeekRecord
+	Week      program.WeekRecord
 	ActorID   string
 	ChangedAt time.Time
 }
 
-func (p *Store) UpdateWeek(ctx context.Context, input UpdateWeekInput) (programme.WeekRecord, error) {
+func (p *Store) UpdateWeek(ctx context.Context, input UpdateWeekInput) (program.WeekRecord, error) {
 	tx, err := p.pool.Begin(ctx)
 	if err != nil {
-		return programme.WeekRecord{}, err
+		return program.WeekRecord{}, err
 	}
 
 	defer tx.Rollback(context.Background())

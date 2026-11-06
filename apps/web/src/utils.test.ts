@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest';
 
 import {
+  supportedTimezones,
   calendarDateKey,
   configureDisplayTimezone,
   formatDateTime,
@@ -35,4 +36,12 @@ describe('problemName', () => {
   it('keeps titles that only start with a digit', () => {
     expect(problemName({ number: 15, title: '3Sum' })).toBe('15. 3Sum');
   });
+});
+
+it('lists time zones from the smallest UTC offset to the largest', () => {
+  const zones = supportedTimezones('Australia/Adelaide');
+  const at = (zone: string) => zones.indexOf(zone);
+  expect(at('Pacific/Honolulu')).toBeGreaterThanOrEqual(0);
+  expect(at('Pacific/Honolulu')).toBeLessThan(at('UTC'));
+  expect(at('UTC')).toBeLessThan(at('Australia/Adelaide'));
 });

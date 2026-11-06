@@ -1,4 +1,4 @@
-import { Badge } from '@/components/ui/badge';
+import { StatusBadge } from '@/components/StatusBadge';
 import { buttonVariants } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 
@@ -169,7 +169,7 @@ export function DashboardPage() {
               value={seasonPeople.isLoading ? '—' : unassigned.length}
             />
             <MetricCard
-              label="Programme Week"
+              label="Program Week"
               value={
                 currentWeek
                   ? `${currentWeek.number} of ${orderedWeeks.length}`
@@ -193,7 +193,7 @@ export function DashboardPage() {
               value={interviews.data?.given ?? '—'}
             />
             <MetricCard
-              label="Programme Weeks"
+              label="Program Weeks"
               value={weeks.isLoading ? '—' : orderedWeeks.length}
             />
           </>
@@ -297,9 +297,9 @@ export function DashboardPage() {
                             person={person}
                             seasonId={currentSeason?.id}
                           />
-                          <Badge variant="secondary">
+                          <StatusBadge>
                             {person.attempts ?? '—'} attempts
-                          </Badge>
+                          </StatusBadge>
                         </li>
                       ))}
                     </ul>

@@ -69,6 +69,7 @@ export interface BrowserAuthSession {
     name: string;
     email: string;
     emailVerified: boolean;
+    twoFactorEnabled?: boolean;
     accountState?: 'active' | 'suspended' | 'deletion_pending' | 'deleted';
   };
 }
@@ -132,6 +133,19 @@ async function followAuthRedirect(
 
 export function signInWithGoogle() {
   return followAuthRedirect('/sign-in/social');
+}
+
+/** Which sign-in methods the account has connected. */
+export async function listSignInMethods() {
+  const [accounts, session] = await Promise.all([
+    authRequest<{ providerId: string }[]>('/list-accounts'),
+    getBrowserAuthSession(),
+  ]);
+  return {
+    google: accounts.some((account) => account.providerId === 'google'),
+    password: accounts.some((account) => account.providerId === 'credential'),
+    twoFactor: Boolean(session?.user.twoFactorEnabled),
+  };
 }
 
 export function linkGoogleAccount() {

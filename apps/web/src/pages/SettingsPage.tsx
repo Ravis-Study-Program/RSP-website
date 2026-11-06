@@ -1,6 +1,5 @@
-import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Card, CardContent } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
+import { StatusBadge } from '@/components/StatusBadge';
 import { Button } from '@/components/ui/button';
 import {
   Field,
@@ -12,7 +11,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { IconAlertTriangle, IconCheck } from '@tabler/icons-react';
 import { useQueryClient } from '@tanstack/react-query';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useBeforeUnload, useBlocker, useNavigate } from 'react-router-dom';
 
 import { clearAccessToken } from '@/api/client';
@@ -30,7 +29,14 @@ import {
 import { apiRequest } from '@/api/client';
 import { adaptCurrentUser } from '@/api/adapters';
 import type { Me } from '@/api/generated/models';
-import { currentUserOptions, demoMode, useCurrentUser } from '@/api/queries';
+import {
+  currentUserOptions,
+  demoMode,
+  useCurrentUser,
+  usePracticeGoals,
+  useSignInMethods,
+  useUpdatePracticeSettings,
+} from '@/api/queries';
 import { PageHeader, usePageTitle } from '@/components/Common';
 import {
   DirtyFormGuard,
@@ -43,10 +49,15 @@ import {
   InlineNotice,
   PageSkeleton,
 } from '@/components/StatusViews';
-import { difficultyGoal, supportedTimezones } from '@/utils';
+import {
+  canSetPracticeGoals,
+  supportedTimezones,
+  type PracticeGoals,
+} from '@/utils';
+import type { Difficulty } from '@/types';
 
 const pageClass = 'mx-auto w-full max-w-[92rem]';
-const sectionClass = 'mt-6 flex flex-col';
+const sectionClass = 'flex flex-col';
 const sectionHeaderClass = 'mb-3 flex items-end justify-between gap-4';
 const sectionTitleClass = 'text-xl font-semibold tracking-tight';
 const listClass = 'm-0 grid list-none gap-3 p-0';
@@ -56,8 +67,6 @@ const rowListClass = 'divide-y';
 const rowClass =
   'flex items-center justify-between gap-4 py-3 first:pt-0 last:pb-0';
 const rowTextClass = 'block text-sm text-muted-foreground';
-const badgeSuccessClass = 'bg-success-soft text-success';
-const badgeWarningClass = 'bg-warning-soft text-warning';
 
 export function SettingsPage() {
   usePageTitle('Settings');
@@ -79,7 +88,38 @@ export function SettingsPage() {
         user.data.timezoneConfigured ? user.data.timezone : browserTimezone,
       );
   }, [browserTimezone, user.data]);
-  const dirty = Boolean(user.data && timezone !== user.data.timezone);
+  const timezoneDirty = Boolean(user.data && timezone !== user.data.timezone);
+  // Practice goals apply to everyone; only coordinators and administrators
+  // edit them, and they save with the rest of the settings.
+  const signInMethods = useSignInMethods();
+  const twoFactorEnabled = Boolean(signInMethods.data?.twoFactor);
+  // Directors, system admins, coordinators and mentors need two-factor.
+  const twoFactorRequired = Boolean(
+    signInMethods.data &&
+    !twoFactorEnabled &&
+    user.data &&
+    (user.data.globalRoles.length > 0 ||
+      user.data.seasonRoles.some(
+        (membership) =>
+          membership.state === 'active' &&
+          (membership.role === 'coordinator' || membership.role === 'mentor'),
+      )),
+  );
+  const goals = usePracticeGoals();
+  const updateGoals = useUpdatePracticeSettings();
+  const canEditGoals = canSetPracticeGoals(user.data);
+  const [goalDrafts, setGoalDrafts] = useState<GoalDrafts | null>(null);
+  const goalsDirty = Boolean(
+    canEditGoals &&
+    goalDrafts &&
+    difficulties.some(
+      (difficulty) => goalDrafts[difficulty] !== String(goals[difficulty]),
+    ),
+  );
+  const goalsValid =
+    !goalDrafts ||
+    difficulties.every((difficulty) => validGoal(goalDrafts[difficulty]));
+  const dirty = timezoneDirty || goalsDirty;
   const timezoneValid = useMemo(() => {
     try {
       new Intl.DateTimeFormat('en', { timeZone: timezone }).format();
@@ -103,7 +143,7 @@ export function SettingsPage() {
     return (
       <div className={pageClass}>
         <ErrorState
-          title="Settings unavailable"
+          title="Settings Unavailable"
           message="Your settings could not be loaded. No changes have been made."
           onRetry={() => void user.refetch()}
         />
@@ -112,11 +152,23 @@ export function SettingsPage() {
   }
 
   const saveSettings = async () => {
-    if (!dirty || !timezoneValid) return;
+    if (!dirty || !timezoneValid || !goalsValid) return;
     setSaving(true);
     setSaved(false);
     setSaveError('');
     try {
+      if (goalsDirty && goalDrafts) {
+        await updateGoals.mutateAsync({
+          easyMinutes: Number(goalDrafts.Easy),
+          mediumMinutes: Number(goalDrafts.Medium),
+          hardMinutes: Number(goalDrafts.Hard),
+        });
+        setGoalDrafts(null);
+      }
+      if (!timezoneDirty) {
+        setSaved(true);
+        return;
+      }
       const updatedUser = demoMode
         ? { ...user.data, timezone, timezoneConfigured: true }
         : adaptCurrentUser(
@@ -185,124 +237,136 @@ export function SettingsPage() {
         actions={
           <Button
             type="button"
-            disabled={saving || !dirty || !timezoneValid}
+            disabled={saving || !dirty || !timezoneValid || !goalsValid}
             onClick={() => void saveSettings()}
           >
             {saving ? 'Saving…' : 'Save settings'}
           </Button>
         }
       />
-      {saved ? (
-        <InlineNotice tone="success">
-          <IconCheck size={19} aria-hidden="true" /> Settings saved.
-        </InlineNotice>
-      ) : null}
-      {dirty ? (
-        <InlineNotice tone="warning">
-          You have unsaved settings changes.
-        </InlineNotice>
-      ) : null}
-      {saveError ? (
-        <InlineNotice tone="warning">{saveError}</InlineNotice>
-      ) : null}
-      {securityMessage ? (
-        <InlineNotice tone="warning">{securityMessage}</InlineNotice>
-      ) : null}
-      <div className="grid gap-6 min-[56rem]:grid-cols-2">
-        <section className={sectionClass} aria-labelledby="preferences-title">
-          <div className={sectionHeaderClass}>
-            <h2 id="preferences-title" className={sectionTitleClass}>
-              Display and time
-            </h2>
-          </div>
-          <Card className="h-full">
-            <CardContent>
-              <Field>
-                <FieldLabel htmlFor="timezone">Timezone</FieldLabel>
-                <TimezoneSelect
-                  id="timezone"
-                  options={timezoneOptions}
-                  value={timezone}
-                  invalid={!timezoneValid}
-                  describedBy={!timezoneValid ? 'timezone-error' : undefined}
-                  getOptionLabel={(zone) =>
-                    zone === browserTimezone
-                      ? `${zone} (browser detected)`
-                      : zone
-                  }
-                  onChange={(nextTimezone) => {
-                    setTimezone(nextTimezone);
-                    setSaved(false);
-                  }}
-                />
-                {!timezoneValid ? (
-                  <FieldError id="timezone-error">
-                    Enter a valid IANA timezone.
-                  </FieldError>
-                ) : null}
-              </Field>
-            </CardContent>
-          </Card>
-        </section>
-        <section className={sectionClass} aria-labelledby="goals-title">
-          <div className={sectionHeaderClass}>
-            <h2 id="goals-title" className={sectionTitleClass}>
-              Practice goals
-            </h2>
-          </div>
-          <PracticePreferencesPanel />
-        </section>
-      </div>
-      <section className={sectionClass} aria-labelledby="security-title">
-        <div className={sectionHeaderClass}>
-          <h2 id="security-title" className={sectionTitleClass}>
-            Security
-          </h2>
-        </div>
-        <Card>
-          <CardContent className={rowListClass}>
-            <div className={rowClass}>
-              <span className="grid min-w-0 flex-1">
-                <span className="flex flex-wrap items-center gap-2">
-                  <strong className="font-semibold">
-                    Two-factor authentication
-                  </strong>
-                  <Badge
-                    variant="outline"
-                    className={
-                      user.data?.mfaVerified
-                        ? badgeSuccessClass
-                        : badgeWarningClass
+      <div className="flex flex-col gap-6">
+        {saved ? (
+          <InlineNotice tone="success">
+            <IconCheck size={19} aria-hidden="true" /> Settings saved.
+          </InlineNotice>
+        ) : null}
+        {dirty ? (
+          <InlineNotice tone="warning">
+            You have unsaved settings changes.
+          </InlineNotice>
+        ) : null}
+        {saveError ? (
+          <InlineNotice tone="warning">{saveError}</InlineNotice>
+        ) : null}
+        {securityMessage ? (
+          <InlineNotice tone="warning">{securityMessage}</InlineNotice>
+        ) : null}
+        {twoFactorRequired ? (
+          <InlineNotice tone="warning">
+            <IconAlertTriangle size={19} aria-hidden="true" /> Your program role
+            needs two-factor authentication. Set it up under Two-factor.
+          </InlineNotice>
+        ) : null}
+        <div className="grid gap-6 min-[56rem]:grid-cols-2">
+          <section className={sectionClass} aria-labelledby="preferences-title">
+            <div className={sectionHeaderClass}>
+              <h2 id="preferences-title" className={sectionTitleClass}>
+                Display and Time
+              </h2>
+            </div>
+            <Card className="h-full">
+              <CardContent>
+                <Field>
+                  <FieldLabel htmlFor="timezone">Timezone</FieldLabel>
+                  <TimezoneSelect
+                    id="timezone"
+                    options={timezoneOptions}
+                    value={timezone}
+                    invalid={!timezoneValid}
+                    describedBy={!timezoneValid ? 'timezone-error' : undefined}
+                    getOptionLabel={(zone) =>
+                      zone === browserTimezone
+                        ? `${zone} (browser detected)`
+                        : zone
                     }
-                  >
-                    {user.data?.mfaVerified
-                      ? 'Verified this session'
-                      : 'Step-up required'}
-                  </Badge>
-                </span>
-                <span className={rowTextClass}>
-                  Required for privileged programme roles
-                </span>
-              </span>
-              <MfaSetupDialog onComplete={finishSecurityChange} />
+                    onChange={(nextTimezone) => {
+                      setTimezone(nextTimezone);
+                      setSaved(false);
+                    }}
+                  />
+                  {!timezoneValid ? (
+                    <FieldError id="timezone-error">
+                      Enter a valid IANA timezone.
+                    </FieldError>
+                  ) : null}
+                </Field>
+              </CardContent>
+            </Card>
+          </section>
+          <section className={sectionClass} aria-labelledby="goals-title">
+            <div className={sectionHeaderClass}>
+              <h2 id="goals-title" className={sectionTitleClass}>
+                Practice Goals
+              </h2>
             </div>
-            <div className={rowClass}>
-              <span className="flex min-w-0 items-center gap-2.5">
-                <span className="grid min-w-0">
-                  <strong className="font-semibold">Backup codes</strong>
-                  <span className={rowTextClass}>
-                    Single-use codes for account recovery
-                  </span>
-                </span>
+            <PracticePreferencesPanel
+              goals={goals}
+              drafts={canEditGoals ? (goalDrafts ?? goalStrings(goals)) : null}
+              onChange={(difficulty, value) => {
+                setGoalDrafts((drafts) => ({
+                  ...(drafts ?? goalStrings(goals)),
+                  [difficulty]: value,
+                }));
+                setSaved(false);
+              }}
+            />
+          </section>
+        </div>
+        <SecurityGroup title="Sign-In">
+          <div className={rowClass}>
+            <span>
+              <strong className="font-semibold">Account email</strong>
+              <span className={rowTextClass}>{user.data.email}</span>
+            </span>
+            <ChangeEmailDialog onRequested={finishSecurityChange} />
+          </div>
+          <div className={rowClass}>
+            <span>
+              <strong className="font-semibold">Password</strong>
+              <span className={rowTextClass}>
+                {signInMethods.data?.password === false
+                  ? 'Add a password to sign in with your email. You’ll then be signed out on all devices.'
+                  : 'Changing your password signs you out on all devices.'}
               </span>
-              <BackupCodesDialog onComplete={finishSecurityChange} />
-            </div>
-            <div className={rowClass}>
-              <span>Connected sign-in methods</span>
+            </span>
+            {signInMethods.data?.password === false ? (
+              <ConnectPasswordDialog
+                onConnected={() => {
+                  queryClient.clear();
+                  navigate('/sign-in?passwordConnected=true', {
+                    replace: true,
+                  });
+                }}
+              />
+            ) : (
+              <ChangePasswordDialog onChanged={finishSecurityChange} />
+            )}
+          </div>
+          <div className={rowClass}>
+            <span>
+              <strong className="font-semibold">Google sign-in</strong>
+              <span className={rowTextClass}>
+                Sign in with your Google account.
+              </span>
+            </span>
+            {signInMethods.data?.google ? (
+              <Button type="button" disabled>
+                <IconCheck size={17} aria-hidden="true" /> Google connected
+              </Button>
+            ) : (
               <Button
-                variant="outline"
-                size="sm"
                 type="button"
+                disabled={!signInMethods.data}
                 onClick={() =>
                   void linkGoogleAccount().catch((error: unknown) =>
                     setSecurityMessage(
@@ -315,99 +379,193 @@ export function SettingsPage() {
               >
                 Connect Google
               </Button>
-            </div>
-            <div className={rowClass}>
-              <span>
+            )}
+          </div>
+        </SecurityGroup>
+        <SecurityGroup title="Two-Factor">
+          <div className={rowClass}>
+            <span className="grid min-w-0 flex-1">
+              <span className="flex flex-wrap items-center gap-2">
                 <strong className="font-semibold">
-                  Password sign-in method
+                  Two-factor authentication
                 </strong>
-                <span className={rowTextClass}>
-                  For accounts that use Google sign-in only. Confirm your
-                  identity to add a password; you’ll then be signed out on all
-                  devices.
-                </span>
+                {signInMethods.data ? (
+                  <StatusBadge tone={twoFactorEnabled ? 'success' : 'danger'}>
+                    {twoFactorEnabled ? 'On' : 'Off'}
+                  </StatusBadge>
+                ) : null}
               </span>
-              <ConnectPasswordDialog
-                onConnected={() => {
-                  queryClient.clear();
-                  navigate('/sign-in?passwordConnected=true', {
-                    replace: true,
-                  });
-                }}
-              />
-            </div>
-            <div className={rowClass}>
-              <span>
-                <strong className="font-semibold">Account email</strong>
-                <span className={rowTextClass}>{user.data.email}</span>
+              <span className={rowTextClass}>
+                Required for privileged program roles.
               </span>
-              <ChangeEmailDialog onRequested={finishSecurityChange} />
-            </div>
-            <div className={rowClass}>
-              <span>
-                <strong className="font-semibold">Password</strong>
-                <span className={rowTextClass}>
-                  Changing your password signs you out on all devices.
-                </span>
+            </span>
+            <MfaSetupDialog onComplete={finishSecurityChange} />
+          </div>
+          <div className={rowClass}>
+            <span className="grid min-w-0">
+              <strong className="font-semibold">Backup codes</strong>
+              <span className={rowTextClass}>
+                {twoFactorEnabled
+                  ? 'Single-use codes for when you can’t use your authenticator.'
+                  : 'Available once two-factor authentication is on.'}
               </span>
-              <ChangePasswordDialog onChanged={finishSecurityChange} />
-            </div>
-            <div className={rowClass}>
-              <span>
-                <strong className="font-semibold">Current session</strong>
-              </span>
-              <Button
-                variant="outline"
-                size="sm"
-                type="button"
-                onClick={() => void endSession()}
-              >
-                Sign out
+            </span>
+            {twoFactorEnabled ? (
+              <BackupCodesDialog onComplete={finishSecurityChange} />
+            ) : (
+              <Button type="button" disabled>
+                Regenerate
               </Button>
-            </div>
-          </CardContent>
-        </Card>
-      </section>
-      <section className={sectionClass} aria-labelledby="danger-title">
-        <div className={sectionHeaderClass}>
-          <h2 id="danger-title" className={sectionTitleClass}>
-            Account deletion
-          </h2>
-        </div>
-        <Alert variant="destructive">
-          <IconAlertTriangle size={19} aria-hidden="true" />
-          <AlertDescription>
-            Requesting deletion signs you out on all devices. You have 30 days
-            to cancel using the recovery link sent to your email.
-          </AlertDescription>
-        </Alert>
-        <div className="mt-3 w-fit">
-          <NamedConfirmation
-            name="DELETE MY ACCOUNT"
-            actionLabel="Request account deletion"
-            description="After 30 days, your sign-in details and profile contact information are removed or replaced. Programme history is kept under an account ID."
-            onConfirm={() => void deleteAccount()}
-          />
-        </div>
-      </section>
+            )}
+          </div>
+        </SecurityGroup>
+        <SecurityGroup title="Sessions">
+          <div className={rowClass}>
+            <span>
+              <strong className="font-semibold">Current session</strong>
+              <span className={rowTextClass}>
+                Signing out ends this session only.
+              </span>
+            </span>
+            <Button type="button" onClick={() => void endSession()}>
+              Sign out
+            </Button>
+          </div>
+        </SecurityGroup>
+        <section className={sectionClass} aria-labelledby="danger-title">
+          <div className={sectionHeaderClass}>
+            <h2 id="danger-title" className={sectionTitleClass}>
+              Account Deletion
+            </h2>
+          </div>
+          <Card className="bg-destructive-soft ring-destructive">
+            <CardContent className={rowListClass}>
+              <div className={rowClass}>
+                <span className="grid min-w-0 gap-0.5">
+                  <strong className="flex items-center gap-2 font-semibold">
+                    <IconAlertTriangle
+                      size={18}
+                      aria-hidden="true"
+                      className="text-destructive"
+                    />{' '}
+                    Delete your account
+                  </strong>
+                  <span className={rowTextClass}>
+                    Requesting deletion signs you out on all devices. You have
+                    30 days to cancel using the recovery link sent to your
+                    email.
+                  </span>
+                </span>
+                <NamedConfirmation
+                  name="DELETE MY ACCOUNT"
+                  actionLabel="Request account deletion"
+                  description="After 30 days, your sign-in details and profile contact information are removed or replaced. Program history is kept under an account ID."
+                  onConfirm={() => void deleteAccount()}
+                />
+              </div>
+            </CardContent>
+          </Card>
+        </section>
+      </div>
     </div>
   );
 }
 
-export function PracticePreferencesPanel() {
+/** A titled section of security rows in its own card. */
+function SecurityGroup({
+  title,
+  children,
+}: {
+  title: string;
+  children: ReactNode;
+}) {
+  const id = `${title.toLowerCase().replaceAll(/[^a-z]+/g, '-')}-title`;
+  return (
+    <section className={sectionClass} aria-labelledby={id}>
+      <div className={sectionHeaderClass}>
+        <h2 id={id} className={sectionTitleClass}>
+          {title}
+        </h2>
+      </div>
+      <Card>
+        <CardContent className={rowListClass}>{children}</CardContent>
+      </Card>
+    </section>
+  );
+}
+
+const difficulties = ['Easy', 'Medium', 'Hard'] as const;
+type GoalDrafts = Record<Difficulty, string>;
+
+function goalStrings(goals: PracticeGoals): GoalDrafts {
+  return {
+    Easy: String(goals.Easy),
+    Medium: String(goals.Medium),
+    Hard: String(goals.Hard),
+  };
+}
+
+/** A goal is a whole number of minutes from 1 to 180. */
+function validGoal(value: string) {
+  return /^\d+$/.test(value) && Number(value) >= 1 && Number(value) <= 180;
+}
+
+/**
+ * The program's practice goals, one difficulty per column. With `drafts`
+ * (for coordinators and administrators) each goal is editable; everyone else
+ * sees the same fields read-only.
+ */
+export function PracticePreferencesPanel({
+  goals,
+  drafts = null,
+  onChange,
+}: {
+  goals: PracticeGoals;
+  drafts?: GoalDrafts | null;
+  onChange?: (difficulty: Difficulty, value: string) => void;
+}) {
   return (
     <Card className="h-full">
       <CardContent className={formClass}>
-        <dl className="grid grid-cols-2 gap-3.5 max-[56rem]:grid-cols-1">
-          {(['Easy', 'Medium', 'Hard'] as const).map((difficulty) => (
-            <div key={difficulty}>
-              <dt className="text-sm font-semibold">{difficulty}</dt>
-              <dd className="text-sm text-muted-foreground">
-                {difficultyGoal(difficulty)} minutes
-              </dd>
-            </div>
-          ))}
-        </dl>
+        <div className="grid grid-cols-3 gap-3.5 max-[56rem]:grid-cols-1">
+          {difficulties.map((difficulty) => {
+            const id = `goal-${difficulty.toLowerCase()}`;
+            const invalid = drafts ? !validGoal(drafts[difficulty]) : false;
+            return (
+              <Field key={difficulty}>
+                <FieldLabel htmlFor={id}>{difficulty} (minutes)</FieldLabel>
+                {drafts ? (
+                  <Input
+                    id={id}
+                    type="number"
+                    inputMode="numeric"
+                    min={1}
+                    max={180}
+                    value={drafts[difficulty]}
+                    aria-invalid={invalid}
+                    aria-describedby={invalid ? `${id}-error` : undefined}
+                    onChange={(event) =>
+                      onChange?.(difficulty, event.target.value)
+                    }
+                  />
+                ) : (
+                  <Input
+                    id={id}
+                    value={goals[difficulty]}
+                    readOnly
+                    aria-readonly="true"
+                    className="text-muted-foreground"
+                  />
+                )}
+                {invalid ? (
+                  <FieldError id={`${id}-error`}>
+                    Enter 1 to 180 minutes.
+                  </FieldError>
+                ) : null}
+              </Field>
+            );
+          })}
+        </div>
       </CardContent>
     </Card>
   );
@@ -473,11 +631,9 @@ function MfaSetupDialog({ onComplete }: { onComplete: () => void }) {
   };
   return (
     <FormDialog
-      title="Set up two-factor authentication"
+      title="Set Up Two-Factor Authentication"
       open={open}
       onOpenChange={setOpen}
-      triggerVariant="outline"
-      triggerSize="sm"
       trigger="Set up"
     >
       <div className={formClass}>
@@ -561,12 +717,10 @@ function BackupCodesDialog({ onComplete }: { onComplete: () => void }) {
   };
   return (
     <FormDialog
-      title="Regenerate backup codes"
+      title="Regenerate Backup Codes"
       description="This invalidates every existing backup code and requires a fresh sign-in."
       open={open}
       onOpenChange={setOpen}
-      triggerVariant="outline"
-      triggerSize="sm"
       trigger="Regenerate"
     >
       <div className={formClass}>
@@ -637,11 +791,9 @@ function ChangeEmailDialog({ onRequested }: { onRequested: () => void }) {
   };
   return (
     <FormDialog
-      title="Change account email"
+      title="Change Account Email"
       open={open}
       onOpenChange={setOpen}
-      triggerVariant="outline"
-      triggerSize="sm"
       trigger="Change email"
     >
       <div className={formClass}>
@@ -703,12 +855,10 @@ function ChangePasswordDialog({ onChanged }: { onChanged: () => void }) {
   };
   return (
     <FormDialog
-      title="Change password"
+      title="Change Password"
       description="Enter your current password. Changing it signs you out on all devices."
       open={open}
       onOpenChange={setOpen}
-      triggerVariant="outline"
-      triggerSize="sm"
       trigger="Change password"
     >
       <div className={formClass}>
@@ -788,13 +938,11 @@ function ConnectPasswordDialog({ onConnected }: { onConnected: () => void }) {
   };
   return (
     <FormDialog
-      title="Connect password sign-in"
+      title="Set a Password"
       description="Add a password if you currently sign in with Google only. You’ll be signed out on all devices afterward."
       open={open}
       onOpenChange={setOpen}
-      triggerVariant="outline"
-      triggerSize="sm"
-      trigger="Connect password"
+      trigger="Set password"
     >
       <div className={formClass}>
         {error ? <FieldError role="alert">{error}</FieldError> : null}

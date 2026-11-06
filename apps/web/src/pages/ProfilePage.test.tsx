@@ -26,6 +26,7 @@ vi.mock('@/api/queries', () => ({
   useCurrentUser: vi.fn(),
   useSeasons: vi.fn(),
   useUserAttempts: vi.fn(),
+  usePracticeGoals: vi.fn(() => ({ Easy: 10, Medium: 25, Hard: 40 })),
   useUserProfile: vi.fn(),
   useLeetcodeCategories: vi.fn(() => ({ data: [], isError: false })),
   useSeasonWeeks: vi.fn(() => ({ data: { items: [] }, isError: false })),
@@ -202,9 +203,7 @@ describe('basic profiles', () => {
     expect(
       await screen.findByRole('heading', { name: 'Member One' }),
     ).toBeVisible();
-    expect(
-      screen.queryByText('Programme participation'),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByText('Program participation')).not.toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: /edit profile/i }));
     expect(screen.getByLabelText('Name')).toHaveValue('Member One');

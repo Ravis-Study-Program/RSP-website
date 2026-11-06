@@ -8,7 +8,7 @@ import (
 	"github.com/magedmg/RSP-website/backend/internal/authz"
 	"github.com/magedmg/RSP-website/backend/internal/dal"
 	"github.com/magedmg/RSP-website/backend/internal/platform/cursor"
-	"github.com/magedmg/RSP-website/backend/internal/programme"
+	"github.com/magedmg/RSP-website/backend/internal/program"
 )
 
 func (a *API) listUsers(w http.ResponseWriter, r *http.Request) {
@@ -105,7 +105,7 @@ func (a *API) getUser(w http.ResponseWriter, r *http.Request) {
 	}
 	if actor.UserID != user.ID && !actor.IsDirectorOrSystemAdmin() {
 		canPrivate := actor.CanViewMemberPrivateData(user.ID, authz.MemberRelationship{})
-		var targetEnrollments []programme.EnrollmentRecord
+		var targetEnrollments []program.EnrollmentRecord
 		targetLoaded := false
 		for _, enrollment := range actor.Enrollments {
 			if canPrivate {

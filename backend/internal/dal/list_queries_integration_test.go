@@ -19,7 +19,7 @@ import (
 
 	"github.com/magedmg/RSP-website/backend/internal/accounts"
 	"github.com/magedmg/RSP-website/backend/internal/practice"
-	"github.com/magedmg/RSP-website/backend/internal/programme"
+	"github.com/magedmg/RSP-website/backend/internal/program"
 )
 
 func TestStoreListQueries(t *testing.T) {
@@ -119,7 +119,7 @@ func TestStoreListQueries(t *testing.T) {
 	})
 
 	t.Run("season status and backwards order", func(t *testing.T) {
-		id := func(season programme.SeasonRecord) string { return season.ID }
+		id := func(season program.SeasonRecord) string { return season.ID }
 		expectListPage(t, []int{101, 102}, true, 3, id)(db.ListSeasons(ctx, SeasonQuery{Limit: 2, Direction: "forward"}))
 		expectListPage(t, []int{101, 102}, false, 3, id)(db.ListSeasons(ctx, SeasonQuery{
 			Boundary:  queryFixtureID(103),
@@ -134,7 +134,7 @@ func TestStoreListQueries(t *testing.T) {
 	})
 
 	t.Run("weeks sort by number rather than id", func(t *testing.T) {
-		id := func(week programme.WeekRecord) string { return week.ID }
+		id := func(week program.WeekRecord) string { return week.ID }
 		expectListPage(t, []int{302, 301}, true, 3, id)(db.ListWeeks(ctx, WeekQuery{
 			SeasonID:  queryFixtureID(101),
 			Limit:     2,
@@ -164,7 +164,7 @@ func TestStoreListQueries(t *testing.T) {
 	})
 
 	t.Run("enrollment state filters and role ordering", func(t *testing.T) {
-		id := func(enrollment programme.EnrollmentRecord) string { return enrollment.ID }
+		id := func(enrollment program.EnrollmentRecord) string { return enrollment.ID }
 		expectListPage(t, []int{202, 201}, true, 6, id)(db.ListEnrollments(ctx, EnrollmentQuery{
 			SeasonID:  queryFixtureID(101),
 			Limit:     2,
@@ -218,13 +218,13 @@ func TestStoreListQueries(t *testing.T) {
 			t.Fatal(err)
 		}
 		defer db.pool.Exec(ctx, `UPDATE app.enrollments SET deleted_at=NULL WHERE id=$1`, queryFixtureID(206))
-		expectListPage(t, []int{207, 208}, false, 8, func(e programme.EnrollmentRecord) string { return e.ID })(db.ListEnrollments(ctx, EnrollmentQuery{
+		expectListPage(t, []int{207, 208}, false, 8, func(e program.EnrollmentRecord) string { return e.ID })(db.ListEnrollments(ctx, EnrollmentQuery{
 			SeasonID: queryFixtureID(101), Boundary: queryFixtureID(206), Limit: 10, SortBy: "id:asc", Direction: "forward", IncludeInactive: true,
 		}))
 	})
 
 	t.Run("mentorship filters share count and page bindings", func(t *testing.T) {
-		id := func(mentorship programme.MentorshipRecord) string { return mentorship.ID }
+		id := func(mentorship program.MentorshipRecord) string { return mentorship.ID }
 		expectListPage(t, []int{402}, true, 2, id)(db.ListMentorships(ctx, MentorshipQuery{
 			SeasonID:  queryFixtureID(101),
 			Limit:     1,

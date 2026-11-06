@@ -20,7 +20,7 @@ import (
 	"github.com/magedmg/RSP-website/backend/internal/mockinterviews"
 	"github.com/magedmg/RSP-website/backend/internal/platform/audit"
 	"github.com/magedmg/RSP-website/backend/internal/practice"
-	"github.com/magedmg/RSP-website/backend/internal/programme"
+	"github.com/magedmg/RSP-website/backend/internal/program"
 )
 
 func TestPostgres18MigrationsAndDAL(t *testing.T) {
@@ -243,7 +243,7 @@ func TestPostgres18MigrationsAndDAL(t *testing.T) {
 		t.Fatalf("stale lifecycle event applied: actor=%#v err=%v", actor, err)
 	}
 
-	season, err := repository.CreateSeason(ctx, programme.SeasonRecord{
+	season, err := repository.CreateSeason(ctx, program.SeasonRecord{
 		ID:      "00000000-0000-7000-8000-000000000028",
 		Slug:    "00000000-0000-7000-8000-000000000028",
 		Name:    "Integration Season",
@@ -256,7 +256,7 @@ func TestPostgres18MigrationsAndDAL(t *testing.T) {
 	}
 
 	settings, err := repository.GetPracticeSettings(ctx, "00000000-0000-7000-8000-000000000033")
-	if err != nil || !settings.GoalsEnabled || settings.EasyMinutes != 20 || settings.MediumMinutes != 35 || settings.HardMinutes != 50 {
+	if err != nil || !settings.GoalsEnabled || settings.EasyMinutes != 10 || settings.MediumMinutes != 25 || settings.HardMinutes != 40 {
 		t.Fatalf("default practice settings=%#v err=%v", settings, err)
 	}
 
@@ -264,8 +264,15 @@ func TestPostgres18MigrationsAndDAL(t *testing.T) {
 		t.Fatal(err)
 	}
 	settings, err = repository.GetPracticeSettings(ctx, "00000000-0000-7000-8000-000000000033")
-	if err != nil || !settings.GoalsEnabled || settings.EasyMinutes != 20 || settings.MediumMinutes != 35 || settings.HardMinutes != 50 {
-		t.Fatalf("legacy preferences must not override fixed goals: %#v err=%v", settings, err)
+	if err != nil || !settings.GoalsEnabled || settings.EasyMinutes != 10 || settings.MediumMinutes != 25 || settings.HardMinutes != 40 {
+		t.Fatalf("legacy preferences must not override program goals: %#v err=%v", settings, err)
+	}
+	changed := practice.PracticeSettings{GoalsEnabled: true, EasyMinutes: 15, MediumMinutes: 30, HardMinutes: 45}
+	if saved, err := repository.SetPracticeSettings(ctx, "00000000-0000-7000-8000-000000000033", changed, time.Now().UTC()); err != nil || saved != changed {
+		t.Fatalf("set practice settings=%#v err=%v", saved, err)
+	}
+	if settings, err = repository.GetPracticeSettings(ctx, "00000000-0000-7000-8000-000000000033"); err != nil || settings != changed {
+		t.Fatalf("program goals apply to every member: %#v err=%v", settings, err)
 	}
 
 	if _, err := repository.pool.Exec(context.Background(), `INSERT INTO app.users(id,account_state) VALUES
@@ -314,7 +321,7 @@ func TestPostgres18MigrationsAndDAL(t *testing.T) {
 	if err := repository.pool.QueryRow(context.Background(), `SELECT state::text,activated_at FROM app.global_role_assignments WHERE id='00000000-0000-7000-8000-000000000004'`).Scan(&assignmentState, &assignmentActivatedAt); err != nil || assignmentState != "active" || assignmentActivatedAt == nil {
 		t.Fatalf("preconfigured-MFA global role state=%q activatedAt=%v err=%v", assignmentState, assignmentActivatedAt, err)
 	}
-	if _, err := repository.CreateEnrollment(ctx, programme.EnrollmentRecord{
+	if _, err := repository.CreateEnrollment(ctx, program.EnrollmentRecord{
 		ID:       "00000000-0000-7000-8000-000000000009",
 		SeasonID: season.ID,
 		UserID:   "00000000-0000-7000-8000-000000000033",
@@ -339,7 +346,7 @@ func TestPostgres18MigrationsAndDAL(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("empty-cursor enrollment candidate list: %v", err)
 	}
-	if _, err := repository.CreateEnrollment(ctx, programme.EnrollmentRecord{
+	if _, err := repository.CreateEnrollment(ctx, program.EnrollmentRecord{
 		ID:       "00000000-0000-7000-8000-000000000012",
 		SeasonID: season.ID,
 		UserID:   "00000000-0000-7000-8000-000000000027",
@@ -349,7 +356,7 @@ func TestPostgres18MigrationsAndDAL(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	coordinatorEnrollment, err := repository.CreateEnrollment(ctx, programme.EnrollmentRecord{
+	coordinatorEnrollment, err := repository.CreateEnrollment(ctx, program.EnrollmentRecord{
 		ID:       "00000000-0000-7000-8000-000000000002",
 		SeasonID: season.ID,
 		UserID:   "00000000-0000-7000-8000-000000000017",
@@ -359,7 +366,7 @@ func TestPostgres18MigrationsAndDAL(t *testing.T) {
 	if err != nil || coordinatorEnrollment.AssignmentState != "active" {
 		t.Fatalf("preconfigured coordinator create=%#v err=%v", coordinatorEnrollment, err)
 	}
-	if _, err := repository.CreateEnrollment(ctx, programme.EnrollmentRecord{
+	if _, err := repository.CreateEnrollment(ctx, program.EnrollmentRecord{
 		ID:       "00000000-0000-7000-8000-000000000005",
 		SeasonID: season.ID,
 		UserID:   "00000000-0000-7000-8000-000000000023",
@@ -381,7 +388,7 @@ func TestPostgres18MigrationsAndDAL(t *testing.T) {
 	if _, err := repository.pool.Exec(context.Background(), `INSERT INTO app.enrollments(id,user_id,season_id,role,student_level,state,assignment_state,activated_at) VALUES('00000000-0000-7000-8000-000000000011','00000000-0000-7000-8000-000000000026',$1,'student','beginner','kicked','revoked',NULL)`, season.ID); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := repository.CreateWeek(ctx, programme.WeekRecord{
+	if _, err := repository.CreateWeek(ctx, program.WeekRecord{
 		ID:          "00000000-0000-7000-8000-000000000034",
 		SeasonID:    season.ID,
 		Number:      1,
@@ -391,7 +398,7 @@ func TestPostgres18MigrationsAndDAL(t *testing.T) {
 	}, "00000000-0000-7000-8000-000000000033", time.Now()); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := repository.CreateMentorship(ctx, programme.MentorshipRecord{
+	if _, err := repository.CreateMentorship(ctx, program.MentorshipRecord{
 		ID:            "00000000-0000-7000-8000-000000000020",
 		SeasonID:      season.ID,
 		MentorUserID:  "00000000-0000-7000-8000-000000000027",

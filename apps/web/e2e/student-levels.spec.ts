@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test';
 import { expectSelected } from './select';
 
-test('season mentors can set student levels and see fixed practice goals', async ({
+test('season mentors can set student levels and see the practice goals', async ({
   page,
 }, testInfo) => {
   await page.addInitScript(() => {
@@ -39,15 +39,40 @@ test('season mentors can set student levels and see fixed practice goals', async
   });
 
   await page.goto('/settings');
-  const goals = page.getByRole('region', { name: 'Practice goals' });
-  for (const minutes of [20, 35, 50])
-    await expect(
-      goals.getByText(`${minutes} minutes`, { exact: true }),
-    ).toBeVisible();
-  await expect(goals.getByRole('spinbutton')).toHaveCount(0);
-  await expect(goals.getByRole('switch')).toHaveCount(0);
+  const goals = page.getByRole('region', { name: 'Practice Goals' });
+  // Mentors see the program's goals read-only.
+  for (const [difficulty, minutes] of [
+    ['Easy', '10'],
+    ['Medium', '25'],
+    ['Hard', '40'],
+  ]) {
+    const field = goals.getByLabel(`${difficulty} (minutes)`);
+    await expect(field).toHaveValue(minutes);
+    await expect(field).toHaveAttribute('readonly');
+  }
   await page.screenshot({
-    path: testInfo.outputPath('fixed-goals.png'),
+    path: testInfo.outputPath('practice-goals.png'),
     fullPage: true,
   });
+});
+
+test('coordinators change the practice goals for everyone from settings', async ({
+  page,
+}) => {
+  await page.addInitScript(() => {
+    localStorage.setItem('rsp-demo-role', 'coordinator');
+    localStorage.removeItem('rsp-demo-auth-state');
+  });
+  await page.goto('/settings');
+  const goals = page.getByRole('region', { name: 'Practice Goals' });
+  const easy = goals.getByLabel('Easy (minutes)');
+  await expect(easy).toHaveValue('10');
+  await easy.fill('0');
+  await expect(goals.getByText('Enter 1 to 180 minutes.')).toBeVisible();
+  const save = page.getByRole('button', { name: 'Save settings' });
+  await expect(save).toBeDisabled();
+  await easy.fill('15');
+  await save.click();
+  await expect(page.getByText('Settings saved.')).toBeVisible();
+  await expect(easy).toHaveValue('15');
 });

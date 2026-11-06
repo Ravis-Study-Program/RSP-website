@@ -13,7 +13,7 @@ import (
 
 func TestFeaturePackagesDoNotDependOnAdapters(t *testing.T) {
 	root := moduleRoot(t)
-	features := []string{"accounts", "authz", "mockinterviews", "practice", "programme"}
+	features := []string{"accounts", "authz", "mockinterviews", "practice", "program"}
 	for _, feature := range features {
 		dir := filepath.Join(root, "backend", "internal", feature)
 		err := filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {

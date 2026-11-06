@@ -24,7 +24,7 @@ test('Monday reminder clears after the fixed weekly report is submitted; missed 
   });
   await page.getByRole('link', { name: 'Write your update' }).click();
   await expect(
-    page.getByRole('combobox', { name: 'Programme week' }),
+    page.getByRole('combobox', { name: 'Program week' }),
   ).toContainText('Week 2');
   await expect(page.getByLabel('Dates', { exact: true })).toHaveCount(0);
   await page
@@ -48,7 +48,7 @@ test('Monday reminder clears after the fixed weekly report is submitted; missed 
   ).toBeVisible();
   await expect(page.getByRole('alert')).toHaveCount(0);
   await page.goto('/seasons/summer-2025-26/monday-updates');
-  await chooseOption(page, 'Programme week', /Week 1/);
+  await chooseOption(page, 'Program week', /Week 1/);
   await expect(
     page.getByRole('heading', { name: 'Week 1 update', exact: true }),
   ).toBeVisible();
@@ -78,7 +78,7 @@ test('Monday reminder clears after the fixed weekly report is submitted; missed 
   ]);
 });
 
-test('no reminder on Tuesday, Week 1 Monday or after the programme', async ({
+test('no reminder on Tuesday, Week 1 Monday or after the program', async ({
   page,
 }) => {
   for (const date of [
@@ -95,7 +95,7 @@ test('no reminder on Tuesday, Week 1 Monday or after the programme', async ({
   }
 });
 
-test('staff review is organized by programme week', async ({ page }) => {
+test('staff review is organized by program week', async ({ page }) => {
   for (const role of ['mentor', 'coordinator']) {
     await page.addInitScript(
       (value) => localStorage.setItem('rsp-demo-role', value),
@@ -103,11 +103,11 @@ test('staff review is organized by programme week', async ({ page }) => {
     );
     await page.goto('/seasons/summer-2025-26/monday-updates');
     await expect(
-      page.getByRole('combobox', { name: 'Programme week' }),
+      page.getByRole('combobox', { name: 'Program week' }),
     ).toContainText('Week 2');
-    await chooseOption(page, 'Programme week', /Week 1/);
+    await chooseOption(page, 'Program week', /Week 1/);
     await expect(page).toHaveURL(/week=week_season_2026_s2_1/);
-    await chooseOption(page, 'Programme week', 'All updates');
+    await chooseOption(page, 'Program week', 'All updates');
     await expect(page).toHaveURL(/week=all/);
     await expect(page.getByLabel('Dates', { exact: true })).toHaveCount(0);
   }

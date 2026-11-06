@@ -9,7 +9,7 @@ import (
 	"github.com/magedmg/RSP-website/backend/internal/authz"
 	"github.com/magedmg/RSP-website/backend/internal/dal"
 	"github.com/magedmg/RSP-website/backend/internal/platform/id"
-	"github.com/magedmg/RSP-website/backend/internal/programme"
+	"github.com/magedmg/RSP-website/backend/internal/program"
 )
 
 func (a *API) listSeasonMembers(w http.ResponseWriter, r *http.Request) {
@@ -82,14 +82,14 @@ func (a *API) listSeasonMembers(w http.ResponseWriter, r *http.Request) {
 	}
 	pageInfo, err := pageInfoForKeyset(
 		a.cursorSecret, binding, direction, boundary, items, more,
-		func(member programme.EnrollmentRecord) string { return member.ID },
+		func(member program.EnrollmentRecord) string { return member.ID },
 	)
 	if err != nil {
 		a.logger.Error("cursor encoding failed", "error", err)
 		writeErrorResponse(w, http.StatusInternalServerError, "The request could not be completed.")
 		return
 	}
-	response := Page[programme.EnrollmentRecord]{
+	response := Page[program.EnrollmentRecord]{
 		Items:      items,
 		PageInfo:   pageInfo,
 		TotalCount: total,
@@ -207,7 +207,7 @@ func (a *API) createSeasonMember(w http.ResponseWriter, r *http.Request) {
 		writeErrorResponse(w, http.StatusForbidden, "Only the season Coordinator, a Director, or a System Admin may grant Coordinator access.")
 		return
 	}
-	member := programme.EnrollmentRecord{
+	member := program.EnrollmentRecord{
 		ID:       id.New(),
 		SeasonID: r.PathValue("id"),
 		UserID:   request.UserID,

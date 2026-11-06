@@ -59,7 +59,8 @@ func OutcomeNames(outcomes []Outcome) []string {
 	return names
 }
 
-// PracticeSettings describes the fixed programme time goals.
+// PracticeSettings describes the program's practice time goals, which
+// apply to every member.
 type PracticeSettings struct {
 	GoalsEnabled  bool `json:"goalsEnabled"`
 	EasyMinutes   int  `json:"easyMinutes"`
@@ -67,9 +68,23 @@ type PracticeSettings struct {
 	HardMinutes   int  `json:"hardMinutes"`
 }
 
-// FixedSettings applies to every member, including members with legacy personal goals.
-func FixedSettings() PracticeSettings {
-	return PracticeSettings{GoalsEnabled: true, EasyMinutes: 20, MediumMinutes: 35, HardMinutes: 50}
+// DefaultSettings are the program's goals until someone changes them.
+func DefaultSettings() PracticeSettings {
+	return PracticeSettings{GoalsEnabled: true, EasyMinutes: 10, MediumMinutes: 25, HardMinutes: 40}
+}
+
+// MaxGoalMinutes is the longest practice time goal that can be set.
+const MaxGoalMinutes = 180
+
+// Valid reports whether every goal is a whole number of minutes from 1 to
+// MaxGoalMinutes.
+func (s PracticeSettings) Valid() bool {
+	for _, minutes := range []int{s.EasyMinutes, s.MediumMinutes, s.HardMinutes} {
+		if minutes < 1 || minutes > MaxGoalMinutes {
+			return false
+		}
+	}
+	return true
 }
 
 // ProblemRecord is the persisted and HTTP-facing problem representation.

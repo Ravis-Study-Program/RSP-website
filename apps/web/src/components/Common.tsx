@@ -1,4 +1,5 @@
-import { Badge } from '@/components/ui/badge';
+import type { BadgeTone } from '@/badgeTones';
+import { StatusBadge } from '@/components/StatusBadge';
 import {
   Card,
   CardContent,
@@ -99,22 +100,18 @@ export function RoleBadge({
     role === 'system_admin'
       ? 'System Admin'
       : role[0].toUpperCase() + role.slice(1);
-  return (
-    <Badge variant="secondary" className={className}>
-      {label}
-    </Badge>
-  );
+  return <StatusBadge className={className}>{label}</StatusBadge>;
 }
 
 // A colour per season, starting at 20/21 and repeating every seven seasons.
-const seasonTones = [
-  'border-transparent bg-destructive-soft text-destructive',
-  'border-transparent bg-orange-soft text-orange',
-  'border-transparent bg-warning-soft text-warning',
-  'border-transparent bg-success-soft text-success',
-  'border-transparent bg-info-soft text-info',
-  'border-transparent bg-purple-soft text-purple',
-  'border-transparent bg-pink-soft text-pink',
+const seasonTones: BadgeTone[] = [
+  'danger',
+  'orange',
+  'warning',
+  'success',
+  'info',
+  'purple',
+  'pink',
 ];
 
 /**
@@ -132,14 +129,13 @@ export function SeasonBadge({
   const start = Number(formatDate(startsAt).slice(-2));
   const label = `${String(start).padStart(2, '0')}/${String((start + 1) % 100).padStart(2, '0')}`;
   return (
-    <Badge
-      variant="secondary"
+    <StatusBadge
       title={name}
       aria-label={`Season ${label}: ${name}`}
-      className={seasonTones[(((start - 20) % 7) + 7) % 7]}
+      tone={seasonTones[(((start - 20) % 7) + 7) % 7]}
     >
       {label}
-    </Badge>
+    </StatusBadge>
   );
 }
 
@@ -151,9 +147,9 @@ export function StudentLevelBadge({
 }) {
   if (!level || level === 'not_applicable') return null;
   return (
-    <Badge variant="secondary" className={studentLevelTone[level]}>
+    <StatusBadge tone={studentLevelTone[level]}>
       {studentLevelLabel(level)}
-    </Badge>
+    </StatusBadge>
   );
 }
 

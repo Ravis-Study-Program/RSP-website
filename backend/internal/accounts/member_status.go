@@ -16,7 +16,7 @@ func (p MemberStatus) CanBeMockInterviewParticipant() bool {
 	return (p.HasEnrollment || p.ActiveMember || p.Alumni || p.FormerMember || p.KickedOnly) && !p.Inactive && !p.Suspended && !p.Deleted
 }
 
-func (p MemberStatus) CanAccessProgramme() bool {
+func (p MemberStatus) CanAccessProgram() bool {
 	return (p.ActiveMember || p.Alumni || p.FormerMember) && !p.Inactive && !p.Suspended && !p.Deleted && !p.KickedOnly
 }
 

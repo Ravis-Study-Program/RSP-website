@@ -9,7 +9,7 @@ import (
 	"testing"
 
 	"github.com/magedmg/RSP-website/backend/internal/mockinterviews"
-	"github.com/magedmg/RSP-website/backend/internal/programme"
+	"github.com/magedmg/RSP-website/backend/internal/program"
 )
 
 func TestProfileSlugParticipationAndTargetMockModes(t *testing.T) {
@@ -20,7 +20,7 @@ func TestProfileSlugParticipationAndTargetMockModes(t *testing.T) {
 		t.Fatalf("slug profile: %d %s", res.Code, res.Body)
 	}
 	res = testRequest(t, f.handler, http.MethodGet, "/api/v2/users/"+studentID+"/participation", "other", "")
-	var history Page[programme.Participation]
+	var history Page[program.Participation]
 	if err := json.Unmarshal(res.Body.Bytes(), &history); err != nil || res.Code != 200 || len(history.Items) != 1 || len(history.Items[0].Periods) != 1 || history.Items[0].LastStudentLevel != "beginner" {
 		t.Fatalf("participation: %d %s %v", res.Code, res.Body, err)
 	}

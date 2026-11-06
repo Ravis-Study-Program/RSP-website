@@ -39,7 +39,7 @@ paths:
         default: { $ref: '#/components/responses/Error' }
         '200':
           {
-            description: Current user and effective programme access,
+            description: Current user and effective program access,
             content:
               {
                 application/json:
@@ -101,13 +101,44 @@ paths:
         default: { $ref: '#/components/responses/Error' }
         '200':
           {
-            description: Fixed programme time goals for every member,
+            description: The program's practice time goals for every member,
             content:
               {
                 application/json:
                   { schema: { $ref: '#/components/schemas/PracticeSettings' } },
               },
           }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+  /practice-settings:
+    put:
+      operationId: updatePracticeSettings
+      description: Changes the program's practice time goals for every member. Directors, system admins and active coordinators may set them.
+      requestBody:
+        {
+          required: true,
+          content:
+            {
+              application/json:
+                {
+                  schema:
+                    { $ref: '#/components/schemas/PracticeSettingsMutation' },
+                },
+            },
+        }
+      responses:
+        default: { $ref: '#/components/responses/Error' }
+        '200':
+          {
+            description: Updated practice time goals,
+            content:
+              {
+                application/json:
+                  { schema: { $ref: '#/components/schemas/PracticeSettings' } },
+              },
+          }
+        '400': { $ref: '#/components/responses/Error' }
         '401': { $ref: '#/components/responses/Error' }
         '403': { $ref: '#/components/responses/Error' }
         '429': { $ref: '#/components/responses/RateLimited' }
@@ -157,7 +188,7 @@ paths:
       responses:
         default: { $ref: '#/components/responses/Error' }
         '200':
-          description: Recorded programme participation, without administrative reasons
+          description: Recorded program participation, without administrative reasons
           content:
             application/json:
               schema:
@@ -1966,7 +1997,7 @@ paths:
         '429': { $ref: '#/components/responses/RateLimited' }
     post:
       operationId: createMondayUpdate
-      description: Submit one update for a completed configured programme week. Dates must be its Monday–Sunday in Australia/Adelaide. Late submissions are allowed in open seasons; duplicate weekly submissions return 409.
+      description: Submit one update for a completed configured program week. Dates must be its Monday–Sunday in Australia/Adelaide. Late submissions are allowed in open seasons; duplicate weekly submissions return 409.
       requestBody:
         {
           required: true,
@@ -2440,13 +2471,21 @@ components:
         }
     PracticeSettings:
       type: object
-      description: Fixed programme time goals. These apply automatically to every member and cannot be customised.
+      description: The program's practice time goals, in minutes. They apply to every member and are set by coordinators and administrators.
       required: [goalsEnabled, easyMinutes, mediumMinutes, hardMinutes]
       properties:
         goalsEnabled: { type: boolean, enum: [true] }
-        easyMinutes: { type: integer, enum: [20] }
-        mediumMinutes: { type: integer, enum: [35] }
-        hardMinutes: { type: integer, enum: [50] }
+        easyMinutes: { type: integer, minimum: 1, maximum: 180 }
+        mediumMinutes: { type: integer, minimum: 1, maximum: 180 }
+        hardMinutes: { type: integer, minimum: 1, maximum: 180 }
+    PracticeSettingsMutation:
+      type: object
+      additionalProperties: false
+      required: [easyMinutes, mediumMinutes, hardMinutes]
+      properties:
+        easyMinutes: { type: integer, minimum: 1, maximum: 180 }
+        mediumMinutes: { type: integer, minimum: 1, maximum: 180 }
+        hardMinutes: { type: integer, minimum: 1, maximum: 180 }
     AccountStateMutation:
       type: object
       additionalProperties: false
@@ -3130,7 +3169,7 @@ components:
             },
         }
     MockInterviewCreate:
-      description: Record a mock that has already happened; future timestamps are rejected. Current and former programme members can participate.
+      description: Record a mock that has already happened; future timestamps are rejected. Current and former program members can participate.
       type: object
       additionalProperties: false
       required: [interviewee, occurredAt, durationMinutes, rounds]
