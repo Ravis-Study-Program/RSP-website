@@ -1,6 +1,4 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import userEvent from '@testing-library/user-event';
-import { apiRequest } from '@/api/client';
 import { render, screen, within } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 
@@ -157,68 +155,15 @@ describe('season people directory', () => {
     } as ReturnType<typeof useCurrentUser>);
   }
 
-  it('lets a season mentor set an unassigned student level without changing their role', async () => {
+  it('takes no actions, even for a mentor who can set levels', () => {
     setMentor();
-    vi.mocked(apiRequest).mockResolvedValue({});
-    const user = userEvent.setup();
-    const client = renderDirectory();
-    client.setQueryData(['season-people', 'season-1'], {
-      items: [member('student')],
-    });
-    await user.click(screen.getByRole('button', { name: 'Set level' }));
-    expect(
-      screen.getByRole('combobox', { name: 'Student level' }),
-    ).toHaveTextContent('Beginner');
-    await user.click(screen.getByRole('combobox', { name: 'Student level' }));
-    expect(
-      (await screen.findAllByRole('option')).map(
-        (option) => option.textContent,
-      ),
-    ).toEqual(['Novice', 'Beginner', 'Intermediate', 'Advanced']);
-    await user.click(await screen.findByRole('option', { name: 'Advanced' }));
-    await user.click(screen.getByRole('button', { name: 'Save level' }));
-    expect(apiRequest).toHaveBeenCalledWith(
-      '/seasons/season-1/members/enrollment-student/student-level',
-      {
-        method: 'PATCH',
-        body: JSON.stringify({ studentLevel: 'advanced' }),
-      },
-    );
-    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
-    expect(client.getQueryData(['season-people', 'season-1'])).toEqual({
-      items: [{ ...member('student'), studentLevel: 'advanced' }],
-    });
-  });
-
-  it('shows an API error and leaves the student level unchanged when a save fails', async () => {
-    setMentor();
-    vi.mocked(apiRequest).mockRejectedValue(
-      new Error('The season has closed.'),
-    );
-    const user = userEvent.setup();
-    const client = renderDirectory();
-    client.setQueryData(['season-people', 'season-1'], {
-      items: [member('student')],
-    });
-    await user.click(screen.getByRole('button', { name: 'Set level' }));
-    await user.click(screen.getByRole('combobox', { name: 'Student level' }));
-    await user.click(
-      await screen.findByRole('option', { name: 'Intermediate' }),
-    );
-    await user.click(screen.getByRole('button', { name: 'Save level' }));
-    expect(await screen.findByRole('alert')).toHaveTextContent(
-      'The season has closed.',
-    );
-    expect(client.getQueryData(['season-people', 'season-1'])).toEqual({
-      items: [member('student')],
-    });
-  });
-
-  it('hides level actions for a mentor from another season', () => {
-    setMentor('different-season');
     renderDirectory();
+    // Levels are set on All Students and My Students, not in the directory.
     expect(
-      screen.queryByRole('button', { name: 'Set level' }),
+      screen.queryByRole('button', { name: /Set level|More actions/ }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('columnheader', { name: 'Actions' }),
     ).not.toBeInTheDocument();
   });
 });

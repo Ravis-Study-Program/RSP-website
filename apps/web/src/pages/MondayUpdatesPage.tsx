@@ -20,13 +20,7 @@ import {
 } from '@/components/ui/select';
 import { useQueryClient, type QueryClient } from '@tanstack/react-query';
 import type { ColumnDef } from '@tanstack/react-table';
-import {
-  IconArrowRight,
-  IconChevronDown,
-  IconChevronUp,
-  IconPencil,
-  IconPlus,
-} from '@tabler/icons-react';
+import { IconArrowRight, IconPencil, IconPlus } from '@tabler/icons-react';
 import { useMemo, useState, type FormEvent } from 'react';
 import { Link, Navigate, useParams, useSearchParams } from 'react-router-dom';
 
@@ -60,8 +54,13 @@ import {
   useSeasonWeeks,
   type MondayUpdateFilters,
 } from '@/api/queries';
-import { PageHeader, usePageTitle } from '@/components/Common';
-import { DataTable } from '@/components/DataTable';
+import {
+  Page,
+  PageHeader,
+  PageSection,
+  usePageTitle,
+} from '@/components/Common';
+import { DataTable, ExpandRowButton } from '@/components/DataTable';
 import { FormDialog, NamedConfirmation } from '@/components/Dialogs';
 import { RichTextContent } from '@/components/RichTextContent';
 import { RichTextEditor } from '@/components/RichTextEditor';
@@ -71,7 +70,11 @@ import {
   PageSkeleton,
 } from '@/components/StatusViews';
 import { formatDate, formatDateTime } from '@/utils';
-import { LatestMarkCell, MarkBadge } from '@/components/MondayMark';
+import {
+  LatestMarkBadge,
+  LatestUpdateRange,
+  MarkBadge,
+} from '@/components/MondayMark';
 import {
   latestMarkRank,
   markOptions,
@@ -81,13 +84,11 @@ import {
 
 type Experience = 'student' | 'mentor' | 'reviewer';
 
-const pageClass = 'mx-auto w-full max-w-[92rem]';
 const sectionClass = 'mt-6';
 const sectionHeaderClass =
   'mb-3 flex flex-wrap items-end justify-between gap-x-4 gap-y-1';
 const cardHeaderClass =
   'flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1';
-const sectionTitleClass = 'text-xl font-semibold tracking-tight';
 const cardTitleClass = 'text-base font-semibold tracking-tight';
 const subTitleClass = 'text-sm font-semibold';
 const mutedClass = 'text-sm text-muted-foreground';
@@ -231,7 +232,7 @@ export function MondayUpdatesPage() {
     return <PageSkeleton label="Loading Monday updates" />;
   if (seasons.isError || user.isError || weeks.isError)
     return (
-      <div className={pageClass}>
+      <Page>
         <ErrorState
           onRetry={() =>
             void Promise.all([
@@ -241,16 +242,16 @@ export function MondayUpdatesPage() {
             ])
           }
         />
-      </div>
+      </Page>
     );
   if (!season)
     return (
-      <div className={pageClass}>
+      <Page>
         <ErrorState
           title="Season Not Found"
           message="This season may have moved or you may not have access."
         />
-      </div>
+      </Page>
     );
   if (!actor || !experience) return <Navigate to="/forbidden" replace />;
 
@@ -294,7 +295,7 @@ export function MondayUpdatesPage() {
     studentNames.get(studentId) ?? studentSlugs.get(studentId) ?? studentId;
 
   return (
-    <div className={pageClass}>
+    <Page>
       <PageHeader title="Monday Updates" />
       {weekItems.length > 0 ? (
         <Field className="mt-6 max-w-lg">
@@ -344,16 +345,16 @@ export function MondayUpdatesPage() {
               student={actor}
             />
           ) : null}
-          <section
+          <PageSection
+            titleId="monday-history-title"
+            title="Your Updates"
             className={sectionClass}
-            aria-labelledby="monday-history-title"
+            actions={
+              <>
+                <span className={mutedClass}>{ownUpdates.length} posted</span>
+              </>
+            }
           >
-            <div className={sectionHeaderClass}>
-              <h2 id="monday-history-title" className={sectionTitleClass}>
-                Your Updates
-              </h2>
-              <span className={mutedClass}>{ownUpdates.length} posted</span>
-            </div>
             {updates.isLoading ? (
               <p role="status" className={mutedClass}>
                 Loading your updates…
@@ -384,19 +385,22 @@ export function MondayUpdatesPage() {
                 ))}
               </div>
             )}
-          </section>
+          </PageSection>
         </>
       ) : experience === 'mentor' ? (
-        <section className={sectionClass} aria-labelledby="monday-mentor-title">
-          <div className={sectionHeaderClass}>
-            <h2 id="monday-mentor-title" className={sectionTitleClass}>
-              Student Updates
-            </h2>
-            <span className={mutedClass}>
-              {selectedStudentIds.length} of {menteeIds.length} students
-              selected
-            </span>
-          </div>
+        <PageSection
+          titleId="monday-mentor-title"
+          title="Student Updates"
+          className={sectionClass}
+          actions={
+            <>
+              <span className={mutedClass}>
+                {selectedStudentIds.length} of {menteeIds.length} students
+                selected
+              </span>
+            </>
+          }
+        >
           <FieldSet className="min-w-0">
             <FieldLegend variant="label" className="font-semibold">
               Students
@@ -499,26 +503,29 @@ export function MondayUpdatesPage() {
               );
             })
           )}
-        </section>
+        </PageSection>
       ) : (
-        <section className={sectionClass} aria-labelledby="monday-review-title">
-          <div className={sectionHeaderClass}>
-            <h2 id="monday-review-title" className={sectionTitleClass}>
-              Student Review
-            </h2>
-            <span className={mutedClass}>
-              Expand a student to view updates and marks.
-            </span>
-          </div>
+        <PageSection
+          titleId="monday-review-title"
+          title="Student Review"
+          className={sectionClass}
+          actions={
+            <>
+              <span className={mutedClass}>
+                Expand a student to view updates and marks.
+              </span>
+            </>
+          }
+        >
           <ReviewerTable
             rows={review.data?.items ?? []}
             loading={review.isLoading}
             error={review.isError}
             onRetry={() => void review.refetch()}
           />
-        </section>
+        </PageSection>
       )}
-    </div>
+    </Page>
   );
 }
 
@@ -608,12 +615,11 @@ function StudentUpdateForm({
   };
 
   return (
-    <section className={sectionClass} aria-labelledby="monday-post-title">
-      <div className={sectionHeaderClass}>
-        <h2 id="monday-post-title" className={sectionTitleClass}>
-          Week {weekNumber} update
-        </h2>
-      </div>
+    <PageSection
+      titleId="monday-post-title"
+      title={<>Week {weekNumber} Update</>}
+      className={sectionClass}
+    >
       <form className={formClass} onSubmit={(event) => void submit(event)}>
         {error ? (
           <InlineNotice tone="warning">
@@ -692,7 +698,7 @@ function StudentUpdateForm({
           </Button>
         </div>
       </form>
-    </section>
+    </PageSection>
   );
 }
 
@@ -1122,20 +1128,10 @@ function ReviewerTable({
         enableSorting: false,
         enableHiding: false,
         cell: ({ row }) => (
-          <Button
-            variant="ghost"
-            size="icon"
-            type="button"
-            aria-label={`${row.getIsExpanded() ? 'Hide' : 'Show'} details for ${row.original.student.name}`}
-            aria-expanded={row.getIsExpanded()}
-            onClick={row.getToggleExpandedHandler()}
-          >
-            {row.getIsExpanded() ? (
-              <IconChevronUp size={18} aria-hidden="true" />
-            ) : (
-              <IconChevronDown size={18} aria-hidden="true" />
-            )}
-          </Button>
+          <ExpandRowButton
+            row={row}
+            subject={`details for ${row.original.student.name}`}
+          />
         ),
       },
       {
@@ -1148,16 +1144,28 @@ function ReviewerTable({
           </Link>
         ),
       },
+      // The latest update overlapping the selected range, and its newest mark.
       {
-        id: 'latestMark',
-        header: 'Latest mark',
-        meta: { width: 12 },
-        // The latest update overlapping the selected range and its newest mark.
-        accessorFn: (row) => latestMarkRank(pickLatestMark(row.updates)),
+        id: 'latestUpdate',
+        header: 'Latest Update',
+        meta: { width: 11 },
+        accessorFn: (row) =>
+          pickLatestMark(row.updates)?.update.startDate ?? '',
         cell: ({ row }) => (
-          <LatestMarkCell
+          <LatestUpdateRange
             latest={pickLatestMark(row.original.updates)}
             noUpdateText="No updates in range"
+          />
+        ),
+      },
+      {
+        id: 'latestMark',
+        header: 'Mark',
+        meta: { width: 8 },
+        accessorFn: (row) => latestMarkRank(pickLatestMark(row.updates)),
+        cell: ({ row }) => (
+          <LatestMarkBadge
+            latest={pickLatestMark(row.original.updates)}
             showMarker
           />
         ),
@@ -1217,11 +1225,16 @@ function ReviewerTable({
               {row.original.student.name}
             </Link>
           </h3>
-          <LatestMarkCell
-            latest={pickLatestMark(row.original.updates)}
-            noUpdateText="No updates in range"
-            showMarker
-          />
+          <div className={rowClass}>
+            <LatestMarkBadge
+              latest={pickLatestMark(row.original.updates)}
+              showMarker
+            />
+            <LatestUpdateRange
+              latest={pickLatestMark(row.original.updates)}
+              noUpdateText="No updates in range"
+            />
+          </div>
           <div className={rowClass}>
             <StatusBadge>
               {row.original.leetcodeCounts.easy} /{' '}

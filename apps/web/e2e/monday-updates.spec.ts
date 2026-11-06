@@ -50,7 +50,7 @@ test('Monday reminder clears after the fixed weekly report is submitted; missed 
   await page.goto('/seasons/summer-2025-26/monday-updates');
   await chooseOption(page, 'Program week', /Week 1/);
   await expect(
-    page.getByRole('heading', { name: 'Week 1 update', exact: true }),
+    page.getByRole('heading', { name: 'Week 1 Update', exact: true }),
   ).toBeVisible();
   await page.screenshot({
     path: testInfo.outputPath('late-week-form.png'),

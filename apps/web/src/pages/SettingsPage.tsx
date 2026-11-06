@@ -37,7 +37,12 @@ import {
   useSignInMethods,
   useUpdatePracticeSettings,
 } from '@/api/queries';
-import { PageHeader, usePageTitle } from '@/components/Common';
+import {
+  Page,
+  PageHeader,
+  PageSection,
+  usePageTitle,
+} from '@/components/Common';
 import {
   DirtyFormGuard,
   FormDialog,
@@ -56,10 +61,6 @@ import {
 } from '@/utils';
 import type { Difficulty } from '@/types';
 
-const pageClass = 'mx-auto w-full max-w-[92rem]';
-const sectionClass = 'flex flex-col';
-const sectionHeaderClass = 'mb-3 flex items-end justify-between gap-4';
-const sectionTitleClass = 'text-xl font-semibold tracking-tight';
 const listClass = 'm-0 grid list-none gap-3 p-0';
 const formClass = 'flex flex-col gap-4';
 const dialogActionsClass = 'mt-5 flex justify-end gap-2.5';
@@ -141,13 +142,13 @@ export function SettingsPage() {
   if (user.isLoading) return <PageSkeleton label="Loading settings" />;
   if (user.isError || !user.data) {
     return (
-      <div className={pageClass}>
+      <Page>
         <ErrorState
           title="Settings Unavailable"
           message="Your settings could not be loaded. No changes have been made."
           onRetry={() => void user.refetch()}
         />
-      </div>
+      </Page>
     );
   }
 
@@ -230,7 +231,7 @@ export function SettingsPage() {
   };
 
   return (
-    <div className={pageClass}>
+    <Page>
       <DirtyFormGuard blocker={blocker} />
       <PageHeader
         title="Settings"
@@ -268,12 +269,7 @@ export function SettingsPage() {
           </InlineNotice>
         ) : null}
         <div className="grid gap-6 min-[56rem]:grid-cols-2">
-          <section className={sectionClass} aria-labelledby="preferences-title">
-            <div className={sectionHeaderClass}>
-              <h2 id="preferences-title" className={sectionTitleClass}>
-                Display and Time
-              </h2>
-            </div>
+          <PageSection titleId="preferences-title" title="Display and Time">
             <Card className="h-full">
               <CardContent>
                 <Field>
@@ -302,13 +298,8 @@ export function SettingsPage() {
                 </Field>
               </CardContent>
             </Card>
-          </section>
-          <section className={sectionClass} aria-labelledby="goals-title">
-            <div className={sectionHeaderClass}>
-              <h2 id="goals-title" className={sectionTitleClass}>
-                Practice Goals
-              </h2>
-            </div>
+          </PageSection>
+          <PageSection titleId="goals-title" title="Practice Goals">
             <PracticePreferencesPanel
               goals={goals}
               drafts={canEditGoals ? (goalDrafts ?? goalStrings(goals)) : null}
@@ -320,7 +311,7 @@ export function SettingsPage() {
                 setSaved(false);
               }}
             />
-          </section>
+          </PageSection>
         </div>
         <SecurityGroup title="Sign-In">
           <div className={rowClass}>
@@ -432,12 +423,7 @@ export function SettingsPage() {
             </Button>
           </div>
         </SecurityGroup>
-        <section className={sectionClass} aria-labelledby="danger-title">
-          <div className={sectionHeaderClass}>
-            <h2 id="danger-title" className={sectionTitleClass}>
-              Account Deletion
-            </h2>
-          </div>
+        <PageSection titleId="danger-title" title="Account Deletion">
           <Card className="bg-destructive-soft ring-destructive">
             <CardContent className={rowListClass}>
               <div className={rowClass}>
@@ -465,9 +451,9 @@ export function SettingsPage() {
               </div>
             </CardContent>
           </Card>
-        </section>
+        </PageSection>
       </div>
-    </div>
+    </Page>
   );
 }
 
@@ -481,16 +467,11 @@ function SecurityGroup({
 }) {
   const id = `${title.toLowerCase().replaceAll(/[^a-z]+/g, '-')}-title`;
   return (
-    <section className={sectionClass} aria-labelledby={id}>
-      <div className={sectionHeaderClass}>
-        <h2 id={id} className={sectionTitleClass}>
-          {title}
-        </h2>
-      </div>
+    <PageSection titleId={id} title={title}>
       <Card>
         <CardContent className={rowListClass}>{children}</CardContent>
       </Card>
-    </section>
+    </PageSection>
   );
 }
 

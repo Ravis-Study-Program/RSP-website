@@ -86,7 +86,7 @@ export function ProfileActivity({
       className="group-data-[orientation=horizontal]/tabs:h-9"
     >
       <TabsTrigger value="leetcode">LeetCode</TabsTrigger>
-      <TabsTrigger value="mocks">Mock interviews</TabsTrigger>
+      <TabsTrigger value="mocks">Mock Interviews</TabsTrigger>
     </TabsList>
   );
   return (

@@ -19,14 +19,22 @@ import { FormDialog } from '@/components/Dialogs';
 import { studentLevels } from '@/studentLevels';
 import type { Page, Person } from '@/types';
 
+/**
+ * Sets a student's level. With `open` it is opened from elsewhere, such as a
+ * row menu, and draws no button of its own.
+ */
 export function StudentLevelDialog({
   seasonId,
   person,
   onChanged,
+  open: controlledOpen,
+  onOpenChange,
 }: {
   seasonId: string;
   person: Person;
   onChanged: () => void;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }) {
   const queryClient = useQueryClient();
   const fieldId = useId();
@@ -34,8 +42,16 @@ export function StudentLevelDialog({
     label,
     value,
   }));
-  const [open, setOpen] = useState(false);
-  const [level, setLevel] = useState<keyof typeof studentLevels>('novice');
+  const [ownOpen, setOwnOpen] = useState(false);
+  const controlled = controlledOpen !== undefined;
+  const open = controlled ? controlledOpen : ownOpen;
+  const setOpen = (next: boolean) =>
+    controlled ? onOpenChange?.(next) : setOwnOpen(next);
+  const initialLevel =
+    person.studentLevel && person.studentLevel !== 'not_applicable'
+      ? person.studentLevel
+      : 'novice';
+  const [level, setLevel] = useState<keyof typeof studentLevels>(initialLevel);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState('');
   const save = async () => {
@@ -87,9 +103,11 @@ export function StudentLevelDialog({
       triggerSize="sm"
       title={`Set ${person.name}'s Level`}
       trigger={
-        <>
-          <IconArrowUp size={17} aria-hidden="true" /> Set level
-        </>
+        controlled ? undefined : (
+          <>
+            <IconArrowUp size={17} aria-hidden="true" /> Set level
+          </>
+        )
       }
       open={open}
       onOpenChange={(next) => {

@@ -53,7 +53,7 @@ import {
 } from '@/api/queries';
 import { PracticeAnalytics } from '@/components/PracticeAnalytics';
 import { AppDatePicker } from '@/components/AppDatePicker';
-import { PageHeader, usePageTitle } from '@/components/Common';
+import { Page, PageHeader, usePageTitle } from '@/components/Common';
 import { FormDialog, NamedConfirmation } from '@/components/Dialogs';
 import { ProblemSelect } from '@/components/ProblemSelect';
 import { RichTextEditor } from '@/components/RichTextEditor';
@@ -201,17 +201,17 @@ export function LeetCodePage() {
 
   if (seasons.isError || (hasSelection && !seasons.isLoading && !season))
     return (
-      <div className="mx-auto w-full max-w-[92rem]">
+      <Page>
         <ErrorState
           title="Season Unavailable"
           message="The selected season could not be loaded."
           onRetry={() => void seasons.refetch()}
         />
-      </div>
+      </Page>
     );
 
   return (
-    <div className="mx-auto w-full max-w-[92rem]">
+    <Page>
       <PageHeader
         title="LeetCode Practice"
         actions={
@@ -319,7 +319,7 @@ export function LeetCodePage() {
           />
         </section>
       </div>
-    </div>
+    </Page>
   );
 }
 

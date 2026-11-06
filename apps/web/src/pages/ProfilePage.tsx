@@ -1,6 +1,5 @@
 import { statusTone } from '@/badgeTones';
 import { StatusBadge } from '@/components/StatusBadge';
-import { cn } from '@/lib/utils';
 import {
   Field,
   FieldDescription,
@@ -32,7 +31,9 @@ import {
 } from '@/api/queries';
 import { useQueryClient } from '@tanstack/react-query';
 import {
+  Avatar,
   MetricCard,
+  Page,
   RoleBadge,
   SeasonBadge,
   StudentLevelBadge,
@@ -44,7 +45,6 @@ import { TimezoneSelect } from '@/components/TimezoneSelect';
 import { ErrorState, PageSkeleton } from '@/components/StatusViews';
 import { formatDateTime, initials, supportedTimezones } from '@/utils';
 
-const pageClass = 'mx-auto w-full max-w-[92rem]';
 const formClass = 'flex flex-col gap-4';
 const inlineClass = 'flex flex-wrap items-center gap-2.5';
 const dialogActionsClass = 'mt-5 flex justify-end gap-2.5';
@@ -117,7 +117,7 @@ export function ProfilePage() {
     (showProgramDetails && seasons.isError)
   )
     return (
-      <div className={pageClass}>
+      <Page>
         <ErrorState
           onRetry={() =>
             void Promise.all([
@@ -127,16 +127,16 @@ export function ProfilePage() {
             ])
           }
         />
-      </div>
+      </Page>
     );
   if (!person)
     return (
-      <div className={pageClass}>
+      <Page>
         <ErrorState
           title="Profile Not Found"
           message="This person may no longer be visible to your account."
         />
-      </div>
+      </Page>
     );
 
   const displayName = savedName ?? person.name;
@@ -155,12 +155,10 @@ export function ProfilePage() {
   ];
   return (
     // Every part of the profile sits 24px from the next.
-    <div className={cn(pageClass, 'flex flex-col gap-6')}>
+    <Page className={'flex flex-col gap-6'}>
       <header className="flex flex-wrap items-center justify-between gap-4 border-b pb-4">
         <div className="flex min-w-0 items-center gap-4">
-          <span className="inline-grid size-18 shrink-0 place-items-center rounded-full bg-primary text-xl font-semibold text-primary-foreground">
-            {initials(displayName)}
-          </span>
+          <Avatar initials={initials(displayName)} size="lg" />
           <div className="grid min-w-0 gap-1">
             <h1 className="text-2xl font-semibold tracking-tight md:text-3xl">
               {displayName}
@@ -240,7 +238,7 @@ export function ProfilePage() {
           />
         </div>
       ) : null}
-    </div>
+    </Page>
   );
 }
 

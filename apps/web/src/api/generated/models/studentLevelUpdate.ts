@@ -8,6 +8,6 @@
 import type { StudentLevelUpdateStudentLevel } from './studentLevelUpdateStudentLevel';
 
 export interface StudentLevelUpdate {
-  /** The advanced value is displayed as Advance. */
+  /** The advanced value is displayed as Advanced. */
   studentLevel: StudentLevelUpdateStudentLevel;
 }

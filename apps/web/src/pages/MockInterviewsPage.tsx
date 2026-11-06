@@ -27,8 +27,6 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import {
   IconArrowDown,
   IconArrowUp,
-  IconChevronDown,
-  IconChevronUp,
   IconDotsVertical,
   IconEdit,
   IconInfoCircle,
@@ -71,7 +69,12 @@ import {
   useMockInterviewSummary,
   useMockParticipants,
 } from '@/api/queries';
-import { PageHeader, PersonIdentity, usePageTitle } from '@/components/Common';
+import {
+  Page,
+  PageHeader,
+  PersonIdentity,
+  usePageTitle,
+} from '@/components/Common';
 import { AppDatePicker } from '@/components/AppDatePicker';
 import { ExternalLink } from '@/components/ExternalLink';
 import { FormDialog, NamedConfirmation } from '@/components/Dialogs';
@@ -87,6 +90,7 @@ import {
   DataTable,
   type ExtraFilters,
   type ServerPagination,
+  ExpandRowButton,
 } from '@/components/DataTable';
 import {
   DropdownMenu,
@@ -567,20 +571,10 @@ const columnsForSeason = (
     enableSorting: false,
     enableHiding: false,
     cell: ({ row }) => (
-      <Button
-        variant="ghost"
-        size="icon"
-        type="button"
-        aria-label={`${row.getIsExpanded() ? 'Hide' : 'Show'} details for ${row.original.interviewee.name}`}
-        aria-expanded={row.getIsExpanded()}
-        onClick={row.getToggleExpandedHandler()}
-      >
-        {row.getIsExpanded() ? (
-          <IconChevronUp size={18} />
-        ) : (
-          <IconChevronDown size={18} />
-        )}
-      </Button>
+      <ExpandRowButton
+        row={row}
+        subject={`details for ${row.original.interviewee.name}`}
+      />
     ),
   },
   {
@@ -857,17 +851,17 @@ export function MockInterviewsPage() {
     (hasSelection && !seasonsQuery.isLoading && !season)
   )
     return (
-      <div className="mx-auto w-full max-w-[92rem]">
+      <Page>
         <ErrorState
           title="Season Unavailable"
           message="The selected season could not be loaded."
           onRetry={() => void seasonsQuery.refetch()}
         />
-      </div>
+      </Page>
     );
 
   return (
-    <div className="mx-auto w-full max-w-[92rem]">
+    <Page>
       <PageHeader
         title="Mock Interviews"
         actions={
@@ -961,7 +955,7 @@ export function MockInterviewsPage() {
           }
         />
       </div>
-    </div>
+    </Page>
   );
 }
 

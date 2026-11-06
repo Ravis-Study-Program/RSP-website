@@ -6,13 +6,12 @@ import type { ColumnDef } from '@tanstack/react-table';
 import { Link } from 'react-router-dom';
 
 import { useCurrentUser, useSeasons } from '@/api/queries';
-import { PageHeader, usePageTitle } from '@/components/Common';
+import { Page, PageHeader, usePageTitle } from '@/components/Common';
 import { DataTable, HighlightText } from '@/components/DataTable';
 import { SeasonEditorDialog } from '@/components/SeasonManagement';
 import type { Season } from '@/types';
 import { formatDate } from '@/utils';
 
-const pageClass = 'mx-auto w-full max-w-[92rem]';
 const inlineClass = 'flex flex-wrap items-center gap-2.5';
 const helperClass = 'text-sm text-muted-foreground';
 
@@ -105,7 +104,7 @@ export function SeasonsPage() {
     },
   ];
   return (
-    <div className={pageClass}>
+    <Page>
       <PageHeader
         title="Seasons"
         actions={canCreate ? <SeasonEditorDialog /> : undefined}
@@ -144,6 +143,6 @@ export function SeasonsPage() {
           </div>
         )}
       />
-    </div>
+    </Page>
   );
 }

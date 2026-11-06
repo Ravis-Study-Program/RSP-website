@@ -7,7 +7,7 @@ import { apiRequest, clearAccessToken } from '@/api/client';
 import { useCurrentUser } from '@/api/queries';
 import { getBrowserAuthSession, signOut } from '@/api/authClient';
 import type { Enrollment, Invitation } from '@/api/generated/models';
-import { PageHeader, usePageTitle } from '@/components/Common';
+import { Page, PageHeader, usePageTitle } from '@/components/Common';
 
 export const pendingInvitationKey = 'rsp-pending-invitation';
 export function InvitationAcceptPage() {
@@ -71,7 +71,7 @@ export function InvitationAcceptPage() {
     }
   }
   return (
-    <main className="mx-auto w-full max-w-[92rem]">
+    <Page as="main">
       <PageHeader
         title="Accept Your Invitation"
         description="Join your season using the email address that received the invitation."
@@ -176,6 +176,6 @@ export function InvitationAcceptPage() {
           Dismiss invitation
         </Button>
       </div>
-    </main>
+    </Page>
   );
 }

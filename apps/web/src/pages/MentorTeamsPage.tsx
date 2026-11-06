@@ -17,7 +17,12 @@ import { Link, useParams } from 'react-router-dom';
 import { apiRequest } from '@/api/client';
 import type { Mentorship, MentorshipCreate } from '@/api/generated/models';
 import { demoMode, useSeasons, useSeasonPeople } from '@/api/queries';
-import { PageHeader, PersonIdentity, usePageTitle } from '@/components/Common';
+import {
+  Page,
+  PageHeader,
+  PersonIdentity,
+  usePageTitle,
+} from '@/components/Common';
 import { FormDialog } from '@/components/Dialogs';
 import {
   EmptyState,
@@ -38,7 +43,7 @@ export function MentorTeamsPage() {
     query.data?.items.filter((person) => person.roles.includes('student')) ??
     [];
   return (
-    <div className="mx-auto w-full max-w-[92rem]">
+    <Page>
       <PageHeader
         title="Mentor Teams"
         actions={
@@ -143,7 +148,7 @@ export function MentorTeamsPage() {
           />
         )}
       </section>
-    </div>
+    </Page>
   );
 }
 

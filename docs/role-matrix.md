@@ -40,7 +40,7 @@ Coordinator is a season-scoped administrator, not an alias for System Admin.
 There is exactly one season role—student, mentor or coordinator—per enrollment.
 Privileged role assignments remain `pending_mfa` until TOTP is configured.
 
-Student levels are Novice, Beginner, Intermediate and Advance. Any active mentor
+Student levels are Novice, Beginner, Intermediate and Advanced. Any active mentor
 in the same open season may set a student's level, including students assigned
 to another mentor or not yet assigned. This does not change the student's role,
 mentor assignment, or the mentor's access to private fields and removal actions.

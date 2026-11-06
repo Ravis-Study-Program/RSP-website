@@ -275,10 +275,10 @@ test('signed-out, unverified, unavailable, nonmember, forbidden and not-found st
     signedOutPage.getByRole('heading', { name: 'Welcome to RSP' }),
   ).toBeVisible();
   await expect(
-    signedOutPage.getByRole('tab', { name: 'Sign in' }),
+    signedOutPage.getByRole('tab', { name: 'Sign In' }),
   ).toHaveAttribute('aria-selected', 'true');
   await expect(
-    signedOutPage.getByRole('tab', { name: 'Create account' }),
+    signedOutPage.getByRole('tab', { name: 'Create Account' }),
   ).toHaveAttribute('aria-selected', 'false');
   await signedOutContext.close();
 

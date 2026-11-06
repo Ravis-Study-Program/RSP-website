@@ -68,7 +68,7 @@ test('profiles show all-time activity in the same tables as the dedicated pages'
     practice.getByRole('button', { name: /More actions for/ }),
   ).toHaveCount(0);
   // The table tabs sit in the toolbar, beside the search.
-  await practice.getByRole('tab', { name: 'Mock interviews' }).click();
+  await practice.getByRole('tab', { name: 'Mock Interviews' }).click();
   const mocks = page.getByRole('region', { name: 'Amelia Chen mock history' });
   await expect(
     mocks.getByRole('tablist', { name: 'Mock interview view' }),
@@ -95,7 +95,7 @@ test('profiles hide details of interviews you were not part of', async ({
 }) => {
   // Zara's only interview was between her and Liam.
   await page.goto('/people/zara-ahmed');
-  await page.getByRole('tab', { name: 'Mock interviews' }).click();
+  await page.getByRole('tab', { name: 'Mock Interviews' }).click();
   const mocks = page.getByRole('region', { name: 'Zara Ahmed mock history' });
   await expect(
     mocks.getByText('Liam Foster').filter({ visible: true }).first(),

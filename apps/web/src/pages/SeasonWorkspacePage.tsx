@@ -19,9 +19,11 @@ import {
   useSeasons,
 } from '@/api/queries';
 import {
-  ExternalLink,
   MetricCard,
+  Page,
   PageHeader,
+  PageSection,
+  ResourceLink,
   usePageTitle,
 } from '@/components/Common';
 import {
@@ -36,14 +38,10 @@ import {
 } from '@/components/StatusViews';
 import { formatDate } from '@/utils';
 
-const pageClass = 'mx-auto w-full max-w-[92rem]';
-const sectionClass = 'mt-6';
-const sectionHeaderClass = 'mb-3 flex items-end justify-between gap-4';
-const sectionTitleClass = 'text-xl font-semibold tracking-tight';
 const inlineClass = 'flex flex-wrap items-center gap-2.5';
 const helperClass = 'text-sm text-muted-foreground';
 // Panels sit 1.5rem apart, as everywhere else (see DESIGN.md).
-const metricGridClass = 'mt-6 grid grid-cols-2 gap-6';
+const metricGridClass = 'grid grid-cols-2 gap-6';
 const resourceLinkClass =
   'flex min-h-11 items-center justify-between gap-4 py-3 font-medium text-foreground hover:underline';
 
@@ -61,20 +59,20 @@ export function SeasonWorkspacePage() {
     return <PageSkeleton label="Loading season" />;
   if (query.isError || user.isError)
     return (
-      <div className={pageClass}>
+      <Page>
         <ErrorState
           onRetry={() => void Promise.all([query.refetch(), user.refetch()])}
         />
-      </div>
+      </Page>
     );
   if (!season)
     return (
-      <div className={pageClass}>
+      <Page>
         <ErrorState
           title="Season Not Found"
           message="This season may have moved or you may not have access."
         />
-      </div>
+      </Page>
     );
 
   const hasSeasonAccess = Boolean(
@@ -120,7 +118,7 @@ export function SeasonWorkspacePage() {
   );
 
   return (
-    <div className={pageClass}>
+    <Page>
       <PageHeader
         title={season.name}
         status={
@@ -150,195 +148,194 @@ export function SeasonWorkspacePage() {
           ) : undefined
         }
       />
-      {season.status === 'closed' ? (
-        <div className="mt-4">
-          <InlineNotice tone="warning">
-            <IconLock size={19} aria-hidden="true" /> This season is read-only.
-            You can still log LeetCode attempts and mock interviews outside this
-            season.
-          </InlineNotice>
+      <div className="flex flex-col gap-6">
+        {season.status === 'closed' ? (
+          <div>
+            <InlineNotice tone="warning">
+              <IconLock size={19} aria-hidden="true" /> This season is
+              read-only. You can still log LeetCode attempts and mock interviews
+              outside this season.
+            </InlineNotice>
+          </div>
+        ) : null}
+        <div className={metricGridClass}>
+          <MetricCard
+            label="Students"
+            value={
+              enrollments.data?.items.filter(
+                (member) => member.role === 'student',
+              ).length ?? '—'
+            }
+          />
+          <MetricCard
+            label="Program Weeks"
+            value={weeks.data?.totalCount ?? '—'}
+            detail={`${formatDate(season.startsAt)} – ${formatDate(season.endsAt)}`}
+          />
         </div>
-      ) : null}
-      <div className={metricGridClass}>
-        <MetricCard
-          label="Students"
-          value={
-            enrollments.data?.items.filter(
-              (member) => member.role === 'student',
-            ).length ?? '—'
-          }
-        />
-        <MetricCard
-          label="Program Weeks"
-          value={weeks.data?.totalCount ?? '—'}
-          detail={`${formatDate(season.startsAt)} – ${formatDate(season.endsAt)}`}
-        />
-      </div>
-      <div className={metricGridClass}>
-        <MetricCard
-          label="Leetcodes"
-          value={activity.data?.attemptCount ?? '—'}
-        />
-        <MetricCard
-          label="Mock Interviews"
-          value={activity.data?.mockInterviewCount ?? '—'}
-        />
-      </div>
-      {activity.isError ? (
-        <ErrorState
-          title="Activity Totals Unavailable"
-          onRetry={() => void activity.refetch()}
-        />
-      ) : null}
-      <div className="mt-4 grid items-start gap-6 min-[56rem]:grid-cols-2">
-        <section className={sectionClass} aria-labelledby="schedule-title">
-          <div className="mb-3 flex items-center justify-between gap-4">
-            <h2 id="schedule-title" className={sectionTitleClass}>
-              Program Schedule
-            </h2>
-            <Link
-              to={`/seasons/${season.slug}/leetcode`}
-              className={buttonVariants({ variant: 'outline', size: 'sm' })}
-            >
-              Open LeetCode
-            </Link>
-          </div>
-          <Card>
-            <CardContent>
-              {weeks.isLoading ? (
-                <p role="status">Loading program weeks…</p>
-              ) : weeks.isError ? (
-                <ErrorState
-                  title="Schedule Unavailable"
-                  message="The program schedule could not be loaded."
-                  onRetry={() => void weeks.refetch()}
-                />
-              ) : orderedWeeks.length === 0 ? (
-                <p className={helperClass}>
-                  No weeks have been scheduled for this season.
-                </p>
-              ) : (
-                <ol className="m-0 grid list-none gap-0 p-0">
-                  {orderedWeeks.map((week) => (
-                    <li
-                      className="relative grid grid-cols-[2.2rem_1fr] gap-3 pb-4 last:pb-0 before:absolute before:top-4 before:bottom-[-0.2rem] before:left-[0.45rem] before:w-0.5 before:bg-border before:content-[''] last:before:hidden"
-                      key={week.id}
-                      aria-current={
-                        week.id === currentWeek?.id ? 'date' : undefined
-                      }
-                    >
-                      <span
-                        className="z-10 mt-1 size-3.5 rounded-sm bg-primary"
-                        aria-hidden="true"
-                      />
-                      <div className="min-w-0">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <h3 className="text-base font-semibold">
-                            Week {week.number}
-                          </h3>
-                          {week.id === currentWeek?.id ? (
-                            <StatusBadge>Current week</StatusBadge>
-                          ) : null}
+        <div className={metricGridClass}>
+          <MetricCard
+            label="Leetcodes"
+            value={activity.data?.attemptCount ?? '—'}
+          />
+          <MetricCard
+            label="Mock Interviews"
+            value={activity.data?.mockInterviewCount ?? '—'}
+          />
+        </div>
+        {activity.isError ? (
+          <ErrorState
+            title="Activity Totals Unavailable"
+            onRetry={() => void activity.refetch()}
+          />
+        ) : null}
+        <div className="grid items-start gap-6 min-[56rem]:grid-cols-2">
+          <PageSection
+            titleId="schedule-title"
+            title="Program Schedule"
+            actions={
+              <>
+                <Link
+                  to={`/seasons/${season.slug}/leetcode`}
+                  className={buttonVariants({ variant: 'outline', size: 'sm' })}
+                >
+                  Open LeetCode
+                </Link>
+              </>
+            }
+          >
+            <Card>
+              <CardContent>
+                {weeks.isLoading ? (
+                  <p role="status">Loading program weeks…</p>
+                ) : weeks.isError ? (
+                  <ErrorState
+                    title="Schedule Unavailable"
+                    message="The program schedule could not be loaded."
+                    onRetry={() => void weeks.refetch()}
+                  />
+                ) : orderedWeeks.length === 0 ? (
+                  <p className={helperClass}>
+                    No weeks have been scheduled for this season.
+                  </p>
+                ) : (
+                  <ol className="m-0 grid list-none gap-0 p-0">
+                    {orderedWeeks.map((week) => (
+                      <li
+                        className="relative grid grid-cols-[2.2rem_1fr] gap-3 pb-4 last:pb-0 before:absolute before:top-4 before:bottom-[-0.2rem] before:left-[0.45rem] before:w-0.5 before:bg-border before:content-[''] last:before:hidden"
+                        key={week.id}
+                        aria-current={
+                          week.id === currentWeek?.id ? 'date' : undefined
+                        }
+                      >
+                        <span
+                          className="z-10 mt-1 size-3.5 rounded-sm bg-primary"
+                          aria-hidden="true"
+                        />
+                        <div className="min-w-0">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <h3 className="text-base font-semibold">
+                              Week {week.number}
+                            </h3>
+                            {week.id === currentWeek?.id ? (
+                              <StatusBadge>Current week</StatusBadge>
+                            ) : null}
+                          </div>
+                          <p className="text-sm">
+                            {formatDate(week.startAt)} –{' '}
+                            {formatDate(week.endAt)}
+                          </p>
+                          {week.resourceUrl ? (
+                            <ResourceLink href={week.resourceUrl}>
+                              Open week resources
+                            </ResourceLink>
+                          ) : (
+                            <span className={helperClass}>
+                              No resource link
+                            </span>
+                          )}
                         </div>
-                        <p className="text-sm">
-                          {formatDate(week.startAt)} – {formatDate(week.endAt)}
-                        </p>
-                        {week.resourceUrl ? (
-                          <ExternalLink href={week.resourceUrl}>
-                            Open week resources
-                          </ExternalLink>
-                        ) : (
-                          <span className={helperClass}>No resource link</span>
-                        )}
-                      </div>
-                    </li>
-                  ))}
-                </ol>
-              )}
-            </CardContent>
-          </Card>
-        </section>
-        <section
-          className={sectionClass}
-          aria-labelledby="season-actions-title"
-        >
-          <div className={sectionHeaderClass}>
-            <h2 id="season-actions-title" className={sectionTitleClass}>
-              Workspace
-            </h2>
-          </div>
-          <Card>
-            <CardContent>
-              <ul className="m-0 list-none divide-y p-0">
-                <li>
-                  <Link
-                    className={resourceLinkClass}
-                    to={`/seasons/${season.slug}/people`}
-                  >
-                    <span className={inlineClass}>
-                      <IconUsers size={18} aria-hidden="true" /> People
-                      directory
-                    </span>
-                    <IconArrowRight size={17} aria-hidden="true" />
-                  </Link>
-                </li>
-                <li>
-                  <Link
-                    className={resourceLinkClass}
-                    to={`/seasons/${season.slug}/mock-interviews`}
-                  >
-                    <span className={inlineClass}>
-                      <IconCalendarEvent size={18} aria-hidden="true" /> Mock
-                      interviews
-                    </span>
-                    <IconArrowRight size={17} aria-hidden="true" />
-                  </Link>
-                </li>
-                {isGlobalManager ? (
+                      </li>
+                    ))}
+                  </ol>
+                )}
+              </CardContent>
+            </Card>
+          </PageSection>
+          <PageSection titleId="season-actions-title" title="Workspace">
+            <Card>
+              <CardContent>
+                <ul className="m-0 list-none divide-y p-0">
                   <li>
                     <Link
                       className={resourceLinkClass}
-                      to={`/seasons/${season.slug}/monday-updates`}
+                      to={`/seasons/${season.slug}/people`}
                     >
                       <span className={inlineClass}>
-                        <IconNotebook size={18} aria-hidden="true" /> Monday
-                        updates
+                        <IconUsers size={18} aria-hidden="true" /> People
+                        directory
                       </span>
                       <IconArrowRight size={17} aria-hidden="true" />
                     </Link>
                   </li>
-                ) : null}
-                {season.resourcesUrl ? (
+                  <li>
+                    <Link
+                      className={resourceLinkClass}
+                      to={`/seasons/${season.slug}/mock-interviews`}
+                    >
+                      <span className={inlineClass}>
+                        <IconCalendarEvent size={18} aria-hidden="true" /> Mock
+                        interviews
+                      </span>
+                      <IconArrowRight size={17} aria-hidden="true" />
+                    </Link>
+                  </li>
+                  {isGlobalManager ? (
+                    <li>
+                      <Link
+                        className={resourceLinkClass}
+                        to={`/seasons/${season.slug}/monday-updates`}
+                      >
+                        <span className={inlineClass}>
+                          <IconNotebook size={18} aria-hidden="true" /> Monday
+                          updates
+                        </span>
+                        <IconArrowRight size={17} aria-hidden="true" />
+                      </Link>
+                    </li>
+                  ) : null}
+                  {season.resourcesUrl ? (
+                    <li>
+                      <a
+                        className={resourceLinkClass}
+                        href={season.resourcesUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        <span className={inlineClass}>Season resources</span>
+                        <IconExternalLink size={17} aria-hidden="true" />
+                      </a>
+                    </li>
+                  ) : null}
                   <li>
                     <a
                       className={resourceLinkClass}
-                      href={season.resourcesUrl}
+                      href="https://leetcode.com/problemset/"
                       target="_blank"
                       rel="noreferrer"
                     >
-                      <span className={inlineClass}>Season resources</span>
+                      <span className={inlineClass}>
+                        LeetCode problem catalogue
+                      </span>
                       <IconExternalLink size={17} aria-hidden="true" />
                     </a>
                   </li>
-                ) : null}
-                <li>
-                  <a
-                    className={resourceLinkClass}
-                    href="https://leetcode.com/problemset/"
-                    target="_blank"
-                    rel="noreferrer"
-                  >
-                    <span className={inlineClass}>
-                      LeetCode problem catalogue
-                    </span>
-                    <IconExternalLink size={17} aria-hidden="true" />
-                  </a>
-                </li>
-              </ul>
-            </CardContent>
-          </Card>
-        </section>
+                </ul>
+              </CardContent>
+            </Card>
+          </PageSection>
+        </div>
       </div>
-    </div>
+    </Page>
   );
 }

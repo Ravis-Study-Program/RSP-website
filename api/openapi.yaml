@@ -2861,7 +2861,7 @@ components:
       properties:
         studentLevel:
           type: string
-          description: The advanced value is displayed as Advance.
+          description: The advanced value is displayed as Advanced.
           enum: [novice, beginner, intermediate, advanced]
     EnrollmentUpdate:
       type: object

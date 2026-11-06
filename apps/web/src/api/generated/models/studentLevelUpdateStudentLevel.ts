@@ -7,7 +7,7 @@
  */
 
 /**
- * The advanced value is displayed as Advance.
+ * The advanced value is displayed as Advanced.
  */
 export type StudentLevelUpdateStudentLevel =
   (typeof StudentLevelUpdateStudentLevel)[keyof typeof StudentLevelUpdateStudentLevel];

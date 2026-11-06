@@ -4,8 +4,6 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Field, FieldLabel } from '@/components/ui/field';
-import { IconUserMinus } from '@tabler/icons-react';
-import type { ColumnDef } from '@tanstack/react-table';
 import { useCallback, useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
 
@@ -19,43 +17,19 @@ import {
   useSeasons,
   useSeasonPeople,
 } from '@/api/queries';
+import { Page, PageHeader, usePageTitle } from '@/components/Common';
 import {
-  PageHeader,
-  PersonIdentity,
-  StudentLevelBadge,
-  usePageTitle,
-} from '@/components/Common';
-import { DataTable } from '@/components/DataTable';
-import { LatestMarkCell } from '@/components/MondayMark';
-import { latestMarkRank, pickLatestMark, type LatestMark } from '@/mondayMarks';
-import { StudentLevelDialog } from '@/components/StudentLevelDialog';
+  PeopleTable,
+  StudentRowActions,
+  type PersonLatestMark,
+} from '@/components/PeopleTable';
+import { pickLatestMark } from '@/mondayMarks';
 import { canSetStudentLevel } from '@/studentLevels';
 import { FormDialog } from '@/components/Dialogs';
 import type { Person } from '@/types';
-import { calendarDateKey, formatDateTime } from '@/utils';
-
-/** A row's latest-mark cell: a status, or the mentee's latest update. */
-type MenteeMark =
-  'not-mentee' | 'loading' | 'error' | { latest: LatestMark | undefined };
-
-const menteeMarkText = {
-  'not-mentee': '—',
-  loading: 'Loading…',
-  error: 'Unavailable',
-} as const;
-
-function MenteeMarkCell({ state }: { state: MenteeMark }) {
-  if (typeof state === 'string')
-    return (
-      <span className="text-sm text-muted-foreground">
-        {menteeMarkText[state]}
-      </span>
-    );
-  return <LatestMarkCell latest={state.latest} noUpdateText="No updates yet" />;
-}
+import { calendarDateKey } from '@/utils';
 
 export function MenteesPage() {
-  usePageTitle('My Students');
   const { slug } = useParams();
   const seasons = useSeasons();
   const currentUser = useCurrentUser();
@@ -73,6 +47,7 @@ export function MenteesPage() {
         (membership.state === 'active' || membership.state === 'completed'),
     ),
   );
+  usePageTitle(canManageEveryStudent ? 'All Students' : 'My Students');
   const canChangeLevel = canSetStudentLevel(currentUser.data, season);
   const mentees = useMemo(
     () =>
@@ -146,7 +121,7 @@ export function MenteesPage() {
     );
   }, [seasonUpdates.data]);
   const latestMarkState = useCallback(
-    (person: Person): MenteeMark => {
+    (person: Person): PersonLatestMark => {
       if (!currentMenteeIds.includes(person.id)) return 'not-mentee';
       if (seasonUpdates.isLoading) return 'loading';
       if (seasonUpdates.isError) return 'error';
@@ -159,124 +134,56 @@ export function MenteesPage() {
       seasonUpdates.isLoading,
     ],
   );
-  const columns = useMemo<ColumnDef<Person, any>[]>(
-    () => [
-      {
-        accessorKey: 'name',
-        header: 'Student',
-        cell: ({ row }) => (
-          <PersonIdentity
-            seasonId={season?.id}
-            person={row.original}
-            privateView
-          />
-        ),
-      },
-      {
-        accessorKey: 'studentLevel',
-        header: 'Level',
-        meta: { width: 8 },
-        cell: ({ row }) =>
-          row.original.studentLevel &&
-          row.original.studentLevel !== 'not_applicable' ? (
-            <StudentLevelBadge level={row.original.studentLevel} />
-          ) : (
-            '—'
-          ),
-      },
-      { accessorKey: 'attempts', header: 'Attempts', meta: { width: 7 } },
-      {
-        accessorKey: 'interviews',
-        header: 'Mock Interviews',
-        meta: { width: 9 },
-      },
-      {
-        accessorKey: 'lastActiveAt',
-        header: 'Last Recorded Activity',
-        meta: { width: 11.5 },
-        cell: ({ getValue }) => (getValue() ? formatDateTime(getValue()) : '—'),
-      },
-      ...(showLatestMark
-        ? [
-            {
-              id: 'latestMark',
-              header: 'Latest Monday mark',
-              meta: { width: 12 },
-              accessorFn: (person: Person) => {
-                const state = latestMarkState(person);
-                return typeof state === 'string'
-                  ? 7
-                  : latestMarkRank(state.latest);
-              },
-              cell: ({ row }: { row: { original: Person } }) => (
-                <MenteeMarkCell state={latestMarkState(row.original)} />
-              ),
-            } satisfies ColumnDef<Person, number>,
-          ]
-        : []),
-      {
-        id: 'actions',
-        header: 'Actions',
-        meta: { width: 12, align: 'end' },
-        enableSorting: false,
-        enableHiding: false,
-        cell: ({ row }) => (
-          <div className="flex flex-wrap items-center gap-2">
-            {canChangeLevel &&
-            season &&
-            row.original.enrollmentState === 'active' ? (
-              <StudentLevelDialog
-                seasonId={season.id}
-                person={row.original}
-                onChanged={() => void query.refetch()}
-              />
-            ) : null}
-            {canChangeLevel &&
-            row.original.enrollmentState === 'active' &&
-            (canManageEveryStudent ||
-              row.original.mentorshipMentorId === currentUser.data?.id) ? (
-              <RemovalDialog
-                seasonId={season?.id}
-                person={row.original}
-                onRemoved={() => setRemoved((ids) => [...ids, row.original.id])}
-              />
-            ) : null}
-          </div>
-        ),
-      },
-    ],
-    [
-      canChangeLevel,
-      canManageEveryStudent,
-      currentUser.data?.id,
-      latestMarkState,
-      query,
-      season,
-      setRemoved,
-      showLatestMark,
-    ],
-  );
-
   return (
-    <div className="mx-auto w-full max-w-[92rem]">
+    <Page>
       <PageHeader
         title={canManageEveryStudent ? 'All Students' : 'My Students'}
       />
-      <div className="mb-6 flex min-h-6 items-center gap-2">
-        <Checkbox
-          id="include-previous-students"
-          checked={showPrevious}
-          disabled={season?.status === 'closed'}
-          onCheckedChange={(checked) => setIncludePrevious(checked)}
-        />
-        <Label htmlFor="include-previous-students" className="font-normal">
-          Include previous students
-        </Label>
-      </div>
-      <DataTable
+      <PeopleTable
+        variant="students"
+        toolbarStart={
+          <div className="flex h-9 items-center gap-2">
+            <Checkbox
+              id="include-previous-students"
+              checked={showPrevious}
+              disabled={season?.status === 'closed'}
+              onCheckedChange={(checked) => setIncludePrevious(checked)}
+            />
+            <Label htmlFor="include-previous-students" className="font-normal">
+              Include previous students
+            </Label>
+          </div>
+        }
         ariaLabel={canManageEveryStudent ? 'All Students' : 'Assigned students'}
         data={mentees}
-        columns={columns}
+        seasonId={season?.id}
+        latestMark={showLatestMark ? latestMarkState : undefined}
+        renderActions={(person) => (
+          <StudentRowActions
+            person={person}
+            seasonId={season?.id}
+            canSetLevel={
+              canChangeLevel &&
+              Boolean(season) &&
+              person.enrollmentState === 'active'
+            }
+            canRemove={
+              canChangeLevel &&
+              person.enrollmentState === 'active' &&
+              (canManageEveryStudent ||
+                person.mentorshipMentorId === currentUser.data?.id)
+            }
+            onLevelChanged={() => void query.refetch()}
+            renderRemoveDialog={(dialog) => (
+              <RemovalDialog
+                {...dialog}
+                seasonId={season?.id}
+                person={person}
+                onRemoved={() => setRemoved((ids) => [...ids, person.id])}
+              />
+            )}
+          />
+        )}
         loading={query.isLoading || seasons.isLoading || currentUser.isLoading}
         error={query.isError || seasons.isError || currentUser.isError}
         onRetry={() =>
@@ -288,59 +195,24 @@ export function MenteesPage() {
         }
         emptyTitle="No Students in This View"
         emptyMessage="A Coordinator can assign students to your mentor team."
-        getRowId={(person) => person.id}
-        renderCard={(row) => (
-          <div>
-            <PersonIdentity
-              seasonId={season?.id}
-              person={row.original}
-              privateView
-            />
-            <p>
-              {row.original.attempts ?? '—'} attempts ·{' '}
-              {row.original.interviews ?? '—'} interviews
-            </p>
-            {showLatestMark ? (
-              <MenteeMarkCell state={latestMarkState(row.original)} />
-            ) : null}
-            <div className="flex flex-wrap items-center gap-2">
-              {canChangeLevel &&
-              season &&
-              row.original.enrollmentState === 'active' ? (
-                <StudentLevelDialog
-                  seasonId={season.id}
-                  person={row.original}
-                  onChanged={() => void query.refetch()}
-                />
-              ) : null}
-              {canChangeLevel &&
-              row.original.enrollmentState === 'active' &&
-              (canManageEveryStudent ||
-                row.original.mentorshipMentorId === currentUser.data?.id) ? (
-                <RemovalDialog
-                  seasonId={season?.id}
-                  person={row.original}
-                  onRemoved={() =>
-                    setRemoved((ids) => [...ids, row.original.id])
-                  }
-                />
-              ) : null}
-            </div>
-          </div>
-        )}
       />
-    </div>
+    </Page>
   );
 }
 
+/** Removes a student from the season, opened from their row menu. */
 function RemovalDialog({
   seasonId,
   person,
   onRemoved,
+  open,
+  onOpenChange,
 }: {
   seasonId?: string;
   person: Person;
   onRemoved: () => void;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
 }) {
   const [reason, setReason] = useState('');
   const [confirmation, setConfirmation] = useState('');
@@ -349,6 +221,7 @@ function RemovalDialog({
   const remove = async () => {
     if (demoMode) {
       onRemoved();
+      onOpenChange(false);
       return;
     }
     if (!seasonId || !person.enrollmentId) return;
@@ -365,6 +238,7 @@ function RemovalDialog({
         );
       }
       onRemoved();
+      onOpenChange(false);
     } catch (requestError) {
       setError(
         requestError instanceof Error
@@ -377,15 +251,10 @@ function RemovalDialog({
   };
   return (
     <FormDialog
-      triggerVariant="destructive"
-      triggerSize="sm"
       title={`Remove ${person.name}?`}
       description="This student immediately loses access to season resources and the directory. Your name and the removal reason are recorded."
-      trigger={
-        <>
-          <IconUserMinus size={17} aria-hidden="true" /> Remove
-        </>
-      }
+      open={open}
+      onOpenChange={onOpenChange}
     >
       <Field>
         <FieldLabel htmlFor={`reason-${person.id}`}>Removal reason</FieldLabel>
