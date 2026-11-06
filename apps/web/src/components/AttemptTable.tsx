@@ -1,6 +1,5 @@
 import type { BadgeTone } from '@/badgeTones';
 import { StatusBadge } from '@/components/StatusBadge';
-import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { adaptAttempt } from '@/api/adapters';
 import { apiRequest } from '@/api/client';
@@ -9,13 +8,13 @@ import type {
   AttemptReview,
 } from '@/api/generated/models';
 import { demoMode, usePracticeGoals } from '@/api/queries';
-import { IconChevronDown, IconChevronUp } from '@tabler/icons-react';
 import type { ColumnDef, Row } from '@tanstack/react-table';
 import { useState, type ReactNode } from 'react';
 import {
   DataTable,
   HighlightText,
   type ExtraFilters,
+  ExpandRowButton,
 } from '@/components/DataTable';
 import { ExternalLink } from '@/components/ExternalLink';
 import { RichTextContent } from '@/components/RichTextContent';
@@ -230,20 +229,10 @@ export function AttemptTable({
     enableSorting: false,
     enableHiding: false,
     cell: ({ row }) => (
-      <Button
-        variant="ghost"
-        size="icon"
-        type="button"
-        aria-label={`${row.getIsExpanded() ? 'Hide' : 'Show'} notes for ${row.original.problem}`}
-        aria-expanded={row.getIsExpanded()}
-        onClick={row.getToggleExpandedHandler()}
-      >
-        {row.getIsExpanded() ? (
-          <IconChevronUp size={18} />
-        ) : (
-          <IconChevronDown size={18} />
-        )}
-      </Button>
+      <ExpandRowButton
+        row={row}
+        subject={`notes for ${row.original.problem}`}
+      />
     ),
   };
   const columns: ColumnDef<Attempt, any>[] = [

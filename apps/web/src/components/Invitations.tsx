@@ -1,4 +1,5 @@
 import { Button } from '@/components/ui/button';
+import { PageSection } from '@/components/Common';
 import { Field, FieldLabel } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
 import {
@@ -133,98 +134,102 @@ export function Invitations({ season }: { season: Season }) {
       </div>
     ) : null;
   return (
-    <section className="mt-6" aria-label="Invitations">
-      <div className="mb-3 flex items-end justify-between gap-4">
-        <h2 className="text-xl font-semibold tracking-tight">Invitations</h2>
-        <FormDialog
-          open={open}
-          onOpenChange={(next) => {
-            if (
-              !next &&
-              (form.name || form.email) &&
-              !window.confirm('Discard this unsent invitation?')
-            )
-              return;
-            setOpen(next);
-          }}
-          title="Invite a Member"
-          trigger={season.status === 'open' ? 'Invite a member' : undefined}
-        >
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              void save();
+    <PageSection
+      titleId="invitations-title"
+      title="Invitations"
+      actions={
+        <>
+          <FormDialog
+            open={open}
+            onOpenChange={(next) => {
+              if (
+                !next &&
+                (form.name || form.email) &&
+                !window.confirm('Discard this unsent invitation?')
+              )
+                return;
+              setOpen(next);
             }}
-            className={formStack}
+            title="Invite a Member"
+            trigger={season.status === 'open' ? 'Invite a member' : undefined}
           >
-            <Field>
-              <FieldLabel htmlFor="invitation-name">Name</FieldLabel>
-              <Input
-                id="invitation-name"
-                required
-                maxLength={100}
-                value={form.name}
-                onChange={(e) => setForm({ ...form, name: e.target.value })}
-              />
-            </Field>
-            <Field>
-              <FieldLabel htmlFor="invitation-email">Email</FieldLabel>
-              <Input
-                id="invitation-email"
-                type="email"
-                required
-                maxLength={254}
-                value={form.email}
-                onChange={(e) => setForm({ ...form, email: e.target.value })}
-              />
-            </Field>
-            <Field>
-              <FieldLabel htmlFor="invitation-role">Role</FieldLabel>
-              <Select
-                items={invitationRoleItems}
-                value={form.role}
-                onValueChange={(value) => {
-                  if (value)
-                    setForm({
-                      ...form,
-                      role: value as InvitationCreate['role'],
-                    });
-                }}
-              >
-                <SelectTrigger id="invitation-role" className="w-full">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectGroup>
-                    {invitationRoleItems.map((item) => (
-                      <SelectItem key={item.value} value={item.value}>
-                        {item.label}
-                      </SelectItem>
-                    ))}
-                  </SelectGroup>
-                </SelectContent>
-              </Select>
-            </Field>
-            {form.role === 'coordinator' ? (
-              <p className={notice}>
-                Coordinator access becomes active after MFA is configured.
-              </p>
-            ) : null}
-            {/* Gate on open: the dialog stays mounted through its close
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                void save();
+              }}
+              className={formStack}
+            >
+              <Field>
+                <FieldLabel htmlFor="invitation-name">Name</FieldLabel>
+                <Input
+                  id="invitation-name"
+                  required
+                  maxLength={100}
+                  value={form.name}
+                  onChange={(e) => setForm({ ...form, name: e.target.value })}
+                />
+              </Field>
+              <Field>
+                <FieldLabel htmlFor="invitation-email">Email</FieldLabel>
+                <Input
+                  id="invitation-email"
+                  type="email"
+                  required
+                  maxLength={254}
+                  value={form.email}
+                  onChange={(e) => setForm({ ...form, email: e.target.value })}
+                />
+              </Field>
+              <Field>
+                <FieldLabel htmlFor="invitation-role">Role</FieldLabel>
+                <Select
+                  items={invitationRoleItems}
+                  value={form.role}
+                  onValueChange={(value) => {
+                    if (value)
+                      setForm({
+                        ...form,
+                        role: value as InvitationCreate['role'],
+                      });
+                  }}
+                >
+                  <SelectTrigger id="invitation-role" className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectGroup>
+                      {invitationRoleItems.map((item) => (
+                        <SelectItem key={item.value} value={item.value}>
+                          {item.label}
+                        </SelectItem>
+                      ))}
+                    </SelectGroup>
+                  </SelectContent>
+                </Select>
+              </Field>
+              {form.role === 'coordinator' ? (
+                <p className={notice}>
+                  Coordinator access becomes active after MFA is configured.
+                </p>
+              ) : null}
+              {/* Gate on open: the dialog stays mounted through its close
                 animation, which would briefly duplicate the section status. */}
-            {message && open ? (
-              <p role="status" className={notice}>
-                {message}
-              </p>
-            ) : null}
-            <div>
-              <Button type="submit" disabled={busy}>
-                {busy ? 'Sending…' : 'Send invitation'}
-              </Button>
-            </div>
-          </form>
-        </FormDialog>
-      </div>
+              {message && open ? (
+                <p role="status" className={notice}>
+                  {message}
+                </p>
+              ) : null}
+              <div>
+                <Button type="submit" disabled={busy}>
+                  {busy ? 'Sending…' : 'Send invitation'}
+                </Button>
+              </div>
+            </form>
+          </FormDialog>
+        </>
+      }
+    >
       {message && !open ? (
         <p role="status" className={`${notice} mb-3`}>
           {message}
@@ -274,7 +279,7 @@ export function Invitations({ season }: { season: Season }) {
           </div>
         )}
       />
-    </section>
+    </PageSection>
   );
 }
 

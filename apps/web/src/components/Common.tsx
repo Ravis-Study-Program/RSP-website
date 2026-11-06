@@ -10,6 +10,7 @@ import {
 import { IconArrowUpRight } from '@tabler/icons-react';
 import { useEffect, useSyncExternalStore, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
+import { cn } from '@/lib/utils';
 
 import { studentLevelLabel, studentLevelTone } from '@/studentLevels';
 import type { Person, Role } from '@/types';
@@ -153,6 +154,78 @@ export function StudentLevelBadge({
   );
 }
 
+/** The centred column, at most 92rem wide, that every page sits in. */
+export function Page({
+  as: Element = 'div',
+  className,
+  children,
+}: {
+  as?: 'div' | 'main';
+  className?: string;
+  children: ReactNode;
+}) {
+  return (
+    <Element className={cn('mx-auto w-full max-w-[92rem]', className)}>
+      {children}
+    </Element>
+  );
+}
+
+/**
+ * A titled section of a page: an `h2` that labels the section, optional
+ * actions on the right, then the content 12px below. Spacing between
+ * sections belongs to the page's stack.
+ */
+export function PageSection({
+  title,
+  titleId,
+  actions,
+  className,
+  children,
+}: {
+  title: ReactNode;
+  titleId: string;
+  actions?: ReactNode;
+  className?: string;
+  children: ReactNode;
+}) {
+  return (
+    <section
+      className={cn('flex flex-col', className)}
+      aria-labelledby={titleId}
+    >
+      <div className="mb-3 flex flex-wrap items-end justify-between gap-x-4 gap-y-1">
+        <h2 id={titleId} className="text-xl font-semibold tracking-tight">
+          {title}
+        </h2>
+        {actions}
+      </div>
+      {children}
+    </section>
+  );
+}
+
+/** A member's initials in an ink circle. Decorative: the name sits beside it. */
+export function Avatar({
+  initials,
+  size = 'md',
+}: {
+  initials: string;
+  size?: 'md' | 'lg';
+}) {
+  return (
+    <span
+      aria-hidden="true"
+      className={cn(
+        'inline-grid shrink-0 place-items-center rounded-full bg-primary font-semibold text-primary-foreground',
+        size === 'lg' ? 'size-18 text-xl' : 'size-9 text-xs',
+      )}
+    >
+      {initials}
+    </span>
+  );
+}
+
 export function PersonIdentity({
   person,
   privateView = false,
@@ -166,12 +239,7 @@ export function PersonIdentity({
 }) {
   return (
     <span className="flex min-w-0 items-center gap-3">
-      <span
-        className="inline-grid size-9 shrink-0 place-items-center rounded-full bg-primary text-xs font-semibold text-primary-foreground"
-        aria-hidden="true"
-      >
-        {person.initials}
-      </span>
+      <Avatar initials={person.initials} />
       <span className="grid min-w-0">
         <Link
           className="truncate font-medium text-foreground"
@@ -193,7 +261,8 @@ export function PersonIdentity({
   );
 }
 
-export function ExternalLink({
+/** A block link to an outside resource, such as a week's materials. */
+export function ResourceLink({
   href,
   children,
 }: {

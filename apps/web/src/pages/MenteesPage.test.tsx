@@ -270,8 +270,12 @@ describe('latest Monday mark column', () => {
       within(table)
         .getAllByRole('row')
         .find((item) => within(item).queryByText(name))!;
+    // The update's dates and its mark are separate one-line columns.
     expect(
-      within(table).getByRole('columnheader', { name: /Latest Monday mark/ }),
+      within(table).getByRole('columnheader', { name: /Latest Update/ }),
+    ).toBeInTheDocument();
+    expect(
+      within(table).getByRole('columnheader', { name: /^Mark/ }),
     ).toBeInTheDocument();
     expect(
       within(row('Marked Student')).getByText('At risk'),
@@ -288,7 +292,7 @@ describe('latest Monday mark column', () => {
       within(row('Unmarked Student')).getByText('Not marked'),
     ).toBeInTheDocument();
     expect(
-      within(row('Silent Student')).getByText('No updates yet'),
+      within(row('Silent Student')).getByText('No updates'),
     ).toBeInTheDocument();
   });
 
@@ -309,7 +313,7 @@ describe('latest Monday mark column', () => {
       [],
     );
     expect(
-      screen.queryByRole('columnheader', { name: /Latest Monday mark/ }),
+      screen.queryByRole('columnheader', { name: /Latest Update/ }),
     ).not.toBeInTheDocument();
     expect(vi.mocked(useMondayUpdates)).toHaveBeenLastCalledWith(
       false,

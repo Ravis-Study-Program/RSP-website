@@ -22,13 +22,16 @@ import {
 import { useWorkspace } from '@/auth/WorkspaceContext';
 import { ActivityChart } from '@/components/ActivityChart';
 import { MondayUpdateReminder } from '@/components/MondayUpdateReminder';
-import { MetricCard, PersonIdentity, usePageTitle } from '@/components/Common';
+import {
+  MetricCard,
+  Page,
+  PageSection,
+  PersonIdentity,
+  usePageTitle,
+} from '@/components/Common';
 import { ErrorState, PageSkeleton } from '@/components/StatusViews';
 import { recentActivitySeries } from '@/utils';
 
-const pageClass = 'mx-auto w-full max-w-[92rem]';
-const sectionTitleClass = 'text-xl font-semibold tracking-tight';
-const sectionHeaderClass = 'mb-3 flex items-end justify-between gap-4';
 const listClass = 'm-0 list-none divide-y p-0';
 const listRowClass = 'flex items-center justify-between gap-4 py-3';
 
@@ -95,15 +98,15 @@ export function DashboardPage() {
     return <PageSkeleton label="Loading dashboard" />;
   if (user.isError || seasons.isError || !user.data)
     return (
-      <div className={pageClass}>
+      <Page>
         <ErrorState
           onRetry={() => void Promise.all([user.refetch(), seasons.refetch()])}
         />
-      </div>
+      </Page>
     );
 
   return (
-    <div className={pageClass}>
+    <Page>
       {role === 'student' &&
       currentSeason?.status === 'open' &&
       !weeks.isError &&
@@ -149,187 +152,179 @@ export function DashboardPage() {
         </div>
       </header>
 
-      <div
-        className={`mt-4 grid gap-6 max-[56rem]:grid-cols-1 ${
-          ['mentor', 'coordinator', 'director', 'system_admin'].includes(role)
-            ? 'grid-cols-3'
-            : 'grid-cols-2'
-        }`}
-      >
-        {role === 'coordinator' ||
-        role === 'director' ||
-        role === 'system_admin' ? (
-          <>
-            <MetricCard
-              label="Active Members"
-              value={enrollments.isLoading ? '—' : activeEnrollments.length}
-            />
-            <MetricCard
-              label="Unassigned Students"
-              value={seasonPeople.isLoading ? '—' : unassigned.length}
-            />
-            <MetricCard
-              label="Program Week"
-              value={
-                currentWeek
-                  ? `${currentWeek.number} of ${orderedWeeks.length}`
-                  : '—'
-              }
-              detail={
-                currentWeek
-                  ? 'Current or next scheduled week'
-                  : 'No current or upcoming week'
-              }
-            />
-          </>
-        ) : role === 'mentor' ? (
-          <>
-            <MetricCard
-              label="Assigned Mentees"
-              value={seasonPeople.isLoading ? '—' : mentees.length}
-            />
-            <MetricCard
-              label="Interviews Given"
-              value={interviews.data?.given ?? '—'}
-            />
-            <MetricCard
-              label="Program Weeks"
-              value={weeks.isLoading ? '—' : orderedWeeks.length}
-            />
-          </>
-        ) : (
-          <>
-            <MetricCard
-              label="Leetcodes"
-              value={attempts.data?.totalCount ?? '—'}
-            />
-            <MetricCard
-              label="Mock Interviews"
-              value={interviews.data?.total ?? '—'}
-              detail={`${interviews.data?.reviewed ?? 0} reviewed`}
-            />
-          </>
-        )}
-      </div>
-
-      <div
-        className={`mt-8 grid items-stretch gap-6 ${role === 'coordinator' || role === 'mentor' ? 'lg:grid-cols-2' : ''}`}
-      >
-        {role === 'coordinator' || role === 'mentor' ? (
-          <section
-            className="mt-6 flex flex-col"
-            aria-labelledby="dashboard-focus-title"
-          >
-            <div className={sectionHeaderClass}>
-              <h2 id="dashboard-focus-title" className={sectionTitleClass}>
-                {role === 'coordinator'
-                  ? 'Operations needing attention'
-                  : 'Your mentor team'}
-              </h2>
-            </div>
-            {role === 'coordinator' ? (
-              <Card className="h-full">
-                <CardContent>
-                  <ul className={listClass}>
-                    <li className={listRowClass}>
-                      <span className="flex items-center gap-2">
-                        <IconUsers size={18} aria-hidden="true" />{' '}
-                        {unassigned.length
-                          ? `${unassigned.length} ${unassigned.length === 1 ? 'student is' : 'students are'} unassigned`
-                          : 'Every active student is assigned'}
-                      </span>
-                      <Link
-                        to={`/seasons/${currentSeason?.slug}/mentor-teams`}
-                        className={buttonVariants({
-                          variant: 'link',
-                          size: 'sm',
-                        })}
-                      >
-                        Mentor Teams
-                      </Link>
-                    </li>
-                    <li className={listRowClass}>
-                      <span className="flex items-center gap-2">
-                        <IconClipboardCheck size={18} aria-hidden="true" />{' '}
-                        {activeEnrollments.length} active{' '}
-                        {activeEnrollments.length === 1
-                          ? 'enrollment'
-                          : 'enrollments'}
-                      </span>
-                      <Link
-                        to="/admin/enrollments"
-                        className={buttonVariants({
-                          variant: 'link',
-                          size: 'sm',
-                        })}
-                      >
-                        Manage
-                      </Link>
-                    </li>
-                    <li className={listRowClass}>
-                      <span className="flex items-center gap-2">
-                        <IconCalendarEvent size={18} aria-hidden="true" />{' '}
-                        {missingWeekResources
-                          ? `${missingWeekResources} ${missingWeekResources === 1 ? 'week has' : 'weeks have'} no resource link`
-                          : 'All scheduled weeks have resource links'}
-                      </span>
-                      <Link
-                        to="/admin/weeks"
-                        className={buttonVariants({
-                          variant: 'link',
-                          size: 'sm',
-                        })}
-                      >
-                        Weeks
-                      </Link>
-                    </li>
-                  </ul>
-                </CardContent>
-              </Card>
-            ) : (
-              <Card className="h-full">
-                <CardContent>
-                  {mentees.length ? (
-                    <ul className={listClass}>
-                      {mentees.slice(0, 3).map((person) => (
-                        <li className={listRowClass} key={person.id}>
-                          <PersonIdentity
-                            person={person}
-                            seasonId={currentSeason?.id}
-                          />
-                          <StatusBadge>
-                            {person.attempts ?? '—'} attempts
-                          </StatusBadge>
-                        </li>
-                      ))}
-                    </ul>
-                  ) : (
-                    <p className="text-muted-foreground">
-                      No active students are assigned to you in this season.
-                    </p>
-                  )}
-                </CardContent>
-              </Card>
-            )}
-          </section>
-        ) : null}
-
-        <section
-          className="mt-6 flex flex-col"
-          aria-labelledby="activity-title"
+      {/* Everything below the welcome sits in one 24px stack. */}
+      <div className="flex flex-col gap-6">
+        <div
+          className={`grid gap-6 max-[56rem]:grid-cols-1 ${
+            ['mentor', 'coordinator', 'director', 'system_admin'].includes(role)
+              ? 'grid-cols-3'
+              : 'grid-cols-2'
+          }`}
         >
-          <div className={sectionHeaderClass}>
-            <h2 id="activity-title" className={sectionTitleClass}>
-              Your Recent Activity
-            </h2>
-          </div>
-          <Card className="h-full">
-            <CardContent>
-              <ActivityChart data={activity} />
-            </CardContent>
-          </Card>
-        </section>
+          {role === 'coordinator' ||
+          role === 'director' ||
+          role === 'system_admin' ? (
+            <>
+              <MetricCard
+                label="Active Members"
+                value={enrollments.isLoading ? '—' : activeEnrollments.length}
+              />
+              <MetricCard
+                label="Unassigned Students"
+                value={seasonPeople.isLoading ? '—' : unassigned.length}
+              />
+              <MetricCard
+                label="Program Week"
+                value={
+                  currentWeek
+                    ? `${currentWeek.number} of ${orderedWeeks.length}`
+                    : '—'
+                }
+                detail={
+                  currentWeek
+                    ? 'Current or next scheduled week'
+                    : 'No current or upcoming week'
+                }
+              />
+            </>
+          ) : role === 'mentor' ? (
+            <>
+              <MetricCard
+                label="Assigned Mentees"
+                value={seasonPeople.isLoading ? '—' : mentees.length}
+              />
+              <MetricCard
+                label="Interviews Given"
+                value={interviews.data?.given ?? '—'}
+              />
+              <MetricCard
+                label="Program Weeks"
+                value={weeks.isLoading ? '—' : orderedWeeks.length}
+              />
+            </>
+          ) : (
+            <>
+              <MetricCard
+                label="Leetcodes"
+                value={attempts.data?.totalCount ?? '—'}
+              />
+              <MetricCard
+                label="Mock Interviews"
+                value={interviews.data?.total ?? '—'}
+                detail={`${interviews.data?.reviewed ?? 0} reviewed`}
+              />
+            </>
+          )}
+        </div>
+
+        <div
+          className={`grid items-stretch gap-6 ${role === 'coordinator' || role === 'mentor' ? 'lg:grid-cols-2' : ''}`}
+        >
+          {role === 'coordinator' || role === 'mentor' ? (
+            <PageSection
+              titleId="dashboard-focus-title"
+              title={
+                role === 'coordinator'
+                  ? 'Operations Needing Attention'
+                  : 'Your Mentor Team'
+              }
+            >
+              {role === 'coordinator' ? (
+                <Card className="flex-1">
+                  <CardContent>
+                    <ul className={listClass}>
+                      <li className={listRowClass}>
+                        <span className="flex items-center gap-2">
+                          <IconUsers size={18} aria-hidden="true" />{' '}
+                          {unassigned.length
+                            ? `${unassigned.length} ${unassigned.length === 1 ? 'student is' : 'students are'} unassigned`
+                            : 'Every active student is assigned'}
+                        </span>
+                        <Link
+                          to={`/seasons/${currentSeason?.slug}/mentor-teams`}
+                          className={buttonVariants({
+                            variant: 'link',
+                            size: 'sm',
+                          })}
+                        >
+                          Mentor Teams
+                        </Link>
+                      </li>
+                      <li className={listRowClass}>
+                        <span className="flex items-center gap-2">
+                          <IconClipboardCheck size={18} aria-hidden="true" />{' '}
+                          {activeEnrollments.length} active{' '}
+                          {activeEnrollments.length === 1
+                            ? 'enrollment'
+                            : 'enrollments'}
+                        </span>
+                        <Link
+                          to="/admin/enrollments"
+                          className={buttonVariants({
+                            variant: 'link',
+                            size: 'sm',
+                          })}
+                        >
+                          Manage
+                        </Link>
+                      </li>
+                      <li className={listRowClass}>
+                        <span className="flex items-center gap-2">
+                          <IconCalendarEvent size={18} aria-hidden="true" />{' '}
+                          {missingWeekResources
+                            ? `${missingWeekResources} ${missingWeekResources === 1 ? 'week has' : 'weeks have'} no resource link`
+                            : 'All scheduled weeks have resource links'}
+                        </span>
+                        <Link
+                          to="/admin/weeks"
+                          className={buttonVariants({
+                            variant: 'link',
+                            size: 'sm',
+                          })}
+                        >
+                          Weeks
+                        </Link>
+                      </li>
+                    </ul>
+                  </CardContent>
+                </Card>
+              ) : (
+                <Card className="flex-1">
+                  <CardContent>
+                    {mentees.length ? (
+                      <ul className={listClass}>
+                        {mentees.slice(0, 3).map((person) => (
+                          <li className={listRowClass} key={person.id}>
+                            <PersonIdentity
+                              person={person}
+                              seasonId={currentSeason?.id}
+                            />
+                            <StatusBadge>
+                              {person.attempts ?? '—'} attempts
+                            </StatusBadge>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p className="text-muted-foreground">
+                        No active students are assigned to you in this season.
+                      </p>
+                    )}
+                  </CardContent>
+                </Card>
+              )}
+            </PageSection>
+          ) : null}
+
+          <PageSection titleId="activity-title" title="Your Recent Activity">
+            <Card className="flex-1">
+              <CardContent>
+                <ActivityChart data={activity} />
+              </CardContent>
+            </Card>
+          </PageSection>
+        </div>
       </div>
-    </div>
+    </Page>
   );
 }

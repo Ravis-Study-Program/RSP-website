@@ -93,6 +93,36 @@ export function HighlightText({ text }: { text: string }) {
   );
 }
 
+/**
+ * The chevron that opens and closes a row's details, in a table's first
+ * column. `subject` finishes its label: "Show notes for Two Sum".
+ */
+export function ExpandRowButton<TData>({
+  row,
+  subject,
+}: {
+  row: Row<TData>;
+  subject: string;
+}) {
+  const expanded = row.getIsExpanded();
+  return (
+    <Button
+      variant="ghost"
+      size="icon"
+      type="button"
+      aria-label={`${expanded ? 'Hide' : 'Show'} ${subject}`}
+      aria-expanded={expanded}
+      onClick={row.getToggleExpandedHandler()}
+    >
+      {expanded ? (
+        <IconChevronUp size={18} aria-hidden="true" />
+      ) : (
+        <IconChevronDown size={18} aria-hidden="true" />
+      )}
+    </Button>
+  );
+}
+
 export interface DataTableProps<TData> {
   ariaLabel: string;
   data: TData[];

@@ -651,9 +651,11 @@ describe('reviewer Monday Updates', () => {
       within(row).queryByText('easy / medium / hard'),
     ).not.toBeInTheDocument();
     expect(within(row).getByText('2 / 0 / 1')).toBeInTheDocument();
-    // The latest update in range shows its mark and who gave it.
-    expect(within(row).getByText('Doing good')).toBeInTheDocument();
-    expect(within(row).getByText(/by Mentor One/)).toBeInTheDocument();
+    // The latest update in range shows its mark; who gave it shows on hover.
+    expect(within(row).getByText('Doing good')).toHaveAttribute(
+      'title',
+      'Marked by Mentor One',
+    );
     expect(
       within(table).queryByRole('columnheader', { name: 'Mentor' }),
     ).not.toBeInTheDocument();

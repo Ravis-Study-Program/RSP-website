@@ -44,14 +44,12 @@ import { useCurrentUser } from '@/api/queries';
 import { useWorkspace } from '@/auth/WorkspaceContext';
 import { CanaryRoleSwitcher } from '@/components/CanaryBar';
 import { CommandPalette } from '@/components/CommandPalette';
-import { useCurrentPageTitle } from '@/components/Common';
+import { Avatar, useCurrentPageTitle } from '@/components/Common';
 import { cn } from '@/lib/utils';
 import { initials } from '@/utils';
 
 const brandClass =
   'flex min-h-12 items-center gap-3 rounded-lg px-1.5 text-sidebar-foreground no-underline outline-none focus-visible:ring-3 focus-visible:ring-ring/50';
-const avatarClass =
-  'inline-grid size-9 shrink-0 place-items-center rounded-full bg-primary text-xs font-semibold text-primary-foreground';
 const navLinkClass =
   'flex min-h-11 items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-sidebar-muted no-underline outline-none hover:bg-sidebar-accent hover:text-sidebar-foreground focus-visible:ring-3 focus-visible:ring-ring/50';
 const navLinkActiveClass = 'bg-sidebar-accent text-sidebar-foreground';
@@ -312,9 +310,7 @@ export function AppShell() {
               aria-label={`Your profile, ${userQuery.data?.name ?? 'account'}`}
               className="flex items-center gap-3 rounded-lg px-1.5 py-2 text-sidebar-foreground no-underline outline-none hover:bg-sidebar-accent focus-visible:ring-3 focus-visible:ring-ring/50"
             >
-              <span className={avatarClass}>
-                {initials(userQuery.data?.name ?? 'RSP')}
-              </span>
+              <Avatar initials={initials(userQuery.data?.name ?? 'RSP')} />
               <span className="grid min-w-0 leading-snug">
                 <strong className="truncate text-sm font-semibold">
                   {userQuery.data?.name ?? 'Loading account…'}

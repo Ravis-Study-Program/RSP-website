@@ -25,14 +25,14 @@ RSP Workspace ("RSP mentoring, practice and mock interview workspace") is the me
 
 ## Positioning
 
-A workspace built around one program's own mechanics: seasons, program weeks in the Adelaide timezone, mentor teams, Monday updates, student levels, and fixed practice time goals. It is not a generic LMS or a LeetCode clone.
+A workspace built around one program's own mechanics: seasons, program weeks in the Adelaide timezone, mentor teams, Monday updates, student levels, and program-wide practice time goals. It is not a generic LMS or a LeetCode clone.
 
 ## Operating Context
 
 - Season lifecycle: definition, invitations (7-day, single-use, email-verified), enrollment, weekly activity, close, optional reopen with a reason.
 - Weekly ritual: each student writes a Monday update (a date-range record that can be deleted but not edited), and their mentor marks it.
-- Practice attempts are LeetCode-style problems with difficulty and topic, measured against fixed time goals (Easy 20 min, Medium 35 min, Hard 50 min).
-- Mock interviews can be recorded for today only (Adelaide date). Timestamps are immutable and edits are versioned.
+- Practice attempts are LeetCode-style problems with difficulty and topic, measured against the program's practice goals (default Easy 10 min, Medium 25 min, Hard 40 min).
+- Mock interviews can be recorded for any day up to today (Adelaide date). Dates are immutable once recorded and edits are versioned.
 - History is filtered by season or all time and by program week. Activity charts come with textual summaries.
 - A workspace switcher sets season and role context. There is a command palette (Quick navigation).
 - Desktop and mobile are both real use contexts. Mobile has its own navigation.
@@ -44,8 +44,16 @@ A workspace built around one program's own mechanics: seasons, program weeks in 
 - Privileged roles need TOTP MFA. Accounts can be deleted, with a 30-day recoverable grace period.
 - Program calendar logic uses `Australia/Adelaide`. Storage is UTC. The UI renders each member's saved IANA timezone.
 - English only (`en-AU` formatting). No i18n is planned in the repo.
-- Student levels: Novice, Beginner, Intermediate, Advance.
+- Student levels: Beginner, Novice, Intermediate, Advanced (never "Advance").
+- Write "program", never "programme".
 - Terminology to preserve: season, week, enrollment, mentorship, mentor team, practice attempt, mock interview, Monday update, mark, level, kicked / withdrawn, graduate, invitation, workspace.
+- LeetCode attempts are Solved or Unsolved. The database keeps four stored outcomes: independently solved and unrecorded read as Solved, solved with hints and not solved as Unsolved. Confidence is no longer recorded or shown. Only an attempt's owner can mark it reviewed.
+- Practice goals (minutes per difficulty, default 10 / 25 / 40) are program-wide, not per member. Directors, system admins and active coordinators set them in Settings; everyone else reads them. Per-mentor goals for their own students are planned (issue #45) but not built.
+- Mock interviews are dated, not timed: they can be recorded for any day up to today, never the future. An interview has at most three rounds, in one of four layouts (behavioural then two LeetCode rounds, one behavioural, one custom, or three custom). A round passes at 5/10, and a LeetCode round scores its lowest part.
+- The interviewee's notes on a mock interview, overall and per round, are private from the interviewer (the API strips them). The interviewer's notes stay visible to the interviewee. Only the interviewee marks rounds reviewed.
+- Profiles show all-time activity in the same tables as the LeetCode and Mock Interviews pages. On someone else's profile, their LeetCode notes and the details of interviews you were not part of are hidden; this is a UI rule, and the API still returns notes to members allowed to read the activity.
+- The People directory is read-only and the same for every role. Levels are set and students removed from the student lists: All Students for coordinators and administrators, My Students for a mentor's own students.
+- The season chosen in any activity table, including All time, is remembered and applied to the others unless the address names a season or weeks. Season and people filters only offer what the member has activity in: seasons where they were a student, people they have had interviews with.
 - Undecided: public application and mentor-application pages (`docs/product-backlog.md`). They are out of scope for now. Do not design public marketing or landing surfaces without a new decision.
 
 ## Brand Commitments

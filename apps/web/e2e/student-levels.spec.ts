@@ -1,16 +1,26 @@
 import { expect, test } from '@playwright/test';
 import { expectSelected } from './select';
 
-test('season mentors can set student levels and see the practice goals', async ({
+test('coordinators set student levels from All Students', async ({
   page,
 }, testInfo) => {
   await page.addInitScript(() => {
-    localStorage.setItem('rsp-demo-role', 'mentor');
+    localStorage.setItem('rsp-demo-role', 'coordinator');
     localStorage.removeItem('rsp-demo-auth-state');
   });
+  // Levels are set from the student list's row menu; People takes no actions.
   await page.goto('/seasons/summer-2025-26/people');
   await expect(page.getByRole('heading', { name: 'People' })).toBeVisible();
-  await page.getByRole('button', { name: 'Set level' }).first().click();
+  await expect(
+    page.getByRole('button', { name: /Set level|More actions/ }),
+  ).toHaveCount(0);
+  await page.goto('/seasons/summer-2025-26/mentees');
+  await page
+    .getByRole('button', { name: /^More actions for / })
+    .filter({ visible: true })
+    .first()
+    .click();
+  await page.getByRole('menuitem', { name: 'Set level' }).click();
   const dialog = page.getByRole('dialog');
   await expectSelected(dialog, 'Student level', 'Beginner');
   await dialog.getByRole('combobox', { name: 'Student level' }).click();
@@ -25,22 +35,23 @@ test('season mentors can set student levels and see the practice goals', async (
   await expect(dialog).toBeHidden();
   await expect(
     page
-      .getByText(
-        testInfo.project.name.includes('mobile')
-          ? 'Level: Advanced'
-          : 'Advanced',
-        { exact: true },
-      )
+      .getByText('Advanced', { exact: true })
+      .filter({ visible: true })
       .first(),
   ).toBeVisible();
   await page.screenshot({
     path: testInfo.outputPath('student-level.png'),
     fullPage: true,
   });
+});
 
+test('mentors see the practice goals read-only', async ({ page }, testInfo) => {
+  await page.addInitScript(() => {
+    localStorage.setItem('rsp-demo-role', 'mentor');
+    localStorage.removeItem('rsp-demo-auth-state');
+  });
   await page.goto('/settings');
   const goals = page.getByRole('region', { name: 'Practice Goals' });
-  // Mentors see the program's goals read-only.
   for (const [difficulty, minutes] of [
     ['Easy', '10'],
     ['Medium', '25'],

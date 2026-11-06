@@ -10,32 +10,56 @@ export function MarkBadge({ mark }: { mark: MondayUpdateMark }) {
 }
 
 /**
- * A student's latest Monday mark: the badge (or "Not marked") with the
- * update's date range, or `noUpdateText` when there is no update at all.
+ * The date range of a student's latest Monday update, or `noUpdateText`
+ * when there is none. One line: the update's mark has its own column.
  */
-export function LatestMarkCell({
+export function LatestUpdateRange({
   latest,
   noUpdateText,
-  showMarker = false,
 }: {
   latest: LatestMark | undefined;
   noUpdateText: string;
+}) {
+  if (!latest)
+    return (
+      <span className="text-sm text-muted-foreground">{noUpdateText}</span>
+    );
+  return (
+    <span className="whitespace-nowrap">
+      {formatDate(latest.update.startDate)} –{' '}
+      {formatDate(latest.update.endDate)}
+    </span>
+  );
+}
+
+/**
+ * The mark on a student's latest Monday update: its badge, a grey "Not
+ * marked" badge, or a dash when there is no update. `showMarker` names the
+ * mentor who marked it on hover.
+ */
+export function LatestMarkBadge({
+  latest,
+  showMarker = false,
+}: {
+  latest: LatestMark | undefined;
   showMarker?: boolean;
 }) {
-  const muted = 'text-sm text-muted-foreground';
-  if (!latest) return <span className={muted}>{noUpdateText}</span>;
+  if (!latest) return <span className="text-muted-foreground">—</span>;
+  if (!latest.mark) return <StatusBadge tone="muted">Not marked</StatusBadge>;
+  const marker = showMarker
+    ? `Marked by ${latest.mark.mentor.name}`
+    : undefined;
   return (
-    <div className="grid justify-items-start gap-1">
-      {latest.mark ? (
-        <MarkBadge mark={latest.mark.mark} />
-      ) : (
-        <span className="text-sm">Not marked</span>
-      )}
-      <span className={muted}>
-        {formatDate(latest.update.startDate)} –{' '}
-        {formatDate(latest.update.endDate)}
-        {showMarker && latest.mark ? ` · by ${latest.mark.mentor.name}` : null}
-      </span>
-    </div>
+    <StatusBadge
+      tone={markTone[latest.mark.mark].badge}
+      title={marker}
+      aria-label={
+        marker
+          ? `${markLabel(latest.mark.mark)}, ${marker.toLowerCase()}`
+          : undefined
+      }
+    >
+      {markLabel(latest.mark.mark)}
+    </StatusBadge>
   );
 }

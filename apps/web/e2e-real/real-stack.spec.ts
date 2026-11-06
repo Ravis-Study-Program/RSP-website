@@ -343,7 +343,7 @@ test('an invited new member verifies their email and joins the season', async ({
     await recipient
       .getByRole('link', { name: 'Sign in or create an account' })
       .click();
-    await recipient.getByRole('tab', { name: 'Create account' }).click();
+    await recipient.getByRole('tab', { name: 'Create Account' }).click();
     await recipient
       .getByLabel('Name', { exact: true })
       .fill('Invited E2E Member');

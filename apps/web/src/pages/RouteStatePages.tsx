@@ -35,7 +35,7 @@ import {
   signUpWithEmail,
   verifyTwoFactor,
 } from '@/api/authClient';
-import { usePageTitle } from '@/components/Common';
+import { Page, usePageTitle } from '@/components/Common';
 import { InlineNotice } from '@/components/StatusViews';
 import { FieldError, FieldLabel } from '@/components/ui/field';
 import { Separator } from '@/components/ui/separator';
@@ -52,7 +52,7 @@ function StateLayout({
   children?: React.ReactNode;
 }) {
   return (
-    <div className="mx-auto w-full max-w-[92rem]">
+    <Page>
       <section className="mx-auto mt-16 flex min-h-72 w-full max-w-[42rem] flex-col items-center justify-center rounded-xl border border-border bg-card p-6 text-center">
         <div className="grid max-w-[34rem] justify-items-center gap-2">
           <div className="text-muted-foreground">{icon}</div>
@@ -65,7 +65,7 @@ function StateLayout({
           </div>
         </div>
       </section>
-    </div>
+    </Page>
   );
 }
 
@@ -200,13 +200,13 @@ export function SignInPage() {
                   value="sign-in"
                   disabled={isSubmitting || googlePending}
                 >
-                  Sign in
+                  Sign In
                 </TabsTrigger>
                 <TabsTrigger
                   value="sign-up"
                   disabled={isSubmitting || googlePending}
                 >
-                  Create account
+                  Create Account
                 </TabsTrigger>
               </TabsList>
               <TabsContent value={mode} className="space-y-5">
