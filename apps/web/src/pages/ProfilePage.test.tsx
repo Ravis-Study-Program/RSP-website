@@ -1,7 +1,7 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter, Route, Routes } from 'react-router-dom';
 
 import { apiRequest } from '@/api/client';
 import {
@@ -13,7 +13,7 @@ import {
   useUserProfile,
 } from '@/api/queries';
 import { ProfilePage } from '@/pages/ProfilePage';
-import type { CurrentUser } from '@/types';
+import type { CurrentUser, Person } from '@/types';
 
 vi.mock('@/api/client', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/api/client')>();
@@ -146,6 +146,15 @@ describe('profile slug suggestion', () => {
       screen.queryByRole('combobox', { name: 'View activity' }),
     ).not.toBeInTheDocument();
     expect(useActivitySummary).toHaveBeenLastCalledWith('user-1');
+    expect(
+      screen.getByRole('region', { name: 'Recent Activity' }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('region', { name: 'LeetCode per week' }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('region', { name: 'Mock Interviews per week' }),
+    ).toBeInTheDocument();
     expect(useUserAttempts).toHaveBeenLastCalledWith('user-1', true);
     expect(useMockInterviewPages).toHaveBeenLastCalledWith(
       expect.objectContaining({ mode: 'all', userId: 'user-1' }),
@@ -158,6 +167,66 @@ describe('profile slug suggestion', () => {
     expect(await screen.findByLabelText('Profile slug')).toHaveValue(
       'member-one-2',
     );
+  });
+});
+
+describe('mentor profiles', () => {
+  it('does not show the weekly charts', () => {
+    const mentor: Person = {
+      id: 'user-2',
+      name: 'Mentor One',
+      slug: 'dev-mentor',
+      initials: 'MO',
+      avatarUrl: null,
+      roles: ['mentor'],
+      season: 'Season One',
+      status: 'active',
+      attempts: 0,
+      interviews: 32,
+      lastActiveAt: null,
+    };
+    vi.mocked(useCurrentUser).mockReturnValue({
+      data: currentUser,
+      isLoading: false,
+      isError: false,
+      refetch: vi.fn(),
+    } as unknown as ReturnType<typeof useCurrentUser>);
+    vi.mocked(useSeasons).mockReturnValue({
+      data: { items: [] },
+      isLoading: false,
+      isError: false,
+      refetch: vi.fn(),
+    } as unknown as ReturnType<typeof useSeasons>);
+    vi.mocked(useUserProfile).mockReturnValue({
+      data: mentor,
+      isLoading: false,
+      isError: false,
+      refetch: vi.fn(),
+    } as unknown as ReturnType<typeof useUserProfile>);
+    vi.mocked(useUserAttempts).mockReturnValue({
+      data: { items: [] },
+      isLoading: false,
+      isError: false,
+      refetch: vi.fn(),
+    } as unknown as ReturnType<typeof useUserAttempts>);
+
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <MemoryRouter initialEntries={['/people/dev-mentor']}>
+          <Routes>
+            <Route path="/people/:slug" element={<ProfilePage />} />
+          </Routes>
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+
+    expect(
+      screen.getByRole('heading', { name: 'Mentor One' }),
+    ).toBeVisible();
+    expect(
+      screen.queryByRole('region', { name: 'Recent Activity' }),
+    ).not.toBeInTheDocument();
+    expect(useUserAttempts).toHaveBeenCalledWith('user-2', false);
   });
 });
 
@@ -204,6 +273,9 @@ describe('basic profiles', () => {
       await screen.findByRole('heading', { name: 'Member One' }),
     ).toBeVisible();
     expect(screen.queryByText('Program participation')).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('region', { name: 'Recent Activity' }),
+    ).not.toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: /edit profile/i }));
     expect(screen.getByLabelText('Name')).toHaveValue('Member One');
