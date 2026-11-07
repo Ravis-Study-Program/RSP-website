@@ -368,8 +368,12 @@ function ReviewNotice({ pending, total }: { pending: number; total: number }) {
   const tone =
     pending === 0 ? 'success' : pending === total ? 'danger' : 'warning';
   return (
-    <StatusBadge tone={tone} className="shrink-0">
-      {label}
-    </StatusBadge>
+    <Link
+      to="/mock-interviews"
+      aria-label={`${label}. Open mock interviews.`}
+      className="shrink-0 rounded-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+    >
+      <StatusBadge tone={tone}>{label}</StatusBadge>
+    </Link>
   );
 }
