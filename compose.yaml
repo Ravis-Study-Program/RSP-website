@@ -96,6 +96,8 @@ services:
       API_RATE_LIMIT_WRITE_PER_MINUTE: ${API_RATE_LIMIT_WRITE_PER_MINUTE:-}
       API_RATE_LIMIT_SENSITIVE_PER_MINUTE: ${API_RATE_LIMIT_SENSITIVE_PER_MINUTE:-}
       IDENTITY_SERVICE_TOKEN: ${IDENTITY_SERVICE_TOKEN:-rsp-local-identity-service-token-change-me}
+      # Air applies new migrations before each rebuild (deploy/dev/air-api.toml).
+      GOOSE_DBSTRING: postgresql://rsp_migration:${MIGRATION_DB_PASSWORD:-rsp-local-migration-database-password}@postgres:5432/${POSTGRES_DB:-rsp}?sslmode=disable
     volumes:
       - ./backend:/workspace/backend
       - ./api:/workspace/api
