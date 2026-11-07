@@ -214,7 +214,17 @@ export function DashboardPage() {
               <MetricCard
                 label="Mock Interviews"
                 value={interviews.data?.total ?? '—'}
-                detail={`${interviews.data?.reviewed ?? 0} reviewed`}
+                labelAside={
+                  interviews.data ? (
+                    <ReviewNotice
+                      pending={Math.max(
+                        0,
+                        interviews.data.total - interviews.data.reviewed,
+                      )}
+                      total={interviews.data.total}
+                    />
+                  ) : null
+                }
               />
             </>
           )}
@@ -334,5 +344,18 @@ export function DashboardPage() {
         </div>
       </div>
     </Page>
+  );
+}
+
+/** Green when nothing is waiting, red when every interview is, otherwise amber. */
+function ReviewNotice({ pending, total }: { pending: number; total: number }) {
+  const label =
+    pending === 1 ? '1 review pending' : `${pending} reviews pending`;
+  const tone =
+    pending === 0 ? 'success' : pending === total ? 'danger' : 'warning';
+  return (
+    <StatusBadge tone={tone} className="shrink-0">
+      {label}
+    </StatusBadge>
   );
 }

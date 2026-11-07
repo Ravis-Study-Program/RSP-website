@@ -286,15 +286,21 @@ export function MetricCard({
   label,
   value,
   detail,
+  labelAside,
 }: {
   label: string;
   value: ReactNode;
   detail?: string;
+  /** Sits on the same row as the label, at the far edge of the card. */
+  labelAside?: ReactNode;
 }) {
   return (
     <Card>
       <CardHeader>
-        <CardDescription>{label}</CardDescription>
+        <div className="flex items-center justify-between gap-3">
+          <CardDescription>{label}</CardDescription>
+          {labelAside}
+        </div>
       </CardHeader>
       <CardContent>
         <strong className="block text-3xl font-semibold tracking-tight tabular-nums">
