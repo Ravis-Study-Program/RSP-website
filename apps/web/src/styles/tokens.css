@@ -40,6 +40,8 @@
   --danger-soft: #fef0f1;
   --on-danger: #ffffff;
   --chart-secondary: #a3a3a3;
+  --chart-leetcode: #ffa116;
+  --chart-mocks: var(--info);
   --focus: var(--ring);
   --sidebar-bg: #fafafa;
   --sidebar-text: var(--foreground);

@@ -20,7 +20,10 @@ import {
   useSeasons,
 } from '@/api/queries';
 import { useWorkspace } from '@/auth/WorkspaceContext';
-import { ActivityChart } from '@/components/ActivityChart';
+import {
+  ActivityChart,
+  studentWeeklyExpected,
+} from '@/components/ActivityChart';
 import { MondayUpdateReminder } from '@/components/MondayUpdateReminder';
 import {
   MetricCard,
@@ -319,7 +322,12 @@ export function DashboardPage() {
           <PageSection titleId="activity-title" title="Your Recent Activity">
             <Card className="flex-1">
               <CardContent>
-                <ActivityChart data={activity} />
+                <ActivityChart
+                  data={activity}
+                  expected={
+                    role === 'student' ? studentWeeklyExpected : undefined
+                  }
+                />
               </CardContent>
             </Card>
           </PageSection>
