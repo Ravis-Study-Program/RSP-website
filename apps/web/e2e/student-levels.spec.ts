@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test';
 import { expectSelected } from './select';
 
-test('coordinators set student levels from All Students', async ({
+test("coordinators edit a student's details from All Students", async ({
   page,
 }, testInfo) => {
   await page.addInitScript(() => {
@@ -12,7 +12,7 @@ test('coordinators set student levels from All Students', async ({
   await page.goto('/seasons/summer-2025-26/people');
   await expect(page.getByRole('heading', { name: 'People' })).toBeVisible();
   await expect(
-    page.getByRole('button', { name: /Set level|More actions/ }),
+    page.getByRole('button', { name: /Edit details|More actions/ }),
   ).toHaveCount(0);
   await page.goto('/seasons/summer-2025-26/mentees');
   await page
@@ -20,7 +20,7 @@ test('coordinators set student levels from All Students', async ({
     .filter({ visible: true })
     .first()
     .click();
-  await page.getByRole('menuitem', { name: 'Set level' }).click();
+  await page.getByRole('menuitem', { name: 'Edit details' }).click();
   const dialog = page.getByRole('dialog');
   await expectSelected(dialog, 'Student level', 'Beginner');
   await dialog.getByRole('combobox', { name: 'Student level' }).click();
@@ -31,7 +31,13 @@ test('coordinators set student levels from All Students', async ({
     'Advanced',
   ]);
   await page.getByRole('option', { name: 'Advanced', exact: true }).click();
-  await dialog.getByRole('button', { name: 'Save level' }).click();
+  // The student's own goals and weekly hours; blank follows the defaults.
+  await expect(dialog.getByLabel('Easy', { exact: true })).toHaveAttribute(
+    'placeholder',
+    '10',
+  );
+  await dialog.getByLabel('Weekly hours').fill('20');
+  await dialog.getByRole('button', { name: 'Save Details' }).click();
   await expect(dialog).toBeHidden();
   await expect(
     page
