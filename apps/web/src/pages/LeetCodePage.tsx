@@ -478,8 +478,12 @@ function AttemptDialog({
     };
     if (!demoMode) {
       try {
+        // The time field only builds attemptedAt; the API takes no such field.
         const mutation: AttemptMutation = {
-          ...values,
+          problemId: values.problemId,
+          outcome: values.outcome,
+          minutes: values.minutes,
+          notes: values.notes,
           attemptedAt,
         };
         const apiSaved = await apiRequest<ApiAttempt>(
