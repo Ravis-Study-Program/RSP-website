@@ -18,9 +18,13 @@ import {
   useSeasonPeople,
   useSeasonWeeks,
   useSeasons,
+  useUserParticipation,
 } from '@/api/queries';
 import { useWorkspace } from '@/auth/WorkspaceContext';
-import { ActivityChart } from '@/components/ActivityChart';
+import {
+  ActivityChart,
+  studentWeeklyExpected,
+} from '@/components/ActivityChart';
 import { MondayUpdateReminder } from '@/components/MondayUpdateReminder';
 import {
   MetricCard,
@@ -29,7 +33,12 @@ import {
   PersonIdentity,
   usePageTitle,
 } from '@/components/Common';
+import { LevelProgressSection } from '@/components/LevelProgress';
 import { ErrorState, PageSkeleton } from '@/components/StatusViews';
+import {
+  isProgramLevel,
+  solvedDifficultyCounts,
+} from '@/levelProgress';
 import { recentActivitySeries } from '@/utils';
 
 const listClass = 'm-0 list-none divide-y p-0';
@@ -61,7 +70,15 @@ export function DashboardPage() {
   const weeks = useSeasonWeeks(currentSeason?.id);
   const enrollments = useSeasonEnrollments(currentSeason?.id);
   const role = activeWorkspace?.role ?? 'graduate';
+  const practiceBase = activeWorkspace?.seasonSlug
+    ? `/seasons/${activeWorkspace.seasonSlug}`
+    : '';
+  const leetcodePath = `${practiceBase}/leetcode`;
+  const mockInterviewsPath = `${practiceBase}/mock-interviews`;
   const userId = user.data?.id;
+  const participation = useUserParticipation(
+    role === 'student' ? userId : undefined,
+  );
   const activeEnrollments =
     enrollments.data?.items.filter((item) => item.state === 'active') ?? [];
   const unassigned =
@@ -93,6 +110,18 @@ export function DashboardPage() {
     attempts.data?.items ?? [],
     interviews.data?.days,
   );
+  const recordedLevel = participation.data?.items.find(
+    (item) => item.seasonId === currentSeason?.id,
+  )?.lastStudentLevel;
+  const studentLevel = isProgramLevel(recordedLevel) ? recordedLevel : null;
+  const progressCounts =
+    role === 'student' && studentLevel && attempts.data && interviews.data
+      ? {
+          ...solvedDifficultyCounts(attempts.data.items),
+          received: interviews.data.received,
+          given: interviews.data.given,
+        }
+      : null;
 
   if (user.isLoading || seasons.isLoading)
     return <PageSkeleton label="Loading dashboard" />;
@@ -207,15 +236,32 @@ export function DashboardPage() {
               <MetricCard
                 label="Leetcodes"
                 value={attempts.data?.totalCount ?? '—'}
+                to={leetcodePath}
               />
               <MetricCard
                 label="Mock Interviews"
                 value={interviews.data?.total ?? '—'}
-                detail={`${interviews.data?.reviewed ?? 0} reviewed`}
+                to={mockInterviewsPath}
+                labelAside={
+                  interviews.data ? (
+                    <ReviewNotice
+                      to={mockInterviewsPath}
+                      pending={Math.max(
+                        0,
+                        interviews.data.total - interviews.data.reviewed,
+                      )}
+                      total={interviews.data.total}
+                    />
+                  ) : null
+                }
               />
             </>
           )}
         </div>
+
+        {role === 'student' && studentLevel ? (
+          <LevelProgressSection level={studentLevel} counts={progressCounts} />
+        ) : null}
 
         <div
           className={`grid items-stretch gap-6 ${role === 'coordinator' || role === 'mentor' ? 'lg:grid-cols-2' : ''}`}
@@ -319,12 +365,42 @@ export function DashboardPage() {
           <PageSection titleId="activity-title" title="Your Recent Activity">
             <Card className="flex-1">
               <CardContent>
-                <ActivityChart data={activity} />
+                <ActivityChart
+                  data={activity}
+                  expected={
+                    role === 'student' ? studentWeeklyExpected : undefined
+                  }
+                />
               </CardContent>
             </Card>
           </PageSection>
         </div>
       </div>
     </Page>
+  );
+}
+
+/** Green when nothing is waiting, red when every interview is, otherwise amber. */
+function ReviewNotice({
+  to,
+  pending,
+  total,
+}: {
+  to: string;
+  pending: number;
+  total: number;
+}) {
+  const label =
+    pending === 1 ? '1 review pending' : `${pending} reviews pending`;
+  const tone =
+    pending === 0 ? 'success' : pending === total ? 'danger' : 'warning';
+  return (
+    <Link
+      to={to}
+      aria-label={`${label}. Open mock interviews.`}
+      className="shrink-0 rounded-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+    >
+      <StatusBadge tone={tone}>{label}</StatusBadge>
+    </Link>
   );
 }
