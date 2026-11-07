@@ -5,10 +5,11 @@
  * Same-origin API for the Ravi's Study Program application.
  * OpenAPI spec version: 2.0.0
  */
-import type { MondayUpdateMark } from './mondayUpdateMark';
+import type { MondayUpdateMarkMutationMark } from './mondayUpdateMarkMutationMark';
 
 export interface MondayUpdateMarkMutation {
-  mark: MondayUpdateMark;
+  /** Empty clears the mentor's mark (Not marked). */
+  mark: MondayUpdateMarkMutationMark;
   /**
    * Replaces the mentor's comment; omitted or empty leaves no comment.
    * @maxLength 20000

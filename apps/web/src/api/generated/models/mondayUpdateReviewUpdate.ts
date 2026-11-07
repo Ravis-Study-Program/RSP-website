@@ -18,5 +18,10 @@ export interface MondayUpdateReviewUpdate {
    */
   hours: number;
   createdAt: string;
+  /**
+   * When the student last edited the update; null if never.
+   * @nullable
+   */
+  editedAt: string | null;
   marks: MondayUpdateMarkRecord[];
 }
