@@ -35,7 +35,10 @@ import {
 } from '@/components/Common';
 import { LevelProgressSection } from '@/components/LevelProgress';
 import { ErrorState, PageSkeleton } from '@/components/StatusViews';
-import { isProgramLevel } from '@/levelProgress';
+import {
+  isProgramLevel,
+  solvedDifficultyCounts,
+} from '@/levelProgress';
 import { recentActivitySeries } from '@/utils';
 
 const listClass = 'm-0 list-none divide-y p-0';
@@ -106,6 +109,14 @@ export function DashboardPage() {
     (item) => item.seasonId === currentSeason?.id,
   )?.lastStudentLevel;
   const studentLevel = isProgramLevel(recordedLevel) ? recordedLevel : null;
+  const progressCounts =
+    role === 'student' && studentLevel && attempts.data && interviews.data
+      ? {
+          ...solvedDifficultyCounts(attempts.data.items),
+          received: interviews.data.received,
+          given: interviews.data.given,
+        }
+      : null;
 
   if (user.isLoading || seasons.isLoading)
     return <PageSkeleton label="Loading dashboard" />;
@@ -241,7 +252,7 @@ export function DashboardPage() {
         </div>
 
         {role === 'student' && studentLevel ? (
-          <LevelProgressSection level={studentLevel} />
+          <LevelProgressSection level={studentLevel} counts={progressCounts} />
         ) : null}
 
         <div
