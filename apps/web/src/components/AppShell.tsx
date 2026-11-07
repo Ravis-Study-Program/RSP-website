@@ -104,7 +104,7 @@ function itemsFor(role: string | undefined, seasonSlug?: string): NavItem[] {
         to: `${seasonBase}/monday-updates`,
         icon: IconNotebook,
       },
-      { label: 'People', to: `${seasonBase}/people`, icon: IconSchool },
+      { label: 'People', to: `${seasonBase}/people`, icon: IconUsers },
     ];
   }
   if (role === 'coordinator') {
@@ -149,7 +149,7 @@ function itemsFor(role: string | undefined, seasonSlug?: string): NavItem[] {
       { label: 'Dashboard', to: '/dashboard', icon: IconDashboard },
       { label: 'LeetCode', to: '/leetcode', icon: IconBriefcase },
       { label: 'Mock Interviews', to: '/mock-interviews', icon: IconMessage2 },
-      { label: 'Directory', to: '/graduates', icon: IconUsers },
+      { label: 'People', to: '/graduates', icon: IconUsers },
     ];
   if (role === 'former_member')
     return [

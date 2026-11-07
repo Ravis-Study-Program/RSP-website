@@ -122,7 +122,7 @@ describe('season people directory', () => {
       expect(within(row).getByText(label, { selector: 'span' })).toBeVisible();
     }
     expect(
-      screen.queryByRole('button', { name: 'Set level' }),
+      screen.queryByRole('button', { name: 'Edit details' }),
     ).not.toBeInTheDocument();
   });
 
@@ -160,7 +160,7 @@ describe('season people directory', () => {
     renderDirectory();
     // Levels are set on All Students and My Students, not in the directory.
     expect(
-      screen.queryByRole('button', { name: /Set level|More actions/ }),
+      screen.queryByRole('button', { name: /Edit details|More actions/ }),
     ).not.toBeInTheDocument();
     expect(
       screen.queryByRole('columnheader', { name: 'Actions' }),
