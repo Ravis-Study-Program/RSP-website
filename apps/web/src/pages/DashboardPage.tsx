@@ -18,6 +18,7 @@ import {
   useSeasonPeople,
   useSeasonWeeks,
   useSeasons,
+  useUserParticipation,
 } from '@/api/queries';
 import { useWorkspace } from '@/auth/WorkspaceContext';
 import {
@@ -32,7 +33,9 @@ import {
   PersonIdentity,
   usePageTitle,
 } from '@/components/Common';
+import { LevelProgressSection } from '@/components/LevelProgress';
 import { ErrorState, PageSkeleton } from '@/components/StatusViews';
+import { isProgramLevel } from '@/levelProgress';
 import { recentActivitySeries } from '@/utils';
 
 const listClass = 'm-0 list-none divide-y p-0';
@@ -65,6 +68,9 @@ export function DashboardPage() {
   const enrollments = useSeasonEnrollments(currentSeason?.id);
   const role = activeWorkspace?.role ?? 'graduate';
   const userId = user.data?.id;
+  const participation = useUserParticipation(
+    role === 'student' ? userId : undefined,
+  );
   const activeEnrollments =
     enrollments.data?.items.filter((item) => item.state === 'active') ?? [];
   const unassigned =
@@ -96,6 +102,10 @@ export function DashboardPage() {
     attempts.data?.items ?? [],
     interviews.data?.days,
   );
+  const recordedLevel = participation.data?.items.find(
+    (item) => item.seasonId === currentSeason?.id,
+  )?.lastStudentLevel;
+  const studentLevel = isProgramLevel(recordedLevel) ? recordedLevel : null;
 
   if (user.isLoading || seasons.isLoading)
     return <PageSkeleton label="Loading dashboard" />;
@@ -229,6 +239,10 @@ export function DashboardPage() {
             </>
           )}
         </div>
+
+        {role === 'student' && studentLevel ? (
+          <LevelProgressSection level={studentLevel} />
+        ) : null}
 
         <div
           className={`grid items-stretch gap-6 ${role === 'coordinator' || role === 'mentor' ? 'lg:grid-cols-2' : ''}`}
