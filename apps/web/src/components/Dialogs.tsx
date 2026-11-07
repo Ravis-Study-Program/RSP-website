@@ -76,7 +76,7 @@ export function FormDialog({
             description ? 'mb-4 items-start' : 'items-center',
           )}
         >
-          <div>
+          <div className="grid gap-1.5">
             <DialogTitle>{title}</DialogTitle>
             {description ? (
               <DialogDescription>{description}</DialogDescription>

@@ -44,6 +44,7 @@ import { FormDialog } from '@/components/Dialogs';
 import { TimezoneSelect } from '@/components/TimezoneSelect';
 import { ErrorState, PageSkeleton } from '@/components/StatusViews';
 import { formatDateTime, initials, supportedTimezones } from '@/utils';
+import { sortRoles } from '@/sortOrder';
 
 const formClass = 'flex flex-col gap-4';
 const inlineClass = 'flex flex-wrap items-center gap-2.5';
@@ -169,7 +170,7 @@ export function ProfilePage() {
               </p>
               {showProgramDetails ? (
                 <>
-                  {person.roles.map((role) => (
+                  {sortRoles(person.roles).map((role) => (
                     <RoleBadge role={role} key={role} />
                   ))}
                   {seasonsTaken.map((entry) => (
