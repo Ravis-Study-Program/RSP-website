@@ -15,7 +15,6 @@ import {
 } from '@/api/queries';
 import { MenteesPage } from '@/pages/MenteesPage';
 import type { CurrentUser, Person } from '@/types';
-import { formatDate } from '@/utils';
 
 vi.mock('@/api/queries', () => ({
   demoMode: true,
@@ -23,7 +22,26 @@ vi.mock('@/api/queries', () => ({
   useMondayUpdates: vi.fn(),
   useSeasonPeople: vi.fn(),
   useSeasons: vi.fn(),
+  // One ended program week, the one due: 5–11 October.
+  useSeasonWeeks: () => ({
+    data: {
+      items: [
+        {
+          id: 'week-1',
+          number: 1,
+          seasonId: 'season-1',
+          startAt: '2026-10-05T00:00:00+10:30',
+          endAt: '2026-10-11T23:59:59+10:30',
+          resourceUrl: '',
+        },
+      ],
+    },
+  }),
 }));
+
+// The season is under way, with its first week's update due.
+vi.useFakeTimers({ toFake: ['Date'] });
+vi.setSystemTime(new Date('2026-11-06T02:00:00Z'));
 
 const season = {
   id: 'season-1',
@@ -31,6 +49,7 @@ const season = {
   name: 'Season One',
   startsAt: '2026-08-02T14:30:00Z',
   endsAt: '2026-12-20T13:30:00Z',
+  status: 'open',
 };
 
 beforeEach(() => {
@@ -93,7 +112,7 @@ function student(
 }
 
 describe('mentor mentee filtering', () => {
-  it('shows only active students assigned to the signed-in mentor', () => {
+  it("shows the signed-in mentor's active students and those kicked from their team", () => {
     vi.mocked(useCurrentUser).mockReturnValue({
       data: mentor,
       isLoading: false,
@@ -123,6 +142,11 @@ describe('mentor mentee filtering', () => {
             enrollmentState: 'completed',
             previousMentorIds: [mentor.id],
           }),
+          student('kicked', 'Kicked Student', {
+            status: 'kicked',
+            enrollmentState: 'kicked',
+            previousMentorIds: [mentor.id],
+          }),
         ],
       },
       isLoading: false,
@@ -145,6 +169,12 @@ describe('mentor mentee filtering', () => {
     expect(screen.queryByText('Another Team')).not.toBeInTheDocument();
     expect(screen.queryByText('Unassigned Student')).not.toBeInTheDocument();
     expect(screen.queryByText('Completed Student')).not.toBeInTheDocument();
+    // A student kicked from this mentor's team stays listed, marked kicked.
+    const kickedRow = within(table)
+      .getAllByRole('row')
+      .find((row) => within(row).queryByText('Kicked Student'))!;
+    // Both its status and its Monday Update read Kicked.
+    expect(within(kickedRow).getAllByText('Kicked')).toHaveLength(2);
     fireEvent.click(
       screen.getByRole('checkbox', { name: 'Include previous students' }),
     );
@@ -174,6 +204,7 @@ function update(
     hours: 20,
     createdAt: `${endDate}T02:00:00Z`,
     marks,
+    editedAt: null,
     activity: { attempts: [], mocks: [] },
   };
 }
@@ -270,9 +301,9 @@ describe('latest Monday mark column', () => {
       within(table)
         .getAllByRole('row')
         .find((item) => within(item).queryByText(name))!;
-    // The update's dates and its mark are separate one-line columns.
+    // This week's update status and the latest mark are separate columns.
     expect(
-      within(table).getByRole('columnheader', { name: /Latest Update/ }),
+      within(table).getByRole('columnheader', { name: 'Monday Update' }),
     ).toBeInTheDocument();
     expect(
       within(table).getByRole('columnheader', { name: /^Mark/ }),
@@ -284,15 +315,13 @@ describe('latest Monday mark column', () => {
       within(row('Marked Student')).queryByText('Way ahead'),
     ).not.toBeInTheDocument();
     expect(
-      within(row('Marked Student')).getByText(
-        `${formatDate('2026-10-05')} – ${formatDate('2026-10-11')}`,
-      ),
+      within(row('Marked Student')).getByText(/^Submitted/),
     ).toBeInTheDocument();
     expect(
       within(row('Unmarked Student')).getByText('Not marked'),
     ).toBeInTheDocument();
     expect(
-      within(row('Silent Student')).getByText('No updates'),
+      within(row('Silent Student')).getByText('Overdue'),
     ).toBeInTheDocument();
   });
 
@@ -313,7 +342,7 @@ describe('latest Monday mark column', () => {
       [],
     );
     expect(
-      screen.queryByRole('columnheader', { name: /Latest Update/ }),
+      screen.queryByRole('columnheader', { name: 'Monday Update' }),
     ).not.toBeInTheDocument();
     expect(vi.mocked(useMondayUpdates)).toHaveBeenLastCalledWith(
       false,

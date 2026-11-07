@@ -36,7 +36,7 @@ import {
   IconUnderline,
   IconUnlink,
 } from '@tabler/icons-react';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 
 function simpleMark(name: string, tag: string) {
   return Mark.create({
@@ -82,12 +82,15 @@ export function RichTextEditor({
   value,
   onChange,
   error,
+  labelHint,
 }: {
   id: string;
   label: string;
   value: string;
   onChange: (value: string) => void;
   error?: string;
+  /** Drawn after the label, such as an info button explaining the field. */
+  labelHint?: ReactNode;
 }) {
   const editor = useEditor({
     immediatelyRender: false,
@@ -156,8 +159,11 @@ export function RichTextEditor({
 
   return (
     <div className="grid gap-1.5">
-      <span id={`${id}-label`} className="text-sm font-medium">
-        {label}
+      <span className="flex items-center gap-1.5">
+        <span id={`${id}-label`} className="text-sm font-medium">
+          {label}
+        </span>
+        {labelHint}
       </span>
       <div
         className="overflow-hidden rounded-lg border border-input bg-card focus-within:border-ring focus-within:ring-3 focus-within:ring-ring/50 aria-invalid:border-destructive"

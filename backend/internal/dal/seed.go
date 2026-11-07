@@ -162,9 +162,22 @@ func (s *Store) Seed(ctx context.Context, options SeedOptions) error {
 	}
 
 	now := time.Now().UTC()
-	var seasonID string
-	if err := tx.QueryRow(ctx, `INSERT INTO app.seasons(slug,name,status,start_at,end_at,location,image_url,resources_url) VALUES('dev-season','Development Season','open',$1,$2,'Adelaide','https://example.invalid/rsp-season','https://example.invalid/rsp-resources') RETURNING id`, now.AddDate(0, 0, -7), now.AddDate(0, 0, 49)).Scan(&seasonID); err != nil {
+	// The season is open and under way: program weeks run Monday to Sunday,
+	// and it started on the Monday six weeks ago and runs for six more, so six
+	// weeks have ended and have Monday updates to write.
+	adelaide, err := time.LoadLocation("Australia/Adelaide")
+	if err != nil {
 		return fmt.Errorf("seed season: %w", err)
+	}
+	local := now.In(adelaide)
+	monday := time.Date(local.Year(), local.Month(), local.Day()-(int(local.Weekday())+6)%7, 0, 0, 0, 0, adelaide)
+	seasonStart, seasonEnd := monday.AddDate(0, 0, -42), monday.AddDate(0, 0, 42).Add(-time.Second)
+	var seasonID string
+	if err := tx.QueryRow(ctx, `INSERT INTO app.seasons(slug,name,status,start_at,end_at,location,image_url,resources_url) VALUES('dev-season','Development Season','open',$1,$2,'Adelaide','https://example.invalid/rsp-season','https://example.invalid/rsp-resources') RETURNING id`, seasonStart, seasonEnd).Scan(&seasonID); err != nil {
+		return fmt.Errorf("seed season: %w", err)
+	}
+	if err := seedSeasonWeeks(ctx, tx, seasonID, seasonStart, seasonEnd); err != nil {
+		return fmt.Errorf("seed season weeks: %w", err)
 	}
 
 	var studentEnrollmentID, mentorEnrollmentID, coordinatorEnrollmentID string
@@ -246,5 +259,22 @@ FOR UPDATE OF p, l`, leetcodeNumber).Scan(&problemID, &leetcodeID)
 		}
 		_, err = tx.Exec(ctx, `UPDATE app.leetcode_problems SET difficulty='easy',is_premium=false,deleted_at=NULL WHERE id=$1`, leetcodeID)
 		return err
+	}
+}
+
+// seedSeasonWeeks fills a season with back-to-back seven-day program weeks,
+// each from midnight to the last second of its seventh day.
+// Monday updates are posted against a week once it has ended, so a season
+// without weeks gives students nothing to submit.
+func seedSeasonWeeks(ctx context.Context, tx pgx.Tx, seasonID string, seasonStart, seasonEnd time.Time) error {
+	for number, start := 1, seasonStart; ; number, start = number+1, start.AddDate(0, 0, 7) {
+		end := start.AddDate(0, 0, 7).Add(-time.Second)
+		if end.After(seasonEnd) {
+			return nil
+		}
+		if _, err := tx.Exec(ctx, `INSERT INTO app.season_weeks(season_id,week_number,start_at,end_at,resource_url) VALUES($1,$2,$3,$4,$5)`,
+			seasonID, number, start, end, fmt.Sprintf("https://example.invalid/rsp-week-%d", number)); err != nil {
+			return err
+		}
 	}
 }

@@ -54,6 +54,7 @@ Caddy is the browser application origin.
 | `just generate`   | Regenerate the browser API client.                                                                        |
 | `just migrate-up` | Apply app Goose migrations and the pinned Better Auth schema.                                             |
 | `just seed`       | Load deterministic local-only fixture data.                                                               |
+| `just reset-data` | Wipe local data, including accounts, and rebuild the fake accounts and fixture.                           |
 | `just fake-data`  | Create local email/password Student, Mentor, Coordinator and Site Admin accounts with fixture data.       |
 | `just fake-totp`  | Generate the current TOTP code from a fake account secret.                                                |
 | `just check`      | Run non-mutating formatting, static, TypeScript and Compose checks.                                       |

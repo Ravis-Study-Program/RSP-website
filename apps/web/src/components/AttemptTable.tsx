@@ -21,7 +21,7 @@ import { RichTextContent } from '@/components/RichTextContent';
 import { Spoiler } from '@/components/Spoiler';
 import { recentDateFilterOptions, withinRecentDays } from '@/tableFilters';
 import type { Attempt, Difficulty } from '@/types';
-import { formatDate, outcomeLabel } from '@/utils';
+import { outcomeLabel, hasRichText, formatDateTime } from '@/utils';
 
 const difficultyTone: Record<Difficulty, BadgeTone> = {
   Easy: 'success',
@@ -118,10 +118,10 @@ const baseColumns: ColumnDef<Attempt, any>[] = [
   },
   {
     accessorKey: 'attemptedAt',
-    header: 'Date Attempted',
-    meta: { width: 8.5, filterOptions: recentDateFilterOptions },
+    header: 'Date and Time',
+    meta: { width: 10, filterOptions: recentDateFilterOptions },
     filterFn: withinRecentDays,
-    cell: ({ getValue }) => formatDate(getValue()),
+    cell: ({ getValue }) => formatDateTime(getValue()),
   },
 ];
 
@@ -224,16 +224,18 @@ export function AttemptTable({
   );
   const expandColumn: ColumnDef<Attempt, any> = {
     id: 'expand',
-    header: 'Notes',
+    header: 'Details',
     meta: { width: 4.5 },
     enableSorting: false,
     enableHiding: false,
-    cell: ({ row }) => (
-      <ExpandRowButton
-        row={row}
-        subject={`notes for ${row.original.problem}`}
-      />
-    ),
+    // Only an attempt with notes has anything to expand.
+    cell: ({ row }) =>
+      hasRichText(row.original.notes) ? (
+        <ExpandRowButton
+          row={row}
+          subject={`notes for ${row.original.problem}`}
+        />
+      ) : null,
   };
   const columns: ColumnDef<Attempt, any>[] = [
     ...(showNotes ? [expandColumn] : []),
@@ -301,7 +303,7 @@ export function AttemptTable({
                 <Spoiler>{row.original.category}</Spoiler> ·{' '}
               </>
             ) : null}
-            {formatDate(row.original.attemptedAt)}
+            {formatDateTime(row.original.attemptedAt)}
           </p>
           <p>
             {row.original.minutes ? (

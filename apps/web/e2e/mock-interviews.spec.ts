@@ -90,10 +90,14 @@ test('LeetCode rounds show the score for each part', async ({ page }) => {
       .filter({ visible: true })
       .getByRole('link', { name: '3. Merge Intervals' }),
   ).toHaveAttribute('href', /search=Merge%20Intervals$/);
-  // Each part has a reminder of what it scores.
+  // Each part has a reminder of what it scores, opened by clicking its (i).
+  await breakdown
+    .getByRole('button', { name: /^Clarifying the problem/ })
+    .click();
   await expect(
-    breakdown.getByRole('button', { name: /^Clarifying the problem/ }),
-  ).toHaveAttribute('title', /before solving it\.$/);
+    page.getByRole('dialog').filter({ visible: true }),
+  ).toContainText(/before solving it\.$/);
+  await page.keyboard.press('Escape');
   // Behavioural rounds explain their single score beside the title.
   await expect(
     page

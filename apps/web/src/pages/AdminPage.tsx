@@ -82,6 +82,7 @@ import {
 } from '@/components/SeasonManagement';
 import type { Page as ViewPage, Person, SeasonRole } from '@/types';
 import { formatDate, formatDateTimeInput, zonedDateTimeToUtc } from '@/utils';
+import { statusSortingFn } from '@/sortOrder';
 
 function statusLabel(status: string) {
   const text = status.replace(/_/g, ' ');
@@ -252,6 +253,7 @@ const columns: ColumnDef<AdminRow, any>[] = [
     accessorKey: 'status',
     header: 'Status',
     meta: { width: 9 },
+    sortingFn: statusSortingFn,
     cell: ({ getValue }) => (
       <StatusBadge tone={statusTone(getValue())}>
         {statusLabel(getValue())}

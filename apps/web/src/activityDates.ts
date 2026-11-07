@@ -58,6 +58,12 @@ export function mondayUpdateWeeks(weeks: Week[]): MondayUpdateWeek[] {
     );
 }
 
+/** Weeks that have started, the current one included: they can be written. */
+export function startedMondayUpdateWeeks(weeks: Week[], now = new Date()) {
+  const today = calendarDateKey(now, programTimezone);
+  return mondayUpdateWeeks(weeks).filter((week) => week.startDate <= today);
+}
+
 export function completedMondayUpdateWeeks(weeks: Week[], now = new Date()) {
   const today = calendarDateKey(now, programTimezone);
   return mondayUpdateWeeks(weeks).filter((week) => week.endDate < today);

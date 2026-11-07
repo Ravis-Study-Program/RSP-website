@@ -29,19 +29,19 @@ import {
   IconArrowUp,
   IconDotsVertical,
   IconEdit,
-  IconInfoCircle,
   IconListDetails,
   IconPlus,
   IconTrash,
   IconUsers,
 } from '@tabler/icons-react';
 import {
-  flexRender,
   type CellContext,
   type ColumnDef,
   type Row,
 } from '@tanstack/react-table';
 import type { Resolver } from 'react-hook-form';
+
+import { InfoTip } from '@/components/InfoTip';
 import { Fragment, useMemo, useState, type ReactNode } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { useBeforeUnload, useNavigate } from 'react-router-dom';
@@ -74,6 +74,7 @@ import {
   PageHeader,
   PersonIdentity,
   usePageTitle,
+  LabelHint,
 } from '@/components/Common';
 import { AppDatePicker } from '@/components/AppDatePicker';
 import { ExternalLink } from '@/components/ExternalLink';
@@ -82,6 +83,7 @@ import { ProblemSelect } from '@/components/ProblemSelect';
 import { ErrorState } from '@/components/StatusViews';
 import { RichTextEditor } from '@/components/RichTextEditor';
 import { RichTextContent } from '@/components/RichTextContent';
+import { renderCell } from '@/lib/renderCell';
 import { cn } from '@/lib/utils';
 import { recentDateFilterOptions, withinRecentDays } from '@/tableFilters';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -111,26 +113,29 @@ import {
   formatDate,
   interviewPassed,
   problemName,
-  zonedDateTimeToUtc,
+  optionalTimePattern,
+  recordedDateTime,
+  formatDateTime,
 } from '@/utils';
 
 const outcomeTone = { success: 'success', danger: 'danger' } as const;
 
 const mockSchema = z.object({
   intervieweeId: z.string().min(1, 'Choose an interviewee.'),
-  occurredAt: z.string().min(1, 'Choose a time.'),
+  occurredAt: z.string().min(1, 'Choose a date.'),
+  occurredTime: z
+    .string()
+    .regex(optionalTimePattern, 'Enter a time such as 14:30.'),
   durationMinutes: z.number().int().min(15).max(240),
 });
 type MockFormValues = z.infer<typeof mockSchema>;
 
 /**
- * Mocks are dated, not timed. Today's interview keeps the current time so it
- * is never in the future; earlier days use noon in Adelaide, like attempts.
+ * When a mock happened: its date and optional time in Adelaide. Without a
+ * time, today's interview keeps the current time and earlier days use noon.
  */
-function recordedAt(date: string) {
-  return date === calendarDateKey(new Date(), programTimezone)
-    ? new Date().toISOString()
-    : zonedDateTimeToUtc(`${date}T12:00`, programTimezone);
+function recordedAt(date: string, time = '') {
+  return recordedDateTime(date, time, programTimezone);
 }
 
 /** A round passes at this score; an interview passes when every round does. */
@@ -505,7 +510,7 @@ function RoundEditor({
         {round.apiType === 'custom' ? (
           <Field>
             <FieldLabel htmlFor={`round-link-${round.id}`}>
-              Reference link (optional)
+              Reference link <LabelHint>optional</LabelHint>
             </FieldLabel>
             <Input
               id={`round-link-${round.id}`}
@@ -520,7 +525,7 @@ function RoundEditor({
         {Object.entries(round.scores).map(([criterion, score]) => (
           <Field key={criterion}>
             <FieldLabel htmlFor={`round-score-${round.id}-${criterion}`}>
-              {scoreLabel(criterion)} score (0–10)
+              {scoreLabel(criterion)} score <LabelHint>0–10</LabelHint>
             </FieldLabel>
             <Input
               id={`round-score-${round.id}-${criterion}`}
@@ -688,10 +693,10 @@ const columnsForSeason = (
   },
   {
     accessorKey: 'occurredAt',
-    header: 'Date',
-    meta: { width: 7.5, filterOptions: recentDateFilterOptions },
+    header: 'Date and Time',
+    meta: { width: 10, filterOptions: recentDateFilterOptions },
     filterFn: withinRecentDays,
-    cell: ({ getValue }) => formatDate(getValue()),
+    cell: ({ getValue }) => formatDateTime(getValue()),
   },
   {
     id: 'review',
@@ -1064,7 +1069,7 @@ export function MockInterviewTable({
             ...column,
             cell: (context: CellContext<MockInterview, unknown>) =>
               canViewDetails(context.row.original)
-                ? flexRender(column.cell, context)
+                ? renderCell(column.cell, context)
                 : null,
           }
         : column,
@@ -1143,7 +1148,7 @@ export function MockInterviewTable({
             />
           </h2>
           <p className="text-sm text-muted-foreground">
-            {formatDate(row.original.occurredAt)}
+            {formatDateTime(row.original.occurredAt)}
           </p>
           <p>
             {row.original.durationMinutes} minutes, {row.original.rounds.length}{' '}
@@ -1398,19 +1403,10 @@ function roundRowClass(showIntervieweeNotes: boolean) {
 const roundCellClass =
   'grid content-start gap-1 min-[56rem]:border-l min-[56rem]:pl-4';
 
-/** An info icon whose hover text says what a score is for. */
+/** An info icon that says what a score is for, on hover or click. */
 function ScoreHelp({ help, size = 15 }: { help?: string; size?: number }) {
   if (!help) return null;
-  return (
-    <button
-      type="button"
-      title={help}
-      aria-label={help}
-      className="inline-flex rounded-sm text-muted-foreground outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
-    >
-      <IconInfoCircle size={size} aria-hidden="true" />
-    </button>
-  );
+  return <InfoTip label={help} size={size} />;
 }
 
 /**
@@ -1496,7 +1492,8 @@ function MockDetails({
   const showIntervieweeNotes = mock.interviewer.id !== currentUserId;
   const rowClass = roundRowClass(showIntervieweeNotes);
   const { setReviewed, pending, error } = useRoundReviewToggle(mock, onChanged);
-  const headingClass = 'text-sm font-semibold text-muted-foreground';
+  // Sub-table headings match the table's own column headings.
+  const headingClass = 'text-xs font-semibold text-muted-foreground';
   // Column headings show on wide screens; stacked rows label each part instead.
   const cellHeadingClass =
     'text-xs font-semibold text-muted-foreground min-[56rem]:sr-only';
@@ -1743,7 +1740,7 @@ function EditMockDialog({
           </Field>
           <Field>
             <FieldLabel htmlFor={`edit-duration-${mock.id}`}>
-              Duration (minutes)
+              Duration <LabelHint>minutes</LabelHint>
             </FieldLabel>
             <Input
               id={`edit-duration-${mock.id}`}
@@ -2219,12 +2216,14 @@ function NewMockDialog({
     register,
     handleSubmit,
     reset,
+    setError,
     formState: { errors, isDirty, isSubmitting },
   } = useForm<MockFormValues>({
     resolver: zodResolver(mockSchema as never) as Resolver<MockFormValues>,
     defaultValues: {
       intervieweeId: '',
       occurredAt: calendarDateKey(new Date(), programTimezone),
+      occurredTime: '',
       durationMinutes: 60,
     },
   });
@@ -2257,22 +2256,31 @@ function NewMockDialog({
       return;
     }
     setRoundError('');
+    if (values.occurredAt > calendarDateKey(new Date(), programTimezone)) {
+      setRoundError('Choose a date that has already happened.');
+      return;
+    }
+    // A time later today is in the future too.
+    if (
+      new Date(recordedAt(values.occurredAt, values.occurredTime)) > new Date()
+    ) {
+      setError('occurredTime', {
+        message: 'Interviews cannot be in the future.',
+      });
+      return;
+    }
     const mock: MockInterview = {
       id: `mock_local_${Date.now()}`,
       interviewee,
       interviewer,
       season: null,
-      occurredAt: recordedAt(values.occurredAt),
+      occurredAt: recordedAt(values.occurredAt, values.occurredTime),
       durationMinutes: values.durationMinutes,
       notes,
       intervieweeNotes: '',
       rounds,
       reviewStatus: 'pending',
     };
-    if (values.occurredAt > calendarDateKey(new Date(), programTimezone)) {
-      setRoundError('Choose a date that has already happened.');
-      return;
-    }
     try {
       if (!demoMode) {
         const request: MockInterviewCreate = {
@@ -2432,7 +2440,23 @@ function NewMockDialog({
             )}
           />
           <Field>
-            <FieldLabel htmlFor="mock-duration">Duration (minutes)</FieldLabel>
+            <FieldLabel htmlFor="mock-time">
+              Time <LabelHint>optional</LabelHint>
+            </FieldLabel>
+            <Input
+              id="mock-time"
+              type="time"
+              aria-invalid={Boolean(errors.occurredTime)}
+              {...register('occurredTime')}
+            />
+            {errors.occurredTime ? (
+              <FieldError>{errors.occurredTime.message}</FieldError>
+            ) : null}
+          </Field>
+          <Field>
+            <FieldLabel htmlFor="mock-duration">
+              Duration <LabelHint>minutes</LabelHint>
+            </FieldLabel>
             <Input
               id="mock-duration"
               type="number"

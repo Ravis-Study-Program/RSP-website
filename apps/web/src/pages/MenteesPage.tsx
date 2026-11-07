@@ -7,7 +7,11 @@ import { Field, FieldLabel } from '@/components/ui/field';
 import { useCallback, useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
 
-import { programTimezone } from '@/activityDates';
+import {
+  completedMondayUpdateWeeks,
+  programTimezone,
+  sameUpdateWeek,
+} from '@/activityDates';
 import { apiRequest } from '@/api/client';
 import type { Enrollment, MondayUpdate } from '@/api/generated/models';
 import {
@@ -16,6 +20,7 @@ import {
   useMondayUpdates,
   useSeasons,
   useSeasonPeople,
+  useSeasonWeeks,
 } from '@/api/queries';
 import { Page, PageHeader, usePageTitle } from '@/components/Common';
 import {
@@ -24,10 +29,15 @@ import {
   type PersonLatestMark,
 } from '@/components/PeopleTable';
 import { pickLatestMark } from '@/mondayMarks';
+import { weekStatus } from '@/mondayStatus';
 import { canSetStudentLevel } from '@/studentLevels';
 import { FormDialog } from '@/components/Dialogs';
 import type { Person } from '@/types';
 import { calendarDateKey } from '@/utils';
+
+function isKicked(person: Person) {
+  return (person.enrollmentState ?? person.status) === 'kicked';
+}
 
 export function MenteesPage() {
   const { slug } = useParams();
@@ -37,7 +47,6 @@ export function MenteesPage() {
   const query = useSeasonPeople(season?.id, season?.name);
   const [includePrevious, setIncludePrevious] = useState(false);
   const showPrevious = includePrevious || season?.status === 'closed';
-  const [removed, setRemoved] = useState<string[]>([]);
   const canManageEveryStudent = Boolean(
     currentUser.data?.globalRoles.length ||
     currentUser.data?.seasonRoles.some(
@@ -52,13 +61,17 @@ export function MenteesPage() {
   const mentees = useMemo(
     () =>
       (query.data?.items ?? []).filter((person) => {
+        const student = person.seasonRole
+          ? person.seasonRole === 'student'
+          : person.roles.includes('student');
         const activeStudent =
-          (person.seasonRole
-            ? person.seasonRole === 'student'
-            : person.roles.includes('student')) &&
+          student &&
           (person.enrollmentState
             ? person.enrollmentState === 'active'
             : person.status === 'active');
+        // A kicked student stays listed, with the status Kicked, for whoever
+        // mentored them.
+        const kicked = student && isKicked(person);
         const assigned = person.mentorshipMentorId === currentUser.data?.id;
         const previouslyAssigned =
           person.previousMentorIds?.includes(currentUser.data?.id ?? '') ??
@@ -68,18 +81,11 @@ export function MenteesPage() {
             ? person.seasonRole === 'student'
             : assigned || previouslyAssigned;
         return (
-          activeStudent &&
-          (canManageEveryStudent || assigned) &&
-          !removed.includes(person.id)
+          (activeStudent && (canManageEveryStudent || assigned)) ||
+          (kicked && (canManageEveryStudent || previouslyAssigned))
         );
       }),
-    [
-      canManageEveryStudent,
-      currentUser.data?.id,
-      query.data,
-      removed,
-      showPrevious,
-    ],
+    [canManageEveryStudent, currentUser.data?.id, query.data, showPrevious],
   );
   // Coordinators and admins have no marks of their own; the column is
   // mentor-only and covers the mentor's current mentees for the whole season.
@@ -87,7 +93,14 @@ export function MenteesPage() {
   const currentMenteeIds = useMemo(
     () =>
       (query.data?.items ?? [])
-        .filter((person) => person.mentorshipMentorId === currentUser.data?.id)
+        .filter(
+          (person) =>
+            person.mentorshipMentorId === currentUser.data?.id ||
+            (isKicked(person) &&
+              (person.previousMentorIds ?? []).includes(
+                currentUser.data?.id ?? '',
+              )),
+        )
         .map((person) => person.id),
     [currentUser.data?.id, query.data],
   );
@@ -120,16 +133,43 @@ export function MenteesPage() {
       ]),
     );
   }, [seasonUpdates.data]);
+  // This week is the latest ended program week, whose update is due now;
+  // once the season is over there is no such week.
+  const weeks = useSeasonWeeks(showLatestMark ? season?.id : undefined);
+  const seasonRunning = Boolean(
+    season &&
+    season.status === 'open' &&
+    calendarDateKey(new Date(), programTimezone) <=
+      calendarDateKey(season.endsAt, programTimezone),
+  );
+  const dueWeek = seasonRunning
+    ? completedMondayUpdateWeeks(weeks.data?.items ?? []).at(-1)
+    : undefined;
   const latestMarkState = useCallback(
     (person: Person): PersonLatestMark => {
       if (!currentMenteeIds.includes(person.id)) return 'not-mentee';
       if (seasonUpdates.isLoading) return 'loading';
       if (seasonUpdates.isError) return 'error';
-      return { latest: latestMarks.get(person.id) };
+      return {
+        latest: latestMarks.get(person.id),
+        thisWeek: dueWeek
+          ? weekStatus(
+              dueWeek,
+              (seasonUpdates.data?.items ?? []).find(
+                (update) =>
+                  update.student.id === person.id &&
+                  sameUpdateWeek(update, dueWeek),
+              ),
+              isKicked(person) ? 'kicked' : undefined,
+            )
+          : undefined,
+      };
     },
     [
       currentMenteeIds,
+      dueWeek,
       latestMarks,
+      seasonUpdates.data,
       seasonUpdates.isError,
       seasonUpdates.isLoading,
     ],
@@ -158,6 +198,7 @@ export function MenteesPage() {
         data={mentees}
         seasonId={season?.id}
         latestMark={showLatestMark ? latestMarkState : undefined}
+        showThisWeek={showLatestMark && Boolean(dueWeek)}
         renderActions={(person) => (
           <StudentRowActions
             person={person}
@@ -179,7 +220,7 @@ export function MenteesPage() {
                 {...dialog}
                 seasonId={season?.id}
                 person={person}
-                onRemoved={() => setRemoved((ids) => [...ids, person.id])}
+                onRemoved={() => void query.refetch()}
               />
             )}
           />

@@ -11,14 +11,15 @@ import (
 )
 
 // mondayUpdateColumns selects one update with the student's public profile.
-const mondayUpdateColumns = `u.id,u.season_id,u.student_user_id,s.slug,s.display_name,s.avatar_url,u.start_date::text,u.end_date::text,u.content_html,u.hours::float8,u.created_at`
+const mondayUpdateColumns = `u.id,u.season_id,u.student_user_id,s.slug,s.display_name,s.avatar_url,u.start_date::text,u.end_date::text,u.content_html,u.hours::float8,u.created_at,u.edited_at`
 
 // mondayUpdateMarkColumns selects one mark with the mentor's public profile.
 const mondayUpdateMarkColumns = `k.id,k.mentor_user_id,m.slug,m.display_name,m.avatar_url,k.mark::text,COALESCE(k.comment_html,''),k.updated_at`
 
 // mondayUpdateFilters selects updates whose own range overlaps the requested
-// range. The mentor filter keeps only the students that user mentors this
-// season, so a mentor's list is scoped in SQL rather than in the handler.
+// range. The mentor filter keeps the students that user mentored during each
+// update's week (a kicked student's last week included), so a mentor's list
+// is scoped in SQL rather than in the handler.
 const mondayUpdateFilters = `u.season_id=@seasonID AND u.deleted_at IS NULL
  AND u.start_date <= @endDate::date AND u.end_date >= @startDate::date
  AND (COALESCE(cardinality(@studentIDs::uuid[]),0)=0 OR u.student_user_id=ANY(@studentIDs::uuid[]))
@@ -27,7 +28,14 @@ const mondayUpdateFilters = `u.season_id=@seasonID AND u.deleted_at IS NULL
    JOIN app.enrollments mentor ON mentor.id=m.mentor_enrollment_id
    JOIN app.enrollments student ON student.id=m.student_enrollment_id
    WHERE m.season_id=u.season_id AND mentor.user_id=NULLIF(@mentorUserID,'')::uuid
-    AND student.user_id=u.student_user_id AND m.ended_at IS NULL AND m.deleted_at IS NULL))`
+    AND student.user_id=u.student_user_id AND m.deleted_at IS NULL
+    AND ` + mentoredDuringWeek + `))`
+
+// mentoredDuringWeek holds when mentorship m covers the week starting at
+// u.start_date: it is current, or the student was kicked during or after that
+// week. A student moved to another mentor leaves the old mentor's list.
+const mentoredDuringWeek = `(m.ended_at IS NULL OR (student.state='kicked'
+    AND (m.ended_at AT TIME ZONE 'Australia/Adelaide')::date >= u.start_date))`
 
 // An update's activity is derived from the update's own dates, never from the
 // range the caller selected, so the range is joined through app.monday_updates.
@@ -42,7 +50,7 @@ const mondayUpdateMockRange = `JOIN app.mock_interviews m ON m.interviewee_user_
 func scanMondayUpdate(row pgx.Row) (program.MondayUpdateRecord, error) {
 	var v program.MondayUpdateRecord
 	err := row.Scan(&v.ID, &v.SeasonID, &v.Student.ID, &v.Student.Slug, &v.Student.Name, &v.Student.AvatarURL,
-		&v.StartDate, &v.EndDate, &v.ContentHTML, &v.Hours, &v.CreatedAt)
+		&v.StartDate, &v.EndDate, &v.ContentHTML, &v.Hours, &v.CreatedAt, &v.EditedAt)
 	return v, noRows(err)
 }
 
@@ -357,6 +365,14 @@ func (p *Store) CreateMondayUpdate(ctx context.Context, v program.MondayUpdateRe
 		VALUES($1,$2,$3,$4::date,$5::date,$6,$7)`, v.ID, v.SeasonID, v.Student.ID, v.StartDate, v.EndDate, v.ContentHTML, v.Hours); err != nil {
 		return v, mapDatabaseError(err)
 	}
+	// A mentor may have marked the week before the update was posted (late,
+	// after an unlock); the mark and comment carry over to the update.
+	if _, err := tx.Exec(ctx, `INSERT INTO app.monday_update_marks(update_id,mentor_user_id,mark,comment_html)
+		SELECT $1,w.mentor_user_id,w.mark,w.comment_html FROM app.monday_week_marks w
+		WHERE w.season_id=$2 AND w.student_user_id=$3 AND w.start_date=$4::date
+		ON CONFLICT (update_id,mentor_user_id) DO NOTHING`, v.ID, v.SeasonID, v.Student.ID, v.StartDate); err != nil {
+		return v, mapDatabaseError(err)
+	}
 	if err := appendAuditTx(ctx, tx, newAudit(actorID, "monday_update.created", "monday_update", v.ID, nil, time.Now())); err != nil {
 		return v, err
 	}
@@ -364,6 +380,36 @@ func (p *Store) CreateMondayUpdate(ctx context.Context, v program.MondayUpdateRe
 		return v, err
 	}
 	return p.GetMondayUpdateDetail(ctx, v.SeasonID, v.ID)
+}
+
+// UpdateMondayUpdate rewrites the content and hours of a student's own update
+// while its season is open, noting when. Its dates, and so
+// the activity it covers, stay fixed.
+func (p *Store) UpdateMondayUpdate(ctx context.Context, seasonID, updateID, studentUserID, contentHTML string, hours float64, actorID string) (program.MondayUpdateRecord, error) {
+	tx, err := p.pool.Begin(ctx)
+	if err != nil {
+		return program.MondayUpdateRecord{}, err
+	}
+
+	defer tx.Rollback(context.Background())
+	if err := lockOpenSeason(ctx, tx, seasonID); err != nil {
+		return program.MondayUpdateRecord{}, err
+	}
+	result, err := tx.Exec(ctx, `UPDATE app.monday_updates SET content_html=$4,hours=$5,edited_at=now()
+		WHERE id=$1 AND season_id=$2 AND student_user_id=$3 AND deleted_at IS NULL`, updateID, seasonID, studentUserID, contentHTML, hours)
+	if err != nil {
+		return program.MondayUpdateRecord{}, mapDatabaseError(err)
+	}
+	if result.RowsAffected() == 0 {
+		return program.MondayUpdateRecord{}, ErrNotFound
+	}
+	if err := appendAuditTx(ctx, tx, newAudit(actorID, "monday_update.edited", "monday_update", updateID, nil, time.Now())); err != nil {
+		return program.MondayUpdateRecord{}, err
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return program.MondayUpdateRecord{}, err
+	}
+	return p.GetMondayUpdateDetail(ctx, seasonID, updateID)
 }
 
 func (p *Store) DeleteMondayUpdate(ctx context.Context, seasonID, updateID, studentUserID, actorID string) error {
@@ -501,7 +547,7 @@ func (p *Store) ListMondayUpdateReview(ctx context.Context, q MondayUpdateReview
 // range, marks included, and returns the loaded update ids.
 func (p *Store) loadMondayUpdateReviewUpdates(ctx context.Context, q MondayUpdateReviewQuery, studentIDs []string, byStudent map[string]*program.MondayUpdateReviewRow) ([]string, error) {
 	args := pgx.NamedArgs{"seasonID": q.SeasonID, "startDate": q.StartDate, "endDate": q.EndDate, "studentIDs": studentIDs}
-	rows, err := p.pool.Query(ctx, `SELECT u.student_user_id,u.id,u.start_date::text,u.end_date::text,u.content_html,u.hours::float8,u.created_at
+	rows, err := p.pool.Query(ctx, `SELECT u.student_user_id,u.id,u.start_date::text,u.end_date::text,u.content_html,u.hours::float8,u.created_at,u.edited_at
 		FROM app.monday_updates u
 		WHERE u.season_id=@seasonID AND u.deleted_at IS NULL
 		  AND u.start_date <= @endDate::date AND u.end_date >= @startDate::date
@@ -516,7 +562,7 @@ func (p *Store) loadMondayUpdateReviewUpdates(ctx context.Context, q MondayUpdat
 	for rows.Next() {
 		var studentID string
 		var update program.MondayUpdateReviewUpdate
-		if err := rows.Scan(&studentID, &update.ID, &update.StartDate, &update.EndDate, &update.ContentHTML, &update.Hours, &update.CreatedAt); err != nil {
+		if err := rows.Scan(&studentID, &update.ID, &update.StartDate, &update.EndDate, &update.ContentHTML, &update.Hours, &update.CreatedAt, &update.EditedAt); err != nil {
 			return nil, err
 		}
 		update.Marks = []program.MondayUpdateMarkRecord{}

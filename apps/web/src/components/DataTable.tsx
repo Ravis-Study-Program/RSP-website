@@ -60,6 +60,7 @@ import {
 } from 'react';
 
 import { EmptyState, ErrorState } from '@/components/StatusViews';
+import { renderCell } from '@/lib/renderCell';
 import { cn } from '@/lib/utils';
 import { useMediaQuery } from '@/lib/useMediaQuery';
 
@@ -219,7 +220,24 @@ export function DataTable<TData>({
     data,
     columns,
     state: { sorting, columnFilters, globalFilter, columnVisibility },
-    onSortingChange: setSorting,
+    // Sorts chain: a click sorts by that column first, and the columns sorted
+    // before it still order its ties, newest first. Ties on every sort keep
+    // the rows' original order.
+    isMultiSortEvent: () => true,
+    onSortingChange: (updater) =>
+      setSorting((previous) => {
+        const next =
+          typeof updater === 'function' ? updater(previous) : updater;
+        const changed = next.find(
+          (sort) =>
+            !previous.some(
+              (item) => item.id === sort.id && item.desc === sort.desc,
+            ),
+        );
+        return changed
+          ? [changed, ...next.filter((sort) => sort.id !== changed.id)]
+          : next;
+      }),
     onColumnFiltersChange: setColumnFilters,
     onGlobalFilterChange: setGlobalFilter,
     onColumnVisibilityChange: setColumnVisibility,
@@ -257,7 +275,9 @@ export function DataTable<TData>({
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [fullscreen]);
 
-  if (loading && !extraFilters) {
+  // A toolbar with its own controls stays mounted while loading, so an open
+  // picker in it is not torn down when the rows arrive.
+  if (loading && !extraFilters && !toolbarLead && !toolbarStart) {
     return (
       <div
         className="overflow-hidden rounded-lg border bg-card"
@@ -312,7 +332,8 @@ export function DataTable<TData>({
         <section
           className={cn(
             'overflow-hidden rounded-lg border bg-card',
-            dense && '[&_tbody_td]:py-2 [&_thead_th]:h-9 [&_tbody_td]:text-sm',
+            dense &&
+              '[&_tbody_td]:h-12 [&_tbody_td]:py-2 [&_thead_th]:h-9 [&_tbody_td]:text-sm',
             fullscreen && 'fixed inset-0 z-60 overflow-auto rounded-none',
           )}
           aria-label={ariaLabel}
@@ -728,7 +749,9 @@ function DataTableRecord<TData>({
             className={cn(
               // TableCell drops the right padding around checkboxes, which suits
               // selection columns; these tables have none, so keep the inset.
-              'px-4 py-3 [&:has([role=checkbox])]:pr-4',
+              // Every row is as tall as one holding a row button (a cell's
+              // height is its minimum), with or without one.
+              'h-14 px-4 py-3 [&:has([role=checkbox])]:pr-4',
               cell.column.columnDef.meta?.wrap
                 ? 'whitespace-normal'
                 : truncateCellClass,
@@ -737,7 +760,7 @@ function DataTableRecord<TData>({
             )}
             key={cell.id}
           >
-            {flexRender(cell.column.columnDef.cell, cell.getContext())}
+            {renderCell(cell.column.columnDef.cell, cell.getContext())}
           </TableCell>
         ))}
       </TableRow>

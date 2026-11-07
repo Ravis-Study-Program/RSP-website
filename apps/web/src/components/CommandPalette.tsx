@@ -114,8 +114,8 @@ export function CommandPalette() {
                     to: '/seasons',
                   },
                   {
-                    label: 'Graduates',
-                    description: 'Alumni directory',
+                    label: 'People',
+                    description: 'Everyone, across every season',
                     to: '/graduates',
                   },
                   {
@@ -142,8 +142,8 @@ export function CommandPalette() {
                       to: '/mock-interviews',
                     },
                     {
-                      label: 'Graduates',
-                      description: 'Alumni directory',
+                      label: 'People',
+                      description: 'Everyone, across every season',
                       to: '/graduates',
                     },
                   ]

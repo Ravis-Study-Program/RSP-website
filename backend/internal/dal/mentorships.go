@@ -176,3 +176,18 @@ func (p *Store) IsMentorAssigned(ctx context.Context, seasonID, mentorUserID, st
 	err := p.pool.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM app.mentorships m JOIN app.enrollments mentor ON mentor.id=m.mentor_enrollment_id JOIN app.enrollments student ON student.id=m.student_enrollment_id WHERE m.season_id=$1 AND mentor.user_id=$2 AND student.user_id=$3 AND m.ended_at IS NULL AND m.deleted_at IS NULL)`, seasonID, mentorUserID, studentUserID).Scan(&assigned)
 	return assigned, err
 }
+
+// IsMentorForWeek reports whether the mentor mentored the student during the
+// week starting on startDate: a current mentorship, or one that ended when
+// the student was kicked during or after that week.
+func (p *Store) IsMentorForWeek(ctx context.Context, seasonID, mentorUserID, studentUserID, startDate string) (bool, error) {
+	var assigned bool
+	err := p.pool.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM app.mentorships m
+		JOIN app.enrollments mentor ON mentor.id=m.mentor_enrollment_id
+		JOIN app.enrollments student ON student.id=m.student_enrollment_id
+		WHERE m.season_id=$1 AND mentor.user_id=$2 AND student.user_id=$3 AND m.deleted_at IS NULL
+		  AND (m.ended_at IS NULL OR (student.state='kicked'
+		    AND (m.ended_at AT TIME ZONE 'Australia/Adelaide')::date >= $4::date)))`,
+		seasonID, mentorUserID, studentUserID, startDate).Scan(&assigned)
+	return assigned, err
+}
