@@ -70,6 +70,11 @@ export function DashboardPage() {
   const weeks = useSeasonWeeks(currentSeason?.id);
   const enrollments = useSeasonEnrollments(currentSeason?.id);
   const role = activeWorkspace?.role ?? 'graduate';
+  const practiceBase = activeWorkspace?.seasonSlug
+    ? `/seasons/${activeWorkspace.seasonSlug}`
+    : '';
+  const leetcodePath = `${practiceBase}/leetcode`;
+  const mockInterviewsPath = `${practiceBase}/mock-interviews`;
   const userId = user.data?.id;
   const participation = useUserParticipation(
     role === 'student' ? userId : undefined,
@@ -231,13 +236,16 @@ export function DashboardPage() {
               <MetricCard
                 label="Leetcodes"
                 value={attempts.data?.totalCount ?? '—'}
+                to={leetcodePath}
               />
               <MetricCard
                 label="Mock Interviews"
                 value={interviews.data?.total ?? '—'}
+                to={mockInterviewsPath}
                 labelAside={
                   interviews.data ? (
                     <ReviewNotice
+                      to={mockInterviewsPath}
                       pending={Math.max(
                         0,
                         interviews.data.total - interviews.data.reviewed,
@@ -373,14 +381,22 @@ export function DashboardPage() {
 }
 
 /** Green when nothing is waiting, red when every interview is, otherwise amber. */
-function ReviewNotice({ pending, total }: { pending: number; total: number }) {
+function ReviewNotice({
+  to,
+  pending,
+  total,
+}: {
+  to: string;
+  pending: number;
+  total: number;
+}) {
   const label =
     pending === 1 ? '1 review pending' : `${pending} reviews pending`;
   const tone =
     pending === 0 ? 'success' : pending === total ? 'danger' : 'warning';
   return (
     <Link
-      to="/mock-interviews"
+      to={to}
       aria-label={`${label}. Open mock interviews.`}
       className="shrink-0 rounded-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
     >

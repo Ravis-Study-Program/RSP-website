@@ -287,19 +287,22 @@ export function MetricCard({
   value,
   detail,
   labelAside,
+  to,
 }: {
   label: string;
   value: ReactNode;
   detail?: string;
   /** Sits on the same row as the label, at the far edge of the card. */
   labelAside?: ReactNode;
+  /** Makes the card open this page. An aside link stays clickable on top. */
+  to?: string;
 }) {
   return (
-    <Card>
+    <Card className={cn(to && 'relative transition-colors hover:bg-muted/40')}>
       <CardHeader>
         <div className="flex items-center justify-between gap-3">
           <CardDescription>{label}</CardDescription>
-          {labelAside}
+          {labelAside ? <div className="relative z-20">{labelAside}</div> : null}
         </div>
       </CardHeader>
       <CardContent>
@@ -310,6 +313,13 @@ export function MetricCard({
           <p className="mt-1 text-sm text-muted-foreground">{detail}</p>
         ) : null}
       </CardContent>
+      {to ? (
+        <Link
+          to={to}
+          aria-label={`Open ${label}`}
+          className="absolute inset-0 z-10 rounded-xl focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+        />
+      ) : null}
     </Card>
   );
 }
