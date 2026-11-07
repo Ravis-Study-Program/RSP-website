@@ -11,22 +11,28 @@ export const markOptions: { value: MondayUpdateMark; label: string }[] = [
   { value: 'on_track', label: 'On track' },
   { value: 'a_bit_behind', label: 'A bit behind' },
   { value: 'at_risk', label: 'At risk' },
+  { value: 'kicked', label: 'Kicked' },
 ];
 
 export function markLabel(mark: MondayUpdateMark) {
   return markOptions.find((option) => option.value === mark)?.label ?? mark;
 }
 
-/** One colour per mark, from strongest (solid green) to weakest (solid red). */
+/**
+ * One soft badge colour per mark, like every other badge, strongest first:
+ * way ahead purple, doing good blue, on track green, a bit behind yellow,
+ * at risk orange, kicked red.
+ */
 export const markTone: Record<
   MondayUpdateMark,
   { badge: BadgeTone; dot: string }
 > = {
-  way_ahead: { badge: 'strongSuccess', dot: 'bg-success' },
-  doing_good: { badge: 'success', dot: 'bg-success/60' },
-  on_track: { badge: 'info', dot: 'bg-info' },
+  way_ahead: { badge: 'purple', dot: 'bg-purple' },
+  doing_good: { badge: 'info', dot: 'bg-info' },
+  on_track: { badge: 'success', dot: 'bg-success' },
   a_bit_behind: { badge: 'warning', dot: 'bg-warning' },
-  at_risk: { badge: 'strongDanger', dot: 'bg-destructive' },
+  at_risk: { badge: 'orange', dot: 'bg-orange' },
+  kicked: { badge: 'danger', dot: 'bg-destructive' },
 };
 
 /** The fields of an update a latest-mark summary needs. */
@@ -71,9 +77,10 @@ export function pickLatestMark(
  * then no update; anything without data sorts last.
  */
 export function latestMarkRank(latest: LatestMark | undefined | null) {
-  if (latest === null) return 7;
-  if (!latest) return 6;
-  if (!latest.mark) return 5;
+  // Marks rank above every unmarked state, strongest highest.
+  if (latest === null) return markOptions.length + 2;
+  if (!latest) return markOptions.length + 1;
+  if (!latest.mark) return markOptions.length;
   return (
     markOptions.length -
     1 -

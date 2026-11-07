@@ -6,6 +6,8 @@ import type {
   MondayUpdateMarkRecord,
   MondayUpdateMock,
   PersonSummary,
+  MondayUpdateUnlock,
+  MondayWeekMark,
 } from '@/api/generated/models';
 import { defaultMondayUpdateRange, programTimezone } from '@/activityDates';
 import type {
@@ -616,6 +618,7 @@ function fixtureMondayUpdates(): MondayUpdate[] {
       contentHtml,
       hours,
       createdAt: `${endDate}T11:30:00Z`,
+      editedAt: null,
       marks,
       activity: {
         attempts: own.attempts.filter((item) => within(item.attemptedAt)),
@@ -691,9 +694,12 @@ function storedMondayUpdates(): { added: MondayUpdate[]; deleted: string[] } {
 
 export function demoMondayUpdates(): MondayUpdate[] {
   const stored = storedMondayUpdates();
-  return [...stored.added, ...fixtureMondayUpdates()].filter(
-    (update) => !stored.deleted.includes(update.id),
-  );
+  // An edited fixture is stored under its own id and replaces the original.
+  const addedIds = new Set(stored.added.map((update) => update.id));
+  return [
+    ...stored.added,
+    ...fixtureMondayUpdates().filter((update) => !addedIds.has(update.id)),
+  ].filter((update) => !stored.deleted.includes(update.id));
 }
 
 export function saveDemoMondayUpdate(update: MondayUpdate) {
@@ -720,5 +726,100 @@ export function deleteDemoMondayUpdate(id: string) {
   localStorage.setItem(
     mondayStorageKey,
     JSON.stringify({ ...stored, deleted: [...stored.deleted, id] }),
+  );
+}
+
+/** Rewrites a demo update's content and hours, keeping its dates. */
+export function editDemoMondayUpdate(
+  id: string,
+  changes: Pick<MondayUpdate, 'contentHtml' | 'hours'>,
+) {
+  const current = demoMondayUpdates().find((item) => item.id === id);
+  if (!current) throw new Error('This update no longer exists.');
+  const stored = storedMondayUpdates();
+  const edited = { ...current, ...changes };
+  localStorage.setItem(
+    mondayStorageKey,
+    JSON.stringify({
+      ...stored,
+      added: [edited, ...stored.added.filter((item) => item.id !== id)],
+    }),
+  );
+  return edited;
+}
+
+const mondayUnlockStorageKey = 'rsp-demo-monday-unlocks';
+
+/** Demo requests to unlock late weeks, kept for the browser session. */
+export function demoMondayUpdateUnlocks(): MondayUpdateUnlock[] {
+  try {
+    return JSON.parse(localStorage.getItem(mondayUnlockStorageKey) ?? '[]');
+  } catch {
+    return [];
+  }
+}
+
+/** Saves a demo request, or replaces one with the same id. */
+export function saveDemoMondayUpdateUnlock(unlock: MondayUpdateUnlock) {
+  localStorage.setItem(
+    mondayUnlockStorageKey,
+    JSON.stringify([
+      unlock,
+      ...demoMondayUpdateUnlocks().filter((item) => item.id !== unlock.id),
+    ]),
+  );
+  return unlock;
+}
+
+const weekMarkStorageKey = 'rsp-demo-week-marks';
+
+/** Demo mentor marks on weeks without an update. */
+export function demoWeekMarks(): MondayWeekMark[] {
+  try {
+    return JSON.parse(localStorage.getItem(weekMarkStorageKey) ?? '[]');
+  } catch {
+    return [];
+  }
+}
+
+export function saveDemoWeekMark(mark: MondayWeekMark) {
+  localStorage.setItem(
+    weekMarkStorageKey,
+    JSON.stringify([
+      mark,
+      ...demoWeekMarks().filter(
+        (item) =>
+          !(
+            item.seasonId === mark.seasonId &&
+            item.studentId === mark.studentId &&
+            item.mentorId === mark.mentorId &&
+            item.startDate === mark.startDate
+          ),
+      ),
+    ]),
+  );
+  return mark;
+}
+
+/** Removes a demo mentor's mark on a week ("Not marked"). */
+export function clearDemoWeekMark(
+  seasonId: string,
+  studentId: string,
+  mentorId: string,
+  startDate: string,
+) {
+  localStorage.setItem(
+    weekMarkStorageKey,
+    JSON.stringify(
+      demoWeekMarks().filter(
+        (item) =>
+          !(
+            item.seasonId === seasonId &&
+            item.studentId === studentId &&
+            item.mentorId === mentorId &&
+            item.startDate === startDate
+          ),
+      ),
+    ),
   );
 }

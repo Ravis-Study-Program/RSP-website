@@ -22,46 +22,63 @@ test('Monday reminder clears after the fixed weekly report is submitted; missed 
     path: testInfo.outputPath('monday-reminder.png'),
     fullPage: true,
   });
+  // The reminder's link opens that week's update straight away.
   await page.getByRole('link', { name: 'Write your update' }).click();
-  await expect(
-    page.getByRole('combobox', { name: 'Program week' }),
-  ).toContainText('Week 2');
-  await expect(page.getByLabel('Dates', { exact: true })).toHaveCount(0);
-  await page
+  let dialog = page.getByRole('dialog', { name: 'Week 2 Update' });
+  await expect(dialog).toBeVisible();
+  await dialog
     .getByRole('textbox', { name: 'Your update', exact: true })
     .fill(
       'Completed trees, learned traversal patterns, no blockers. Next week: graphs.',
     );
-  await page
+  await dialog
     .getByRole('spinbutton', { name: 'Hours spent (Expected: ~30h/week)' })
     .fill('30');
-  await page.getByRole('button', { name: 'Post update', exact: true }).click();
+  await dialog
+    .getByRole('button', { name: 'Post Update', exact: true })
+    .click();
+  await expect(dialog).toHaveCount(0);
+  // Week 2 is done and the missed Week 1 is locked, so the header offers the
+  // current week, which can be written as it goes.
   await expect(
-    page.getByRole('status').filter({ hasText: 'Week 2 submitted.' }),
+    page.getByRole('button', { name: 'Write Week 3 Update' }),
   ).toBeVisible();
-  await expect(
-    page.getByRole('button', { name: 'Post update', exact: true }),
-  ).toHaveCount(0);
   await page.goto('/dashboard');
   await expect(
     page.getByRole('heading', { name: 'Welcome, Avery.' }),
   ).toBeVisible();
   await expect(page.getByRole('alert')).toHaveCount(0);
+  // The student asks their mentor to unlock it, with a reason.
   await page.goto('/seasons/summer-2025-26/monday-updates');
-  await chooseOption(page, 'Program week', /Week 1/);
+  await page.getByRole('button', { name: 'More actions for Week 1' }).click();
   await expect(
-    page.getByRole('heading', { name: 'Week 1 Update', exact: true }),
-  ).toBeVisible();
+    page.getByRole('menuitem', { name: 'Write update' }),
+  ).toHaveCount(0);
+  await page.getByRole('menuitem', { name: 'Request unlock' }).click();
+  dialog = page.getByRole('dialog', { name: 'Request Unlock · Week 1' });
+  await dialog.getByRole('textbox', { name: 'Reason' }).fill('I was sick.');
+  await dialog.getByRole('button', { name: 'Send Request' }).click();
+  await expect(dialog).toHaveCount(0);
+  await expect(page.getByText('Unlock requested')).toBeVisible();
   await page.screenshot({
-    path: testInfo.outputPath('late-week-form.png'),
+    path: testInfo.outputPath('late-week-requested.png'),
     fullPage: true,
   });
-  await page
+  // The week due now can still be edited.
+  await page.getByRole('button', { name: 'More actions for Week 2' }).click();
+  await page.getByRole('menuitem', { name: 'Edit update' }).click();
+  dialog = page.getByRole('dialog', { name: 'Edit Week 2 Update' });
+  await dialog
     .getByRole('textbox', { name: 'Your update', exact: true })
-    .fill('Submitting my missed first week.');
-  await page.getByRole('button', { name: 'Post update', exact: true }).click();
+    .fill('Completed trees and graphs, now with detail.');
+  await dialog
+    .getByRole('button', { name: 'Save Update', exact: true })
+    .click();
+  await expect(dialog).toHaveCount(0);
+  await page.getByRole('button', { name: 'More actions for Week 2' }).click();
+  await page.getByRole('menuitem', { name: 'Show details' }).click();
   await expect(
-    page.getByRole('status').filter({ hasText: 'Week 1 submitted.' }),
+    page.getByText('Completed trees and graphs, now with detail.'),
   ).toBeVisible();
   const submissions = await page.evaluate(
     () =>
@@ -72,10 +89,11 @@ test('Monday reminder clears after the fixed weekly report is submitted; missed 
       item.startDate,
       item.endDate,
     ]),
-  ).toEqual([
-    ['2025-12-01', '2025-12-07'],
-    ['2025-12-08', '2025-12-14'],
-  ]);
+  ).toEqual([['2025-12-08', '2025-12-14']]);
+  await page.screenshot({
+    path: testInfo.outputPath('monday-updates-table.png'),
+    fullPage: true,
+  });
 });
 
 test('no reminder on Tuesday, Week 1 Monday or after the program', async ({
@@ -107,8 +125,11 @@ test('staff review is organized by program week', async ({ page }) => {
     ).toContainText('Week 2');
     await chooseOption(page, 'Program week', /Week 1/);
     await expect(page).toHaveURL(/week=week_season_2026_s2_1/);
-    await chooseOption(page, 'Program week', 'All updates');
-    await expect(page).toHaveURL(/week=all/);
-    await expect(page.getByLabel('Dates', { exact: true })).toHaveCount(0);
+    // Mentors can also see every week; coordinators read one week at a time.
+    if (role === 'mentor') {
+      await chooseOption(page, 'Program week', 'All updates');
+      await expect(page).toHaveURL(/week=all/);
+    } else
+      await expect(page.getByText(/of \d+( marked)?$/).first()).toBeVisible();
   }
 });
