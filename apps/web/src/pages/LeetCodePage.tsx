@@ -53,14 +53,20 @@ import {
 } from '@/api/queries';
 import { PracticeAnalytics } from '@/components/PracticeAnalytics';
 import { AppDatePicker } from '@/components/AppDatePicker';
-import { Page, PageHeader, usePageTitle } from '@/components/Common';
+import { Page, PageHeader, usePageTitle, LabelHint } from '@/components/Common';
 import { FormDialog, NamedConfirmation } from '@/components/Dialogs';
 import { ProblemSelect } from '@/components/ProblemSelect';
 import { RichTextEditor } from '@/components/RichTextEditor';
 import { ErrorState, InlineNotice } from '@/components/StatusViews';
 import { Field, FieldError, FieldLabel } from '@/components/ui/field';
 import type { Attempt } from '@/types';
-import { calendarDateKey, zonedDateTimeToUtc } from '@/utils';
+import {
+  calendarDateKey,
+  formatDateTimeInput,
+  hasRichText,
+  optionalTimePattern,
+  recordedDateTime,
+} from '@/utils';
 
 const attemptSchema = z.object({
   problemId: z.string().min(1, 'Choose a problem.'),
@@ -71,6 +77,9 @@ const attemptSchema = z.object({
     .positive('Time must be greater than zero.')
     .max(600),
   attemptedAt: z.string().min(1),
+  attemptTime: z
+    .string()
+    .regex(optionalTimePattern, 'Enter a time such as 14:30.'),
   notes: z.string().max(20_000),
 });
 
@@ -82,7 +91,8 @@ function attemptFormValues(attempt?: Attempt): AttemptFormValues {
         problemId: attempt.problemId,
         outcome: attempt.outcome,
         minutes: attempt.minutes ?? 35,
-        attemptedAt: attempt.attemptedAt.slice(0, 10),
+        attemptedAt: calendarDateKey(attempt.attemptedAt),
+        attemptTime: formatDateTimeInput(attempt.attemptedAt).slice(11),
         notes: attempt.notes,
       }
     : {
@@ -90,6 +100,7 @@ function attemptFormValues(attempt?: Attempt): AttemptFormValues {
         outcome: 'solved',
         minutes: 35,
         attemptedAt: calendarDateKey(new Date()),
+        attemptTime: '',
         notes: '',
       };
 }
@@ -351,10 +362,12 @@ function AttemptRowMenu({
           <IconDotsVertical size={18} aria-hidden="true" />
         </DropdownMenuTrigger>
         <DropdownMenuContent>
-          <DropdownMenuItem onClick={onToggleNotes}>
-            <IconNotes size={17} aria-hidden="true" />
-            {notesExpanded ? 'Hide notes' : 'View notes'}
-          </DropdownMenuItem>
+          {hasRichText(attempt.notes) ? (
+            <DropdownMenuItem onClick={onToggleNotes}>
+              <IconNotes size={17} aria-hidden="true" />
+              {notesExpanded ? 'Hide notes' : 'View notes'}
+            </DropdownMenuItem>
+          ) : null}
           <DropdownMenuItem onClick={() => setEditOpen(true)}>
             <IconEdit size={17} aria-hidden="true" /> Edit
           </DropdownMenuItem>
@@ -423,6 +436,7 @@ function AttemptDialog({
     control,
     handleSubmit,
     reset,
+    setError,
     formState: { errors, isDirty, isSubmitting },
   } = useForm<AttemptFormValues>({
     resolver: zodResolver(
@@ -437,7 +451,14 @@ function AttemptDialog({
 
   const onSubmit = handleSubmit(async (values) => {
     setRequestError('');
-    const attemptedAt = zonedDateTimeToUtc(`${values.attemptedAt}T12:00`);
+    const attemptedAt = recordedDateTime(
+      values.attemptedAt,
+      values.attemptTime,
+    );
+    if (new Date(attemptedAt) > new Date()) {
+      setError('attemptTime', { message: 'Attempts cannot be in the future.' });
+      return;
+    }
     const problem = selectedProblem;
     if (!problem || problem.id !== values.problemId) return;
     const saved: Attempt = {
@@ -457,8 +478,12 @@ function AttemptDialog({
     };
     if (!demoMode) {
       try {
+        // The time field only builds attemptedAt; the API takes no such field.
         const mutation: AttemptMutation = {
-          ...values,
+          problemId: values.problemId,
+          outcome: values.outcome,
+          minutes: values.minutes,
+          notes: values.notes,
           attemptedAt,
         };
         const apiSaved = await apiRequest<ApiAttempt>(
@@ -591,7 +616,7 @@ function AttemptDialog({
             </Field>
             <Field>
               <FieldLabel htmlFor="attempt-minutes">
-                Time taken (minutes)
+                Time taken <LabelHint>minutes</LabelHint>
               </FieldLabel>
               <Input
                 id="attempt-minutes"
@@ -617,6 +642,20 @@ function AttemptDialog({
                 />
               )}
             />
+            <Field>
+              <FieldLabel htmlFor="attempt-time">
+                Attempt time <LabelHint>optional</LabelHint>
+              </FieldLabel>
+              <Input
+                id="attempt-time"
+                type="time"
+                aria-invalid={Boolean(errors.attemptTime)}
+                {...register('attemptTime')}
+              />
+              {errors.attemptTime ? (
+                <FieldError>{errors.attemptTime.message}</FieldError>
+              ) : null}
+            </Field>
           </div>
           <Controller
             control={control}

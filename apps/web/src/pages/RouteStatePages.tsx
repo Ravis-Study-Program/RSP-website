@@ -569,7 +569,7 @@ export function ForbiddenPage() {
     <StateLayout
       icon={<IconLock size={48} aria-hidden="true" />}
       title="You Do Not Have Access"
-      message="This workspace or action is outside your current program role."
+      message="This page or action is outside your current program role."
     >
       <Link to="/dashboard" className={buttonVariants({ variant: 'default' })}>
         Back to dashboard

@@ -71,6 +71,14 @@ func TestStoreOperations(t *testing.T) {
 	if err := db.pool.QueryRow(ctx, `SELECT count(*) FROM app.seasons WHERE slug='dev-season'`).Scan(&seasons); err != nil || seasons != 1 {
 		t.Fatalf("seed seasons=%d error=%v", seasons, err)
 	}
+	// The season has twelve Monday-to-Sunday program weeks and six have
+	// ended, so the seeded student can post a Monday update straight away.
+	var weeks, ended int
+	if err := db.pool.QueryRow(ctx, `SELECT count(*), count(*) FILTER (WHERE w.end_at < now())
+		FROM app.season_weeks w JOIN app.seasons s ON s.id=w.season_id
+		WHERE s.slug='dev-season' AND w.deleted_at IS NULL`).Scan(&weeks, &ended); err != nil || weeks != 12 || ended != 6 {
+		t.Fatalf("seed weeks=%d ended=%d error=%v", weeks, ended, err)
+	}
 
 	// Seeded mocks use only the round layouts real interviews use, and the
 	// interviewer leaves notes on every round.

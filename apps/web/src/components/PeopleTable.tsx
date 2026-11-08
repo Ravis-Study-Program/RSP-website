@@ -5,11 +5,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import {
-  IconArrowUp,
-  IconDotsVertical,
-  IconUserMinus,
-} from '@tabler/icons-react';
+import { IconEdit, IconDotsVertical, IconUserMinus } from '@tabler/icons-react';
 import type { ColumnDef } from '@tanstack/react-table';
 import { useState, type ReactNode } from 'react';
 
@@ -21,17 +17,26 @@ import {
   StudentLevelBadge,
 } from '@/components/Common';
 import { DataTable } from '@/components/DataTable';
-import { LatestMarkBadge, LatestUpdateRange } from '@/components/MondayMark';
+import { LatestMarkBadge } from '@/components/MondayMark';
 import { StatusBadge } from '@/components/StatusBadge';
-import { StudentLevelDialog } from '@/components/StudentLevelDialog';
+import { StudentDetailsDialog } from '@/components/StudentDetailsDialog';
 import { latestMarkRank, type LatestMark } from '@/mondayMarks';
+import { updateStatusTones, type StudentUpdateStatus } from '@/mondayStatus';
+import { roleSortingFn, sortRoles, statusSortingFn } from '@/sortOrder';
 import { studentLevelLabel } from '@/studentLevels';
 import type { Person, Season } from '@/types';
 import { formatDateTime } from '@/utils';
 
 /** A row's latest Monday update: a status, or the student's latest update. */
 export type PersonLatestMark =
-  'not-mentee' | 'loading' | 'error' | { latest: LatestMark | undefined };
+  | 'not-mentee'
+  | 'loading'
+  | 'error'
+  | {
+      latest: LatestMark | undefined;
+      /** This week's update status; absent once the season is over. */
+      thisWeek?: StudentUpdateStatus;
+    };
 
 const latestMarkText = {
   'not-mentee': '—',
@@ -61,6 +66,7 @@ export function PeopleTable({
   seasonId,
   showLevel = true,
   latestMark,
+  showThisWeek = false,
   renderActions,
   loading,
   error,
@@ -78,6 +84,8 @@ export function PeopleTable({
   showLevel?: boolean;
   /** Each student's latest Monday update; omit to hide those columns. */
   latestMark?: (person: Person) => PersonLatestMark;
+  /** The Monday Update column (this week's status), while the season runs. */
+  showThisWeek?: boolean;
   /** The row menu; omit for a read-only table. */
   renderActions?: (person: Person) => ReactNode;
   loading?: boolean;
@@ -112,10 +120,11 @@ export function PeopleTable({
             id: 'roles',
             header: 'Roles',
             meta: { width: 9.5 },
-            accessorFn: (person: Person) => person.roles.join(' '),
+            accessorFn: (person: Person) => sortRoles(person.roles).join(' '),
+            sortingFn: roleSortingFn,
             cell: ({ row }: { row: { original: Person } }) => (
               <div className="flex items-center gap-2">
-                {row.original.roles.map((role) => (
+                {sortRoles(row.original.roles).map((role) => (
                   <RoleBadge key={role} role={role} />
                 ))}
               </div>
@@ -158,6 +167,7 @@ export function PeopleTable({
       accessorKey: 'status',
       header: 'Status',
       meta: { width: 7.5 },
+      sortingFn: statusSortingFn,
       cell: ({ getValue }) => (
         <StatusBadge tone={statusTone(getValue())}>
           {statusLabel(getValue())}
@@ -170,39 +180,39 @@ export function PeopleTable({
       header: 'Mock Interviews',
       meta: { width: 8.5 },
     },
-    {
-      accessorKey: 'lastActiveAt',
-      header: 'Last Recorded Activity',
-      meta: { width: 10.5 },
-      cell: ({ getValue }) =>
-        getValue() ? formatDateTime(getValue()) : <Dash />,
-    },
     ...(latestMark
       ? [
-          {
-            id: 'latestUpdate',
-            header: 'Latest Update',
-            meta: { width: 11 },
-            accessorFn: (person: Person) => {
-              const state = latestMark(person);
-              return typeof state === 'string'
-                ? ''
-                : (state.latest?.update.startDate ?? '');
-            },
-            cell: ({ row }: { row: { original: Person } }) => {
-              const state = latestMark(row.original);
-              return typeof state === 'string' ? (
-                <span className="text-sm text-muted-foreground">
-                  {latestMarkText[state]}
-                </span>
-              ) : (
-                <LatestUpdateRange
-                  latest={state.latest}
-                  noUpdateText="No updates"
-                />
-              );
-            },
-          } satisfies ColumnDef<Person, string>,
+          ...(showThisWeek
+            ? [
+                {
+                  id: 'thisWeek',
+                  header: 'Monday Update',
+                  meta: { width: 9 },
+                  accessorFn: (person: Person) => {
+                    const state = latestMark(person);
+                    return typeof state === 'string'
+                      ? ''
+                      : (state.thisWeek ?? '');
+                  },
+                  cell: ({ row }: { row: { original: Person } }) => {
+                    const state = latestMark(row.original);
+                    if (state === 'loading' || state === 'error')
+                      return (
+                        <span className="text-sm text-muted-foreground">
+                          {latestMarkText[state]}
+                        </span>
+                      );
+                    return typeof state === 'string' || !state.thisWeek ? (
+                      <Dash />
+                    ) : (
+                      <StatusBadge tone={updateStatusTones[state.thisWeek]}>
+                        {state.thisWeek}
+                      </StatusBadge>
+                    );
+                  },
+                } satisfies ColumnDef<Person, string>,
+              ]
+            : []),
           {
             id: 'latestMark',
             header: 'Mark',
@@ -210,7 +220,7 @@ export function PeopleTable({
             accessorFn: (person: Person) => {
               const state = latestMark(person);
               return typeof state === 'string'
-                ? 7
+                ? latestMarkRank(null)
                 : latestMarkRank(state.latest);
             },
             cell: ({ row }: { row: { original: Person } }) => {
@@ -224,6 +234,13 @@ export function PeopleTable({
           } satisfies ColumnDef<Person, number>,
         ]
       : []),
+    {
+      accessorKey: 'lastActiveAt',
+      header: 'Last Recorded Activity',
+      meta: { width: 10.5 },
+      cell: ({ getValue }) =>
+        getValue() ? formatDateTime(getValue()) : <Dash />,
+    },
     ...(renderActions
       ? [
           {
@@ -266,7 +283,7 @@ export function PeopleTable({
             </div>
             <div className="flex flex-wrap items-center gap-2">
               {people
-                ? person.roles.map((role) => (
+                ? sortRoles(person.roles).map((role) => (
                     <RoleBadge key={role} role={role} />
                   ))
                 : null}
@@ -279,6 +296,14 @@ export function PeopleTable({
               <StatusBadge tone={statusTone(person.status)}>
                 {statusLabel(person.status)}
               </StatusBadge>
+              {showThisWeek &&
+              state &&
+              typeof state !== 'string' &&
+              state.thisWeek ? (
+                <StatusBadge tone={updateStatusTones[state.thisWeek]}>
+                  {state.thisWeek}
+                </StatusBadge>
+              ) : null}
               {state && typeof state !== 'string' ? (
                 <LatestMarkBadge latest={state.latest} />
               ) : null}
@@ -295,7 +320,8 @@ export function PeopleTable({
 }
 
 /**
- * A student row's menu: set their level and, for their mentor or a
+ * A student row's menu: edit their details (level, goals, weekly hours)
+ * and, for their mentor or a
  * coordinator, remove them. Draws nothing when neither is allowed.
  */
 export function StudentRowActions({
@@ -334,7 +360,7 @@ export function StudentRowActions({
         <DropdownMenuContent>
           {canSetLevel ? (
             <DropdownMenuItem onClick={() => setOpen('level')}>
-              <IconArrowUp size={17} aria-hidden="true" /> Set level
+              <IconEdit size={17} aria-hidden="true" /> Edit details
             </DropdownMenuItem>
           ) : null}
           {canRemove ? (
@@ -348,7 +374,7 @@ export function StudentRowActions({
         </DropdownMenuContent>
       </DropdownMenu>
       {canSetLevel && seasonId && open === 'level' ? (
-        <StudentLevelDialog
+        <StudentDetailsDialog
           seasonId={seasonId}
           person={person}
           onChanged={onLevelChanged}

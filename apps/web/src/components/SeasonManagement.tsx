@@ -1,4 +1,5 @@
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { LabelHint } from '@/components/Common';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Field, FieldError, FieldLabel } from '@/components/ui/field';
@@ -289,7 +290,11 @@ export function SeasonEditorDialog({
           </FormField>
           <FormField
             id="season-image"
-            label="Image URL (optional)"
+            label={
+              <>
+                Image URL <LabelHint>optional</LabelHint>
+              </>
+            }
             error={form.formState.errors.imageUrl?.message}
           >
             <Input
@@ -301,7 +306,11 @@ export function SeasonEditorDialog({
           </FormField>
           <FormField
             id="season-resources"
-            label="Resources URL (optional)"
+            label={
+              <>
+                Resources URL <LabelHint>optional</LabelHint>
+              </>
+            }
             error={form.formState.errors.resourcesUrl?.message}
           >
             <Input
@@ -468,7 +477,7 @@ function FormField({
   children,
 }: {
   id: string;
-  label: string;
+  label: ReactNode;
   error?: string;
   children: ReactNode;
 }) {

@@ -477,25 +477,31 @@ func TestMondayUpdateLifecycle(t *testing.T) {
 		t.Fatalf("detail marks=%+v error=%v", detail.Marks, err)
 	}
 
-	// Deletion is soft, author-scoped and audited.
+	// Someone else's update reads as missing.
 	if err := db.DeleteMondayUpdate(ctx, mondayFixtureID(11), mondayFixtureID(84), mondayFixtureID(2), actor); !errors.Is(err, ErrNotFound) {
 		t.Fatalf("wrong author error=%v", err)
 	}
-	if err := db.DeleteMondayUpdate(ctx, mondayFixtureID(11), mondayFixtureID(82), actor, actor); err != nil {
+	edited, err := db.UpdateMondayUpdate(ctx, mondayFixtureID(11), created.ID, actor, "<p>Rewritten</p>", 12.5, actor)
+	if err != nil || edited.ContentHTML != "<p>Rewritten</p>" || edited.Hours != 12.5 || edited.StartDate != "2026-03-09" {
+		t.Fatalf("edited=%+v error=%v", edited, err)
+	}
+
+	// Deletion is soft, author-scoped and audited.
+	if err := db.DeleteMondayUpdate(ctx, mondayFixtureID(11), created.ID, actor, actor); err != nil {
 		t.Fatal(err)
 	}
-	if err := db.DeleteMondayUpdate(ctx, mondayFixtureID(11), mondayFixtureID(82), actor, actor); !errors.Is(err, ErrNotFound) {
+	if err := db.DeleteMondayUpdate(ctx, mondayFixtureID(11), created.ID, actor, actor); !errors.Is(err, ErrNotFound) {
 		t.Fatalf("second delete error=%v", err)
 	}
-	if _, err := db.GetMondayUpdate(ctx, mondayFixtureID(11), mondayFixtureID(82)); !errors.Is(err, ErrNotFound) {
+	if _, err := db.GetMondayUpdate(ctx, mondayFixtureID(11), created.ID); !errors.Is(err, ErrNotFound) {
 		t.Fatalf("deleted read error=%v", err)
 	}
 	var deleted bool
-	if err := db.pool.QueryRow(ctx, `SELECT deleted_at IS NOT NULL FROM app.monday_updates WHERE id=$1`, mondayFixtureID(82)).Scan(&deleted); err != nil || !deleted {
+	if err := db.pool.QueryRow(ctx, `SELECT deleted_at IS NOT NULL FROM app.monday_updates WHERE id=$1`, created.ID).Scan(&deleted); err != nil || !deleted {
 		t.Fatalf("stored deleted=%v error=%v", deleted, err)
 	}
 
-	for action, want := range map[string]int{"monday_update.created": 1, "monday_update.deleted": 1, "monday_update.mark_saved": 3} {
+	for action, want := range map[string]int{"monday_update.created": 1, "monday_update.edited": 1, "monday_update.deleted": 1, "monday_update.mark_saved": 3} {
 		var events int
 		if err := db.pool.QueryRow(ctx, `SELECT count(*) FROM app.audit_events WHERE action=$1`, action).Scan(&events); err != nil || events != want {
 			t.Fatalf("action=%s events=%d error=%v", action, events, err)

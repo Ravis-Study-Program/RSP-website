@@ -22,6 +22,8 @@ FROM base AS build
 # Per-PR canary images enable the canary bar; production leaves it unset.
 ARG VITE_RSP_CANARY=
 ENV VITE_RSP_CANARY=${VITE_RSP_CANARY}
+ARG VITE_SHOW_SIDEBAR_SIGN_OUT=false
+ENV VITE_SHOW_SIDEBAR_SIGN_OUT=${VITE_SHOW_SIDEBAR_SIGN_OUT}
 COPY apps/web apps/web
 COPY api/openapi.yaml api/openapi.yaml
 RUN pnpm --filter @rsp/web build
@@ -37,9 +39,9 @@ RUN apk add --no-cache git \
       --output /out/caddy \
       --replace github.com/go-jose/go-jose/v4=github.com/go-jose/go-jose/v4@v4.1.6 \
       --replace github.com/klauspost/compress=github.com/klauspost/compress@v1.18.7 \
-      --replace golang.org/x/crypto=golang.org/x/crypto@v0.57.0 \
-      --replace golang.org/x/net=golang.org/x/net@v0.60.0 \
-      --replace golang.org/x/text=golang.org/x/text@v0.42.0 \
+      --replace golang.org/x/crypto=golang.org/x/crypto@v0.58.0 \
+      --replace golang.org/x/net=golang.org/x/net@v0.62.0 \
+      --replace golang.org/x/text=golang.org/x/text@v0.43.0 \
       --replace google.golang.org/grpc=google.golang.org/grpc@v1.83.2
 
 FROM alpine:3.24 AS runtime

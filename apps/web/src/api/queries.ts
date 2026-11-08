@@ -8,6 +8,10 @@ import { programTimezone } from '@/activityDates';
 import {
   calendarDateKey,
   defaultPracticeGoals,
+  defaultWeeklyHours,
+  defaultWeeklyTargets,
+  weeklyTargetsFor,
+  type WeeklyTargets,
   type PracticeGoals,
 } from '@/utils';
 import {
@@ -58,6 +62,10 @@ import type {
   UserPage as ApiUserPage,
   Week,
   WeekPage,
+  MondayUpdateUnlock,
+  MondayUpdateUnlockList,
+  MondayMentorReport,
+  MondayMentorReportList,
 } from '@/api/generated/models';
 import { fetchPracticeSettings } from '@/api/practiceSettingsClient';
 import { listSignInMethods } from '@/api/authClient';
@@ -133,6 +141,7 @@ export let demoPracticeSettings: PracticeSettings = {
   easyMinutes: defaultPracticeGoals.Easy,
   mediumMinutes: defaultPracticeGoals.Medium,
   hardMinutes: defaultPracticeGoals.Hard,
+  weeklyHours: defaultWeeklyHours,
 };
 
 function selectedDemoUser(): CurrentUser {
@@ -358,6 +367,19 @@ export function useSignInMethods() {
   });
 }
 
+/** The hours a week the program expects, or the default while loading. */
+export function useWeeklyHours(): number {
+  return usePracticeSettings().data?.weeklyHours ?? defaultWeeklyHours;
+}
+
+/** The signed-in member's weekly hours and LeetCode targets. */
+export function useWeeklyTargets(): WeeklyTargets {
+  const settings = usePracticeSettings().data;
+  return settings
+    ? weeklyTargetsFor(settings.weeklyHours)
+    : defaultWeeklyTargets;
+}
+
 /** The program's goal for each difficulty, or the defaults while loading. */
 export function usePracticeGoals(): PracticeGoals {
   const settings = usePracticeSettings().data;
@@ -378,7 +400,11 @@ export function useUpdatePracticeSettings() {
       goals: PracticeSettingsMutation,
     ): Promise<PracticeSettings> => {
       if (demoMode) {
-        demoPracticeSettings = { goalsEnabled: true, ...goals };
+        demoPracticeSettings = {
+          ...demoPracticeSettings,
+          ...goals,
+          goalsEnabled: true,
+        };
         return wait(demoPracticeSettings);
       }
       return apiRequest<PracticeSettings>('/practice-settings', {
@@ -586,6 +612,7 @@ function demoMondayUpdateReview(
           contentHtml: update.contentHtml,
           hours: update.hours,
           createdAt: update.createdAt,
+          editedAt: update.editedAt,
           marks: update.marks,
         })),
       };
@@ -679,6 +706,128 @@ export function useMondayUpdates(
               .map((studentId) => `&studentId=${encodeURIComponent(studentId)}`)
               .join('')}`,
           );
+    },
+  });
+}
+
+/**
+ * Each mentor's week (for coordinators), or the signed-in mentor's own: their
+ * mentees' updates, activity and marks.
+ */
+export function useMondayMentorReports(
+  seasonId: string | undefined,
+  range: { startDate: string; endDate: string } | undefined,
+  /** In demo mode, the mentor whose week to build; omit for every mentor. */
+  demoMentorId?: string,
+) {
+  return useQuery({
+    queryKey: ['monday-mentor-reports', seasonId, range?.startDate] as const,
+    enabled: Boolean(seasonId && range),
+    queryFn: async (): Promise<MondayMentorReport[]> => {
+      if (!seasonId || !range) return [];
+      if (import.meta.env.MODE !== 'production' && demoMode)
+        return wait(await demoMentorReports(seasonId, range, demoMentorId));
+      const list = await apiRequest<MondayMentorReportList>(
+        `/seasons/${encodeURIComponent(seasonId)}/monday-mentor-reports?startDate=${encodeURIComponent(range.startDate)}&endDate=${encodeURIComponent(range.endDate)}`,
+      );
+      return list.items;
+    },
+  });
+}
+
+async function demoMentorReports(
+  seasonId: string,
+  range: { startDate: string; endDate: string },
+  mentorId?: string,
+): Promise<MondayMentorReport[]> {
+  const { demoMondayUpdates, demoWeekMarks } = await import('@/data/demo');
+  const summary = (id: string) => {
+    const person = people.find((item) => item.id === id);
+    return {
+      id,
+      slug: person?.slug ?? id,
+      name: person?.name ?? id,
+      avatarUrl: person?.avatarUrl ?? null,
+    };
+  };
+  const byMentor = new Map<string, string[]>();
+  for (const mentorship of demoMentorshipPage(seasonId).items) {
+    if (mentorId && mentorship.mentorUserId !== mentorId) continue;
+    byMentor.set(mentorship.mentorUserId, [
+      ...(byMentor.get(mentorship.mentorUserId) ?? []),
+      mentorship.studentUserId,
+    ]);
+  }
+  const updates = demoMondayUpdates().filter(
+    (update) =>
+      update.seasonId === seasonId &&
+      update.startDate === range.startDate &&
+      update.endDate === range.endDate,
+  );
+  const weekMarks = demoWeekMarks();
+  return [...byMentor].map(([mentor, studentIds]) => ({
+    mentor: summary(mentor),
+    startDate: range.startDate,
+    endDate: range.endDate,
+    students: studentIds.map((studentId) => {
+      const update = updates.find((item) => item.student.id === studentId);
+      const mark = update
+        ? update.marks.find((record) => record.mentor.id === mentor)
+        : weekMarks.find(
+            (item) =>
+              item.seasonId === seasonId &&
+              item.studentId === studentId &&
+              item.mentorId === mentor &&
+              item.startDate === range.startDate,
+          );
+      const leetcodeCounts = { easy: 0, medium: 0, hard: 0 };
+      for (const attempt of update?.activity.attempts ?? [])
+        if (
+          attempt.outcome === 'solved' &&
+          attempt.difficulty in leetcodeCounts
+        )
+          leetcodeCounts[attempt.difficulty as keyof typeof leetcodeCounts] +=
+            1;
+      return {
+        student: summary(studentId),
+        studentLevel:
+          demoEnrollmentPage(seasonId).items.find(
+            (item) => item.userId === studentId,
+          )?.studentLevel ?? 'not_applicable',
+        kickedAt: null,
+        targets: { hours: demoPracticeSettings.weeklyHours },
+        updateId: update?.id ?? null,
+        postedAt: update?.createdAt ?? null,
+        editedAt: update?.editedAt ?? null,
+        hours: update?.hours ?? null,
+        leetcodeCounts,
+        mockCount: update?.activity.mocks.length ?? 0,
+        mark: mark?.mark ?? null,
+        commentHtml: mark?.commentHtml ?? '',
+      };
+    }),
+  }));
+}
+
+/** Requests to unlock late Monday updates, as the signed-in member may see them. */
+export function useMondayUpdateUnlocks(seasonId: string | undefined) {
+  return useQuery({
+    queryKey: ['monday-update-unlocks', seasonId] as const,
+    enabled: Boolean(seasonId),
+    queryFn: async (): Promise<MondayUpdateUnlock[]> => {
+      if (!seasonId) return [];
+      if (import.meta.env.MODE !== 'production' && demoMode) {
+        const { demoMondayUpdateUnlocks } = await import('@/data/demo');
+        return wait(
+          demoMondayUpdateUnlocks().filter(
+            (item) => item.seasonId === seasonId,
+          ),
+        );
+      }
+      const list = await apiRequest<MondayUpdateUnlockList>(
+        `/seasons/${encodeURIComponent(seasonId)}/monday-update-unlocks`,
+      );
+      return list.items;
     },
   });
 }

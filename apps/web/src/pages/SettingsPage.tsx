@@ -34,6 +34,7 @@ import {
   demoMode,
   useCurrentUser,
   usePracticeGoals,
+  useWeeklyTargets,
   useSignInMethods,
   useUpdatePracticeSettings,
 } from '@/api/queries';
@@ -42,6 +43,7 @@ import {
   PageHeader,
   PageSection,
   usePageTitle,
+  LabelHint,
 } from '@/components/Common';
 import {
   DirtyFormGuard,
@@ -56,6 +58,7 @@ import {
 } from '@/components/StatusViews';
 import {
   canSetPracticeGoals,
+  type WeeklyTargets,
   supportedTimezones,
   type PracticeGoals,
 } from '@/utils';
@@ -117,10 +120,19 @@ export function SettingsPage() {
       (difficulty) => goalDrafts[difficulty] !== String(goals[difficulty]),
     ),
   );
+  const weekly = useWeeklyTargets();
+  const [weeklyDrafts, setWeeklyDrafts] = useState<WeeklyDrafts | null>(null);
+  const hoursDirty = Boolean(
+    canEditGoals &&
+    weeklyDrafts &&
+    weeklyKeys.some((key) => weeklyDrafts[key] !== String(weekly[key])),
+  );
   const goalsValid =
-    !goalDrafts ||
-    difficulties.every((difficulty) => validGoal(goalDrafts[difficulty]));
-  const dirty = timezoneDirty || goalsDirty;
+    (!goalDrafts ||
+      difficulties.every((difficulty) => validGoal(goalDrafts[difficulty]))) &&
+    (!weeklyDrafts ||
+      weeklyKeys.every((key) => validWeekly(key, weeklyDrafts[key])));
+  const dirty = timezoneDirty || goalsDirty || hoursDirty;
   const timezoneValid = useMemo(() => {
     try {
       new Intl.DateTimeFormat('en', { timeZone: timezone }).format();
@@ -158,13 +170,16 @@ export function SettingsPage() {
     setSaved(false);
     setSaveError('');
     try {
-      if (goalsDirty && goalDrafts) {
+      if (goalsDirty || hoursDirty) {
+        const nextGoals = goalDrafts ?? goalStrings(goals);
         await updateGoals.mutateAsync({
-          easyMinutes: Number(goalDrafts.Easy),
-          mediumMinutes: Number(goalDrafts.Medium),
-          hardMinutes: Number(goalDrafts.Hard),
+          easyMinutes: Number(nextGoals.Easy),
+          mediumMinutes: Number(nextGoals.Medium),
+          hardMinutes: Number(nextGoals.Hard),
+          weeklyHours: Number(weeklyDrafts?.hours ?? weekly.hours),
         });
         setGoalDrafts(null);
+        setWeeklyDrafts(null);
       }
       if (!timezoneDirty) {
         setSaved(true);
@@ -268,7 +283,9 @@ export function SettingsPage() {
             needs two-factor authentication. Set it up under Two-factor.
           </InlineNotice>
         ) : null}
-        <div className="grid gap-6 min-[56rem]:grid-cols-2">
+        {/* Three columns from 70rem: Practice Goals takes the middle, wider
+            one for its three fields. */}
+        <div className="grid gap-6 min-[56rem]:grid-cols-2 min-[70rem]:grid-cols-[1fr_2fr_1fr]">
           <PageSection titleId="preferences-title" title="Display and Time">
             <Card className="h-full">
               <CardContent>
@@ -307,6 +324,21 @@ export function SettingsPage() {
                 setGoalDrafts((drafts) => ({
                   ...(drafts ?? goalStrings(goals)),
                   [difficulty]: value,
+                }));
+                setSaved(false);
+              }}
+            />
+          </PageSection>
+          <PageSection titleId="weekly-title" title="Weekly Requirements">
+            <WeeklyRequirementsPanel
+              targets={weekly}
+              drafts={
+                canEditGoals ? (weeklyDrafts ?? weeklyStrings(weekly)) : null
+              }
+              onChange={(key, value) => {
+                setWeeklyDrafts((drafts) => ({
+                  ...(drafts ?? weeklyStrings(weekly)),
+                  [key]: value,
                 }));
                 setSaved(false);
               }}
@@ -413,13 +445,13 @@ export function SettingsPage() {
         <SecurityGroup title="Sessions">
           <div className={rowClass}>
             <span>
-              <strong className="font-semibold">Current session</strong>
+              <strong className="font-semibold">Sign Out</strong>
               <span className={rowTextClass}>
-                Signing out ends this session only.
+                Only signs you out of this session.
               </span>
             </span>
             <Button type="button" onClick={() => void endSession()}>
-              Sign out
+              Sign Out
             </Button>
           </div>
         </SecurityGroup>
@@ -514,7 +546,9 @@ export function PracticePreferencesPanel({
             const invalid = drafts ? !validGoal(drafts[difficulty]) : false;
             return (
               <Field key={difficulty}>
-                <FieldLabel htmlFor={id}>{difficulty} (minutes)</FieldLabel>
+                <FieldLabel htmlFor={id}>
+                  {difficulty} <LabelHint>minutes</LabelHint>
+                </FieldLabel>
                 {drafts ? (
                   <Input
                     id={id}
@@ -547,6 +581,81 @@ export function PracticePreferencesPanel({
             );
           })}
         </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+// Only weekly hours are set here; LeetCode and mock targets are fixed for now.
+const weeklyKeys = ['hours'] as const;
+type WeeklyKey = (typeof weeklyKeys)[number];
+type WeeklyDrafts = Record<WeeklyKey, string>;
+
+function weeklyStrings(targets: WeeklyTargets): WeeklyDrafts {
+  return { hours: String(targets.hours) };
+}
+
+/** Weekly hours are 1 to 168; each weekly LeetCode target 0 to 50. */
+function validWeekly(key: WeeklyKey, value: string) {
+  const [min, max] = key === 'hours' ? [1, 168] : [0, 50];
+  return /^\d+$/.test(value) && Number(value) >= min && Number(value) <= max;
+}
+
+const weeklyFields: { key: WeeklyKey; label: string; error: string }[] = [
+  { key: 'hours', label: 'Hours per week', error: 'Enter 1 to 168 hours.' },
+];
+
+/**
+ * What the program expects of each student every week: hours, and LeetCode
+ * problems solved by difficulty. With `drafts` (for coordinators and
+ * administrators) it is editable; everyone else sees it read-only. A
+ * student's own targets, set by their mentor, replace these.
+ */
+function WeeklyRequirementsPanel({
+  targets,
+  drafts,
+  onChange,
+}: {
+  targets: WeeklyTargets;
+  drafts: WeeklyDrafts | null;
+  onChange: (key: WeeklyKey, value: string) => void;
+}) {
+  return (
+    <Card className="h-full">
+      <CardContent className="grid gap-3.5">
+        {weeklyFields.map(({ key, label, error }) => {
+          const id = `weekly-${key}`;
+          const invalid = drafts !== null && !validWeekly(key, drafts[key]);
+          return (
+            <Field key={key}>
+              <FieldLabel htmlFor={id}>{label}</FieldLabel>
+              {drafts !== null ? (
+                <Input
+                  id={id}
+                  type="number"
+                  inputMode="numeric"
+                  min={key === 'hours' ? 1 : 0}
+                  max={key === 'hours' ? 168 : 50}
+                  value={drafts[key]}
+                  aria-invalid={invalid}
+                  aria-describedby={invalid ? `${id}-error` : undefined}
+                  onChange={(event) => onChange(key, event.target.value)}
+                />
+              ) : (
+                <Input
+                  id={id}
+                  value={targets[key]}
+                  readOnly
+                  aria-readonly="true"
+                  className="text-muted-foreground"
+                />
+              )}
+              {invalid ? (
+                <FieldError id={`${id}-error`}>{error}</FieldError>
+              ) : null}
+            </Field>
+          );
+        })}
       </CardContent>
     </Card>
   );

@@ -256,7 +256,7 @@ func TestPostgres18MigrationsAndDAL(t *testing.T) {
 	}
 
 	settings, err := repository.GetPracticeSettings(ctx, "00000000-0000-7000-8000-000000000033")
-	if err != nil || !settings.GoalsEnabled || settings.EasyMinutes != 10 || settings.MediumMinutes != 25 || settings.HardMinutes != 40 {
+	if err != nil || !settings.GoalsEnabled || settings.EasyMinutes != 10 || settings.MediumMinutes != 25 || settings.HardMinutes != 40 || settings.WeeklyHours != 30 {
 		t.Fatalf("default practice settings=%#v err=%v", settings, err)
 	}
 
@@ -267,7 +267,7 @@ func TestPostgres18MigrationsAndDAL(t *testing.T) {
 	if err != nil || !settings.GoalsEnabled || settings.EasyMinutes != 10 || settings.MediumMinutes != 25 || settings.HardMinutes != 40 {
 		t.Fatalf("legacy preferences must not override program goals: %#v err=%v", settings, err)
 	}
-	changed := practice.PracticeSettings{GoalsEnabled: true, EasyMinutes: 15, MediumMinutes: 30, HardMinutes: 45}
+	changed := practice.PracticeSettings{GoalsEnabled: true, EasyMinutes: 15, MediumMinutes: 30, HardMinutes: 45, WeeklyHours: 25}
 	if saved, err := repository.SetPracticeSettings(ctx, "00000000-0000-7000-8000-000000000033", changed, time.Now().UTC()); err != nil || saved != changed {
 		t.Fatalf("set practice settings=%#v err=%v", saved, err)
 	}

@@ -9,7 +9,6 @@ import {
   useSeasons,
   useSeasonPeople,
 } from '@/api/queries';
-import { useWorkspace } from '@/auth/WorkspaceContext';
 import { PeoplePage } from '@/pages/PeoplePage';
 import type { CurrentUser, Person, SeasonRole } from '@/types';
 
@@ -22,10 +21,6 @@ vi.mock('@/api/queries', () => ({
   usePeople: vi.fn(),
   useSeasons: vi.fn(),
   useSeasonPeople: vi.fn(),
-}));
-
-vi.mock('@/auth/WorkspaceContext', () => ({
-  useWorkspace: vi.fn(),
 }));
 
 function member(role: SeasonRole): Person {
@@ -54,11 +49,6 @@ describe('season people directory', () => {
     vi.mocked(useCurrentUser).mockReturnValue({ data: undefined } as ReturnType<
       typeof useCurrentUser
     >);
-    vi.mocked(useWorkspace).mockReturnValue({
-      workspaces: [],
-      activeWorkspace: null,
-      setActiveWorkspaceId: vi.fn(),
-    });
     vi.mocked(useSeasons).mockReturnValue({
       data: {
         items: [
@@ -122,7 +112,7 @@ describe('season people directory', () => {
       expect(within(row).getByText(label, { selector: 'span' })).toBeVisible();
     }
     expect(
-      screen.queryByRole('button', { name: 'Set level' }),
+      screen.queryByRole('button', { name: 'Edit details' }),
     ).not.toBeInTheDocument();
   });
 
@@ -160,7 +150,7 @@ describe('season people directory', () => {
     renderDirectory();
     // Levels are set on All Students and My Students, not in the directory.
     expect(
-      screen.queryByRole('button', { name: /Set level|More actions/ }),
+      screen.queryByRole('button', { name: /Edit details|More actions/ }),
     ).not.toBeInTheDocument();
     expect(
       screen.queryByRole('columnheader', { name: 'Actions' }),

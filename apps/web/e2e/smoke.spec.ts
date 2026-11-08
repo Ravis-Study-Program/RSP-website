@@ -60,9 +60,7 @@ test('@compat protected shell and settings form work across supported engines', 
   await expect(page.getByLabel('Timezone')).toHaveValue('Australia/Adelaide');
 });
 
-test('desktop workspace navigation and canonical routes', async ({
-  page,
-}, testInfo) => {
+test('desktop navigation and canonical routes', async ({ page }, testInfo) => {
   test.skip(testInfo.project.name.includes('mobile'), 'Desktop-only assertion');
   await selectDemoRole(page, 'student');
   await page.goto('/dashboard');
@@ -72,6 +70,7 @@ test('desktop workspace navigation and canonical routes', async ({
   ).toBeVisible();
   await page.getByRole('link', { name: 'People' }).first().click();
   await expect(page.getByRole('heading', { name: 'People' })).toBeVisible();
+  await expect(page).toHaveURL(/\/people$/);
 });
 
 test('old practice route redirects without losing the app shell', async ({
@@ -83,8 +82,11 @@ test('old practice route redirects without losing the app shell', async ({
     page.getByRole('heading', { name: 'LeetCode Practice' }),
   ).toBeVisible();
   await expect(
-    page.locator('#workspace-select:visible, #workspace-select-mobile:visible'),
+    page.getByRole('link', { name: 'RSP home' }).filter({ visible: true }),
   ).toBeVisible();
+  await expect(page.getByRole('combobox', { name: 'Workspace' })).toHaveCount(
+    0,
+  );
 });
 
 test('mobile tables use readable cards', async ({ page }, testInfo) => {
@@ -205,10 +207,10 @@ test('role-aware navigation covers every major program role', async ({
 }, testInfo) => {
   test.skip(testInfo.project.name.includes('mobile'), 'Desktop role matrix');
   const cases = [
-    ['student', 'Season'],
+    ['student', 'Seasons'],
     ['mentor', 'My Students'],
     ['coordinator', 'Mentor Teams'],
-    ['graduate', 'Directory'],
+    ['graduate', 'People'],
     ['director', 'Administration'],
     ['system_admin', 'Administration'],
   ] as const;
@@ -242,16 +244,18 @@ test('completed staff can review their season and keep personal practice without
   await expect(
     navigation.getByRole('link', { name: 'My Students' }),
   ).toBeVisible();
-  await chooseOption(page, 'Workspace', 'Former member workspace');
   await expect(
     navigation.getByRole('link', { name: 'LeetCode' }),
   ).toBeVisible();
   await expect(
     navigation.getByRole('link', { name: 'Mock Interviews' }),
   ).toBeVisible();
-  await expect(navigation.getByRole('link', { name: 'Directory' })).toHaveCount(
-    0,
-  );
+  await expect(navigation.getByRole('link', { name: 'People' })).toHaveCount(0);
+  await navigation.getByRole('link', { name: 'My Students' }).click();
+  await expect(page).toHaveURL(/\/seasons\/summer-2024-25\/mentees$/);
+  await expect(
+    page.getByRole('heading', { name: 'My Students' }),
+  ).toBeVisible();
   await page.goto('/graduates');
   await expect(page).toHaveURL(/\/forbidden$/);
   await page.goto('/admin/enrollments');
@@ -304,9 +308,7 @@ test('signed-out, unverified, unavailable, nonmember, forbidden and not-found st
     nonmemberPage.getByRole('link', { name: 'Onboarding' }),
   ).toHaveCount(0);
   await expect(
-    nonmemberPage.locator(
-      '#workspace-select:visible, #workspace-select-mobile:visible',
-    ),
+    nonmemberPage.getByRole('combobox', { name: 'Workspace' }),
   ).toHaveCount(0);
   await nonmemberContext.close();
 

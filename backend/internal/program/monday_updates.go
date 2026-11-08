@@ -26,12 +26,14 @@ const (
 	MarkOnTrack    MondayUpdateMark = "on_track"
 	MarkABitBehind MondayUpdateMark = "a_bit_behind"
 	MarkAtRisk     MondayUpdateMark = "at_risk"
+	// MarkKicked is the mentor's mark for the week a student was kicked.
+	MarkKicked MondayUpdateMark = "kicked"
 )
 
 // ValidMondayUpdateMark reports whether a client-supplied mark is one of the five.
 func ValidMondayUpdateMark(value string) bool {
 	switch MondayUpdateMark(value) {
-	case MarkWayAhead, MarkDoingGood, MarkOnTrack, MarkABitBehind, MarkAtRisk:
+	case MarkWayAhead, MarkDoingGood, MarkOnTrack, MarkABitBehind, MarkAtRisk, MarkKicked:
 		return true
 	default:
 		return false
@@ -92,6 +94,7 @@ type MondayUpdateRecord struct {
 	ContentHTML string                   `json:"contentHtml"`
 	Hours       float64                  `json:"hours"`
 	CreatedAt   time.Time                `json:"createdAt"`
+	EditedAt    *time.Time               `json:"editedAt"`
 	Marks       []MondayUpdateMarkRecord `json:"marks"`
 	Activity    MondayUpdateActivity     `json:"activity"`
 }
@@ -111,6 +114,7 @@ type MondayUpdateReviewUpdate struct {
 	ContentHTML string                   `json:"contentHtml"`
 	Hours       float64                  `json:"hours"`
 	CreatedAt   time.Time                `json:"createdAt"`
+	EditedAt    *time.Time               `json:"editedAt"`
 	Marks       []MondayUpdateMarkRecord `json:"marks"`
 }
 
@@ -132,7 +136,8 @@ func ParseMondayUpdateDate(value string) (time.Time, error) {
 	return parsed, nil
 }
 
-// ValidateMondayUpdateDates accepts only completed Monday–Sunday weeks in Adelaide.
+// ValidateMondayUpdateDates accepts a Monday–Sunday week in Adelaide once it
+// has started, so the current week can be written as it goes.
 func ValidateMondayUpdateDates(startDate, endDate string, now time.Time) error {
 	start, err := ParseMondayUpdateDate(startDate)
 	if err != nil {
@@ -145,8 +150,8 @@ func ValidateMondayUpdateDates(startDate, endDate string, now time.Time) error {
 	if start.Weekday() != time.Monday || !end.Equal(start.AddDate(0, 0, 6)) {
 		return errors.New("updates must cover one Monday to Sunday week")
 	}
-	if endDate >= now.In(programTimezone).Format(time.DateOnly) {
-		return errors.New("updates can be submitted after the week has ended")
+	if startDate > now.In(programTimezone).Format(time.DateOnly) {
+		return errors.New("updates can be written once the week has started")
 	}
 	return nil
 }
@@ -167,4 +172,81 @@ func ValidateMondayUpdateHours(hours float64) error {
 		return errors.New("hours must be between 0 and 168 in steps of 0.5")
 	}
 	return nil
+}
+
+// MondayUpdateUnlock is a student's request to post or change a week's
+// update after its due date, and their mentor's decision on it.
+type MondayUpdateUnlock struct {
+	ID          string         `json:"id"`
+	SeasonID    string         `json:"seasonId"`
+	Student     PersonSummary  `json:"student"`
+	StartDate   string         `json:"startDate"`
+	EndDate     string         `json:"endDate"`
+	Reason      string         `json:"reason"`
+	State       string         `json:"state"`
+	RequestedAt time.Time      `json:"requestedAt"`
+	DecidedAt   *time.Time     `json:"decidedAt"`
+	DecidedBy   *PersonSummary `json:"decidedBy"`
+}
+
+// MaxUnlockReasonLength is the longest reason a student can give.
+const MaxUnlockReasonLength = 1000
+
+// MondayUpdatePastDue reports whether a week's update is past its due date:
+// the end of the Monday after the week, in Australia/Adelaide.
+func MondayUpdatePastDue(endDate string, now time.Time) bool {
+	end, err := ParseMondayUpdateDate(endDate)
+	if err != nil {
+		return false
+	}
+	due := end.AddDate(0, 0, 1).Format(time.DateOnly)
+	return now.In(programTimezone).Format(time.DateOnly) > due
+}
+
+// MondayWeekMark is a mentor's mark on a student's week with no update.
+type MondayWeekMark struct {
+	SeasonID    string    `json:"seasonId"`
+	StudentID   string    `json:"studentId"`
+	MentorID    string    `json:"mentorId"`
+	StartDate   string    `json:"startDate"`
+	EndDate     string    `json:"endDate"`
+	Mark        string    `json:"mark"`
+	CommentHTML string    `json:"commentHtml"`
+	UpdatedAt   time.Time `json:"updatedAt"`
+}
+
+// MondayMentorReportStudent is one mentee's week in a mentor's report: what
+// they posted and did, and the mentor's mark and comment. The student's own
+// writing is never part of it.
+type MondayMentorReportStudent struct {
+	Student      PersonSummary `json:"student"`
+	StudentLevel string        `json:"studentLevel"`
+	// KickedAt is when the student was kicked: during this week or after it.
+	KickedAt *time.Time `json:"kickedAt"`
+	// Targets are the student's weekly targets: their own where set,
+	// otherwise the program's.
+	Targets        MondayWeeklyTargets          `json:"targets"`
+	UpdateID       *string                      `json:"updateId"`
+	PostedAt       *time.Time                   `json:"postedAt"`
+	EditedAt       *time.Time                   `json:"editedAt"`
+	Hours          *float64                     `json:"hours"`
+	LeetCodeCounts MondayUpdateDifficultyCounts `json:"leetcodeCounts"`
+	MockCount      int64                        `json:"mockCount"`
+	Mark           *string                      `json:"mark"`
+	CommentHTML    string                       `json:"commentHtml"`
+}
+
+// MondayMentorReport is a mentor's week: every current mentee and the
+// mentor's mark on each.
+type MondayMentorReport struct {
+	Mentor    PersonSummary               `json:"mentor"`
+	StartDate string                      `json:"startDate"`
+	EndDate   string                      `json:"endDate"`
+	Students  []MondayMentorReportStudent `json:"students"`
+}
+
+// MondayWeeklyTargets are what a student is expected to do in a week. The
+// weekly LeetCode counts are fixed in the web app for now.
+type MondayWeeklyTargets struct {
+	Hours int `json:"hours"`
 }

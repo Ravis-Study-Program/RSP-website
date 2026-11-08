@@ -15,4 +15,5 @@ export const MondayUpdateMark = {
   on_track: 'on_track',
   a_bit_behind: 'a_bit_behind',
   at_risk: 'at_risk',
+  kicked: 'kicked',
 } as const;

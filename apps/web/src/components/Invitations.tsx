@@ -19,6 +19,7 @@ import { FormDialog } from '@/components/Dialogs';
 import { DataTable } from '@/components/DataTable';
 import type { Season } from '@/types';
 import { formatDateTime } from '@/utils';
+import { roleSortingFn } from '@/sortOrder';
 
 const formStack = 'grid gap-4';
 const notice = 'text-sm text-muted-foreground';
@@ -241,7 +242,7 @@ export function Invitations({ season }: { season: Season }) {
         columns={[
           { accessorKey: 'name', header: 'Name' },
           { accessorKey: 'email', header: 'Email' },
-          { accessorKey: 'role', header: 'Role' },
+          { accessorKey: 'role', header: 'Role', sortingFn: roleSortingFn },
           {
             accessorKey: 'status',
             header: 'Status',

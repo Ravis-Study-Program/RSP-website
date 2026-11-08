@@ -51,6 +51,7 @@ import { ProfileActivity } from '@/components/ProfileActivity';
 import { FormDialog } from '@/components/Dialogs';
 import { TimezoneSelect } from '@/components/TimezoneSelect';
 import { ErrorState, PageSkeleton } from '@/components/StatusViews';
+import { sortRoles } from '@/sortOrder';
 import {
   formatDateTime,
   initials,
@@ -193,7 +194,7 @@ export function ProfilePage() {
               </p>
               {showProgramDetails ? (
                 <>
-                  {person.roles.map((role) => (
+                  {sortRoles(person.roles).map((role) => (
                     <RoleBadge role={role} key={role} />
                   ))}
                   {seasonsTaken.map((entry) => (

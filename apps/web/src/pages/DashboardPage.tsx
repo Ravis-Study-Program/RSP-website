@@ -20,7 +20,7 @@ import {
   useSeasons,
   useUserParticipation,
 } from '@/api/queries';
-import { useWorkspace } from '@/auth/WorkspaceContext';
+import { defaultSeason, preferredMembership } from '@/navigation';
 import {
   ActivityChart,
   studentWeeklyExpected,
@@ -56,25 +56,12 @@ export function DashboardPage() {
     { mode: 'all', userId: user.data?.id },
     eligibleForGlobalPractice,
   );
-  const { activeWorkspace } = useWorkspace();
-
-  const currentSeason =
-    seasons.data?.items.find(
-      (season) => season.slug === activeWorkspace?.seasonSlug,
-    ) ??
-    (activeWorkspace?.role === 'director' ||
-    activeWorkspace?.role === 'system_admin'
-      ? seasons.data?.items.find((season) => season.status === 'open')
-      : undefined);
+  const membership = preferredMembership(user.data);
+  const currentSeason = defaultSeason(user.data, seasons.data?.items);
   const seasonPeople = useSeasonPeople(currentSeason?.id, currentSeason?.name);
   const weeks = useSeasonWeeks(currentSeason?.id);
   const enrollments = useSeasonEnrollments(currentSeason?.id);
-  const role = activeWorkspace?.role ?? 'graduate';
-  const practiceBase = activeWorkspace?.seasonSlug
-    ? `/seasons/${activeWorkspace.seasonSlug}`
-    : '';
-  const leetcodePath = `${practiceBase}/leetcode`;
-  const mockInterviewsPath = `${practiceBase}/mock-interviews`;
+  const role = user.data?.globalRoles[0] ?? membership?.role ?? 'graduate';
   const userId = user.data?.id;
   const participation = useUserParticipation(
     role === 'student' ? userId : undefined,
@@ -236,16 +223,16 @@ export function DashboardPage() {
               <MetricCard
                 label="Leetcodes"
                 value={attempts.data?.totalCount ?? '—'}
-                to={leetcodePath}
+                to="/leetcode"
               />
               <MetricCard
                 label="Mock Interviews"
                 value={interviews.data?.total ?? '—'}
-                to={mockInterviewsPath}
+                to="/mock-interviews"
                 labelAside={
                   interviews.data ? (
                     <ReviewNotice
-                      to={mockInterviewsPath}
+                      to="/mock-interviews"
                       pending={Math.max(
                         0,
                         interviews.data.total - interviews.data.reviewed,

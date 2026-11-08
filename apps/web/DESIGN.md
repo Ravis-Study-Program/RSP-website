@@ -1,6 +1,6 @@
 ---
-name: RSP Workspace
-description: Members-only mentoring, practice and mock interview workspace for Ravi’s Study Program.
+name: Ravi’s Study Program
+description: Members-only mentoring, practice and mock interview platform for Ravi’s Study Program.
 colors:
   ink: '#171717'
   paper: '#ffffff'
@@ -134,13 +134,13 @@ components:
     textColor: '{colors.ink}'
 ---
 
-# Design System: RSP Workspace
+# Design System: Ravi’s Study Program
 
 ## Overview
 
 **Creative North Star: "The Study Ledger"**
 
-RSP Workspace is a ledger: a quiet, trustworthy place where a season of practice, mock interviews and Monday updates gets written down and read back. Ink sits on paper. Near-black on white, with an equally restrained dark mode, and almost nothing else. Members' records are the content. The interface is the ruled page under them.
+Ravi’s Study Program is a ledger: a quiet, trustworthy place where a season of practice, mock interviews and Monday updates gets written down and read back. Ink sits on paper. Near-black on white, with an equally restrained dark mode, and almost nothing else. Members' records are the content. The interface is the ruled page under them.
 
 The mood is calm, precise and restrained. Density is that of a working tool: compact 14px controls, tables, filters and short summaries, never sprawling marketing composition. Hierarchy comes from weight, size and spacing, not colour. Colour carries meaning: status (success, warning, danger, info) and a few fixed categories (season years, student levels, received or given interviews). It is never decorative.
 
@@ -216,13 +216,15 @@ A few fixed categories have their own wash-and-text pair (tokens `purple`, `pink
 
 ### Named Rules
 
-**The Title Case Rule.** Titles are Title Case: page titles, section and panel headings, dialog titles, tab labels, and error and empty-state titles ("Edit Notes and Scores", "Two-Factor", "Time by Difficulty", "No Practice in This Period"). Small words (a, an, and, as, at, by, for, in, of, on, or, the, to, with) stay lower case unless first or last, and each part of a hyphenated word is capitalised ("Sign-In").
+**The Title Case Rule.** Titles and buttons are Title Case: page titles, section and panel headings, dialog titles, tab labels, error and empty-state titles, and the text of every button, including dialog actions and links styled as buttons ("Edit Notes and Scores", "Two-Factor", "Time by Difficulty", "No Practice in This Period", "Write Week 3 Update", "Save Settings"). Small words (a, an, and, as, at, by, for, in, of, on, or, the, to, with) stay lower case unless first or last, and each part of a hyphenated word is capitalised ("Sign-In").
 
-**The Sentence-Case Label Rule.** Everything that is not a title is sentence case with normal tracking: labels, eyebrows, buttons, menu items, badges and body text ("Edit notes and scores" as a menu item, "Save settings"). Uppercase letter-spaced labels are not part of this system.
+**The Sentence-Case Label Rule.** Everything that is not a title or a button is sentence case with normal tracking: labels, eyebrows, menu items, badges and body text ("Edit notes and scores" as a menu item, "Hours per week" as a field label). Uppercase letter-spaced labels are not part of this system.
+
+**Bracketed Detail.** Bracketed text after a label or title, such as "(optional)", "(minutes)", "(0–10)" or "(Expected: ~30h/week)", is normal weight in muted grey, brackets included, while the label itself stays its usual weight. Use `LabelHint` (`src/components/Common.tsx`) rather than styling it by hand.
 
 ## Layout
 
-- **Shell:** a fixed 15rem left sidebar (brand, workspace switcher, role-based nav, settings, and user summary at the foot) and a workspace body with a slim workspace breadcrumb header ("Workspace / season").
+- **Shell:** a fixed 15rem left sidebar (brand, shared navigation with additive staff links, settings, and user summary at the foot) and a slim header showing the current page. There is no workspace or role switcher. The navigation scrolls when needed; mobile uses the same links in its bottom bar and More menu.
 - **Page:** content maxes at 92rem and is centred. Main padding is `2rem clamp(1.25rem, 3vw, 3rem) 4rem`. The page header (`PageHeader`) puts title, eyebrow and lede on the left and actions on the right, and carries its own 1.5rem bottom margin: the title always sits 1.5rem above the content. Put the content after the header in one `flex flex-col gap-6` stack. Never put `PageHeader` inside a gap stack or give the first section a top margin; either doubles the gap.
 - **Grids:** three-column card and metric grids drop to two columns below 70rem. Below 56rem the sidebar is hidden, a mobile header and mobile navigation appear, tables switch to stacked mobile cards, and page headers stack.
 - **Rhythm:** a compact 4px-based Tailwind scale. Card padding is 16px (12px for small cards). Typical gaps are 0.5–1.25rem.
@@ -263,7 +265,7 @@ Exact and unassuming.
 
 ### Chips / Badges
 
-- **Style:** every inline badge is a `StatusBadge`: 20px tall, 12px semibold text, square-cornered (6px), no border, on a `tone` (`neutral`, `muted`, `success`, `warning`, `danger`, `info`, `purple`, `pink`, `orange`, plus `strongSuccess` and `strongDanger` for the strongest Monday marks). Never a raw `Badge` with hand-written colour classes. Badges stay legible in forced-colors mode.
+- **Style:** every inline badge is a `StatusBadge`: 20px tall, 12px semibold text, square-cornered (6px), no border, on a `tone` (`neutral`, `muted`, `success`, `warning`, `danger`, `info`, `purple`, `pink`, `orange`; `strongSuccess` and `strongDanger` exist but no badge uses them). Never a raw `Badge` with hand-written colour classes. Monday marks use the soft tones, strongest first: way ahead `purple`, doing good `info` (blue), on track `success` (green), a bit behind `warning` (yellow), at risk `orange`, kicked `danger` (red). Badges stay legible in forced-colors mode.
 - **Placement:** status badges sit inline with what they describe (beside a row title, or small beside the @handle on a profile), never on their own line.
 
 ### Cards / Containers
@@ -289,8 +291,12 @@ Exact and unassuming.
 ### Tables
 
 - Every list is a `DataTable`. Its toolbar holds the search, the view tabs (`toolbarStart`) and table-switching tabs (`toolbarLead`, before the search), Compact rows, column visibility, Filters and full screen.
-- A chevron on the left expands the row; a kebab (⋮) menu in a right-aligned actions column (`meta: { align: 'end' }`) holds its actions: Show/Hide details first, then edits, destructive actions last. The trigger is labelled "More actions for …" naming the row's subject. An action appears in one place only.
+- A chevron on the left expands the row, in a first column headed "Details" (visible, never screen-reader only, on every table with expandable rows); a kebab (⋮) menu in a right-aligned actions column (`meta: { align: 'end' }`) holds its actions: Show/Hide details first, then edits, destructive actions last. The trigger is labelled "More actions for …" naming the row's subject. An action appears in one place only.
+- Every body row in a table is the same height, whether or not it holds a button: 56px, or 48px with Compact rows (`DataTable` sets it on the cells).
+- A sub-table inside an expanded row (mock interview rounds, a mentor's students) uses the same heading size as the table's column headings: 12px semibold, muted.
 - Expanded rows and cells keep the 16px inset on both sides. Headings line up with the start of their column's content; when a heading row and body rows are separate CSS grids, every column needs a fixed or `fr` width.
+- Sorts chain and are stable: clicking a column sorts by it first, the columns sorted before it still order its ties (newest first), and rows tied on every sort keep their original order. `DataTable` does this for every table.
+- Roles and statuses sort, and list inside a cell, in a fixed order rather than alphabetically: roles Coordinator, Mentor, Student; student statuses Active, Completed, Kicked. Use `sortRoles`, `roleSortingFn` and `statusSortingFn` (`src/sortOrder.ts`).
 - Columns run from most to least important, left to right, each sized to its data: short fixed values (outcome, result, duration, reviewed) stay narrow.
 - Filters live in the Filters popover, one control per concept, every dropdown full width. Choice columns use `meta.filterOptions`; dates use `recentDateFilterOptions` / `withinRecentDays` (`src/tableFilters.ts`); page filters go in `extraFilters`. Turn off a column's text filter when a dropdown covers it. Options only offer what the member has activity in.
 - Review state is a checkbox (partly filled when some parts are reviewed), not a status badge.
@@ -319,6 +325,7 @@ Reuse these before writing new markup. If a page needs something close to one of
 **Page structure** (`src/components/Common.tsx`, `src/components/StatusViews.tsx`)
 
 - `Page`: the centred column, at most 92rem wide, that every page and page-level state sits in (`as="main"` outside the app shell).
+- `LabelHint`: bracketed detail after a label or title, in muted grey.
 - `PageHeader`: every page title, with optional description, status and actions. Owns the 1.5rem gap below. Its `eyebrow` prop exists but is unused; do not use it (no kickers above headings).
 - `PageSection`: a titled section: an `h2` that labels the section, optional `actions` on the right, and the content 12px below.
 - `Avatar`: a member's initials in an ink circle (`size="lg"` on the profile header).
@@ -359,8 +366,9 @@ Reuse these before writing new markup. If a page needs something close to one of
 Places that still bypass the inventory or the rules. Fix them when touching the code, and add new findings here rather than copying them.
 
 - Section spacing: the dashboard, season page and Monday updates still space sections with top margins (`mt-6`, and `mt-4` on the season page's grid) rather than one `gap-6` stack, so the gap above their first section is larger than 1.5rem. Move them into the page's stack.
-- The kebab row menus (`AttemptRowMenu` in the LeetCode page, `MockRowActions` in Mock Interviews) share no base. Extract a row-menu component when a third table needs one.
+- The kebab row menus (`AttemptRowMenu` in the LeetCode page, `MockRowActions` in Mock Interviews, `StudentRowActions` in `PeopleTable`, `StudentUpdateRowActions` in Monday updates) share no base. Extract a row-menu component (trigger, Show/Hide details item, dialog state) when touching them next.
 - Monday updates keeps its own card and subsection title classes (`cardTitleClass`, `subTitleClass`) for the per-student blocks inside a section.
+- Buttons are Title Case (see the Title Case Rule), but most still read sentence case: "Save settings", "Sign in with email", "Log attempt", "Clear filters", "Discard changes", "Change password" and `actionLabel`s such as "Delete attempt". Convert them, and the matching names in `e2e` and `e2e-real`, in one sweep.
 - `PageSkeleton` draws the page column itself (it needs ARIA attributes `Page` does not take).
 
 ## Do's and Don'ts

@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import { RouterProvider } from 'react-router-dom';
 
 import { createTestRouter } from '@/App';
@@ -28,9 +28,20 @@ describe('application routes', () => {
     expect(
       screen.getByRole('navigation', { name: /primary/i }),
     ).toBeInTheDocument();
+    expect(screen.queryByRole('combobox', { name: 'Workspace' })).toBeNull();
+    const navigation = within(
+      screen.getByRole('navigation', { name: /primary/i }),
+    );
+    expect(navigation.getByRole('link', { name: 'LeetCode' })).toHaveAttribute(
+      'href',
+      '/leetcode',
+    );
     expect(
-      screen.getAllByRole('combobox', { name: 'Workspace' })[0],
-    ).toHaveTextContent('Director workspace');
+      navigation.getByRole('link', { name: 'Mock Interviews' }),
+    ).toHaveAttribute('href', '/mock-interviews');
+    expect(
+      navigation.getByRole('link', { name: 'Administration' }),
+    ).toBeInTheDocument();
   });
 
   it('redirects former members from the site root to the dashboard', async () => {

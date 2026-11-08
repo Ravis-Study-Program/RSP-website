@@ -218,6 +218,33 @@ export function problemName({
 export type PracticeGoals = Record<Difficulty, number>;
 
 /** The program's goals until someone changes them; the API has the rest. */
+/** The hours a week the program expects of each student by default. */
+export const defaultWeeklyHours = 30;
+
+/**
+ * What a student is expected to do each week besides their hours: LeetCode
+ * problems solved by difficulty, and mock interviews (given and received
+ * together: 2 of each). Fixed for now; not yet editable.
+ */
+export const weeklyLeetCodeTargets = { easy: 3, medium: 5, hard: 2, mocks: 4 };
+
+/** What a student is expected to do each week, by default. */
+export const defaultWeeklyTargets = {
+  hours: defaultWeeklyHours,
+  ...weeklyLeetCodeTargets,
+};
+export type WeeklyTargets = typeof defaultWeeklyTargets;
+
+/** A student's weekly targets from their weekly hours. */
+export function weeklyTargetsFor(hours: number): WeeklyTargets {
+  return { hours, ...weeklyLeetCodeTargets };
+}
+
+/** Whether a week's count meets its target; a target of 0 is not shown. */
+export function meetsTarget(count: number | null | undefined, target?: number) {
+  return Boolean(target && count != null && count >= target);
+}
+
 export const defaultPracticeGoals: PracticeGoals = {
   Easy: 10,
   Medium: 25,
@@ -293,3 +320,32 @@ export function recentActivitySeries(
     interviews: mockCount,
   }));
 }
+
+/** Rich text counts as empty when it carries no text, only markup. */
+export function hasRichText(html: string | null | undefined) {
+  return (
+    (html ?? '')
+      .replace(/<[^>]*>/g, ' ')
+      .replace(/&nbsp;/gi, ' ')
+      .trim().length > 0
+  );
+}
+
+/**
+ * When something was recorded, from a date and an optional HH:MM time in a
+ * zone. With no time, today's date keeps the current time (never the future)
+ * and an earlier day uses noon.
+ */
+export function recordedDateTime(
+  date: string,
+  time: string,
+  timezone = displayTimezone,
+) {
+  if (time) return zonedDateTimeToUtc(`${date}T${time}`, timezone);
+  return date === calendarDateKey(new Date(), timezone)
+    ? new Date().toISOString()
+    : zonedDateTimeToUtc(`${date}T12:00`, timezone);
+}
+
+/** An optional HH:MM time field: empty, or a valid 24-hour time. */
+export const optionalTimePattern = /^(?:[01]\d|2[0-3]):[0-5]\d$|^$/;
