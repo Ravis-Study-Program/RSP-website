@@ -1,6 +1,6 @@
 ---
-name: RSP Workspace
-description: Members-only mentoring, practice and mock interview workspace for Ravi’s Study Program.
+name: Ravi’s Study Program
+description: Members-only mentoring, practice and mock interview platform for Ravi’s Study Program.
 colors:
   ink: '#171717'
   paper: '#ffffff'
@@ -134,13 +134,13 @@ components:
     textColor: '{colors.ink}'
 ---
 
-# Design System: RSP Workspace
+# Design System: Ravi’s Study Program
 
 ## Overview
 
 **Creative North Star: "The Study Ledger"**
 
-RSP Workspace is a ledger: a quiet, trustworthy place where a season of practice, mock interviews and Monday updates gets written down and read back. Ink sits on paper. Near-black on white, with an equally restrained dark mode, and almost nothing else. Members' records are the content. The interface is the ruled page under them.
+Ravi’s Study Program is a ledger: a quiet, trustworthy place where a season of practice, mock interviews and Monday updates gets written down and read back. Ink sits on paper. Near-black on white, with an equally restrained dark mode, and almost nothing else. Members' records are the content. The interface is the ruled page under them.
 
 The mood is calm, precise and restrained. Density is that of a working tool: compact 14px controls, tables, filters and short summaries, never sprawling marketing composition. Hierarchy comes from weight, size and spacing, not colour. Colour carries meaning: status (success, warning, danger, info) and a few fixed categories (season years, student levels, received or given interviews). It is never decorative.
 
@@ -224,7 +224,7 @@ A few fixed categories have their own wash-and-text pair (tokens `purple`, `pink
 
 ## Layout
 
-- **Shell:** a fixed 15rem left sidebar (brand, workspace switcher, role-based nav, settings, and user summary at the foot) and a workspace body with a slim workspace breadcrumb header ("Workspace / season").
+- **Shell:** a fixed 15rem left sidebar (brand, shared navigation with additive staff links, settings, and user summary at the foot) and a slim header showing the current page. There is no workspace or role switcher. The navigation scrolls when needed; mobile uses the same links in its bottom bar and More menu.
 - **Page:** content maxes at 92rem and is centred. Main padding is `2rem clamp(1.25rem, 3vw, 3rem) 4rem`. The page header (`PageHeader`) puts title, eyebrow and lede on the left and actions on the right, and carries its own 1.5rem bottom margin: the title always sits 1.5rem above the content. Put the content after the header in one `flex flex-col gap-6` stack. Never put `PageHeader` inside a gap stack or give the first section a top margin; either doubles the gap.
 - **Grids:** three-column card and metric grids drop to two columns below 70rem. Below 56rem the sidebar is hidden, a mobile header and mobile navigation appear, tables switch to stacked mobile cards, and page headers stack.
 - **Rhythm:** a compact 4px-based Tailwind scale. Card padding is 16px (12px for small cards). Typical gaps are 0.5–1.25rem.

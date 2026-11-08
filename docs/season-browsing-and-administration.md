@@ -1,5 +1,16 @@
 # Season browsing and administration
 
+## Navigation
+
+Members share one navigation menu. LeetCode and Mock Interviews stay available
+alongside any mentor, coordinator or administrator pages their account permits;
+there is no workspace or role switcher. Quick navigation uses the same links.
+Activity tables keep their own season and week filters. Staff shortcuts prefer
+active enrollments, then completed ones. Use Seasons to open another season's
+schedule, resources, student list or Monday updates without changing navigation
+or granting additional access. Completed staff retain their existing historical
+access, and kicked or withdrawn members retain personal activity only.
+
 ## Profiles and activity
 
 Seasons represent short Australian summer programs, usually around three months,

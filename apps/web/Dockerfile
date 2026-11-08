@@ -22,6 +22,8 @@ FROM base AS build
 # Per-PR canary images enable the canary bar; production leaves it unset.
 ARG VITE_RSP_CANARY=
 ENV VITE_RSP_CANARY=${VITE_RSP_CANARY}
+ARG VITE_SHOW_SIDEBAR_SIGN_OUT=false
+ENV VITE_SHOW_SIDEBAR_SIGN_OUT=${VITE_SHOW_SIDEBAR_SIGN_OUT}
 COPY apps/web apps/web
 COPY api/openapi.yaml api/openapi.yaml
 RUN pnpm --filter @rsp/web build

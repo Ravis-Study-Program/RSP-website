@@ -51,7 +51,7 @@ check, enabled only for the screen-reader portion, and restored to off after
 the check. Student and Coordinator dashboards passed the desktop navigation,
 reading-order and command-dialog subset exercised here:
 
-- Page title, current role/workspace, primary navigation, level-one heading,
+- Page title, primary navigation, level-one heading,
   summary metrics, practice and chart text were exposed with meaningful
   accessible names and reading order.
 - VoiceOver's read-all command moved its visible cursor to the named `RSP home`
@@ -71,12 +71,12 @@ so iOS Safari with VoiceOver remains a required device-level release check.
 
 ## Manual release smoke
 
-Test at least Student and Coordinator workspaces on desktop and mobile:
+Test at least Student and Coordinator accounts on desktop and mobile:
 
 1. Keyboard only: skip navigation; traverse sidebar/bottom navigation; open and
    close dialogs, menus, date picker, editor toolbar and command palette; sort,
    filter, paginate and act on a table/card; submit and correct a form.
-2. Screen reader: announce page title, workspace/role, loading, empty,
+2. Screen reader: announce page title, loading, empty,
    filter-empty, inline error, stale-data retry, toast/live result, dialog and
    destructive confirmation. Test one desktop reader/browser pair and VoiceOver
    on iOS Safari.
@@ -103,7 +103,7 @@ Test at least Student and Coordinator workspaces on desktop and mobile:
 - Charts: textual summary/table for values/trend and hidden decorative SVG
   internals where appropriate.
 
-Record browser/device, assistive technology/version, route/workspace, result and
+Record browser/device, assistive technology/version, route/account role, result and
 issue link. An accessibility exception needs product/security approval, user
 impact, workaround, owner and expiry; it cannot be waived by an automated axe
 pass.

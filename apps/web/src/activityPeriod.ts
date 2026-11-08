@@ -27,7 +27,7 @@ export function rememberedActivitySeason() {
 /**
  * The season a LeetCode or mock interview table shows. With `section`, the
  * season last chosen in any table is applied unless the address names a
- * season (`?seasonId`) or weeks; season workspace links are only a default,
+ * season (`?seasonId`) or weeks; season links are only a default,
  * so the remembered choice (including All time) replaces them.
  */
 export function useActivitySeason(section?: 'leetcode' | 'mock-interviews') {
@@ -41,7 +41,7 @@ export function useActivitySeason(section?: 'leetcode' | 'mock-interviews') {
   );
   useEffect(() => {
     // An address that names a season or its weeks (a link, or going back)
-    // is explicit; only plain table and season workspace links are defaults.
+    // is explicit; only plain table and season links are defaults.
     if (!section || !seasons.data || selectedId || params.has('weekId')) return;
     const remembered = rememberedActivitySeason();
     if (!remembered) return;

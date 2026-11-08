@@ -11,7 +11,7 @@ import { IconSearch, IconX } from '@tabler/icons-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 
-import { useWorkspace } from '@/auth/WorkspaceContext';
+import type { NavItem } from '@/navigation';
 
 const accountCommands = [
   {
@@ -26,152 +26,19 @@ const accountCommands = [
   },
 ];
 
-export function CommandPalette() {
-  const { activeWorkspace } = useWorkspace();
+export function CommandPalette({ items }: { items: NavItem[] }) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
   const searchInputRef = useRef<HTMLInputElement>(null);
-  const commands = useMemo(() => {
-    const role = activeWorkspace?.role;
-    const seasonBase = activeWorkspace?.seasonSlug
-      ? `/seasons/${activeWorkspace.seasonSlug}`
-      : '/seasons';
-    const roleCommands =
-      role === 'student'
-        ? [
-            {
-              label: 'Season',
-              description: 'Current season workspace',
-              to: seasonBase,
-            },
-            {
-              label: 'LeetCode',
-              description: 'Problem attempt history',
-              to: `${seasonBase}/leetcode`,
-            },
-            {
-              label: 'Mock Interviews',
-              description: 'Received, given and available interviews',
-              to: `${seasonBase}/mock-interviews`,
-            },
-            {
-              label: 'People',
-              description: 'Your season directory',
-              to: `${seasonBase}/people`,
-            },
-          ]
-        : role === 'mentor'
-          ? [
-              {
-                label: 'My mentees',
-                description: 'Assigned students and mentoring actions',
-                to: `${seasonBase}/mentees`,
-              },
-              {
-                label: 'Mock Interviews',
-                description: 'Received, given and available interviews',
-                to: `${seasonBase}/mock-interviews`,
-              },
-              {
-                label: 'People',
-                description: 'Your season directory',
-                to: `${seasonBase}/people`,
-              },
-            ]
-          : role === 'coordinator'
-            ? [
-                {
-                  label: 'Season',
-                  description: 'Current season workspace',
-                  to: seasonBase,
-                },
-                {
-                  label: 'People',
-                  description: 'Season roster',
-                  to: `${seasonBase}/people`,
-                },
-                {
-                  label: 'Mentor Teams',
-                  description: 'Mentorship assignments',
-                  to: `${seasonBase}/mentor-teams`,
-                },
-                {
-                  label: 'Mock Interviews',
-                  description: 'Season interview activity',
-                  to: `${seasonBase}/mock-interviews`,
-                },
-                {
-                  label: 'Season Operations',
-                  description: 'Weeks, enrollments and mentorships',
-                  to: '/admin/enrollments',
-                },
-              ]
-            : role === 'director' || role === 'system_admin'
-              ? [
-                  {
-                    label: 'Seasons',
-                    description: 'Current and completed programs',
-                    to: '/seasons',
-                  },
-                  {
-                    label: 'People',
-                    description: 'Everyone, across every season',
-                    to: '/graduates',
-                  },
-                  {
-                    label: 'LeetCode',
-                    description: 'Problem attempt history',
-                    to: '/leetcode',
-                  },
-                  {
-                    label: 'Administration',
-                    description: 'Audited program operations',
-                    to: '/admin',
-                  },
-                ]
-              : role === 'graduate'
-                ? [
-                    {
-                      label: 'LeetCode',
-                      description: 'Problem attempt history',
-                      to: '/leetcode',
-                    },
-                    {
-                      label: 'Mock Interviews',
-                      description: 'Received, given and available interviews',
-                      to: '/mock-interviews',
-                    },
-                    {
-                      label: 'People',
-                      description: 'Everyone, across every season',
-                      to: '/graduates',
-                    },
-                  ]
-                : role === 'former_member'
-                  ? [
-                      {
-                        label: 'LeetCode',
-                        description: 'Global practice history',
-                        to: '/leetcode',
-                      },
-                      {
-                        label: 'Mock Interviews',
-                        description: 'Global interview activity',
-                        to: '/mock-interviews',
-                      },
-                    ]
-                  : [];
-    const dashboard = role
-      ? [
-          {
-            label: 'Dashboard',
-            description: 'Your current workspace summary',
-            to: '/dashboard',
-          },
-        ]
-      : [];
-    return [...dashboard, ...accountCommands, ...roleCommands];
-  }, [activeWorkspace]);
+  const commands = useMemo(
+    () => [
+      ...items,
+      ...accountCommands.filter(
+        (command) => !items.some((item) => item.to === command.to),
+      ),
+    ],
+    [items],
+  );
   const filtered = useMemo(
     () =>
       commands.filter((command) =>
