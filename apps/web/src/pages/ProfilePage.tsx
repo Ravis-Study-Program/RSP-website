@@ -269,7 +269,10 @@ export function ProfilePage() {
           ) : (
             <Card className="flex-1">
               <CardContent>
-                <ActivityChart data={activity} expected={studentWeeklyExpected} />
+                <ActivityChart
+                  data={activity}
+                  expected={studentWeeklyExpected}
+                />
               </CardContent>
             </Card>
           )}

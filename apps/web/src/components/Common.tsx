@@ -305,7 +305,9 @@ export function MetricCard({
       <CardHeader>
         <div className="flex items-center justify-between gap-3">
           <CardDescription>{label}</CardDescription>
-          {labelAside ? <div className="relative z-20">{labelAside}</div> : null}
+          {labelAside ? (
+            <div className="relative z-20">{labelAside}</div>
+          ) : null}
         </div>
       </CardHeader>
       <CardContent>

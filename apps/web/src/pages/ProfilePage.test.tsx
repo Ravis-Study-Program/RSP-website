@@ -220,9 +220,7 @@ describe('mentor profiles', () => {
       </QueryClientProvider>,
     );
 
-    expect(
-      screen.getByRole('heading', { name: 'Mentor One' }),
-    ).toBeVisible();
+    expect(screen.getByRole('heading', { name: 'Mentor One' })).toBeVisible();
     expect(
       screen.queryByRole('region', { name: 'Recent Activity' }),
     ).not.toBeInTheDocument();

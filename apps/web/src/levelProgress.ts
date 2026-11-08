@@ -44,7 +44,9 @@ export type ProgressBar = {
   parts: Array<{ label: string; done: number; target: number }>;
 };
 
-export function isProgramLevel(level: string | undefined): level is ProgramLevel {
+export function isProgramLevel(
+  level: string | undefined,
+): level is ProgramLevel {
   return levelOrder.some((item) => item === level);
 }
 
@@ -54,10 +56,9 @@ export function nextLevel(level: ProgramLevel): ProgramLevel | null {
 }
 
 /** One solved problem counts once, at the difficulty recorded on that attempt. */
-export function solvedDifficultyCounts(attempts: Attempt[]): Pick<
-  LevelCounts,
-  'easy' | 'medium' | 'hard'
-> {
+export function solvedDifficultyCounts(
+  attempts: Attempt[],
+): Pick<LevelCounts, 'easy' | 'medium' | 'hard'> {
   const seen = new Map<string, Difficulty>();
   for (const attempt of attempts) {
     if (attempt.outcome !== 'solved' || !attempt.difficulty) continue;
@@ -78,7 +79,10 @@ function bar(
   parts: Array<{ label: string; done: number; target: number }>,
 ): ProgressBar {
   return {
-    done: parts.reduce((sum, part) => sum + Math.min(part.done, part.target), 0),
+    done: parts.reduce(
+      (sum, part) => sum + Math.min(part.done, part.target),
+      0,
+    ),
     target: parts.reduce((sum, part) => sum + part.target, 0),
     parts,
   };

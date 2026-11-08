@@ -72,7 +72,9 @@ export function LevelProgressSection({
                     {item === level ? (
                       <span className="sr-only">, current level</span>
                     ) : null}
-                    {awarded ? <span className="sr-only">, completed</span> : null}
+                    {awarded ? (
+                      <span className="sr-only">, completed</span>
+                    ) : null}
                   </span>
                   {awarded ? (
                     <IconCircleCheckFilled
@@ -115,7 +117,13 @@ export function LevelProgressSection({
   );
 }
 
-function ExpandPanel({ open, children }: { open: boolean; children: ReactNode }) {
+function ExpandPanel({
+  open,
+  children,
+}: {
+  open: boolean;
+  children: ReactNode;
+}) {
   const innerRef = useRef<HTMLDivElement>(null);
   const first = useRef(true);
   const [width, setWidth] = useState<number | 'auto'>(open ? 'auto' : 0);
@@ -148,7 +156,11 @@ function ExpandPanel({ open, children }: { open: boolean; children: ReactNode })
       className="overflow-hidden motion-safe:transition-[width,opacity] motion-safe:duration-300 motion-safe:ease-out"
       style={{ width, opacity: open ? 1 : 0 }}
       onTransitionEnd={(event) => {
-        if (event.target !== event.currentTarget || event.propertyName !== 'width') return;
+        if (
+          event.target !== event.currentTarget ||
+          event.propertyName !== 'width'
+        )
+          return;
         if (open) setWidth('auto');
       }}
     >
@@ -179,7 +191,9 @@ function LevelBody({
   }
   if (!counts) {
     return (
-      <p className="text-sm text-muted-foreground">Counting recorded problems…</p>
+      <p className="text-sm text-muted-foreground">
+        Counting recorded problems…
+      </p>
     );
   }
   if (!bars) {
@@ -192,7 +206,11 @@ function LevelBody({
   return (
     <div className="grid grid-cols-2 gap-4">
       <ProgressMeter label="LeetCode" bar={bars.leetcode} fill={fill[item]} />
-      <ProgressMeter label="Mock interviews" bar={bars.mocks} fill={fill[item]} />
+      <ProgressMeter
+        label="Mock interviews"
+        bar={bars.mocks}
+        fill={fill[item]}
+      />
     </div>
   );
 }
@@ -206,7 +224,8 @@ function ProgressMeter({
   bar: ProgressBar;
   fill: string;
 }) {
-  const width = bar.target === 0 ? 0 : Math.min(100, (bar.done / bar.target) * 100);
+  const width =
+    bar.target === 0 ? 0 : Math.min(100, (bar.done / bar.target) * 100);
   return (
     <div className="min-w-36">
       <div className="flex items-baseline justify-between gap-2 text-xs">

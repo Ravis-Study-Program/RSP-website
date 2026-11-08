@@ -20,7 +20,9 @@ describe('ActivityChart', () => {
     expect(
       screen.getByText('No Mock Interviews in This Period.'),
     ).toBeInTheDocument();
-    expect(screen.queryByText('No LeetCode in This Period.')).not.toBeInTheDocument();
+    expect(
+      screen.queryByText('No LeetCode in This Period.'),
+    ).not.toBeInTheDocument();
   });
 
   it('names the actual and expected lines for a student', () => {

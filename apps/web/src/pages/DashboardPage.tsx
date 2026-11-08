@@ -35,10 +35,7 @@ import {
 } from '@/components/Common';
 import { LevelProgressSection } from '@/components/LevelProgress';
 import { ErrorState, PageSkeleton } from '@/components/StatusViews';
-import {
-  isProgramLevel,
-  solvedDifficultyCounts,
-} from '@/levelProgress';
+import { isProgramLevel, solvedDifficultyCounts } from '@/levelProgress';
 import { recentActivitySeries } from '@/utils';
 
 const listClass = 'm-0 list-none divide-y p-0';
