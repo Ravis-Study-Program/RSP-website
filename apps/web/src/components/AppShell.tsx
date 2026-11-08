@@ -156,14 +156,16 @@ export function AppShell() {
               </span>
             </Link>
           </div>
-          <Button
-            variant="ghost"
-            className={cn(navLinkClass, 'w-full justify-start')}
-            type="button"
-            onClick={() => void handleSignOut()}
-          >
-            <IconLogout size={19} aria-hidden="true" /> Sign out
-          </Button>
+          {import.meta.env.VITE_SHOW_SIDEBAR_SIGN_OUT === 'true' ? (
+            <Button
+              variant="ghost"
+              className={cn(navLinkClass, 'w-full justify-start')}
+              type="button"
+              onClick={() => void handleSignOut()}
+            >
+              <IconLogout size={19} aria-hidden="true" /> Sign out
+            </Button>
+          ) : null}
         </div>
       </aside>
       <header className="sticky top-0 z-30 hidden min-h-16 items-center justify-between gap-3 border-b border-sidebar-border bg-sidebar px-3.5 py-2 text-sidebar-foreground max-[56rem]:flex">

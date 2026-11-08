@@ -187,6 +187,7 @@ services:
       target: development
     environment:
       VITE_USE_DEMO_DATA: ${VITE_USE_DEMO_DATA:-false}
+      VITE_SHOW_SIDEBAR_SIGN_OUT: ${VITE_SHOW_SIDEBAR_SIGN_OUT:-false}
     volumes:
       - ./apps/web/src:/workspace/apps/web/src
       - ./apps/web/public:/workspace/apps/web/public
