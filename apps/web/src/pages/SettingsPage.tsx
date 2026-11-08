@@ -445,13 +445,13 @@ export function SettingsPage() {
         <SecurityGroup title="Sessions">
           <div className={rowClass}>
             <span>
-              <strong className="font-semibold">Current session</strong>
+              <strong className="font-semibold">Sign Out</strong>
               <span className={rowTextClass}>
-                Signing out ends this session only.
+                Only signs you out of this session.
               </span>
             </span>
             <Button type="button" onClick={() => void endSession()}>
-              Sign out
+              Sign Out
             </Button>
           </div>
         </SecurityGroup>
