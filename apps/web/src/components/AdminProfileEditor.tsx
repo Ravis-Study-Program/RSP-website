@@ -94,7 +94,6 @@ function ProfileForm({
                 body: JSON.stringify({
                   name: form.name,
                   slug: form.slug,
-                  avatarUrl: form.avatarUrl || null,
                   discordId: form.discordId || null,
                 }),
               },
@@ -152,16 +151,6 @@ function ProfileForm({
             minLength={3}
             maxLength={50}
             onChange={(e) => setForm({ ...form, slug: e.target.value })}
-          />
-        </Field>
-        <Field>
-          <FieldLabel htmlFor="admin-profile-avatar">Avatar URL</FieldLabel>
-          <Input
-            id="admin-profile-avatar"
-            type="url"
-            value={form.avatarUrl ?? ''}
-            placeholder="https://…"
-            onChange={(e) => setForm({ ...form, avatarUrl: e.target.value })}
           />
         </Field>
         <Field>

@@ -18,6 +18,20 @@ describe('loadConfig', () => {
     ).toThrow(/GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET/);
   });
 
+  it('requires paired optional Discord credentials', () => {
+    expect(loadConfig({ NODE_ENV: 'test' }).discord).toBeUndefined();
+    expect(() =>
+      loadConfig({ NODE_ENV: 'test', DISCORD_CLIENT_ID: 'only' }),
+    ).toThrow(/DISCORD_CLIENT_ID and DISCORD_CLIENT_SECRET/);
+    expect(
+      loadConfig({
+        NODE_ENV: 'test',
+        DISCORD_CLIENT_ID: 'discord',
+        DISCORD_CLIENT_SECRET: 'secret',
+      }).discord?.clientId,
+    ).toBe('discord');
+  });
+
   it('fails closed on production-only security settings', () => {
     expect(() => loadConfig({ NODE_ENV: 'production' })).toThrow();
   });

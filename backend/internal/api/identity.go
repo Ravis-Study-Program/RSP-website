@@ -4,13 +4,17 @@ import (
 	"crypto/subtle"
 	"net/http"
 	"os"
+	"regexp"
 	"strings"
 	"time"
 
 	"github.com/magedmg/RSP-website/backend/internal/accounts"
 )
 
+var discordAvatarPattern = regexp.MustCompile(`^https://cdn\.discordapp\.com/avatars/[0-9]{1,20}/(a_)?[a-f0-9]{32}\.png\?size=256$`)
+
 type receiveIdentityLifecycleEventRequest struct {
+	AvatarURL        *string    `json:"avatarUrl"`
 	EventID          string     `json:"eventId"`
 	Type             string     `json:"type"`
 	AuthUserID       string     `json:"authUserId"`
@@ -46,8 +50,14 @@ func (a *API) receiveIdentityLifecycleEvent(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
+	if request.Type == "discord_avatar_updated" && request.AvatarURL != nil && !discordAvatarPattern.MatchString(*request.AvatarURL) {
+		writeErrorResponse(w, http.StatusBadRequest, "Invalid Discord avatar URL")
+		return
+	}
+
 	err := a.db.ApplyIdentityEvent(r.Context(), accounts.IdentityEvent{
 		EventID:          request.EventID,
+		AvatarURL:        request.AvatarURL,
 		Type:             request.Type,
 		AuthUserID:       request.AuthUserID,
 		Email:            request.Email,

@@ -20,11 +20,11 @@ describe('Better Auth production contract', () => {
     );
   });
 
-  it('disables implicit provider linking and different-email merges', () => {
+  it('disables implicit provider linking and leaves profiles unchanged on linking', () => {
     expect(auth.options.account?.accountLinking).toMatchObject({
       enabled: true,
       disableImplicitLinking: true,
-      allowDifferentEmails: false,
+      allowDifferentEmails: true,
       allowUnlinkingAll: false,
       updateUserInfoOnLink: false,
     });

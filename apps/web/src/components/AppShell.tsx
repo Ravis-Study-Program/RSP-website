@@ -145,7 +145,10 @@ export function AppShell() {
               aria-label={`Your profile, ${userQuery.data?.name ?? 'account'}`}
               className="flex items-center gap-3 rounded-lg px-1.5 py-2 text-sidebar-foreground no-underline outline-none hover:bg-sidebar-accent focus-visible:ring-3 focus-visible:ring-ring/50"
             >
-              <Avatar initials={initials(userQuery.data?.name ?? 'RSP')} />
+              <Avatar
+                initials={initials(userQuery.data?.name ?? 'RSP')}
+                avatarUrl={userQuery.data?.avatarUrl}
+              />
               <span className="grid min-w-0 leading-snug">
                 <strong className="truncate text-sm font-semibold">
                   {userQuery.data?.name ?? 'Loading account…'}

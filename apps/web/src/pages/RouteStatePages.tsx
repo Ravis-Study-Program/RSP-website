@@ -23,6 +23,7 @@ import {
 } from 'react-router-dom';
 import { z } from 'zod';
 
+import { useAuthProviders } from '@/api/queries';
 import { clearAccessToken } from '@/api/client';
 import {
   isEmailVerificationError,
@@ -31,6 +32,8 @@ import {
   sendVerificationEmail,
   signInWithEmail,
   signInWithGoogle,
+  signInWithDiscord,
+  socialAuthError,
   signOut,
   signUpWithEmail,
   verifyTwoFactor,
@@ -75,9 +78,12 @@ export function SignInPage() {
   const [searchParams] = useSearchParams();
   const [mode, setMode] = useState<'sign-in' | 'sign-up'>('sign-in');
   const [requestError, setRequestError] = useState(
-    searchParams.has('error') ? 'Google sign-in could not be completed.' : '',
+    socialAuthError(searchParams),
   );
-  const [googlePending, setGooglePending] = useState(false);
+  const providers = useAuthProviders();
+  const [socialPending, setSocialPending] = useState<
+    'google' | 'discord' | null
+  >(null);
   const [resetPending, setResetPending] = useState(false);
   const [resetMessage, setResetMessage] = useState('');
   const schema = z.object({
@@ -134,18 +140,16 @@ export function SignInPage() {
       );
     }
   });
-  const google = async () => {
-    setGooglePending(true);
+  const socialSignIn = async (provider: 'google' | 'discord') => {
+    setSocialPending(provider);
     setRequestError('');
     try {
-      await signInWithGoogle();
+      await (provider === 'discord' ? signInWithDiscord() : signInWithGoogle());
     } catch (error) {
       setRequestError(
-        error instanceof Error
-          ? error.message
-          : 'Unable to start Google sign-in.',
+        error instanceof Error ? error.message : 'Unable to start sign-in.',
       );
-      setGooglePending(false);
+      setSocialPending(null);
     }
   };
   const forgotPassword = async () => {
@@ -198,13 +202,13 @@ export function SignInPage() {
               <TabsList aria-label="Email account action" className="w-full">
                 <TabsTrigger
                   value="sign-in"
-                  disabled={isSubmitting || googlePending}
+                  disabled={isSubmitting || Boolean(socialPending)}
                 >
                   Sign In
                 </TabsTrigger>
                 <TabsTrigger
                   value="sign-up"
-                  disabled={isSubmitting || googlePending}
+                  disabled={isSubmitting || Boolean(socialPending)}
                 >
                   Create Account
                 </TabsTrigger>
@@ -231,6 +235,11 @@ export function SignInPage() {
                     Password sign-in was connected. Sign in again to continue.
                   </InlineNotice>
                 ) : null}
+                {searchParams.get('discordConnected') === 'true' ? (
+                  <InlineNotice>
+                    Discord connected. Sign in again to continue.
+                  </InlineNotice>
+                ) : null}
                 {requestError ? <FieldError>{requestError}</FieldError> : null}
                 {resetMessage ? (
                   <p className="text-sm text-muted-foreground" role="status">
@@ -241,11 +250,26 @@ export function SignInPage() {
                   variant="outline"
                   type="button"
                   className="w-full"
-                  disabled={googlePending || isSubmitting}
-                  onClick={() => void google()}
+                  disabled={Boolean(socialPending) || isSubmitting}
+                  onClick={() => void socialSignIn('google')}
                 >
-                  {googlePending ? 'Opening Google…' : 'Continue with Google'}
+                  {socialPending === 'google'
+                    ? 'Opening Google…'
+                    : 'Continue with Google'}
                 </Button>
+                {mode === 'sign-in' && providers.data?.discord ? (
+                  <Button
+                    variant="outline"
+                    type="button"
+                    className="w-full"
+                    disabled={Boolean(socialPending) || isSubmitting}
+                    onClick={() => void socialSignIn('discord')}
+                  >
+                    {socialPending === 'discord'
+                      ? 'Opening Discord…'
+                      : 'Continue with Discord'}
+                  </Button>
+                ) : null}
                 <div
                   className="flex items-center gap-3 text-xs text-muted-foreground"
                   aria-hidden="true"
@@ -322,7 +346,7 @@ export function SignInPage() {
                   <Button
                     className="w-full"
                     type="submit"
-                    disabled={isSubmitting || googlePending}
+                    disabled={isSubmitting || Boolean(socialPending)}
                   >
                     {isSubmitting
                       ? mode === 'sign-up'

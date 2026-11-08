@@ -68,7 +68,7 @@ import type {
   MondayMentorReportList,
 } from '@/api/generated/models';
 import { fetchPracticeSettings } from '@/api/practiceSettingsClient';
-import { listSignInMethods } from '@/api/authClient';
+import { getAuthProviders, listSignInMethods } from '@/api/authClient';
 import {
   attempts,
   demoUser,
@@ -354,6 +354,14 @@ export function usePracticeSettings() {
   return useQuery(practiceSettingsOptions);
 }
 
+export function useAuthProviders() {
+  return useQuery({
+    queryKey: ['auth-providers'],
+    queryFn: () => (demoMode ? wait({ discord: true }) : getAuthProviders()),
+    staleTime: 60_000,
+  });
+}
+
 /** Which sign-in methods the signed-in account has connected. */
 export function useSignInMethods() {
   return useQuery({
@@ -361,7 +369,12 @@ export function useSignInMethods() {
     // Demo accounts sign in with a password and have two-factor on.
     queryFn: () =>
       demoMode
-        ? wait({ google: false, password: true, twoFactor: true })
+        ? wait({
+            google: false,
+            password: true,
+            twoFactor: true,
+            discordAccountId: null as string | null,
+          })
         : listSignInMethods(),
     staleTime: 60_000,
   });

@@ -27,12 +27,13 @@ func (p *Store) UpdateAdminProfile(ctx context.Context, v accounts.AdminProfile,
 	if err != nil {
 		return v, err
 	}
-	if _, err = tx.Exec(ctx, `UPDATE app.user_profiles SET display_name=$2,slug=$3,avatar_url=$4 WHERE user_id=$1`, v.ID, v.Name, v.Slug, v.AvatarURL); err != nil {
+	if _, err = tx.Exec(ctx, `UPDATE app.user_profiles SET display_name=$2,slug=$3 WHERE user_id=$1`, v.ID, v.Name, v.Slug); err != nil {
 		return v, mapDatabaseError(err)
 	}
 	if _, err = tx.Exec(ctx, `UPDATE app.user_contacts SET discord_id=$2 WHERE user_id=$1`, v.ID, v.DiscordID); err != nil {
 		return v, err
 	}
+	v.AvatarURL = before.AvatarURL
 	v.Email = before.Email
 	if err = appendAuditTx(ctx, tx, newAudit(actorID, "user.profile_corrected", "user", v.ID, map[string]any{"before": before, "after": v}, at)); err != nil {
 		return v, err

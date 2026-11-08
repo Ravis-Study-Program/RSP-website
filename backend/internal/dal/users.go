@@ -231,7 +231,6 @@ type UpdateUserProfileInput struct {
 	UserID    string
 	Name      string
 	Slug      *string
-	AvatarURL *string
 	Timezone  string
 	ActorID   string
 	ChangedAt time.Time
@@ -259,10 +258,9 @@ func (p *Store) UpdateUserProfile(ctx context.Context, input UpdateUserProfileIn
 	if input.Slug != nil {
 		user.Slug = *input.Slug
 	}
-	user.AvatarURL = input.AvatarURL
 	user.Timezone = input.Timezone
 	user.TimezoneConfigured = true
-	if _, err := tx.Exec(ctx, `UPDATE app.user_profiles SET slug=$1,display_name=$2,avatar_url=$3 WHERE user_id=$4`, user.Slug, user.Name, user.AvatarURL, input.UserID); err != nil {
+	if _, err := tx.Exec(ctx, `UPDATE app.user_profiles SET slug=$1,display_name=$2 WHERE user_id=$3`, user.Slug, user.Name, input.UserID); err != nil {
 		return user, err
 	}
 	if _, err := tx.Exec(ctx, `UPDATE app.user_preferences SET timezone=$1,timezone_configured=$2 WHERE user_id=$3`, user.Timezone, user.TimezoneConfigured, input.UserID); err != nil {

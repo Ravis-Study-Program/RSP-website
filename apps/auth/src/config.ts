@@ -54,6 +54,8 @@ const environmentSchema = z
     RSP_API_AUDIENCE: z.string().trim().min(1).default('rsp-api'),
     GOOGLE_CLIENT_ID: optionalNonEmptyString,
     GOOGLE_CLIENT_SECRET: optionalNonEmptyString,
+    DISCORD_CLIENT_ID: optionalNonEmptyString,
+    DISCORD_CLIENT_SECRET: optionalNonEmptyString,
     EMAIL_PROVIDER: z.enum(['smtp', 'ses']).default('smtp'),
     EMAIL_FROM: z.string().trim().min(3).default('RSP <no-reply@rsp.local>'),
     SMTP_HOST: z.string().trim().min(1).default('localhost'),
@@ -77,6 +79,18 @@ const environmentSchema = z
         message:
           'GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET must be set together',
         path: [googleConfigured ? 'GOOGLE_CLIENT_SECRET' : 'GOOGLE_CLIENT_ID'],
+      });
+    }
+
+    if (
+      Boolean(environment.DISCORD_CLIENT_ID) !==
+      Boolean(environment.DISCORD_CLIENT_SECRET)
+    ) {
+      context.addIssue({
+        code: 'custom',
+        message:
+          'DISCORD_CLIENT_ID and DISCORD_CLIENT_SECRET must be set together',
+        path: ['DISCORD_CLIENT_ID'],
       });
     }
 
@@ -217,6 +231,10 @@ export interface AuthConfig {
     readonly clientId: string;
     readonly clientSecret: string;
   };
+  readonly discord?: {
+    readonly clientId: string;
+    readonly clientSecret: string;
+  };
   readonly email:
     | {
         readonly provider: 'smtp';
@@ -290,6 +308,13 @@ export function loadConfig(
     mfaMaxAgeSeconds: parsed.AUTH_MFA_MAX_AGE_SECONDS,
     apiAudience: parsed.RSP_API_AUDIENCE,
     google,
+    discord:
+      parsed.DISCORD_CLIENT_ID && parsed.DISCORD_CLIENT_SECRET
+        ? {
+            clientId: parsed.DISCORD_CLIENT_ID,
+            clientSecret: parsed.DISCORD_CLIENT_SECRET,
+          }
+        : undefined,
     email,
     identityService: {
       baseUrl: parsed.IDENTITY_SERVICE_URL.replace(/\/$/, ''),

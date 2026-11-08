@@ -8,6 +8,8 @@
 import type { AdminProfileUpdate } from './adminProfileUpdate';
 
 export type AdminProfile = AdminProfileUpdate & {
+  /** @nullable */
+  readonly avatarUrl: string | null;
   id: string;
   email: string;
 };
