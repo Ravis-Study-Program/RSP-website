@@ -47,11 +47,18 @@ for (const [role, staffLink] of [
     ).toHaveAttribute('aria-current', 'page');
 
     if (staffLink) {
-      if (mobile)
+      let staffNavigation = navigation;
+      if (
+        mobile &&
+        !(await navigation
+          .getByRole('link', { name: staffLink, exact: true })
+          .isVisible())
+      ) {
         await navigation
           .getByRole('button', { name: 'More', exact: true })
           .click();
-      const staffNavigation = mobile ? page.getByRole('dialog') : navigation;
+        staffNavigation = page.getByRole('dialog');
+      }
       await staffNavigation
         .getByRole('link', { name: staffLink, exact: true })
         .click();

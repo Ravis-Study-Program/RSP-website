@@ -98,6 +98,13 @@ export function navigationItems(
     ? seasonSlug
     : updatesMembership?.seasonSlug;
 
+  if (mentor && !isManager)
+    items.push({
+      label: 'My Students',
+      description: 'Assigned students and mentoring actions',
+      to: `/seasons/${mentor.seasonSlug}/mentees`,
+      icon: IconUsers,
+    });
   if (updatesSeasonSlug)
     items.push({
       label: 'Monday Updates',
@@ -120,13 +127,6 @@ export function navigationItems(
       description: 'Program schedules, resources and season history',
       to: '/seasons',
       icon: IconCalendarEvent,
-    });
-  if (mentor && !isManager)
-    items.push({
-      label: 'My Students',
-      description: 'Assigned students and mentoring actions',
-      to: `/seasons/${mentor.seasonSlug}/mentees`,
-      icon: IconUsers,
     });
   const managedSeasonSlug = isManager ? seasonSlug : coordinator?.seasonSlug;
   if (managedSeasonSlug) {

@@ -87,9 +87,9 @@ describe('shared navigation', () => {
       'Dashboard',
       'LeetCode',
       'Mock Interviews',
+      'My Students',
       'Monday Updates',
       'Seasons',
-      'My Students',
     ]);
     expect(items.find((item) => item.label === 'My Students')?.to).toBe(
       '/seasons/summer-2024-25/mentees',
