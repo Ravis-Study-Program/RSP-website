@@ -6,8 +6,10 @@ import type {
   JobPosition,
   JobPositionInput,
   JobStage,
+  JobReferral,
 } from '@/api/generated/models';
 import { useJobsUser } from '@/components/JobsShell';
+import { ReferralNotesHelp } from '@/components/ReferralNotesHelp';
 import { FormDialog } from '@/components/Dialogs';
 import { AppDatePicker } from '@/components/AppDatePicker';
 import { Button } from '@/components/ui/button';
@@ -141,6 +143,73 @@ function JobForm({
       ) : null}
       <FormActions pending={pending} label={label} onCancel={onClose} />
     </form>
+  );
+}
+
+export function ReferralForm({
+  referral,
+  onClose,
+}: {
+  referral?: JobReferral;
+  onClose: () => void;
+}) {
+  const user = useJobsUser();
+  const save = useJobActions(user?.id);
+  const companies = useJobCompanies();
+  const id = useId();
+  const [companyName, setCompanyName] = useState(referral?.company.name ?? '');
+  const [notes, setNotes] = useState(referral?.notes ?? '');
+  return (
+    <FormDialog
+      title={referral ? 'Edit referral listing' : 'Open to referring'}
+      description="Your name, company and notes will be visible to signed-in members."
+      open
+      onOpenChange={(open) => {
+        if (!open) onClose();
+      }}
+    >
+      <JobForm
+        onClose={onClose}
+        label={referral ? 'Save changes' : 'Open to referring'}
+        onSave={() =>
+          save(
+            `/jobs/referrals${referral ? `/${referral.id}` : ''}`,
+            referral ? 'PATCH' : 'POST',
+            { companyName, notes },
+          )
+        }
+      >
+        <Field>
+          <FieldLabel htmlFor={`${id}-company`}>Company</FieldLabel>
+          <Input
+            id={`${id}-company`}
+            required
+            maxLength={120}
+            value={companyName}
+            list={`${id}-companies`}
+            onChange={(event) => setCompanyName(event.target.value)}
+          />
+          <datalist id={`${id}-companies`}>
+            {companies.data?.map((company) => (
+              <option key={company.id} value={company.name} />
+            ))}
+          </datalist>
+        </Field>
+        <Field>
+          <div className="flex items-center gap-1">
+            <FieldLabel htmlFor={`${id}-notes`}>Notes</FieldLabel>
+            <ReferralNotesHelp />
+          </div>
+          <Textarea
+            id={`${id}-notes`}
+            maxLength={10000}
+            rows={5}
+            value={notes}
+            onChange={(event) => setNotes(event.target.value)}
+          />
+        </Field>
+      </JobForm>
+    </FormDialog>
   );
 }
 

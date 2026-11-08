@@ -95,10 +95,10 @@ func (p *Store) GetJobPosition(ctx context.Context, positionID string) (jobs.Pos
 	return v, noRows(err)
 }
 
-func jobCompanyID(ctx context.Context, tx pgx.Tx, input jobs.PositionInput) (string, error) {
+func jobCompanyID(ctx context.Context, tx pgx.Tx, name, category string) (string, error) {
 	var companyID string
 	err := tx.QueryRow(ctx, `INSERT INTO app.job_companies(name,category) VALUES($1,$2)
- ON CONFLICT (lower(trim(name))) DO UPDATE SET name=app.job_companies.name RETURNING id`, input.CompanyName, input.Category).Scan(&companyID)
+ ON CONFLICT (lower(trim(name))) DO UPDATE SET name=app.job_companies.name RETURNING id`, name, category).Scan(&companyID)
 	return companyID, mapDatabaseError(err)
 }
 
@@ -118,7 +118,7 @@ func (p *Store) SaveJobPosition(ctx context.Context, positionID, actorID, normal
 			return jobs.Position{}, ErrConflict
 		}
 	}
-	companyID, err := jobCompanyID(ctx, tx, input)
+	companyID, err := jobCompanyID(ctx, tx, input.CompanyName, input.Category)
 	if err != nil {
 		return jobs.Position{}, err
 	}

@@ -6,6 +6,7 @@ import type {
   JobCompany,
   JobCompanyList,
   JobPosition,
+  JobReferral,
 } from '@/api/generated/models';
 
 export class JobRequestError extends Error {
@@ -27,7 +28,8 @@ export async function jobRequest<T>(
     const { demoJobRequest } = await import('@/data/jobsDemo');
     return demoJobRequest(path, method, body, userId) as T;
   }
-  const publicRead = method === 'GET' && path.startsWith('/jobs/');
+  const publicRead =
+    method === 'GET' && /^\/jobs\/(companies|positions)(?:[/?]|$)/.test(path);
   const response = await fetch(`/api/v2${path}`, {
     method,
     credentials: 'same-origin',
@@ -100,6 +102,14 @@ export function useJobApplications(userId?: string) {
   return useQuery({
     queryKey: ['jobs', 'applications', userId],
     queryFn: () => allJobsPages<JobApplication>('/me/job-applications', userId),
+    enabled: Boolean(userId),
+  });
+}
+
+export function useJobReferrals(userId?: string) {
+  return useQuery({
+    queryKey: ['jobs', 'referrals', userId],
+    queryFn: () => allJobsPages<JobReferral>('/jobs/referrals', userId),
     enabled: Boolean(userId),
   });
 }

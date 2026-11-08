@@ -2545,6 +2545,59 @@ paths:
             },
         },
     }
+  /jobs/referrals:
+    get:
+      operationId: listJobReferrals
+      description: Referral offers shared with verified active accounts only.
+      parameters:
+        - { $ref: '#/components/parameters/Limit' }
+        - { $ref: '#/components/parameters/Cursor' }
+      responses:
+        '200':
+          description: Referral offers
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/JobReferralPage' }
+        default: { $ref: '#/components/responses/Error' }
+    post:
+      operationId: createJobReferral
+      description: Offer referrals as the signed-in account, once per company.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/JobReferralInput' }
+      responses:
+        '201':
+          description: Referral offer created
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/JobReferral' }
+        default: { $ref: '#/components/responses/Error' }
+  /jobs/referrals/{id}:
+    parameters:
+      - { $ref: '#/components/parameters/ID' }
+    patch:
+      operationId: updateJobReferral
+      description: Edit your own referral offer.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/JobReferralInput' }
+      responses:
+        '200':
+          description: Referral offer updated
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/JobReferral' }
+        default: { $ref: '#/components/responses/Error' }
+    delete:
+      operationId: deleteJobReferral
+      description: Stop offering referrals at this company by removing your listing.
+      responses:
+        '204': { description: Referral offer removed }
+        default: { $ref: '#/components/responses/Error' }
   /jobs/positions:
     {
       'get':
@@ -3258,6 +3311,29 @@ components:
             'existingPositionId': { 'type': 'string', 'format': 'uuid' },
           },
       }
+    JobReferral:
+      type: object
+      required: [id, company, referrer, notes]
+      properties:
+        id: { type: string, format: uuid }
+        company: { $ref: '#/components/schemas/JobCompany' }
+        referrer: { $ref: '#/components/schemas/PersonSummary' }
+        notes: { type: string }
+    JobReferralInput:
+      type: object
+      required: [companyName, notes]
+      properties:
+        companyName: { type: string, minLength: 1, maxLength: 120 }
+        notes: { type: string, maxLength: 10000 }
+    JobReferralPage:
+      type: object
+      required: [items, pageInfo, totalCount]
+      properties:
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/JobReferral' }
+        pageInfo: { $ref: '#/components/schemas/PageInfo' }
+        totalCount: { type: integer, format: int64 }
     JobPositionPage:
       {
         'type': 'object',

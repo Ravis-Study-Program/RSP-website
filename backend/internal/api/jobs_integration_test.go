@@ -271,6 +271,7 @@ func TestJobsApplicationStatusIsPrivateAndPreservesHistory(t *testing.T) {
 func TestJobsConcurrentApplyAndDeletionLifecycle(t *testing.T) {
 	f, h := jobFixture(t)
 	p := newJob(t, h, "concurrent", "Sydney")
+	jobCall(t, h, "POST", "/jobs/referrals", "member", jobs.ReferralInput{CompanyName: p.Company.Name, Notes: "Referral requirements"}, http.StatusCreated)
 	ctx := context.Background()
 	var wg sync.WaitGroup
 	results := make(chan string, 8)
@@ -307,7 +308,7 @@ func TestJobsConcurrentApplyAndDeletionLifecycle(t *testing.T) {
 		t.Fatal(err)
 	}
 	var count int
-	for _, table := range []string{"job_applications", "job_application_stages"} {
+	for _, table := range []string{"job_applications", "job_application_stages", "job_referrals"} {
 		if err := f.pool.QueryRow(ctx, `SELECT count(*) FROM app.`+table).Scan(&count); err != nil {
 			t.Fatal(err)
 		}

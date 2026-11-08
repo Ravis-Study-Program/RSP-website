@@ -15,6 +15,9 @@ export const useJobsUser = () => useContext(JobsUserContext);
 
 export function JobsShell() {
   const location = useLocation();
+  const membersOnly = ['/jobs/applications', '/jobs/referrals'].includes(
+    location.pathname,
+  );
   const session = useQuery({
     queryKey: ['auth-session'],
     queryFn: getBrowserAuthSession,
@@ -34,12 +37,12 @@ export function JobsShell() {
       : undefined;
   useEffect(() => {
     if (signedIn) sessionStorage.removeItem('rsp-auth-return-to');
-    else if (location.pathname === '/jobs/applications')
+    else if (membersOnly)
       sessionStorage.setItem(
         'rsp-auth-return-to',
         location.pathname + location.search,
       );
-  }, [signedIn, location.pathname, location.search]);
+  }, [signedIn, membersOnly, location.pathname, location.search]);
   if (
     (!demoMode && session.isLoading) ||
     ((demoMode || session.data?.user?.emailVerified) && user.isLoading)
@@ -47,7 +50,7 @@ export function JobsShell() {
     return <PageSkeleton label="Loading Jobs" />;
   // Auth outages must not turn a private application screen into an empty
   // signed-out state, while the public board remains browsable.
-  if (location.pathname === '/jobs/applications' && !signedIn) {
+  if (membersOnly && !signedIn) {
     if (session.data?.user && !session.data.user.emailVerified)
       return (
         <Navigate

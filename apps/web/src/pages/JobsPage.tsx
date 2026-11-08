@@ -32,6 +32,7 @@ import {
   StageForm,
 } from '@/components/JobForms';
 import { useJobsUser } from '@/components/JobsShell';
+import { OpenToReferring, Referrals } from '@/components/Referrals';
 import { StatusBadge } from '@/components/StatusBadge';
 import { BetaBadge } from '@/components/BetaBadge';
 import { Button, buttonVariants } from '@/components/ui/button';
@@ -60,7 +61,11 @@ export function JobsPage() {
   const location = useLocation();
   const navigate = useNavigate();
   const active =
-    location.pathname === '/jobs/applications' ? 'applications' : 'positions';
+    location.pathname === '/jobs/referrals'
+      ? 'referrals'
+      : location.pathname === '/jobs/applications'
+        ? 'applications'
+        : 'positions';
   return (
     <Page>
       {user ? (
@@ -71,17 +76,23 @@ export function JobsPage() {
       <Tabs
         value={active}
         onValueChange={(v) =>
-          navigate(v === 'applications' ? '/jobs/applications' : '/jobs')
+          navigate(v === 'positions' ? '/jobs' : `/jobs/${v}`)
         }
       >
         <div className="mb-4 flex min-h-9 flex-wrap items-center justify-between gap-3">
           <TabsList aria-label="Jobs">
             <TabsTrigger value="positions">Positions</TabsTrigger>
             <TabsTrigger value="applications">My Applications</TabsTrigger>
+            {user && <TabsTrigger value="referrals">Referrals</TabsTrigger>}
           </TabsList>
           {active === 'positions' && (
             <div className="ml-auto">
               <AddPosition />
+            </div>
+          )}
+          {active === 'referrals' && (
+            <div className="ml-auto">
+              <OpenToReferring />
             </div>
           )}
         </div>
@@ -90,6 +101,9 @@ export function JobsPage() {
         </TabsContent>
         <TabsContent value="applications">
           {active === 'applications' && <Applications />}
+        </TabsContent>
+        <TabsContent value="referrals">
+          {active === 'referrals' && <Referrals />}
         </TabsContent>
       </Tabs>
     </Page>

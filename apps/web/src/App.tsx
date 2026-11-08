@@ -211,6 +211,12 @@ export const routeObjects: RouteObject[] = [
           Component: (await import('@/pages/JobsPage')).JobsPage,
         }),
       },
+      {
+        path: 'referrals',
+        lazy: async () => ({
+          Component: (await import('@/pages/JobsPage')).JobsPage,
+        }),
+      },
     ],
   },
   {

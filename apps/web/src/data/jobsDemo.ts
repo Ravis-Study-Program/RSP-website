@@ -1,6 +1,7 @@
 // Development/demo only: production uses the Go API and isolated Jobs tables.
 import seed from '@/data/jobPositions.json';
 import { jobApplicationStatuses } from '@/jobs';
+import { demoUser, people } from '@/data/demo';
 import type {
   JobApplication,
   JobApplicationStatusInput,
@@ -9,6 +10,8 @@ import type {
   JobPositionInput,
   JobStage,
   JobStageInput,
+  JobReferral,
+  JobReferralInput,
 } from '@/api/generated/models';
 
 let companies: JobCompany[] = [
@@ -35,6 +38,29 @@ let positions: JobPosition[] = seed.map((v, i) => ({
   status: 'open',
 }));
 const applications = new Map<string, JobApplication[]>();
+let referrals: JobReferral[] = [
+  [
+    'Google',
+    'Software engineering internships only. Send your resume and a link to the role on Discord.',
+  ],
+  [
+    'Canva',
+    'Frontend roles. Please include a portfolio or GitHub project with your resume.',
+  ],
+  [
+    'IMC',
+    'Graduate software roles with a distinction average. Send your resume and transcript.',
+  ],
+].map(([company, notes], i) => ({
+  id: `referral-${i + 1}`,
+  company: companies.find((c) => c.name === company)!,
+  referrer: {
+    id: people[i + 1].id,
+    name: people[i + 1].name,
+    slug: people[i + 1].slug,
+  },
+  notes,
+}));
 const aliases = new Map<string, string>();
 const canonical = (id: string): string =>
   aliases.has(id) ? canonical(aliases.get(id)!) : id;
@@ -51,12 +77,56 @@ export function demoJobRequest(
   userId?: string,
 ): unknown {
   const parts = path.split('?')[0].split('/').filter(Boolean);
-  if (method === 'GET' && parts[0] === 'jobs') {
+  if (method === 'GET' && parts[0] === 'jobs' && parts[1] !== 'referrals') {
     if (parts[1] === 'companies') return { items: structuredClone(companies) };
     if (parts.length === 2) return page(positions);
     return structuredClone(positions.find((p) => p.id === canonical(parts[2])));
   }
   if (!userId) throw new Error('Sign in to continue.');
+  if (parts[0] === 'jobs' && parts[1] === 'referrals') {
+    if (method === 'GET') return page(referrals);
+    const existing = referrals.find(
+      (r) => r.id === parts[2] && r.referrer.id === userId,
+    );
+    if (parts[2] && !existing) throw new Error('Referral listing not found.');
+    if (method === 'DELETE') {
+      referrals = referrals.filter((r) => r !== existing);
+      return;
+    }
+    const input = body as JobReferralInput;
+    const name = input.companyName.trim();
+    let company = companies.find(
+      (c) => c.name.toLowerCase() === name.toLowerCase(),
+    );
+    if (!name || name.length > 120 || input.notes.length > 10000)
+      throw new Error(
+        'Enter a company name up to 120 characters and notes up to 10,000 characters.',
+      );
+    if (!company) {
+      company = { id: crypto.randomUUID(), name, category: 'other' };
+      companies.push(company);
+    }
+    if (
+      referrals.some(
+        (r) =>
+          r.referrer.id === userId &&
+          r.company.id === company.id &&
+          r !== existing,
+      )
+    )
+      throw new Error(
+        'You already offer referrals at this company. Edit your existing listing.',
+      );
+    const saved: JobReferral = {
+      id: existing?.id ?? crypto.randomUUID(),
+      company,
+      referrer: { id: userId, name: demoUser.name, slug: demoUser.slug },
+      notes: input.notes.trim(),
+    };
+    if (existing) referrals[referrals.indexOf(existing)] = saved;
+    else referrals.push(saved);
+    return structuredClone(saved);
+  }
   const own = applications.get(userId) ?? [];
   applications.set(userId, own);
   if (parts[0] === 'me') {

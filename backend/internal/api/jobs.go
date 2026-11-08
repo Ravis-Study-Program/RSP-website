@@ -28,6 +28,10 @@ func registerJobRoutes(mux *http.ServeMux, a *API) {
 	mux.HandleFunc("POST /api/v2/me/job-applications/{id}/stages", a.protected(ratelimit.Write, jobIDs(a.saveJobStage)))
 	mux.HandleFunc("PATCH /api/v2/me/job-applications/{id}/stages/{stageId}", a.protected(ratelimit.Write, jobIDs(a.saveJobStage)))
 	mux.HandleFunc("DELETE /api/v2/me/job-applications/{id}/stages/{stageId}", a.protected(ratelimit.Write, jobIDs(a.deleteJobStage)))
+	mux.HandleFunc("GET /api/v2/jobs/referrals", a.protected(ratelimit.Read, a.listJobReferrals))
+	mux.HandleFunc("POST /api/v2/jobs/referrals", a.protected(ratelimit.Write, a.saveJobReferral))
+	mux.HandleFunc("PATCH /api/v2/jobs/referrals/{id}", a.protected(ratelimit.Write, jobIDs(a.saveJobReferral)))
+	mux.HandleFunc("DELETE /api/v2/jobs/referrals/{id}", a.protected(ratelimit.Write, jobIDs(a.deleteJobReferral)))
 }
 
 func jobIDs(next http.HandlerFunc) http.HandlerFunc {

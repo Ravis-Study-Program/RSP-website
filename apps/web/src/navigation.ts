@@ -174,7 +174,11 @@ export function navigationItems(
 
 export function navigationItemActive(item: NavItem, pathname: string) {
   if (item.to === '/jobs')
-    return pathname === '/jobs' || pathname === '/jobs/applications';
+    return (
+      pathname === '/jobs' ||
+      pathname === '/jobs/applications' ||
+      pathname === '/jobs/referrals'
+    );
   if (item.section)
     return (
       pathname === item.to ||
