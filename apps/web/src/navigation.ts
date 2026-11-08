@@ -18,6 +18,7 @@ export interface NavItem {
   to: string;
   icon: ComponentType<{ size?: number; 'aria-hidden'?: boolean }>;
   section?: string;
+  beta?: boolean;
 }
 
 export function preferredMembership(user?: CurrentUser, role?: SeasonRole) {
@@ -46,6 +47,13 @@ export function navigationItems(
   seasons: Season[] = [],
 ): NavItem[] {
   if (!user) return [];
+  const jobs: NavItem = {
+    label: 'Jobs',
+    beta: true,
+    description: 'Open positions and your applications',
+    to: '/jobs',
+    icon: IconBriefcase,
+  };
   if (!user.seasonRoles.length && !user.globalRoles.length && !user.alumni)
     return [
       {
@@ -54,6 +62,7 @@ export function navigationItems(
         to: '/profile',
         icon: IconUsers,
       },
+      jobs,
     ];
 
   const items: NavItem[] = [
@@ -78,6 +87,7 @@ export function navigationItems(
       section: 'mock-interviews',
     },
   ];
+  items.push(jobs);
   const isManager = user.globalRoles.length > 0;
   const membership = preferredMembership(user);
   const seasonSlug =
@@ -163,6 +173,8 @@ export function navigationItems(
 }
 
 export function navigationItemActive(item: NavItem, pathname: string) {
+  if (item.to === '/jobs')
+    return pathname === '/jobs' || pathname === '/jobs/applications';
   if (item.section)
     return (
       pathname === item.to ||

@@ -87,6 +87,7 @@ describe('shared navigation', () => {
       'Dashboard',
       'LeetCode',
       'Mock Interviews',
+      'Jobs',
       'My Students',
       'Monday Updates',
       'Seasons',
@@ -105,6 +106,7 @@ describe('shared navigation', () => {
       'Dashboard',
       'LeetCode',
       'Mock Interviews',
+      'Jobs',
       'Seasons',
       'All Students',
     ]);
@@ -121,6 +123,7 @@ describe('shared navigation', () => {
         '/dashboard',
         '/leetcode',
         '/mock-interviews',
+        '/jobs',
       ]);
     },
   );
@@ -148,9 +151,10 @@ describe('shared navigation', () => {
     ).toBeUndefined();
   });
 
-  it('gives a verified nonmember only their profile', () => {
+  it('gives a verified nonmember their profile and Jobs', () => {
     expect(navigationItems(userWith()).map((item) => item.to)).toEqual([
       '/profile',
+      '/jobs',
     ]);
   });
 

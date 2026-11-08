@@ -193,6 +193,27 @@ function LegacyProfileRedirect() {
 
 export const routeObjects: RouteObject[] = [
   {
+    path: '/jobs',
+    lazy: async () => ({
+      Component: (await import('@/components/JobsShell')).JobsShell,
+    }),
+    errorElement: <RouteErrorPage />,
+    children: [
+      {
+        index: true,
+        lazy: async () => ({
+          Component: (await import('@/pages/JobsPage')).JobsPage,
+        }),
+      },
+      {
+        path: 'applications',
+        lazy: async () => ({
+          Component: (await import('@/pages/JobsPage')).JobsPage,
+        }),
+      },
+    ],
+  },
+  {
     path: '/invitations/accept',
     lazy: async () => ({
       Component: (await import('@/pages/InvitationAcceptPage'))

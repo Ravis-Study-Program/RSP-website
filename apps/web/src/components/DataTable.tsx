@@ -101,9 +101,13 @@ export function HighlightText({ text }: { text: string }) {
 export function ExpandRowButton<TData>({
   row,
   subject,
+  className,
+  title,
 }: {
   row: Row<TData>;
   subject: string;
+  className?: string;
+  title?: string;
 }) {
   const expanded = row.getIsExpanded();
   return (
@@ -111,6 +115,8 @@ export function ExpandRowButton<TData>({
       variant="ghost"
       size="icon"
       type="button"
+      className={className}
+      title={title}
       aria-label={`${expanded ? 'Hide' : 'Show'} ${subject}`}
       aria-expanded={expanded}
       onClick={row.getToggleExpandedHandler()}
@@ -136,7 +142,7 @@ export interface DataTableProps<TData> {
   searchPlaceholder?: string;
   renderCard: (row: Row<TData>) => ReactNode;
   renderExpanded?: (row: Row<TData>) => ReactNode;
-  defaultExpanded?: boolean;
+  defaultExpanded?: boolean | Record<string, boolean>;
   getRowId?: (row: TData) => string;
   renderSummary?: (rows: TData[]) => ReactNode;
   /** Filters beyond the column text filters, shown in the Filters popover. */
@@ -252,7 +258,7 @@ export function DataTable<TData>({
     autoResetPageIndex: !serverPagination,
     initialState: {
       pagination: { pageSize: initialPageSize },
-      ...(defaultExpanded ? { expanded: true } : {}),
+      ...(defaultExpanded ? { expanded: defaultExpanded } : {}),
     },
   });
 

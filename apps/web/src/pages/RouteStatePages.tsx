@@ -10,7 +10,8 @@ import {
   IconRefresh,
 } from '@tabler/icons-react';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
+import { useEffect, useState } from 'react';
 import type { Resolver } from 'react-hook-form';
 import { useForm } from 'react-hook-form';
 import {
@@ -24,6 +25,7 @@ import {
 import { z } from 'zod';
 
 import { clearAccessToken } from '@/api/client';
+import { authReturnTo, safeJobsReturnTo } from '@/auth/returnTo';
 import {
   isEmailVerificationError,
   requestPasswordReset,
@@ -71,8 +73,15 @@ function StateLayout({
 
 export function SignInPage() {
   usePageTitle('Sign in');
+  const queryClient = useQueryClient();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const returnTo =
+    safeJobsReturnTo(searchParams.get('returnTo')) ?? authReturnTo();
+  useEffect(() => {
+    if (returnTo.startsWith('/jobs'))
+      sessionStorage.setItem('rsp-auth-return-to', returnTo);
+  }, [returnTo]);
   const [mode, setMode] = useState<'sign-in' | 'sign-up'>('sign-in');
   const [requestError, setRequestError] = useState(
     searchParams.has('error') ? 'Google sign-in could not be completed.' : '',
@@ -112,13 +121,20 @@ export function SignInPage() {
           values.name.trim(),
           values.email,
           values.password,
+          returnTo,
         );
         navigate('/verify-email', { state: { email: values.email } });
         return;
       }
-      const result = await signInWithEmail(values.email, values.password);
+      const result = await signInWithEmail(
+        values.email,
+        values.password,
+        returnTo,
+      );
       clearAccessToken();
-      navigate(result.twoFactorRedirect ? '/two-factor' : '/dashboard', {
+      queryClient.removeQueries({ queryKey: ['me'] });
+      queryClient.removeQueries({ queryKey: ['auth-session'] });
+      navigate(result.twoFactorRedirect ? '/two-factor' : returnTo, {
         replace: true,
       });
     } catch (error) {
@@ -138,7 +154,7 @@ export function SignInPage() {
     setGooglePending(true);
     setRequestError('');
     try {
-      await signInWithGoogle();
+      await signInWithGoogle(returnTo);
     } catch (error) {
       setRequestError(
         error instanceof Error
@@ -445,7 +461,13 @@ export function VerifyEmailPage() {
     }
     setPending(true);
     try {
-      await sendVerificationEmail(email);
+      const returnTo = authReturnTo();
+      await sendVerificationEmail(
+        email,
+        returnTo.startsWith('/jobs')
+          ? `/sign-in?verified=true&returnTo=${encodeURIComponent(returnTo)}`
+          : undefined,
+      );
       setStatus('A new verification email has been sent.');
     } catch (error) {
       setStatus(
@@ -497,6 +519,7 @@ export function VerifyEmailPage() {
 
 export function TwoFactorPage() {
   usePageTitle('Two-factor verification');
+  const queryClient = useQueryClient();
   const navigate = useNavigate();
   const [method, setMethod] = useState<'totp' | 'backup-code'>('totp');
   const [code, setCode] = useState('');
@@ -509,7 +532,9 @@ export function TwoFactorPage() {
     try {
       await verifyTwoFactor(code.trim(), method);
       clearAccessToken();
-      navigate('/dashboard', { replace: true });
+      await queryClient.invalidateQueries({ queryKey: ['me'] });
+      await queryClient.invalidateQueries({ queryKey: ['auth-session'] });
+      navigate(authReturnTo(), { replace: true });
     } catch (requestError) {
       setError(
         requestError instanceof Error

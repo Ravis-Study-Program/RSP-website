@@ -90,22 +90,31 @@ export function isEmailVerificationError(error: unknown) {
   );
 }
 
-export function signInWithEmail(email: string, password: string) {
+export function signInWithEmail(
+  email: string,
+  password: string,
+  callbackURL = '/dashboard',
+) {
   return authRequest<SignInResult>('/sign-in/email', {
     method: 'POST',
     body: JSON.stringify({
       email,
       password,
-      callbackURL: '/dashboard',
+      callbackURL,
       rememberMe: true,
     }),
   });
 }
 
-export function signUpWithEmail(name: string, email: string, password: string) {
+export function signUpWithEmail(
+  name: string,
+  email: string,
+  password: string,
+  callbackURL = '/dashboard',
+) {
   return authRequest<{ token: string | null }>('/sign-up/email', {
     method: 'POST',
-    body: JSON.stringify({ name, email, password, callbackURL: '/dashboard' }),
+    body: JSON.stringify({ name, email, password, callbackURL }),
   });
 }
 
@@ -131,8 +140,8 @@ async function followAuthRedirect(
   window.location.assign(result.url);
 }
 
-export function signInWithGoogle() {
-  return followAuthRedirect('/sign-in/social');
+export function signInWithGoogle(callbackURL = '/dashboard') {
+  return followAuthRedirect('/sign-in/social', callbackURL);
 }
 
 /** Which sign-in methods the account has connected. */
@@ -153,10 +162,13 @@ export function linkGoogleAccount() {
   return followAuthRedirect('/link-social', '/sign-in?securityChanged=true');
 }
 
-export function sendVerificationEmail(email: string) {
+export function sendVerificationEmail(
+  email: string,
+  callbackURL = '/sign-in?verified=true',
+) {
   return authRequest<{ status: boolean }>('/send-verification-email', {
     method: 'POST',
-    body: JSON.stringify({ email, callbackURL: '/sign-in?verified=true' }),
+    body: JSON.stringify({ email, callbackURL }),
   });
 }
 
