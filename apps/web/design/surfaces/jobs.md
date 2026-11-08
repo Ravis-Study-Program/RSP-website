@@ -10,6 +10,8 @@ OWN-WORLD: Preserve Study Ledger, Source Sans 3, existing spacing, borders, ligh
 
 STORY: Browse a position, apply externally, mark Applied, then add named stages and private notes. Staff correct shared data without access to personal histories.
 
+APPLICATION STATUS: My Applications opens on Active applications. A status filter beside search offers Active, Rejected, Offer and All. Each row has a Status selector; mobile cards pair it with the latest stage. Rejected covers both rejected and ghosted applications. Changes save immediately, retain stages and notes, and can restore Active. A short status announcement confirms the update when a row leaves the current filter. These neutral text controls preserve category colours for company groups.
+
 FIRST VIEWPORT: Signed-in accounts see Positions and My Applications at the top of the content, with Add position aligned right on the Positions tab, then the searchable table. The app header already names Jobs with its Beta badge, so the content heading is screen-reader-only. Public visitors retain a visible Jobs heading and Beta badge below their compact RSP header; their tabs share a row with Sign in to add a position. Mobile wraps the action when needed and uses the table's existing cards. No metrics or promotional content.
 
 FORM: User-specified two-tab table extension of the existing system. No new visual world or concept seed. Application details expand inside their table row; editing uses existing form dialogs.

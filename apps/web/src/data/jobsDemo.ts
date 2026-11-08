@@ -2,6 +2,7 @@
 import seed from '@/data/jobPositions.json';
 import type {
   JobApplication,
+  JobApplicationStatusInput,
   JobCompany,
   JobPosition,
   JobPositionInput,
@@ -68,6 +69,7 @@ export function demoJobRequest(
       if (!app) {
         app = {
           id: crypto.randomUUID(),
+          status: 'active',
           position,
           stages: [
             {
@@ -85,6 +87,10 @@ export function demoJobRequest(
     }
     const application = own.find((a) => a.id === parts[2]);
     if (!application) throw new Error('Application not found.');
+    if (parts.length === 3 && method === 'PATCH') {
+      application.status = (body as JobApplicationStatusInput).status;
+      return;
+    }
     if (parts.length === 3 && method === 'DELETE') {
       applications.set(
         userId,

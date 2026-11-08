@@ -174,7 +174,7 @@ func (p *Store) ListJobApplications(ctx context.Context, userID, boundary string
 	if err := p.pool.QueryRow(ctx, `SELECT count(*) FROM app.job_applications WHERE user_id=$1`, userID).Scan(&total); err != nil {
 		return nil, false, 0, err
 	}
-	rows, err := p.pool.Query(ctx, `SELECT a.id,`+jobPositionColumns+` FROM app.job_applications a JOIN app.job_positions p ON a.position_id=p.id JOIN app.job_companies c ON c.id=p.company_id
+	rows, err := p.pool.Query(ctx, `SELECT a.id,a.status,`+jobPositionColumns+` FROM app.job_applications a JOIN app.job_positions p ON a.position_id=p.id JOIN app.job_companies c ON c.id=p.company_id
  WHERE a.user_id=$1 AND ($2='' OR a.id>NULLIF($2,'')::uuid) ORDER BY a.id LIMIT $3`, userID, boundary, limit+1)
 	if err != nil {
 		return nil, false, 0, err
@@ -182,7 +182,7 @@ func (p *Store) ListJobApplications(ctx context.Context, userID, boundary string
 	out := []jobs.Application{}
 	for rows.Next() {
 		v := jobs.Application{Stages: []jobs.Stage{}}
-		if err = rows.Scan(append([]any{&v.ID}, positionTargets(&v.Position)...)...); err != nil {
+		if err = rows.Scan(append([]any{&v.ID, &v.Status}, positionTargets(&v.Position)...)...); err != nil {
 			rows.Close()
 			return nil, false, 0, err
 		}
@@ -249,6 +249,19 @@ func (p *Store) ApplyToJob(ctx context.Context, userID, positionID, date string)
 func ownedJobApplication(ctx context.Context, tx pgx.Tx, userID, applicationID string) error {
 	var found string
 	return noRows(tx.QueryRow(ctx, `SELECT id FROM app.job_applications WHERE id=$1 AND user_id=$2`, applicationID, userID).Scan(&found))
+}
+
+func (p *Store) UpdateJobApplicationStatus(ctx context.Context, userID, applicationID, status string) error {
+	tx, err := p.beginJobs(ctx, userID)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(context.Background())
+	var found string
+	if err = tx.QueryRow(ctx, `UPDATE app.job_applications SET status=$1 WHERE id=$2 AND user_id=$3 RETURNING id`, status, applicationID, userID).Scan(&found); err != nil {
+		return mapDatabaseError(noRows(err))
+	}
+	return tx.Commit(ctx)
 }
 
 func (p *Store) DeleteJobApplication(ctx context.Context, userID, applicationID string) error {

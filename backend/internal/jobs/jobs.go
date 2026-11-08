@@ -57,8 +57,13 @@ type StageInput struct {
 
 type Application struct {
 	ID       string   `json:"id"`
+	Status   string   `json:"status"`
 	Position Position `json:"position"`
 	Stages   []Stage  `json:"stages"`
+}
+
+func ValidApplicationStatus(v string) bool {
+	return slices.Contains([]string{"active", "inactive", "offer"}, v)
 }
 
 func ValidCategory(v string) bool {

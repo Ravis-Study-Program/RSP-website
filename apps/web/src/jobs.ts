@@ -1,10 +1,20 @@
 import type {
+  JobApplicationStatus,
   JobCategory,
   JobPosition,
   JobPositionInput,
   JobType,
 } from '@/api/generated/models';
 import type { CurrentUser } from '@/types';
+
+export const jobApplicationStatuses: {
+  value: JobApplicationStatus;
+  label: string;
+}[] = [
+  { value: 'active', label: 'Active' },
+  { value: 'inactive', label: 'Rejected' },
+  { value: 'offer', label: 'Offer' },
+];
 
 export const jobCategories: { value: JobCategory; label: string }[] = [
   { value: 'faang', label: 'FAANG' },
@@ -29,9 +39,9 @@ export const jobCategoryControlClasses: Record<JobCategory, string> = {
 export function canManageJobs(user?: CurrentUser) {
   return Boolean(
     user?.globalRoles.some((r) => r === 'director' || r === 'system_admin') ||
-      user?.seasonRoles.some(
-        (r) => r.role === 'coordinator' && r.state === 'active',
-      ),
+    user?.seasonRoles.some(
+      (r) => r.role === 'coordinator' && r.state === 'active',
+    ),
   );
 }
 export function localJobDate() {

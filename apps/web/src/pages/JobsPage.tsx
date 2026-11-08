@@ -16,6 +16,7 @@ import {
 } from '@/api/jobs';
 import type {
   JobApplication,
+  JobApplicationStatus,
   JobCompany,
   JobPosition,
   JobStage,
@@ -45,6 +46,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { formatCalendarDay } from '@/utils';
 import {
   canManageJobs,
+  jobApplicationStatuses,
   jobCategories,
   jobCategoryControlClasses,
   jobTypes,
@@ -553,11 +555,55 @@ function Positions() {
 function Applications() {
   const user = useJobsUser();
   const applications = useJobApplications(user?.id);
+  const save = useJobActions(user?.id);
+  const [status, setStatus] = useState('active');
+  const [pending, setPending] = useState<string>();
+  const [error, setError] = useState('');
+  const [notice, setNotice] = useState('');
   const [params] = useSearchParams();
   const focus = params.get('application');
-  const ordered = [...(applications.data ?? [])].sort(
-    (a, b) => Number(b.id === focus) - Number(a.id === focus),
-  );
+  const ordered = (applications.data ?? [])
+    .filter((a) => status === 'all' || a.status === status)
+    .sort((a, b) => Number(b.id === focus) - Number(a.id === focus));
+  async function updateStatus(
+    application: JobApplication,
+    next: JobApplicationStatus,
+  ) {
+    if (application.status === next) return;
+    setPending(application.id);
+    setError('');
+    setNotice('');
+    try {
+      await save(`/me/job-applications/${application.id}`, 'PATCH', {
+        status: next,
+      });
+      setNotice(
+        `${application.position.company.name} application marked as ${jobApplicationStatuses.find((s) => s.value === next)?.label}.`,
+      );
+    } catch (e) {
+      setError(
+        e instanceof Error
+          ? e.message
+          : 'Unable to update the application status. Try again.',
+      );
+    } finally {
+      setPending(undefined);
+    }
+  }
+  function statusControl(application: JobApplication) {
+    return (
+      <JobSelect
+        compact
+        label={`Status for ${application.position.title} at ${application.position.company.name}`}
+        value={application.status}
+        options={jobApplicationStatuses}
+        disabled={Boolean(pending)}
+        onChange={(next) =>
+          void updateStatus(application, next as JobApplicationStatus)
+        }
+      />
+    );
+  }
   const columns: ColumnDef<JobApplication>[] = [
     {
       id: 'details',
@@ -589,6 +635,13 @@ function Applications() {
       id: 'stage',
       accessorFn: (a) => a.stages.at(-1)?.title ?? 'Applied',
       header: 'Latest Stage',
+      meta: { width: 10 },
+    },
+    {
+      accessorKey: 'status',
+      header: 'Status',
+      cell: ({ row }) => statusControl(row.original),
+      enableColumnFilter: false,
       meta: { width: 12 },
     },
     {
@@ -603,44 +656,77 @@ function Applications() {
     },
   ];
   return (
-    <DataTable
-      key={focus ?? 'applications'}
-      ariaLabel="My applications"
-      data={ordered}
-      columns={columns}
-      getRowId={(a) => a.id}
-      defaultExpanded={focus ? { [focus]: true } : false}
-      loading={applications.isLoading}
-      error={applications.isError}
-      onRetry={() => void applications.refetch()}
-      emptyTitle="No Applications"
-      emptyMessage="Mark a position as applied to start tracking it."
-      searchPlaceholder="Search your applications…"
-      renderExpanded={({ original }) => (
-        <ApplicationHistory application={original} />
+    <>
+      {error && (
+        <p role="alert" className="mb-4 text-sm text-destructive">
+          {error}
+        </p>
       )}
-      renderCard={(row) => (
-        <div className="grid gap-3">
-          <div className="flex min-w-0 items-center gap-3">
-            <JobDetailsButton
-              row={row}
-              position={row.original.position}
-              history
-            />
-            <CompanyLink position={row.original.position} />
-          </div>
-          <h3 className="font-semibold">{row.original.position.title}</h3>
-          <div className="flex items-center justify-between gap-2">
-            <p className="text-sm">
-              {row.original.stages.at(-1)?.title ?? 'Applied'}
-            </p>
-          </div>
-          {row.getIsExpanded() && (
-            <ApplicationHistory application={row.original} />
-          )}
-        </div>
+      {notice && (
+        <p role="status" className="mb-4 text-sm text-muted-foreground">
+          {notice}
+        </p>
       )}
-    />
+      <DataTable
+        key={focus ?? 'applications'}
+        ariaLabel="My applications"
+        data={ordered}
+        columns={columns}
+        getRowId={(a) => a.id}
+        defaultExpanded={focus ? { [focus]: true } : false}
+        loading={applications.isLoading}
+        error={applications.isError}
+        onRetry={() => void applications.refetch()}
+        emptyTitle={
+          status === 'all'
+            ? 'No Applications'
+            : `No ${jobApplicationStatuses.find((s) => s.value === status)?.label} Applications`
+        }
+        emptyMessage={
+          applications.data?.length
+            ? 'Choose another status to view your other applications.'
+            : 'Mark a position as applied to start tracking it.'
+        }
+        searchPlaceholder="Search your applications…"
+        toolbarStart={
+          <JobSelect
+            label="Application status filter"
+            compact
+            value={status}
+            options={[
+              ...jobApplicationStatuses,
+              { value: 'all', label: 'All' },
+            ]}
+            onChange={setStatus}
+          />
+        }
+        renderExpanded={({ original }) => (
+          <ApplicationHistory application={original} />
+        )}
+        renderCard={(row) => (
+          <div className="grid gap-3">
+            <div className="flex min-w-0 items-center gap-3">
+              <JobDetailsButton
+                row={row}
+                position={row.original.position}
+                history
+              />
+              <CompanyLink position={row.original.position} />
+            </div>
+            <h3 className="font-semibold">{row.original.position.title}</h3>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <p className="text-sm">
+                {row.original.stages.at(-1)?.title ?? 'Applied'}
+              </p>
+              {statusControl(row.original)}
+            </div>
+            {row.getIsExpanded() && (
+              <ApplicationHistory application={row.original} />
+            )}
+          </div>
+        )}
+      />
+    </>
   );
 }
 

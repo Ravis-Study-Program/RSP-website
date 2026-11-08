@@ -164,6 +164,8 @@ func TestJobsMergePreservesBothHistoriesAndAliases(t *testing.T) {
 	a := applyJob(t, h, "member", target.ID)
 	b := applyJob(t, h, "member", source.ID)
 	other := applyJob(t, h, "mentor", source.ID)
+	jobCall(t, h, "PATCH", "/me/job-applications/"+a, "member", map[string]string{"status": "inactive"}, http.StatusNoContent)
+	jobCall(t, h, "PATCH", "/me/job-applications/"+other, "mentor", map[string]string{"status": "inactive"}, http.StatusNoContent)
 	for _, app := range readApplications(t, h, "member") {
 		jobCall(t, h, "PATCH", "/me/job-applications/"+app.ID+"/stages/"+app.Stages[0].ID, "member", jobs.StageInput{Title: "Applied", Date: "2026-11-01", Notes: strings.Repeat(app.ID[:1], 10000)}, http.StatusOK)
 	}
@@ -178,7 +180,7 @@ func TestJobsMergePreservesBothHistoriesAndAliases(t *testing.T) {
 	jobCall(t, h, "POST", "/jobs/positions/"+source.ID+"/merge", "coordinator", merge, http.StatusOK)
 	jobCall(t, h, "POST", "/jobs/positions/"+source.ID+"/merge", "coordinator", merge, http.StatusOK)
 	merged := readApplications(t, h, "member")
-	if len(merged) != 1 || merged[0].ID != a || len(merged[0].Stages) != 4 {
+	if len(merged) != 1 || merged[0].ID != a || merged[0].Status != "inactive" || len(merged[0].Stages) != 4 {
 		t.Fatalf("lost history: %#v", merged)
 	}
 	if len(merged[0].Position.Locations) != 2 || merged[0].Stages[0].Title != "Applied" || merged[0].Stages[3].Title != "Final panel" {
@@ -188,7 +190,7 @@ func TestJobsMergePreservesBothHistoriesAndAliases(t *testing.T) {
 		t.Fatal("merge truncated initial notes")
 	}
 	moved := readApplications(t, h, "mentor")
-	if len(moved) != 1 || moved[0].ID != other || moved[0].Position.ID != target.ID {
+	if len(moved) != 1 || moved[0].ID != other || moved[0].Status != "inactive" || moved[0].Position.ID != target.ID {
 		t.Fatal("another owner's application lost")
 	}
 	public := jobCall(t, h, "GET", "/jobs/positions/"+source.ID, "", nil, http.StatusOK)
@@ -206,6 +208,45 @@ func TestJobsMergePreservesBothHistoriesAndAliases(t *testing.T) {
 	}
 	if count != 1 {
 		t.Fatalf("merge audit count %d", count)
+	}
+}
+
+func TestJobsApplicationStatusIsPrivateAndPreservesHistory(t *testing.T) {
+	_, h := jobFixture(t)
+	p := newJob(t, h, "status", "Sydney")
+	appID := applyJob(t, h, "member", p.ID)
+	path := "/me/job-applications/" + appID
+	if readApplications(t, h, "member")[0].Status != "active" {
+		t.Fatal("new application must start active")
+	}
+	jobCall(t, h, "POST", path+"/stages", "member", jobs.StageInput{Title: "Interview", Date: "2026-11-02", Notes: "Keep my private notes"}, http.StatusCreated)
+	for _, status := range []string{"inactive", "offer", "active"} {
+		input := map[string]string{"status": status}
+		jobCall(t, h, "PATCH", path, "", input, http.StatusUnauthorized)
+		for _, token := range []string{"unverified", "suspended"} {
+			jobCall(t, h, "PATCH", path, token, input, http.StatusForbidden)
+		}
+		for _, token := range []string{"mentor", "coordinator", "director", "system_admin"} {
+			jobCall(t, h, "PATCH", path, token, input, http.StatusNotFound)
+		}
+		jobCall(t, h, "PATCH", path, "member", input, http.StatusNoContent)
+		if applyJob(t, h, "member", p.ID) != appID {
+			t.Fatal("status change created a new application")
+		}
+		apps := readApplications(t, h, "member")
+		if len(apps) != 1 || apps[0].Status != status || len(apps[0].Stages) != 2 || apps[0].Stages[1].Notes != "Keep my private notes" {
+			t.Fatalf("status or history not preserved: %#v", apps)
+		}
+		if len(readApplications(t, h, "mentor")) != 0 {
+			t.Fatal("another account can see the application")
+		}
+	}
+	for _, status := range []string{"", "closed", "Rejected"} {
+		jobCall(t, h, "PATCH", path, "member", map[string]string{"status": status}, http.StatusBadRequest)
+	}
+	jobCall(t, h, "PATCH", "/me/job-applications/not-an-id", "member", map[string]string{"status": "inactive"}, http.StatusBadRequest)
+	if readApplications(t, h, "member")[0].Status != "active" {
+		t.Fatal("invalid status changed the application")
 	}
 }
 

@@ -41,9 +41,7 @@ export function JobSelect({
   const id = useId();
   return (
     <Field className={compact ? 'w-auto min-w-40' : undefined}>
-      <FieldLabel htmlFor={id} className={compact ? 'sr-only' : undefined}>
-        {label}
-      </FieldLabel>
+      {!compact && <FieldLabel htmlFor={id}>{label}</FieldLabel>}
       <Select
         items={options}
         value={value}
@@ -52,7 +50,11 @@ export function JobSelect({
         }}
         disabled={disabled}
       >
-        <SelectTrigger id={id} className="w-full">
+        <SelectTrigger
+          id={id}
+          aria-label={compact ? label : undefined}
+          className="w-full"
+        >
           <SelectValue />
         </SelectTrigger>
         <SelectContent>

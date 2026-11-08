@@ -23,6 +23,7 @@ func registerJobRoutes(mux *http.ServeMux, a *API) {
 	mux.HandleFunc("POST /api/v2/jobs/positions/{id}/merge", a.protected(ratelimit.Write, jobIDs(a.mergeJobPositions)))
 	mux.HandleFunc("GET /api/v2/me/job-applications", a.protected(ratelimit.Read, a.listJobApplications))
 	mux.HandleFunc("POST /api/v2/me/job-applications", a.protected(ratelimit.Write, a.createJobApplication))
+	mux.HandleFunc("PATCH /api/v2/me/job-applications/{id}", a.protected(ratelimit.Write, jobIDs(a.updateJobApplicationStatus)))
 	mux.HandleFunc("DELETE /api/v2/me/job-applications/{id}", a.protected(ratelimit.Write, jobIDs(a.deleteJobApplication)))
 	mux.HandleFunc("POST /api/v2/me/job-applications/{id}/stages", a.protected(ratelimit.Write, jobIDs(a.saveJobStage)))
 	mux.HandleFunc("PATCH /api/v2/me/job-applications/{id}/stages/{stageId}", a.protected(ratelimit.Write, jobIDs(a.saveJobStage)))
@@ -235,6 +236,21 @@ func (a *API) createJobApplication(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSONResponse(w, http.StatusOK, map[string]string{"id": appID})
+}
+
+func (a *API) updateJobApplicationStatus(w http.ResponseWriter, r *http.Request) {
+	var input struct {
+		Status string `json:"status"`
+	}
+	if err := decodeJSON(r.Body, &input); err != nil || !jobs.ValidApplicationStatus(input.Status) {
+		writeErrorResponse(w, http.StatusBadRequest, "Choose Active, Rejected or Offer.")
+		return
+	}
+	if err := a.db.UpdateJobApplicationStatus(r.Context(), actorFrom(r.Context()).UserID, r.PathValue("id"), input.Status); err != nil {
+		a.writeStoreErrorResponse(w, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
 }
 
 func (a *API) deleteJobApplication(w http.ResponseWriter, r *http.Request) {

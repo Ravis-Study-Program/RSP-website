@@ -5,11 +5,13 @@
  * Same-origin API for the Ravi's Study Program application.
  * OpenAPI spec version: 2.0.0
  */
+import type { JobApplicationStatus } from './jobApplicationStatus';
 import type { JobPosition } from './jobPosition';
 import type { JobStage } from './jobStage';
 
 export interface JobApplication {
   id: string;
+  status: JobApplicationStatus;
   position: JobPosition;
   stages: JobStage[];
 }

@@ -65,6 +65,8 @@ export * from './jobApplication';
 export * from './jobApplicationCreated';
 export * from './jobApplicationInput';
 export * from './jobApplicationPage';
+export * from './jobApplicationStatus';
+export * from './jobApplicationStatusInput';
 export * from './jobCategory';
 export * from './jobCompany';
 export * from './jobCompanyInput';

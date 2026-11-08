@@ -95,4 +95,88 @@ describe('Jobs', () => {
       screen.queryByRole('button', { name: /Manage .* at/ }),
     ).not.toBeInTheDocument();
   });
+
+  it('defaults to active applications and can mark Rejected and reactivate without losing history', async () => {
+    localStorage.setItem('rsp-demo-role', 'student');
+    renderJobs();
+    const checkbox = await screen.findByRole('checkbox', {
+      name: 'Applied to 2026 Software Dev Engineer Intern (Location : Sydney) at Amazon',
+    });
+    await waitFor(() => expect(checkbox).toBeEnabled());
+    await userEvent.click(checkbox);
+    const filter = () =>
+      screen.getByRole('combobox', { name: 'Application status filter' });
+    expect(
+      await screen.findByRole('combobox', {
+        name: 'Application status filter',
+      }),
+    ).toHaveTextContent('Active');
+    const status = () =>
+      screen.getByRole('combobox', {
+        name: 'Status for 2026 Software Dev Engineer Intern (Location : Sydney) at Amazon',
+      });
+    await userEvent.click(status());
+    await userEvent.click(
+      await screen.findByRole('option', { name: 'Rejected' }),
+    );
+    await waitFor(() =>
+      expect(
+        screen.queryByRole('combobox', { name: /Status for .* at Amazon/ }),
+      ).not.toBeInTheDocument(),
+    );
+    await userEvent.click(filter());
+    await userEvent.click(
+      await screen.findByRole('option', {
+        name: 'Rejected',
+      }),
+    );
+    expect(
+      await screen.findByRole('combobox', { name: /Status for .* at Amazon/ }),
+    ).toHaveTextContent('Rejected');
+    await userEvent.click(filter());
+    await userEvent.click(await screen.findByRole('option', { name: 'All' }));
+    expect(
+      await screen.findByRole('combobox', { name: /Status for .* at Amazon/ }),
+    ).toHaveTextContent('Rejected');
+    await userEvent.click(status());
+    await userEvent.click(await screen.findByRole('option', { name: 'Offer' }));
+    await waitFor(() => expect(status()).toHaveTextContent('Offer'));
+    await userEvent.click(filter());
+    await userEvent.click(await screen.findByRole('option', { name: 'Offer' }));
+    expect(status()).toHaveTextContent('Offer');
+    await userEvent.click(status());
+    await userEvent.click(
+      await screen.findByRole('option', { name: 'Active' }),
+    );
+    await waitFor(() =>
+      expect(
+        screen.queryByRole('combobox', { name: /Status for .* at Amazon/ }),
+      ).not.toBeInTheDocument(),
+    );
+    await userEvent.click(filter());
+    await userEvent.click(
+      await screen.findByRole('option', { name: 'Active' }),
+    );
+    expect(status()).toHaveTextContent('Active');
+    await userEvent.click(screen.getByRole('tab', { name: 'Positions' }));
+    expect(
+      await screen.findByRole('checkbox', { name: /Applied to .* at Amazon/ }),
+    ).toBeChecked();
+    await userEvent.click(screen.getByRole('tab', { name: 'My Applications' }));
+    expect(
+      await screen.findByRole('combobox', {
+        name: 'Application status filter',
+      }),
+    ).toHaveTextContent('Active');
+    await userEvent.click(
+      screen.getByRole('button', {
+        name: /Show history for 2026 Software Dev Engineer Intern/,
+      }),
+    );
+    expect(
+      await screen.findByRole('region', {
+        name: 'Application history for 2026 Software Dev Engineer Intern (Location : Sydney)',
+      }),
+    ).toHaveTextContent('Applied');
+  });
 });
