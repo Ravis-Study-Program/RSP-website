@@ -9,4 +9,5 @@ import type { JobApplicationStatus } from './jobApplicationStatus';
 
 export interface JobApplicationStatusInput {
   status: JobApplicationStatus;
+  date: string;
 }

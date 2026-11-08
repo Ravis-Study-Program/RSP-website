@@ -185,11 +185,24 @@ test('Application statuses keep inactive histories out of the default list', asy
       exact: true,
     })
     .click();
-  await expect(
-    page.getByRole('region', {
-      name: 'Application history for Software Engineering Intern, Summer 2026',
-    }),
-  ).toContainText('Applied');
+  const history = page.getByRole('region', {
+    name: 'Application history for Software Engineering Intern, Summer 2026',
+  });
+  await expect(history.getByRole('heading')).toHaveText([
+    'Applied',
+    'Rejected',
+    'Active',
+  ]);
+  if (captureRoot)
+    await page.screenshot({
+      fullPage: true,
+      animations: 'disabled',
+      scale: 'css',
+      path: path.join(
+        captureRoot,
+        `${testInfo.project.name}-status-history.png`,
+      ),
+    });
 });
 
 test('Jobs is public and readable in both themes', async ({

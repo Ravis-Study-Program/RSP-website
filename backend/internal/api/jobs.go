@@ -241,12 +241,17 @@ func (a *API) createJobApplication(w http.ResponseWriter, r *http.Request) {
 func (a *API) updateJobApplicationStatus(w http.ResponseWriter, r *http.Request) {
 	var input struct {
 		Status string `json:"status"`
+		Date   string `json:"date"`
 	}
 	if err := decodeJSON(r.Body, &input); err != nil || !jobs.ValidApplicationStatus(input.Status) {
 		writeErrorResponse(w, http.StatusBadRequest, "Choose Active, Rejected or Offer.")
 		return
 	}
-	if err := a.db.UpdateJobApplicationStatus(r.Context(), actorFrom(r.Context()).UserID, r.PathValue("id"), input.Status); err != nil {
+	if _, err := time.Parse("2006-01-02", input.Date); err != nil {
+		writeErrorResponse(w, http.StatusBadRequest, "Enter a valid status update date.")
+		return
+	}
+	if err := a.db.UpdateJobApplicationStatus(r.Context(), actorFrom(r.Context()).UserID, r.PathValue("id"), input.Status, input.Date); err != nil {
 		a.writeStoreErrorResponse(w, err)
 		return
 	}

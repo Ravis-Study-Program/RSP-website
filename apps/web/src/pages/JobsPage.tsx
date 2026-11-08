@@ -576,6 +576,7 @@ function Applications() {
     try {
       await save(`/me/job-applications/${application.id}`, 'PATCH', {
         status: next,
+        date: localJobDate(),
       });
       setNotice(
         `${application.position.company.name} application marked as ${jobApplicationStatuses.find((s) => s.value === next)?.label}.`,
@@ -740,25 +741,9 @@ function ApplicationHistory({ application }: { application: JobApplication }) {
       className="grid gap-4 p-4"
       aria-label={`Application history for ${application.position.title}`}
     >
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex flex-wrap items-center gap-3">
-          <ApplyLink position={application.position} />
-          <span className="text-sm text-muted-foreground">
-            {
-              jobCategories.find(
-                (c) => c.value === application.position.company.category,
-              )?.label
-            }
-          </span>
-          {application.position.status === 'closed' && (
-            <StatusBadge>Position closed</StatusBadge>
-          )}
-        </div>
-        <Button size="sm" onClick={() => setStage('new')}>
-          <IconPlus size={16} aria-hidden="true" />
-          Add stage
-        </Button>
-      </div>
+      {application.position.status === 'closed' && (
+        <StatusBadge>Position closed</StatusBadge>
+      )}
       <ol className="divide-y">
         {application.stages.map((s) => (
           <li key={s.id} className="grid gap-2 py-4">
@@ -800,14 +785,19 @@ function ApplicationHistory({ application }: { application: JobApplication }) {
           </li>
         ))}
       </ol>
-      <Button
-        variant="outline"
-        size="sm"
-        className="w-fit"
-        onClick={() => setRemove('application')}
-      >
-        Remove application
-      </Button>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => setRemove('application')}
+        >
+          Remove application
+        </Button>
+        <Button size="sm" className="ml-auto" onClick={() => setStage('new')}>
+          <IconPlus size={16} aria-hidden="true" />
+          Add stage
+        </Button>
+      </div>
       {stage && (
         <StageForm
           applicationId={application.id}

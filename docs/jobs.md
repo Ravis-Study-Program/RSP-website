@@ -15,12 +15,12 @@ Posting publishes immediately. Authors cannot edit shared listings unless they h
 
 ## Listings and applications
 
-- Job types are Intern, Grad and Experienced. Company categories are FAANG (red), Big Tech (orange), HFT/Quant (yellow) and Other Tech (pink). The square expand control carries the category colour; its hover text, accessible name and expanded details also name the category. The arrow beside each company opens its application link.
+- Job types are Intern, Grad and Experienced. Company categories are FAANG (red), Big Tech (orange), HFT/Quant (yellow) and Other Tech (pink). The square expand control carries the category colour; its hover text and accessible name identify the category on both tabs. Positions expanded details also show the category. The arrow beside each company opens its application link.
 - The initial import contains 26 positions from the supplied 27 rows. Airwallex's identical application link is one position with Sydney and Melbourne locations. The import does not verify that jobs are still open; staff maintain open/closed status.
 - Application links must use HTTPS. Duplicate checks remove known tracking parameters but keep job identifiers such as `gh_jid` and `pid`. Links are never fetched by the server.
 - Marking Applied creates one application per account and position and opens its history. Repeated or concurrent clicks reuse the same record.
 - Applied is the first stage. Its date and private notes are editable, but its name cannot be changed and the stage cannot be removed. Later stages have user-chosen names, dates and optional private notes. The latest dated later stage appears in the table.
-- Applications have a separate Active, Rejected or Offer status. Rejected also covers ghosted applications. My Applications defaults to Active; its status filter also shows Rejected, Offer or All applications. The Status selector updates the application immediately and can restore it to Active without changing its stages, notes or Applied marker. Only the owner can change this status.
+- Applications have a separate Active, Rejected or Offer status. Rejected also covers ghosted applications. My Applications defaults to Active; its status filter also shows Rejected, Offer or All applications. Each status change immediately adds an Active, Rejected or Offer stage dated today in the browser's local timezone, with empty notes. Existing stages, notes and the Applied marker remain intact, including when restoring Active. Repeating the current status adds nothing. Only the owner can change this status.
 - Closing a listing retains its applications. A merge retains the target listing's fields, combines locations and moves all applications. When an account tracked both listings, its histories combine; source Applied notes are retained as an “Applied (merged listing)” stage. Old position links resolve to the surviving listing.
 - A moved application keeps its status. When two applications merge, the surviving target application's status is retained.
 - Removing an application deletes its stages. Account deletion clears private application history when the account is permanently pseudonymized. Shared listings remain.
@@ -29,7 +29,7 @@ Posting publishes immediately. Authors cannot edit shared listings unless they h
 
 The feature adds four separate tables: `app.job_companies`, `app.job_positions`, `app.job_applications` and `app.job_application_stages`. Migration `00023_jobs.sql` creates them; `00024_jobs_initial_positions.sql` imports the supplied listings once. Neither migration updates existing program or profile data. Rolling back `00023` drops all Jobs data; the import migration's down step intentionally preserves listings that accounts may have used.
 
-Migration `00025_job_application_status.sql` adds the constrained status field to `app.job_applications`, defaulting existing and new applications to Active. Stored and API values are `active` (Active) and `inactive` (Rejected) and `offer` (Offer). Status is saved through the owner-only `PATCH /api/v2/me/job-applications/{id}` route.
+Migration `00025_job_application_status.sql` adds the constrained status field to `app.job_applications`, defaulting existing and new applications to Active. Stored and API values are `active` (Active), `inactive` (Rejected) and `offer` (Offer). The owner-only `PATCH /api/v2/me/job-applications/{id}` route requires `status` and a `date` in YYYY-MM-DD form. It saves the status change and new stage atomically; requests for the current status add no stage.
 
 Public API routes are under `/api/v2/jobs/companies` and `/api/v2/jobs/positions`. Private application and stage routes are under `/api/v2/me/job-applications`. The API scopes every private read/write to the authenticated owner, including staff requests. Shared changes are audited without private stage notes. See `api/openapi.yaml` for the contract.
 
@@ -39,7 +39,7 @@ Public API routes are under `/api/v2/jobs/companies` and `/api/v2/jobs/positions
 2. Open `/jobs` while signed out. Check search, filters, pagination, expanded details and external application links.
 3. Open My Applications, sign in or verify a new email account, and confirm the return to Jobs. A verified account without a season can publish and track positions.
 4. Mark a position Applied, add a named stage with notes, and reload. Check that a different account cannot see that history.
-   Mark the application Rejected or Offer, find it through the status filter, reload and restore Active. Confirm its notes and Applied marker remain intact.
+   Mark the application Rejected or Offer, find it through the status filter, reload and restore Active. Confirm each change adds its named stage with today's local date and empty notes while existing history and the Applied marker remain intact. Repeating the current status must add no stage.
 5. With a staff account and recent MFA, edit, close/reopen and merge positions. Check that existing application histories remain.
 
 Jobs browser tests live in `apps/web/e2e/jobs.spec.ts`. API integration tests in `backend/internal/api/jobs_integration_test.go` must use an isolated test database, never a database containing development or real user data. Demo mode uses in-memory fixtures and is excluded from the production bundle.

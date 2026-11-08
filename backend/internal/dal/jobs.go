@@ -251,15 +251,25 @@ func ownedJobApplication(ctx context.Context, tx pgx.Tx, userID, applicationID s
 	return noRows(tx.QueryRow(ctx, `SELECT id FROM app.job_applications WHERE id=$1 AND user_id=$2`, applicationID, userID).Scan(&found))
 }
 
-func (p *Store) UpdateJobApplicationStatus(ctx context.Context, userID, applicationID, status string) error {
+func (p *Store) UpdateJobApplicationStatus(ctx context.Context, userID, applicationID, status, date string) error {
 	tx, err := p.beginJobs(ctx, userID)
 	if err != nil {
 		return err
 	}
 	defer tx.Rollback(context.Background())
-	var found string
-	if err = tx.QueryRow(ctx, `UPDATE app.job_applications SET status=$1 WHERE id=$2 AND user_id=$3 RETURNING id`, status, applicationID, userID).Scan(&found); err != nil {
+	var current string
+	if err = tx.QueryRow(ctx, `SELECT status FROM app.job_applications WHERE id=$1 AND user_id=$2 FOR UPDATE`, applicationID, userID).Scan(&current); err != nil {
 		return mapDatabaseError(noRows(err))
+	}
+	if current == status {
+		return tx.Commit(ctx)
+	}
+	if _, err = tx.Exec(ctx, `UPDATE app.job_applications SET status=$1 WHERE id=$2 AND user_id=$3`, status, applicationID, userID); err != nil {
+		return err
+	}
+	title := map[string]string{"active": "Active", "inactive": "Rejected", "offer": "Offer"}[status]
+	if _, err = tx.Exec(ctx, `INSERT INTO app.job_application_stages(application_id,title,happened_on) VALUES($1,$2,$3)`, applicationID, title, date); err != nil {
+		return err
 	}
 	return tx.Commit(ctx)
 }

@@ -3205,9 +3205,12 @@ components:
     JobApplicationStatusInput:
       {
         'type': 'object',
-        'required': ['status'],
+        'required': ['status', 'date'],
         'properties':
-          { 'status': { '$ref': '#/components/schemas/JobApplicationStatus' } },
+          {
+            'status': { '$ref': '#/components/schemas/JobApplicationStatus' },
+            'date': { 'type': 'string', 'format': 'date' },
+          },
       }
     JobApplicationInput:
       {

@@ -3,6 +3,7 @@ import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { RouterProvider } from 'react-router-dom';
 import { createTestRouter } from '@/App';
+import { localJobDate } from '@/jobs';
 
 function renderJobs(path = '/jobs') {
   const router = createTestRouter([path]);
@@ -173,10 +174,16 @@ describe('Jobs', () => {
         name: /Show history for 2026 Software Dev Engineer Intern/,
       }),
     );
+    const history = await screen.findByRole('region', {
+      name: 'Application history for 2026 Software Dev Engineer Intern (Location : Sydney)',
+    });
     expect(
-      await screen.findByRole('region', {
-        name: 'Application history for 2026 Software Dev Engineer Intern (Location : Sydney)',
-      }),
-    ).toHaveTextContent('Applied');
+      within(history)
+        .getAllByRole('heading')
+        .map((heading) => heading.textContent),
+    ).toEqual(['Applied', 'Rejected', 'Offer', 'Active']);
+    for (const date of history.querySelectorAll('time')) {
+      expect(date).toHaveAttribute('datetime', localJobDate());
+    }
   });
 });

@@ -1,5 +1,6 @@
 // Development/demo only: production uses the Go API and isolated Jobs tables.
 import seed from '@/data/jobPositions.json';
+import { jobApplicationStatuses } from '@/jobs';
 import type {
   JobApplication,
   JobApplicationStatusInput,
@@ -88,7 +89,21 @@ export function demoJobRequest(
     const application = own.find((a) => a.id === parts[2]);
     if (!application) throw new Error('Application not found.');
     if (parts.length === 3 && method === 'PATCH') {
-      application.status = (body as JobApplicationStatusInput).status;
+      const input = body as JobApplicationStatusInput;
+      if (application.status === input.status) return;
+      application.status = input.status;
+      application.stages.push({
+        id: crypto.randomUUID(),
+        title: jobApplicationStatuses.find((s) => s.value === input.status)!
+          .label,
+        date: input.date,
+        notes: '',
+        initial: false,
+      });
+      application.stages.sort(
+        (a, b) =>
+          Number(b.initial) - Number(a.initial) || a.date.localeCompare(b.date),
+      );
       return;
     }
     if (parts.length === 3 && method === 'DELETE') {
