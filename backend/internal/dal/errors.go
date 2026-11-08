@@ -8,11 +8,12 @@ import (
 )
 
 var (
-	ErrNotFound              = errors.New("not found")
-	ErrConflict              = errors.New("conflict")
-	ErrDuplicate             = errors.New("duplicate")
-	ErrMondayUpdateWeek      = errors.New("updates must match a configured program week")
-	ErrMondayUpdateSubmitted = errors.New("you have already submitted an update for this week")
+	ErrNotFound               = errors.New("not found")
+	ErrConflict               = errors.New("conflict")
+	ErrDuplicate              = errors.New("duplicate")
+	ErrMondayUpdateWeek       = errors.New("updates must match a configured program week")
+	ErrMondayUpdateSubmitted  = errors.New("you have already submitted an update for this week")
+	ErrMondayUpdateUnlockOpen = errors.New("this week already has an unlock request or an unlock")
 )
 
 func noRows(err error) error {

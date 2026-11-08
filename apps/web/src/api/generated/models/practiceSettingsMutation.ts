@@ -22,4 +22,9 @@ export interface PracticeSettingsMutation {
    * @maximum 180
    */
   hardMinutes: number;
+  /**
+   * @minimum 1
+   * @maximum 168
+   */
+  weeklyHours: number;
 }

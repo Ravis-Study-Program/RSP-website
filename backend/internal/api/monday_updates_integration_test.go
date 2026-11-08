@@ -63,6 +63,9 @@ func newMondayUpdateFixture(t *testing.T) postgresFixture {
 		VALUES($1,1,$2::date AT TIME ZONE 'Australia/Adelaide',($3::date + 1) AT TIME ZONE 'Australia/Adelaide' - interval '1 second')`, seasonID, mondayTestDate(-6), mondayTestDate(0)); err != nil {
 		t.Fatal(err)
 	}
+	// The fixture's week is due on the Monday after it; pin the late lock's
+	// clock to that Monday so its update can still be posted.
+	pinMondayNow(t, mondayTestDate(1))
 	fixture.handler = mondayUpdateHandler(fixture.db, map[string]authz.Actor{
 		"student": mondayActor(studentID, authz.Enrollment{SeasonID: seasonID, Role: authz.Student, State: authz.Active}),
 		"cohort":  mondayActor(mondayCohortID, authz.Enrollment{SeasonID: seasonID, Role: authz.Student, State: authz.Active}),
@@ -208,7 +211,7 @@ func TestMondayUpdateMentorScopeAndMarkUpsert(t *testing.T) {
 		t.Fatalf("unmentored mark status=%d body=%s", response.Code, response.Body)
 	}
 	response = testRequest(t, fixture.handler, http.MethodPut, markPath, "mentor", `{"mark":"excelling","commentHtml":""}`)
-	if response.Code != http.StatusBadRequest || errorMessage(t, response) != "mark must be one of way_ahead, doing_good, on_track, a_bit_behind or at_risk" {
+	if response.Code != http.StatusBadRequest || errorMessage(t, response) != "mark must be one of way_ahead, doing_good, on_track, a_bit_behind, at_risk or kicked, or empty to clear it" {
 		t.Fatalf("invalid mark status=%d body=%s", response.Code, response.Body)
 	}
 
@@ -353,19 +356,14 @@ func TestMondayUpdateValidationAndEnrollment(t *testing.T) {
 			message: "updates must cover one Monday to Sunday week", status: http.StatusBadRequest,
 		},
 		{
-			name: "start after the current week", actor: "student", method: http.MethodPost, path: mondayUpdatesPath(),
-			body:    `{"startDate":"` + mondayTestDate(1) + `","endDate":"` + mondayTestDate(7) + `","contentHtml":"<p>x</p>"}`,
-			message: "updates can be submitted after the week has ended", status: http.StatusBadRequest,
+			name: "a week not yet started", actor: "student", method: http.MethodPost, path: mondayUpdatesPath(),
+			body:    `{"startDate":"` + mondayTestDate(8) + `","endDate":"` + mondayTestDate(14) + `","contentHtml":"<p>x</p>"}`,
+			message: "updates can be written once the week has started", status: http.StatusBadRequest,
 		},
 		{
 			name: "malformed date", actor: "student", method: http.MethodPost, path: mondayUpdatesPath(),
 			body:    `{"startDate":"2026-13-01","endDate":"2026-13-02","contentHtml":"<p>x</p>"}`,
 			message: "dates must use the YYYY-MM-DD format", status: http.StatusBadRequest,
-		},
-		{
-			name: "whitespace content", actor: "student", method: http.MethodPost, path: mondayUpdatesPath(),
-			body:    `{"startDate":"` + mondayTestDate(-6) + `","endDate":"` + mondayTestDate(0) + `","contentHtml":"  "}`,
-			message: "contentHtml is required", status: http.StatusBadRequest,
 		},
 		{
 			name: "missing hours", actor: "student", method: http.MethodPost, path: mondayUpdatesPath(),
@@ -424,7 +422,7 @@ func TestMondayUpdateValidationAndEnrollment(t *testing.T) {
 		{
 			name: "invalid mark", actor: "mentor", method: http.MethodPut, path: mondayUpdatesPath() + "/" + "00000000-0000-7000-8000-000000000299" + "/mark",
 			body:    `{"mark":"nope","commentHtml":""}`,
-			message: "mark must be one of way_ahead, doing_good, on_track, a_bit_behind or at_risk", status: http.StatusBadRequest,
+			message: "mark must be one of way_ahead, doing_good, on_track, a_bit_behind, at_risk or kicked, or empty to clear it", status: http.StatusBadRequest,
 		},
 		{
 			name: "mentor cannot read range activity", actor: "mentor", method: http.MethodGet,
@@ -537,6 +535,14 @@ func TestMondayUpdateFixedWeeksAndConcurrentSubmission(t *testing.T) {
   VALUES($1,2,$2::date AT TIME ZONE 'Australia/Adelaide',($3::date + 1) AT TIME ZONE 'Australia/Adelaide' - interval '1 second')`, seasonID, mondayTestDate(-20), mondayTestDate(-14)); err != nil {
 		t.Fatal(err)
 	}
+	// Past its due date it is locked until a mentor or coordinator unlocks it.
+	if response = testRequest(t, fixture.handler, http.MethodPost, mondayUpdatesPath(), "student", body(mondayTestDate(-20), mondayTestDate(-14))); response.Code != http.StatusConflict {
+		t.Fatalf("locked late week: %d %s", response.Code, response.Body)
+	}
+	if response = testRequest(t, fixture.handler, http.MethodPost, "/api/v2/seasons/"+seasonID+"/monday-update-unlocks", "coordinator",
+		`{"startDate":"`+mondayTestDate(-20)+`","endDate":"`+mondayTestDate(-14)+`","studentId":"`+studentID+`"}`); response.Code != http.StatusCreated {
+		t.Fatalf("coordinator unlock: %d %s", response.Code, response.Body)
+	}
 	late := createMondayUpdateRange(t, fixture, "student", mondayTestDate(-20), mondayTestDate(-14), "<p>Late</p>")
 	if late.StartDate != mondayTestDate(-20) {
 		t.Fatalf("late=%+v", late)
@@ -569,5 +575,245 @@ func TestMondayUpdateFixedWeeksAndConcurrentSubmission(t *testing.T) {
 	response = testRequest(t, fixture.handler, http.MethodPost, mondayUpdatesPath(), "cohort", body(mondayTestDate(-6), mondayTestDate(0)))
 	if response.Code != http.StatusConflict {
 		t.Fatalf("closed=%d %s", response.Code, response.Body)
+	}
+}
+
+// pinMondayNow sets the late lock's clock to noon, Adelaide, on a date.
+func pinMondayNow(t *testing.T, date string) {
+	t.Helper()
+	adelaide, err := time.LoadLocation("Australia/Adelaide")
+	if err != nil {
+		t.Fatal(err)
+	}
+	day, err := time.ParseInLocation(time.DateOnly, date, adelaide)
+	if err != nil {
+		t.Fatal(err)
+	}
+	previous := mondayNow
+	mondayNow = func() time.Time { return day.Add(12 * time.Hour) }
+	t.Cleanup(func() { mondayNow = previous })
+}
+
+func TestMondayUpdateLateUnlock(t *testing.T) {
+	fixture := newMondayUpdateFixture(t)
+	unlocksPath := "/api/v2/seasons/" + seasonID + "/monday-update-unlocks"
+	week := `"startDate":"` + mondayTestDate(-6) + `","endDate":"` + mondayTestDate(0) + `"`
+	// A day past the due date, the week is locked.
+	pinMondayNow(t, mondayTestDate(2))
+	response := testRequest(t, fixture.handler, http.MethodPost, mondayUpdatesPath(), "cohort", `{`+week+`,"contentHtml":"","hours":10}`)
+	if response.Code != http.StatusConflict {
+		t.Fatalf("late post status=%d body=%s", response.Code, response.Body)
+	}
+
+	// The student asks with a reason; only their mentor or a coordinator may
+	// decide, and the request is listed for the mentor.
+	if response = testRequest(t, fixture.handler, http.MethodPost, unlocksPath, "cohort", `{`+week+`,"reason":"  "}`); response.Code != http.StatusBadRequest {
+		t.Fatalf("blank reason status=%d body=%s", response.Code, response.Body)
+	}
+	response = testRequest(t, fixture.handler, http.MethodPost, unlocksPath, "cohort", `{`+week+`,"reason":"I was sick."}`)
+	if response.Code != http.StatusCreated {
+		t.Fatalf("request status=%d body=%s", response.Code, response.Body)
+	}
+	var requested program.MondayUpdateUnlock
+	if err := json.Unmarshal(response.Body.Bytes(), &requested); err != nil || requested.State != "pending" || requested.Reason != "I was sick." {
+		t.Fatalf("requested=%+v err=%v", requested, err)
+	}
+	if response = testRequest(t, fixture.handler, http.MethodPost, unlocksPath, "cohort", `{`+week+`,"reason":"Again"}`); response.Code != http.StatusConflict {
+		t.Fatalf("second request status=%d body=%s", response.Code, response.Body)
+	}
+	response = testRequest(t, fixture.handler, http.MethodGet, unlocksPath, "mentor", "")
+	if response.Code != http.StatusOK || !strings.Contains(response.Body.String(), requested.ID) {
+		t.Fatalf("mentor list status=%d body=%s", response.Code, response.Body)
+	}
+	decisionPath := unlocksPath + "/" + requested.ID + "/decision"
+	if response = testRequest(t, fixture.handler, http.MethodPost, decisionPath, "student", `{"decision":"approved"}`); response.Code != http.StatusForbidden {
+		t.Fatalf("stranger decision status=%d body=%s", response.Code, response.Body)
+	}
+	if response = testRequest(t, fixture.handler, http.MethodPost, decisionPath, "mentor", `{"decision":"approved"}`); response.Code != http.StatusOK {
+		t.Fatalf("mentor decision status=%d body=%s", response.Code, response.Body)
+	}
+
+	// Unlocked, the student can post the late week and edit it.
+	response = testRequest(t, fixture.handler, http.MethodPost, mondayUpdatesPath(), "cohort", `{`+week+`,"contentHtml":"","hours":10}`)
+	if response.Code != http.StatusCreated {
+		t.Fatalf("unlocked post status=%d body=%s", response.Code, response.Body)
+	}
+
+	// A mentor can also unlock a week directly, without a request.
+	if _, err := fixture.pool.Exec(context.Background(), `UPDATE app.monday_update_unlocks SET state='declined'`); err != nil {
+		t.Fatal(err)
+	}
+	if response = testRequest(t, fixture.handler, http.MethodPost, unlocksPath, "mentor", `{`+week+`,"studentId":"`+mondayCohortID+`"}`); response.Code != http.StatusCreated {
+		t.Fatalf("direct unlock status=%d body=%s", response.Code, response.Body)
+	}
+	if response = testRequest(t, fixture.handler, http.MethodPost, unlocksPath, "mentor", `{`+week+`,"studentId":"`+studentID+`"}`); response.Code != http.StatusForbidden {
+		t.Fatalf("unassigned unlock status=%d body=%s", response.Code, response.Body)
+	}
+}
+
+func TestMondayMentorReport(t *testing.T) {
+	fixture := newMondayUpdateFixture(t)
+	reportsPath := "/api/v2/seasons/" + seasonID + "/monday-mentor-reports"
+	week := `"startDate":"` + mondayTestDate(-6) + `","endDate":"` + mondayTestDate(0) + `"`
+	query := reportsPath + "?startDate=" + mondayTestDate(-6) + "&endDate=" + mondayTestDate(0)
+	read := func(actor string) []program.MondayMentorReport {
+		t.Helper()
+		response := testRequest(t, fixture.handler, http.MethodGet, query, actor, "")
+		if response.Code != http.StatusOK {
+			t.Fatalf("%s reports status=%d body=%s", actor, response.Code, response.Body)
+		}
+		var page struct{ Items []program.MondayMentorReport }
+		if err := json.Unmarshal(response.Body.Bytes(), &page); err != nil {
+			t.Fatal(err)
+		}
+		return page.Items
+	}
+
+	// The mentor's week lists their mentee, unmarked.
+	reports := read("mentor")
+	// With no targets of their own, a student is held to the program's.
+	if targets := reports[0].Students[0].Targets; targets != (program.MondayWeeklyTargets{Hours: 30}) {
+		t.Fatalf("targets=%+v", targets)
+	}
+	if len(reports) != 1 || len(reports[0].Students) != 1 || reports[0].Students[0].Student.ID != mondayCohortID || reports[0].Students[0].Mark != nil {
+		t.Fatalf("mentor reports=%+v", reports)
+	}
+
+	// The mentee posted nothing; the mentor still marks the week.
+	markPath := "/api/v2/seasons/" + seasonID + "/monday-week-marks"
+	if response := testRequest(t, fixture.handler, http.MethodPut, markPath, "mentor", `{`+week+`,"studentId":"`+studentID+`","mark":"at_risk"}`); response.Code != http.StatusForbidden {
+		t.Fatalf("unassigned mark status=%d body=%s", response.Code, response.Body)
+	}
+	if response := testRequest(t, fixture.handler, http.MethodPut, markPath, "mentor", `{`+week+`,"studentId":"`+mondayCohortID+`","mark":"at_risk","commentHtml":"<p>No update again.</p>"}`); response.Code != http.StatusOK {
+		t.Fatalf("week mark status=%d body=%s", response.Code, response.Body)
+	}
+
+	// The coordinator sees the week with the mentor's mark and comment.
+	reports = read("coordinator")
+	if len(reports) != 1 {
+		t.Fatalf("coordinator reports=%+v", reports)
+	}
+	student := reports[0].Students[0]
+	if student.Mark == nil || *student.Mark != "at_risk" || student.CommentHTML != "<p>No update again.</p>" || student.UpdateID != nil {
+		t.Fatalf("report student=%+v", student)
+	}
+	if response := testRequest(t, fixture.handler, http.MethodGet, query, "student", ""); response.Code != http.StatusForbidden {
+		t.Fatalf("student reports status=%d body=%s", response.Code, response.Body)
+	}
+}
+
+func TestMondayKickedStudentWeek(t *testing.T) {
+	fixture := newMondayUpdateFixture(t)
+	reportQuery := func(start, end string) string {
+		return "/api/v2/seasons/" + seasonID + "/monday-mentor-reports?startDate=" + start + "&endDate=" + end
+	}
+	read := func(actor, start, end string) []program.MondayMentorReport {
+		t.Helper()
+		response := testRequest(t, fixture.handler, http.MethodGet, reportQuery(start, end), actor, "")
+		if response.Code != http.StatusOK {
+			t.Fatalf("%s reports status=%d body=%s", actor, response.Code, response.Body)
+		}
+		var page struct{ Items []program.MondayMentorReport }
+		if err := json.Unmarshal(response.Body.Bytes(), &page); err != nil {
+			t.Fatal(err)
+		}
+		return page.Items
+	}
+	// The mentee is kicked midway through the week.
+	adelaide, _ := time.LoadLocation("Australia/Adelaide")
+	kickDay, _ := time.ParseInLocation(time.DateOnly, mondayTestDate(-3), adelaide)
+	if _, err := fixture.db.RemoveEnrollment(context.Background(), dal.RemoveEnrollmentInput{
+		EnrollmentID: mondayCohortMemberID, Reason: "Stopped attending.", ActorID: mondayCoordinatorID, ChangedAt: kickDay.Add(12 * time.Hour),
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	// Their mentor still sees them that week, flagged, and marks it "kicked".
+	reports := read("mentor", mondayTestDate(-6), mondayTestDate(0))
+	if len(reports) != 1 || len(reports[0].Students) != 1 || reports[0].Students[0].KickedAt == nil {
+		t.Fatalf("kicked week reports=%+v", reports)
+	}
+	if response := testRequest(t, fixture.handler, http.MethodPut, "/api/v2/seasons/"+seasonID+"/monday-week-marks", "mentor",
+		`{"startDate":"`+mondayTestDate(-6)+`","endDate":"`+mondayTestDate(0)+`","studentId":"`+mondayCohortID+`","mark":"kicked","commentHtml":"<p>Stopped attending.</p>"}`); response.Code != http.StatusOK {
+		t.Fatalf("kicked mark status=%d body=%s", response.Code, response.Body)
+	}
+	reports = read("coordinator", mondayTestDate(-6), mondayTestDate(0))
+	if mark := reports[0].Students[0].Mark; mark == nil || *mark != "kicked" {
+		t.Fatalf("coordinator reports=%+v", reports)
+	}
+
+	// An earlier week also reads as kicked: they will not post it now.
+	before := read("mentor", mondayTestDate(-13), mondayTestDate(-7))
+	if len(before) != 1 || before[0].Students[0].KickedAt == nil {
+		t.Fatalf("week before reports=%+v", before)
+	}
+}
+
+func TestMondayKickedStudentKeepsPostedWeek(t *testing.T) {
+	fixture := newMondayUpdateFixture(t)
+	// The mentee posts the week, then is kicked after it.
+	createMondayUpdateRange(t, fixture, "cohort", mondayTestDate(-6), mondayTestDate(0), "<p>Done</p>")
+	if _, err := fixture.db.RemoveEnrollment(context.Background(), dal.RemoveEnrollmentInput{
+		EnrollmentID: mondayCohortMemberID, Reason: "Stopped attending.", ActorID: mondayCoordinatorID, ChangedAt: time.Now(),
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	// Their mentor and the coordinator still see the posted update's figures.
+	for _, actor := range []string{"mentor", "coordinator"} {
+		response := testRequest(t, fixture.handler, http.MethodGet,
+			"/api/v2/seasons/"+seasonID+"/monday-mentor-reports?startDate="+mondayTestDate(-6)+"&endDate="+mondayTestDate(0), actor, "")
+		var page struct{ Items []program.MondayMentorReport }
+		if err := json.Unmarshal(response.Body.Bytes(), &page); err != nil || response.Code != http.StatusOK {
+			t.Fatalf("%s status=%d err=%v", actor, response.Code, err)
+		}
+		if len(page.Items) != 1 || len(page.Items[0].Students) != 1 {
+			t.Fatalf("%s reports=%+v", actor, page.Items)
+		}
+		student := page.Items[0].Students[0]
+		if student.UpdateID == nil || student.Hours == nil || *student.Hours != 12.5 || student.KickedAt == nil {
+			t.Fatalf("%s kicked student=%+v", actor, student)
+		}
+	}
+	if updates := listMondayUpdates(t, fixture, "mentor", ""); len(updates.Items) != 1 {
+		t.Fatalf("mentor updates=%+v", updates.Items)
+	}
+}
+
+func TestMondayMarkCarriesOverAndClears(t *testing.T) {
+	fixture := newMondayUpdateFixture(t)
+	week := `"startDate":"` + mondayTestDate(-6) + `","endDate":"` + mondayTestDate(0) + `"`
+	markPath := "/api/v2/seasons/" + seasonID + "/monday-week-marks"
+	reportQuery := "/api/v2/seasons/" + seasonID + "/monday-mentor-reports?startDate=" + mondayTestDate(-6) + "&endDate=" + mondayTestDate(0)
+	markOf := func() *string {
+		t.Helper()
+		response := testRequest(t, fixture.handler, http.MethodGet, reportQuery, "mentor", "")
+		var page struct{ Items []program.MondayMentorReport }
+		if err := json.Unmarshal(response.Body.Bytes(), &page); err != nil || len(page.Items) != 1 {
+			t.Fatalf("reports status=%d body=%s", response.Code, response.Body)
+		}
+		return page.Items[0].Students[0].Mark
+	}
+	// The mentor marks the week before the student posts; posting keeps it.
+	if response := testRequest(t, fixture.handler, http.MethodPut, markPath, "mentor", `{`+week+`,"studentId":"`+mondayCohortID+`","mark":"at_risk","commentHtml":"<p>Late again.</p>"}`); response.Code != http.StatusOK {
+		t.Fatalf("week mark status=%d body=%s", response.Code, response.Body)
+	}
+	created := createMondayUpdateRange(t, fixture, "cohort", mondayTestDate(-6), mondayTestDate(0), "<p>Done</p>")
+	if mark := markOf(); mark == nil || *mark != "at_risk" {
+		t.Fatalf("mark after posting=%v", mark)
+	}
+	// Editing the update keeps the mark too.
+	if response := testRequest(t, fixture.handler, http.MethodPatch, mondayUpdatesPath()+"/"+created.ID, "cohort", `{"contentHtml":"<p>More</p>","hours":20}`); response.Code != http.StatusOK {
+		t.Fatalf("edit status=%d body=%s", response.Code, response.Body)
+	}
+	if mark := markOf(); mark == nil || *mark != "at_risk" {
+		t.Fatalf("mark after editing=%v", mark)
+	}
+	// "Not marked" clears it.
+	if response := testRequest(t, fixture.handler, http.MethodPut, mondayUpdatesPath()+"/"+created.ID+"/mark", "mentor", `{"mark":""}`); response.Code != http.StatusNoContent {
+		t.Fatalf("clear status=%d body=%s", response.Code, response.Body)
+	}
+	if mark := markOf(); mark != nil {
+		t.Fatalf("mark after clearing=%v", *mark)
 	}
 }

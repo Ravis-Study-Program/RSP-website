@@ -144,7 +144,7 @@ func (a *API) writeStoreErrorResponse(w http.ResponseWriter, err error) {
 	switch {
 	case errors.Is(err, dal.ErrMondayUpdateWeek):
 		writeErrorResponse(w, http.StatusBadRequest, err.Error())
-	case errors.Is(err, dal.ErrMondayUpdateSubmitted):
+	case errors.Is(err, dal.ErrMondayUpdateSubmitted), errors.Is(err, dal.ErrMondayUpdateUnlockOpen):
 		writeErrorResponse(w, http.StatusConflict, err.Error())
 	case errors.Is(err, dal.ErrNotFound):
 		writeErrorResponse(w, http.StatusNotFound, "The requested resource does not exist.")

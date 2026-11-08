@@ -15,6 +15,7 @@ import { cn } from '@/lib/utils';
 import { studentLevelLabel, studentLevelTone } from '@/studentLevels';
 import type { Person, Role } from '@/types';
 import { formatDate } from '@/utils';
+import { sortRoles } from '@/sortOrder';
 
 let currentPageTitle = '';
 const pageTitleListeners = new Set<() => void>();
@@ -253,7 +254,9 @@ export function PersonIdentity({
           </span>
         ) : showRoles ? (
           <span className="truncate text-sm text-muted-foreground">
-            {person.roles.map((role) => role.replace('_', ' ')).join(' · ')}
+            {sortRoles(person.roles)
+              .map((role) => role.replace('_', ' '))
+              .join(' · ')}
           </span>
         ) : null}
       </span>
@@ -305,5 +308,15 @@ export function MetricCard({
         ) : null}
       </CardContent>
     </Card>
+  );
+}
+
+/**
+ * Bracketed detail after a label or title, such as "(optional)" or
+ * "(minutes)": the brackets and their text in normal-weight muted grey.
+ */
+export function LabelHint({ children }: { children: ReactNode }) {
+  return (
+    <span className="font-normal text-muted-foreground">({children})</span>
   );
 }

@@ -26,4 +26,10 @@ export interface PracticeSettings {
    * @maximum 180
    */
   hardMinutes: number;
+  /**
+   * Hours a week the program expects of each student.
+   * @minimum 1
+   * @maximum 168
+   */
+  weeklyHours: number;
 }

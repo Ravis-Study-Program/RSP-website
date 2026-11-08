@@ -102,6 +102,7 @@ func (a *API) updatePracticeSettings(w http.ResponseWriter, r *http.Request) {
 		EasyMinutes   int `json:"easyMinutes"`
 		MediumMinutes int `json:"mediumMinutes"`
 		HardMinutes   int `json:"hardMinutes"`
+		WeeklyHours   int `json:"weeklyHours"`
 	}
 	if err := decodeJSON(r.Body, &request); err != nil {
 		writeErrorResponse(w, http.StatusBadRequest, err.Error())
@@ -112,9 +113,14 @@ func (a *API) updatePracticeSettings(w http.ResponseWriter, r *http.Request) {
 		EasyMinutes:   request.EasyMinutes,
 		MediumMinutes: request.MediumMinutes,
 		HardMinutes:   request.HardMinutes,
+		WeeklyHours:   request.WeeklyHours,
 	}
 	if !settings.Valid() {
 		writeErrorResponse(w, http.StatusBadRequest, fmt.Sprintf("Each goal must be a whole number of minutes from 1 to %d.", practice.MaxGoalMinutes))
+		return
+	}
+	if !settings.ValidWeeklyHours() {
+		writeErrorResponse(w, http.StatusBadRequest, fmt.Sprintf("Weekly hours must be a whole number from 1 to %d.", practice.MaxWeeklyHours))
 		return
 	}
 	saved, err := a.db.SetPracticeSettings(r.Context(), actor.UserID, settings, time.Now().UTC())

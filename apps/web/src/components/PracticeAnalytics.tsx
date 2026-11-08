@@ -1,4 +1,5 @@
 import { Card } from '@/components/ui/card';
+import { LabelHint } from '@/components/Common';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import {
@@ -13,7 +14,6 @@ import { useState } from 'react';
 import {
   CartesianGrid,
   Cell,
-  Legend,
   Pie,
   PieChart,
   ReferenceLine,
@@ -28,7 +28,6 @@ import {
   difficultyBreakdown,
   difficultySuccessRates,
 } from '@/activityAnalytics';
-import { legendLabel } from '@/lib/chartLegend';
 import type { Attempt, Difficulty } from '@/types';
 import { usePracticeGoals } from '@/api/queries';
 import { formatDate, formatDateTime } from '@/utils';
@@ -47,6 +46,7 @@ type TimedPoint = {
   name: string;
   difficulty: Difficulty;
   minutes: number;
+  solved: boolean;
   at: number;
   /** Position in date order, so same-day attempts sit side by side. */
   index: number;
@@ -78,9 +78,16 @@ function TimedTooltip({
   );
 }
 
-function DifficultyKey() {
+/** The difficulty colours, Easy to Hard: in a row, or stacked beside a chart. */
+function DifficultyKey({ vertical = false }: { vertical?: boolean }) {
   return (
-    <ul className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted-foreground">
+    <ul
+      className={
+        vertical
+          ? 'grid content-center gap-2 text-sm text-muted-foreground'
+          : 'flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted-foreground'
+      }
+    >
       {difficultyOrder.map((difficulty) => (
         <li key={difficulty} className="flex items-center gap-1.5">
           <span
@@ -96,15 +103,23 @@ function DifficultyKey() {
 }
 export function PracticeAnalytics({ attempts }: { attempts: Attempt[] }) {
   const [goals, setGoals] = useState(true);
-  const breakdown = difficultyBreakdown(attempts);
+  // Slices run Easy, Medium, Hard, the same order as the key beside them.
+  const breakdown = [...difficultyBreakdown(attempts)].sort(
+    (a, b) =>
+      difficultyOrder.indexOf(a.name as Difficulty) -
+      difficultyOrder.indexOf(b.name as Difficulty),
+  );
   const practiceGoals = usePracticeGoals();
   const successRates = difficultySuccessRates(attempts, practiceGoals);
+  // Each difficulty's share of the attempts, as the chart shows it.
+  const totalAttempts = successRates.reduce((sum, item) => sum + item.count, 0);
   const points: TimedPoint[] = attempts
     .filter((a) => a.minutes !== null && a.difficulty)
     .map((a) => ({
       name: a.problem,
       difficulty: a.difficulty!,
       minutes: a.minutes!,
+      solved: a.outcome === 'solved',
       at: Date.parse(a.attemptedAt),
     }))
     .sort((a, b) => a.at - b.at)
@@ -150,37 +165,36 @@ export function PracticeAnalytics({ attempts }: { attempts: Attempt[] }) {
             <h3 className="text-base font-semibold">Difficulty Breakdown</h3>
             {breakdown.length ? (
               <>
-                <div
-                  className="mt-3 h-72 w-full min-w-0 max-[56rem]:h-56"
-                  aria-hidden="true"
-                >
-                  <ResponsiveContainer width="100%" height="100%">
-                    <PieChart accessibilityLayer={false}>
-                      <Pie
-                        isAnimationActive={false}
-                        data={breakdown}
-                        dataKey="value"
-                        nameKey="name"
-                        innerRadius="45%"
-                        outerRadius="75%"
-                        stroke="var(--surface)"
-                        strokeWidth={2}
-                      >
-                        {breakdown.map((item) => (
-                          <Cell
-                            key={item.name}
-                            fill={breakdownColor(item.name)}
-                          />
-                        ))}
-                      </Pie>
-                      <Tooltip />
-                      <Legend formatter={legendLabel} />
-                    </PieChart>
-                  </ResponsiveContainer>
+                <div className="mt-3 flex h-72 w-full min-w-0 items-stretch gap-6 max-[56rem]:h-56">
+                  <div className="min-w-0 flex-1" aria-hidden="true">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart accessibilityLayer={false}>
+                        <Pie
+                          isAnimationActive={false}
+                          data={breakdown}
+                          dataKey="value"
+                          nameKey="name"
+                          innerRadius="45%"
+                          outerRadius="75%"
+                          stroke="var(--surface)"
+                          strokeWidth={2}
+                        >
+                          {breakdown.map((item) => (
+                            <Cell
+                              key={item.name}
+                              fill={breakdownColor(item.name)}
+                            />
+                          ))}
+                        </Pie>
+                        <Tooltip />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  </div>
+                  <DifficultyKey vertical />
                 </div>
                 <Table className="table-fixed tabular-nums">
                   <caption className="sr-only">
-                    Success: solved independently within the practice goal.
+                    Success: solved within the practice goal.
                   </caption>
                   <colgroup>
                     <col className="w-28" />
@@ -205,6 +219,16 @@ export function PracticeAnalytics({ attempts }: { attempts: Attempt[] }) {
                       <TableHead scope="row">Count</TableHead>
                       {successRates.map(({ difficulty, count }) => (
                         <TableCell key={difficulty}>{count}</TableCell>
+                      ))}
+                    </TableRow>
+                    <TableRow className="hover:bg-transparent">
+                      <TableHead scope="row">Proportion</TableHead>
+                      {successRates.map(({ difficulty, count }) => (
+                        <TableCell key={difficulty}>
+                          {totalAttempts
+                            ? `${Math.round((count / totalAttempts) * 100)}%`
+                            : '—'}
+                        </TableCell>
                       ))}
                     </TableRow>
                     <TableRow className="hover:bg-transparent">
@@ -235,13 +259,25 @@ export function PracticeAnalytics({ attempts }: { attempts: Attempt[] }) {
                 checked={goals}
                 onCheckedChange={(checked) => setGoals(checked)}
               />
-              Show practice goals ({practiceGoals.Easy} / {practiceGoals.Medium}{' '}
-              / {practiceGoals.Hard} minutes)
+              Show practice goals{' '}
+              <LabelHint>
+                {practiceGoals.Easy} / {practiceGoals.Medium} /{' '}
+                {practiceGoals.Hard} minutes
+              </LabelHint>
             </Label>
             {points.length ? (
               <>
                 <div className="mt-3 grid flex-1 grid-rows-[auto_1fr] gap-2">
-                  <DifficultyKey />
+                  <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+                    <DifficultyKey />
+                    <span className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                      <span
+                        aria-hidden="true"
+                        className="size-2.5 rounded-full border-2 border-muted-foreground"
+                      />
+                      Not solved
+                    </span>
+                  </div>
                   <div
                     className="h-full min-h-72 w-full min-w-0 max-[56rem]:min-h-56"
                     aria-hidden="true"
@@ -279,15 +315,27 @@ export function PracticeAnalytics({ attempts }: { attempts: Attempt[] }) {
                               />
                             ))
                           : null}
-                        {byDifficulty.map(({ difficulty, data }) => (
+                        {/* Solved attempts are filled; unsolved ones hollow, so
+                            only filled dots under a goal line count as
+                            successes. */}
+                        {byDifficulty.flatMap(({ difficulty, data }) => [
                           <Scatter
-                            key={difficulty}
+                            key={`${difficulty}-solved`}
                             name={difficulty}
                             isAnimationActive={false}
-                            data={data}
+                            data={data.filter((point) => point.solved)}
                             fill={difficultyColor[difficulty]}
-                          />
-                        ))}
+                          />,
+                          <Scatter
+                            key={`${difficulty}-unsolved`}
+                            name={`${difficulty} (not solved)`}
+                            isAnimationActive={false}
+                            data={data.filter((point) => !point.solved)}
+                            fill="var(--surface)"
+                            stroke={difficultyColor[difficulty]}
+                            strokeWidth={2}
+                          />,
+                        ])}
                       </ScatterChart>
                     </ResponsiveContainer>
                   </div>

@@ -10,6 +10,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
+	"github.com/magedmg/RSP-website/backend/internal/platform/id"
 	"github.com/magedmg/RSP-website/backend/internal/program"
 	"github.com/magedmg/RSP-website/backend/internal/worker"
 )
@@ -22,9 +23,9 @@ type seedCohortStudent struct {
 	slug, name, level string
 	mentor            string // "dev" (the seeded mentor), "second" or "" for none
 	persona           seedPersona
-	// lengths are the day spans of consecutive updates, newest first; 0 skips
-	// one week without an update.
-	lengths []int
+	// posted marks, newest first, each ended program week the student posted
+	// an update for ('x') or skipped ('-'). Weeks past its end have none.
+	posted string
 }
 
 type seedPersona struct {
@@ -87,50 +88,51 @@ var seedMarkComments = map[program.MondayUpdateMark][]string{
 var seedCohort = []seedCohortStudent{
 	{"amelia-chen", "Amelia Chen", "intermediate", "dev", seedPersona{
 		trend: []program.MondayUpdateMark{program.MarkDoingGood, program.MarkWayAhead, program.MarkDoingGood},
-		hours: []float64{32, 28.5, 35, 30}, topics: []string{"hashing", "trees", "graphs", "dp"}}, []int{7, 7, 7, 7, 7, 7, 7, 7}},
+		hours: []float64{32, 28.5, 35, 30}, topics: []string{"hashing", "trees", "graphs", "dp"}}, "xxxxxxxx"},
 	{"marcus-oyelaran", "Marcus Oyelaran", "beginner", "dev", seedPersona{
 		trend: []program.MondayUpdateMark{program.MarkABitBehind, program.MarkOnTrack, program.MarkAtRisk},
-		hours: []float64{12, 8.5, 15, 4}, topics: []string{"arrays", "hashing", "behaviour"}, style: 2}, []int{3, 0, 4, 7, 0, 14, 7}},
+		hours: []float64{12, 8.5, 15, 4}, topics: []string{"arrays", "hashing", "behaviour"}, style: 2}, "x-xx-xx"},
 	{"zara-ahmed", "Zara Ahmed", "advanced", "dev", seedPersona{
 		trend: []program.MondayUpdateMark{program.MarkWayAhead},
-		hours: []float64{42, 38, 45.5, 40}, topics: []string{"graphs", "dp", "system", "heaps"}, style: 1}, []int{7, 3, 4, 7, 7, 7, 7, 7, 7}},
+		hours: []float64{42, 38, 45.5, 40}, topics: []string{"graphs", "dp", "system", "heaps"}, style: 1}, "xxxxxxxxx"},
 	{"liam-nguyen", "Liam Nguyen", "novice", "dev", seedPersona{
 		trend: []program.MondayUpdateMark{program.MarkOnTrack, program.MarkABitBehind},
-		hours: []float64{18, 20, 16.5}, topics: []string{"arrays", "hashing", "intervals"}}, []int{14, 14, 7, 10}},
+		hours: []float64{18, 20, 16.5}, topics: []string{"arrays", "hashing", "intervals"}}, "xxxx"},
 	{"sofia-rossi", "Sofia Rossi", "intermediate", "dev", seedPersona{
 		trend: []program.MondayUpdateMark{program.MarkOnTrack, program.MarkDoingGood},
-		hours: []float64{25, 22, 30, 27.5}, topics: []string{"intervals", "heaps", "backtrack", "behaviour"}, style: 1}, []int{1, 6, 7, 0, 7, 5, 2, 7}},
+		hours: []float64{25, 22, 30, 27.5}, topics: []string{"intervals", "heaps", "backtrack", "behaviour"}, style: 1}, "xxx-xxxx"},
 	{"noah-williams", "Noah Williams", "beginner", "second", seedPersona{
 		trend: []program.MondayUpdateMark{program.MarkAtRisk, program.MarkABitBehind},
-		hours: []float64{3, 6.5, 0, 10}, topics: []string{"arrays", "behaviour"}, style: 2}, []int{0, 7, 0, 0, 21}},
+		hours: []float64{3, 6.5, 0, 10}, topics: []string{"arrays", "behaviour"}, style: 2}, "-x--x"},
 	{"priyanka-das", "Priyanka Das", "advanced", "second", seedPersona{
 		trend: []program.MondayUpdateMark{program.MarkDoingGood, program.MarkWayAhead},
-		hours: []float64{36, 40, 33.5}, topics: []string{"system", "graphs", "dp"}}, []int{7, 7, 7, 7, 7, 7, 7, 7, 7}},
+		hours: []float64{36, 40, 33.5}, topics: []string{"system", "graphs", "dp"}}, "xxxxxxxxx"},
 	{"ethan-park", "Ethan Park", "intermediate", "second", seedPersona{
 		trend: []program.MondayUpdateMark{program.MarkOnTrack},
-		hours: []float64{20, 24, 19.5, 26}, topics: []string{"trees", "backtrack", "heaps"}, style: 1}, []int{4, 3, 7, 7, 2, 5, 7}},
+		hours: []float64{20, 24, 19.5, 26}, topics: []string{"trees", "backtrack", "heaps"}, style: 1}, "xxxxxxx"},
 	{"hannah-kowalski", "Hannah Kowalski", "novice", "second", seedPersona{
 		trend: []program.MondayUpdateMark{program.MarkABitBehind, program.MarkOnTrack},
-		hours: []float64{14, 11, 16}, topics: []string{"arrays", "hashing", "trees"}}, []int{7, 7, 0, 7, 7}},
+		hours: []float64{14, 11, 16}, topics: []string{"arrays", "hashing", "trees"}}, "xx-xx"},
 	{"diego-martinez", "Diego Martínez", "intermediate", "", seedPersona{
 		trend: []program.MondayUpdateMark{program.MarkOnTrack},
-		hours: []float64{22, 18.5, 27}, topics: []string{"intervals", "dp", "behaviour"}, style: 2}, []int{10, 4, 7, 7}},
+		hours: []float64{22, 18.5, 27}, topics: []string{"intervals", "dp", "behaviour"}, style: 2}, "xxxx"},
 	{"aisha-bello", "Aisha Bello", "beginner", "", seedPersona{
 		trend: []program.MondayUpdateMark{program.MarkOnTrack},
-		hours: []float64{15, 17.5, 12}, topics: []string{"arrays", "hashing"}, style: 1}, []int{7, 7, 7}},
+		hours: []float64{15, 17.5, 12}, topics: []string{"arrays", "hashing"}, style: 1}, "xxx"},
 	{"oliver-smith", "Oliver Smith", "advanced", "", seedPersona{
 		trend: []program.MondayUpdateMark{program.MarkDoingGood},
-		hours: []float64{50, 45, 55.5}, topics: []string{"system", "graphs"}}, []int{2, 5, 7, 7, 7, 7, 7, 7, 7, 7}},
+		hours: []float64{50, 45, 55.5}, topics: []string{"system", "graphs"}}, "xxxxxxxxxx"},
 }
 
-// devStudentSeed gives the seeded (log-in-able) student their own history.
+// devStudentSeed gives the seeded (log-in-able) student their own history,
+// with the latest week still to write.
 var devStudentSeed = seedCohortStudent{persona: seedPersona{
 	trend: []program.MondayUpdateMark{program.MarkOnTrack, program.MarkDoingGood, program.MarkABitBehind},
-	hours: []float64{30, 26, 33.5, 21}, topics: []string{"arrays", "hashing", "trees", "behaviour"}}, lengths: []int{7, 7, 3, 4, 7, 0, 7}}
+	hours: []float64{30, 26, 33.5, 21}, topics: []string{"arrays", "hashing", "trees", "behaviour"}}, posted: "-xx-xx"}
 
 // seedMondayUpdates adds a development cohort to dev-season (extra students,
-// a second mentor, mentorships and many Monday updates over varied date ranges
-// with mentor marks) plus LeetCode attempts and mock interviews inside those
+// a second mentor, mentorships and Monday updates for the season's ended
+// program weeks with mentor marks) plus LeetCode attempts and mock interviews inside those
 // ranges, so mentor and reviewer screens have realistic volume. Seed runs it;
 // each part is created once and a later run leaves an existing part untouched.
 func (s *Store) seedMondayUpdates(ctx context.Context, now time.Time) error {
@@ -165,6 +167,18 @@ func (s *Store) seedMondayUpdates(ctx context.Context, now time.Time) error {
 		if err := seedMondayActivity(ctx, tx, seasonID, now); err != nil {
 			return err
 		}
+	}
+	if err := seedKickedStudent(ctx, tx, seasonID, now); err != nil {
+		return err
+	}
+	// Seeded members are enrolled today but have activity from earlier in the
+	// season; start their participation with the season so that activity
+	// counts towards it.
+	if _, err := tx.Exec(ctx, `UPDATE app.enrollment_participation p SET started_at=s.start_at
+		FROM app.enrollments e JOIN app.seasons s ON s.id=e.season_id
+		WHERE p.enrollment_id=e.id AND s.id=$1 AND p.started_at > s.start_at
+		  AND (p.ended_at IS NULL OR p.ended_at >= s.start_at)`, seasonID); err != nil {
+		return fmt.Errorf("seed participation start: %w", err)
 	}
 	return tx.Commit(ctx)
 }
@@ -203,27 +217,42 @@ func seedMondayCohort(ctx context.Context, tx pgx.Tx, seasonID string, now time.
 	}
 
 	rng := rand.New(rand.NewPCG(2026, 10))
-	weekEnd, err := time.Parse(time.DateOnly, program.CurrentMondayUpdateWeekEnd(now))
+	// Updates are posted against the season's program weeks that have ended,
+	// newest first, as their Monday-to-Sunday dates.
+	type seedWeek struct{ start, end time.Time }
+	var weeks []seedWeek
+	rows, err := tx.Query(ctx, `SELECT (start_at AT TIME ZONE 'Australia/Adelaide')::date,(end_at AT TIME ZONE 'Australia/Adelaide')::date
+		FROM app.season_weeks WHERE season_id=$1 AND deleted_at IS NULL AND end_at < $2
+		ORDER BY start_at DESC`, seasonID, now)
 	if err != nil {
 		return err
 	}
+	for rows.Next() {
+		var w seedWeek
+		if err := rows.Scan(&w.start, &w.end); err != nil {
+			rows.Close()
+			return err
+		}
+		weeks = append(weeks, w)
+	}
+	rows.Close()
+	if err := rows.Err(); err != nil {
+		return err
+	}
 	insert := func(studentID, mentorID string, st seedCohortStudent) error {
-		end := weekEnd
-		for i, length := range st.lengths {
-			if length == 0 {
-				end = end.AddDate(0, 0, -7)
+		for i, week := range weeks {
+			if i >= len(st.posted) || st.posted[i] != 'x' {
 				continue
 			}
-			start := end.AddDate(0, 0, -(length - 1))
 			hours := st.persona.hours[i%len(st.persona.hours)]
-			created := end.Add(33 * time.Hour) // Monday morning after the range, Adelaide-ish
+			created := week.end.Add(33 * time.Hour) // Monday morning after the week, Adelaide-ish
 			if created.After(now) {
 				created = now.Add(-time.Duration(rng.IntN(48)+1) * time.Hour)
 			}
 			var updateID string
 			if err := tx.QueryRow(ctx, `INSERT INTO app.monday_updates(season_id,student_user_id,start_date,end_date,content_html,hours,created_at)
-				VALUES($1,$2,$3::date,$4::date,$5,$6,$7) RETURNING id`, seasonID, studentID, start.Format(time.DateOnly), end.Format(time.DateOnly),
-				seedUpdateHTML(rng, st.persona, i, length, hours), hours, created).Scan(&updateID); err != nil {
+				VALUES($1,$2,$3::date,$4::date,$5,$6,$7) RETURNING id`, seasonID, studentID, week.start.Format(time.DateOnly), week.end.Format(time.DateOnly),
+				seedUpdateHTML(rng, st.persona, i, 7, hours), hours, created).Scan(&updateID); err != nil {
 				return fmt.Errorf("seed monday update: %w", err)
 			}
 			// Mentors mark most finished updates; the newest is often still waiting.
@@ -239,7 +268,6 @@ func seedMondayCohort(ctx context.Context, tx pgx.Tx, seasonID string, now time.
 					return fmt.Errorf("seed monday update mark: %w", err)
 				}
 			}
-			end = start.AddDate(0, 0, -1)
 		}
 		return nil
 	}
@@ -310,4 +338,67 @@ func seedUpdateHTML(rng *rand.Rand, p seedPersona, index, days int, hours float6
 		fmt.Fprintf(&b, "<p><strong>Plan for next week:</strong> %s</p>", next)
 	}
 	return b.String()
+}
+
+// seedKickedStudent adds a student, mentored by the seeded mentor, who posted
+// every week before Week 6 and was kicked partway through it, so the kicked
+// mark can be tried out. It runs once, even on an existing fixture.
+func seedKickedStudent(ctx context.Context, tx pgx.Tx, seasonID string, now time.Time) error {
+	slug := seedCohortSlugPrefix + "tomas-reyes"
+	var exists bool
+	if err := tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM app.user_profiles WHERE slug=$1)`, slug).Scan(&exists); err != nil || exists {
+		return err
+	}
+	var mentorID, mentorEnrollmentID string
+	if err := tx.QueryRow(ctx, `SELECT e.user_id,e.id FROM app.enrollments e JOIN app.user_profiles p ON p.user_id=e.user_id
+		WHERE p.slug='dev-mentor' AND e.season_id=$1 AND e.role='mentor' AND e.state='active'`, seasonID).Scan(&mentorID, &mentorEnrollmentID); err != nil {
+		return fmt.Errorf("seed kicked student: dev-mentor is missing: %w", noRows(err))
+	}
+	// Week 6, or the latest ended week when Week 6 has not ended yet.
+	var kickStart time.Time
+	var kickNumber int
+	if err := tx.QueryRow(ctx, `SELECT start_at,week_number FROM app.season_weeks
+		WHERE season_id=$1 AND deleted_at IS NULL AND end_at < $2
+		ORDER BY (week_number=6) DESC,week_number DESC LIMIT 1`, seasonID, now).Scan(&kickStart, &kickNumber); err != nil {
+		return fmt.Errorf("seed kicked student: no ended program week: %w", noRows(err))
+	}
+
+	studentID, err := resolveSeedUser(ctx, tx, seedUser{FallbackEmail: slug + "@rsp.local", Slug: slug, DisplayName: "Tomás Reyes"})
+	if err != nil {
+		return err
+	}
+	var enrollmentID string
+	if err := tx.QueryRow(ctx, `INSERT INTO app.enrollments(user_id,season_id,role,student_level,state) VALUES($1,$2,'student','beginner','active') RETURNING id`,
+		studentID, seasonID).Scan(&enrollmentID); err != nil {
+		return fmt.Errorf("seed kicked student enrollment: %w", err)
+	}
+	if _, err := tx.Exec(ctx, `INSERT INTO app.mentorships(season_id,mentor_enrollment_id,student_enrollment_id) VALUES($1,$2,$3)`,
+		seasonID, mentorEnrollmentID, enrollmentID); err != nil {
+		return fmt.Errorf("seed kicked student mentorship: %w", err)
+	}
+	// One update for each week before the week they were kicked.
+	if _, err := tx.Exec(ctx, `INSERT INTO app.monday_updates(season_id,student_user_id,start_date,end_date,content_html,hours,created_at)
+		SELECT $1,$2,(start_at AT TIME ZONE 'Australia/Adelaide')::date,(end_at AT TIME ZONE 'Australia/Adelaide')::date,
+			'<p>Kept going with arrays and hashing; struggled to find time this week.</p>',12,end_at + interval '33 hours'
+		FROM app.season_weeks WHERE season_id=$1 AND deleted_at IS NULL AND week_number < $3`, seasonID, studentID, kickNumber); err != nil {
+		return fmt.Errorf("seed kicked student updates: %w", err)
+	}
+	// Kicked on the Wednesday of that week.
+	kickedAt := kickStart.Add(2*24*time.Hour + 12*time.Hour)
+	if kickedAt.After(now) {
+		kickedAt = now.Add(-time.Hour)
+	}
+	if _, err := tx.Exec(ctx, `UPDATE app.enrollments SET state='kicked',state_changed_at=$2,assignment_state='revoked',activated_at=NULL WHERE id=$1`,
+		enrollmentID, kickedAt); err != nil {
+		return fmt.Errorf("seed kicked student removal: %w", err)
+	}
+	if _, err := tx.Exec(ctx, `UPDATE app.mentorships SET ended_at=$2 WHERE student_enrollment_id=$1 AND ended_at IS NULL`, enrollmentID, kickedAt); err != nil {
+		return fmt.Errorf("seed kicked student mentorship end: %w", err)
+	}
+	if _, err := tx.Exec(ctx, `INSERT INTO app.enrollment_removal_events(id,enrollment_id,season_id,subject_user_id,actor_user_id,resulting_state,reason,occurred_at)
+		VALUES($1,$2,$3,$4,$5,'kicked','Stopped attending sessions and mock interviews.',$6)`,
+		id.New(), enrollmentID, seasonID, studentID, mentorID, kickedAt); err != nil {
+		return fmt.Errorf("seed kicked student removal event: %w", err)
+	}
+	return nil
 }

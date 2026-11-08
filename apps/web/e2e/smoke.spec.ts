@@ -208,7 +208,7 @@ test('role-aware navigation covers every major program role', async ({
     ['student', 'Season'],
     ['mentor', 'My Students'],
     ['coordinator', 'Mentor Teams'],
-    ['graduate', 'Directory'],
+    ['graduate', 'People'],
     ['director', 'Administration'],
     ['system_admin', 'Administration'],
   ] as const;
@@ -249,9 +249,7 @@ test('completed staff can review their season and keep personal practice without
   await expect(
     navigation.getByRole('link', { name: 'Mock Interviews' }),
   ).toBeVisible();
-  await expect(navigation.getByRole('link', { name: 'Directory' })).toHaveCount(
-    0,
-  );
+  await expect(navigation.getByRole('link', { name: 'People' })).toHaveCount(0);
   await page.goto('/graduates');
   await expect(page).toHaveURL(/\/forbidden$/);
   await page.goto('/admin/enrollments');

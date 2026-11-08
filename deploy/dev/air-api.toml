@@ -2,6 +2,9 @@ root = "."
 tmp_dir = "/tmp/rsp-air-api"
 
 [build]
+# Apply new migrations before each rebuild, so new code never runs against
+# an older schema ("column does not exist").
+pre_cmd = ["GOOSE_DRIVER=postgres goose -dir db/migrations up"]
 cmd = "go build -o /tmp/rsp-air-api/api ./backend/cmd/api"
 bin = "/tmp/rsp-air-api/api"
 delay = 400

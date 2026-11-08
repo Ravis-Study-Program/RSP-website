@@ -120,9 +120,41 @@ func TestPracticeGoalsApplyToEveryone(t *testing.T) {
 	}
 	// Only coordinators and administrators change the program's goals.
 	for _, actor := range []string{"student", "other"} {
-		response = testRequest(t, fixture.handler, http.MethodPut, "/api/v2/practice-settings", actor, `{"easyMinutes":15,"mediumMinutes":30,"hardMinutes":45}`)
+		response = testRequest(t, fixture.handler, http.MethodPut, "/api/v2/practice-settings", actor, `{"easyMinutes":15,"mediumMinutes":30,"hardMinutes":45,"weeklyHours":30}`)
 		if response.Code != http.StatusForbidden {
 			t.Fatalf("%s goals status=%d body=%s", actor, response.Code, response.Body)
 		}
+	}
+}
+
+func TestMentorSetsStudentRequirements(t *testing.T) {
+	fixture := newPostgresFixture(t)
+	path := "/api/v2/seasons/" + seasonID + "/members/" + studentMemberID + "/requirements"
+	// The student cannot set their own; out-of-range values are refused.
+	if response := testRequest(t, fixture.handler, http.MethodPut, path, "student", `{"easyMinutes":15}`); response.Code != http.StatusForbidden {
+		t.Fatalf("student status=%d body=%s", response.Code, response.Body)
+	}
+	if response := testRequest(t, fixture.handler, http.MethodPut, path, "other", `{"weeklyHours":200}`); response.Code != http.StatusBadRequest {
+		t.Fatalf("invalid status=%d body=%s", response.Code, response.Body)
+	}
+	// A season mentor sets an easy goal and weekly hours; the rest follow the
+	// program's defaults.
+	response := testRequest(t, fixture.handler, http.MethodPut, path, "other", `{"easyMinutes":15,"weeklyHours":20}`)
+	if response.Code != http.StatusOK {
+		t.Fatalf("put status=%d body=%s", response.Code, response.Body)
+	}
+	response = testRequest(t, fixture.handler, http.MethodGet, path, "other", "")
+	var own practice.StudentRequirements
+	if err := json.Unmarshal(response.Body.Bytes(), &own); err != nil || own.EasyMinutes == nil || *own.EasyMinutes != 15 || own.MediumMinutes != nil || own.WeeklyHours == nil || *own.WeeklyHours != 20 {
+		t.Fatalf("requirements=%+v err=%v body=%s", own, err, response.Body)
+	}
+	// The student's settings now carry them.
+	response = testRequest(t, fixture.handler, http.MethodGet, "/api/v2/me/practice-settings", "student", "")
+	var settings practice.PracticeSettings
+	if err := json.Unmarshal(response.Body.Bytes(), &settings); err != nil {
+		t.Fatal(err)
+	}
+	if settings.EasyMinutes != 15 || settings.MediumMinutes != 25 || settings.WeeklyHours != 20 {
+		t.Fatalf("student settings=%+v", settings)
 	}
 }

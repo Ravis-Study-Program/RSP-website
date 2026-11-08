@@ -30,7 +30,16 @@ A workspace built around one program's own mechanics: seasons, program weeks in 
 ## Operating Context
 
 - Season lifecycle: definition, invitations (7-day, single-use, email-verified), enrollment, weekly activity, close, optional reopen with a reason.
-- Weekly ritual: each student writes a Monday update (a date-range record that can be deleted but not edited), and their mentor marks it.
+- Weekly ritual: each student writes a Monday update for each program week once it ends, their mentor marks it and the coordinator reviews each mentor's marks. Updates exist only for the season's program weeks (a numbered "Week N", Monday to Sunday in Adelaide); dates outside the weeks are not a week of the program.
+  - An update is due by the end of the Monday after its week. Statuses: "Not submitted" (before the due date), "Overdue" (past it with no update), "Submitted", and "Submitted (Late)" (posted or last edited after the due date; green like Submitted).
+  - Writing is optional; hours are required. Students see one row per ended week and write, edit or delete from its menu while it is open.
+  - Past its due date a week locks: the student cannot post, edit or delete it. They send their mentor a "Request unlock" with a reason; the mentor (or a coordinator) approves or declines it, or unlocks the week directly from their table. An unlocked week can be changed, and the change counts as late.
+  - The program sets the hours a week it expects of each student (Settings, Weekly Requirements; 30 by default), shown on the update form.
+- Mentor review: the mentor's table lists every mentee's update for the chosen week, plus a row for each mentee who has not posted. "Edit notes" sets the mentor's mark (required) and comment, on a posted update or on a week with no update. Marks and notes can be changed at any time; the coordinator always sees the current ones.
+- Kicked students: a student kicked during a week still appears in their mentor's table for that week (and earlier ones), with the status "Kicked" when they posted nothing. The mentor marks the week "Kicked" (never set automatically) and explains why in their notes. Later weeks no longer list them.
+- Coordinator review: one row per mentor for the week (how many students are marked, how many posted, how many late or overdue, the spread of marks). Expanding shows each student's status, mark, hours, LeetCodes, mocks and the mentor's notes, never the student's own writing.
+- My Students shows each mentee's Monday Update status for the week that is due (hidden once the season is over) and their latest mark.
+- Student details: from a student list's row menu, "Edit details" lets their mentor or a coordinator set the student's level, their own practice time goals (Easy, Medium, Hard) and their weekly hours. A blank goal or hours follows the program default from Settings; the student's charts, success rates and update form use their own values.
 - Practice attempts are LeetCode-style problems with difficulty and topic, measured against the program's practice goals (default Easy 10 min, Medium 25 min, Hard 40 min).
 - Mock interviews can be recorded for any day up to today (Adelaide date). Dates are immutable once recorded and edits are versioned.
 - History is filtered by season or all time and by program week. Activity charts come with textual summaries.

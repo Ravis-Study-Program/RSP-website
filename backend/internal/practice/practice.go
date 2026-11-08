@@ -66,11 +66,13 @@ type PracticeSettings struct {
 	EasyMinutes   int  `json:"easyMinutes"`
 	MediumMinutes int  `json:"mediumMinutes"`
 	HardMinutes   int  `json:"hardMinutes"`
+	// WeeklyHours is the hours a week the program expects of each student.
+	WeeklyHours int `json:"weeklyHours"`
 }
 
 // DefaultSettings are the program's goals until someone changes them.
 func DefaultSettings() PracticeSettings {
-	return PracticeSettings{GoalsEnabled: true, EasyMinutes: 10, MediumMinutes: 25, HardMinutes: 40}
+	return PracticeSettings{GoalsEnabled: true, EasyMinutes: 10, MediumMinutes: 25, HardMinutes: 40, WeeklyHours: 30}
 }
 
 // MaxGoalMinutes is the longest practice time goal that can be set.
@@ -85,6 +87,16 @@ func (s PracticeSettings) Valid() bool {
 		}
 	}
 	return true
+}
+
+// MaxWeeklyHours is the most hours a week that can be required: every hour
+// of the week.
+const MaxWeeklyHours = 168
+
+// ValidWeeklyHours reports whether the weekly hours are a whole number from 1
+// to MaxWeeklyHours.
+func (s PracticeSettings) ValidWeeklyHours() bool {
+	return s.WeeklyHours >= 1 && s.WeeklyHours <= MaxWeeklyHours
 }
 
 // ProblemRecord is the persisted and HTTP-facing problem representation.
@@ -116,4 +128,41 @@ type AttemptRecord struct {
 	SeasonID    *string    `json:"seasonId,omitempty"`
 	WeekID      *string    `json:"weekId,omitempty"`
 	DeletedAt   *time.Time `json:"-"`
+}
+
+// StudentRequirements are one student's own goals and weekly hours. A nil
+// value follows the program's default.
+type StudentRequirements struct {
+	EasyMinutes   *int `json:"easyMinutes"`
+	MediumMinutes *int `json:"mediumMinutes"`
+	HardMinutes   *int `json:"hardMinutes"`
+	WeeklyHours   *int `json:"weeklyHours"`
+}
+
+// Valid reports whether every value set is in range.
+func (r StudentRequirements) Valid() bool {
+	for _, minutes := range []*int{r.EasyMinutes, r.MediumMinutes, r.HardMinutes} {
+		if minutes != nil && (*minutes < 1 || *minutes > MaxGoalMinutes) {
+			return false
+		}
+	}
+	return r.WeeklyHours == nil || (*r.WeeklyHours >= 1 && *r.WeeklyHours <= MaxWeeklyHours)
+}
+
+// Apply returns the settings with the student's own values in place of the
+// program's.
+func (r StudentRequirements) Apply(settings PracticeSettings) PracticeSettings {
+	if r.EasyMinutes != nil {
+		settings.EasyMinutes = *r.EasyMinutes
+	}
+	if r.MediumMinutes != nil {
+		settings.MediumMinutes = *r.MediumMinutes
+	}
+	if r.HardMinutes != nil {
+		settings.HardMinutes = *r.HardMinutes
+	}
+	if r.WeeklyHours != nil {
+		settings.WeeklyHours = *r.WeeklyHours
+	}
+	return settings
 }

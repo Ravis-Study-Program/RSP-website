@@ -33,6 +33,12 @@ fake-data:
     DATABASE_URL="postgresql://rsp_app:${APP_DB_PASSWORD:-rsp-local-app-database-password}@127.0.0.1:${POSTGRES_PORT:-5432}/${POSTGRES_DB:-rsp}?sslmode=disable&options=-c%20search_path%3Dapp" \
     node scripts/generate-fake-data.mjs
 
+# Wipe all local data (accounts too) and rebuild the fake accounts and fixture.
+reset-data:
+    docker compose down --volumes
+    docker compose up --build -d --wait
+    just fake-data
+
 # Generate the current TOTP code from a fake account's printed secret.
 fake-totp secret:
     node scripts/generate-totp.mjs "{{secret}}"
