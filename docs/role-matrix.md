@@ -9,7 +9,7 @@ use protected product features.
 
 | Operation                               |   Student   |     Mentor      |   Coordinator   |     Director     |   System Admin   |
 | --------------------------------------- | :---------: | :-------------: | :-------------: | :--------------: | :--------------: |
-| View own open-season workspace          |     Yes     |       Yes       |       Yes       |       Yes        |       Yes        |
+| View own open-season overview           |     Yes     |       Yes       |       Yes       |       Yes        |       Yes        |
 | View approved active/alumni directory   |     Yes     |       Yes       |       Yes       |       Yes        |       Yes        |
 | Manage own global practice and mocks    |     Yes     |       Yes       |       Yes       |       Yes        |       Yes        |
 | View shared practice and mock feedback  |     Yes     |       Yes       |       Yes       |       Yes        |       Yes        |

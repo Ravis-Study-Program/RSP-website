@@ -21,11 +21,11 @@ Secondary, all signed-in members (see `docs/role-matrix.md`):
 
 ## Product Purpose
 
-RSP Workspace ("RSP mentoring, practice and mock interview workspace") is the members-only, second-generation platform for a season-based mentoring program that prepares students for technical interviews. Students build a record of practice, mock interviews, and weekly written updates. Mentors and coordinators use that record to guide and run the season. It replaces a legacy C#/Auth0 system. Success means members record activity reliably and staff can see progress without chasing people.
+Ravi’s Study Program (RSP) is the members-only, second-generation platform for a season-based mentoring program that prepares students for technical interviews. Students build a record of practice, mock interviews, and weekly written updates. Mentors and coordinators use that record to guide and run the season. It replaces a legacy C#/Auth0 system. Success means members record activity reliably and staff can see progress without chasing people.
 
 ## Positioning
 
-A workspace built around one program's own mechanics: seasons, program weeks in the Adelaide timezone, mentor teams, Monday updates, student levels, and program-wide practice time goals. It is not a generic LMS or a LeetCode clone.
+A platform built around one program's own mechanics: seasons, program weeks in the Adelaide timezone, mentor teams, Monday updates, student levels, and program-wide practice time goals. It is not a generic LMS or a LeetCode clone.
 
 ## Operating Context
 
@@ -43,7 +43,8 @@ A workspace built around one program's own mechanics: seasons, program weeks in 
 - Practice attempts are LeetCode-style problems with difficulty and topic, measured against the program's practice goals (default Easy 10 min, Medium 25 min, Hard 40 min).
 - Mock interviews can be recorded for any day up to today (Adelaide date). Dates are immutable once recorded and edits are versioned.
 - History is filtered by season or all time and by program week. Activity charts come with textual summaries.
-- A workspace switcher sets season and role context. There is a command palette (Quick navigation).
+- One shared navigation menu provides Dashboard, LeetCode and Mock Interviews to every member. Staff pages are added from all of the account’s roles, without selecting a workspace or role. Quick navigation uses the same links.
+- Activity tables own their season filters. Seasons opens schedules, resources and permitted student/review pages for each season, including historical ones. Staff navigation shortcuts prefer active enrollments, then completed ones.
 - Desktop and mobile are both real use contexts. Mobile has its own navigation.
 
 ## Capabilities and Constraints
@@ -55,7 +56,7 @@ A workspace built around one program's own mechanics: seasons, program weeks in 
 - English only (`en-AU` formatting). No i18n is planned in the repo.
 - Student levels: Beginner, Novice, Intermediate, Advanced (never "Advance").
 - Write "program", never "programme".
-- Terminology to preserve: season, week, enrollment, mentorship, mentor team, practice attempt, mock interview, Monday update, mark, level, kicked / withdrawn, graduate, invitation, workspace.
+- Terminology to preserve: season, week, enrollment, mentorship, mentor team, practice attempt, mock interview, Monday update, mark, level, kicked / withdrawn, graduate, invitation.
 - LeetCode attempts are Solved or Unsolved. The database keeps four stored outcomes: independently solved and unrecorded read as Solved, solved with hints and not solved as Unsolved. Confidence is no longer recorded or shown. Only an attempt's owner can mark it reviewed.
 - Practice goals (minutes per difficulty, default 10 / 25 / 40) are program-wide, not per member. Directors, system admins and active coordinators set them in Settings; everyone else reads them. Per-mentor goals for their own students are planned (issue #45) but not built.
 - Mock interviews are dated, not timed: they can be recorded for any day up to today, never the future. An interview has at most three rounds, in one of four layouts (behavioural then two LeetCode rounds, one behavioural, one custom, or three custom). A round passes at 5/10, and a LeetCode round scores its lowest part.
@@ -67,7 +68,7 @@ A workspace built around one program's own mechanics: seasons, program weeks in 
 
 ## Brand Commitments
 
-- Name: "Ravi’s Study Program" (curly apostrophe) in full, "RSP" as the short form, and "RSP Workspace" as the document title.
+- Name: "Ravi’s Study Program" (curly apostrophe) in full, "RSP" as the short form, and "Ravi’s Study Program" as the document title.
 - Logo: `public/assets/rsp-logo.png`. Favicons and social image live in `public/favicons/`.
 - Voice: plain and operational ("Settings saved.", "This season is read-only."). There is no formal brand or voice guide.
 
@@ -81,7 +82,7 @@ A workspace built around one program's own mechanics: seasons, program weeks in 
 ## Product Principles
 
 1. Students log first: the most frequent student actions (record practice, log a mock, write the Monday update) stay the shortest paths.
-2. Show the role's own work: navigation and views follow the member's role and season context and do not expose every capability.
+2. Keep navigation shared: add the member’s permitted staff pages without hiding personal activity or requiring a role switch. Season-specific pages enforce that season’s permissions.
 3. Records are trustworthy: immutable timestamps, versioned edits, and explicit read-only states are visible, not hidden.
 4. Program time is explicit: weeks and "today" follow the Adelaide program calendar, and the UI says so where it matters.
 5. Use the program's own terms, not generic LMS vocabulary.

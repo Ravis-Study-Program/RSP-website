@@ -6,8 +6,7 @@ import { PeopleTable } from '@/components/PeopleTable';
 
 /**
  * The People directory: a read-only list that looks the same for every
- * role. In a season it lists that season's people; outside one (the
- * graduate workspace and administrators) it lists everyone, every season.
+ * role. In a season it lists that season's people; outside one it lists everyone, every season.
  * Managing students happens on All Students and My Students.
  */
 export function PeoplePage() {

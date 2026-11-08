@@ -171,7 +171,7 @@ test('the season chosen in one table is remembered in the others', async ({
   await page.getByRole('button', { name: /^Filters/ }).click();
   await expectSelected(page, /^Season$/, 'Summer 2024/25');
 
-  // All time is remembered too, even over a season workspace link.
+  // All time is remembered too, even over a season link.
   await chooseOption(page, /^Season$/, 'All time');
   await page.keyboard.press('Escape');
   await page.goto('/seasons/summer-2025-26/mock-interviews');

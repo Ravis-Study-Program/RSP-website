@@ -45,7 +45,7 @@ const metricGridClass = 'grid grid-cols-2 gap-6';
 const resourceLinkClass =
   'flex min-h-11 items-center justify-between gap-4 py-3 font-medium text-foreground hover:underline';
 
-export function SeasonWorkspacePage() {
+export function SeasonPage() {
   const { slug } = useParams();
   const query = useSeasons();
   const season = query.data?.items.find((item) => item.slug === slug);
@@ -107,6 +107,20 @@ export function SeasonWorkspacePage() {
   const canClose =
     season.status === 'open' && (isGlobalManager || isCoordinator);
   const canReopen = season.status === 'closed' && isGlobalManager;
+  const membership = user.data?.seasonRoles.find(
+    (entry) => entry.seasonId === season.id,
+  );
+  const retainedMembership =
+    membership?.state === 'active' || membership?.state === 'completed';
+  const canViewStudents =
+    isGlobalManager ||
+    (retainedMembership &&
+      (membership?.role === 'mentor' || membership?.role === 'coordinator'));
+  const canViewUpdates =
+    isGlobalManager ||
+    isCoordinator ||
+    (retainedMembership &&
+      (membership?.role === 'student' || membership?.role === 'mentor'));
   const now = Date.now();
   const orderedWeeks = [...(weeks.data?.items ?? [])].sort(
     (left, right) => left.number - right.number,
@@ -262,7 +276,7 @@ export function SeasonWorkspacePage() {
               </CardContent>
             </Card>
           </PageSection>
-          <PageSection titleId="season-actions-title" title="Workspace">
+          <PageSection titleId="season-actions-title" title="Season Links">
             <Card>
               <CardContent>
                 <ul className="m-0 list-none divide-y p-0">
@@ -290,7 +304,7 @@ export function SeasonWorkspacePage() {
                       <IconArrowRight size={17} aria-hidden="true" />
                     </Link>
                   </li>
-                  {isGlobalManager ? (
+                  {canViewUpdates ? (
                     <li>
                       <Link
                         className={resourceLinkClass}
@@ -299,6 +313,36 @@ export function SeasonWorkspacePage() {
                         <span className={inlineClass}>
                           <IconNotebook size={18} aria-hidden="true" /> Monday
                           updates
+                        </span>
+                        <IconArrowRight size={17} aria-hidden="true" />
+                      </Link>
+                    </li>
+                  ) : null}
+                  {canViewStudents ? (
+                    <li>
+                      <Link
+                        className={resourceLinkClass}
+                        to={`/seasons/${season.slug}/mentees`}
+                      >
+                        <span className={inlineClass}>
+                          <IconUsers size={18} aria-hidden="true" />
+                          {isGlobalManager || membership?.role === 'coordinator'
+                            ? 'All Students'
+                            : 'My Students'}
+                        </span>
+                        <IconArrowRight size={17} aria-hidden="true" />
+                      </Link>
+                    </li>
+                  ) : null}
+                  {isGlobalManager || isCoordinator ? (
+                    <li>
+                      <Link
+                        className={resourceLinkClass}
+                        to={`/seasons/${season.slug}/mentor-teams`}
+                      >
+                        <span className={inlineClass}>
+                          <IconUsers size={18} aria-hidden="true" /> Mentor
+                          Teams
                         </span>
                         <IconArrowRight size={17} aria-hidden="true" />
                       </Link>

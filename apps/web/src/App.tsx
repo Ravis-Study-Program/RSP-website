@@ -17,7 +17,6 @@ import {
 
 import { getBrowserAuthSession } from '@/api/authClient';
 import { demoMode, useCurrentUser } from '@/api/queries';
-import { WorkspaceProvider } from '@/auth/WorkspaceContext';
 import { AppShell } from '@/components/AppShell';
 import { CanaryBar } from '@/components/CanaryBar';
 import { PageSkeleton } from '@/components/StatusViews';
@@ -123,11 +122,7 @@ function ProtectedShell() {
     !formerMemberRoutes.includes(location.pathname)
   )
     return <Navigate to="/forbidden" replace />;
-  return (
-    <WorkspaceProvider>
-      <AppShell />
-    </WorkspaceProvider>
-  );
+  return <AppShell />;
 }
 
 function RequireAdmin() {
@@ -250,8 +245,7 @@ export const routeObjects: RouteObject[] = [
       {
         path: '/seasons/:slug',
         lazy: async () => ({
-          Component: (await import('@/pages/SeasonWorkspacePage'))
-            .SeasonWorkspacePage,
+          Component: (await import('@/pages/SeasonPage')).SeasonPage,
         }),
       },
       {
@@ -306,7 +300,7 @@ export const routeObjects: RouteObject[] = [
         }),
       },
       {
-        path: '/graduates',
+        path: '/people',
         lazy: async () => ({
           Component: (await import('@/pages/PeoplePage')).PeoplePage,
         }),
@@ -386,8 +380,9 @@ export const routeObjects: RouteObject[] = [
         ],
       },
       { path: '/overview', element: <Navigate to="/dashboard" replace /> },
-      { path: '/users', element: <Navigate to="/graduates" replace /> },
-      { path: '/mentors', element: <Navigate to="/graduates" replace /> },
+      { path: '/graduates', element: <Navigate to="/people" replace /> },
+      { path: '/users', element: <Navigate to="/people" replace /> },
+      { path: '/mentors', element: <Navigate to="/people" replace /> },
       { path: '/practice', element: <Navigate to="/leetcode" replace /> },
       {
         path: '/admin/season-weeks',

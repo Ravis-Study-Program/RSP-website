@@ -1,13 +1,5 @@
 import { Button, buttonVariants } from '@/components/ui/button';
 import {
-  Select,
-  SelectContent,
-  SelectGroup,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import {
   Sheet,
   SheetContent,
   SheetHeader,
@@ -15,33 +7,24 @@ import {
   SheetTrigger,
 } from '@/components/ui/sheet';
 import {
-  IconAdjustments,
-  IconBriefcase,
-  IconCalendarEvent,
-  IconDashboard,
   IconDots,
   IconLogout,
-  IconMessage2,
   IconMoon,
-  IconNotebook,
-  IconSchool,
   IconSettings,
   IconSun,
-  IconUsers,
 } from '@tabler/icons-react';
-import { useEffect, useMemo, useState, type ComponentType } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import {
-  Link,
-  NavLink,
-  Outlet,
-  useNavigate,
-  useLocation,
-} from 'react-router-dom';
+import { Link, Outlet, useNavigate, useLocation } from 'react-router-dom';
 
 import { signOut } from '@/api/authClient';
-import { useCurrentUser } from '@/api/queries';
-import { useWorkspace } from '@/auth/WorkspaceContext';
+import { useCurrentUser, useSeasons } from '@/api/queries';
+import { useDisplayTimezone } from '@/auth/useDisplayTimezone';
+import {
+  navigationItems,
+  navigationItemActive,
+  type NavItem,
+} from '@/navigation';
 import { CanaryRoleSwitcher } from '@/components/CanaryBar';
 import { CommandPalette } from '@/components/CommandPalette';
 import { Avatar, useCurrentPageTitle } from '@/components/Common';
@@ -62,103 +45,6 @@ const mobileNavBarClass =
 const sheetNavLinkClass =
   'flex min-h-11 items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-muted-foreground no-underline outline-none hover:bg-muted hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50';
 const sheetNavLinkActiveClass = 'bg-muted text-foreground';
-
-interface NavItem {
-  label: string;
-  to: string;
-  icon: ComponentType<{ size?: number; 'aria-hidden'?: boolean }>;
-  end?: boolean;
-}
-
-function itemsFor(role: string | undefined, seasonSlug?: string): NavItem[] {
-  const seasonBase = seasonSlug ? `/seasons/${seasonSlug}` : '/seasons';
-  if (role === 'student') {
-    return [
-      { label: 'Dashboard', to: '/dashboard', icon: IconDashboard },
-      { label: 'Season', to: seasonBase, icon: IconSchool, end: true },
-      { label: 'LeetCode', to: `${seasonBase}/leetcode`, icon: IconBriefcase },
-      {
-        label: 'Mock Interviews',
-        to: `${seasonBase}/mock-interviews`,
-        icon: IconMessage2,
-      },
-      {
-        label: 'Monday Updates',
-        to: `${seasonBase}/monday-updates`,
-        icon: IconNotebook,
-      },
-      { label: 'People', to: `${seasonBase}/people`, icon: IconUsers },
-    ];
-  }
-  if (role === 'mentor') {
-    return [
-      { label: 'Dashboard', to: '/dashboard', icon: IconDashboard },
-      { label: 'My Students', to: `${seasonBase}/mentees`, icon: IconUsers },
-      {
-        label: 'Mock Interviews',
-        to: `${seasonBase}/mock-interviews`,
-        icon: IconMessage2,
-      },
-      {
-        label: 'Monday Updates',
-        to: `${seasonBase}/monday-updates`,
-        icon: IconNotebook,
-      },
-      { label: 'People', to: `${seasonBase}/people`, icon: IconUsers },
-    ];
-  }
-  if (role === 'coordinator') {
-    return [
-      { label: 'Dashboard', to: '/dashboard', icon: IconDashboard },
-      { label: 'Season', to: seasonBase, icon: IconCalendarEvent, end: true },
-      { label: 'People', to: `${seasonBase}/people`, icon: IconUsers },
-      { label: 'All Students', to: `${seasonBase}/mentees`, icon: IconUsers },
-      {
-        label: 'Mentor Teams',
-        to: `${seasonBase}/mentor-teams`,
-        icon: IconSchool,
-      },
-      {
-        label: 'Mock Interviews',
-        to: `${seasonBase}/mock-interviews`,
-        icon: IconMessage2,
-      },
-      {
-        label: 'Monday Updates',
-        to: `${seasonBase}/monday-updates`,
-        icon: IconNotebook,
-      },
-      {
-        label: 'Season Operations',
-        to: '/admin/enrollments',
-        icon: IconAdjustments,
-      },
-    ];
-  }
-  if (role === 'director' || role === 'system_admin') {
-    return [
-      { label: 'Dashboard', to: '/dashboard', icon: IconDashboard },
-      { label: 'Seasons', to: '/seasons', icon: IconCalendarEvent },
-      { label: 'People', to: '/graduates', icon: IconUsers },
-      { label: 'LeetCode', to: '/leetcode', icon: IconBriefcase },
-      { label: 'Administration', to: '/admin', icon: IconAdjustments },
-    ];
-  }
-  if (role === 'graduate')
-    return [
-      { label: 'Dashboard', to: '/dashboard', icon: IconDashboard },
-      { label: 'LeetCode', to: '/leetcode', icon: IconBriefcase },
-      { label: 'Mock Interviews', to: '/mock-interviews', icon: IconMessage2 },
-      { label: 'People', to: '/graduates', icon: IconUsers },
-    ];
-  if (role === 'former_member')
-    return [
-      { label: 'Dashboard', to: '/dashboard', icon: IconDashboard },
-      { label: 'LeetCode', to: '/leetcode', icon: IconBriefcase },
-      { label: 'Mock Interviews', to: '/mock-interviews', icon: IconMessage2 },
-    ];
-  return [{ label: 'Profile', to: '/profile', icon: IconUsers }];
-}
 
 function ThemeButton({
   theme,
@@ -188,11 +74,12 @@ function ThemeButton({
 }
 
 export function AppShell() {
+  useDisplayTimezone();
   const userQuery = useCurrentUser();
+  const seasons = useSeasons(Boolean(userQuery.data?.globalRoles.length));
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const location = useLocation();
-  const { workspaces, activeWorkspace, setActiveWorkspaceId } = useWorkspace();
   const pageTitle = useCurrentPageTitle();
   const [theme, setTheme] = useState(
     () =>
@@ -200,10 +87,10 @@ export function AppShell() {
       (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'),
   );
   const navItems = useMemo(
-    () => itemsFor(activeWorkspace?.role, activeWorkspace?.seasonSlug),
-    [activeWorkspace],
+    () => navigationItems(userQuery.data, seasons.data?.items),
+    [userQuery.data, seasons.data?.items],
   );
-  const homePath = workspaces.length ? '/dashboard' : '/profile';
+  const homePath = navItems[0]?.to ?? '/profile';
   const handleSignOut = async () => {
     try {
       await signOut();
@@ -220,54 +107,6 @@ export function AppShell() {
       .querySelector('meta[name="theme-color"]')
       ?.setAttribute('content', theme === 'dark' ? '#171717' : '#ffffff');
   }, [theme]);
-
-  const workspaceSelect = (className: string, showLabel: boolean) => {
-    if (!workspaces.length) return null;
-    const workspaceItems = workspaces.map((workspace) => ({
-      label: workspace.label,
-      value: workspace.id,
-    }));
-    return (
-      <div className={showLabel ? 'mt-6 mb-4 grid gap-1.5' : 'min-w-0 flex-1'}>
-        {showLabel ? (
-          <label
-            className="text-xs font-medium text-sidebar-muted"
-            htmlFor="workspace-select"
-          >
-            Workspace
-          </label>
-        ) : (
-          <label className="sr-only" htmlFor="workspace-select-mobile">
-            Workspace
-          </label>
-        )}
-        <Select
-          items={workspaceItems}
-          value={activeWorkspace?.id ?? ''}
-          onValueChange={(value) => setActiveWorkspaceId(value ?? '')}
-        >
-          <SelectTrigger
-            id={showLabel ? 'workspace-select' : 'workspace-select-mobile'}
-            className={cn(
-              'border-sidebar-border bg-sidebar text-sidebar-foreground',
-              className,
-            )}
-          >
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectGroup>
-              {workspaceItems.map((item) => (
-                <SelectItem key={item.value} value={item.value}>
-                  {item.label}
-                </SelectItem>
-              ))}
-            </SelectGroup>
-          </SelectContent>
-        </Select>
-      </div>
-    );
-  };
 
   return (
     <div className="min-h-svh">
@@ -288,12 +127,8 @@ export function AppShell() {
             <strong className="text-base font-semibold tracking-tight">
               Ravi’s Study Program
             </strong>
-            <span className="mt-0.5 text-xs text-sidebar-muted">
-              Member workspace
-            </span>
           </span>
         </Link>
-        {workspaceSelect('h-11 w-full', true)}
         <NavLinks items={navItems} />
         <div className="mt-auto grid gap-3 pt-4">
           <Link className={navLinkClass} to="/settings">
@@ -316,8 +151,7 @@ export function AppShell() {
                   {userQuery.data?.name ?? 'Loading account…'}
                 </strong>
                 <span className="truncate text-xs text-sidebar-muted">
-                  {activeWorkspace?.role?.replace('_', ' ') ??
-                    'Personal account'}
+                  @{userQuery.data?.slug}
                 </span>
               </span>
             </Link>
@@ -347,7 +181,6 @@ export function AppShell() {
             RSP
           </strong>
         </Link>
-        {workspaceSelect('h-10 min-w-0 flex-1 truncate', false)}
         <div className="flex shrink-0 items-center gap-1">
           <Link
             to="/settings"
@@ -369,10 +202,6 @@ export function AppShell() {
       <div className="min-w-0 min-[56rem]:ml-sidebar">
         <header className="flex h-14 items-center justify-between gap-2 border-b border-border px-4 min-[56rem]:h-16 min-[56rem]:gap-4 min-[56rem]:px-8">
           <div className="flex min-w-0 items-center gap-3 text-sm">
-            <span className="text-muted-foreground">Workspace</span>
-            <span className="text-border" aria-hidden="true">
-              /
-            </span>
             <span className="min-w-0 truncate font-medium">
               {pageTitle ||
                 navItems.find((item) => location.pathname === item.to)?.label}
@@ -380,7 +209,7 @@ export function AppShell() {
           </div>
           <div className="flex shrink-0 items-center gap-2">
             <CanaryRoleSwitcher />
-            <CommandPalette />
+            <CommandPalette items={navItems} />
           </div>
         </header>
         <main
@@ -422,9 +251,7 @@ function NavLinks({
   const visibleItems = collapse ? items.slice(0, MOBILE_NAV_VISIBLE) : items;
   const overflowItems = collapse ? items.slice(MOBILE_NAV_VISIBLE) : [];
   const moreActive = overflowItems.some((item) =>
-    item.end
-      ? pathname === item.to
-      : pathname === item.to || pathname.startsWith(`${item.to}/`),
+    navigationItemActive(item, pathname),
   );
 
   const renderLink = (
@@ -436,15 +263,16 @@ function NavLinks({
   ) => {
     const Icon = item.icon;
     const mobileBar = labelClass !== undefined;
+    const isActive = navigationItemActive(item, pathname);
     return (
-      <NavLink
+      <Link
         key={item.to}
         to={item.to}
-        end={item.end}
+        aria-current={isActive ? 'page' : undefined}
         onClick={onNavigate}
         aria-label={mobileBar ? item.label : undefined}
         title={mobileBar ? item.label : undefined}
-        className={({ isActive }) => cn(baseClass, isActive && activeClass)}
+        className={cn(baseClass, isActive && activeClass)}
       >
         <Icon size={19} aria-hidden={true} />
         <span className={labelClass}>
@@ -452,13 +280,16 @@ function NavLinks({
             ? (mobileNavShortLabels[item.label] ?? item.label)
             : item.label}
         </span>
-      </NavLink>
+      </Link>
     );
   };
 
   if (!mobile) {
     return (
-      <nav className="mt-1.5 grid gap-1" aria-label="Primary navigation">
+      <nav
+        className="mt-5 grid min-h-0 content-start gap-1 overflow-y-auto"
+        aria-label="Primary navigation"
+      >
         {items.map((item) =>
           renderLink(item, navLinkClass, navLinkActiveClass),
         )}

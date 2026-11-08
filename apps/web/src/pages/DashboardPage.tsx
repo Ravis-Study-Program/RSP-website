@@ -19,7 +19,7 @@ import {
   useSeasonWeeks,
   useSeasons,
 } from '@/api/queries';
-import { useWorkspace } from '@/auth/WorkspaceContext';
+import { defaultSeason, preferredMembership } from '@/navigation';
 import { ActivityChart } from '@/components/ActivityChart';
 import { MondayUpdateReminder } from '@/components/MondayUpdateReminder';
 import {
@@ -47,20 +47,12 @@ export function DashboardPage() {
     { mode: 'all', userId: user.data?.id },
     eligibleForGlobalPractice,
   );
-  const { activeWorkspace } = useWorkspace();
-
-  const currentSeason =
-    seasons.data?.items.find(
-      (season) => season.slug === activeWorkspace?.seasonSlug,
-    ) ??
-    (activeWorkspace?.role === 'director' ||
-    activeWorkspace?.role === 'system_admin'
-      ? seasons.data?.items.find((season) => season.status === 'open')
-      : undefined);
+  const membership = preferredMembership(user.data);
+  const currentSeason = defaultSeason(user.data, seasons.data?.items);
   const seasonPeople = useSeasonPeople(currentSeason?.id, currentSeason?.name);
   const weeks = useSeasonWeeks(currentSeason?.id);
   const enrollments = useSeasonEnrollments(currentSeason?.id);
-  const role = activeWorkspace?.role ?? 'graduate';
+  const role = user.data?.globalRoles[0] ?? membership?.role ?? 'graduate';
   const userId = user.data?.id;
   const activeEnrollments =
     enrollments.data?.items.filter((item) => item.state === 'active') ?? [];
