@@ -181,7 +181,11 @@ export function ProfilePage() {
     <Page className={'flex flex-col gap-6'}>
       <header className="flex flex-wrap items-center justify-between gap-4 border-b pb-4">
         <div className="flex min-w-0 items-center gap-4">
-          <Avatar initials={initials(displayName)} size="lg" />
+          <Avatar
+            initials={initials(displayName)}
+            avatarUrl={person.avatarUrl}
+            size="lg"
+          />
           <div className="grid min-w-0 gap-1">
             <h1 className="text-2xl font-semibold tracking-tight md:text-3xl">
               {displayName}
@@ -334,7 +338,6 @@ function EditProfileDialog({
             body: JSON.stringify({
               name: values.name,
               slug: values.slug,
-              avatarUrl: user.avatarUrl,
               timezone: values.timezone,
             }),
           }),

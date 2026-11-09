@@ -23,6 +23,7 @@ import {
 } from 'react-router-dom';
 import { z } from 'zod';
 
+import { useAuthProviders } from '@/api/queries';
 import { clearAccessToken } from '@/api/client';
 import {
   isEmailVerificationError,
@@ -31,6 +32,8 @@ import {
   sendVerificationEmail,
   signInWithEmail,
   signInWithGoogle,
+  signInWithDiscord,
+  socialAuthError,
   signOut,
   signUpWithEmail,
   verifyTwoFactor,
@@ -75,9 +78,12 @@ export function SignInPage() {
   const [searchParams] = useSearchParams();
   const [mode, setMode] = useState<'sign-in' | 'sign-up'>('sign-in');
   const [requestError, setRequestError] = useState(
-    searchParams.has('error') ? 'Google sign-in could not be completed.' : '',
+    socialAuthError(searchParams),
   );
-  const [googlePending, setGooglePending] = useState(false);
+  const providers = useAuthProviders();
+  const [socialPending, setSocialPending] = useState<
+    'google' | 'discord' | null
+  >(null);
   const [resetPending, setResetPending] = useState(false);
   const [resetMessage, setResetMessage] = useState('');
   const schema = z.object({
@@ -134,18 +140,16 @@ export function SignInPage() {
       );
     }
   });
-  const google = async () => {
-    setGooglePending(true);
+  const socialSignIn = async (provider: 'google' | 'discord') => {
+    setSocialPending(provider);
     setRequestError('');
     try {
-      await signInWithGoogle();
+      await (provider === 'discord' ? signInWithDiscord() : signInWithGoogle());
     } catch (error) {
       setRequestError(
-        error instanceof Error
-          ? error.message
-          : 'Unable to start Google sign-in.',
+        error instanceof Error ? error.message : 'Unable to start sign-in.',
       );
-      setGooglePending(false);
+      setSocialPending(null);
     }
   };
   const forgotPassword = async () => {
@@ -171,185 +175,225 @@ export function SignInPage() {
     }
   };
 
+  const signedOut = signedOutNotice(searchParams);
   return (
-    <main className="flex min-h-svh items-center justify-center bg-muted/40 px-4 py-10 sm:py-16">
-      <div className="w-full max-w-sm">
-        <div className="mb-6 flex items-center justify-center gap-3">
-          <img src="/assets/rsp-logo.png" alt="" className="size-9" />
-          <span className="text-base font-semibold">Ravi’s Study Program</span>
+    <main className="flex min-h-svh flex-col bg-muted/40">
+      {signedOut ? (
+        <div className="px-4 pt-4 sm:px-6">
+          <InlineNotice tone="warning">
+            <IconAlertTriangle size={19} aria-hidden="true" /> {signedOut}
+          </InlineNotice>
         </div>
-        <Card className="gap-6 py-6">
-          <CardHeader className="gap-2 px-6 text-center">
-            <h1 className="text-2xl font-semibold tracking-tight">
-              {mode === 'sign-in' ? 'Welcome to RSP' : 'Create your account'}
-            </h1>
-          </CardHeader>
-          <CardContent className="px-6">
-            <Tabs
-              value={mode}
-              onValueChange={(value) => {
-                setMode(value as 'sign-in' | 'sign-up');
-                clearErrors();
-                setRequestError('');
-                setResetMessage('');
-              }}
-              className="gap-6"
-            >
-              <TabsList aria-label="Email account action" className="w-full">
-                <TabsTrigger
-                  value="sign-in"
-                  disabled={isSubmitting || googlePending}
-                >
-                  Sign In
-                </TabsTrigger>
-                <TabsTrigger
-                  value="sign-up"
-                  disabled={isSubmitting || googlePending}
-                >
-                  Create Account
-                </TabsTrigger>
-              </TabsList>
-              <TabsContent value={mode} className="space-y-5">
-                {searchParams.get('verified') === 'true' ? (
-                  <InlineNotice>
-                    Email verified. Sign in to continue.
-                  </InlineNotice>
-                ) : null}
-                {searchParams.get('securityChanged') === 'true' ? (
-                  <InlineNotice>
-                    Your security settings were updated and all sessions were
-                    revoked. Sign in again to continue.
-                  </InlineNotice>
-                ) : null}
-                {searchParams.get('reset') === 'true' ? (
-                  <InlineNotice>
-                    Password reset complete. Sign in with your new password.
-                  </InlineNotice>
-                ) : null}
-                {searchParams.get('passwordConnected') === 'true' ? (
-                  <InlineNotice>
-                    Password sign-in was connected. Sign in again to continue.
-                  </InlineNotice>
-                ) : null}
-                {requestError ? <FieldError>{requestError}</FieldError> : null}
-                {resetMessage ? (
-                  <p className="text-sm text-muted-foreground" role="status">
-                    {resetMessage}
-                  </p>
-                ) : null}
-                <Button
-                  variant="outline"
-                  type="button"
-                  className="w-full"
-                  disabled={googlePending || isSubmitting}
-                  onClick={() => void google()}
-                >
-                  {googlePending ? 'Opening Google…' : 'Continue with Google'}
-                </Button>
-                <div
-                  className="flex items-center gap-3 text-xs text-muted-foreground"
-                  aria-hidden="true"
-                >
-                  <Separator className="flex-1" />
-                  <span>or</span>
-                  <Separator className="flex-1" />
-                </div>
-                <form
-                  id="email-auth-form"
-                  className="grid gap-4"
-                  noValidate
-                  onSubmit={submit}
-                >
-                  {mode === 'sign-up' ? (
-                    <div className="grid gap-2">
-                      <FieldLabel htmlFor="auth-name">Name</FieldLabel>
-                      <Input
-                        id="auth-name"
-                        autoComplete="name"
-                        aria-invalid={Boolean(errors.name)}
-                        {...register('name')}
-                      />
-                      {errors.name ? (
-                        <FieldError>{errors.name.message}</FieldError>
-                      ) : null}
-                    </div>
-                  ) : null}
-                  <div className="grid gap-2">
-                    <FieldLabel htmlFor="auth-email">Email</FieldLabel>
-                    <Input
-                      id="auth-email"
-                      type="email"
-                      autoComplete="email"
-                      aria-invalid={Boolean(errors.email)}
-                      {...register('email')}
-                    />
-                    {errors.email ? (
-                      <FieldError>{errors.email.message}</FieldError>
-                    ) : null}
-                  </div>
-                  <div className="grid gap-2">
-                    <FieldLabel htmlFor="auth-password">Password</FieldLabel>
-                    <Input
-                      id="auth-password"
-                      type="password"
-                      autoComplete={
-                        mode === 'sign-up' ? 'new-password' : 'current-password'
-                      }
-                      aria-invalid={Boolean(errors.password)}
-                      aria-describedby={
-                        errors.password
-                          ? 'auth-password-error'
-                          : mode === 'sign-up'
-                            ? 'auth-password-hint'
-                            : undefined
-                      }
-                      {...register('password')}
-                    />
-                    {mode === 'sign-up' ? (
-                      <p
-                        id="auth-password-hint"
-                        className="text-xs text-muted-foreground"
-                      >
-                        Use at least 12 characters.
-                      </p>
-                    ) : null}
-                    {errors.password ? (
-                      <FieldError id="auth-password-error">
-                        {errors.password.message}
-                      </FieldError>
-                    ) : null}
-                  </div>
-                  <Button
-                    className="w-full"
-                    type="submit"
-                    disabled={isSubmitting || googlePending}
+      ) : null}
+      <div className="flex flex-1 items-center justify-center px-4 py-10 sm:py-16">
+        <div className="w-full max-w-sm">
+          <div className="mb-6 flex items-center justify-center gap-3">
+            <img src="/assets/rsp-logo.png" alt="" className="size-9" />
+            <span className="text-base font-semibold">
+              Ravi’s Study Program
+            </span>
+          </div>
+          <Card className="gap-6 py-6">
+            <CardHeader className="gap-2 px-6 text-center">
+              <h1 className="text-2xl font-semibold tracking-tight">
+                {mode === 'sign-in' ? 'Welcome to RSP' : 'Create your account'}
+              </h1>
+            </CardHeader>
+            <CardContent className="px-6">
+              <Tabs
+                value={mode}
+                onValueChange={(value) => {
+                  setMode(value as 'sign-in' | 'sign-up');
+                  clearErrors();
+                  setRequestError('');
+                  setResetMessage('');
+                }}
+                className="gap-6"
+              >
+                <TabsList aria-label="Email account action" className="w-full">
+                  <TabsTrigger
+                    value="sign-in"
+                    disabled={isSubmitting || Boolean(socialPending)}
                   >
-                    {isSubmitting
-                      ? mode === 'sign-up'
-                        ? 'Creating account…'
-                        : 'Signing in…'
-                      : mode === 'sign-up'
-                        ? 'Create account'
-                        : 'Sign in with email'}
+                    Sign In
+                  </TabsTrigger>
+                  <TabsTrigger
+                    value="sign-up"
+                    disabled={isSubmitting || Boolean(socialPending)}
+                  >
+                    Create Account
+                  </TabsTrigger>
+                </TabsList>
+                <TabsContent value={mode} className="space-y-5">
+                  {searchParams.get('verified') === 'true' ? (
+                    <InlineNotice>
+                      Email verified. Sign in to continue.
+                    </InlineNotice>
+                  ) : null}
+                  {searchParams.get('reset') === 'true' ? (
+                    <InlineNotice>
+                      Password reset complete. Sign in with your new password.
+                    </InlineNotice>
+                  ) : null}
+                  {requestError ? (
+                    <FieldError>{requestError}</FieldError>
+                  ) : null}
+                  {resetMessage ? (
+                    <p className="text-sm text-muted-foreground" role="status">
+                      {resetMessage}
+                    </p>
+                  ) : null}
+                  <Button
+                    variant="outline"
+                    type="button"
+                    className="w-full"
+                    disabled={Boolean(socialPending) || isSubmitting}
+                    onClick={() => void socialSignIn('google')}
+                  >
+                    {socialPending === 'google'
+                      ? 'Opening Google…'
+                      : 'Continue with Google'}
                   </Button>
-                  {mode === 'sign-in' ? (
+                  {mode === 'sign-in' && providers.data?.discord ? (
                     <Button
-                      variant="ghost"
+                      variant="outline"
                       type="button"
-                      disabled={resetPending}
-                      onClick={() => void forgotPassword()}
+                      className="w-full"
+                      disabled={Boolean(socialPending) || isSubmitting}
+                      onClick={() => void socialSignIn('discord')}
                     >
-                      {resetPending ? 'Requesting…' : 'Forgot password?'}
+                      {socialPending === 'discord'
+                        ? 'Opening Discord…'
+                        : 'Continue with Discord'}
                     </Button>
                   ) : null}
-                </form>
-              </TabsContent>
-            </Tabs>
-          </CardContent>
-        </Card>
+                  <div
+                    className="flex items-center gap-3 text-xs text-muted-foreground"
+                    aria-hidden="true"
+                  >
+                    <Separator className="flex-1" />
+                    <span>or</span>
+                    <Separator className="flex-1" />
+                  </div>
+                  <form
+                    id="email-auth-form"
+                    className="grid gap-4"
+                    noValidate
+                    onSubmit={submit}
+                  >
+                    {mode === 'sign-up' ? (
+                      <div className="grid gap-2">
+                        <FieldLabel htmlFor="auth-name">Name</FieldLabel>
+                        <Input
+                          id="auth-name"
+                          autoComplete="name"
+                          aria-invalid={Boolean(errors.name)}
+                          {...register('name')}
+                        />
+                        {errors.name ? (
+                          <FieldError>{errors.name.message}</FieldError>
+                        ) : null}
+                      </div>
+                    ) : null}
+                    <div className="grid gap-2">
+                      <FieldLabel htmlFor="auth-email">Email</FieldLabel>
+                      <Input
+                        id="auth-email"
+                        type="email"
+                        autoComplete="email"
+                        aria-invalid={Boolean(errors.email)}
+                        {...register('email')}
+                      />
+                      {errors.email ? (
+                        <FieldError>{errors.email.message}</FieldError>
+                      ) : null}
+                    </div>
+                    <div className="grid gap-2">
+                      <FieldLabel htmlFor="auth-password">Password</FieldLabel>
+                      <Input
+                        id="auth-password"
+                        type="password"
+                        autoComplete={
+                          mode === 'sign-up'
+                            ? 'new-password'
+                            : 'current-password'
+                        }
+                        aria-invalid={Boolean(errors.password)}
+                        aria-describedby={
+                          errors.password
+                            ? 'auth-password-error'
+                            : mode === 'sign-up'
+                              ? 'auth-password-hint'
+                              : undefined
+                        }
+                        {...register('password')}
+                      />
+                      {mode === 'sign-up' ? (
+                        <p
+                          id="auth-password-hint"
+                          className="text-xs text-muted-foreground"
+                        >
+                          Use at least 12 characters.
+                        </p>
+                      ) : null}
+                      {errors.password ? (
+                        <FieldError id="auth-password-error">
+                          {errors.password.message}
+                        </FieldError>
+                      ) : null}
+                    </div>
+                    <Button
+                      className="w-full"
+                      type="submit"
+                      disabled={isSubmitting || Boolean(socialPending)}
+                    >
+                      {isSubmitting
+                        ? mode === 'sign-up'
+                          ? 'Creating account…'
+                          : 'Signing in…'
+                        : mode === 'sign-up'
+                          ? 'Create account'
+                          : 'Sign in with email'}
+                    </Button>
+                    {mode === 'sign-in' ? (
+                      <Button
+                        variant="ghost"
+                        type="button"
+                        disabled={resetPending}
+                        onClick={() => void forgotPassword()}
+                      >
+                        {resetPending ? 'Requesting…' : 'Forgot password?'}
+                      </Button>
+                    ) : null}
+                  </form>
+                </TabsContent>
+              </Tabs>
+            </CardContent>
+          </Card>
+        </div>
       </div>
     </main>
   );
+}
+
+/**
+ * Why a security change signed the member out everywhere, shown across the
+ * top of the sign-in page; empty when they were not.
+ */
+function signedOutNotice(params: URLSearchParams) {
+  const change =
+    params.get('discordConnected') === 'true'
+      ? 'Discord was connected'
+      : params.get('discordDisconnected') === 'true'
+        ? 'Discord was disconnected'
+        : params.get('passwordConnected') === 'true'
+          ? 'Password sign-in was connected'
+          : params.get('securityChanged') === 'true'
+            ? 'Your security settings were updated'
+            : '';
+  return change
+    ? `${change}, so you were signed out on all devices. Sign in again to continue.`
+    : '';
 }
 
 export function ResetPasswordPage() {

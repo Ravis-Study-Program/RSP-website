@@ -85,10 +85,9 @@ func (a *API) suggestCurrentUserSlug(w http.ResponseWriter, r *http.Request) {
 }
 
 type updateCurrentUserRequest struct {
-	Name      string  `json:"name"`
-	Slug      *string `json:"slug"`
-	AvatarURL *string `json:"avatarUrl"`
-	Timezone  string  `json:"timezone"`
+	Name     string  `json:"name"`
+	Slug     *string `json:"slug"`
+	Timezone string  `json:"timezone"`
 }
 
 func (a *API) updateCurrentUser(w http.ResponseWriter, r *http.Request) {
@@ -106,10 +105,6 @@ func (a *API) updateCurrentUser(w http.ResponseWriter, r *http.Request) {
 		writeErrorResponse(w, http.StatusBadRequest, "timezone must be an IANA timezone")
 		return
 	}
-	if request.AvatarURL != nil && *request.AvatarURL != "" && !isValidHTTPSURL(*request.AvatarURL) {
-		writeErrorResponse(w, http.StatusBadRequest, "avatarUrl must be an HTTPS URL")
-		return
-	}
 
 	if request.Slug != nil {
 		slug := strings.ToLower(strings.TrimSpace(*request.Slug))
@@ -124,7 +119,6 @@ func (a *API) updateCurrentUser(w http.ResponseWriter, r *http.Request) {
 		UserID:    actor.UserID,
 		Name:      strings.TrimSpace(request.Name),
 		Slug:      request.Slug,
-		AvatarURL: request.AvatarURL,
 		Timezone:  request.Timezone,
 		ActorID:   actor.UserID,
 		ChangedAt: time.Now().UTC(),

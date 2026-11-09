@@ -4,9 +4,12 @@ This service owns browser authentication under `/api/auth/*`. Better Auth keeps
 its tables in PostgreSQL's `auth` schema; the Go API maps the JWT `sub` through
 an active `app.user_auth_links` row before authorising any application request.
 
-Supported sign-in methods are verified email/password and Google. Matching
-emails are never linked implicitly. Connecting Google requires an authenticated,
-fresh session and uses Better Auth's explicit `linkSocial` flow.
+Supported sign-in methods are verified email/password, Google, and explicitly
+connected Discord accounts. Matching emails are never linked implicitly.
+Connecting Google or Discord requires an authenticated, fresh session and uses
+Better Auth's explicit `linkSocial` flow. Google requires a matching email;
+Discord may use a different verified email and cannot create users.
+See [Discord login and local testing](../../docs/discord-login.md).
 
 Sessions are database backed, held in a `Secure`, `HttpOnly`, `SameSite=Lax`
 cookie, and roll for seven days. The `/api/auth/token` endpoint returns a

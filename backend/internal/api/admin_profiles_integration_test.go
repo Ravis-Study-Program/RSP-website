@@ -33,7 +33,7 @@ func TestAdminProfileCorrectionKeepsEmailUntilVerified(t *testing.T) {
 		return nil
 	}}).Handler()
 	path := "/api/v2/admin/users/" + studentID + "/profile"
-	body := `{"name":"Corrected Name","slug":"corrected-name","avatarUrl":"https://example.test/avatar.png","discordId":"private-discord"}`
+	body := `{"name":"Corrected Name","slug":"corrected-name","discordId":"private-discord"}`
 	for _, method := range []string{http.MethodGet, http.MethodPatch} {
 		res := testRequest(t, handler, method, path, "mentor", body)
 		if res.Code != 403 {
@@ -60,7 +60,7 @@ func TestAdminProfileCorrectionKeepsEmailUntilVerified(t *testing.T) {
 	if res.Code != 409 {
 		t.Fatalf("duplicate slug=%d %s", res.Code, res.Body)
 	}
-	res = testRequest(t, handler, http.MethodPatch, path, "admin", strings.Replace(body, "https://example.test/avatar.png", "javascript:alert(1)", 1))
+	res = testRequest(t, handler, http.MethodPatch, path, "admin", strings.Replace(body, `"name":`, `"avatarUrl":"https://cdn.discordapp.com/avatars/123/abc.png","name":`, 1))
 	if res.Code != 400 {
 		t.Fatalf("invalid URL=%d", res.Code)
 	}

@@ -42,13 +42,23 @@ describe('explicit account linking', () => {
     ).toBe('reauthentication_required');
   });
 
-  it('allows no provider other than Google', () => {
+  it('rejects unsupported providers', () => {
     expect(
       evaluateExplicitLink({ ...baseline, provider: 'github' }).reason,
     ).toBe('unsupported_provider');
   });
 
-  it('never links different emails', () => {
+  it('allows Discord with a different email after reauthentication', () => {
+    expect(
+      evaluateExplicitLink({
+        ...baseline,
+        provider: 'discord',
+        providerEmail: 'personal@example.org',
+      }),
+    ).toEqual({ allowed: true });
+  });
+
+  it('requires matching emails for Google', () => {
     expect(
       evaluateExplicitLink({
         ...baseline,

@@ -14,7 +14,5 @@ export interface UpdateMe {
   name: string;
   /** @pattern ^[a-z0-9](?:[a-z0-9-]{1,48}[a-z0-9])?$ */
   slug?: string;
-  /** @nullable */
-  avatarUrl?: string | null;
   timezone: string;
 }

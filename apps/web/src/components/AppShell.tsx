@@ -18,7 +18,11 @@ import { useQueryClient } from '@tanstack/react-query';
 import { Link, Outlet, useNavigate, useLocation } from 'react-router-dom';
 
 import { signOut } from '@/api/authClient';
-import { useCurrentUser, useSeasons } from '@/api/queries';
+import {
+  useCurrentUser,
+  useDiscordAvatarRefresh,
+  useSeasons,
+} from '@/api/queries';
 import { useDisplayTimezone } from '@/auth/useDisplayTimezone';
 import {
   navigationItems,
@@ -76,6 +80,7 @@ function ThemeButton({
 export function AppShell() {
   useDisplayTimezone();
   const userQuery = useCurrentUser();
+  useDiscordAvatarRefresh(userQuery.data?.id);
   const seasons = useSeasons(Boolean(userQuery.data?.globalRoles.length));
   const queryClient = useQueryClient();
   const navigate = useNavigate();
@@ -145,7 +150,10 @@ export function AppShell() {
               aria-label={`Your profile, ${userQuery.data?.name ?? 'account'}`}
               className="flex items-center gap-3 rounded-lg px-1.5 py-2 text-sidebar-foreground no-underline outline-none hover:bg-sidebar-accent focus-visible:ring-3 focus-visible:ring-ring/50"
             >
-              <Avatar initials={initials(userQuery.data?.name ?? 'RSP')} />
+              <Avatar
+                initials={initials(userQuery.data?.name ?? 'RSP')}
+                avatarUrl={userQuery.data?.avatarUrl}
+              />
               <span className="grid min-w-0 leading-snug">
                 <strong className="truncate text-sm font-semibold">
                   {userQuery.data?.name ?? 'Loading account…'}

@@ -42,7 +42,6 @@ func (a *API) updateAdminProfile(w http.ResponseWriter, r *http.Request) {
 	var request struct {
 		Name      string  `json:"name"`
 		Slug      string  `json:"slug"`
-		AvatarURL *string `json:"avatarUrl"`
 		DiscordID *string `json:"discordId"`
 	}
 	if err := decodeJSON(r.Body, &request); err != nil {
@@ -55,10 +54,7 @@ func (a *API) updateAdminProfile(w http.ResponseWriter, r *http.Request) {
 		writeErrorResponse(w, 400, "Enter a name and a 3–50 character profile slug using letters, numbers and hyphens.")
 		return
 	}
-	if request.AvatarURL != nil && *request.AvatarURL != "" && !isValidHTTPSURL(*request.AvatarURL) {
-		writeErrorResponse(w, 400, "Avatar URL must use HTTPS.")
-		return
-	}
+
 	if request.DiscordID != nil {
 		value := strings.TrimSpace(*request.DiscordID)
 		if len(value) > 100 {
@@ -67,7 +63,7 @@ func (a *API) updateAdminProfile(w http.ResponseWriter, r *http.Request) {
 		}
 		request.DiscordID = &value
 	}
-	v, err := a.db.UpdateAdminProfile(r.Context(), accounts.AdminProfile{ID: r.PathValue("id"), Name: request.Name, Slug: request.Slug, AvatarURL: request.AvatarURL, DiscordID: request.DiscordID}, actorFrom(r.Context()).UserID, time.Now().UTC())
+	v, err := a.db.UpdateAdminProfile(r.Context(), accounts.AdminProfile{ID: r.PathValue("id"), Name: request.Name, Slug: request.Slug, DiscordID: request.DiscordID}, actorFrom(r.Context()).UserID, time.Now().UTC())
 	if err != nil {
 		a.writeStoreErrorResponse(w, err)
 		return

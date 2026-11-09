@@ -2523,18 +2523,18 @@ components:
   schemas:
     AdminProfileUpdate:
       type: object
-      required: [name, slug, avatarUrl, discordId]
+      required: [name, slug, discordId]
       properties:
         name: { type: string, minLength: 1, maxLength: 100 }
         slug: { type: string, minLength: 3, maxLength: 50 }
-        avatarUrl: { type: string, nullable: true }
         discordId: { type: string, nullable: true, maxLength: 100 }
     AdminProfile:
       allOf:
         - { $ref: '#/components/schemas/AdminProfileUpdate' }
         - type: object
-          required: [id, email]
+          required: [id, email, avatarUrl]
           properties:
+            avatarUrl: { type: string, nullable: true, readOnly: true }
             id: { type: string, format: uuid }
             email: { type: string, format: email }
 
@@ -2722,7 +2722,6 @@ components:
           name: { type: string, minLength: 1, maxLength: 100 },
           slug:
             { type: string, pattern: '^[a-z0-9](?:[a-z0-9-]{1,48}[a-z0-9])?$' },
-          avatarUrl: { type: string, format: uri, nullable: true },
           timezone: { type: string },
         }
     SlugSuggestion:

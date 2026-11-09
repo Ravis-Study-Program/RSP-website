@@ -111,20 +111,21 @@ export function signUpWithEmail(name: string, email: string, password: string) {
 
 async function followAuthRedirect(
   path: '/sign-in/social' | '/link-social',
+  provider: 'google' | 'discord',
   callbackURL = '/dashboard',
 ) {
   const result = await authRequest<{ url?: string }>(path, {
     method: 'POST',
     body: JSON.stringify({
-      provider: 'google',
+      provider,
       callbackURL,
-      errorCallbackURL: '/sign-in?error=google',
+      errorCallbackURL: `${path === '/link-social' ? '/settings' : '/sign-in'}?provider=${provider}`,
       disableRedirect: true,
     }),
   });
   if (!result.url)
     throw new AuthRequestError(
-      'Google sign-in did not return a redirect URL.',
+      'Sign-in did not return a redirect URL.',
       502,
       'missing_redirect',
     );
@@ -132,16 +133,18 @@ async function followAuthRedirect(
 }
 
 export function signInWithGoogle() {
-  return followAuthRedirect('/sign-in/social');
+  return followAuthRedirect('/sign-in/social', 'google');
 }
 
 /** Which sign-in methods the account has connected. */
 export async function listSignInMethods() {
   const [accounts, session] = await Promise.all([
-    authRequest<{ providerId: string }[]>('/list-accounts'),
+    authRequest<{ id: string; providerId: string }[]>('/list-accounts'),
     getBrowserAuthSession(),
   ]);
   return {
+    discordAccountId:
+      accounts.find((account) => account.providerId === 'discord')?.id ?? null,
     google: accounts.some((account) => account.providerId === 'google'),
     password: accounts.some((account) => account.providerId === 'credential'),
     twoFactor: Boolean(session?.user.twoFactorEnabled),
@@ -150,7 +153,83 @@ export async function listSignInMethods() {
 
 export function linkGoogleAccount() {
   clearAccessToken();
-  return followAuthRedirect('/link-social', '/sign-in?securityChanged=true');
+  return followAuthRedirect(
+    '/link-social',
+    'google',
+    '/sign-in?securityChanged=true',
+  );
+}
+
+export function signInWithDiscord() {
+  return followAuthRedirect('/sign-in/social', 'discord');
+}
+
+export function getAuthProviders() {
+  return authRequest<{ discord: boolean }>('/providers');
+}
+
+/**
+ * Asks the auth service to check the member's Discord profile picture. It
+ * checks Discord at most once a day and says whether the picture changed.
+ */
+export function refreshDiscordAvatar() {
+  return authRequest<{
+    result: 'skipped' | 'unchanged' | 'updated' | 'unavailable';
+  }>('/discord/avatar/refresh', { method: 'POST', body: '{}' });
+}
+
+export function linkDiscordAccount() {
+  clearAccessToken();
+  return followAuthRedirect(
+    '/link-social',
+    'discord',
+    '/sign-in?discordConnected=true',
+  );
+}
+
+export async function unlinkDiscordAccount(accountId: string) {
+  await authRequest('/unlink-account', {
+    method: 'POST',
+    body: JSON.stringify({ accountId }),
+  });
+  clearAccessToken();
+}
+
+export function socialAuthError(params: URLSearchParams): string {
+  const error = params.get('error');
+  if (!error) return '';
+  const discord = params.get('provider') === 'discord';
+  if (
+    discord &&
+    [
+      'signup_disabled',
+      'account_not_linked',
+      'primary_sign_in_required',
+    ].includes(error)
+  ) {
+    return 'Sign in with email or Google, then connect Discord in Settings.';
+  }
+  if (error === 'reauthentication_required')
+    return 'Sign in again with email or Google, then reconnect from Settings.';
+  if (error === 'email_does_not_match')
+    return 'Use a Google account with the same email as your RSP account.';
+  if (
+    error === 'account_already_linked_to_different_user' ||
+    error === 'account_already_linked'
+  )
+    return 'This sign-in account is already connected to another RSP account.';
+  if (
+    discord &&
+    [
+      'email_not_found',
+      'email_not_verified',
+      'unable_to_link_account',
+    ].includes(error)
+  )
+    return 'Add and verify an email address in Discord, then try connecting again.';
+  if (error === 'discord_already_connected')
+    return 'Disconnect your current Discord account before connecting another.';
+  return `${discord ? 'Discord' : 'Google'} sign-in could not be completed. Please try again.`;
 }
 
 export function sendVerificationEmail(email: string) {

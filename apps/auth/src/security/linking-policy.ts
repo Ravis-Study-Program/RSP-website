@@ -38,10 +38,11 @@ export function evaluateExplicitLink(options: {
 }): LinkingDecision {
   const freshness = evaluateFreshSession(options);
   if (!freshness.allowed) return freshness;
-  if (options.provider !== 'google') {
+  if (options.provider !== 'google' && options.provider !== 'discord') {
     return { allowed: false, reason: 'unsupported_provider' };
   }
   if (
+    options.provider === 'google' &&
     options.providerEmail &&
     options.providerEmail.trim().toLowerCase() !==
       options.currentEmail.trim().toLowerCase()

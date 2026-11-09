@@ -21,6 +21,13 @@ export type IdentityLifecycleEvent = LifecycleEventIdentity &
         readonly occurredAt: string;
       }
     | {
+        readonly type: 'discord_avatar_updated';
+        readonly authUserId: string;
+        readonly avatarUrl: string | null;
+        readonly securityVersion: number;
+        readonly occurredAt: string;
+      }
+    | {
         readonly type: 'email_verified';
         readonly authUserId: string;
         readonly securityVersion: number;

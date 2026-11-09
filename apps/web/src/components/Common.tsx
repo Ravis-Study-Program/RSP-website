@@ -8,7 +8,12 @@ import {
 } from '@/components/ui/card';
 
 import { IconArrowUpRight } from '@tabler/icons-react';
-import { useEffect, useSyncExternalStore, type ReactNode } from 'react';
+import {
+  useEffect,
+  useState,
+  useSyncExternalStore,
+  type ReactNode,
+} from 'react';
 import { Link } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 
@@ -206,23 +211,37 @@ export function PageSection({
   );
 }
 
-/** A member's initials in an ink circle. Decorative: the name sits beside it. */
+/** Decorative avatar; the member's name is shown beside it. */
 export function Avatar({
   initials,
+  avatarUrl,
   size = 'md',
 }: {
   initials: string;
+  avatarUrl?: string | null;
   size?: 'md' | 'lg';
 }) {
+  const [failedUrl, setFailedUrl] = useState<string | null>(null);
+  const showImage = avatarUrl && avatarUrl !== failedUrl;
   return (
     <span
       aria-hidden="true"
       className={cn(
-        'inline-grid shrink-0 place-items-center rounded-full bg-primary font-semibold text-primary-foreground',
+        'inline-grid shrink-0 place-items-center overflow-hidden rounded-full bg-primary font-semibold text-primary-foreground',
         size === 'lg' ? 'size-18 text-xl' : 'size-9 text-xs',
       )}
     >
-      {initials}
+      {showImage ? (
+        <img
+          src={avatarUrl}
+          alt=""
+          className="size-full object-cover"
+          referrerPolicy="no-referrer"
+          onError={() => setFailedUrl(avatarUrl)}
+        />
+      ) : (
+        initials
+      )}
     </span>
   );
 }
@@ -240,7 +259,7 @@ export function PersonIdentity({
 }) {
   return (
     <span className="flex min-w-0 items-center gap-3">
-      <Avatar initials={person.initials} />
+      <Avatar initials={person.initials} avatarUrl={person.avatarUrl} />
       <span className="grid min-w-0">
         <Link
           className="truncate font-medium text-foreground"
