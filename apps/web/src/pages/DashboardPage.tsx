@@ -1,4 +1,5 @@
 import { StatusBadge } from '@/components/StatusBadge';
+import { isBlankRichText } from '@/richText';
 import { buttonVariants } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 
@@ -85,8 +86,8 @@ export function DashboardPage() {
         currentTime <= new Date(week.endAt).getTime(),
     ) ??
     orderedWeeks.find((week) => new Date(week.startAt).getTime() > currentTime);
-  const missingWeekResources = orderedWeeks.filter(
-    (week) => !week.resourcesHtml,
+  const missingWeekResources = orderedWeeks.filter((week) =>
+    isBlankRichText(week.resourcesHtml),
   ).length;
   const activity = recentActivitySeries(
     attempts.data?.items ?? [],

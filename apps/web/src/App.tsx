@@ -3,6 +3,7 @@ import {
   QueryClientProvider,
   useQuery,
 } from '@tanstack/react-query';
+import { pendingInvitation } from '@/pendingInvitation';
 import { useState, type ReactNode } from 'react';
 import {
   Navigate,
@@ -74,7 +75,7 @@ function ProtectedShell() {
     );
   if (
     user.data?.emailVerified &&
-    sessionStorage.getItem('rsp-pending-invitation') &&
+    pendingInvitation() &&
     (location.pathname === '/dashboard' || location.pathname === '/profile')
   )
     return <Navigate to="/invitations/accept" replace />;

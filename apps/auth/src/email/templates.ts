@@ -69,6 +69,25 @@ export function deletionRecoveryEmail(
   });
 }
 
+/** Tells a season member an administrator changed their role there. */
+export function roleChangeEmail(
+  to: string,
+  name: string,
+  season: string,
+  role: string,
+  previousRole: string,
+  url: string,
+): EmailMessage {
+  return linkEmail({
+    to,
+    subject: `You are now a ${role} in ${season}`,
+    introduction: `${name}, your role in ${season} has changed from ${previousRole} to ${role}.`,
+    action: `Open ${season}`,
+    url,
+    expiry: 'If you were not expecting this, contact your season coordinator.',
+  });
+}
+
 export function invitationEmail(
   to: string,
   name: string,
@@ -79,7 +98,7 @@ export function invitationEmail(
   return linkEmail({
     to,
     subject: `Your invitation to ${season}`,
-    introduction: `${name}, you have been invited to join ${season} as a ${role}. Sign in or create an account using this email address, verify it, then accept your invitation.`,
+    introduction: `${name}, you have been invited to join ${season} as a ${role}. Sign in or create an account using this email address, then accept your invitation.`,
     action: 'Accept invitation',
     url,
     expiry: 'This invitation expires in 7 days and can only be used once.',

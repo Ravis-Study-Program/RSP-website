@@ -75,7 +75,7 @@ func (a *API) getCurrentUser(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *API) suggestCurrentUserSlug(w http.ResponseWriter, r *http.Request) {
-	slug, err := a.db.SuggestUserSlug(r.Context())
+	slug, err := a.db.SuggestUserSlug(r.Context(), actorFrom(r.Context()).UserID)
 	if err != nil {
 		a.writeStoreErrorResponse(w, err)
 		return

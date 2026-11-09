@@ -53,8 +53,12 @@ func (a Actor) IsDirectorOrSystemAdmin() bool {
 	return a.HasGlobalRole(Director) || a.HasGlobalRole(SystemAdmin)
 }
 
+// RecentMFAWindow is how long one MFA check covers privileged actions. The
+// auth service's AUTH_MFA_MAX_AGE_SECONDS caps it too; keep the two in step.
+const RecentMFAWindow = 24 * time.Hour
+
 func (a Actor) HasRecentMFA(now time.Time) bool {
-	return a.MFAAt != nil && now.Sub(a.MFAAt.UTC()) >= 0 && now.Sub(a.MFAAt.UTC()) <= 15*time.Minute
+	return a.MFAAt != nil && now.Sub(a.MFAAt.UTC()) >= 0 && now.Sub(a.MFAAt.UTC()) <= RecentMFAWindow
 }
 
 func (a Actor) Enrollment(seasonID string) (Enrollment, bool) {

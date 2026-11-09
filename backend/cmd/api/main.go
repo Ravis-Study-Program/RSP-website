@@ -93,6 +93,7 @@ func main() {
 		QueueLeetCodeSync:  db.QueueLeetCodeSync,
 		SetAccountState:    authClient.SetAccountState,
 		SendInvitation:     authClient.SendInvitation,
+		SendRoleChange:     authClient.SendRoleChange,
 		RequestEmailChange: authClient.RequestEmailChange,
 		GetMFAConfigured:   authClient.GetMFAConfigured,
 		RateLimits:         rateLimits,

@@ -396,33 +396,6 @@ test('coordinator can reach season operations and create, edit and delete a week
   ).toHaveCount(0);
 });
 
-test('coordinator can enroll a verified nonmember without granting coordinator', async ({
-  page,
-}, testInfo) => {
-  test.skip(
-    testInfo.project.name.includes('mobile'),
-    'Desktop enrollment operation',
-  );
-  await selectDemoRole(page, 'coordinator');
-  await page.goto('/admin/enrollments');
-  await page.getByRole('button', { name: 'Add member' }).click();
-  const dialog = page.getByRole('dialog', { name: 'Add Season Member' });
-  await dialog.getByRole('combobox', { name: 'Season role' }).click();
-  await expect(page.getByRole('option', { name: 'Student' })).toBeVisible();
-  await expect(page.getByRole('option', { name: 'Coordinator' })).toHaveCount(
-    0,
-  );
-  await page.getByRole('option', { name: 'Student' }).click();
-  await chooseOption(dialog, 'Account', 'Priya Singh · @priya-singh');
-  page.once('dialog', async (confirmation) => confirmation.dismiss());
-  await page.keyboard.press('Escape');
-  await expect(dialog).toBeVisible();
-  await dialog.getByRole('button', { name: 'Add member' }).click();
-  await expect(
-    page.getByRole('row').filter({ hasText: 'Priya Singh' }),
-  ).toBeVisible();
-});
-
 test('coordinator edits only season resources and mentorship forms protect dirty input', async ({
   page,
 }, testInfo) => {
@@ -450,10 +423,9 @@ test('coordinator edits only season resources and mentorship forms protect dirty
     page.getByRole('link', { name: 'Season Resources' }),
   ).toHaveAttribute('href', 'https://rsp.org.au/resources/summer-2025-26');
 
-  // Mentorships are added from Enrollments.
-  await page.goto('/admin/mentorships');
-  await expect(page).toHaveURL(/\/admin\/enrollments$/);
-  await page.getByRole('button', { name: 'Add mentorship' }).click();
+  // Mentorships are added from Mentor Teams.
+  await page.goto('/seasons/summer-2025-26/mentor-teams');
+  await page.getByRole('button', { name: 'Assign student' }).click();
   const mentorship = page.getByRole('dialog', { name: 'Add Mentorship' });
   await chooseOption(mentorship, 'Mentor', 'Noah Williams');
   page.once('dialog', async (confirmation) => confirmation.dismiss());

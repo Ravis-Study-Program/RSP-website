@@ -433,6 +433,8 @@ export const auth = betterAuth({
     autoSignInAfterVerification: false,
     expiresIn: 60 * 60,
     async sendVerificationEmail({ user, url }) {
+      // Signed up from an invitation to this address: already verified.
+      if (user.emailVerified) return;
       await emailProvider.send(verificationEmail(user.email, url));
     },
     async afterEmailVerification(user, request) {
@@ -580,11 +582,29 @@ export const auth = betterAuth({
   databaseHooks: {
     user: {
       create: {
+        // Signing up from an invitation link proves the person reads the
+        // invited inbox, so an account for that address starts verified.
+        async before(user, context) {
+          const invitationToken = (
+            context?.body as { invitationToken?: unknown } | undefined
+          )?.invitationToken;
+          if (
+            context?.path !== '/sign-up/email' ||
+            typeof invitationToken !== 'string' ||
+            invitationToken.length !== 43
+          )
+            return;
+          if (
+            await identityGateway.invitationSentTo(invitationToken, user.email)
+          )
+            return { data: { ...user, emailVerified: true } };
+        },
         async after(user) {
           await accountLifecycle.queueIdentityEvent({
             type: 'auth_user_created',
             authUserId: user.id,
             email: user.email,
+            name: user.name,
             emailVerified: user.emailVerified,
             securityVersion: await currentSecurityVersion(user.id),
             occurredAt: new Date().toISOString(),

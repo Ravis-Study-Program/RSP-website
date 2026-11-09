@@ -10,7 +10,7 @@ import {
 } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import { Field, FieldLabel } from '@/components/ui/field';
-import { IconArrowRight, IconPlus, IconUsersGroup } from '@tabler/icons-react';
+import { IconLink, IconPlus, IconUsersGroup } from '@tabler/icons-react';
 import { useState } from 'react';
 import { useParams } from 'react-router-dom';
 
@@ -48,7 +48,7 @@ export function MentorTeamsPage() {
   const unassigned = students.filter(
     (student) => student.status === 'unassigned',
   );
-  // Clicking an unassigned student, or their arrow, assigns them a mentor.
+  // Clicking an unassigned student, or their link icon, assigns them a mentor.
   const assignButton = (student: Person) => (
     <Button
       type="button"
@@ -57,7 +57,7 @@ export function MentorTeamsPage() {
       aria-label={`Assign a mentor to ${student.name}`}
       onClick={() => setAssigning(student)}
     >
-      <IconArrowRight size={18} aria-hidden="true" />
+      <IconLink size={18} aria-hidden="true" />
     </Button>
   );
   const unassignedColumns: ColumnDef<Person, any>[] = [
@@ -314,7 +314,7 @@ function MentorshipDialog({
   ];
   return (
     <FormDialog
-      title="Create Mentorship"
+      title="Add Mentorship"
       open={open}
       onOpenChange={requestOpenChange}
       trigger={
@@ -389,7 +389,7 @@ function MentorshipDialog({
             }
             onClick={() => void create()}
           >
-            {pending ? 'Assigning…' : 'Create mentorship'}
+            {pending ? 'Adding…' : 'Add mentorship'}
           </Button>
         </div>
       </div>

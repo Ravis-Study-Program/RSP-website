@@ -16,7 +16,11 @@ import {
   type OAuthRequestState,
 } from './identity/discord-profile.js';
 import { refreshDiscordAvatar } from './identity/discord-avatar-refresh.js';
-import { verificationEmail, invitationEmail } from './email/templates.js';
+import {
+  verificationEmail,
+  invitationEmail,
+  roleChangeEmail,
+} from './email/templates.js';
 import {
   ACCOUNT_DELETION_RECOVERY_PATH,
   ACCOUNT_DELETION_REQUEST_PATH,
@@ -970,6 +974,76 @@ async function handleRequest(
           parsed.data.name,
           parsed.data.season,
           parsed.data.role,
+          parsed.data.url,
+        ),
+      );
+      sendJson(response, 202, { queued: true }, id);
+      return;
+    }
+    if (url.pathname === '/internal/auth/role-changes') {
+      if (
+        !hasValidServiceToken(
+          request.headers.authorization ?? null,
+          config.identityService.token,
+        )
+      ) {
+        sendProblem(
+          response,
+          401,
+          'invalid_service_token',
+          'Internal authentication failed',
+          id,
+        );
+        return;
+      }
+      if (request.method !== 'POST') {
+        sendProblem(
+          response,
+          405,
+          'method_not_allowed',
+          'POST is required',
+          id,
+          { allow: 'POST' },
+        );
+        return;
+      }
+      const parsed = z
+        .object({
+          id: z.uuid(),
+          to: z.email(),
+          name: z.string().min(1).max(100),
+          season: z.string().min(1).max(200),
+          role: z.enum(['student', 'mentor', 'coordinator']),
+          previousRole: z.enum(['student', 'mentor', 'coordinator']),
+          url: z.url(),
+        })
+        .safeParse(jsonBody);
+      if (!parsed.success) {
+        sendProblem(
+          response,
+          400,
+          'invalid_request',
+          'Invalid role change',
+          id,
+        );
+        return;
+      }
+      const seasonUrl = new URL(parsed.data.url);
+      if (
+        seasonUrl.origin !== new URL(config.baseUrl).origin ||
+        !/^\/seasons\/[a-z0-9-]+$/.test(seasonUrl.pathname)
+      ) {
+        sendProblem(response, 400, 'invalid_request', 'Invalid season URL', id);
+        return;
+      }
+      await accountLifecycle.queueEmail(
+        parsed.data.id,
+        roleChangeEmail(
+          parsed.data.to,
+          parsed.data.name,
+          parsed.data.season,
+          parsed.data.role,
+          parsed.data.previousRole,
           parsed.data.url,
         ),
       );

@@ -159,12 +159,16 @@ test('administrators invite a student with their mentor, then resend and cancel'
   await dialog
     .getByLabel('Email', { exact: true })
     .fill('invited@example.test');
+  // The form starts on the page's season.
+  await expect(dialog.getByRole('combobox', { name: 'Season' })).toHaveText(
+    /Summer 2025\/26/,
+  );
   // A student can be invited together with their mentor.
   await chooseOption(dialog, 'Mentor', 'Noah Williams');
   await dialog.getByRole('button', { name: 'Send invitation' }).click();
   await expect(
     page.getByText(
-      'Invitation email queued. The recipient has 7 days to accept.',
+      /^Invitation email queued for .+\. The recipient has 7 days to accept\.$/,
     ),
   ).toBeVisible();
   // The invitation is a row of the enrollments table, with its mentor.

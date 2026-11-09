@@ -199,7 +199,9 @@ test('coordinator MFA session creates, edits, and deletes an open-season week', 
   await expect(
     page.getByRole('heading', { name: 'Enrollments' }),
   ).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Add member' })).toBeEnabled();
+  await expect(
+    page.getByRole('button', { name: 'Invite a member' }),
+  ).toBeEnabled();
 
   await page.goto('/seasons/unknown-real-stack-season');
   await expect(page.getByText('Season Not Found')).toBeVisible();
@@ -337,7 +339,7 @@ test('an invited new member verifies their email and joins the season', async ({
   await invite.getByRole('button', { name: 'Send invitation' }).click();
   await expect(
     page.getByText(
-      'Invitation email queued. The recipient has 7 days to accept.',
+      /^Invitation email queued for .+\. The recipient has 7 days to accept\.$/,
     ),
   ).toBeVisible();
   const link = await emailLink(
@@ -364,30 +366,13 @@ test('an invited new member verifies their email and joins the season', async ({
     await recipient
       .getByRole('button', { name: 'Create account', exact: true })
       .click();
-    await expect(recipient).toHaveURL(/\/verify-email/);
-    const verification = await emailLink(
-      email,
-      'Verify your RSP email',
-      /https?:\/\/[^\s]+\/api\/auth\/verify-email\?[^\s]+/,
-    );
-    await recipient.goto(verification);
-    await expect(recipient).toHaveURL(/\/sign-in/);
-    await recipient.getByLabel('Email', { exact: true }).fill(email);
-    await recipient.getByLabel('Password', { exact: true }).fill(password);
-    await recipient.waitForTimeout(13_000);
-    await recipient.getByRole('button', { name: 'Sign in with email' }).click();
+    // The invitation link proved the inbox: no verification email, and the
+    // new account is signed in and taken straight to the invitation.
     await expect(recipient).toHaveURL(/\/invitations\/accept$/);
     await recipient
       .getByRole('button', { name: 'Accept invitation', exact: true })
       .click();
-    await expect(
-      recipient.getByRole('heading', {
-        name: 'You have joined Development Season.',
-      }),
-    ).toBeVisible();
-    await recipient
-      .getByRole('link', { name: 'Continue', exact: true })
-      .click();
+    // Accepting goes straight into the season.
     await expect(
       recipient.getByRole('heading', {
         name: 'Development Season',

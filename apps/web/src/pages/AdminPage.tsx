@@ -1,4 +1,5 @@
 import { statusTone } from '@/badgeTones';
+import { isBlankRichText } from '@/richText';
 import { StatusBadge } from '@/components/StatusBadge';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -82,12 +83,14 @@ import {
   MetricCard,
   PageHeader,
   PageSection,
+  RoleBadge,
   usePageTitle,
 } from '@/components/Common';
 import { AppDatePicker } from '@/components/AppDatePicker';
 import { ManagePersonDialog } from '@/components/ManagePersonDialog';
 import { AdminProfileEditor } from '@/components/AdminProfileEditor';
 import { Invitations, type InvitationParts } from '@/components/Invitations';
+import { SpreadsheetImport } from '@/components/SpreadsheetImport';
 import { DataTable } from '@/components/DataTable';
 import { FormDialog, NamedConfirmation } from '@/components/Dialogs';
 import type { Page as ViewPage, Person, Season, SeasonRole } from '@/types';
@@ -142,6 +145,12 @@ export function AdminPage() {
   const people = usePeople();
   const currentUser = useCurrentUser();
   const [syncStatus, setSyncStatus] = useState('');
+  // Mass import creates seasons, which only Directors and System Admins may.
+  const canMassImport = Boolean(
+    currentUser.data?.globalRoles.some(
+      (role) => role === 'director' || role === 'system_admin',
+    ),
+  );
   const [syncPending, setSyncPending] = useState(false);
   const sync = async () => {
     setSyncPending(true);
@@ -231,6 +240,23 @@ export function AdminPage() {
             <h2 className="text-lg font-semibold">Technical Operations</h2>
           </div>
           <Card className="gap-4 p-5">
+            {canMassImport ? (
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <span>
+                  <strong>Mass import</strong>
+                  <span className="block text-sm text-muted-foreground">
+                    Create seasons and invite people from several spreadsheets
+                    at once.
+                  </span>
+                </span>
+                <SpreadsheetImport
+                  kinds={['seasons', 'invitations']}
+                  title="Mass Import"
+                  trigger="Mass Import"
+                  seasons={seasons.data?.items ?? []}
+                />
+              </div>
+            ) : null}
             {syncStatus ? <p role="status">{syncStatus}</p> : null}
             <div className="flex flex-wrap items-center justify-between gap-3">
               <span>
@@ -295,6 +321,8 @@ interface AdminRow {
   member?: AdminPerson;
   /** Mentorships only: the student's mentor. */
   mentor?: AdminPerson;
+  /** Enrollments: the season role held, or the one invited to. */
+  role?: SeasonRole;
   /** Enrollments: how the member was invited, when, and to which email. */
   invitationStatus?: 'pending' | 'expired' | 'accepted' | 'cancelled';
   sentAt?: string;
@@ -350,8 +378,9 @@ function invitationLabel(status: NonNullable<AdminRow['invitationStatus']>) {
 }
 
 /**
- * The enrollments table: each member or invitee, the student's mentor, and
- * how they were invited. Roles, levels and states live on People.
+ * The enrollments table: each member or invitee, the student's mentor, their
+ * season role (or the role invited to), and how they were invited. Levels
+ * and states live on People.
  */
 const enrollmentColumns: ColumnDef<AdminRow, any>[] = [
   {
@@ -372,6 +401,14 @@ const enrollmentColumns: ColumnDef<AdminRow, any>[] = [
     accessorFn: (row) => row.mentor?.name ?? '',
     cell: ({ row }) =>
       row.original.mentor ? <PersonCell person={row.original.mentor} /> : '—',
+  },
+  {
+    id: 'role',
+    header: 'Role',
+    meta: { width: 7.5 },
+    accessorFn: (row) => row.role ?? '',
+    cell: ({ row }) =>
+      row.original.role ? <RoleBadge role={row.original.role} /> : '—',
   },
   {
     id: 'invitation',
@@ -430,7 +467,7 @@ const weekColumns: ColumnDef<AdminRow, any>[] = [
     meta: { width: 11 },
     accessorFn: (row) => (row.hasResources ? 'Yes' : 'No'),
     cell: ({ getValue }) => (
-      <StatusBadge tone={getValue() === 'Yes' ? 'success' : 'muted'}>
+      <StatusBadge tone={getValue() === 'Yes' ? 'success' : 'danger'}>
         {getValue()}
       </StatusBadge>
     ),
@@ -447,11 +484,6 @@ export function AdminResourcePage({
   const seasons = useSeasons();
   const people = usePeople();
   const currentUser = useCurrentUser();
-  const canGrantCoordinator = Boolean(
-    currentUser.data?.globalRoles.some(
-      (role) => role === 'director' || role === 'system_admin',
-    ),
-  );
   const canAdministerUsers = Boolean(
     currentUser.data?.globalRoles.includes('system_admin'),
   );
@@ -481,10 +513,6 @@ export function AdminResourcePage({
   const weeks = useSeasonWeeks(selectedSeason?.id);
   const enrollments = useSeasonEnrollments(selectedSeason?.id);
   const mentorships = useSeasonMentorships(selectedSeason?.id);
-  const enrollmentCandidates = useEnrollmentCandidates(
-    selectedSeason?.id,
-    resource === 'enrollments',
-  );
   const config = adminResources.find((item) => item.slug === resource)!;
   usePageTitle(`Admin ${config.title}`);
   const peopleById = useMemo(
@@ -501,7 +529,7 @@ export function AdminResourcePage({
           href: selectedSeason
             ? `/seasons/${selectedSeason.slug}/weeks/${week.number}`
             : undefined,
-          hasResources: Boolean(week.resourcesHtml),
+          hasResources: !isBlankRichText(week.resourcesHtml),
           status:
             new Date(week.endAt).getTime() < Date.now()
               ? 'completed'
@@ -522,31 +550,7 @@ export function AdminResourcePage({
   const createAction =
     selectedSeason && resource === 'weeks' ? (
       <WeekDialog seasonId={selectedSeason.id} />
-    ) : selectedSeason && resource === 'enrollments' ? (
-      <EnrollmentDialog
-        seasonId={selectedSeason.id}
-        accounts={enrollmentCandidates.data?.items ?? []}
-        accountsLoading={enrollmentCandidates.isLoading}
-        accountsError={enrollmentCandidates.isError}
-        onRetryAccounts={() => void enrollmentCandidates.refetch()}
-        allowCoordinator={canGrantCoordinator}
-      />
     ) : undefined;
-  const mentorshipAction =
-    selectedSeason && resource === 'enrollments' ? (
-      <MentorshipDialog
-        seasonId={selectedSeason.id}
-        people={people.data?.items ?? []}
-      />
-    ) : undefined;
-  const mentorPeople = (people.data?.items ?? []).filter((person) =>
-    (enrollments.data?.items ?? []).some(
-      (enrollment) =>
-        enrollment.userId === person.id &&
-        enrollment.state === 'active' &&
-        (enrollment.role === 'mentor' || enrollment.role === 'coordinator'),
-    ),
-  );
   const personFor = (userId: string) => {
     const person = peopleById.get(userId);
     return person
@@ -587,6 +591,7 @@ export function AdminResourcePage({
               peopleById.get(enrollment.userId)?.avatarUrl,
           },
           mentor: mentorship ? personFor(mentorship.mentorUserId) : undefined,
+          role: enrollment.role,
           invitationStatus: invitation ? 'accepted' : undefined,
           sentAt: invitation?.sentAt ?? undefined,
           email: invitation?.email,
@@ -618,6 +623,7 @@ export function AdminResourcePage({
         mentor: invitation.mentorUserId
           ? personFor(invitation.mentorUserId)
           : undefined,
+        role: invitation.role,
         invitationStatus: invitation.status,
         sentAt: invitation.sentAt ?? undefined,
         email: invitation.email,
@@ -635,7 +641,14 @@ export function AdminResourcePage({
           createAction || parts ? (
             <div className="flex flex-wrap items-center gap-2.5">
               {createAction}
-              {mentorshipAction}
+              {parts ? (
+                <SpreadsheetImport
+                  kinds={['invitations']}
+                  title="Import Invitations"
+                  trigger="Import Spreadsheet"
+                  seasons={manageableSeasons}
+                />
+              ) : null}
               {parts?.invite}
             </div>
           ) : undefined
@@ -691,9 +704,6 @@ export function AdminResourcePage({
               seasons.refetch(),
               people.refetch(),
               selectedQuery?.refetch(),
-              resource === 'enrollments'
-                ? enrollmentCandidates.refetch()
-                : undefined,
               mentorships.refetch(),
               parts?.refetch(),
             ])
@@ -707,6 +717,9 @@ export function AdminResourcePage({
                 <StatusBadge tone={statusTone(row.original.status)}>
                   {statusLabel(row.original.status)}
                 </StatusBadge>
+                {row.original.role ? (
+                  <RoleBadge role={row.original.role} />
+                ) : null}
               </div>
               <h2 className="text-base font-semibold">
                 {row.original.primary}
@@ -757,7 +770,7 @@ export function AdminResourcePage({
     <Invitations
       key={selectedSeason.id}
       season={selectedSeason}
-      mentors={mentorPeople}
+      seasons={manageableSeasons.filter((season) => season.status === 'open')}
       render={page}
     />
   ) : (
@@ -1690,23 +1703,22 @@ type EnrollmentAccountOption =
   Pick<Person, 'id' | 'name' | 'slug'> | EnrollmentCandidate;
 
 export function EnrollmentDialog({
-  seasonId,
-  accounts,
+  seasonId: suggestedSeasonId,
+  seasons = [],
+  accounts: editAccounts = [],
   enrollment,
   allowCoordinator = false,
-  accountsLoading = false,
-  accountsError = false,
-  onRetryAccounts,
   open: controlledOpen,
   onOpenChange,
 }: {
+  /** The enrollment's season, or the suggested season for a new member. */
   seasonId: string;
-  accounts: EnrollmentAccountOption[];
+  /** The seasons a new member can be added to. */
+  seasons?: Season[];
+  /** Editing only: the accounts, to name the enrollment's account. */
+  accounts?: EnrollmentAccountOption[];
   enrollment?: Enrollment;
   allowCoordinator?: boolean;
-  accountsLoading?: boolean;
-  accountsError?: boolean;
-  onRetryAccounts?: () => void;
   /** When given, the dialog is opened from outside and shows no trigger. */
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
@@ -1719,6 +1731,17 @@ export function EnrollmentDialog({
     if (!controlled) setUncontrolledOpen(next);
     onOpenChange?.(next);
   };
+  const [seasonId, setSeasonId] = useState(suggestedSeasonId);
+  const candidates = useEnrollmentCandidates(seasonId, open && !enrollment);
+  const accounts: EnrollmentAccountOption[] = enrollment
+    ? editAccounts
+    : (candidates.data?.items ?? []);
+  const accountsLoading = !enrollment && candidates.isLoading;
+  const accountsError = !enrollment && candidates.isError;
+  const seasonItems = [
+    { label: 'Choose a season', value: '' },
+    ...seasons.map((season) => ({ label: season.name, value: season.id })),
+  ];
   const [userId, setUserId] = useState(enrollment?.userId ?? '');
   const [role, setRole] = useState<SeasonRole>(enrollment?.role ?? 'student');
   const [studentLevel, setStudentLevel] = useState<
@@ -1727,6 +1750,7 @@ export function EnrollmentDialog({
   const [pending, setPending] = useState(false);
   const [error, setError] = useState('');
   const dirty =
+    seasonId !== suggestedSeasonId ||
     userId !== (enrollment?.userId ?? '') ||
     role !== (enrollment?.role ?? 'student') ||
     studentLevel !== (enrollment?.studentLevel ?? 'not_applicable');
@@ -1766,6 +1790,7 @@ export function EnrollmentDialog({
     )
       return;
     if (next) {
+      setSeasonId(suggestedSeasonId);
       setUserId(enrollment?.userId ?? '');
       setRole(enrollment?.role ?? 'student');
       setStudentLevel(enrollment?.studentLevel ?? 'not_applicable');
@@ -1774,6 +1799,7 @@ export function EnrollmentDialog({
     setOpen(next);
   };
   const save = async () => {
+    if (!seasonId) return setError('Choose a season.');
     if (!userId) return setError('Choose a verified account.');
     setPending(true);
     setError('');
@@ -1882,7 +1908,7 @@ export function EnrollmentDialog({
   };
   return (
     <FormDialog
-      title={enrollment ? 'Edit Enrollment' : 'Add Season Member'}
+      title={enrollment ? 'Edit Enrollment' : 'Add Member'}
       open={open}
       onOpenChange={requestOpenChange}
       triggerVariant="outline"
@@ -1906,13 +1932,42 @@ export function EnrollmentDialog({
             <FieldError>
               Verified enrollment candidates could not be loaded.
             </FieldError>
-            {onRetryAccounts ? (
-              <Button variant="outline" type="button" onClick={onRetryAccounts}>
-                Retry accounts
-              </Button>
-            ) : null}
+            <Button
+              variant="outline"
+              type="button"
+              onClick={() => void candidates.refetch()}
+            >
+              Retry accounts
+            </Button>
           </div>
         ) : null}
+        {enrollment ? null : (
+          <Field>
+            <FieldLabel htmlFor="enrollment-season-new">Season</FieldLabel>
+            <Select
+              items={seasonItems}
+              value={seasonId}
+              onValueChange={(value) => {
+                setSeasonId(value ?? '');
+                // Accounts differ by season, so the choice starts over.
+                setUserId('');
+              }}
+            >
+              <SelectTrigger id="enrollment-season-new" className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectGroup>
+                  {seasonItems.map((item) => (
+                    <SelectItem key={item.value} value={item.value}>
+                      {item.label}
+                    </SelectItem>
+                  ))}
+                </SelectGroup>
+              </SelectContent>
+            </Select>
+          </Field>
+        )}
         <Field>
           <FieldLabel htmlFor={`enrollment-user-${enrollment?.id ?? 'new'}`}>
             Account
@@ -1942,7 +1997,7 @@ export function EnrollmentDialog({
         </Field>
         <Field>
           <FieldLabel htmlFor={`enrollment-role-${enrollment?.id ?? 'new'}`}>
-            Season role
+            Role
           </FieldLabel>
           <Select
             items={enrollmentRoleItems}
@@ -2001,7 +2056,7 @@ export function EnrollmentDialog({
         <div className="flex flex-wrap justify-end gap-2">
           <Button
             type="button"
-            disabled={pending || !userId}
+            disabled={pending || !userId || !seasonId}
             onClick={() => void save()}
           >
             {pending
@@ -2352,7 +2407,7 @@ function MentorshipDialog({
               ? 'Saving…'
               : mentorship
                 ? 'Save mentorship'
-                : 'Create mentorship'}
+                : 'Add mentorship'}
           </Button>
         </div>
       </div>

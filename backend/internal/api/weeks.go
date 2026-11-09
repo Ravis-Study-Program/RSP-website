@@ -7,6 +7,7 @@ import (
 
 	"github.com/magedmg/RSP-website/backend/internal/dal"
 	"github.com/magedmg/RSP-website/backend/internal/platform/id"
+	"github.com/magedmg/RSP-website/backend/internal/platform/sanitize"
 	"github.com/magedmg/RSP-website/backend/internal/program"
 )
 
@@ -257,6 +258,10 @@ func (a *API) updateWeekResources(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	content := a.sanitizeHTML(request.ResourcesHTML)
+	// A cleared editor still sends markup; store it as no resources.
+	if sanitize.IsBlank(content) {
+		content = ""
+	}
 	if utf8.RuneCountInString(content) > maxWeekResourcesHTML {
 		writeErrorResponse(w, http.StatusBadRequest, "resourcesHtml is too long")
 		return

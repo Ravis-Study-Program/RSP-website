@@ -1,4 +1,5 @@
 import { statusTone } from '@/badgeTones';
+import { SpreadsheetImport } from '@/components/SpreadsheetImport';
 import { StatusBadge } from '@/components/StatusBadge';
 import type { ColumnDef } from '@tanstack/react-table';
 import { Link } from 'react-router-dom';
@@ -118,7 +119,19 @@ export function SeasonsPage() {
     <Page>
       <PageHeader
         title="Seasons"
-        actions={canCreate ? <SeasonEditorDialog /> : undefined}
+        actions={
+          canCreate ? (
+            <div className="flex flex-wrap items-center gap-2.5">
+              <SpreadsheetImport
+                kinds={['seasons']}
+                title="Import Seasons"
+                trigger="Import Seasons"
+                seasons={query.data?.items ?? []}
+              />
+              <SeasonEditorDialog />
+            </div>
+          ) : undefined
+        }
       />
       <DataTable
         ariaLabel="Seasons"

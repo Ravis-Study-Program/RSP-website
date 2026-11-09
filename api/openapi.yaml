@@ -315,6 +315,34 @@ paths:
               },
           }
 
+  /invitations/invitee:
+    post:
+      operationId: getInvitationInvitee
+      description: 'Who an invitation is for, so a signed-out visitor holding the link can sign up with that name and email.'
+      security: []
+      requestBody:
+        {
+          required: true,
+          content:
+            {
+              application/json:
+                { schema: { $ref: '#/components/schemas/InvitationToken' } },
+            },
+        }
+      responses:
+        default: { $ref: '#/components/responses/Error' }
+        '200':
+          {
+            description: The invited name and email,
+            content:
+              {
+                application/json:
+                  {
+                    schema: { $ref: '#/components/schemas/InvitationInvitee' },
+                  },
+              },
+          }
+
   /invitations/accept:
     post:
       operationId: acceptInvitation
@@ -379,6 +407,70 @@ paths:
               {
                 application/json:
                   { schema: { $ref: '#/components/schemas/Invitation' } },
+              },
+          }
+
+  /seasons/{id}/invitations/batch:
+    parameters: [{ $ref: '#/components/parameters/ID' }]
+    post:
+      operationId: createInvitationBatch
+      description: 'Invites many people to one season, as from a spreadsheet, matching each row to a person by email. Someone already in the season is updated instead (role and mentor; name and username for a System Admin), and emailed if their role changes. Each row succeeds or fails on its own.'
+      requestBody:
+        {
+          required: true,
+          content:
+            {
+              application/json:
+                {
+                  schema:
+                    { $ref: '#/components/schemas/InvitationBatchCreate' },
+                },
+            },
+        }
+      responses:
+        default: { $ref: '#/components/responses/Error' }
+        '200':
+          {
+            description: One result per row,
+            content:
+              {
+                application/json:
+                  {
+                    schema:
+                      { $ref: '#/components/schemas/InvitationBatchResults' },
+                  },
+              },
+          }
+
+  /seasons/{id}/invitations/batch/preview:
+    parameters: [{ $ref: '#/components/parameters/ID' }]
+    post:
+      operationId: previewInvitationBatch
+      description: Says what createInvitationBatch would do with the same rows, without changing anything or sending email.
+      requestBody:
+        {
+          required: true,
+          content:
+            {
+              application/json:
+                {
+                  schema:
+                    { $ref: '#/components/schemas/InvitationBatchCreate' },
+                },
+            },
+        }
+      responses:
+        default: { $ref: '#/components/responses/Error' }
+        '200':
+          {
+            description: What would happen to each row,
+            content:
+              {
+                application/json:
+                  {
+                    schema:
+                      { $ref: '#/components/schemas/InvitationBatchResults' },
+                  },
               },
           }
 
@@ -485,6 +577,30 @@ paths:
         '409': { $ref: '#/components/responses/Error' }
         '401': { $ref: '#/components/responses/Error' }
         '429': { $ref: '#/components/responses/RateLimited' }
+  /seasons/import:
+    post:
+      operationId: importSeason
+      description: "Creates a season with all its weeks and their resources in one step, as from a spreadsheet. The season runs from its first week's start to its last week's end."
+      requestBody:
+        {
+          required: true,
+          content:
+            {
+              application/json:
+                { schema: { $ref: '#/components/schemas/SeasonImport' } },
+            },
+        }
+      responses:
+        default: { $ref: '#/components/responses/Error' }
+        '201':
+          {
+            description: Created season,
+            content:
+              {
+                application/json:
+                  { schema: { $ref: '#/components/schemas/Season' } },
+              },
+          }
   /seasons/{id}:
     parameters: [{ $ref: '#/components/parameters/ID' }]
     get:
@@ -2579,6 +2695,71 @@ components:
       required: [token]
       properties:
         token: { type: string, minLength: 43, maxLength: 43 }
+    InvitationBatchCreate:
+      type: object
+      required: [invitations]
+      properties:
+        invitations:
+          type: array
+          minItems: 1
+          maxItems: 200
+          items: { $ref: '#/components/schemas/InvitationBatchRow' }
+    InvitationBatchRow:
+      type: object
+      required: [name, email, role]
+      properties:
+        name: { type: string }
+        email: { type: string }
+        role: { type: string }
+        mentor:
+          type: string
+          description: "A student's mentor, by email, username or full name."
+        slug:
+          type: string
+          description: The person's username, if their account is new.
+    InvitationBatchResults:
+      type: object
+      required: [results]
+      properties:
+        results:
+          type: array
+          items: { $ref: '#/components/schemas/InvitationBatchResult' }
+    InvitationBatchResult:
+      type: object
+      required: [row, outcome]
+      properties:
+        row: { type: integer }
+        outcome:
+          type: string
+          description: 'For a dry run: invite, update or unchanged. Once sent: invited, updated or unchanged. Or failed.'
+          enum: [invite, update, invited, updated, unchanged, failed]
+        person:
+          type: string
+          description: 'Who the email matched: new (no account), account (an account not in the season) or member (already in the season).'
+          enum: [new, account, member]
+        invitation: { $ref: '#/components/schemas/Invitation' }
+        role: { type: string }
+        changes:
+          type: array
+          items: { $ref: '#/components/schemas/ImportChange' }
+        skipped:
+          type: array
+          description: Fields the sheet differs on that this administrator may not change.
+          items: { $ref: '#/components/schemas/ImportChange' }
+        error: { type: string }
+    ImportChange:
+      type: object
+      required: [field, from, to]
+      properties:
+        field: { type: string }
+        from: { type: string }
+        to: { type: string }
+    InvitationInvitee:
+      type: object
+      required: [name, email]
+      properties:
+        name: { type: string }
+        email: { type: string, format: email }
     InvitationCreate:
       type: object
       required: [name, email, role]
@@ -2628,6 +2809,10 @@ components:
           format: uuid
           nullable: true
           description: The account that accepted the invitation.
+        profileSlug:
+          type: string
+          nullable: true
+          description: The username the person gets on accepting with a new account.
     InvitationPage:
       type: object
       required: [items, pageInfo, totalCount]
@@ -2991,6 +3176,34 @@ components:
         location: { type: string }
         imageUrl: { type: string, format: uri }
         resourcesUrl: { type: string, format: uri }
+    SeasonImport:
+      type: object
+      required: [name, slug, location, imageUrl, resourcesUrl, weeks]
+      properties:
+        name: { type: string, minLength: 1 }
+        slug:
+          {
+            type: string,
+            minLength: 1,
+            maxLength: 50,
+            pattern: '^[a-z0-9]+(?:-[a-z0-9]+)*$',
+          }
+        location: { type: string }
+        imageUrl: { type: string }
+        resourcesUrl: { type: string }
+        weeks:
+          type: array
+          minItems: 1
+          maxItems: 104
+          items: { $ref: '#/components/schemas/SeasonImportWeek' }
+    SeasonImportWeek:
+      type: object
+      required: [number, startAt, endAt, resourcesHtml]
+      properties:
+        number: { type: integer, minimum: 1 }
+        startAt: { type: string, format: date-time }
+        endAt: { type: string, format: date-time }
+        resourcesHtml: { type: string }
     SeasonUpdate:
       allOf:
         - $ref: '#/components/schemas/SeasonMutation'

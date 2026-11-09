@@ -18,5 +18,8 @@ type Invitation struct {
 	MentorUserID *string `json:"mentorUserId"`
 	// AcceptedBy is the account that accepted, linking it to its enrollment.
 	AcceptedBy *string `json:"acceptedBy"`
-	DeliveryID string  `json:"-"`
+	// ProfileSlug is the username the person gets on accepting, when their
+	// account was created for this invitation and the name is still free.
+	ProfileSlug *string `json:"profileSlug"`
+	DeliveryID  string  `json:"-"`
 }

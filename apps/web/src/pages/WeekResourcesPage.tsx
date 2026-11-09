@@ -1,4 +1,5 @@
 import { IconArrowLeft, IconEdit } from '@tabler/icons-react';
+import { isBlankRichText } from '@/richText';
 import { useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Link, Navigate, useParams } from 'react-router-dom';
@@ -133,7 +134,10 @@ function ResourcesPanel({
     setError('');
     try {
       const saved: Week = demoMode
-        ? { ...week, resourcesHtml: draft }
+        ? {
+            ...week,
+            resourcesHtml: isBlankRichText(draft) ? '' : draft,
+          }
         : await apiRequest<Week>(
             `/seasons/${encodeURIComponent(seasonId)}/weeks/${encodeURIComponent(week.id)}/resources`,
             {
@@ -171,6 +175,7 @@ function ResourcesPanel({
           <RichTextEditor
             id={`week-resources-${week.id}`}
             label="Resources"
+            hideLabel
             value={draft}
             onChange={setDraft}
           />

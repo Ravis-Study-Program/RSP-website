@@ -90,6 +90,31 @@ func (p *Store) CreateSeason(ctx context.Context, v program.SeasonRecord, actorI
 	return v, tx.Commit(ctx)
 }
 
+// ImportSeason creates a season and all its weeks together, so a failed
+// import leaves nothing behind.
+func (p *Store) ImportSeason(ctx context.Context, v program.SeasonRecord, weeks []program.WeekRecord, actorID string, at time.Time) (program.SeasonRecord, error) {
+	tx, err := p.pool.Begin(ctx)
+	if err != nil {
+		return v, err
+	}
+	defer tx.Rollback(context.Background())
+	if _, err = tx.Exec(ctx, `INSERT INTO app.seasons(id,slug,name,status,start_at,end_at,location,image_url,resources_url) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)`, v.ID, v.Slug, v.Name, v.Status, v.StartAt, v.EndAt, v.Location, v.ImageURL, v.ResourcesURL); err != nil {
+		if isUnique(err) {
+			return v, ErrDuplicate
+		}
+		return v, err
+	}
+	for _, week := range weeks {
+		if _, err = tx.Exec(ctx, `INSERT INTO app.season_weeks(id,season_id,week_number,start_at,end_at,resources_html) VALUES($1,$2,$3,$4,$5,$6)`, week.ID, v.ID, week.Number, week.StartAt, week.EndAt, week.ResourcesHTML); err != nil {
+			return v, mapDatabaseError(err)
+		}
+	}
+	if err := appendAuditTx(ctx, tx, newAudit(actorID, "season.imported", "season", v.ID, map[string]any{"weeks": len(weeks)}, at)); err != nil {
+		return v, err
+	}
+	return v, tx.Commit(ctx)
+}
+
 type UpdateSeasonDefinitionInput struct {
 	SeasonID     string
 	ActorID      string

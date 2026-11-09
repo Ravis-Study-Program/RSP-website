@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/http/httptest"
 	"net/url"
 	"strings"
 	"sync"
@@ -197,5 +198,253 @@ func TestInvitationWithMentorAssignsMentorOnAcceptance(t *testing.T) {
 	res := testRequest(t, handler, http.MethodGet, "/api/v2/seasons/"+season+"/invitations", "admin", "")
 	if res.Code != 200 || !strings.Contains(res.Body.String(), `"acceptedBy":"`+studentID+`"`) {
 		t.Fatalf("accepted invitation should name its account: %d %s", res.Code, res.Body)
+	}
+}
+
+func TestInvitationBatchInvitesAndChangesExistingRoles(t *testing.T) {
+	f := newPostgresFixture(t)
+	ctx := context.Background()
+	season := id.New()
+	now := time.Now()
+	if _, err := f.pool.Exec(ctx, `INSERT INTO app.seasons(id,slug,name,start_at,end_at) VALUES($1,'import-season','Import season',now(),now()+interval '1 year')`, season); err != nil {
+		t.Fatal(err)
+	}
+	// Other mentors in the season; Student is already a student in it.
+	if _, err := f.pool.Exec(ctx, `INSERT INTO app.enrollments(id,user_id,season_id,role,student_level,state) VALUES($1,$2,$3,'mentor','not_applicable','active'),($4,$5,$3,'student','beginner','active')`, id.New(), otherID, season, id.New(), studentID); err != nil {
+		t.Fatal(err)
+	}
+	var invites []authadmin.InvitationEmailInput
+	var roleChanges []authadmin.RoleChangeEmailInput
+	admin := authz.Actor{UserID: otherID, EmailVerified: true, AccountState: authz.AccountActive, GlobalRoles: map[authz.GlobalRole]bool{authz.SystemAdmin: true}, MFAAt: &now}
+	handler := New(Config{DB: f.db, PublicOrigin: "https://rsp.test", Authenticator: AuthenticatorFunc(func(context.Context, string) (authz.Actor, error) {
+		return admin, nil
+	}), SendInvitation: func(_ context.Context, email authadmin.InvitationEmailInput) error {
+		invites = append(invites, email)
+		return nil
+	}, SendRoleChange: func(_ context.Context, email authadmin.RoleChangeEmailInput) error {
+		roleChanges = append(roleChanges, email)
+		return nil
+	}}).Handler()
+
+	rows := `{"invitations":[
+		{"name":"New Student","email":"new@example.com","role":"student","mentor":"other"},
+		{"name":"Student","email":"PRIVATE@example.com","role":"mentor"},
+		{"name":"Other","email":"other@example.com","role":"mentor"},
+		{"name":"Lost","email":"lost@example.com","role":"student","mentor":"Nobody"},
+		{"name":"Bad","email":"not-an-email","role":"student"}
+	]}`
+	send := func(query string) []invitationBatchResult {
+		t.Helper()
+		res := testRequest(t, handler, http.MethodPost, "/api/v2/seasons/"+season+"/invitations/batch"+query, "admin", rows)
+		if res.Code == http.StatusTooManyRequests {
+			t.Fatalf("batch%s was rate limited", query)
+		}
+		if res.Code != 200 {
+			t.Fatalf("batch%s=%d %s", query, res.Code, res.Body)
+		}
+		var body struct {
+			Results []invitationBatchResult `json:"results"`
+		}
+		if err := json.Unmarshal(res.Body.Bytes(), &body); err != nil {
+			t.Fatal(err)
+		}
+		return body.Results
+	}
+	expect := func(results []invitationBatchResult, outcomes ...string) {
+		t.Helper()
+		for i, outcome := range outcomes {
+			if results[i].Row != i || results[i].Outcome != outcome {
+				t.Fatalf("row %d = %+v, want %s", i, results[i], outcome)
+			}
+		}
+	}
+
+	// A dry run says what would happen, and who each email matched, without
+	// changing anything or sending email.
+	preview := send("/preview")
+	expect(preview, "invite", "update", "unchanged", "failed", "failed")
+	if preview[0].Person != "new" || preview[1].Person != "member" || len(preview[1].Changes) != 1 || preview[1].Changes[0] != (importChange{"role", "student", "mentor"}) {
+		t.Fatalf("dry run should describe the people and changes: %+v", preview)
+	}
+	if len(invites) != 0 || len(roleChanges) != 0 {
+		t.Fatalf("a dry run sent email: %+v %+v", invites, roleChanges)
+	}
+
+	results := send("")
+	expect(results, "invited", "updated", "unchanged", "failed", "failed")
+	body := struct{ Results []invitationBatchResult }{results}
+	if m := body.Results[0].Invitation.MentorUserID; m == nil || *m != otherID {
+		t.Fatalf("mentor named by name should be matched: %+v", body.Results[0].Invitation)
+	}
+	if !strings.Contains(body.Results[3].Error, "No mentor called") {
+		t.Fatalf("unknown mentor error = %q", body.Results[3].Error)
+	}
+	if len(invites) != 1 || invites[0].To != "new@example.com" {
+		t.Fatalf("invitation emails = %+v", invites)
+	}
+	if len(roleChanges) != 1 || roleChanges[0].To != "private@example.com" || roleChanges[0].PreviousRole != "student" || roleChanges[0].Role != "mentor" || roleChanges[0].URL != "https://rsp.test/seasons/import-season" {
+		t.Fatalf("role change emails = %+v", roleChanges)
+	}
+	var role, level string
+	if err := f.pool.QueryRow(ctx, `SELECT role::text, student_level::text FROM app.enrollments WHERE season_id=$1 AND user_id=$2`, season, studentID).Scan(&role, &level); err != nil || role != "mentor" || level != "not_applicable" {
+		t.Fatalf("existing member's role = %s %s %v", role, level, err)
+	}
+
+	// One row can change a member's role, mentor and name together.
+	rows = `{"invitations":[{"name":"Renamed Student","email":"private@example.com","role":"student","mentor":"other@example.com","slug":"renamed"}]}`
+	changed := send("")
+	expect(changed, "updated")
+	fields := []string{}
+	for _, change := range changed[0].Changes {
+		fields = append(fields, change.Field)
+	}
+	if strings.Join(fields, ",") != "role,mentor,name,username" {
+		t.Fatalf("changes = %+v", changed[0].Changes)
+	}
+	var name, slug, mentor string
+	if err := f.pool.QueryRow(ctx, `SELECT p.display_name, p.slug, mentor.user_id FROM app.user_profiles p
+		JOIN app.enrollments student ON student.user_id=p.user_id AND student.season_id=$1
+		JOIN app.mentorships m ON m.student_enrollment_id=student.id AND m.ended_at IS NULL
+		JOIN app.enrollments mentor ON mentor.id=m.mentor_enrollment_id
+		WHERE p.user_id=$2`, season, studentID).Scan(&name, &slug, &mentor); err != nil || name != "Renamed Student" || slug != "renamed" || mentor != otherID {
+		t.Fatalf("member after update = %q @%s mentor %s, %v", name, slug, mentor, err)
+	}
+
+	// A student can name, as their mentor, someone the same sheet makes a
+	// mentor further down; the dry run already sees it.
+	rows = `{"invitations":[
+		{"name":"Kid","email":"kid@example.com","role":"student","mentor":"private@example.com"},
+		{"name":"Renamed Student","email":"private@example.com","role":"mentor"}
+	]}`
+	expect(send("/preview"), "invite", "update")
+	sent := send("")
+	expect(sent, "invited", "updated")
+	if m := sent[0].Invitation.MentorUserID; m == nil || *m != studentID {
+		t.Fatalf("student should be invited with the newly made mentor: %+v", sent[0].Invitation)
+	}
+
+	// The dry run sees a mentor renamed earlier in the sheet: two mentors
+	// would share the name, so naming it is ambiguous, as it is when sent.
+	rows = `{"invitations":[
+		{"name":"Kid Two","email":"kid2@example.com","role":"student","mentor":"Shared Name"},
+		{"name":"Shared Name","email":"other@example.com","role":"mentor"},
+		{"name":"Shared Name","email":"private@example.com","role":"mentor"}
+	]}`
+	ambiguous := send("/preview")
+	expect(ambiguous, "failed", "update", "update")
+	if !strings.Contains(ambiguous[0].Error, "More than one mentor") {
+		t.Fatalf("dry run should find the shared name ambiguous: %+v", ambiguous[0])
+	}
+	expect(send(""), "failed", "updated", "updated")
+}
+
+func TestSeasonImportCreatesSeasonWithWeeks(t *testing.T) {
+	f := newPostgresFixture(t)
+	now := time.Now()
+	admin := authz.Actor{UserID: otherID, EmailVerified: true, AccountState: authz.AccountActive, GlobalRoles: map[authz.GlobalRole]bool{authz.SystemAdmin: true}, MFAAt: &now}
+	handler := New(Config{DB: f.db, PublicOrigin: "https://rsp.test", Authenticator: AuthenticatorFunc(func(context.Context, string) (authz.Actor, error) {
+		return admin, nil
+	})}).Handler()
+	post := func(body string) *httptest.ResponseRecorder {
+		t.Helper()
+		return testRequest(t, handler, http.MethodPost, "/api/v2/seasons/import", "admin", body)
+	}
+	season := `"name":"Imported 2027","slug":"imported-2027","location":"Adelaide","imageUrl":"","resourcesUrl":""`
+
+	// Overlapping or repeated weeks are refused, and nothing is created.
+	if res := post(`{` + season + `,"weeks":[
+		{"number":1,"startAt":"2027-02-01T00:00:00Z","endAt":"2027-02-07T23:59:59Z","resourcesHtml":""},
+		{"number":2,"startAt":"2027-02-07T00:00:00Z","endAt":"2027-02-14T23:59:59Z","resourcesHtml":""}]}`); res.Code != 400 || !strings.Contains(res.Body.String(), "overlap") {
+		t.Fatalf("overlap=%d %s", res.Code, res.Body)
+	}
+	if res := post(`{` + season + `,"weeks":[
+		{"number":1,"startAt":"2027-02-01T00:00:00Z","endAt":"2027-02-07T23:59:59Z","resourcesHtml":""},
+		{"number":1,"startAt":"2027-02-08T00:00:00Z","endAt":"2027-02-14T23:59:59Z","resourcesHtml":""}]}`); res.Code != 400 {
+		t.Fatalf("repeated week=%d %s", res.Code, res.Body)
+	}
+
+	res := post(`{` + season + `,"weeks":[
+		{"number":2,"startAt":"2027-02-08T00:00:00Z","endAt":"2027-02-14T23:59:59Z","resourcesHtml":"<p></p>"},
+		{"number":1,"startAt":"2027-02-01T00:00:00Z","endAt":"2027-02-07T23:59:59Z","resourcesHtml":"<p>Arrays</p><script>alert(1)</script>"}]}`)
+	if res.Code != 201 {
+		t.Fatalf("import=%d %s", res.Code, res.Body)
+	}
+	var created program.SeasonRecord
+	_ = json.Unmarshal(res.Body.Bytes(), &created)
+	if !created.StartAt.Equal(time.Date(2027, 2, 1, 0, 0, 0, 0, time.UTC)) || !created.EndAt.Equal(time.Date(2027, 2, 14, 23, 59, 59, 0, time.UTC)) || created.Status != "open" {
+		t.Fatalf("season dates should span its weeks: %+v", created)
+	}
+	rows, err := f.pool.Query(context.Background(), `SELECT week_number, resources_html FROM app.season_weeks WHERE season_id=$1 ORDER BY week_number`, created.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer rows.Close()
+	var got []string
+	for rows.Next() {
+		var number int
+		var html string
+		if err := rows.Scan(&number, &html); err != nil {
+			t.Fatal(err)
+		}
+		got = append(got, fmt.Sprintf("%d:%s", number, html))
+	}
+	if strings.Join(got, "|") != "1:<p>Arrays</p>|2:" {
+		t.Fatalf("weeks = %v; resources should be sanitised and blank ones stored empty", got)
+	}
+	// The same slug cannot be imported twice.
+	if res := post(`{` + season + `,"weeks":[{"number":1,"startAt":"2028-02-01T00:00:00Z","endAt":"2028-02-07T23:59:59Z","resourcesHtml":""}]}`); res.Code != 409 {
+		t.Fatalf("duplicate season=%d %s", res.Code, res.Body)
+	}
+}
+
+func TestInvitationUsernameAppliesToNewAccounts(t *testing.T) {
+	f := newPostgresFixture(t)
+	ctx := context.Background()
+	season := id.New()
+	now := time.Now()
+	if _, err := f.pool.Exec(ctx, `INSERT INTO app.seasons(id,slug,name,start_at,end_at) VALUES($1,'slug-season','Slug season',now(),now()+interval '1 year')`, season); err != nil {
+		t.Fatal(err)
+	}
+	var emails []authadmin.InvitationEmailInput
+	admin := authz.Actor{UserID: otherID, EmailVerified: true, AccountState: authz.AccountActive, GlobalRoles: map[authz.GlobalRole]bool{authz.SystemAdmin: true}, MFAAt: &now}
+	handler := New(Config{DB: f.db, PublicOrigin: "https://rsp.test", Authenticator: AuthenticatorFunc(func(_ context.Context, token string) (authz.Actor, error) {
+		v := admin
+		if token == "student" {
+			v.UserID, v.GlobalRoles = studentID, nil
+		}
+		return v, nil
+	}), SendInvitation: func(_ context.Context, email authadmin.InvitationEmailInput) error {
+		emails = append(emails, email)
+		return nil
+	}}).Handler()
+	res := testRequest(t, handler, http.MethodPost, "/api/v2/seasons/"+season+"/invitations/batch", "admin", `{"invitations":[
+		{"name":"Student","email":"private@example.com","role":"student","slug":"Chosen-Name"},
+		{"name":"Taken","email":"taken@example.com","role":"student","slug":"other"},
+		{"name":"Bad","email":"bad@example.com","role":"student","slug":"no spaces"}
+	]}`)
+	var body struct {
+		Results []invitationBatchResult `json:"results"`
+	}
+	_ = json.Unmarshal(res.Body.Bytes(), &body)
+	if res.Code != 200 || body.Results[0].Outcome != "invited" || *body.Results[0].Invitation.ProfileSlug != "chosen-name" ||
+		body.Results[1].Outcome != "failed" || body.Results[2].Outcome != "failed" {
+		t.Fatalf("batch=%d %s", res.Code, res.Body)
+	}
+	// The fixture's student account predates the invitation, so its username
+	// stays; an account made after it takes the invited username.
+	accept := func() {
+		t.Helper()
+		u, _ := url.Parse(emails[0].URL)
+		if res := testRequest(t, handler, http.MethodPost, "/api/v2/invitations/accept", "student", fmt.Sprintf(`{"token":%q}`, strings.TrimPrefix(u.Fragment, "token="))); res.Code != 200 {
+			t.Fatalf("accept=%d %s", res.Code, res.Body)
+		}
+	}
+	if _, err := f.pool.Exec(ctx, `UPDATE app.users SET created_at=now()+interval '1 minute' WHERE id=$1`, studentID); err != nil {
+		t.Fatal(err)
+	}
+	accept()
+	var slug string
+	if err := f.pool.QueryRow(ctx, `SELECT slug FROM app.user_profiles WHERE user_id=$1`, studentID).Scan(&slug); err != nil || slug != "chosen-name" {
+		t.Fatalf("slug after accepting=%q %v", slug, err)
 	}
 }

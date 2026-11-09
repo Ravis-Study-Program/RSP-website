@@ -1,11 +1,12 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import { InvitationAcceptPage } from './InvitationAcceptPage';
 import { apiRequest } from '@/api/client';
 import { getBrowserAuthSession } from '@/api/authClient';
 import { useCurrentUser } from '@/api/queries';
+import { pendingInvitation, savePendingInvitation } from '@/pendingInvitation';
 
 vi.mock('@/api/client', () => ({
   apiRequest: vi.fn(),
@@ -17,8 +18,11 @@ vi.mock('@/api/authClient', () => ({
 }));
 vi.mock('@/api/queries', () => ({ useCurrentUser: vi.fn() }));
 const token = 'a'.repeat(43);
+function Landed() {
+  return <p>Landed on {useLocation().pathname}</p>;
+}
 function setup(verified: boolean, signedIn = true) {
-  sessionStorage.setItem('rsp-pending-invitation', token);
+  savePendingInvitation(token);
   vi.mocked(useCurrentUser).mockReturnValue({
     data: signedIn ? { id: 'member', emailVerified: verified } : undefined,
     isLoading: false,
@@ -37,19 +41,25 @@ function setup(verified: boolean, signedIn = true) {
       : null,
   );
   return render(
-    <MemoryRouter>
+    <MemoryRouter initialEntries={['/invitations/accept']}>
       <QueryClientProvider
         client={
           new QueryClient({ defaultOptions: { queries: { retry: false } } })
         }
       >
-        <InvitationAcceptPage />
+        <Routes>
+          <Route
+            path="/invitations/accept"
+            element={<InvitationAcceptPage />}
+          />
+          <Route path="*" element={<Landed />} />
+        </Routes>
       </QueryClientProvider>
     </MemoryRouter>,
   );
 }
 afterEach(() => {
-  sessionStorage.clear();
+  localStorage.clear();
   vi.clearAllMocks();
 });
 
@@ -58,7 +68,7 @@ it('keeps the invitation while a new or existing member signs in', async () => {
   expect(
     await screen.findByRole('link', { name: 'Sign in or create an account' }),
   ).toHaveAttribute('href', '/sign-in');
-  expect(sessionStorage.getItem('rsp-pending-invitation')).toBe(token);
+  expect(pendingInvitation()).toBe(token);
   expect(apiRequest).not.toHaveBeenCalled();
 });
 it('requires email verification before revealing or accepting the invitation', async () => {
@@ -85,13 +95,65 @@ it('accepts after review and directs a pending coordinator to MFA settings', asy
   await user.click(
     await screen.findByRole('button', { name: 'Accept invitation' }),
   );
-  expect(await screen.findByRole('link', { name: 'Continue' })).toHaveAttribute(
-    'href',
-    '/settings',
-  );
+  // No confirmation screen: straight on, to MFA settings for a coordinator.
+  expect(await screen.findByText('Landed on /settings')).toBeInTheDocument();
   expect(apiRequest).toHaveBeenCalledWith('/invitations/accept', {
     method: 'POST',
     body: JSON.stringify({ token }),
   });
-  expect(sessionStorage.getItem('rsp-pending-invitation')).toBeNull();
+  expect(pendingInvitation()).toBe('');
+});
+it('forgets a saved invitation once invitations would have expired', () => {
+  localStorage.setItem(
+    'rsp-pending-invitation',
+    JSON.stringify({ token, savedAt: Date.now() - 8 * 86400000 }),
+  );
+  expect(pendingInvitation()).toBe('');
+  expect(localStorage.getItem('rsp-pending-invitation')).toBeNull();
+});
+it('sends a signed-out visitor to sign-up with the invited name and email', async () => {
+  savePendingInvitation(token);
+  vi.mocked(useCurrentUser).mockReturnValue({
+    data: undefined,
+    isLoading: false,
+  } as ReturnType<typeof useCurrentUser>);
+  vi.mocked(getBrowserAuthSession).mockResolvedValue(null);
+  const fetchMock = vi.fn(async () =>
+    Response.json({ name: 'Invited Member', email: 'invited@example.test' }),
+  );
+  vi.stubGlobal('fetch', fetchMock);
+  function SignIn() {
+    return <p>{JSON.stringify(useLocation().state)}</p>;
+  }
+  render(
+    <MemoryRouter initialEntries={['/invitations/accept']}>
+      <QueryClientProvider
+        client={
+          new QueryClient({ defaultOptions: { queries: { retry: false } } })
+        }
+      >
+        <Routes>
+          <Route
+            path="/invitations/accept"
+            element={<InvitationAcceptPage />}
+          />
+          <Route path="/sign-in" element={<SignIn />} />
+        </Routes>
+      </QueryClientProvider>
+    </MemoryRouter>,
+  );
+  expect(
+    await screen.findByText(
+      JSON.stringify({
+        signUp: true,
+        name: 'Invited Member',
+        email: 'invited@example.test',
+      }),
+    ),
+  ).toBeInTheDocument();
+  expect(fetchMock).toHaveBeenCalledWith(
+    '/api/v2/invitations/invitee',
+    expect.objectContaining({ body: JSON.stringify({ token }) }),
+  );
+  vi.unstubAllGlobals();
 });

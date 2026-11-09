@@ -102,7 +102,7 @@ describe('mentor team presentation', () => {
         name: 'Assign a mentor to Unassigned Student',
       }),
     );
-    const dialog = screen.getByRole('dialog', { name: 'Create Mentorship' });
+    const dialog = screen.getByRole('dialog', { name: 'Add Mentorship' });
     expect(
       within(dialog).getByRole('combobox', { name: 'Student' }),
     ).toHaveTextContent('Unassigned Student');

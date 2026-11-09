@@ -1,4 +1,5 @@
 import { StatusBadge } from '@/components/StatusBadge';
+import { isBlankRichText } from '@/richText';
 import { Card, CardContent } from '@/components/ui/card';
 import {
   IconArrowRight,
@@ -222,7 +223,7 @@ export function SeasonPage() {
                               {formatDate(week.startAt)} –{' '}
                               {formatDate(week.endAt)}
                             </p>
-                            {week.resourcesHtml ? (
+                            {!isBlankRichText(week.resourcesHtml) ? (
                               <Link
                                 className="mt-1.5 inline-flex items-center gap-1.5 text-sm font-medium text-foreground underline-offset-4 hover:underline"
                                 to={`/seasons/${season.slug}/weeks/${week.number}`}

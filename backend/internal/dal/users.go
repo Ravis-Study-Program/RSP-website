@@ -9,7 +9,6 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/magedmg/RSP-website/backend/internal/accounts"
-	"github.com/magedmg/RSP-website/backend/internal/platform/id"
 )
 
 const userColumns = `u.id,p.slug,p.display_name,p.avatar_url,pr.timezone,pr.timezone_configured,
@@ -48,18 +47,14 @@ func (p *Store) GetUser(ctx context.Context, userID string) (accounts.User, erro
 	return scanUser(p.pool.QueryRow(ctx, query, userID))
 }
 
-func (p *Store) SuggestUserSlug(ctx context.Context) (string, error) {
-	for attempt := 0; attempt < 32; attempt++ {
-		candidate := "member-" + strings.ReplaceAll(id.New(), "-", "")[:12]
-		var count int64
-		if err := p.pool.QueryRow(ctx, `SELECT count(*) FROM app.user_profiles WHERE lower(slug) = lower($1)`, candidate).Scan(&count); err != nil {
-			return "", err
-		}
-		if count == 0 {
-			return candidate, nil
-		}
+// SuggestUserSlug suggests a profile slug from the user's name, such as
+// maddie-frew or maddie-frew-2 when that is taken by someone else.
+func (p *Store) SuggestUserSlug(ctx context.Context, userID string) (string, error) {
+	var name string
+	if err := p.pool.QueryRow(ctx, `SELECT display_name FROM app.user_profiles WHERE user_id=$1`, userID).Scan(&name); err != nil {
+		return "", noRows(err)
 	}
-	return "", ErrConflict
+	return freeSlug(ctx, p.pool, NameSlug(name), userID)
 }
 
 type UserQuery struct {

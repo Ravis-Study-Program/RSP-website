@@ -24,7 +24,12 @@ import {
 import { useState, type ReactNode } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiRequest } from '@/api/client';
-import { demoMode, fetchAllPages } from '@/api/queries';
+import {
+  demoMode,
+  fetchAllPages,
+  usePeople,
+  useSeasonEnrollments,
+} from '@/api/queries';
 import type { Invitation, InvitationCreate } from '@/api/generated/models';
 import { LabelHint } from '@/components/Common';
 import { FormDialog } from '@/components/Dialogs';
@@ -53,16 +58,19 @@ export interface InvitationParts {
 
 /**
  * A season's invitations, handed to `render` in parts so the page can put the
- * invite button in its header and the invitations in its table. A student can
- * be invited together with their mentor.
+ * invite button in its header and the invitations in its table. The invite
+ * form starts on that season but can invite to any of `seasons`; accepting
+ * enrols the person in the invitation's season. A student can be invited
+ * together with a mentor from that season.
  */
 export function Invitations({
   season,
-  mentors,
+  seasons,
   render,
 }: {
   season: Season;
-  mentors: Array<{ id: string; name: string }>;
+  /** The seasons the invite form offers. */
+  seasons: Season[];
   render: (parts: InvitationParts) => ReactNode;
 }) {
   const client = useQueryClient();
@@ -92,11 +100,31 @@ export function Invitations({
     email: '',
     role: 'student',
   });
+  const [inviteSeasonId, setInviteSeasonId] = useState(season.id);
+  const inviteSeason = seasons.find((item) => item.id === inviteSeasonId);
+  // Mentors come from the season the invitation is for.
+  const people = usePeople(open);
+  const enrollments = useSeasonEnrollments(open ? inviteSeasonId : undefined);
+  const mentors = (people.data?.items ?? []).filter((person) =>
+    (enrollments.data?.items ?? []).some(
+      (enrollment) =>
+        enrollment.userId === person.id &&
+        enrollment.state === 'active' &&
+        (enrollment.role === 'mentor' || enrollment.role === 'coordinator'),
+    ),
+  );
+  const seasonItems = seasons.map((item) => ({
+    label: item.name,
+    value: item.id,
+  }));
   const mentorItems = [
     { label: 'No mentor yet', value: '' },
     ...mentors.map((mentor) => ({ label: mentor.name, value: mentor.id })),
   ];
   async function save(invitation?: Invitation, action?: 'resend' | 'cancel') {
+    // A new invitation goes to the season chosen in the form.
+    const target = invitation ? season : (inviteSeason ?? season);
+    const targetKey = ['invitations', target.id];
     setBusy(true);
     setMessage('');
     // A mentor only goes with a student invitation.
@@ -115,9 +143,9 @@ export function Invitations({
             id: invitation?.id ?? crypto.randomUUID(),
             ...form,
             ...invitation,
-            seasonId: season.id,
-            seasonName: season.name,
-            seasonSlug: season.slug,
+            seasonId: target.id,
+            seasonName: target.name,
+            seasonSlug: target.slug,
             expiresAt: new Date(at.getTime() + 7 * 86400000).toISOString(),
             sentAt: at.toISOString(),
             status: action === 'cancel' ? 'cancelled' : 'pending',
@@ -125,33 +153,32 @@ export function Invitations({
             acceptedBy: null,
           }
         : await apiRequest<Invitation>(
-            `/seasons/${season.id}/invitations${invitation ? `/${invitation.id}/${action}` : ''}`,
+            `/seasons/${target.id}/invitations${invitation ? `/${invitation.id}/${action}` : ''}`,
             {
               method: 'POST',
               ...(invitation ? {} : { body: JSON.stringify(body) }),
             },
           );
-      if (demoMode)
-        client.setQueryData(key, {
-          items: [
-            ...(query.data?.items ?? []).filter((i) => i.id !== saved.id),
-            saved,
-          ],
-          totalCount:
-            (query.data?.items ?? []).filter((i) => i.id !== saved.id).length +
-            1,
+      if (demoMode) {
+        const others = (
+          client.getQueryData<{ items: Invitation[] }>(targetKey)?.items ?? []
+        ).filter((i) => i.id !== saved.id);
+        client.setQueryData(targetKey, {
+          items: [...others, saved],
+          totalCount: others.length + 1,
           pageInfo: { hasMore: false, nextCursor: null, previousCursor: null },
         });
-      else await client.invalidateQueries({ queryKey: key });
+      } else await client.invalidateQueries({ queryKey: targetKey });
       setMessage(
         saved.status === 'cancelled'
           ? 'Invitation cancelled.'
           : saved.sentAt
-            ? 'Invitation email queued. The recipient has 7 days to accept.'
+            ? `Invitation email queued for ${target.name}. The recipient has 7 days to accept.`
             : 'Invitation saved, but the email could not be queued. Use Resend to try again.',
       );
       setOpen(false);
       setForm({ name: '', email: '', role: 'student' });
+      setInviteSeasonId(season.id);
     } catch (e) {
       setMessage(
         e instanceof Error ? e.message : 'Unable to update this invitation.',
@@ -193,6 +220,7 @@ export function Invitations({
           !window.confirm('Discard this unsent invitation?')
         )
           return;
+        if (next) setInviteSeasonId(season.id);
         setOpen(next);
       }}
       title="Invite a Member"
@@ -211,6 +239,32 @@ export function Invitations({
         }}
         className={formStack}
       >
+        <Field>
+          <FieldLabel htmlFor="invitation-season">Season</FieldLabel>
+          <Select
+            items={seasonItems}
+            value={inviteSeasonId}
+            onValueChange={(value) => {
+              if (!value) return;
+              setInviteSeasonId(value);
+              // Mentors differ by season, so the mentor starts over.
+              setForm({ ...form, mentorUserId: undefined });
+            }}
+          >
+            <SelectTrigger id="invitation-season" className="w-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectGroup>
+                {seasonItems.map((item) => (
+                  <SelectItem key={item.value} value={item.value}>
+                    {item.label}
+                  </SelectItem>
+                ))}
+              </SelectGroup>
+            </SelectContent>
+          </Select>
+        </Field>
         <Field>
           <FieldLabel htmlFor="invitation-name">Name</FieldLabel>
           <Input
@@ -299,7 +353,7 @@ export function Invitations({
           </p>
         ) : null}
         <div>
-          <Button type="submit" disabled={busy}>
+          <Button type="submit" disabled={busy || !inviteSeason}>
             {busy ? 'Sending…' : 'Send invitation'}
           </Button>
         </div>

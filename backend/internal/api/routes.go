@@ -40,12 +40,18 @@ func registerAccountRoutes(mux *http.ServeMux, a *API) {
 func registerProgramRoutes(mux *http.ServeMux, a *API) {
 	mux.HandleFunc("GET /api/v2/seasons/{id}/invitations", a.protected(ratelimit.Read, a.listInvitations))
 	mux.HandleFunc("POST /api/v2/seasons/{id}/invitations", a.protected(ratelimit.Sensitive, a.createInvitation))
+	mux.HandleFunc("POST /api/v2/seasons/{id}/invitations/batch", a.protected(ratelimit.Sensitive, a.createInvitationBatch))
+	// Previewing changes nothing, so it is limited as an ordinary write.
+	mux.HandleFunc("POST /api/v2/seasons/{id}/invitations/batch/preview", a.protected(ratelimit.Write, a.previewInvitationBatch))
 	mux.HandleFunc("POST /api/v2/seasons/{id}/invitations/{invitationId}/resend", a.protected(ratelimit.Sensitive, a.resendInvitation))
 	mux.HandleFunc("POST /api/v2/seasons/{id}/invitations/{invitationId}/cancel", a.protected(ratelimit.Sensitive, a.cancelInvitation))
+	// Public: the link's token is the credential, and only reveals who it was sent to.
+	mux.HandleFunc("POST /api/v2/invitations/invitee", a.getInvitationInvitee)
 	mux.HandleFunc("POST /api/v2/invitations/preview", a.protected(ratelimit.Read, a.previewInvitation))
 	mux.HandleFunc("POST /api/v2/invitations/accept", a.protected(ratelimit.Write, a.acceptInvitation))
 	mux.HandleFunc("GET /api/v2/seasons", a.protected(ratelimit.Read, a.listSeasons))
 	mux.HandleFunc("POST /api/v2/seasons", a.protected(ratelimit.Write, a.createSeason))
+	mux.HandleFunc("POST /api/v2/seasons/import", a.protected(ratelimit.Sensitive, a.importSeason))
 	mux.HandleFunc("GET /api/v2/seasons/{id}/activity-summary", a.protected(ratelimit.Read, a.getSeasonActivitySummary))
 	mux.HandleFunc("GET /api/v2/seasons/{id}", a.protected(ratelimit.Read, a.getSeason))
 	mux.HandleFunc("DELETE /api/v2/seasons/{id}", a.protected(ratelimit.Sensitive, a.deleteEmptySeason))
