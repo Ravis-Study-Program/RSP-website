@@ -1,21 +1,15 @@
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Field, FieldLabel } from '@/components/ui/field';
 import { useCallback, useMemo, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { Navigate, useParams } from 'react-router-dom';
 
 import {
   completedMondayUpdateWeeks,
   programTimezone,
   sameUpdateWeek,
 } from '@/activityDates';
-import { apiRequest } from '@/api/client';
-import type { Enrollment, MondayUpdate } from '@/api/generated/models';
+import type { MondayUpdate } from '@/api/generated/models';
 import {
-  demoMode,
   useCurrentUser,
   useMondayUpdates,
   useSeasons,
@@ -31,7 +25,7 @@ import {
 import { pickLatestMark } from '@/mondayMarks';
 import { weekStatus } from '@/mondayStatus';
 import { canSetStudentLevel } from '@/studentLevels';
-import { FormDialog } from '@/components/Dialogs';
+import { RemovalDialog } from '@/components/RemovalDialog';
 import type { Person } from '@/types';
 import { calendarDateKey } from '@/utils';
 
@@ -39,7 +33,12 @@ function isKicked(person: Person) {
   return (person.enrollmentState ?? person.status) === 'kicked';
 }
 
-export function MenteesPage() {
+/** A mentor's own students, even for an admin who could see everyone. */
+export function MyStudentsPage() {
+  return <MenteesPage scope="mine" />;
+}
+
+export function MenteesPage({ scope }: { scope?: 'mine' } = {}) {
   const { slug } = useParams();
   const seasons = useSeasons();
   const currentUser = useCurrentUser();
@@ -47,15 +46,17 @@ export function MenteesPage() {
   const query = useSeasonPeople(season?.id, season?.name);
   const [includePrevious, setIncludePrevious] = useState(false);
   const showPrevious = includePrevious || season?.status === 'closed';
-  const canManageEveryStudent = Boolean(
-    currentUser.data?.globalRoles.length ||
-    currentUser.data?.seasonRoles.some(
-      (membership) =>
-        membership.seasonId === season?.id &&
-        membership.role === 'coordinator' &&
-        (membership.state === 'active' || membership.state === 'completed'),
-    ),
-  );
+  const canManageEveryStudent =
+    scope !== 'mine' &&
+    Boolean(
+      currentUser.data?.globalRoles.length ||
+      currentUser.data?.seasonRoles.some(
+        (membership) =>
+          membership.seasonId === season?.id &&
+          membership.role === 'coordinator' &&
+          (membership.state === 'active' || membership.state === 'completed'),
+      ),
+    );
   usePageTitle(canManageEveryStudent ? 'All Students' : 'My Students');
   const canChangeLevel = canSetStudentLevel(currentUser.data, season);
   const mentees = useMemo(
@@ -174,6 +175,9 @@ export function MenteesPage() {
       seasonUpdates.isLoading,
     ],
   );
+  // Coordinators and admins manage every student from People.
+  if (canManageEveryStudent && slug)
+    return <Navigate to={`/seasons/${slug}/people`} replace />;
   return (
     <Page>
       <PageHeader
@@ -238,104 +242,5 @@ export function MenteesPage() {
         emptyMessage="A Coordinator can assign students to your mentor team."
       />
     </Page>
-  );
-}
-
-/** Removes a student from the season, opened from their row menu. */
-function RemovalDialog({
-  seasonId,
-  person,
-  onRemoved,
-  open,
-  onOpenChange,
-}: {
-  seasonId?: string;
-  person: Person;
-  onRemoved: () => void;
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-}) {
-  const [reason, setReason] = useState('');
-  const [confirmation, setConfirmation] = useState('');
-  const [pending, setPending] = useState(false);
-  const [error, setError] = useState('');
-  const remove = async () => {
-    if (demoMode) {
-      onRemoved();
-      onOpenChange(false);
-      return;
-    }
-    if (!seasonId || !person.enrollmentId) return;
-    setPending(true);
-    setError('');
-    try {
-      if (!demoMode) {
-        const body = {
-          reason: reason.trim(),
-        };
-        await apiRequest<Enrollment>(
-          `/seasons/${encodeURIComponent(seasonId)}/members/${encodeURIComponent(person.enrollmentId)}/remove`,
-          { method: 'POST', body: JSON.stringify(body) },
-        );
-      }
-      onRemoved();
-      onOpenChange(false);
-    } catch (requestError) {
-      setError(
-        requestError instanceof Error
-          ? requestError.message
-          : 'Unable to remove this member.',
-      );
-    } finally {
-      setPending(false);
-    }
-  };
-  return (
-    <FormDialog
-      title={`Remove ${person.name}?`}
-      description="This student immediately loses access to season resources and the directory. Your name and the removal reason are recorded."
-      open={open}
-      onOpenChange={onOpenChange}
-    >
-      <Field>
-        <FieldLabel htmlFor={`reason-${person.id}`}>Removal reason</FieldLabel>
-        <Textarea
-          id={`reason-${person.id}`}
-          required
-          value={reason}
-          onChange={(event) => setReason(event.target.value)}
-        />
-      </Field>
-      <Field>
-        <FieldLabel htmlFor={`name-${person.id}`}>
-          Type <strong>{person.name}</strong> to confirm
-        </FieldLabel>
-        <Input
-          id={`name-${person.id}`}
-          value={confirmation}
-          onChange={(event) => setConfirmation(event.target.value)}
-        />
-      </Field>
-      {error ? (
-        <p className="text-sm text-destructive" role="alert">
-          {error}
-        </p>
-      ) : null}
-      <div className="flex flex-wrap justify-end gap-2">
-        <Button
-          variant="destructive"
-          type="button"
-          disabled={
-            pending ||
-            reason.trim().length < 5 ||
-            confirmation !== person.name ||
-            (!demoMode && (!seasonId || !person.enrollmentId))
-          }
-          onClick={() => void remove()}
-        >
-          {pending ? 'Removing…' : 'Remove member'}
-        </Button>
-      </div>
-    </FormDialog>
   );
 }

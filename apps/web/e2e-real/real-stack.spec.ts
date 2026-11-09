@@ -146,29 +146,29 @@ test('coordinator MFA session creates, edits, and deletes an open-season week', 
 }) => {
   const weekNumber = 10_000 + (Date.now() % 80_000);
   const updatedWeekNumber = weekNumber + 1;
-  const resourceUrl = `https://example.test/e2e/week-${weekNumber}`;
   await signIn(page, 'COORDINATOR');
   await page.goto('/admin/weeks');
   await expect(
-    page.getByRole('heading', { name: 'Weeks', exact: true }),
+    page.getByRole('heading', { name: 'Weeks (Admin)', exact: true }),
   ).toBeVisible();
   await expectSelected(page, 'Season', 'Development Season · Open');
 
   await page.getByRole('button', { name: 'Create week' }).click();
   const create = page.getByRole('dialog', { name: 'Create Week' });
   await create.getByLabel('Week number').fill(String(weekNumber));
-  await create.getByLabel('Resource URL (optional)').fill(resourceUrl);
   await create.getByRole('button', { name: 'Create week' }).click();
   const createdWeek = page
     .getByRole('row')
     .filter({ hasText: `Week ${weekNumber}` });
   await expect(createdWeek).toBeVisible();
-  await expect(createdWeek).toContainText(resourceUrl);
   await expect(createdWeek).toContainText(
     /\d{2}\/\d{2}\/\d{2} – \d{2}\/\d{2}\/\d{2}/,
   );
 
-  await createdWeek.getByRole('button', { name: 'Edit' }).click();
+  await createdWeek
+    .getByRole('button', { name: `More actions for Week ${weekNumber}` })
+    .click();
+  await page.getByRole('menuitem', { name: 'Edit', exact: true }).click();
   const edit = page.getByRole('dialog', { name: `Edit Week ${weekNumber}` });
   await edit.getByLabel('Week number').fill(String(updatedWeekNumber));
   await edit.getByRole('button', { name: 'Save week' }).click();
@@ -176,12 +176,16 @@ test('coordinator MFA session creates, edits, and deletes an open-season week', 
     .getByRole('row')
     .filter({ hasText: `Week ${updatedWeekNumber}` });
   await expect(updatedWeek).toBeVisible();
-  await expect(updatedWeek).toContainText(resourceUrl);
   await expect(updatedWeek).toContainText(
     /\d{2}\/\d{2}\/\d{2} – \d{2}\/\d{2}\/\d{2}/,
   );
 
-  await updatedWeek.getByRole('button', { name: 'Delete week' }).click();
+  await updatedWeek
+    .getByRole('button', {
+      name: `More actions for Week ${updatedWeekNumber}`,
+    })
+    .click();
+  await page.getByRole('menuitem', { name: 'Delete week' }).click();
   const confirmation = page.getByRole('alertdialog', {
     name: `Delete week Week ${updatedWeekNumber}?`,
   });
@@ -219,12 +223,18 @@ test('director MFA session creates, edits, closes, and reopens a throwaway seaso
   const row = page.getByRole('row').filter({ hasText: seasonName });
   await expect(row).toBeVisible();
 
-  await row.getByRole('button', { name: 'Edit season' }).click();
+  await row
+    .getByRole('button', { name: `More actions for ${seasonName}` })
+    .click();
+  await page.getByRole('menuitem', { name: 'Edit season' }).click();
   const edit = page.getByRole('dialog', { name: `Edit ${seasonName}` });
   await edit.getByLabel('Location').fill('E2E Test Campus Updated');
   await edit.getByRole('button', { name: 'Save season' }).click();
   await expect(edit).toBeHidden();
-  await row.getByRole('button', { name: 'Edit season' }).click();
+  await row
+    .getByRole('button', { name: `More actions for ${seasonName}` })
+    .click();
+  await page.getByRole('menuitem', { name: 'Edit season' }).click();
   await expect(edit.getByLabel('Location')).toHaveValue(
     'E2E Test Campus Updated',
   );
@@ -258,20 +268,21 @@ test('director MFA session creates, edits, closes, and reopens a throwaway seaso
     page.getByRole('button', { name: 'Close season' }),
   ).toBeVisible();
 
-  await page.goto('/admin/seasons');
+  // Seasons are managed on the Seasons page, from each row's menu.
+  await page.goto('/seasons');
   const emptySeason = page.getByRole('row').filter({ hasText: seasonName });
   await emptySeason
-    .getByRole('button', { name: 'Delete empty season' })
+    .getByRole('button', { name: `More actions for ${seasonName}` })
     .click();
+  await page.getByRole('menuitem', { name: 'Delete empty season' }).click();
   const deletion = page.getByRole('alertdialog');
   await deletion.getByRole('textbox').fill(seasonName);
   await deletion.getByRole('button', { name: 'Delete empty season' }).click();
   await expect(emptySeason).toHaveCount(0);
 
+  // Accounts are managed from People; only System Admins get Manage account.
   await page.goto('/admin/users');
-  await expect(
-    page.getByRole('heading', { name: 'You Do Not Have Access' }),
-  ).toBeVisible();
+  await expect(page).toHaveURL(/\/people$/);
 });
 
 async function emailLink(email: string, subject: string, pattern: RegExp) {
@@ -387,8 +398,9 @@ test('an invited new member verifies their email and joins the season', async ({
     await expect(
       page.getByText(email).filter({ visible: true }).first(),
     ).toBeVisible();
+    // The accepted invitation shows on the new member's enrollment row.
     await expect(
-      page.getByRole('region', { name: 'Invitations', exact: true }),
+      page.getByRole('row').filter({ hasText: email }),
     ).toContainText('Accepted');
   } finally {
     await recipientContext.close();

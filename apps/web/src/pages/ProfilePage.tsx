@@ -33,7 +33,6 @@ import {
 } from '@/api/queries';
 import { useQueryClient } from '@tanstack/react-query';
 import { ActivityChart } from '@/components/ActivityChart';
-import { Card, CardContent } from '@/components/ui/card';
 import {
   Avatar,
   MetricCard,
@@ -269,14 +268,7 @@ export function ProfilePage() {
               }
             />
           ) : (
-            <Card className="flex-1">
-              <CardContent>
-                <ActivityChart
-                  data={activity}
-                  expected={studentWeeklyExpected}
-                />
-              </CardContent>
-            </Card>
+            <ActivityChart data={activity} expected={studentWeeklyExpected} />
           )}
         </PageSection>
       ) : null}

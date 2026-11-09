@@ -13,5 +13,6 @@ export interface Week {
   number: number;
   startAt: string;
   endAt: string;
-  resourceUrl: string;
+  /** @maxLength 50000 */
+  resourcesHtml: string;
 }

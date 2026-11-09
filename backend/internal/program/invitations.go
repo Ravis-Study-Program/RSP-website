@@ -13,5 +13,10 @@ type Invitation struct {
 	Status     string     `json:"status"`
 	ExpiresAt  time.Time  `json:"expiresAt"`
 	SentAt     *time.Time `json:"sentAt"`
-	DeliveryID string     `json:"-"`
+	// MentorUserID is the mentor a student is invited to; accepting creates
+	// the mentorship.
+	MentorUserID *string `json:"mentorUserId"`
+	// AcceptedBy is the account that accepted, linking it to its enrollment.
+	AcceptedBy *string `json:"acceptedBy"`
+	DeliveryID string  `json:"-"`
 }

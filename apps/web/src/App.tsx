@@ -249,6 +249,13 @@ export const routeObjects: RouteObject[] = [
         }),
       },
       {
+        path: '/seasons/:slug/weeks/:number',
+        lazy: async () => ({
+          Component: (await import('@/pages/WeekResourcesPage'))
+            .WeekResourcesPage,
+        }),
+      },
+      {
         path: '/seasons/:slug/leetcode',
         lazy: async () => ({
           Component: (await import('@/pages/LeetCodePage')).LeetCodePage,
@@ -271,6 +278,12 @@ export const routeObjects: RouteObject[] = [
         path: '/seasons/:slug/mentees',
         lazy: async () => ({
           Component: (await import('@/pages/MenteesPage')).MenteesPage,
+        }),
+      },
+      {
+        path: '/seasons/:slug/my-students',
+        lazy: async () => ({
+          Component: (await import('@/pages/MenteesPage')).MyStudentsPage,
         }),
       },
       {
@@ -335,23 +348,17 @@ export const routeObjects: RouteObject[] = [
               Component: (await import('@/pages/AdminPage')).AdminPage,
             }),
           },
+          // Seasons and accounts are managed on the shared pages.
           {
             path: '/admin/seasons',
-            lazy: async () => ({
-              Component: (await import('@/pages/AdminPage')).AdminSeasonsPage,
-            }),
+            element: <Navigate to="/seasons" replace />,
           },
         ],
       },
       {
         element: <RequireSystemAdmin />,
         children: [
-          {
-            path: '/admin/users',
-            lazy: async () => ({
-              Component: (await import('@/pages/AdminPage')).AdminUsersPage,
-            }),
-          },
+          { path: '/admin/users', element: <Navigate to="/people" replace /> },
         ],
       },
       {
@@ -370,12 +377,10 @@ export const routeObjects: RouteObject[] = [
                 .AdminEnrollmentsPage,
             }),
           },
+          // Mentorships are managed on Enrollments.
           {
             path: '/admin/mentorships',
-            lazy: async () => ({
-              Component: (await import('@/pages/AdminPage'))
-                .AdminMentorshipsPage,
-            }),
+            element: <Navigate to="/admin/enrollments" replace />,
           },
         ],
       },

@@ -56,6 +56,7 @@ import {
   useContext,
   useEffect,
   useState,
+  type MouseEvent,
   type ReactNode,
 } from 'react';
 
@@ -63,6 +64,7 @@ import { EmptyState, ErrorState } from '@/components/StatusViews';
 import { renderCell } from '@/lib/renderCell';
 import { cn } from '@/lib/utils';
 import { useMediaQuery } from '@/lib/useMediaQuery';
+import { useNavigate } from 'react-router-dom';
 
 declare module '@tanstack/react-table' {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -136,6 +138,15 @@ export interface DataTableProps<TData> {
   searchPlaceholder?: string;
   renderCard: (row: Row<TData>) => ReactNode;
   renderExpanded?: (row: Row<TData>) => ReactNode;
+  /** Which rows have details to expand; every row when omitted. */
+  rowCanExpand?: (row: TData) => boolean;
+  /**
+   * Where clicking a row goes. Without it, clicking an expandable row shows
+   * or hides its details.
+   */
+  rowHref?: (row: TData) => string | undefined;
+  /** What clicking a row does when it has no page to open. */
+  onRowClick?: (row: TData) => void;
   defaultExpanded?: boolean;
   getRowId?: (row: TData) => string;
   renderSummary?: (rows: TData[]) => ReactNode;
@@ -192,6 +203,9 @@ export function DataTable<TData>({
   searchPlaceholder = 'Search all columns',
   renderCard,
   renderExpanded,
+  rowCanExpand,
+  rowHref,
+  onRowClick,
   defaultExpanded = false,
   getRowId,
   renderSummary,
@@ -246,7 +260,8 @@ export function DataTable<TData>({
     getFilteredRowModel: getFilteredRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
     getExpandedRowModel: getExpandedRowModel(),
-    getRowCanExpand: () => Boolean(renderExpanded),
+    getRowCanExpand: (row) =>
+      Boolean(renderExpanded) && (rowCanExpand?.(row.original) ?? true),
     getRowId,
     // Appended server pages must not jump the reader back to page one.
     autoResetPageIndex: !serverPagination,
@@ -255,6 +270,15 @@ export function DataTable<TData>({
       ...(defaultExpanded ? { expanded: true } : {}),
     },
   });
+  const navigate = useNavigate();
+  // A row opens its page, or else shows and hides its details.
+  const rowActivation = (row: Row<TData>) => {
+    const href = rowHref?.(row.original);
+    if (href) return () => navigate(href);
+    if (onRowClick) return () => onRowClick(row.original);
+    if (row.getCanExpand()) return () => row.toggleExpanded();
+    return undefined;
+  };
 
   useEffect(() => {
     localStorage.setItem(
@@ -637,6 +661,7 @@ export function DataTable<TData>({
                           key={row.id}
                           row={row}
                           renderExpanded={renderExpanded}
+                          onActivate={rowActivation(row)}
                         />
                       ))}
                     </TableBody>
@@ -646,7 +671,17 @@ export function DataTable<TData>({
               {compact ? (
                 <div className="divide-y px-4">
                   {pageRows.map((row) => (
-                    <article className="py-4" key={row.id}>
+                    // A pointer shortcut only: keyboard users reach the same
+                    // page or details through the card's own link or button.
+                    // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-noninteractive-element-interactions
+                    <article
+                      className={cn(
+                        'py-4',
+                        rowActivation(row) && 'cursor-pointer',
+                      )}
+                      key={row.id}
+                      onClick={clickHandler(rowActivation(row))}
+                    >
                       {renderCard(row)}
                     </article>
                   ))}
@@ -734,16 +769,41 @@ export function DataTable<TData>({
   );
 }
 
+/** Clicks on these act on their own; the row only takes the rest. */
+const interactiveSelector =
+  'a,button,input,select,textarea,label,[role=button],[role=checkbox],[role=menuitem],[role=combobox]';
+
+/**
+ * A row click handler that ignores clicks on the row's own controls, clicks
+ * that select text, and clicks inside dialogs opened from the row (React
+ * passes those up through the portal, but they are not inside the row).
+ */
+function clickHandler(activate?: () => void) {
+  if (!activate) return undefined;
+  return (event: MouseEvent<HTMLElement>) => {
+    const target = event.target as Element;
+    if (!event.currentTarget.contains(target)) return;
+    if (target.closest(interactiveSelector)) return;
+    if (window.getSelection()?.toString()) return;
+    activate();
+  };
+}
+
 function DataTableRecord<TData>({
   row,
   renderExpanded,
+  onActivate,
 }: {
   row: Row<TData>;
   renderExpanded?: (row: Row<TData>) => ReactNode;
+  onActivate?: () => void;
 }) {
   return (
     <>
-      <TableRow>
+      <TableRow
+        className={cn(onActivate && 'cursor-pointer')}
+        onClick={clickHandler(onActivate)}
+      >
         {row.getVisibleCells().map((cell) => (
           <TableCell
             className={cn(

@@ -1,4 +1,4 @@
-import { Card } from '@/components/ui/card';
+import type { ColumnDef } from '@tanstack/react-table';
 import { StatusBadge } from '@/components/StatusBadge';
 import {
   Select,
@@ -8,11 +8,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Button, buttonVariants } from '@/components/ui/button';
+import { Button } from '@/components/ui/button';
 import { Field, FieldLabel } from '@/components/ui/field';
 import { IconArrowRight, IconPlus, IconUsersGroup } from '@tabler/icons-react';
 import { useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 
 import { apiRequest } from '@/api/client';
 import type { Mentorship, MentorshipCreate } from '@/api/generated/models';
@@ -20,15 +20,14 @@ import { demoMode, useSeasons, useSeasonPeople } from '@/api/queries';
 import {
   Page,
   PageHeader,
+  PageSection,
   PersonIdentity,
   usePageTitle,
 } from '@/components/Common';
+import { DataTable, ExpandRowButton } from '@/components/DataTable';
 import { FormDialog } from '@/components/Dialogs';
-import {
-  EmptyState,
-  InlineNotice,
-  PageSkeleton,
-} from '@/components/StatusViews';
+import { InlineNotice, PageSkeleton } from '@/components/StatusViews';
+import type { Person } from '@/types';
 
 export function MentorTeamsPage() {
   usePageTitle('Mentor Teams');
@@ -36,16 +35,111 @@ export function MentorTeamsPage() {
   const seasons = useSeasons();
   const season = seasons.data?.items.find((item) => item.slug === slug);
   const query = useSeasonPeople(season?.id, season?.name);
+  const [assigning, setAssigning] = useState<Person | null>(null);
   if (query.isLoading) return <PageSkeleton label="Loading mentor teams" />;
   const mentors =
     query.data?.items.filter((person) => person.roles.includes('mentor')) ?? [];
   const students =
     query.data?.items.filter((person) => person.roles.includes('student')) ??
     [];
+  const unassignedCount = students.filter(
+    (student) => student.status === 'unassigned',
+  ).length;
+  const unassigned = students.filter(
+    (student) => student.status === 'unassigned',
+  );
+  // Clicking an unassigned student, or their arrow, assigns them a mentor.
+  const assignButton = (student: Person) => (
+    <Button
+      type="button"
+      variant="ghost"
+      size="icon"
+      aria-label={`Assign a mentor to ${student.name}`}
+      onClick={() => setAssigning(student)}
+    >
+      <IconArrowRight size={18} aria-hidden="true" />
+    </Button>
+  );
+  const unassignedColumns: ColumnDef<Person, any>[] = [
+    {
+      accessorKey: 'name',
+      header: 'Student',
+      cell: ({ row }) => (
+        <PersonIdentity
+          person={row.original}
+          seasonId={season?.id}
+          showRoles={false}
+        />
+      ),
+    },
+    {
+      id: 'actions',
+      header: 'Actions',
+      meta: { width: 6, align: 'end' },
+      enableSorting: false,
+      enableHiding: false,
+      cell: ({ row }) => assignButton(row.original),
+    },
+  ];
+  const studentsOf = (mentor: Person) =>
+    students.filter((student) => student.mentorshipMentorId === mentor.id);
+  const studentList = (mentor: Person) => (
+    <ul
+      aria-label={`Students of ${mentor.name}`}
+      className="m-0 grid list-none p-0"
+    >
+      {studentsOf(mentor).map((student) => (
+        <li
+          className="flex items-center justify-between gap-4 border-b border-border py-3 first:pt-0 last:border-b-0 last:pb-0"
+          key={student.id}
+        >
+          <PersonIdentity
+            person={student}
+            seasonId={season?.id}
+            showRoles={false}
+          />
+        </li>
+      ))}
+    </ul>
+  );
+  const columns: ColumnDef<Person, any>[] = [
+    {
+      id: 'expand',
+      header: 'Details',
+      meta: { width: 4.5 },
+      enableSorting: false,
+      enableHiding: false,
+      cell: ({ row }) =>
+        studentsOf(row.original).length ? (
+          <ExpandRowButton
+            row={row}
+            subject={`students of ${row.original.name}`}
+          />
+        ) : null,
+    },
+    {
+      accessorKey: 'name',
+      header: 'Mentor',
+      cell: ({ row }) => (
+        <PersonIdentity
+          person={row.original}
+          seasonId={season?.id}
+          showRoles={false}
+        />
+      ),
+    },
+    {
+      id: 'students',
+      header: 'Students',
+      meta: { width: 8 },
+      accessorFn: (mentor) => studentsOf(mentor).length,
+    },
+  ];
   return (
     <Page>
       <PageHeader
         title="Mentor Teams"
+        titleHint="Admin"
         actions={
           <MentorshipDialog
             seasonId={season?.id}
@@ -55,99 +149,81 @@ export function MentorTeamsPage() {
           />
         }
       />
-      {students.some((student) => student.status === 'unassigned') ? (
-        <InlineNotice tone="warning">
-          <IconUsersGroup size={19} aria-hidden="true" />{' '}
-          {students.filter((student) => student.status === 'unassigned').length}{' '}
-          student needs a mentor assignment.
-        </InlineNotice>
-      ) : null}
-      <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,18rem),1fr))] gap-4">
-        {mentors.map((mentor) => (
-          <article key={mentor.id}>
-            <Card className="gap-4 p-5">
-              <PersonIdentity
-                person={mentor}
-                seasonId={season?.id}
-                privateView
-              />
-              <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
-                <h2 className="text-base font-semibold tracking-tight">
-                  Assigned Students
-                </h2>
-                <StatusBadge>
-                  {
-                    students.filter(
-                      (student) => student.mentorshipMentorId === mentor.id,
-                    ).length
-                  }
-                </StatusBadge>
+      <div className="flex flex-col gap-6">
+        {unassignedCount ? (
+          <InlineNotice tone="warning">
+            <IconUsersGroup size={19} aria-hidden="true" />{' '}
+            {unassignedCount === 1
+              ? '1 student needs a mentor.'
+              : `${unassignedCount} students need a mentor.`}
+          </InlineNotice>
+        ) : null}
+        <DataTable
+          ariaLabel="Mentor teams"
+          data={mentors}
+          columns={columns}
+          getRowId={(mentor) => mentor.id}
+          rowCanExpand={(mentor) => studentsOf(mentor).length > 0}
+          renderExpanded={(row) => studentList(row.original)}
+          loading={query.isLoading}
+          error={query.isError}
+          onRetry={() => void query.refetch()}
+          emptyTitle="No Mentors in This Season"
+          emptyMessage="Mentors appear here once they are enrolled."
+          renderCard={(row) => (
+            <div className="grid gap-3">
+              <div className="flex items-center justify-between gap-3">
+                <PersonIdentity
+                  person={row.original}
+                  seasonId={season?.id}
+                  showRoles={false}
+                />
+                <StatusBadge>{studentsOf(row.original).length}</StatusBadge>
               </div>
-              <ul className="m-0 grid list-none gap-3 p-0">
-                {students
-                  .filter((student) => student.mentorshipMentorId === mentor.id)
-                  .map((student) => (
-                    <li
-                      className="flex items-center justify-between gap-4 border-b border-border py-3 last:border-b-0"
-                      key={student.id}
-                    >
-                      <PersonIdentity person={student} seasonId={season?.id} />
-                      <Link
-                        className={buttonVariants({
-                          variant: 'ghost',
-                          size: 'icon',
-                        })}
-                        to={`/people/${student.slug}?seasonId=${encodeURIComponent(season!.id)}`}
-                        aria-label={`Open ${student.name}`}
-                      >
-                        <IconArrowRight size={18} aria-hidden="true" />
-                      </Link>
-                    </li>
-                  ))}
-              </ul>
-            </Card>
-          </article>
-        ))}
-      </div>
-      <section className="mt-6">
-        <div className="mb-3 flex flex-wrap items-end justify-between gap-x-4 gap-y-1">
-          <h2 className="text-xl font-semibold tracking-tight">
-            Unassigned Students
-          </h2>
-        </div>
-        {students.some((student) => student.status === 'unassigned') ? (
-          <Card className="gap-4 p-5">
-            <ul className="m-0 grid list-none gap-3 p-0">
-              {students
-                .filter((student) => student.status === 'unassigned')
-                .map((student) => (
-                  <li
-                    className="flex items-center justify-between gap-4 border-b border-border py-3 last:border-b-0"
-                    key={student.id}
-                  >
-                    <PersonIdentity
-                      person={student}
-                      seasonId={season?.id}
-                      privateView
-                    />
-                    <MentorshipDialog
-                      seasonId={season?.id}
-                      mentors={mentors}
-                      students={students}
-                      initialStudentId={student.id}
-                      onCreated={() => void query.refetch()}
-                    />
-                  </li>
-                ))}
-            </ul>
-          </Card>
-        ) : (
-          <EmptyState
-            title="All Students Assigned"
-            message="Every active student has a mentor team."
+              {studentsOf(row.original).length
+                ? studentList(row.original)
+                : null}
+            </div>
+          )}
+        />
+        <PageSection
+          titleId="unassigned-students-title"
+          title="Unassigned Students"
+        >
+          <DataTable
+            ariaLabel="Unassigned students"
+            data={unassigned}
+            columns={unassignedColumns}
+            getRowId={(student) => student.id}
+            onRowClick={setAssigning}
+            emptyTitle="All Students Assigned"
+            emptyMessage="Every active student has a mentor team."
+            renderCard={(row) => (
+              <div className="flex items-center justify-between gap-3">
+                <PersonIdentity
+                  person={row.original}
+                  seasonId={season?.id}
+                  showRoles={false}
+                />
+                {assignButton(row.original)}
+              </div>
+            )}
           />
-        )}
-      </section>
+        </PageSection>
+        {assigning ? (
+          <MentorshipDialog
+            seasonId={season?.id}
+            mentors={mentors}
+            students={students}
+            studentId={assigning.id}
+            open
+            onOpenChange={(next) => {
+              if (!next) setAssigning(null);
+            }}
+            onCreated={() => void query.refetch()}
+          />
+        ) : null}
+      </div>
     </Page>
   );
 }
@@ -156,21 +232,33 @@ function MentorshipDialog({
   seasonId,
   mentors,
   students,
-  initialStudentId = '',
   onCreated,
+  studentId: presetStudentId = '',
+  open: controlledOpen,
+  onOpenChange,
 }: {
   seasonId?: string;
   mentors: Array<{ id: string; name: string }>;
   students: Array<{ id: string; name: string; status: string | null }>;
-  initialStudentId?: string;
   onCreated: () => void;
+  /** Opened from an unassigned student's row, starting with that student. */
+  studentId?: string;
+  /** When given, the dialog is opened from outside and shows no trigger. */
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }) {
-  const [open, setOpen] = useState(false);
+  const [uncontrolledOpen, setUncontrolledOpen] = useState(false);
+  const controlled = controlledOpen !== undefined;
+  const open = controlled ? controlledOpen : uncontrolledOpen;
+  const setOpen = (next: boolean) => {
+    if (!controlled) setUncontrolledOpen(next);
+    onOpenChange?.(next);
+  };
   const [mentorId, setMentorId] = useState('');
-  const [studentId, setStudentId] = useState(initialStudentId);
+  const [studentId, setStudentId] = useState(presetStudentId);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState('');
-  const dirty = mentorId !== '' || studentId !== initialStudentId;
+  const dirty = mentorId !== '' || studentId !== presetStudentId;
   const requestOpenChange = (next: boolean) => {
     if (
       !next &&
@@ -180,7 +268,7 @@ function MentorshipDialog({
       return;
     if (next) {
       setMentorId('');
-      setStudentId(initialStudentId);
+      setStudentId(presetStudentId);
       setError('');
     }
     setOpen(next);
@@ -202,7 +290,7 @@ function MentorshipDialog({
       }
       onCreated();
       setMentorId('');
-      setStudentId(initialStudentId);
+      setStudentId('');
       setOpen(false);
     } catch (requestError) {
       setError(
@@ -230,10 +318,11 @@ function MentorshipDialog({
       open={open}
       onOpenChange={requestOpenChange}
       trigger={
-        <>
-          <IconPlus size={18} aria-hidden="true" />{' '}
-          {initialStudentId ? 'Assign mentor' : 'Assign student'}
-        </>
+        controlled ? undefined : (
+          <>
+            <IconPlus size={18} aria-hidden="true" /> Assign student
+          </>
+        )
       }
     >
       <div className="grid gap-4">
@@ -243,23 +332,18 @@ function MentorshipDialog({
           </p>
         ) : null}
         <Field>
-          <FieldLabel htmlFor={`mentor-${initialStudentId || 'new'}`}>
-            Mentor
-          </FieldLabel>
+          <FieldLabel htmlFor={'student-new'}>Student</FieldLabel>
           <Select
-            items={mentorItems}
-            value={mentorId}
-            onValueChange={(value) => setMentorId(value ?? '')}
+            items={studentItems}
+            value={studentId}
+            onValueChange={(value) => setStudentId(value ?? '')}
           >
-            <SelectTrigger
-              id={`mentor-${initialStudentId || 'new'}`}
-              className="w-full"
-            >
+            <SelectTrigger id={'student-new'} className="w-full">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
               <SelectGroup>
-                {mentorItems.map((item) => (
+                {studentItems.map((item) => (
                   <SelectItem key={item.value} value={item.value}>
                     {item.label}
                   </SelectItem>
@@ -269,24 +353,18 @@ function MentorshipDialog({
           </Select>
         </Field>
         <Field>
-          <FieldLabel htmlFor={`student-${initialStudentId || 'new'}`}>
-            Student
-          </FieldLabel>
+          <FieldLabel htmlFor={'mentor-new'}>Mentor</FieldLabel>
           <Select
-            items={studentItems}
-            value={studentId}
-            disabled={Boolean(initialStudentId)}
-            onValueChange={(value) => setStudentId(value ?? '')}
+            items={mentorItems}
+            value={mentorId}
+            onValueChange={(value) => setMentorId(value ?? '')}
           >
-            <SelectTrigger
-              id={`student-${initialStudentId || 'new'}`}
-              className="w-full"
-            >
+            <SelectTrigger id={'mentor-new'} className="w-full">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
               <SelectGroup>
-                {studentItems.map((item) => (
+                {mentorItems.map((item) => (
                   <SelectItem key={item.value} value={item.value}>
                     {item.label}
                   </SelectItem>

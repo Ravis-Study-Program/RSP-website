@@ -30,7 +30,13 @@ import {
   IconX,
 } from '@tabler/icons-react';
 import { useMemo, useState, type FormEvent, type ReactNode } from 'react';
-import { Link, Navigate, useParams, useSearchParams } from 'react-router-dom';
+import {
+  Link,
+  Navigate,
+  useNavigate,
+  useParams,
+  useSearchParams,
+} from 'react-router-dom';
 
 import {
   defaultMondayUpdateRange,
@@ -165,6 +171,7 @@ export function MondayUpdatesPage() {
   const season = seasons.data?.items.find((item) => item.slug === slug);
   const weeks = useSeasonWeeks(season?.id);
   const [searchParams, setSearchParams] = useSearchParams();
+  const navigate = useNavigate();
 
   const actor = user.data;
   const membership = actor?.seasonRoles.find(
@@ -175,9 +182,17 @@ export function MondayUpdatesPage() {
       (role) => role === 'director' || role === 'system_admin',
     ),
   );
-  const experience: Experience | null =
-    isGlobalManager ||
-    (membership?.role === 'coordinator' && membership.state === 'active')
+  // An admin who also mentors in this season can switch to their own mentees.
+  const mentoringHere =
+    membership?.role === 'mentor' &&
+    (membership.state === 'active' || membership.state === 'completed');
+  const canSwitchView = isGlobalManager && mentoringHere;
+  const mineView = canSwitchView && searchParams.get('view') === 'mine';
+  const viewParam: Record<string, string> = mineView ? { view: 'mine' } : {};
+  const experience: Experience | null = mineView
+    ? 'mentor'
+    : isGlobalManager ||
+        (membership?.role === 'coordinator' && membership.state === 'active')
       ? 'reviewer'
       : membership?.role === 'mentor' &&
           (membership.state === 'active' || membership.state === 'completed')
@@ -332,6 +347,28 @@ export function MondayUpdatesPage() {
   );
   const writeWeek = linkedWeek ?? [...startedWeeks].reverse().find(writable);
   const canPost = season.status === 'open' && membership?.state === 'active';
+  // Mentors and coordinators pick the season here rather than switching
+  // workspace: Directors and System Admins can open any season, everyone else
+  // the seasons where they mentor or coordinate.
+  const seasonItems =
+    experience === 'mentor' || experience === 'reviewer'
+      ? (seasons.data?.items ?? [])
+          .filter(
+            (item) =>
+              isGlobalManager ||
+              actor.seasonRoles.some(
+                (entry) =>
+                  entry.seasonId === item.id &&
+                  ((entry.role === 'coordinator' && entry.state === 'active') ||
+                    (entry.role === 'mentor' &&
+                      (entry.state === 'active' ||
+                        entry.state === 'completed'))),
+              ),
+          )
+          .map((item) => ({ value: item.slug, label: item.name }))
+      : [];
+  const goToSeason = (nextSlug: string) =>
+    navigate(`/seasons/${encodeURIComponent(nextSlug)}/monday-updates`);
   const weekItems = [
     ...(experience === 'mentor'
       ? [{ value: 'all', label: 'All updates' }]
@@ -480,6 +517,25 @@ export function MondayUpdatesPage() {
               student={actor}
               defaultOpen={writeWeek.id === searchParams.get('week')}
             />
+          ) : canSwitchView ? (
+            <div role="group" aria-label="Updates view" className="flex gap-2">
+              <Button
+                type="button"
+                variant={mineView ? 'default' : 'outline'}
+                aria-pressed={mineView}
+                onClick={() => setSearchParams({ view: 'mine' })}
+              >
+                My Students
+              </Button>
+              <Button
+                type="button"
+                variant={mineView ? 'outline' : 'default'}
+                aria-pressed={!mineView}
+                onClick={() => setSearchParams({})}
+              >
+                All Students
+              </Button>
+            </div>
           ) : null
         }
       />
@@ -511,25 +567,43 @@ export function MondayUpdatesPage() {
                 ariaLabel="Program week"
                 items={weekItems}
                 value={weekValue}
-                onChange={(value) => setSearchParams({ week: value })}
+                onChange={(value) =>
+                  setSearchParams({ ...viewParam, week: value })
+                }
                 className="w-64"
               />
             }
             weekFilter={{
               content: (
-                <Field>
-                  <FieldLabel htmlFor="monday-week-filter">Week</FieldLabel>
-                  <WeekSelect
-                    id="monday-week-filter"
-                    items={weekItems}
-                    value={weekValue}
-                    onChange={(value) => setSearchParams({ week: value })}
-                    className="w-full"
-                  />
-                </Field>
+                <>
+                  <Field>
+                    <FieldLabel htmlFor="monday-season-filter">
+                      Season
+                    </FieldLabel>
+                    <WeekSelect
+                      id="monday-season-filter"
+                      items={seasonItems}
+                      value={season.slug}
+                      onChange={goToSeason}
+                      className="w-full"
+                    />
+                  </Field>
+                  <Field>
+                    <FieldLabel htmlFor="monday-week-filter">Week</FieldLabel>
+                    <WeekSelect
+                      id="monday-week-filter"
+                      items={weekItems}
+                      value={weekValue}
+                      onChange={(value) =>
+                        setSearchParams({ ...viewParam, week: value })
+                      }
+                      className="w-full"
+                    />
+                  </Field>
+                </>
               ),
               active: searchParams.has('week'),
-              onClear: () => setSearchParams({}),
+              onClear: () => setSearchParams(viewParam),
             }}
             loading={updates.isLoading || mentorships.isLoading}
             error={updates.isError || mentorships.isError}
@@ -558,9 +632,23 @@ export function MondayUpdatesPage() {
               ariaLabel="Program week"
               items={weekItems}
               value={weekValue}
-              onChange={(value) => setSearchParams({ week: value })}
+              onChange={(value) =>
+                setSearchParams({ ...viewParam, week: value })
+              }
               className="w-64"
             />
+          }
+          seasonFilter={
+            <Field>
+              <FieldLabel htmlFor="monday-season-filter">Season</FieldLabel>
+              <WeekSelect
+                id="monday-season-filter"
+                items={seasonItems}
+                value={season.slug}
+                onChange={goToSeason}
+                className="w-full"
+              />
+            </Field>
           }
           loading={reports.isLoading}
           error={reports.isError}
@@ -799,8 +887,8 @@ function StudentUpdateTableBody({
     },
     {
       id: 'actions',
-      header: () => <span className="sr-only">Actions</span>,
-      meta: { width: 4, align: 'end' },
+      header: 'Actions',
+      meta: { width: 6, align: 'end' },
       enableSorting: false,
       enableHiding: false,
       cell: ({ row }) => actions(row),
@@ -817,6 +905,7 @@ function StudentUpdateTableBody({
       emptyTitle="No Updates Yet"
       emptyMessage="Updates open after the first program week ends."
       getRowId={(row) => row.id}
+      rowCanExpand={(row) => Boolean(row.update)}
       renderExpanded={(row) =>
         row.original.update ? (
           <StudentUpdateDetails update={row.original.update} />
@@ -1688,8 +1777,8 @@ function MentorUpdateTable({
     },
     {
       id: 'actions',
-      header: () => <span className="sr-only">Actions</span>,
-      meta: { width: 4, align: 'end' },
+      header: 'Actions',
+      meta: { width: 6, align: 'end' },
       enableSorting: false,
       enableHiding: false,
       cell: ({ row }) => (
@@ -1718,6 +1807,7 @@ function MentorUpdateTable({
       emptyTitle="No Updates in This Week"
       emptyMessage="A coordinator can assign students to your mentor team."
       getRowId={(row) => row.id}
+      rowCanExpand={(row) => Boolean(row.update)}
       renderExpanded={(row) =>
         row.original.update ? (
           <MentorUpdateDetails
@@ -2029,8 +2119,8 @@ function UnlockRequestsTable({
     },
     {
       id: 'actions',
-      header: () => <span className="sr-only">Actions</span>,
-      meta: { width: 4, align: 'end' },
+      header: 'Actions',
+      meta: { width: 6, align: 'end' },
       enableSorting: false,
       enableHiding: false,
       cell: ({ row }) => actions(row.original),
@@ -2259,6 +2349,7 @@ function MentorReportsTable({
   reports,
   week,
   weekSelect,
+  seasonFilter,
   loading,
   error,
   onRetry,
@@ -2266,6 +2357,7 @@ function MentorReportsTable({
   reports: MondayMentorReport[];
   week?: MondayUpdateRange;
   weekSelect: ReactNode;
+  seasonFilter: ReactNode;
   loading: boolean;
   error: boolean;
   onRetry: () => void;
@@ -2473,6 +2565,12 @@ function MentorReportsTable({
       error={error}
       onRetry={onRetry}
       toolbarLead={weekSelect}
+      extraFilters={{
+        content: seasonFilter,
+        // A season is always chosen, so it never counts as an extra filter.
+        activeCount: 0,
+        onClear: () => {},
+      }}
       emptyTitle="No Mentors in This Week"
       emptyMessage="Mentors appear here once students are assigned to them."
       getRowId={(report) => report.mentor.id}

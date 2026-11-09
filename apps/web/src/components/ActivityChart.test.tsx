@@ -17,12 +17,16 @@ describe('ActivityChart', () => {
     expect(
       screen.getByRole('region', { name: 'Mock Interviews per week' }),
     ).toBeInTheDocument();
+  });
+
+  it('keeps a chart, flat at 0, when a series has nothing in the period', () => {
+    render(<ActivityChart data={weeks} />);
+
+    // Mock interviews are all zero, yet the chart and its weekly summary stay.
     expect(
-      screen.getByText('No Mock Interviews in This Period.'),
-    ).toBeInTheDocument();
-    expect(
-      screen.queryByText('No LeetCode in This Period.'),
-    ).not.toBeInTheDocument();
+      screen.getByRole('region', { name: 'Mock Interviews per week' }),
+    ).toHaveTextContent('01/09/26: 0 actual mock interviews');
+    expect(screen.queryByText(/in This Period/)).not.toBeInTheDocument();
   });
 
   it('names the actual and expected lines for a student', () => {
@@ -32,8 +36,5 @@ describe('ActivityChart', () => {
 
     expect(screen.getAllByText('Actual')).toHaveLength(2);
     expect(screen.getAllByText('Expected')).toHaveLength(2);
-    expect(
-      screen.queryByText('No Mock Interviews in This Period.'),
-    ).not.toBeInTheDocument();
   });
 });

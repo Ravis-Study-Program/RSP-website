@@ -209,7 +209,7 @@ test('role-aware navigation covers every major program role', async ({
   const cases = [
     ['student', 'Seasons'],
     ['mentor', 'My Students'],
-    ['coordinator', 'Mentor Teams'],
+    ['coordinator', 'Season Operations'],
     ['graduate', 'People'],
     ['director', 'Administration'],
     ['system_admin', 'Administration'],
@@ -357,22 +357,22 @@ test('coordinator can reach season operations and create, edit and delete a week
   await page.getByRole('button', { name: 'Create week' }).click();
   const create = page.getByRole('dialog', { name: 'Create Week' });
   await create.getByLabel('Week number').fill('15');
-  await create
-    .getByLabel('Resource URL (optional)')
-    .fill('https://example.test/resources/week-15');
   page.once('dialog', async (confirmation) => confirmation.dismiss());
   await page.keyboard.press('Escape');
   await expect(create).toBeVisible();
   await create.getByRole('button', { name: 'Create week' }).click();
+  const createdWeek = page.getByRole('row').filter({ hasText: 'Week 15' });
+  await expect(createdWeek).toBeVisible();
+  // Resources are their own column, empty until a page is written.
   await expect(
-    page.getByRole('row').filter({ hasText: 'Week 15' }),
+    page.getByRole('columnheader', { name: 'Has Resources' }),
   ).toBeVisible();
+  await expect(createdWeek).toContainText('No');
 
-  await page
-    .getByRole('row')
-    .filter({ hasText: 'Week 15' })
-    .getByRole('button', { name: 'Edit' })
+  await createdWeek
+    .getByRole('button', { name: 'More actions for Week 15' })
     .click();
+  await page.getByRole('menuitem', { name: 'Edit', exact: true }).click();
   const edit = page.getByRole('dialog', { name: 'Edit Week 15' });
   await edit.getByLabel('Week number').fill('16');
   await edit.getByRole('button', { name: 'Save week' }).click();
@@ -383,8 +383,9 @@ test('coordinator can reach season operations and create, edit and delete a week
   await page
     .getByRole('row')
     .filter({ hasText: 'Week 16' })
-    .getByRole('button', { name: 'Delete week' })
+    .getByRole('button', { name: 'More actions for Week 16' })
     .click();
+  await page.getByRole('menuitem', { name: 'Delete week' }).click();
   const confirmation = page.getByRole('alertdialog', {
     name: 'Delete week Week 16?',
   });
@@ -446,12 +447,14 @@ test('coordinator edits only season resources and mentorship forms protect dirty
   await expect(resources).toBeVisible();
   await resources.getByRole('button', { name: 'Save resources' }).click();
   await expect(
-    page.getByRole('link', { name: 'Season resources' }),
+    page.getByRole('link', { name: 'Season Resources' }),
   ).toHaveAttribute('href', 'https://rsp.org.au/resources/summer-2025-26');
 
+  // Mentorships are added from Enrollments.
   await page.goto('/admin/mentorships');
-  await page.getByRole('button', { name: 'Create mentorship' }).click();
-  const mentorship = page.getByRole('dialog', { name: 'Create Mentorship' });
+  await expect(page).toHaveURL(/\/admin\/enrollments$/);
+  await page.getByRole('button', { name: 'Add mentorship' }).click();
+  const mentorship = page.getByRole('dialog', { name: 'Add Mentorship' });
   await chooseOption(mentorship, 'Mentor', 'Noah Williams');
   page.once('dialog', async (confirmation) => confirmation.dismiss());
   await page.keyboard.press('Escape');
@@ -495,7 +498,10 @@ test('system admin can grant a pending-MFA role and suspend and reactivate an ac
   await selectDemoRole(page, 'system_admin');
   await page.goto('/admin/users');
   const row = page.getByRole('row').filter({ hasText: 'Amelia Chen' });
-  await row.getByRole('button', { name: 'Manage account' }).click();
+  await row
+    .getByRole('button', { name: 'More actions for Amelia Chen' })
+    .click();
+  await page.getByRole('menuitem', { name: 'Manage account' }).click();
   const dialog = page.getByRole('dialog', { name: 'Administer Amelia Chen' });
   await expect(
     dialog.getByText('Current email: amelia@example.test', { exact: true }),

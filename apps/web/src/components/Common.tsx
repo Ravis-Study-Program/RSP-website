@@ -57,12 +57,15 @@ export function useCurrentPageTitle() {
 export function PageHeader({
   eyebrow,
   title,
+  titleHint,
   description,
   status,
   actions,
 }: {
   eyebrow?: string;
   title: string;
+  /** Muted, bracketed detail after the title, such as "Admin". */
+  titleHint?: string;
   description?: string;
   status?: ReactNode;
   actions?: ReactNode;
@@ -78,6 +81,12 @@ export function PageHeader({
         <div className="flex flex-wrap items-center gap-3">
           <h1 className="text-2xl font-semibold tracking-tight md:text-3xl">
             {title}
+            {titleHint ? (
+              <>
+                {' '}
+                <LabelHint>{titleHint}</LabelHint>
+              </>
+            ) : null}
           </h1>
           {status}
         </div>

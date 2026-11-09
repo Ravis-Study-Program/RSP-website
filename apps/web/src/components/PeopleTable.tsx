@@ -5,7 +5,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { IconEdit, IconDotsVertical, IconUserMinus } from '@tabler/icons-react';
+import { IconDotsVertical, IconEdit, IconUserMinus } from '@tabler/icons-react';
 import type { ColumnDef } from '@tanstack/react-table';
 import { useState, type ReactNode } from 'react';
 
@@ -16,7 +16,7 @@ import {
   SeasonBadge,
   StudentLevelBadge,
 } from '@/components/Common';
-import { DataTable } from '@/components/DataTable';
+import { type ExtraFilters, DataTable } from '@/components/DataTable';
 import { LatestMarkBadge } from '@/components/MondayMark';
 import { StatusBadge } from '@/components/StatusBadge';
 import { StudentDetailsDialog } from '@/components/StudentDetailsDialog';
@@ -74,6 +74,7 @@ export function PeopleTable({
   emptyTitle,
   emptyMessage,
   toolbarStart,
+  extraFilters,
 }: {
   variant: 'people' | 'students';
   ariaLabel: string;
@@ -94,6 +95,7 @@ export function PeopleTable({
   emptyTitle: string;
   emptyMessage?: string;
   toolbarStart?: ReactNode;
+  extraFilters?: ExtraFilters;
 }) {
   const people = variant === 'people';
   const seasonFor = (person: Person) =>
@@ -245,8 +247,8 @@ export function PeopleTable({
       ? [
           {
             id: 'actions',
-            header: () => <span className="sr-only">Actions</span>,
-            meta: { width: 4, align: 'end' as const },
+            header: 'Actions',
+            meta: { width: 6, align: 'end' as const },
             enableSorting: false,
             enableHiding: false,
             cell: ({ row }: { row: { original: Person } }) =>
@@ -266,7 +268,11 @@ export function PeopleTable({
       emptyTitle={emptyTitle}
       emptyMessage={emptyMessage}
       toolbarStart={toolbarStart}
+      extraFilters={extraFilters}
       getRowId={(person) => person.id}
+      rowHref={(person) =>
+        `/people/${person.slug}${seasonId ? `?seasonId=${encodeURIComponent(seasonId)}` : ''}`
+      }
       renderCard={(row) => {
         const person = row.original;
         const match = people ? seasonFor(person) : undefined;

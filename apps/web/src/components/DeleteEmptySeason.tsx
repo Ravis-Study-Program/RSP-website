@@ -5,7 +5,16 @@ import type { EnrollmentPage, InvitationPage } from '@/api/generated/models';
 import { NamedConfirmation } from '@/components/Dialogs';
 import type { Page, Season } from '@/types';
 
-export function DeleteEmptySeason({ season }: { season: Season }) {
+export function DeleteEmptySeason({
+  season,
+  open,
+  onOpenChange,
+}: {
+  season: Season;
+  /** When given, the confirmation is opened from outside with no trigger. */
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+}) {
   const client = useQueryClient();
   async function remove() {
     if (demoMode) {
@@ -42,6 +51,8 @@ export function DeleteEmptySeason({ season }: { season: Season }) {
       actionLabel="Delete empty season"
       triggerSize="sm"
       description="Only a season with no enrollment history, recorded activity or pending invitations can be deleted. Its weeks will also disappear from the website."
+      open={open}
+      onOpenChange={onOpenChange}
       onConfirm={remove}
     />
   );

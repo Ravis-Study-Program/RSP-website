@@ -82,7 +82,7 @@ describe('numbered program reporting weeks', () => {
       number: 1,
       startAt: '2026-10-04T13:30:00Z',
       endAt: '2026-10-11T13:29:59Z',
-      resourceUrl: '',
+      resourcesHtml: '',
     },
     {
       id: 'w2',
@@ -90,7 +90,7 @@ describe('numbered program reporting weeks', () => {
       number: 2,
       startAt: '2026-10-11T13:30:00Z',
       endAt: '2026-10-18T13:29:59Z',
-      resourceUrl: '',
+      resourcesHtml: '',
     },
   ];
   it('uses the Adelaide Monday and keeps program numbering', () => {

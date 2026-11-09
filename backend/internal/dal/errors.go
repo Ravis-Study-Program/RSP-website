@@ -14,6 +14,7 @@ var (
 	ErrMondayUpdateWeek       = errors.New("updates must match a configured program week")
 	ErrMondayUpdateSubmitted  = errors.New("you have already submitted an update for this week")
 	ErrMondayUpdateUnlockOpen = errors.New("this week already has an unlock request or an unlock")
+	ErrInvalidMentor          = errors.New("choose a mentor who is mentoring in this season")
 )
 
 func noRows(err error) error {

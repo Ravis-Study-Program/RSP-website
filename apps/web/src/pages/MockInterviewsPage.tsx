@@ -707,8 +707,8 @@ const columnsForSeason = (
   },
   {
     id: 'actions',
-    header: () => <span className="sr-only">Actions</span>,
-    meta: { width: 4, align: 'end' },
+    header: 'Actions',
+    meta: { width: 6, align: 'end' },
     enableSorting: false,
     enableHiding: false,
     cell: ({ row }) => cells.actions(row),
@@ -1098,6 +1098,7 @@ export function MockInterviewTable({
       data={mocks}
       columns={columns}
       getRowId={(mock) => mock.id}
+      rowCanExpand={canViewDetails}
       renderExpanded={(row) =>
         canViewDetails(row.original) ? (
           <MockDetails

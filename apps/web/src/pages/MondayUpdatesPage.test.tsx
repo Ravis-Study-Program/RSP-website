@@ -94,7 +94,7 @@ const week = {
   seasonId: season.id,
   startAt: `${range.startDate}T00:00:00+10:30`,
   endAt: `${range.endDate}T23:59:59+10:30`,
-  resourceUrl: '',
+  resourcesHtml: '',
 };
 const studentIdentity = {
   id: 'student-1',

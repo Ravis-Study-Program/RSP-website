@@ -20,6 +20,65 @@ function membership(
 }
 
 describe('shared navigation', () => {
+  it('lists student pages straight after People, for every role', () => {
+    const labels = (user: CurrentUser) =>
+      navigationItems(user, seasons).map((item) => item.label);
+    expect(labels(userWith(membership('mentor')))).toEqual([
+      'Dashboard',
+      'LeetCode',
+      'Mock Interviews',
+      'Monday Updates',
+      'People',
+      'My Students',
+      'Seasons',
+    ]);
+    expect(labels(userWith(membership('coordinator')))).toEqual([
+      'Dashboard',
+      'LeetCode',
+      'Mock Interviews',
+      'Monday Updates',
+      'People',
+      'Seasons',
+      'Season Operations',
+    ]);
+    expect(labels({ ...demoUser, seasonRoles: [] })).toEqual([
+      'Dashboard',
+      'LeetCode',
+      'Mock Interviews',
+      'Monday Updates',
+      'People',
+      'Seasons',
+      'Administration',
+    ]);
+  });
+
+  it('gives a mentor who is also an admin My Students beside People', () => {
+    const user: CurrentUser = {
+      ...demoUser,
+      globalRoles: ['system_admin'],
+      seasonRoles: [membership('mentor')],
+    };
+    const items = navigationItems(user, seasons);
+    expect(items.map((item) => item.label).slice(3, 7)).toEqual([
+      'Monday Updates',
+      'People',
+      'My Students',
+      'Seasons',
+    ]);
+    expect(items).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          label: 'My Students',
+          to: '/seasons/summer-2025-26/my-students',
+        }),
+        expect.objectContaining({
+          label: 'People',
+          to: '/seasons/summer-2025-26/people',
+        }),
+      ]),
+    );
+  });
+
   it.each(['student', 'mentor', 'coordinator'] as const)(
     'keeps the same personal activity routes for a %s',
     (role) => {
@@ -32,7 +91,14 @@ describe('shared navigation', () => {
             label: 'Mock Interviews',
             to: '/mock-interviews',
           }),
-          expect.objectContaining({ label: 'People', to: '/people' }),
+          expect.objectContaining({
+            label: 'People',
+            // Coordinators open People on the season they run.
+            to:
+              role === 'coordinator'
+                ? '/seasons/summer-2025-26/people'
+                : '/people',
+          }),
           expect.objectContaining({ label: 'Seasons', to: '/seasons' }),
         ]),
       );
@@ -60,8 +126,8 @@ describe('shared navigation', () => {
           to: '/seasons/summer-2025-26/mentees',
         }),
         expect.objectContaining({
-          label: 'All Students',
-          to: '/seasons/summer-2024-25/mentees',
+          label: 'People',
+          to: '/seasons/summer-2024-25/people',
         }),
         expect.objectContaining({ label: 'Season Operations' }),
       ]),
@@ -87,8 +153,8 @@ describe('shared navigation', () => {
       'Dashboard',
       'LeetCode',
       'Mock Interviews',
-      'My Students',
       'Monday Updates',
+      'My Students',
       'Seasons',
     ]);
     expect(items.find((item) => item.label === 'My Students')?.to).toBe(
@@ -105,8 +171,8 @@ describe('shared navigation', () => {
       'Dashboard',
       'LeetCode',
       'Mock Interviews',
+      'People',
       'Seasons',
-      'All Students',
     ]);
   });
 
@@ -129,7 +195,7 @@ describe('shared navigation', () => {
     const items = navigationItems(demoUser, seasons);
     expect(items).toEqual(
       expect.arrayContaining([
-        expect.objectContaining({ label: 'All Students' }),
+        expect.objectContaining({ label: 'People' }),
         expect.objectContaining({ label: 'Administration', to: '/admin' }),
         expect.objectContaining({
           label: 'Mock Interviews',

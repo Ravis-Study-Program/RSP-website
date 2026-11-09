@@ -18,25 +18,29 @@ import {
   useEnrollmentCandidates,
 } from '@/api/queries';
 import type { Enrollment, EnrollmentPage } from '@/api/generated/models';
-import { FormDialog } from '@/components/Dialogs';
 import type { Season } from '@/types';
 
-export function EnrollmentCorrection({
+/**
+ * Correcting which person or season an enrollment belongs to. Shown as a
+ * section of the manage dialog opened from a table's row menu.
+ */
+export function EnrollmentCorrectionForm({
   enrollment,
   seasons,
   name,
+  onSaved,
 }: {
   enrollment: Enrollment;
   seasons: Season[];
   name: string;
+  onSaved?: () => void;
 }) {
   const client = useQueryClient();
-  const [open, setOpen] = useState(false);
   const [seasonId, setSeasonId] = useState(enrollment.seasonId);
   const [userId, setUserId] = useState(enrollment.userId);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState('');
-  const candidates = useEnrollmentCandidates(seasonId, open);
+  const candidates = useEnrollmentCandidates(seasonId, true);
   const dirty =
     userId !== enrollment.userId || seasonId !== enrollment.seasonId;
   const seasonItems = seasons
@@ -94,7 +98,7 @@ export function EnrollmentCorrection({
                 },
         );
       } else await client.invalidateQueries();
-      setOpen(false);
+      onSaved?.();
     } catch (e) {
       setError(
         e instanceof Error ? e.message : 'Unable to correct the enrollment.',
@@ -104,29 +108,20 @@ export function EnrollmentCorrection({
     }
   }
   return (
-    <FormDialog
-      title={`Correct Enrollment for ${name}`}
-      description="Choose the correct person and season. Participation dates are retained and affected mentor assignments are cleared. Recorded practice and mocks stay with their original owners."
-      trigger="Correct person or season"
-      triggerVariant="outline"
-      triggerSize="sm"
-      open={open}
-      onOpenChange={(next) => {
-        if (pending) return;
-        if (
-          !next &&
-          dirty &&
-          !window.confirm('Discard this enrollment correction?')
-        )
-          return;
-        if (next) {
-          setSeasonId(enrollment.seasonId);
-          setUserId(enrollment.userId);
-          setError('');
-        }
-        setOpen(next);
-      }}
+    <section
+      aria-labelledby={`enrollment-correction-${enrollment.id}`}
+      className="grid gap-3"
     >
+      <h3
+        id={`enrollment-correction-${enrollment.id}`}
+        className="text-base font-semibold"
+      >
+        Correct Person or Season
+      </h3>
+      <p className="text-sm text-muted-foreground">
+        Participation dates are kept and affected mentor assignments are
+        cleared. Recorded practice and mocks stay with their original owners.
+      </p>
       <form
         className="grid gap-4"
         onSubmit={(e) => {
@@ -214,6 +209,6 @@ export function EnrollmentCorrection({
           </Button>
         </div>
       </form>
-    </FormDialog>
+    </section>
   );
 }

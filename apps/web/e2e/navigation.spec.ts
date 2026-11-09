@@ -3,7 +3,7 @@ import { expect, test } from '@playwright/test';
 for (const [role, staffLink] of [
   ['student', null],
   ['mentor', 'My Students'],
-  ['coordinator', 'All Students'],
+  ['coordinator', 'People'],
   ['director', 'Administration'],
   ['system_admin', 'Administration'],
 ] as const) {

@@ -142,7 +142,7 @@ func writeErrorResponse(w http.ResponseWriter, status int, message string) {
 // Unexpected errors are logged with their request ID but are never exposed.
 func (a *API) writeStoreErrorResponse(w http.ResponseWriter, err error) {
 	switch {
-	case errors.Is(err, dal.ErrMondayUpdateWeek):
+	case errors.Is(err, dal.ErrMondayUpdateWeek), errors.Is(err, dal.ErrInvalidMentor):
 		writeErrorResponse(w, http.StatusBadRequest, err.Error())
 	case errors.Is(err, dal.ErrMondayUpdateSubmitted), errors.Is(err, dal.ErrMondayUpdateUnlockOpen):
 		writeErrorResponse(w, http.StatusConflict, err.Error())

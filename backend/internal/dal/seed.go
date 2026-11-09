@@ -272,8 +272,8 @@ func seedSeasonWeeks(ctx context.Context, tx pgx.Tx, seasonID string, seasonStar
 		if end.After(seasonEnd) {
 			return nil
 		}
-		if _, err := tx.Exec(ctx, `INSERT INTO app.season_weeks(season_id,week_number,start_at,end_at,resource_url) VALUES($1,$2,$3,$4,$5)`,
-			seasonID, number, start, end, fmt.Sprintf("https://example.invalid/rsp-week-%d", number)); err != nil {
+		if _, err := tx.Exec(ctx, `INSERT INTO app.season_weeks(season_id,week_number,start_at,end_at,resources_html) VALUES($1,$2,$3,$4,$5)`,
+			seasonID, number, start, end, fmt.Sprintf(`<h2>Week %d Resources</h2><p>Reading and practice for the week.</p><ul><li><a href="https://example.invalid/rsp-week-%d">Week %d reading</a></li></ul>`, number, number, number)); err != nil {
 			return err
 		}
 	}

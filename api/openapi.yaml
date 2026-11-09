@@ -753,6 +753,42 @@ paths:
         '409': { $ref: '#/components/responses/Error' }
         '401': { $ref: '#/components/responses/Error' }
         '429': { $ref: '#/components/responses/RateLimited' }
+  /seasons/{id}/weeks/{weekId}/resources:
+    parameters:
+      [
+        { $ref: '#/components/parameters/ID' },
+        { name: weekId, in: path, required: true, schema: { type: string } },
+      ]
+    put:
+      operationId: updateSeasonWeekResources
+      requestBody:
+        {
+          required: true,
+          content:
+            {
+              application/json:
+                {
+                  schema: { $ref: '#/components/schemas/WeekResourcesUpdate' },
+                },
+            },
+        }
+      responses:
+        default: { $ref: '#/components/responses/Error' }
+        '200':
+          {
+            description: Week with its updated resources page,
+            content:
+              {
+                application/json:
+                  { schema: { $ref: '#/components/schemas/Week' } },
+              },
+          }
+        '400': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+        '401': { $ref: '#/components/responses/Error' }
+        '429': { $ref: '#/components/responses/RateLimited' }
   /seasons/{id}/members:
     parameters: [{ $ref: '#/components/parameters/ID' }]
     get:
@@ -2550,6 +2586,10 @@ components:
         name: { type: string, minLength: 1, maxLength: 100 }
         email: { type: string, format: email }
         role: { type: string, enum: [student, mentor, coordinator] }
+        mentorUserId:
+          type: string
+          format: uuid
+          description: A student's mentor; accepting the invitation assigns them.
     Invitation:
       type: object
       required:
@@ -2564,6 +2604,8 @@ components:
           status,
           expiresAt,
           sentAt,
+          mentorUserId,
+          acceptedBy,
         ]
       properties:
         id: { type: string, format: uuid }
@@ -2576,6 +2618,16 @@ components:
         status: { type: string, enum: [pending, accepted, cancelled, expired] }
         expiresAt: { type: string, format: date-time }
         sentAt: { type: string, format: date-time, nullable: true }
+        mentorUserId:
+          type: string
+          format: uuid
+          nullable: true
+          description: The mentor a student was invited to.
+        acceptedBy:
+          type: string
+          format: uuid
+          nullable: true
+          description: The account that accepted the invitation.
     InvitationPage:
       type: object
       required: [items, pageInfo, totalCount]
@@ -2969,7 +3021,7 @@ components:
       }
     Week:
       type: object
-      required: [id, seasonId, number, startAt, endAt, resourceUrl]
+      required: [id, seasonId, number, startAt, endAt, resourcesHtml]
       properties:
         {
           id: { type: string },
@@ -2977,8 +3029,13 @@ components:
           number: { type: integer, minimum: 1 },
           startAt: { type: string, format: date-time },
           endAt: { type: string, format: date-time },
-          resourceUrl: { type: string },
+          resourcesHtml: { type: string, maxLength: 50000 },
         }
+    WeekResourcesUpdate:
+      type: object
+      additionalProperties: false
+      required: [resourcesHtml]
+      properties: { resourcesHtml: { type: string, maxLength: 50000 } }
     WeekMutation:
       type: object
       additionalProperties: false
@@ -2988,7 +3045,6 @@ components:
           number: { type: integer, minimum: 1 },
           startAt: { type: string, format: date-time },
           endAt: { type: string, format: date-time },
-          resourceUrl: { type: string, format: uri },
         }
     WeekUpdate:
       type: object
@@ -2999,7 +3055,6 @@ components:
           number: { type: integer, minimum: 1 },
           startAt: { type: string, format: date-time },
           endAt: { type: string, format: date-time },
-          resourceUrl: { type: string, format: uri },
         }
     WeekPage:
       {

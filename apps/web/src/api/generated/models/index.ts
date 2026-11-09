@@ -176,4 +176,5 @@ export * from './userSeasonRole';
 export * from './week';
 export * from './weekMutation';
 export * from './weekPage';
+export * from './weekResourcesUpdate';
 export * from './weekUpdate';

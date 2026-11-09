@@ -44,6 +44,10 @@ test('practice charts follow filters and the picker accepts keyboard search', as
 test('profiles show all-time activity in the same tables as the dedicated pages', async ({
   page,
 }, testInfo) => {
+  // A fellow student: staff can open someone else's notes and details.
+  await page.addInitScript(() =>
+    localStorage.setItem('rsp-demo-role', 'student'),
+  );
   await page.goto('/people/amelia-chen');
   // Profiles are all time only, with seasons as badges instead of a picker.
   await expect(page.getByLabel('View activity')).toHaveCount(0);
@@ -93,7 +97,11 @@ test('profiles show all-time activity in the same tables as the dedicated pages'
 test('profiles hide details of interviews you were not part of', async ({
   page,
 }) => {
-  // Zara's only interview was between her and Liam.
+  // Zara's only interview was between her and Liam; the viewer is a fellow
+  // student, since staff can open the details.
+  await page.addInitScript(() =>
+    localStorage.setItem('rsp-demo-role', 'student'),
+  );
   await page.goto('/people/zara-ahmed');
   await page.getByRole('tab', { name: 'Mock Interviews' }).click();
   const mocks = page.getByRole('region', { name: 'Zara Ahmed mock history' });
@@ -138,7 +146,7 @@ test('suggesting a question leaves practice counts unchanged', async ({
   });
 });
 
-test('administrators create, resend and cancel season invitations', async ({
+test('administrators invite a student with their mentor, then resend and cancel', async ({
   page,
 }) => {
   await page.addInitScript(() =>
@@ -151,23 +159,29 @@ test('administrators create, resend and cancel season invitations', async ({
   await dialog
     .getByLabel('Email', { exact: true })
     .fill('invited@example.test');
+  // A student can be invited together with their mentor.
+  await chooseOption(dialog, 'Mentor', 'Noah Williams');
   await dialog.getByRole('button', { name: 'Send invitation' }).click();
   await expect(
     page.getByText(
       'Invitation email queued. The recipient has 7 days to accept.',
     ),
   ).toBeVisible();
-  const invitations = page.getByRole('region', {
-    name: 'Invitations',
-    exact: true,
+  // The invitation is a row of the enrollments table, with its mentor.
+  const invited = page
+    .locator('tr:visible, article:visible')
+    .filter({ hasText: 'Invited member' });
+  await expect(invited).toContainText('Noah Williams');
+  await expect(invited).toContainText('Invited');
+  await expect(invited).toContainText('invited@example.test');
+  const invitationMenu = invited.getByRole('button', {
+    name: 'More actions for Invited member',
   });
-  await invitations
-    .getByRole('button', { name: 'Resend', exact: true })
-    .filter({ visible: true })
-    .click();
-  await invitations
-    .getByRole('button', { name: 'Cancel invitation', exact: true })
-    .filter({ visible: true })
+  await invitationMenu.click();
+  await page.getByRole('menuitem', { name: 'Resend', exact: true }).click();
+  await invitationMenu.click();
+  await page
+    .getByRole('menuitem', { name: 'Cancel invitation', exact: true })
     .click();
   await expect(page.getByText('Invitation cancelled.')).toBeVisible();
 });
@@ -180,10 +194,11 @@ test('system admin edits profile details and requests email verification separat
   );
   await page.goto('/admin/users');
   await page
-    .getByRole('button', { name: 'Manage account' })
+    .getByRole('button', { name: /^More actions for / })
     .filter({ visible: true })
     .first()
     .click();
+  await page.getByRole('menuitem', { name: 'Manage account' }).click();
   const editor = page.getByRole('region', {
     name: 'Edit profile and contact details',
   });
@@ -214,18 +229,22 @@ test('administrators can correct the person attached to an enrollment', async ({
   );
   await page.goto('/admin/enrollments');
   await page
-    .getByRole('button', { name: 'Correct person or season' })
+    .getByRole('button', { name: /^More actions for / })
     .filter({ visible: true })
     .first()
     .click();
-  const dialog = page.getByRole('dialog', { name: /Correct Enrollment for/ });
-  await expect(dialog.getByLabel('Correct person')).toBeEnabled();
+  await page.getByRole('menuitem', { name: 'Manage account' }).click();
+  // Correcting an enrollment lives in the row's Manage account dialog.
+  const dialog = page.getByRole('dialog', { name: /^Manage / });
+  await expect(
+    dialog.getByLabel('Correct person', { exact: true }),
+  ).toBeEnabled();
   await chooseOption(dialog, 'Correct person', 'Priya Singh (priya-singh)');
   await dialog.getByRole('button', { name: 'Save correction' }).click();
   await expect(dialog).not.toBeVisible();
 });
 
-test('removing a mentor keeps their season record visible', async ({
+test('removing a mentor takes them off the season’s enrollments', async ({
   page,
 }) => {
   await page.addInitScript(() =>
@@ -235,7 +254,10 @@ test('removing a mentor keeps their season record visible', async ({
   const row = page
     .locator('tr:visible, article:visible')
     .filter({ hasText: 'Noah Williams' });
-  await row.getByRole('button', { name: 'Remove', exact: true }).click();
+  await row
+    .getByRole('button', { name: 'More actions for Noah Williams' })
+    .click();
+  await page.getByRole('menuitem', { name: 'Remove', exact: true }).click();
   const dialog = page.getByRole('dialog', { name: 'Remove Noah Williams?' });
   await dialog
     .getByLabel('Reason', { exact: true })
@@ -244,9 +266,10 @@ test('removing a mentor keeps their season record visible', async ({
     .getByLabel('Type Noah Williams to confirm')
     .fill('Noah Williams');
   await dialog.getByRole('button', { name: 'Remove member' }).click();
-  await expect(row).toContainText(/withdrawn/i);
+  // Enrollments lists current members; their history stays on People. His
+  // name can still appear as a student's mentor, so check his own row.
   await expect(
-    row.getByRole('button', { name: 'Remove', exact: true }),
+    page.getByRole('button', { name: 'More actions for Noah Williams' }),
   ).toHaveCount(0);
 });
 
@@ -257,11 +280,13 @@ test('administrators delete empty seasons and retain populated seasons', async (
     localStorage.setItem('rsp-demo-role', 'director'),
   );
   await page.goto('/admin/seasons');
+  const seasonMenu = /^More actions for /;
   const populated = page
     .locator('tr:visible, article:visible')
-    .filter({ has: page.getByRole('button', { name: 'Delete empty season' }) })
+    .filter({ has: page.getByRole('button', { name: seasonMenu }) })
     .first();
-  await populated.getByRole('button', { name: 'Delete empty season' }).click();
+  await populated.getByRole('button', { name: seasonMenu }).click();
+  await page.getByRole('menuitem', { name: 'Delete empty season' }).click();
   let confirmation = page.getByRole('alertdialog');
   const label = await confirmation.locator('label strong').textContent();
   await confirmation.getByRole('textbox').fill(label!);
@@ -282,7 +307,8 @@ test('administrators delete empty seasons and retain populated seasons', async (
   const row = page
     .locator('tr:visible, article:visible')
     .filter({ hasText: 'Empty test season' });
-  await row.getByRole('button', { name: 'Delete empty season' }).click();
+  await row.getByRole('button', { name: seasonMenu }).click();
+  await page.getByRole('menuitem', { name: 'Delete empty season' }).click();
   confirmation = page.getByRole('alertdialog');
   await confirmation.getByRole('textbox').fill('Empty test season');
   await confirmation

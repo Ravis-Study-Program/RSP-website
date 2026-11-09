@@ -1,14 +1,15 @@
 import { statusTone } from '@/badgeTones';
 import { StatusBadge } from '@/components/StatusBadge';
-import { buttonVariants } from '@/components/ui/button';
-import { IconArrowRight } from '@tabler/icons-react';
 import type { ColumnDef } from '@tanstack/react-table';
 import { Link } from 'react-router-dom';
 
 import { useCurrentUser, useSeasons } from '@/api/queries';
 import { Page, PageHeader, usePageTitle } from '@/components/Common';
 import { DataTable, HighlightText } from '@/components/DataTable';
-import { SeasonEditorDialog } from '@/components/SeasonManagement';
+import {
+  SeasonEditorDialog,
+  SeasonRowMenu,
+} from '@/components/SeasonManagement';
 import type { Season } from '@/types';
 import { formatDate } from '@/utils';
 
@@ -38,6 +39,24 @@ export function SeasonsPage() {
       )
       .map((membership) => membership.seasonId) ?? [],
   );
+  // Directors and System Admins edit, close, reopen and delete; a season's
+  // coordinators can close it, as on the season page.
+  const seasonActions = (season: Season) => {
+    const coordinates = Boolean(
+      user.data?.seasonRoles.some(
+        (membership) =>
+          membership.seasonId === season.id &&
+          membership.role === 'coordinator' &&
+          membership.state === 'active',
+      ),
+    );
+    return {
+      canEdit: canCreate,
+      canClose: season.status === 'open' && (canCreate || coordinates),
+      canReopen: season.status === 'closed' && canCreate,
+      canDelete: canCreate,
+    };
+  };
   const visibleSeasons = (query.data?.items ?? []).filter(
     (season) => canBrowseAll || visibleSeasonIds.has(season.id),
   );
@@ -87,19 +106,11 @@ export function SeasonsPage() {
     {
       id: 'actions',
       header: 'Actions',
-      meta: { width: 14, align: 'end' },
+      meta: { width: 6, align: 'end' },
       enableSorting: false,
       enableHiding: false,
       cell: ({ row }) => (
-        <div className={inlineClass}>
-          {canCreate ? <SeasonEditorDialog season={row.original} /> : null}
-          <Link
-            to={`/seasons/${row.original.slug}`}
-            className={buttonVariants({ variant: 'outline', size: 'sm' })}
-          >
-            Open <IconArrowRight size={17} aria-hidden="true" />
-          </Link>
-        </div>
+        <SeasonRowMenu season={row.original} {...seasonActions(row.original)} />
       ),
     },
   ];
@@ -119,6 +130,7 @@ export function SeasonsPage() {
         emptyTitle="No Seasons Yet"
         emptyMessage="Create the first program season to begin."
         getRowId={(season) => season.id}
+        rowHref={(season) => `/seasons/${season.slug}`}
         renderCard={(row) => (
           <div>
             <div className={inlineClass}>
@@ -134,12 +146,12 @@ export function SeasonsPage() {
               {formatDate(row.original.startsAt)} –{' '}
               {formatDate(row.original.endsAt)}
             </p>
-            <Link
-              to={`/seasons/${row.original.slug}`}
-              className={buttonVariants({ variant: 'outline', size: 'sm' })}
-            >
-              Open <IconArrowRight size={17} aria-hidden="true" />
-            </Link>
+            <div className="flex justify-end">
+              <SeasonRowMenu
+                season={row.original}
+                {...seasonActions(row.original)}
+              />
+            </div>
           </div>
         )}
       />

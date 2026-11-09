@@ -3,6 +3,7 @@ package api
 import (
 	"net/http"
 	"time"
+	"unicode/utf8"
 
 	"github.com/magedmg/RSP-website/backend/internal/dal"
 	"github.com/magedmg/RSP-website/backend/internal/platform/id"
@@ -70,17 +71,16 @@ func (a *API) listWeeks(w http.ResponseWriter, r *http.Request) {
 	}
 	if !canReadResources {
 		for i := range response.Items {
-			response.Items[i].ResourceURL = ""
+			response.Items[i].ResourcesHTML = ""
 		}
 	}
 	writeJSONResponse(w, http.StatusOK, response)
 }
 
 type createWeekRequest struct {
-	Number      int       `json:"number"`
-	StartAt     time.Time `json:"startAt"`
-	EndAt       time.Time `json:"endAt"`
-	ResourceURL string    `json:"resourceUrl"`
+	Number  int       `json:"number"`
+	StartAt time.Time `json:"startAt"`
+	EndAt   time.Time `json:"endAt"`
 }
 
 func (a *API) createWeek(w http.ResponseWriter, r *http.Request) {
@@ -115,21 +115,16 @@ func (a *API) createWeek(w http.ResponseWriter, r *http.Request) {
 		writeErrorResponse(w, http.StatusBadRequest, "endAt must be after startAt")
 		return
 	}
-	if request.ResourceURL != "" && !isValidHTTPSURL(request.ResourceURL) {
-		writeErrorResponse(w, http.StatusBadRequest, "resourceUrl must be an HTTPS URL")
-		return
-	}
 	if request.StartAt.Before(season.StartAt) || request.EndAt.After(season.EndAt) {
 		writeErrorResponse(w, http.StatusBadRequest, "week dates must fall within the season dates")
 		return
 	}
 	week := program.WeekRecord{
-		ID:          id.New(),
-		SeasonID:    r.PathValue("id"),
-		Number:      request.Number,
-		StartAt:     request.StartAt.UTC(),
-		EndAt:       request.EndAt.UTC(),
-		ResourceURL: request.ResourceURL,
+		ID:       id.New(),
+		SeasonID: r.PathValue("id"),
+		Number:   request.Number,
+		StartAt:  request.StartAt.UTC(),
+		EndAt:    request.EndAt.UTC(),
 	}
 	created, err := a.db.CreateWeek(r.Context(), week, actor.UserID, time.Now().UTC())
 	if err != nil {
@@ -141,10 +136,9 @@ func (a *API) createWeek(w http.ResponseWriter, r *http.Request) {
 }
 
 type updateWeekRequest struct {
-	Number      int       `json:"number"`
-	StartAt     time.Time `json:"startAt"`
-	EndAt       time.Time `json:"endAt"`
-	ResourceURL string    `json:"resourceUrl"`
+	Number  int       `json:"number"`
+	StartAt time.Time `json:"startAt"`
+	EndAt   time.Time `json:"endAt"`
 }
 
 func (a *API) updateWeek(w http.ResponseWriter, r *http.Request) {
@@ -179,10 +173,6 @@ func (a *API) updateWeek(w http.ResponseWriter, r *http.Request) {
 		writeErrorResponse(w, http.StatusBadRequest, "endAt must be after startAt")
 		return
 	}
-	if request.ResourceURL != "" && !isValidHTTPSURL(request.ResourceURL) {
-		writeErrorResponse(w, http.StatusBadRequest, "resourceUrl must be an HTTPS URL")
-		return
-	}
 	if request.StartAt.Before(season.StartAt) || request.EndAt.After(season.EndAt) {
 		writeErrorResponse(w, http.StatusBadRequest, "week dates must fall within the season dates")
 		return
@@ -190,7 +180,7 @@ func (a *API) updateWeek(w http.ResponseWriter, r *http.Request) {
 	week, err := a.db.UpdateWeek(r.Context(), dal.UpdateWeekInput{
 		SeasonID:  r.PathValue("id"),
 		WeekID:    r.PathValue("weekId"),
-		Week:      program.WeekRecord{Number: request.Number, StartAt: request.StartAt.UTC(), EndAt: request.EndAt.UTC(), ResourceURL: request.ResourceURL},
+		Week:      program.WeekRecord{Number: request.Number, StartAt: request.StartAt.UTC(), EndAt: request.EndAt.UTC()},
 		ActorID:   actor.UserID,
 		ChangedAt: time.Now().UTC(),
 	})
@@ -232,4 +222,56 @@ func (a *API) deleteWeek(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusNoContent)
+}
+
+// maxWeekResourcesHTML bounds the stored page, which is also the database
+// check constraint.
+const maxWeekResourcesHTML = 50000
+
+type updateWeekResourcesRequest struct {
+	ResourcesHTML string `json:"resourcesHtml"`
+}
+
+func (a *API) updateWeekResources(w http.ResponseWriter, r *http.Request) {
+	actor := actorFrom(r.Context())
+	season, err := a.db.GetSeason(r.Context(), r.PathValue("id"))
+	if err != nil {
+		a.writeStoreErrorResponse(w, err)
+		return
+	}
+	if !actor.IsSeasonAdmin(season.ID) {
+		writeErrorResponse(w, http.StatusForbidden, "Season administrator access is required.")
+		return
+	}
+	if season.Status != "open" {
+		writeErrorResponse(w, http.StatusForbidden, "The season must be open.")
+		return
+	}
+	if !actor.HasRecentMFA(time.Now()) {
+		writeErrorResponse(w, http.StatusForbidden, "Recent MFA is required.")
+		return
+	}
+	var request updateWeekResourcesRequest
+	if err := decodeJSON(r.Body, &request); err != nil {
+		writeErrorResponse(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	content := a.sanitizeHTML(request.ResourcesHTML)
+	if utf8.RuneCountInString(content) > maxWeekResourcesHTML {
+		writeErrorResponse(w, http.StatusBadRequest, "resourcesHtml is too long")
+		return
+	}
+	week, err := a.db.UpdateWeekResources(r.Context(), dal.UpdateWeekResourcesInput{
+		SeasonID:  season.ID,
+		WeekID:    r.PathValue("weekId"),
+		HTML:      content,
+		ActorID:   actor.UserID,
+		ChangedAt: time.Now().UTC(),
+	})
+	if err != nil {
+		a.writeStoreErrorResponse(w, err)
+		return
+	}
+
+	writeJSONResponse(w, http.StatusOK, week)
 }

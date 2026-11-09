@@ -90,9 +90,10 @@ func (a *API) createInvitation(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var request struct {
-		Name  string `json:"name"`
-		Email string `json:"email"`
-		Role  string `json:"role"`
+		Name         string `json:"name"`
+		Email        string `json:"email"`
+		Role         string `json:"role"`
+		MentorUserID string `json:"mentorUserId"`
 	}
 	if err := decodeJSON(r.Body, &request); err != nil {
 		writeErrorResponse(w, 400, err.Error())
@@ -109,6 +110,18 @@ func (a *API) createInvitation(w http.ResponseWriter, r *http.Request) {
 		writeErrorResponse(w, 400, "Choose student, mentor or coordinator.")
 		return
 	}
+	var mentorUserID *string
+	if mentor := strings.TrimSpace(request.MentorUserID); mentor != "" {
+		if request.Role != "student" {
+			writeErrorResponse(w, 400, "Only a student can be invited with a mentor.")
+			return
+		}
+		if !uuidSelection(mentor) {
+			writeErrorResponse(w, 400, "mentorUserId must be a user id.")
+			return
+		}
+		mentorUserID = &mentor
+	}
 	if request.Role == "coordinator" && !canGrantCoordinator(actorFrom(r.Context()), r.PathValue("id")) {
 		writeErrorResponse(w, 403, "Coordinator access cannot be granted.")
 		return
@@ -119,7 +132,7 @@ func (a *API) createInvitation(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	at := time.Now().UTC()
-	v, err := a.db.CreateInvitation(r.Context(), program.Invitation{ID: id.New(), SeasonID: r.PathValue("id"), Name: request.Name, Email: request.Email, Role: request.Role, DeliveryID: id.New(), ExpiresAt: at.Add(7 * 24 * time.Hour)}, hash, actorFrom(r.Context()).UserID, at)
+	v, err := a.db.CreateInvitation(r.Context(), program.Invitation{ID: id.New(), SeasonID: r.PathValue("id"), Name: request.Name, Email: request.Email, Role: request.Role, MentorUserID: mentorUserID, DeliveryID: id.New(), ExpiresAt: at.Add(7 * 24 * time.Hour)}, hash, actorFrom(r.Context()).UserID, at)
 	if err != nil {
 		a.writeStoreErrorResponse(w, err)
 		return

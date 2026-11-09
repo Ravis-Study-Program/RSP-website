@@ -5,6 +5,7 @@ package dal
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"path/filepath"
 	"testing"
 	"time"
@@ -389,14 +390,30 @@ func TestPostgres18MigrationsAndDAL(t *testing.T) {
 		t.Fatal(err)
 	}
 	if _, err := repository.CreateWeek(ctx, program.WeekRecord{
-		ID:          "00000000-0000-7000-8000-000000000034",
-		SeasonID:    season.ID,
-		Number:      1,
-		StartAt:     season.StartAt,
-		EndAt:       season.EndAt,
-		ResourceURL: "https://rsp.local/week",
+		ID:            "00000000-0000-7000-8000-000000000034",
+		SeasonID:      season.ID,
+		Number:        1,
+		StartAt:       season.StartAt,
+		EndAt:         season.EndAt,
+		ResourcesHTML: "<p>Week notes</p>",
 	}, "00000000-0000-7000-8000-000000000033", time.Now()); err != nil {
 		t.Fatal(err)
+	}
+	updatedWeek, err := repository.UpdateWeekResources(ctx, UpdateWeekResourcesInput{
+		SeasonID:  season.ID,
+		WeekID:    "00000000-0000-7000-8000-000000000034",
+		HTML:      "<h2>Reading</h2>",
+		ActorID:   "00000000-0000-7000-8000-000000000033",
+		ChangedAt: time.Now(),
+	})
+	if err != nil || updatedWeek.ResourcesHTML != "<h2>Reading</h2>" {
+		t.Fatalf("week resources after update=%+v err=%v", updatedWeek, err)
+	}
+	if _, err := repository.UpdateWeekResources(ctx, UpdateWeekResourcesInput{
+		SeasonID: season.ID, WeekID: "00000000-0000-7000-8000-0000000000ff",
+		HTML: "<p>x</p>", ActorID: "00000000-0000-7000-8000-000000000033", ChangedAt: time.Now(),
+	}); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("unknown week resources update err=%v", err)
 	}
 	if _, err := repository.CreateMentorship(ctx, program.MentorshipRecord{
 		ID:            "00000000-0000-7000-8000-000000000020",

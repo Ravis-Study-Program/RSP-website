@@ -1,8 +1,13 @@
 import type { ColumnDef } from '@tanstack/react-table';
-import { render, screen } from '@testing-library/react';
+import { render as renderUi, screen } from '@testing-library/react';
+import type { ReactElement } from 'react';
+import { MemoryRouter } from 'react-router-dom';
 import userEvent from '@testing-library/user-event';
 
 import { DataTable } from '@/components/DataTable';
+
+// Clickable rows navigate, so the table always renders inside a router.
+const render = (ui: ReactElement) => renderUi(ui, { wrapper: MemoryRouter });
 
 interface RowData {
   id: string;

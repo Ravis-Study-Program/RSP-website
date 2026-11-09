@@ -25,6 +25,7 @@ vi.mock('@/api/queries', () => ({
   demoMode: false,
   useCurrentUser: vi.fn(),
   useSeasons: vi.fn(),
+  useSeasonPeople: vi.fn(() => ({ data: undefined })),
   useUserAttempts: vi.fn(),
   usePracticeGoals: vi.fn(() => ({ Easy: 10, Medium: 25, Hard: 40 })),
   useUserProfile: vi.fn(),

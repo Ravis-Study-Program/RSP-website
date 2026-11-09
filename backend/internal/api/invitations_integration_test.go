@@ -130,3 +130,72 @@ func TestInvitationLifecycleAndVerifiedEmail(t *testing.T) {
 		t.Fatalf("history=%d %s", res.Code, res.Body)
 	}
 }
+
+func TestInvitationWithMentorAssignsMentorOnAcceptance(t *testing.T) {
+	f := newPostgresFixture(t)
+	ctx := context.Background()
+	season := id.New()
+	now := time.Now()
+	if _, err := f.pool.Exec(ctx, `INSERT INTO app.seasons(id,slug,name,start_at,end_at) VALUES($1,'mentored-season','Mentored season',now(),now()+interval '1 year')`, season); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := f.pool.Exec(ctx, `INSERT INTO app.enrollments(id,user_id,season_id,role,student_level,state) VALUES($1,$2,$3,'mentor','not_applicable','active')`, id.New(), otherID, season); err != nil {
+		t.Fatal(err)
+	}
+	var emails []authadmin.InvitationEmailInput
+	admin := authz.Actor{UserID: otherID, EmailVerified: true, AccountState: authz.AccountActive, GlobalRoles: map[authz.GlobalRole]bool{authz.SystemAdmin: true}, MFAAt: &now}
+	handler := New(Config{DB: f.db, PublicOrigin: "https://rsp.test", Authenticator: AuthenticatorFunc(func(_ context.Context, token string) (authz.Actor, error) {
+		v := admin
+		if token == "student" {
+			v.UserID = studentID
+			v.GlobalRoles = nil
+		}
+		return v, nil
+	}), SendInvitation: func(_ context.Context, email authadmin.InvitationEmailInput) error {
+		emails = append(emails, email)
+		return nil
+	}}).Handler()
+	invite := func(body string) (int, program.Invitation) {
+		t.Helper()
+		res := testRequest(t, handler, http.MethodPost, "/api/v2/seasons/"+season+"/invitations", "admin", body)
+		var v program.Invitation
+		_ = json.Unmarshal(res.Body.Bytes(), &v)
+		return res.Code, v
+	}
+
+	// Only students are invited with a mentor, and only to someone mentoring
+	// in the season.
+	if code, _ := invite(`{"name":"New mentor","email":"mentor@example.com","role":"mentor","mentorUserId":"` + otherID + `"}`); code != 400 {
+		t.Fatalf("mentor invited with a mentor=%d", code)
+	}
+	if code, _ := invite(`{"name":"New student","email":"private@example.com","role":"student","mentorUserId":"` + studentID + `"}`); code != 400 {
+		t.Fatalf("non-mentor accepted as mentor=%d", code)
+	}
+	if code, _ := invite(`{"name":"New student","email":"private@example.com","role":"student","mentorUserId":"not-a-user"}`); code != 400 {
+		t.Fatalf("malformed mentor=%d", code)
+	}
+
+	code, v := invite(`{"name":"New student","email":"private@example.com","role":"student","mentorUserId":"` + otherID + `"}`)
+	if code != 201 || v.MentorUserID == nil || *v.MentorUserID != otherID {
+		t.Fatalf("invite with mentor=%d %+v", code, v)
+	}
+	u, err := url.Parse(emails[len(emails)-1].URL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	body := fmt.Sprintf(`{"token":%q}`, strings.TrimPrefix(u.Fragment, "token="))
+	if res := testRequest(t, handler, http.MethodPost, "/api/v2/invitations/accept", "student", body); res.Code != 200 {
+		t.Fatalf("accept=%d %s", res.Code, res.Body)
+	}
+	var mentor string
+	if err := f.pool.QueryRow(ctx, `SELECT mentor.user_id FROM app.mentorships m
+		JOIN app.enrollments mentor ON mentor.id=m.mentor_enrollment_id
+		JOIN app.enrollments student ON student.id=m.student_enrollment_id
+		WHERE m.season_id=$1 AND student.user_id=$2 AND m.ended_at IS NULL`, season, studentID).Scan(&mentor); err != nil || mentor != otherID {
+		t.Fatalf("mentorship after acceptance=%q %v", mentor, err)
+	}
+	res := testRequest(t, handler, http.MethodGet, "/api/v2/seasons/"+season+"/invitations", "admin", "")
+	if res.Code != 200 || !strings.Contains(res.Body.String(), `"acceptedBy":"`+studentID+`"`) {
+		t.Fatalf("accepted invitation should name its account: %d %s", res.Code, res.Body)
+	}
+}

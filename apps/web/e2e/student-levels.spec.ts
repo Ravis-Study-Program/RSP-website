@@ -1,22 +1,19 @@
 import { expect, test } from '@playwright/test';
 import { expectSelected } from './select';
 
-test("coordinators edit a student's details from All Students", async ({
+test("coordinators edit a student's details from People", async ({
   page,
 }, testInfo) => {
   await page.addInitScript(() => {
     localStorage.setItem('rsp-demo-role', 'coordinator');
     localStorage.removeItem('rsp-demo-auth-state');
   });
-  // Levels are set from the student list's row menu; People takes no actions.
-  await page.goto('/seasons/summer-2025-26/people');
-  await expect(page.getByRole('heading', { name: 'People' })).toBeVisible();
-  await expect(
-    page.getByRole('button', { name: /Edit details|More actions/ }),
-  ).toHaveCount(0);
+  // The old All Students address now opens People, where students are managed.
   await page.goto('/seasons/summer-2025-26/mentees');
+  await expect(page).toHaveURL(/\/seasons\/summer-2025-26\/people$/);
+  await expect(page.getByRole('heading', { name: 'People' })).toBeVisible();
   await page
-    .getByRole('button', { name: /^More actions for / })
+    .getByRole('button', { name: 'More actions for Amelia Chen' })
     .filter({ visible: true })
     .first()
     .click();

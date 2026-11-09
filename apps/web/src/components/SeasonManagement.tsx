@@ -6,12 +6,22 @@ import { Field, FieldError, FieldLabel } from '@/components/ui/field';
 import { Textarea } from '@/components/ui/textarea';
 import { zodResolver } from '@hookform/resolvers/zod';
 import {
+  IconArrowRight,
+  IconDotsVertical,
   IconEdit,
   IconLink,
   IconLock,
   IconLockOpen,
   IconPlus,
+  IconTrash,
 } from '@tabler/icons-react';
+import { Link } from 'react-router-dom';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { useQueryClient } from '@tanstack/react-query';
 import { useState, type ReactNode } from 'react';
 import { Controller, useForm, type Resolver } from 'react-hook-form';
@@ -27,6 +37,7 @@ import type {
 } from '@/api/generated/models';
 import { demoMode, seasonsOptions } from '@/api/queries';
 import { AppDatePicker } from '@/components/AppDatePicker';
+import { DeleteEmptySeason } from '@/components/DeleteEmptySeason';
 import { FormDialog } from '@/components/Dialogs';
 import type { Page, Season } from '@/types';
 import { formatDateTimeInput, zonedDateTimeToUtc } from '@/utils';
@@ -116,13 +127,24 @@ export function SeasonEditorDialog({
   season,
   trigger,
   onSaved,
+  open: controlledOpen,
+  onOpenChange,
 }: {
   season?: Season;
   trigger?: ReactNode;
   onSaved?: (season: Season) => void;
+  /** When given, the dialog is opened from outside and shows no trigger. */
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }) {
   const queryClient = useQueryClient();
-  const [open, setOpen] = useState(false);
+  const [uncontrolledOpen, setUncontrolledOpen] = useState(false);
+  const controlled = controlledOpen !== undefined;
+  const open = controlled ? controlledOpen : uncontrolledOpen;
+  const setOpen = (next: boolean) => {
+    if (!controlled) setUncontrolledOpen(next);
+    onOpenChange?.(next);
+  };
   const [requestError, setRequestError] = useState('');
   const form = useForm<SeasonFormValues>({
     resolver: zodResolver(seasonSchema as never) as Resolver<SeasonFormValues>,
@@ -210,16 +232,18 @@ export function SeasonEditorDialog({
       triggerVariant={season ? 'outline' : undefined}
       triggerSize={season ? 'sm' : undefined}
       trigger={
-        trigger ??
-        (season ? (
-          <>
-            <IconEdit size={17} aria-hidden="true" /> Edit season
-          </>
-        ) : (
-          <>
-            <IconPlus size={18} aria-hidden="true" /> Create season
-          </>
-        ))
+        controlled
+          ? undefined
+          : (trigger ??
+            (season ? (
+              <>
+                <IconEdit size={17} aria-hidden="true" /> Edit season
+              </>
+            ) : (
+              <>
+                <IconPlus size={18} aria-hidden="true" /> Create season
+              </>
+            )))
       }
     >
       <form
@@ -494,13 +518,24 @@ export function SeasonLifecycleDialog({
   season,
   action,
   onSaved,
+  open: controlledOpen,
+  onOpenChange,
 }: {
   season: Season;
   action: 'close' | 'reopen';
   onSaved?: (season: Season) => void;
+  /** When given, the dialog is opened from outside and shows no trigger. */
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }) {
   const queryClient = useQueryClient();
-  const [open, setOpen] = useState(false);
+  const [uncontrolledOpen, setUncontrolledOpen] = useState(false);
+  const controlled = controlledOpen !== undefined;
+  const open = controlled ? controlledOpen : uncontrolledOpen;
+  const setOpen = (next: boolean) => {
+    if (!controlled) setUncontrolledOpen(next);
+    onOpenChange?.(next);
+  };
   const [reason, setReason] = useState('');
   const [confirmation, setConfirmation] = useState('');
   const [pending, setPending] = useState(false);
@@ -580,9 +615,11 @@ export function SeasonLifecycleDialog({
       triggerVariant={action === 'close' ? 'destructive' : 'outline'}
       triggerSize="sm"
       trigger={
-        <>
-          <Icon size={17} aria-hidden="true" /> {label}
-        </>
+        controlled ? undefined : (
+          <>
+            <Icon size={17} aria-hidden="true" /> {label}
+          </>
+        )
       }
     >
       <div className={formStack}>
@@ -631,5 +668,99 @@ export function SeasonLifecycleDialog({
         </div>
       </div>
     </FormDialog>
+  );
+}
+
+/**
+ * A season row's actions. Opening is the only action for most members, so
+ * that is a plain arrow; anyone who can change the season gets a menu.
+ */
+export function SeasonRowMenu({
+  season,
+  canEdit = false,
+  canClose = false,
+  canReopen = false,
+  canDelete = false,
+}: {
+  season: Season;
+  canEdit?: boolean;
+  canClose?: boolean;
+  canReopen?: boolean;
+  canDelete?: boolean;
+}) {
+  const [open, setOpen] = useState<'edit' | 'lifecycle' | 'delete' | null>(
+    null,
+  );
+  const close = (next: boolean) => {
+    if (!next) setOpen(null);
+  };
+  const lifecycle = season.status === 'open' ? 'close' : 'reopen';
+  const canChangeLifecycle = lifecycle === 'close' ? canClose : canReopen;
+  if (!canEdit && !canChangeLifecycle && !canDelete)
+    return (
+      <Link
+        to={`/seasons/${season.slug}`}
+        className="inline-flex size-9 items-center justify-center rounded-md text-foreground hover:bg-muted"
+        aria-label={`Open ${season.name}`}
+      >
+        <IconArrowRight size={18} aria-hidden="true" />
+      </Link>
+    );
+  return (
+    <>
+      <DropdownMenu>
+        <DropdownMenuTrigger
+          render={<Button variant="ghost" size="icon" />}
+          aria-label={`More actions for ${season.name}`}
+        >
+          <IconDotsVertical size={18} aria-hidden="true" />
+        </DropdownMenuTrigger>
+        <DropdownMenuContent>
+          <DropdownMenuItem render={<Link to={`/seasons/${season.slug}`} />}>
+            <IconArrowRight size={17} aria-hidden="true" /> Open
+          </DropdownMenuItem>
+          {canEdit ? (
+            <DropdownMenuItem onClick={() => setOpen('edit')}>
+              <IconEdit size={17} aria-hidden="true" /> Edit season
+            </DropdownMenuItem>
+          ) : null}
+          {canChangeLifecycle ? (
+            <DropdownMenuItem
+              variant={lifecycle === 'close' ? 'destructive' : undefined}
+              onClick={() => setOpen('lifecycle')}
+            >
+              {lifecycle === 'close' ? (
+                <IconLock size={17} aria-hidden="true" />
+              ) : (
+                <IconLockOpen size={17} aria-hidden="true" />
+              )}
+              {lifecycle === 'close' ? 'Close season' : 'Reopen season'}
+            </DropdownMenuItem>
+          ) : null}
+          {canDelete ? (
+            <DropdownMenuItem
+              variant="destructive"
+              onClick={() => setOpen('delete')}
+            >
+              <IconTrash size={17} aria-hidden="true" /> Delete empty season
+            </DropdownMenuItem>
+          ) : null}
+        </DropdownMenuContent>
+      </DropdownMenu>
+      {open === 'edit' ? (
+        <SeasonEditorDialog season={season} open onOpenChange={close} />
+      ) : null}
+      {open === 'lifecycle' ? (
+        <SeasonLifecycleDialog
+          season={season}
+          action={lifecycle}
+          open
+          onOpenChange={close}
+        />
+      ) : null}
+      {open === 'delete' ? (
+        <DeleteEmptySeason season={season} open onOpenChange={close} />
+      ) : null}
+    </>
   );
 }
