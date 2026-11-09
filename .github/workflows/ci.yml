@@ -70,27 +70,11 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      # Pin the published linux-x64 checksum alongside scripts/VERSION.
-      # The release API avoids the launcher's unreliable public asset downloads.
-      - name: Install verified Impeccable engine
-        env:
-          GH_TOKEN: ${{ github.token }}
-          IMPECCABLE_SHA256: b4e2ebcb97b2be5e5a0ae71d4a03596c12d3672f19b24cfdd7244e304e679fb7
-        run: |
-          version=$(tr -d '[:space:]' < .agents/skills/impeccable/scripts/VERSION)
-          binary="$RUNNER_TEMP/impeccable-linux-x64"
-          for attempt in 1 2 3; do
-            if gh release download "engine-v$version" --repo pbakaus/impeccable \
-              --pattern impeccable-linux-x64 --dir "$RUNNER_TEMP" --clobber; then
-              break
-            fi
-            if [ "$attempt" -eq 3 ]; then exit 1; fi
-            sleep 5
-          done
-          printf '%s  %s\n' "$IMPECCABLE_SHA256" "$binary" | sha256sum --check --strict
-          chmod +x "$binary"
-          echo "IMPECCABLE_BIN=$binary" >> "$GITHUB_ENV"
-      # Exit 2 = primary findings, 1 = scan failure; advisory findings never fail.
+      # The release host often returns 504. Download with retries, then point
+      # the launcher at that binary. Exit 2 = primary findings, 1 = scan
+      # failure; advisory findings never fail the job.
+      - name: Install Impeccable engine
+        run: scripts/ci/install-impeccable.sh
       - name: Scan web UI against DESIGN.md
         working-directory: apps/web
         run: ../../.agents/skills/impeccable/scripts/impeccable detect src

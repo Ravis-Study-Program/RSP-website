@@ -23,17 +23,22 @@ import type { Me } from '@/api/generated/models';
 import {
   currentUserOptions,
   demoMode,
-  useCurrentUser,
-  useSeasons,
   useActivitySummary,
+  useCurrentUser,
+  useMockInterviewSummary,
+  useSeasons,
+  useUserAttempts,
   useUserParticipation,
   useUserProfile,
 } from '@/api/queries';
 import { useQueryClient } from '@tanstack/react-query';
+import { ActivityChart } from '@/components/ActivityChart';
+import { Card, CardContent } from '@/components/ui/card';
 import {
   Avatar,
   MetricCard,
   Page,
+  PageSection,
   RoleBadge,
   SeasonBadge,
   StudentLevelBadge,
@@ -43,8 +48,14 @@ import { ProfileActivity } from '@/components/ProfileActivity';
 import { FormDialog } from '@/components/Dialogs';
 import { TimezoneSelect } from '@/components/TimezoneSelect';
 import { ErrorState, PageSkeleton } from '@/components/StatusViews';
-import { formatDateTime, initials, supportedTimezones } from '@/utils';
 import { sortRoles } from '@/sortOrder';
+import { studentWeeklyExpected } from '@/studentWeeklyExpected';
+import {
+  formatDateTime,
+  initials,
+  recentActivitySeries,
+  supportedTimezones,
+} from '@/utils';
 
 const formClass = 'flex flex-col gap-4';
 const inlineClass = 'flex flex-wrap items-center gap-2.5';
@@ -101,6 +112,17 @@ export function ProfilePage() {
   // Profiles always show all-time activity.
   const summary = useActivitySummary(hasProgramAccess ? person?.id : undefined);
   const showProgramDetails = !isSelf || hasProgramAccess;
+  const showActivityChart =
+    showProgramDetails && Boolean(person?.roles.includes('student'));
+  const chartAttempts = useUserAttempts(person?.id, showActivityChart);
+  const chartInterviews = useMockInterviewSummary(
+    { mode: 'all', userId: person?.id },
+    showActivityChart,
+  );
+  const activity = recentActivitySeries(
+    chartAttempts.data?.items ?? [],
+    chartInterviews.data?.days,
+  );
   const [savedName, setSavedName] = useState<string | null>(null);
   const [savedSlug, setSavedSlug] = useState<string | null>(null);
   const [activityTab, setActivityTab] = useState('leetcode');
@@ -233,6 +255,30 @@ export function ProfilePage() {
           title="Activity Totals Unavailable"
           onRetry={() => void summary.refetch()}
         />
+      ) : null}
+      {showActivityChart ? (
+        <PageSection titleId="profile-activity-chart" title="Recent Activity">
+          {chartAttempts.isError || chartInterviews.isError ? (
+            <ErrorState
+              title="Activity Chart Unavailable"
+              onRetry={() =>
+                void Promise.all([
+                  chartAttempts.refetch(),
+                  chartInterviews.refetch(),
+                ])
+              }
+            />
+          ) : (
+            <Card className="flex-1">
+              <CardContent>
+                <ActivityChart
+                  data={activity}
+                  expected={studentWeeklyExpected}
+                />
+              </CardContent>
+            </Card>
+          )}
+        </PageSection>
       ) : null}
       {showProgramDetails ? (
         <div>
