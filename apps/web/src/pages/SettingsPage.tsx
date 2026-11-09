@@ -244,10 +244,13 @@ export function SettingsPage() {
       );
     }
   };
-  const finishSecurityChange = () => {
+  /** Signs out after a change that revoked every session, saying which. */
+  const finishSecurityChange = (
+    change: 'securityChanged' | 'discordDisconnected' = 'securityChanged',
+  ) => {
     clearAccessToken();
     queryClient.clear();
-    navigate('/sign-in?securityChanged=true', { replace: true });
+    navigate(`/sign-in?${change}=true`, { replace: true });
   };
   const endSession = async () => {
     try {
@@ -364,7 +367,7 @@ export function SettingsPage() {
               <strong className="font-semibold">Account email</strong>
               <span className={rowTextClass}>{user.data.email}</span>
             </span>
-            <ChangeEmailDialog onRequested={finishSecurityChange} />
+            <ChangeEmailDialog onRequested={() => finishSecurityChange()} />
           </div>
           <div className={rowClass}>
             <span>
@@ -385,14 +388,16 @@ export function SettingsPage() {
                 }}
               />
             ) : (
-              <ChangePasswordDialog onChanged={finishSecurityChange} />
+              <ChangePasswordDialog onChanged={() => finishSecurityChange()} />
             )}
           </div>
           <div className={rowClass}>
             <span>
               <strong className="font-semibold">Google sign-in</strong>
               <span className={rowTextClass}>
-                Sign in with your Google account.
+                {signInMethods.data?.google
+                  ? 'Sign in with your Google account.'
+                  : 'Sign in with your Google account. Connecting signs you out on all devices.'}
               </span>
             </span>
             {signInMethods.data?.google ? (
@@ -420,14 +425,11 @@ export function SettingsPage() {
           {providers.data?.discord || signInMethods.data?.discordAccountId ? (
             <div className={rowClass}>
               <span>
-                <strong className="font-semibold">Discord</strong>
+                <strong className="font-semibold">Discord sign-in</strong>
                 <span className={rowTextClass}>
                   {signInMethods.data?.discordAccountId
-                    ? 'Connected for sign-in and your profile picture. Your photo updates when you sign in with Discord.'
-                    : 'Connect to sign in with Discord and use your Discord profile picture. Your RSP email stays the same.'}
-                </span>
-                <span className={rowTextClass}>
-                  Connecting or disconnecting signs you out on all devices.
+                    ? 'Sign in with your Discord account. Your Discord profile picture is shown on this site and updates each time you sign in with Discord. Disconnecting signs you out on all devices.'
+                    : 'Sign in with your Discord account. Your Discord profile picture will be shown on this site. Connecting signs you out on all devices.'}
                 </span>
               </span>
               <Button
@@ -438,7 +440,9 @@ export function SettingsPage() {
                   setSecurityMessage('');
                   const accountId = signInMethods.data?.discordAccountId;
                   const action = accountId
-                    ? unlinkDiscordAccount(accountId).then(finishSecurityChange)
+                    ? unlinkDiscordAccount(accountId).then(() =>
+                        finishSecurityChange('discordDisconnected'),
+                      )
                     : linkDiscordAccount();
                   void action.catch((error: unknown) => {
                     setSecurityMessage(
@@ -476,7 +480,7 @@ export function SettingsPage() {
                 Required for privileged program roles.
               </span>
             </span>
-            <MfaSetupDialog onComplete={finishSecurityChange} />
+            <MfaSetupDialog onComplete={() => finishSecurityChange()} />
           </div>
           <div className={rowClass}>
             <span className="grid min-w-0">
@@ -488,7 +492,7 @@ export function SettingsPage() {
               </span>
             </span>
             {twoFactorEnabled ? (
-              <BackupCodesDialog onComplete={finishSecurityChange} />
+              <BackupCodesDialog onComplete={() => finishSecurityChange()} />
             ) : (
               <Button type="button" disabled>
                 Regenerate

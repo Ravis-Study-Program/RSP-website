@@ -57,7 +57,9 @@ test('Settings connects Discord and displays a recoverable stale-session error',
   });
   await page.goto('/settings');
   await expect(
-    page.getByText(/use your Discord profile picture/),
+    page.getByText(
+      /^Sign in with your Discord account\. Your Discord profile picture will be shown on this site\./,
+    ),
   ).toBeVisible();
   await page
     .getByRole('button', { name: 'Connect Discord', exact: true })
@@ -73,4 +75,27 @@ test('Settings connects Discord and displays a recoverable stale-session error',
       () => document.documentElement.scrollWidth <= window.innerWidth,
     ),
   ).toBe(true);
+});
+
+test('signing out after a Discord change explains why across the top', async ({
+  page,
+}) => {
+  await page.addInitScript(() =>
+    localStorage.setItem('rsp-demo-auth-state', 'signed-out'),
+  );
+  for (const [param, change] of [
+    ['discordConnected', 'Discord was connected'],
+    ['discordDisconnected', 'Discord was disconnected'],
+  ]) {
+    await page.goto(`/sign-in?${param}=true`);
+    const notice = page.getByRole('status').filter({ hasText: change });
+    await expect(notice).toHaveText(
+      `${change}, so you were signed out on all devices. Sign in again to continue.`,
+    );
+    // It sits above the sign-in card, not inside it.
+    const card = page.getByRole('heading', { name: 'Welcome to RSP' });
+    expect((await notice.boundingBox())!.y).toBeLessThan(
+      (await card.boundingBox())!.y,
+    );
+  }
 });

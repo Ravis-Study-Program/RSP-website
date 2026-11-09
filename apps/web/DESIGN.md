@@ -285,7 +285,9 @@ Exact and unassuming.
 ### Settings-Style Row Lists
 
 - A titled section (its own `h2`, like every other section) holds one card of rows divided by hairlines. Each row has a bold title, a muted one-line description and an action on the right.
-- Group rows into separate titled sections rather than subheadings inside one card. Settings uses Sign-In (email, password, Google), Two-Factor (two-factor, then backup codes, disabled until two-factor is on) and Sessions.
+- Group rows into separate titled sections rather than subheadings inside one card. Settings uses Sign-In (email, password, Google, Discord), Two-Factor (two-factor, then backup codes, disabled until two-factor is on) and Sessions.
+- Sign-in method rows open with the same sentence, "Sign in with your Google account." or "Sign in with your Discord account.", then add what else connecting does and that connecting or disconnecting signs you out on all devices.
+- A change that signs the member out everywhere (connecting a sign-in method, disconnecting Discord, other security changes) explains itself with a warning `InlineNotice` across the top of the sign-in page, like the warnings at the top of Settings, not inside the sign-in card.
 - Read-only values use the same labelled field as editable ones, greyed (`text-muted-foreground`) and `readOnly`, rather than plain text.
 
 ### Tables
