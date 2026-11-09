@@ -15,8 +15,11 @@ regexes = [
 ]
 
 [[allowlists]]
-description = "Discord OAuth test uses a fake 32-character avatar hash, which matches the client-secret rule"
+description = "Discord OAuth tests use fake 32-character avatar hashes, which match the client-secret rule"
 condition = "AND"
 regexTarget = "match"
 paths = ['''(?:^|/)apps/auth/test/discord-oauth\.test\.ts$''']
-regexes = ['''abcdef0123456789abcdef0123456789''']
+regexes = [
+  '''abcdef0123456789abcdef0123456789''',
+  '''fedcba9876543210fedcba9876543210''',
+]
