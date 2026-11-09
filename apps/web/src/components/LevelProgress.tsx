@@ -41,7 +41,7 @@ export function LevelProgressSection({
 
   return (
     <PageSection titleId="progress-title" title="Your Progress">
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="flex flex-wrap items-stretch gap-2">
         {levelOrder.map((item) => {
           const expanded = open === item;
           const awarded = levelOrder.indexOf(item) <= currentIndex;
@@ -50,8 +50,9 @@ export function LevelProgressSection({
               key={item}
               size="sm"
               className={cn(
-                'w-fit min-h-14 gap-0 py-0 motion-safe:transition-[background-color,box-shadow] motion-safe:duration-300 motion-safe:ease-out',
-                expanded ? 'min-w-0' : 'shrink-0',
+                expanded ? 'w-auto' : 'w-fit',
+                'min-h-14 gap-0 py-0 motion-safe:transition-[background-color,box-shadow] motion-safe:duration-300 motion-safe:ease-out',
+                expanded ? 'min-w-0 grow' : 'shrink-0',
                 awarded || expanded ? wash[item] : 'bg-card',
                 awarded && 'ring-foreground/40',
               )}
@@ -85,7 +86,7 @@ export function LevelProgressSection({
                   ) : null}
                 </button>
                 <ExpandPanel open={expanded}>
-                  <div className="py-2.5 pr-1 pl-2">
+                  <div className="py-2.5 pr-2 pl-4">
                     <LevelBody item={item} awarded={awarded} counts={counts} />
                   </div>
                 </ExpandPanel>
@@ -153,7 +154,10 @@ function ExpandPanel({
     <div
       aria-hidden={open ? undefined : true}
       inert={open ? undefined : true}
-      className="overflow-hidden motion-safe:transition-[width,opacity] motion-safe:duration-300 motion-safe:ease-out"
+      className={cn(
+        'overflow-hidden motion-safe:transition-[width,opacity] motion-safe:duration-300 motion-safe:ease-out',
+        open && width === 'auto' && 'grow',
+      )}
       style={{ width, opacity: open ? 1 : 0 }}
       onTransitionEnd={(event) => {
         if (
@@ -164,7 +168,10 @@ function ExpandPanel({
         if (open) setWidth('auto');
       }}
     >
-      <div ref={innerRef} className="w-max">
+      <div
+        ref={innerRef}
+        className={open && width === 'auto' ? 'w-full' : 'w-max'}
+      >
         {children}
       </div>
     </div>
@@ -204,7 +211,7 @@ function LevelBody({
     );
   }
   return (
-    <div className="grid grid-cols-2 gap-4">
+    <div className="grid grid-cols-2 gap-8">
       <ProgressMeter label="LeetCode" bar={bars.leetcode} fill={fill[item]} />
       <ProgressMeter
         label="Mock interviews"
@@ -227,15 +234,15 @@ function ProgressMeter({
   const width =
     bar.target === 0 ? 0 : Math.min(100, (bar.done / bar.target) * 100);
   return (
-    <div className="min-w-36">
-      <div className="flex items-baseline justify-between gap-2 text-xs">
+    <div className="min-w-48">
+      <div className="flex items-baseline justify-between gap-2 text-sm">
         <span>{label}</span>
-        <span className="tabular-nums text-muted-foreground">
+        <span className="tabular-nums text-foreground/75">
           {bar.done} of {bar.target}
         </span>
       </div>
       <div
-        className="mt-1 h-1 overflow-hidden rounded-full bg-background/70"
+        className="mt-1.5 h-2 overflow-hidden rounded-full bg-background/70"
         role="meter"
         aria-valuenow={bar.done}
         aria-valuemin={0}
@@ -247,7 +254,7 @@ function ProgressMeter({
           style={{ width: `${width}%` }}
         />
       </div>
-      <p className="mt-1 text-xs text-muted-foreground">
+      <p className="mt-1.5 text-sm text-foreground/75">
         {bar.parts
           .map((part) => `${part.label} ${part.done}/${part.target}`)
           .join(' · ')}
