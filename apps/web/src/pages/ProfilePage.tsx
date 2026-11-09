@@ -32,7 +32,10 @@ import {
   useUserProfile,
 } from '@/api/queries';
 import { useQueryClient } from '@tanstack/react-query';
-import { ActivityChart } from '@/components/ActivityChart';
+import {
+  ActivityChart,
+  studentWeeklyExpected,
+} from '@/components/ActivityChart';
 import { Card, CardContent } from '@/components/ui/card';
 import {
   Avatar,
@@ -49,7 +52,6 @@ import { FormDialog } from '@/components/Dialogs';
 import { TimezoneSelect } from '@/components/TimezoneSelect';
 import { ErrorState, PageSkeleton } from '@/components/StatusViews';
 import { sortRoles } from '@/sortOrder';
-import { studentWeeklyExpected } from '@/studentWeeklyExpected';
 import {
   formatDateTime,
   initials,
