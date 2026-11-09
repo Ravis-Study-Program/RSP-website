@@ -21,10 +21,7 @@ import {
   useUserParticipation,
 } from '@/api/queries';
 import { defaultSeason, preferredMembership } from '@/navigation';
-import {
-  ActivityChart,
-  studentWeeklyExpected,
-} from '@/components/ActivityChart';
+import { ActivityChart } from '@/components/ActivityChart';
 import { MondayUpdateReminder } from '@/components/MondayUpdateReminder';
 import {
   MetricCard,
@@ -36,6 +33,7 @@ import {
 import { LevelProgressSection } from '@/components/LevelProgress';
 import { ErrorState, PageSkeleton } from '@/components/StatusViews';
 import { isProgramLevel, solvedDifficultyCounts } from '@/levelProgress';
+import { studentWeeklyExpected } from '@/studentWeeklyExpected';
 import { recentActivitySeries } from '@/utils';
 
 const listClass = 'm-0 list-none divide-y p-0';
