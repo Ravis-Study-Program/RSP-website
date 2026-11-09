@@ -19,8 +19,20 @@ Only a linked Discord account supplies the profile picture. The service uses
 the profile returned by Discord during connection and each Discord login, stores
 a static 256px Discord CDN URL, and displays initials if there is no avatar or
 the image cannot load. Disconnecting Discord clears the picture. Email and
-Google logins leave it unchanged. Changes made in Discord appear on the next
-Discord login; there is no background polling or image upload/storage service.
+Google logins leave it unchanged. There is no image upload or storage service.
+
+Discord does not tell apps when a picture changes, so the site checks while
+members use it. When a member opens the app, the browser asks the auth service
+(`POST /api/auth/discord/avatar/refresh`) once per tab session. The auth service
+checks Discord at most once a day per member: it uses the encrypted OAuth grant
+stored at connection (refreshing it when expired), reads the current profile,
+and queues an avatar update only when the picture differs from the last one
+sent. The Discord account row's `updated_at` records the last check, so a
+Discord login counts as one and no migration is needed. If Discord is
+unreachable or the member revoked access, the current picture stays until
+their next Discord login. Inactive members are never checked. Better Auth's
+`/get-access-token` and `/refresh-token` endpoints are disabled, so stored
+Discord tokens never reach the browser.
 
 Avatar synchronization uses the existing authenticated lifecycle outbox. Delivery
 failures retry without blocking login, and an older event cannot overwrite a

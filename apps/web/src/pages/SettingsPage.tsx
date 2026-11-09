@@ -428,7 +428,7 @@ export function SettingsPage() {
                 <strong className="font-semibold">Discord sign-in</strong>
                 <span className={rowTextClass}>
                   {signInMethods.data?.discordAccountId
-                    ? 'Sign in with your Discord account. Your Discord profile picture is shown on this site and updates each time you sign in with Discord. Disconnecting signs you out on all devices.'
+                    ? 'Sign in with your Discord account. Your Discord profile picture is shown on this site and kept up to date. Disconnecting signs you out on all devices.'
                     : 'Sign in with your Discord account. Your Discord profile picture will be shown on this site. Connecting signs you out on all devices.'}
                 </span>
               </span>

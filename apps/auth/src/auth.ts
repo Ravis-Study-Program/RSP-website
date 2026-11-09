@@ -183,7 +183,13 @@ export const auth = betterAuth({
   secret: config.secret,
   database: pool,
   trustedOrigins: [...config.trustedOrigins],
-  disabledPaths: ['/delete-user', '/two-factor/view-backup-codes'],
+  // Stored OAuth tokens stay server-side; only the avatar refresh uses them.
+  disabledPaths: [
+    '/delete-user',
+    '/two-factor/view-backup-codes',
+    '/get-access-token',
+    '/refresh-token',
+  ],
   advanced: {
     cookiePrefix: 'rsp-auth',
     useSecureCookies: config.secureCookies,

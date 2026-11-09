@@ -168,6 +168,16 @@ export function getAuthProviders() {
   return authRequest<{ discord: boolean }>('/providers');
 }
 
+/**
+ * Asks the auth service to check the member's Discord profile picture. It
+ * checks Discord at most once a day and says whether the picture changed.
+ */
+export function refreshDiscordAvatar() {
+  return authRequest<{
+    result: 'skipped' | 'unchanged' | 'updated' | 'unavailable';
+  }>('/discord/avatar/refresh', { method: 'POST', body: '{}' });
+}
+
 export function linkDiscordAccount() {
   clearAccessToken();
   return followAuthRedirect(

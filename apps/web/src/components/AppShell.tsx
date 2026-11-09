@@ -18,7 +18,11 @@ import { useQueryClient } from '@tanstack/react-query';
 import { Link, Outlet, useNavigate, useLocation } from 'react-router-dom';
 
 import { signOut } from '@/api/authClient';
-import { useCurrentUser, useSeasons } from '@/api/queries';
+import {
+  useCurrentUser,
+  useDiscordAvatarRefresh,
+  useSeasons,
+} from '@/api/queries';
 import { useDisplayTimezone } from '@/auth/useDisplayTimezone';
 import {
   navigationItems,
@@ -76,6 +80,7 @@ function ThemeButton({
 export function AppShell() {
   useDisplayTimezone();
   const userQuery = useCurrentUser();
+  useDiscordAvatarRefresh(userQuery.data?.id);
   const seasons = useSeasons(Boolean(userQuery.data?.globalRoles.length));
   const queryClient = useQueryClient();
   const navigate = useNavigate();

@@ -21,6 +21,7 @@ import {
   useQuery,
   useQueryClient,
 } from '@tanstack/react-query';
+import { useEffect } from 'react';
 
 import {
   adaptAttemptPage,
@@ -68,7 +69,11 @@ import type {
   MondayMentorReportList,
 } from '@/api/generated/models';
 import { fetchPracticeSettings } from '@/api/practiceSettingsClient';
-import { getAuthProviders, listSignInMethods } from '@/api/authClient';
+import {
+  getAuthProviders,
+  listSignInMethods,
+  refreshDiscordAvatar,
+} from '@/api/authClient';
 import {
   attempts,
   demoUser,
@@ -352,6 +357,32 @@ export function useSeasons(enabled = true) {
 
 export function usePracticeSettings() {
   return useQuery(practiceSettingsOptions);
+}
+
+/**
+ * Keeps a connected Discord profile picture current: once per visit (each
+ * browser tab session), the auth service checks Discord if it has not in the
+ * last day, and a changed picture reloads the signed-in member.
+ */
+export function useDiscordAvatarRefresh(userId: string | undefined) {
+  const queryClient = useQueryClient();
+  useEffect(() => {
+    if (demoMode || !userId) return;
+    const key = `rsp-discord-avatar-checked:${userId}`;
+    try {
+      if (sessionStorage.getItem(key)) return;
+      sessionStorage.setItem(key, '1');
+    } catch {
+      // Without session storage, the server's daily limit still applies.
+    }
+    refreshDiscordAvatar()
+      .then(({ result }) => {
+        if (result === 'updated')
+          void queryClient.invalidateQueries({ queryKey: ['me'] });
+      })
+      // A failed check keeps the current picture; it never disturbs the visit.
+      .catch(() => undefined);
+  }, [queryClient, userId]);
 }
 
 export function useAuthProviders() {

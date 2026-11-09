@@ -364,4 +364,63 @@ live.sequential('Discord explicit linking and login', () => {
     ).toHaveLength(0);
     expect(await (await call('/get-session', returning)).json()).toBeNull();
   });
+
+  it('refreshes the picture on a visit at most once a day, keeping tokens server-side', async () => {
+    const cookies = await signIn();
+    await oauth(cookies, true);
+    const returning: Jar = new Map();
+    expect((await oauth(returning)).headers.get('location')).toBe('/dashboard');
+    const refresh = async () => {
+      const response = await call('/discord/avatar/refresh', returning, {});
+      expect(response.status).toBe(200);
+      return ((await response.json()) as { result: string }).result;
+    };
+    const age = () =>
+      pool.query(
+        "UPDATE accounts SET updated_at=now()-interval '25 hours' WHERE user_id=$1 AND provider_id='discord'",
+        [userId],
+      );
+    const avatarEvents = () =>
+      events.filter((event) => event.type === 'discord_avatar_updated');
+
+    // The Discord sign-in just now counts as a check.
+    expect(await refresh()).toBe('skipped');
+    // A day later, the same picture sends nothing.
+    await age();
+    const before = avatarEvents().length;
+    expect(await refresh()).toBe('unchanged');
+    expect(avatarEvents()).toHaveLength(before);
+    // A new picture is sent once, and the next check waits another day.
+    discordProfile.avatar = 'fedcba9876543210fedcba9876543210';
+    await age();
+    expect(await refresh()).toBe('updated');
+    expect(avatarEvents().at(-1)).toMatchObject({
+      authUserId: userId,
+      avatarUrl: expect.stringContaining(discordProfile.avatar),
+    });
+    expect(await refresh()).toBe('skipped');
+    // Discord failing keeps the current picture.
+    const context = await auth.$context;
+    const discord = context.socialProviders.find(
+      (provider) => provider.id === 'discord',
+    )!;
+    vi.mocked(discord.getUserInfo).mockRejectedValueOnce(new Error('down'));
+    await age();
+    expect(await refresh()).toBe('unavailable');
+    expect(avatarEvents().at(-1)!.avatarUrl).toContain(discordProfile.avatar);
+
+    // Signed out, and the stored tokens are never handed to the browser.
+    expect((await call('/discord/avatar/refresh', new Map(), {})).status).toBe(
+      401,
+    );
+    for (const path of ['/get-access-token', '/refresh-token'])
+      expect((await call(path, returning, { accountId: 'any' })).status).toBe(
+        404,
+      );
+  });
+
+  it('skips members without Discord', async () => {
+    const response = await call('/discord/avatar/refresh', await signIn(), {});
+    expect(await response.json()).toEqual({ result: 'skipped' });
+  });
 });

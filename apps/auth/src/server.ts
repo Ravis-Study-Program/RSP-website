@@ -15,6 +15,7 @@ import {
   oauthRequestContext,
   type OAuthRequestState,
 } from './identity/discord-profile.js';
+import { refreshDiscordAvatar } from './identity/discord-avatar-refresh.js';
 import { verificationEmail, invitationEmail } from './email/templates.js';
 import {
   ACCOUNT_DELETION_RECOVERY_PATH,
@@ -361,6 +362,29 @@ async function handleBrowserExtension(
 ): Promise<boolean> {
   if (url.pathname === '/api/auth/providers' && request.method === 'GET') {
     sendJson(response, 200, { discord: Boolean(config.discord) }, id);
+    return true;
+  }
+  if (url.pathname === '/api/auth/discord/avatar/refresh') {
+    if (request.method !== 'POST') {
+      sendProblem(response, 405, 'method_not_allowed', 'POST is required', id, {
+        allow: 'POST',
+      });
+      return true;
+    }
+    const session = await auth.api.getSession({ headers: webRequest.headers });
+    if (!session) {
+      sendProblem(response, 401, 'not_authenticated', 'Sign in first', id);
+      return true;
+    }
+    let result: Awaited<ReturnType<typeof refreshDiscordAvatar>>;
+    try {
+      result = await refreshDiscordAvatar(session.user.id);
+    } catch (error) {
+      // Best effort: a failed check must never disturb the member's visit.
+      log('error', 'Discord avatar refresh failed', { requestId: id, error });
+      result = 'unavailable';
+    }
+    sendJson(response, 200, { result }, id);
     return true;
   }
   if (url.pathname === '/api/auth/connect-password') {
