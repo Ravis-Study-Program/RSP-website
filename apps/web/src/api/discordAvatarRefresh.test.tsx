@@ -5,6 +5,8 @@ import type { ReactNode } from 'react';
 import { refreshDiscordAvatar } from '@/api/authClient';
 import { useDiscordAvatarRefresh } from '@/api/queries';
 
+// `pnpm test` runs in demo mode, where the refresh is off; test the real path.
+vi.mock('@/api/demoMode', () => ({ demoModeForEnvironment: () => false }));
 vi.mock('@/api/authClient', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/api/authClient')>()),
   refreshDiscordAvatar: vi.fn(),
