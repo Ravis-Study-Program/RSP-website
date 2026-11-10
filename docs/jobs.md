@@ -35,7 +35,7 @@ Position and referral forms share the same company field and Jobs company databa
 
 - Referrals is a third Jobs tab, hidden while signed out. Direct visits require sign-in and preserve the return path. The table has Company, Name and fully readable Notes, with search and column filters including company selection. Names link to existing profiles, with an up-right arrow immediately before each name; contact happens through Discord, with no new contact field or messaging feature.
 - Open to referring creates an offer with a company and optional notes. The notes help explains requirements such as roles, GPA thresholds or sending a resume. Each account can have one offer per company and can edit or remove only its own offers. Existing companies keep their category; a newly entered company defaults to Other Tech.
-- The notice above the table requires students to meet every condition in the referrer's notes, avoid harassment and repeated requests, and respect a declined referral. It states that students who break these rules will be removed from the program; this is a conduct notice, with no automatic enforcement.
+- The yellow warning notice above the table requires individuals to meet every condition in the referrer's notes, avoid harassment and repeated requests, and respect a declined referral. It states that individuals who break these rules will be removed from the program; this is a conduct notice, with no automatic enforcement.
 - Offers from unavailable or deleted accounts are hidden. Permanent account pseudonymization removes the account's referral offers. Application histories and stage notes are not shared with referrers.
 
 ## Storage and API

@@ -138,7 +138,7 @@ export function Referrals() {
     <div className="grid gap-6">
       <section
         aria-labelledby="referral-rules"
-        className="rounded-xl border border-destructive bg-destructive-soft p-5 text-destructive sm:p-6"
+        className="rounded-xl border border-warning bg-warning-soft p-5 text-warning sm:p-6"
       >
         <div className="flex items-start gap-3">
           <IconAlertTriangle
@@ -157,7 +157,7 @@ export function Referrals() {
               they are unable or unwilling to refer you.
             </p>
             <p className="font-semibold">
-              Students who do not follow these rules will be removed from the
+              Individuals who do not follow these rules will be removed from the
               program.
             </p>
           </div>
