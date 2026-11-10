@@ -15,6 +15,10 @@
 
 Posting publishes immediately. Authors cannot edit shared listings unless they have a staff role. Mentors and staff cannot read another account's applications or stage notes. Position notes are public and labelled as such in the form.
 
+## Companies
+
+Position and referral forms share the same company field and Jobs company database. Clicking the field opens existing companies; typing filters them without regard to case. An exact match reuses the existing company. A new name shows an `Add “name”` option after existing matches, and typed text can also be submitted without selecting an option. A new company is created only when the form saves successfully and is then available in either form. Positions reuse an existing company's category; new referral companies default to Other Tech.
+
 ## Listings and applications
 
 - Job types are Intern, Grad and Experienced. Company categories are FAANG (red), Big Tech (orange), HFT/Quant (yellow) and Other Tech (pink). The square expand control carries the category colour; its hover text and accessible name identify the category on Positions and My Applications. Positions expanded details also show the category. The arrow beside each company opens its application link.
@@ -55,6 +59,7 @@ Referral routes require a verified, active account on the server: `GET` and `POS
    Mark the application Rejected or Offer, find it through the status filter, reload and restore Active. Confirm each change adds its named stage with today's local date and empty notes while existing history and the Applied marker remain intact. Repeating the current status must add no stage.
 5. With a staff account and recent MFA, edit, close/reopen and merge positions. Check that existing application histories remain.
 6. While signed out, confirm Referrals is hidden and a direct visit requires sign-in. With a verified account without a season, browse and filter referrals, follow a profile link, then create, edit and remove an offer. Check the notes help, conduct notice and duplicate-company rejection; another account must not be able to edit or remove the offer.
+7. In both forms, open the company list, search with different casing and select an existing company using the keyboard. Confirm new names show `Add “name”` after existing matches and can also be submitted as free text. Save a referral with a new company, then reuse it in a position and confirm its category is retained. Check the field and popup on desktop and mobile in both themes.
 
 Jobs browser tests live in `apps/web/e2e/jobs.spec.ts` and `apps/web/e2e/referrals.spec.ts`. API integration tests in `backend/internal/api/jobs_integration_test.go` and `backend/internal/api/job_referrals_integration_test.go` must use an isolated test database, never a database containing development or real user data. Demo mode uses in-memory fixtures and is excluded from the production bundle.
 

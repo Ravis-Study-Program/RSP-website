@@ -10,6 +10,7 @@ import type {
 } from '@/api/generated/models';
 import { useJobsUser } from '@/components/JobsShell';
 import { ReferralNotesHelp } from '@/components/ReferralNotesHelp';
+import { JobCompanyField } from '@/components/JobCompanyField';
 import { FormDialog } from '@/components/Dialogs';
 import { AppDatePicker } from '@/components/AppDatePicker';
 import { Button } from '@/components/ui/button';
@@ -155,7 +156,6 @@ export function ReferralForm({
 }) {
   const user = useJobsUser();
   const save = useJobActions(user?.id);
-  const companies = useJobCompanies();
   const id = useId();
   const [companyName, setCompanyName] = useState(referral?.company.name ?? '');
   const [notes, setNotes] = useState(referral?.notes ?? '');
@@ -179,22 +179,7 @@ export function ReferralForm({
           )
         }
       >
-        <Field>
-          <FieldLabel htmlFor={`${id}-company`}>Company</FieldLabel>
-          <Input
-            id={`${id}-company`}
-            required
-            maxLength={120}
-            value={companyName}
-            list={`${id}-companies`}
-            onChange={(event) => setCompanyName(event.target.value)}
-          />
-          <datalist id={`${id}-companies`}>
-            {companies.data?.map((company) => (
-              <option key={company.id} value={company.name} />
-            ))}
-          </datalist>
-        </Field>
+        <JobCompanyField value={companyName} onChange={setCompanyName} />
         <Field>
           <div className="flex items-center gap-1">
             <FieldLabel htmlFor={`${id}-notes`}>Notes</FieldLabel>
@@ -277,22 +262,10 @@ export function PositionForm({
         }
       >
         <div className="grid gap-4 sm:grid-cols-2">
-          <Field>
-            <FieldLabel htmlFor={`${prefix}-company`}>Company</FieldLabel>
-            <Input
-              id={`${prefix}-company`}
-              list={`${prefix}-companies`}
-              required
-              maxLength={120}
-              value={input.companyName}
-              onChange={(e) => set('companyName', e.target.value)}
-            />
-            <datalist id={`${prefix}-companies`}>
-              {companies.data?.map((c) => (
-                <option key={c.id} value={c.name} />
-              ))}
-            </datalist>
-          </Field>
+          <JobCompanyField
+            value={input.companyName}
+            onChange={(name) => set('companyName', name)}
+          />
           <JobSelect
             label="Company category"
             value={existing?.category ?? input.category}
