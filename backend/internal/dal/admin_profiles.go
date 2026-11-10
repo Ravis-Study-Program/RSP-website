@@ -15,10 +15,10 @@ func scanAdminProfile(row pgx.Row) (accounts.AdminProfile, error) {
 	return v, noRows(err)
 }
 func (p *Store) GetAdminProfile(ctx context.Context, userID string) (accounts.AdminProfile, error) {
-	return scanAdminProfile(p.pool.QueryRow(ctx, adminProfileQuery, userID))
+	return scanAdminProfile(p.conn().QueryRow(ctx, adminProfileQuery, userID))
 }
 func (p *Store) UpdateAdminProfile(ctx context.Context, v accounts.AdminProfile, actorID string, at time.Time) (accounts.AdminProfile, error) {
-	tx, err := p.pool.Begin(ctx)
+	tx, err := p.conn().Begin(ctx)
 	if err != nil {
 		return v, err
 	}

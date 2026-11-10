@@ -21,7 +21,7 @@ export interface SeasonImport {
   resourcesUrl: string;
   /**
    * @minItems 1
-   * @maxItems 104
+   * @maxItems 52
    */
   weeks: SeasonImportWeek[];
 }

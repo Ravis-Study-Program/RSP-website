@@ -12,6 +12,8 @@ import type { InvitationBatchResultPerson } from './invitationBatchResultPerson'
 
 export interface InvitationBatchResult {
   row: number;
+  /** The username the person has or is given: the one in the row, or else one made from their name. */
+  slug?: string;
   /** For a dry run: invite, update or unchanged. Once sent: invited, updated or unchanged. Or failed. */
   outcome: InvitationBatchResultOutcome;
   /** Who the email matched: new (no account), account (an account not in the season) or member (already in the season). */

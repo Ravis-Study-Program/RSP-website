@@ -16,7 +16,7 @@ const maxSlugBase = 44
 // NameSlug turns a name into the start of a profile slug: lower-case letters
 // and digits joined by single hyphens, accents dropped ("Zoë Frew" becomes
 // "zoe-frew"). A name with no usable letters gives "member", and a very short
-// one is prefixed so the slug is at least three characters.
+// one is prefixed so the slug is at least two characters.
 func NameSlug(name string) string {
 	var b strings.Builder
 	hyphen := false
@@ -41,7 +41,7 @@ func NameSlug(name string) string {
 	switch {
 	case slug == "":
 		return "member"
-	case len(slug) < 3:
+	case len(slug) < 2:
 		return "member-" + slug
 	}
 	return slug

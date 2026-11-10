@@ -27,7 +27,7 @@ func (p *Store) ApplyIdentityEvent(ctx context.Context, event accounts.IdentityE
 		return errors.New("identity event id is required")
 	}
 
-	tx, err := p.pool.Begin(ctx)
+	tx, err := p.conn().Begin(ctx)
 	if err != nil {
 		return err
 	}

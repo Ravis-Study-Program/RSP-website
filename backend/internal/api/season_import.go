@@ -13,7 +13,7 @@ import (
 )
 
 // maxImportedWeeks bounds one season import.
-const maxImportedWeeks = 104
+const maxImportedWeeks = 52
 
 type seasonImportWeek struct {
 	Number        int       `json:"number"`
@@ -28,8 +28,10 @@ type seasonImportRequest struct {
 }
 
 // importSeason creates a season with all its weeks and their resources, as
-// from a spreadsheet. The season runs from its first week's start to its last
-// week's end; the weeks must be numbered once each and must not overlap.
+// from a spreadsheet, or updates the open season that already has the slug
+// (weeks are matched by number). A new season runs from its first week's
+// start to its last week's end; the weeks must be numbered once each and must
+// not overlap.
 func (a *API) importSeason(w http.ResponseWriter, r *http.Request) {
 	actor := actorFrom(r.Context())
 	if !actor.IsDirectorOrSystemAdmin() || !actor.HasRecentMFA(time.Now()) {
@@ -67,15 +69,19 @@ func (a *API) importSeason(w http.ResponseWriter, r *http.Request) {
 		ImageURL:     request.ImageURL,
 		ResourcesURL: request.ResourcesURL,
 	}
-	created, err := a.db.ImportSeason(r.Context(), season, weeks, actor.UserID, time.Now().UTC())
+	imported, created, err := a.db.ImportSeason(r.Context(), season, weeks, actor.UserID, time.Now().UTC())
 	if err != nil {
 		a.writeStoreErrorResponse(w, err)
 		return
 	}
-	writeJSONResponse(w, http.StatusCreated, created)
+	status := http.StatusOK
+	if created {
+		status = http.StatusCreated
+	}
+	writeJSONResponse(w, status, imported)
 }
 
-// importedWeeks checks and sanitises an import's weeks, sorted by start.
+// importedWeeks checks and sanitises an import's weeks, sorted by number.
 func (a *API) importedWeeks(input []seasonImportWeek) ([]program.WeekRecord, error) {
 	if len(input) == 0 || len(input) > maxImportedWeeks {
 		return nil, fmt.Errorf("a season needs between 1 and %d weeks", maxImportedWeeks)
@@ -102,10 +108,11 @@ func (a *API) importedWeeks(input []seasonImportWeek) ([]program.WeekRecord, err
 		}
 		weeks = append(weeks, program.WeekRecord{ID: id.New(), Number: week.Number, StartAt: week.StartAt.UTC(), EndAt: week.EndAt.UTC(), ResourcesHTML: content})
 	}
-	sort.Slice(weeks, func(i, j int) bool { return weeks[i].StartAt.Before(weeks[j].StartAt) })
+	// Weeks run in order of number: each starts after the one before ends.
+	sort.Slice(weeks, func(i, j int) bool { return weeks[i].Number < weeks[j].Number })
 	for i := 1; i < len(weeks); i++ {
 		if weeks[i].StartAt.Before(weeks[i-1].EndAt) {
-			return nil, fmt.Errorf("weeks %d and %d overlap", weeks[i-1].Number, weeks[i].Number)
+			return nil, fmt.Errorf("week %d must start after week %d ends (weeks may not overlap and must run in order)", weeks[i].Number, weeks[i-1].Number)
 		}
 	}
 	return weeks, nil

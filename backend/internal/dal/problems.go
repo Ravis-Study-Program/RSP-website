@@ -57,7 +57,7 @@ func (p *Store) ListProblems(ctx context.Context, q ProblemQuery) ([]practice.Pr
 		"search":     q.Search,
 	}
 	var total int64
-	err := p.pool.QueryRow(ctx, `SELECT count(*) FROM app.leetcode_problems l
+	err := p.conn().QueryRow(ctx, `SELECT count(*) FROM app.leetcode_problems l
 		JOIN app.problems p ON p.id = l.problem_id
 		WHERE l.deleted_at IS NULL AND p.deleted_at IS NULL AND `+filters, args).Scan(&total)
 	if err != nil {
@@ -73,7 +73,7 @@ func (p *Store) ListProblems(ctx context.Context, q ProblemQuery) ([]practice.Pr
 	}
 	args["boundary"] = q.Boundary
 	args["limit"] = q.Limit + 1
-	rows, err := p.pool.Query(ctx, problemQuery+`
+	rows, err := p.conn().Query(ctx, problemQuery+`
 		AND `+comparison+` AND `+filters+`
 		GROUP BY l.id,p.id
 		ORDER BY l.id `+order+` LIMIT @limit`, args)
@@ -102,7 +102,7 @@ func (p *Store) ProblemsByID(ctx context.Context, ids []string) (map[string]prac
 	if len(ids) == 0 {
 		return byID, nil
 	}
-	rows, err := p.pool.Query(ctx, problemQuery+` AND l.id = ANY($1::uuid[]) GROUP BY l.id,p.id`, ids)
+	rows, err := p.conn().Query(ctx, problemQuery+` AND l.id = ANY($1::uuid[]) GROUP BY l.id,p.id`, ids)
 	if err != nil {
 		return nil, err
 	}
@@ -119,7 +119,7 @@ func (p *Store) ProblemsByID(ctx context.Context, ids []string) (map[string]prac
 
 // ListProblemCategories returns the category names used by live catalogue problems.
 func (p *Store) ListProblemCategories(ctx context.Context) ([]string, error) {
-	rows, err := p.pool.Query(ctx, `SELECT DISTINCT c.normalized_name
+	rows, err := p.conn().Query(ctx, `SELECT DISTINCT c.normalized_name
 		FROM app.leetcode_problem_categories c
 		JOIN app.leetcode_problem_category_mappings m ON m.category_id = c.id
 		JOIN app.leetcode_problems l ON l.id = m.leetcode_problem_id

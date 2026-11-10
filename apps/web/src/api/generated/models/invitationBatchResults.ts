@@ -8,5 +8,7 @@
 import type { InvitationBatchResult } from './invitationBatchResult';
 
 export interface InvitationBatchResults {
+  /** False for a preview, or when a row failed: the import is all or nothing, so nothing was saved. */
+  applied?: boolean;
   results: InvitationBatchResult[];
 }

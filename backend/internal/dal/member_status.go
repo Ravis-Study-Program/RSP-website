@@ -14,7 +14,7 @@ func (p *Store) GetMemberStatus(ctx context.Context, userID string) (accounts.Me
 		ActiveMember, Alumni, FormerMember bool
 		HasEnrollment, HasKicked           bool
 	}
-	err := p.pool.QueryRow(ctx, `SELECT u.id,u.account_state::text AS account_state,
+	err := p.conn().QueryRow(ctx, `SELECT u.id,u.account_state::text AS account_state,
 		EXISTS(SELECT 1 FROM app.enrollments e WHERE e.user_id=u.id AND e.state='active' AND e.deleted_at IS NULL) AS active_member,
 		EXISTS(SELECT 1 FROM app.enrollments e WHERE e.user_id=u.id AND e.role='student' AND e.state='completed' AND e.deleted_at IS NULL) AS alumni,
 		EXISTS(SELECT 1 FROM app.enrollments e WHERE e.user_id=u.id AND e.state='completed' AND e.deleted_at IS NULL) AS former_member,

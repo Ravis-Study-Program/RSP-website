@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"github.com/magedmg/RSP-website/backend/internal/dal"
 	"net/http"
-	"net/mail"
 	"strings"
 	"time"
 
@@ -75,6 +74,11 @@ func (a *API) sendInvitationEmail(r *http.Request, v *program.Invitation, token 
 	if a.sendInvitation == nil {
 		return
 	}
+	// Inside an import's transaction, send only once it has been committed.
+	if a.afterCommit != nil {
+		*a.afterCommit = append(*a.afterCommit, func(root *API) { root.sendInvitationEmail(r, v, token) })
+		return
+	}
 	err := a.sendInvitation(r.Context(), authadmin.InvitationEmailInput{ID: v.DeliveryID, To: v.Email, Name: v.Name, Season: v.SeasonName, Role: v.Role, URL: strings.TrimRight(a.publicOrigin, "/") + "/invitations/accept#token=" + token})
 	if err != nil {
 		a.logger.Error("invitation email enqueue failed", "invitationId", v.ID)
@@ -94,6 +98,9 @@ type invitationInput struct {
 	Email        string `json:"email"`
 	Role         string `json:"role"`
 	MentorUserID string `json:"mentorUserId"`
+	// MentorInvitationID names a mentor invited in the same import, who has
+	// no account in the season yet.
+	MentorInvitationID string `json:"-"`
 	// Slug is the username to give the person, if their account is new.
 	Slug string `json:"slug"`
 }
@@ -104,8 +111,7 @@ type invitationInput struct {
 func (a *API) inviteOne(r *http.Request, seasonID string, in invitationInput) (program.Invitation, int, string, error) {
 	in.Name = strings.TrimSpace(in.Name)
 	in.Email = strings.ToLower(strings.TrimSpace(in.Email))
-	address, err := mail.ParseAddress(in.Email)
-	if err != nil || address.Address != in.Email || len(in.Email) > 254 || len(in.Name) < 1 || len(in.Name) > 100 {
+	if !validEmailAddress(in.Email) || len(in.Name) < 1 || len(in.Name) > 100 {
 		return program.Invitation{}, 400, "Enter a name and a valid email address.", nil
 	}
 	if in.Role != "student" && in.Role != "mentor" && in.Role != "coordinator" {
@@ -124,6 +130,10 @@ func (a *API) inviteOne(r *http.Request, seasonID string, in invitationInput) (p
 	if in.Role == "coordinator" && !canGrantCoordinator(actorFrom(r.Context()), seasonID) {
 		return program.Invitation{}, 403, "Coordinator access cannot be granted.", nil
 	}
+	var mentorInvitationID *string
+	if in.MentorInvitationID != "" {
+		mentorInvitationID = &in.MentorInvitationID
+	}
 	var profileSlug *string
 	if slug := strings.ToLower(strings.TrimSpace(in.Slug)); slug != "" {
 		if problem := a.slugProblem(r, slug, ""); problem != "" {
@@ -136,7 +146,7 @@ func (a *API) inviteOne(r *http.Request, seasonID string, in invitationInput) (p
 		return program.Invitation{}, 0, "", err
 	}
 	at := time.Now().UTC()
-	v, err := a.db.CreateInvitation(r.Context(), program.Invitation{ID: id.New(), SeasonID: seasonID, Name: in.Name, Email: in.Email, Role: in.Role, MentorUserID: mentorUserID, ProfileSlug: profileSlug, DeliveryID: id.New(), ExpiresAt: at.Add(7 * 24 * time.Hour)}, hash, actorFrom(r.Context()).UserID, at)
+	v, err := a.db.CreateInvitation(r.Context(), program.Invitation{ID: id.New(), SeasonID: seasonID, Name: in.Name, Email: in.Email, Role: in.Role, MentorUserID: mentorUserID, ProfileSlug: profileSlug, MentorInvitationID: mentorInvitationID, DeliveryID: id.New(), ExpiresAt: at.Add(7 * 24 * time.Hour)}, hash, actorFrom(r.Context()).UserID, at)
 	if err != nil {
 		return program.Invitation{}, 0, "", err
 	}
@@ -197,6 +207,9 @@ type invitationBatchResult struct {
 	Person     string              `json:"person,omitempty"`
 	Invitation *program.Invitation `json:"invitation,omitempty"`
 	Role       string              `json:"role,omitempty"`
+	// Slug is the username a new person is given: the one written in the row,
+	// or else one made from their name.
+	Slug string `json:"slug,omitempty"`
 	// Changes are the fields that change for a member; Skipped are those the
 	// sheet differs on that this administrator may not change.
 	Changes []importChange `json:"changes,omitempty"`
@@ -251,39 +264,100 @@ func (a *API) runInvitationBatch(w http.ResponseWriter, r *http.Request, dryRun 
 		writeErrorResponse(w, 400, fmt.Sprintf("Send between 1 and %d invitations at once.", maxInvitationBatch))
 		return
 	}
-	seasonID := r.PathValue("id")
-	mentors, err := a.db.SeasonMentors(r.Context(), seasonID)
+	season, err := a.db.GetSeason(r.Context(), r.PathValue("id"))
 	if err != nil {
 		a.writeStoreErrorResponse(w, err)
 		return
 	}
-	season, err := a.db.GetSeason(r.Context(), seasonID)
-	if err != nil {
-		a.writeStoreErrorResponse(w, err)
+	if dryRun {
+		results, err := a.importRows(r, season, request.Invitations, true)
+		if err != nil {
+			a.writeStoreErrorResponse(w, err)
+			return
+		}
+		writeJSONResponse(w, 200, map[string]any{"results": results, "applied": false})
 		return
 	}
-	// Rows that make someone a mentor go first, so a student later in the
-	// same sheet can name them as their mentor.
-	results := make([]invitationBatchResult, len(request.Invitations))
+	// The whole import is one transaction: if any row fails, none of them is
+	// kept, and the emails are sent only once everything has been saved.
+	var results []invitationBatchResult
+	var afterCommit []func(*API)
+	err = a.db.WithTx(r.Context(), func(tx *dal.Store) error {
+		inTx := *a
+		inTx.db, inTx.afterCommit = tx, &afterCommit
+		var err error
+		if results, err = inTx.importRows(r, season, request.Invitations, false); err != nil {
+			return err
+		}
+		for _, result := range results {
+			if result.Outcome == "failed" {
+				return errBatchRejected
+			}
+		}
+		return nil
+	})
+	switch {
+	case errors.Is(err, errBatchRejected):
+		// Say what each row would have done, and that nothing was saved.
+		for i := range results {
+			results[i].Invitation = nil
+			switch results[i].Outcome {
+			case "invited":
+				results[i].Outcome = "invite"
+			case "updated":
+				results[i].Outcome = "update"
+			}
+		}
+		writeJSONResponse(w, 200, map[string]any{"results": results, "applied": false})
+	case err != nil:
+		a.writeStoreErrorResponse(w, err)
+	default:
+		for _, send := range afterCommit {
+			send(a)
+		}
+		writeJSONResponse(w, 200, map[string]any{"results": results, "applied": true})
+	}
+}
+
+// errBatchRejected cancels an import's transaction because a row failed.
+var errBatchRejected = errors.New("an import row failed")
+
+// importRows plans each row of an import and, unless dryRun, carries it out.
+// Rows that make someone a mentor go first, so a student later in the same
+// sheet can name them as their mentor.
+func (a *API) importRows(r *http.Request, season program.SeasonRecord, rows []invitationBatchRow, dryRun bool) ([]invitationBatchResult, error) {
+	mentors, err := a.db.SeasonMentors(r.Context(), season.ID)
+	if err != nil {
+		return nil, err
+	}
+	slugs := newSlugAllocator(rows)
+	results := make([]invitationBatchResult, len(rows))
 	mentoring := func(row invitationBatchRow) bool {
 		role := strings.ToLower(strings.TrimSpace(row.Role))
 		return role == "mentor" || role == "coordinator"
 	}
-	for i, row := range request.Invitations {
+	for i, row := range rows {
 		if mentoring(row) {
-			results[i] = a.importRow(r, season, mentors, i, row, dryRun)
+			results[i] = a.importRow(r, season, mentors, nil, slugs, i, row, dryRun)
 		}
 	}
-	if mentors, err = a.mentorsAfter(r, season.ID, request.Invitations, results, mentors, dryRun); err != nil {
-		a.writeStoreErrorResponse(w, err)
-		return
+	invitedBefore, err := a.db.PendingMentorInvitations(r.Context(), season.ID)
+	if err != nil {
+		return nil, err
 	}
-	for i, row := range request.Invitations {
+	pending := pendingMentors(rows, results)
+	for _, earlier := range invitedBefore {
+		pending = append(pending, pendingMentor{InvitationID: earlier.ID, Email: earlier.Email, Slug: strings.ToLower(earlier.Slug), Name: earlier.Name})
+	}
+	if mentors, err = a.mentorsAfter(r, season.ID, rows, results, mentors, dryRun); err != nil {
+		return nil, err
+	}
+	for i, row := range rows {
 		if !mentoring(row) {
-			results[i] = a.importRow(r, season, mentors, i, row, dryRun)
+			results[i] = a.importRow(r, season, mentors, pending, slugs, i, row, dryRun)
 		}
 	}
-	writeJSONResponse(w, 200, map[string]any{"results": results})
+	return results, nil
 }
 
 // mentorsAfter is the season's mentors once the mentor rows have run: read
@@ -329,10 +403,11 @@ func (a *API) mentorsAfter(r *http.Request, seasonID string, rows []invitationBa
 }
 
 // importRow plans one row and, unless this is a dry run, carries it out.
-func (a *API) importRow(r *http.Request, season program.SeasonRecord, mentors []dal.SeasonMentor, index int, row invitationBatchRow, dryRun bool) invitationBatchResult {
+func (a *API) importRow(r *http.Request, season program.SeasonRecord, mentors []dal.SeasonMentor, pending []pendingMentor, slugs *slugAllocator, index int, row invitationBatchRow, dryRun bool) invitationBatchResult {
 	result := invitationBatchResult{Row: index, Outcome: "failed"}
 	input := invitationInput{Name: strings.TrimSpace(row.Name), Email: strings.ToLower(strings.TrimSpace(row.Email)), Role: strings.ToLower(strings.TrimSpace(row.Role)), Slug: strings.ToLower(strings.TrimSpace(row.Slug))}
 	result.Role = input.Role
+	usesInvitedMentor := false
 	if input.Role != "student" && input.Role != "mentor" && input.Role != "coordinator" {
 		result.Error = "Choose student, mentor or coordinator."
 		return result
@@ -343,11 +418,28 @@ func (a *API) importRow(r *http.Request, season program.SeasonRecord, mentors []
 			return result
 		}
 		mentorID, problem := matchMentor(mentors, named)
-		if problem != "" {
+		if strings.HasPrefix(problem, "More than one") {
 			result.Error = problem
 			return result
 		}
-		input.MentorUserID = mentorID
+		if problem != "" {
+			// Not a mentor in the season yet, but perhaps one this import invites.
+			invited, found, ambiguous := matchPendingMentor(pending, named)
+			switch {
+			case ambiguous:
+				result.Error = fmt.Sprintf("More than one mentor is called %q; use their username or email.", named)
+				return result
+			case !found:
+				result.Error = problem
+				return result
+			case invited.Failed:
+				result.Error = fmt.Sprintf("The row for their mentor %q has an error.", named)
+				return result
+			}
+			input.MentorInvitationID, usesInvitedMentor = invited.InvitationID, true
+		} else {
+			input.MentorUserID = mentorID
+		}
 	}
 	member, found, err := a.db.FindSeasonMemberByEmail(r.Context(), season.ID, input.Email)
 	if err != nil {
@@ -356,6 +448,11 @@ func (a *API) importRow(r *http.Request, season program.SeasonRecord, mentors []
 	}
 	if found {
 		result.Person = "member"
+		result.Slug = strings.ToLower(member.Slug)
+		if usesInvitedMentor {
+			result.Error = "Their mentor has not joined yet; set the mentor once they have."
+			return result
+		}
 		plan, problem := a.planMemberUpdate(r, season, mentors, member, input)
 		result.Changes, result.Skipped = plan.changes, plan.skipped
 		switch {
@@ -383,6 +480,28 @@ func (a *API) importRow(r *http.Request, season program.SeasonRecord, mentors []
 	if exists {
 		result.Person = "account"
 	}
+	// Someone new always gets a username: the one given, or one made from
+	// their name that no one else in this import or on the site has.
+	if exists {
+		// An existing account keeps its own username.
+		slug, err := a.db.AccountSlugByEmail(r.Context(), input.Email)
+		if err != nil {
+			result.Error = invitationStoreProblem(a, err)
+			return result
+		}
+		result.Slug = slug
+	}
+	if !exists && slugs != nil {
+		if input.Slug == "" {
+			generated, err := slugs.next(r, a, input.Name, input.Email)
+			if err != nil {
+				result.Error = invitationStoreProblem(a, err)
+				return result
+			}
+			input.Slug = generated
+		}
+		result.Slug = input.Slug
+	}
 	if dryRun {
 		if problem := a.checkInvitation(r, season.ID, input); problem != "" {
 			result.Error = problem
@@ -407,8 +526,7 @@ func (a *API) importRow(r *http.Request, season program.SeasonRecord, mentors []
 // checkInvitation finds, without changing anything, why an invitation could
 // not be created; empty when it could.
 func (a *API) checkInvitation(r *http.Request, seasonID string, in invitationInput) string {
-	address, err := mail.ParseAddress(in.Email)
-	if err != nil || address.Address != in.Email || len(in.Email) > 254 || len(in.Name) < 1 || len(in.Name) > 100 {
+	if !validEmailAddress(in.Email) || len(in.Name) < 1 || len(in.Name) > 100 {
 		return "Enter a name and a valid email address."
 	}
 	if in.Role == "coordinator" && !canGrantCoordinator(actorFrom(r.Context()), seasonID) {
@@ -431,15 +549,15 @@ func (a *API) checkInvitation(r *http.Request, seasonID string, in invitationInp
 
 // slugProblem says why a username cannot be used (by anyone but ownerID).
 func (a *API) slugProblem(r *http.Request, slug, ownerID string) string {
-	if len(slug) < 3 || len(slug) > 50 || !validSlug(slug) || strings.Contains(slug, "--") {
-		return "Slugs are 3–50 lowercase letters, numbers and single hyphens."
+	if len(slug) < 2 || len(slug) > 50 || !validSlug(slug) || strings.Contains(slug, "--") {
+		return "Usernames are 2–50 lowercase letters, numbers and single hyphens."
 	}
 	owner, err := a.db.ProfileSlugOwner(r.Context(), slug)
 	if err != nil {
 		return invitationStoreProblem(a, err)
 	}
 	if owner != "" && owner != ownerID {
-		return fmt.Sprintf("The slug %q is taken.", slug)
+		return fmt.Sprintf("The username %q is taken.", slug)
 	}
 	return ""
 }
@@ -506,7 +624,7 @@ func (a *API) applyMemberUpdate(r *http.Request, season program.SeasonRecord, pl
 	if plan.setRole {
 		level := "not_applicable"
 		if plan.role == "student" {
-			level = "novice"
+			level = "beginner"
 		}
 		if _, err := a.db.UpdateEnrollmentRoleAndLevel(r.Context(), dal.UpdateEnrollmentRoleAndLevelInput{
 			SeasonID: season.ID, EnrollmentID: member.EnrollmentID, Role: plan.role, StudentLevel: level, ActorID: actorID, ChangedAt: now,
@@ -544,7 +662,27 @@ func (a *API) applyMemberUpdate(r *http.Request, season program.SeasonRecord, pl
 			return invitationStoreProblem(a, err)
 		}
 	}
-	if plan.setRole && a.sendRoleChange != nil {
+	// A student becoming a mentor is not emailed; other role changes are.
+	promotedToMentor := member.Role == "student" && plan.role == "mentor"
+	if plan.setRole && a.sendRoleChange != nil && !promotedToMentor {
+		if a.afterCommit != nil {
+			role, previous, email := plan.role, member.Role, plan.email
+			name := plan.name
+			if !plan.setName || name == "" {
+				name = member.Name
+			}
+			enrollmentID := member.EnrollmentID
+			*a.afterCommit = append(*a.afterCommit, func(root *API) {
+				if err := root.sendRoleChange(r.Context(), authadmin.RoleChangeEmailInput{
+					ID: id.New(), To: email, Name: name, Season: season.Name,
+					Role: role, PreviousRole: previous,
+					URL: strings.TrimRight(root.publicOrigin, "/") + "/seasons/" + season.Slug,
+				}); err != nil {
+					root.logger.Error("role change email enqueue failed", "enrollmentId", enrollmentID)
+				}
+			})
+			return ""
+		}
 		name := plan.name
 		if !plan.setName || name == "" {
 			name = member.Name
@@ -572,7 +710,7 @@ func matchMentor(mentors []dal.SeasonMentor, named string) (string, string) {
 	}
 	var found []string
 	for _, m := range mentors {
-		if strings.EqualFold(strings.TrimSpace(m.Name), named) {
+		if sameName(m.Name, named) {
 			found = append(found, m.UserID)
 		}
 	}
@@ -582,8 +720,75 @@ func matchMentor(mentors []dal.SeasonMentor, named string) (string, string) {
 	case 0:
 		return "", fmt.Sprintf("No mentor called %q in this season.", named)
 	default:
-		return "", fmt.Sprintf("More than one mentor is called %q; use their slug.", named)
+		return "", fmt.Sprintf("More than one mentor is called %q; use their username or email.", named)
 	}
+}
+
+// pendingMentor is someone this import invites as a mentor or coordinator, who
+// can be named as a mentor by a later row though they have no account here yet.
+type pendingMentor struct {
+	InvitationID string
+	Email, Slug  string
+	Name         string
+	// Failed is set when the mentor's own row has an error, so the student
+	// is told to fix that rather than that the mentor does not exist.
+	Failed bool
+}
+
+// pendingMentors lists the mentor rows that invite someone new.
+func pendingMentors(rows []invitationBatchRow, results []invitationBatchResult) []pendingMentor {
+	var pending []pendingMentor
+	for i, result := range results {
+		if result.Person == "member" {
+			continue
+		}
+		failed := result.Outcome == "failed"
+		if !failed && result.Outcome != "invited" && result.Outcome != "invite" {
+			continue
+		}
+		mentor := pendingMentor{
+			Email:  strings.ToLower(strings.TrimSpace(rows[i].Email)),
+			Slug:   result.Slug,
+			Name:   strings.TrimSpace(rows[i].Name),
+			Failed: failed,
+		}
+		if result.Invitation != nil {
+			mentor.InvitationID = result.Invitation.ID
+		}
+		pending = append(pending, mentor)
+	}
+	return pending
+}
+
+// matchPendingMentor finds the invited mentor a row names by email, slug or
+// full name.
+func matchPendingMentor(pending []pendingMentor, named string) (found pendingMentor, ok, ambiguous bool) {
+	lowered := strings.ToLower(strings.TrimPrefix(strings.TrimSpace(named), "@"))
+	// Anyone the text names by email, slug or full name; the same person listed
+	// on several rows (the same email) counts once.
+	var matches []pendingMentor
+	seen := map[string]int{}
+	for _, p := range pending {
+		if !(p.Email != "" && p.Email == lowered || p.Slug != "" && p.Slug == lowered || sameName(p.Name, named)) {
+			continue
+		}
+		key := "email:" + p.Email
+		if p.Email == "" {
+			key = "invitation:" + p.InvitationID
+		}
+		if at, again := seen[key]; again {
+			if matches[at].InvitationID == "" || matches[at].Failed && !p.Failed {
+				matches[at] = p
+			}
+			continue
+		}
+		seen[key] = len(matches)
+		matches = append(matches, p)
+	}
+	if len(matches) == 1 {
+		return matches[0], true, false
+	}
+	return pendingMentor{}, false, len(matches) > 1
 }
 
 // invitationStoreProblem says why storing one imported invitation failed.
@@ -688,4 +893,58 @@ func (a *API) acceptInvitation(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSONResponse(w, 200, v)
+}
+
+// sameName compares full names ignoring case and any run of whitespace, so a
+// pasted double space or non-breaking space does not hide a match.
+func sameName(a, b string) bool {
+	return strings.EqualFold(strings.Join(strings.Fields(a), " "), strings.Join(strings.Fields(b), " "))
+}
+
+// slugAllocator hands out the usernames of people an import invites. A name
+// written in a row is theirs (and an error if taken); otherwise one is made
+// from their name, numbered (maddie-frew2, maddie-frew3…) when taken, whether
+// by someone already on the site or by another row of the same import. The
+// same person listed again keeps the same one.
+type slugAllocator struct {
+	owner map[string]string // slug → email of the row that has it
+	made  map[string]string // email → the slug made for them
+}
+
+func newSlugAllocator(rows []invitationBatchRow) *slugAllocator {
+	a := &slugAllocator{owner: map[string]string{}, made: map[string]string{}}
+	for _, row := range rows {
+		if slug := strings.ToLower(strings.TrimPrefix(strings.TrimSpace(row.Slug), "@")); slug != "" {
+			if _, taken := a.owner[slug]; !taken {
+				a.owner[slug] = strings.ToLower(strings.TrimSpace(row.Email))
+			}
+		}
+	}
+	return a
+}
+
+func (al *slugAllocator) next(r *http.Request, a *API, name, email string) (string, error) {
+	key := strings.ToLower(strings.TrimSpace(email))
+	if slug, ok := al.made[key]; ok {
+		return slug, nil
+	}
+	base := dal.NameSlug(name)
+	for n := 1; ; n++ {
+		candidate := base
+		if n > 1 {
+			candidate = fmt.Sprintf("%s%d", base, n)
+		}
+		if _, taken := al.owner[candidate]; taken {
+			continue
+		}
+		owner, err := a.db.ProfileSlugOwner(r.Context(), candidate)
+		if err != nil {
+			return "", err
+		}
+		if owner != "" {
+			continue
+		}
+		al.owner[candidate], al.made[key] = strings.ToLower(strings.TrimSpace(email)), candidate
+		return candidate, nil
+	}
 }

@@ -21,5 +21,8 @@ type Invitation struct {
 	// ProfileSlug is the username the person gets on accepting, when their
 	// account was created for this invitation and the name is still free.
 	ProfileSlug *string `json:"profileSlug"`
-	DeliveryID  string  `json:"-"`
+	// MentorInvitationID is the mentor's own invitation, when they are invited
+	// in the same import and have no account in the season yet.
+	MentorInvitationID *string `json:"-"`
+	DeliveryID         string  `json:"-"`
 }

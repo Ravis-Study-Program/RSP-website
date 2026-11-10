@@ -11,7 +11,7 @@ import (
 func (p *Store) ResolveAuthSubject(ctx context.Context, subject string) (authz.Actor, error) {
 	var actor authz.Actor
 	var accountState string
-	err := p.pool.QueryRow(ctx, `SELECT u.id,u.account_state::text,s.security_version
+	err := p.conn().QueryRow(ctx, `SELECT u.id,u.account_state::text,s.security_version
 		FROM app.user_auth_links l
 		JOIN app.users u ON u.id=l.user_id
 		JOIN app.user_security s ON s.user_id=u.id
@@ -23,7 +23,7 @@ func (p *Store) ResolveAuthSubject(ctx context.Context, subject string) (authz.A
 	actor.EmailVerified = true
 	actor.AccountState = authz.AccountState(accountState)
 	actor.GlobalRoles = map[authz.GlobalRole]bool{}
-	roleRows, err := p.pool.Query(ctx, `SELECT role::text FROM app.global_role_assignments WHERE user_id=$1 AND state='active'`, actor.UserID)
+	roleRows, err := p.conn().Query(ctx, `SELECT role::text FROM app.global_role_assignments WHERE user_id=$1 AND state='active'`, actor.UserID)
 	if err != nil {
 		return actor, err
 	}
@@ -35,7 +35,7 @@ func (p *Store) ResolveAuthSubject(ctx context.Context, subject string) (authz.A
 		actor.GlobalRoles[authz.GlobalRole(role)] = true
 	}
 
-	rows, err := p.pool.Query(ctx, `SELECT season_id, role::text, state::text FROM app.enrollments WHERE user_id = $1 AND (deleted_at IS NULL OR state IN ('kicked','withdrawn')) AND (role <> 'coordinator' OR state IN ('completed','kicked','withdrawn') OR assignment_state = 'active')`, actor.UserID)
+	rows, err := p.conn().Query(ctx, `SELECT season_id, role::text, state::text FROM app.enrollments WHERE user_id = $1 AND (deleted_at IS NULL OR state IN ('kicked','withdrawn')) AND (role <> 'coordinator' OR state IN ('completed','kicked','withdrawn') OR assignment_state = 'active')`, actor.UserID)
 	if err != nil {
 		return actor, err
 	}
@@ -55,6 +55,6 @@ func (p *Store) ResolveAuthSubject(ctx context.Context, subject string) (authz.A
 
 func (p *Store) ResolveAuthSubjectForUser(ctx context.Context, userID string) (string, error) {
 	var subject string
-	err := p.pool.QueryRow(ctx, `SELECT auth_subject FROM app.user_auth_links WHERE user_id = $1 AND active ORDER BY linked_at, auth_subject LIMIT 1`, userID).Scan(&subject)
+	err := p.conn().QueryRow(ctx, `SELECT auth_subject FROM app.user_auth_links WHERE user_id = $1 AND active ORDER BY linked_at, auth_subject LIMIT 1`, userID).Scan(&subject)
 	return subject, noRows(err)
 }

@@ -48,7 +48,7 @@ type SetCanaryAccessInput struct {
 
 // GetCanaryAccess reads the caller's global roles and canary season enrollment.
 func (p *Store) GetCanaryAccess(ctx context.Context, userID string) (CanaryAccess, error) {
-	tx, err := p.pool.Begin(ctx)
+	tx, err := p.conn().Begin(ctx)
 	if err != nil {
 		return CanaryAccess{}, err
 	}
@@ -59,7 +59,7 @@ func (p *Store) GetCanaryAccess(ctx context.Context, userID string) (CanaryAcces
 // SetCanaryAccess lets a canary user choose their own roles. Database triggers
 // still hold privileged roles in pending_mfa until the user configures TOTP.
 func (p *Store) SetCanaryAccess(ctx context.Context, input SetCanaryAccessInput) (CanaryAccess, error) {
-	tx, err := p.pool.Begin(ctx)
+	tx, err := p.conn().Begin(ctx)
 	if err != nil {
 		return CanaryAccess{}, err
 	}

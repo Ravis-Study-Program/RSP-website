@@ -66,6 +66,9 @@ type API struct {
 	mockRules            mockinterviews.Service
 	sanitizeHTML         func(string) string
 	canary               bool
+	// afterCommit, set while an import runs in one transaction, collects the
+	// emails to send once it has been saved.
+	afterCommit *[]func(*API)
 }
 
 // New constructs the HTTP API from its dependencies.

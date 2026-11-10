@@ -82,7 +82,7 @@ FOR UPDATE`, user.Email).Scan(&userID)
 }
 
 func (s *Store) Seed(ctx context.Context, options SeedOptions) error {
-	tx, err := s.pool.Begin(ctx)
+	tx, err := s.conn().Begin(ctx)
 	if err != nil {
 		return err
 	}

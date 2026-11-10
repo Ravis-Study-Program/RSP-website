@@ -7,7 +7,6 @@ import (
 	"github.com/magedmg/RSP-website/backend/internal/platform/audit"
 	"github.com/magedmg/RSP-website/backend/internal/platform/id"
 	"net/http"
-	"net/mail"
 	"strings"
 	"time"
 )
@@ -52,8 +51,8 @@ func (a *API) updateAdminProfile(w http.ResponseWriter, r *http.Request) {
 	}
 	request.Name = strings.TrimSpace(request.Name)
 	request.Slug = strings.ToLower(strings.TrimSpace(request.Slug))
-	if len(request.Name) < 1 || len(request.Name) > 100 || len(request.Slug) < 3 || len(request.Slug) > 50 || !validSlug(request.Slug) {
-		writeErrorResponse(w, 400, "Enter a name and a 3–50 character profile slug using letters, numbers and hyphens.")
+	if len(request.Name) < 1 || len(request.Name) > 100 || len(request.Slug) < 2 || len(request.Slug) > 50 || !validSlug(request.Slug) {
+		writeErrorResponse(w, 400, "Enter a name and a 2–50 character username using letters, numbers and hyphens.")
 		return
 	}
 	v, err := a.db.UpdateAdminProfile(r.Context(), accounts.AdminProfile{ID: r.PathValue("id"), Name: request.Name, Slug: request.Slug}, actorFrom(r.Context()).UserID, time.Now().UTC())
@@ -75,8 +74,7 @@ func (a *API) requestAdminEmailChange(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	request.Email = strings.ToLower(strings.TrimSpace(request.Email))
-	address, err := mail.ParseAddress(request.Email)
-	if err != nil || address.Address != request.Email || len(request.Email) > 254 {
+	if !validEmailAddress(request.Email) {
 		writeErrorResponse(w, 400, "Enter a valid new email address.")
 		return
 	}

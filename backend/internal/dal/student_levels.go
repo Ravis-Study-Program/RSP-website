@@ -15,7 +15,7 @@ type UpdateStudentLevelInput struct {
 }
 
 func (p *Store) UpdateStudentLevel(ctx context.Context, input UpdateStudentLevelInput) (program.EnrollmentRecord, error) {
-	tx, err := p.pool.Begin(ctx)
+	tx, err := p.conn().Begin(ctx)
 	if err != nil {
 		return program.EnrollmentRecord{}, err
 	}

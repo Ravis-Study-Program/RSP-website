@@ -55,7 +55,7 @@ func registerProgramRoutes(mux *http.ServeMux, a *API) {
 	mux.HandleFunc("POST /api/v2/seasons/import", a.protected(ratelimit.Sensitive, a.importSeason))
 	mux.HandleFunc("GET /api/v2/seasons/{id}/activity-summary", a.protected(ratelimit.Read, a.getSeasonActivitySummary))
 	mux.HandleFunc("GET /api/v2/seasons/{id}", a.protected(ratelimit.Read, a.getSeason))
-	mux.HandleFunc("DELETE /api/v2/seasons/{id}", a.protected(ratelimit.Sensitive, a.deleteEmptySeason))
+	mux.HandleFunc("DELETE /api/v2/seasons/{id}", a.protected(ratelimit.Sensitive, a.deleteSeason))
 	mux.HandleFunc("PATCH /api/v2/seasons/{id}", a.protected(ratelimit.Write, a.updateSeason))
 	mux.HandleFunc("PATCH /api/v2/seasons/{id}/resources", a.protected(ratelimit.Write, a.updateSeasonResources))
 	mux.HandleFunc("POST /api/v2/seasons/{id}/close", a.protected(ratelimit.Write, a.closeSeason))

@@ -136,7 +136,7 @@ var devStudentSeed = seedCohortStudent{persona: seedPersona{
 // ranges, so mentor and reviewer screens have realistic volume. Seed runs it;
 // each part is created once and a later run leaves an existing part untouched.
 func (s *Store) seedMondayUpdates(ctx context.Context, now time.Time, adminMentorEmail string) error {
-	tx, err := s.pool.Begin(ctx)
+	tx, err := s.conn().Begin(ctx)
 	if err != nil {
 		return err
 	}

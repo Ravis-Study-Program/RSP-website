@@ -43,7 +43,7 @@ func deref(value *string) string {
 // CreateMondayUpdateUnlock records a student's request to unlock a late
 // program week. A week holds one open request or unlock at a time.
 func (p *Store) CreateMondayUpdateUnlock(ctx context.Context, v program.MondayUpdateUnlock, actorID string) (program.MondayUpdateUnlock, error) {
-	tx, err := p.pool.Begin(ctx)
+	tx, err := p.conn().Begin(ctx)
 	if err != nil {
 		return v, err
 	}
@@ -80,7 +80,7 @@ func (p *Store) CreateMondayUpdateUnlock(ctx context.Context, v program.MondayUp
 }
 
 func (p *Store) GetMondayUpdateUnlock(ctx context.Context, seasonID, unlockID string) (program.MondayUpdateUnlock, error) {
-	return scanMondayUpdateUnlock(p.pool.QueryRow(ctx, `SELECT `+mondayUpdateUnlockColumns+` `+mondayUpdateUnlockFrom+`
+	return scanMondayUpdateUnlock(p.conn().QueryRow(ctx, `SELECT `+mondayUpdateUnlockColumns+` `+mondayUpdateUnlockFrom+`
 		WHERE k.id=$1 AND k.season_id=$2`, unlockID, seasonID))
 }
 
@@ -94,7 +94,7 @@ type MondayUpdateUnlockQuery struct {
 
 // ListMondayUpdateUnlocks returns requests newest first, pending ones first.
 func (p *Store) ListMondayUpdateUnlocks(ctx context.Context, q MondayUpdateUnlockQuery) ([]program.MondayUpdateUnlock, error) {
-	rows, err := p.pool.Query(ctx, `SELECT `+mondayUpdateUnlockColumns+` `+mondayUpdateUnlockFrom+`
+	rows, err := p.conn().Query(ctx, `SELECT `+mondayUpdateUnlockColumns+` `+mondayUpdateUnlockFrom+`
 		WHERE k.season_id=@seasonID
 		  AND (@studentID::uuid IS NULL OR k.student_user_id=@studentID::uuid)
 		  AND (@mentorID::uuid IS NULL OR EXISTS(SELECT 1 FROM app.mentorships m
@@ -132,7 +132,7 @@ func (p *Store) DecideMondayUpdateUnlock(ctx context.Context, seasonID, unlockID
 	if approve {
 		state = "approved"
 	}
-	tx, err := p.pool.Begin(ctx)
+	tx, err := p.conn().Begin(ctx)
 	if err != nil {
 		return program.MondayUpdateUnlock{}, err
 	}
@@ -159,7 +159,7 @@ func (p *Store) DecideMondayUpdateUnlock(ctx context.Context, seasonID, unlockID
 // the student.
 func (p *Store) HasApprovedMondayUpdateUnlock(ctx context.Context, seasonID, studentUserID, startDate string) (bool, error) {
 	var approved bool
-	err := p.pool.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM app.monday_update_unlocks
+	err := p.conn().QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM app.monday_update_unlocks
 		WHERE season_id=$1 AND student_user_id=$2 AND start_date=$3::date AND state='approved')`,
 		seasonID, studentUserID, startDate).Scan(&approved)
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -171,7 +171,7 @@ func (p *Store) HasApprovedMondayUpdateUnlock(ctx context.Context, seasonID, stu
 // UnlockMondayUpdate unlocks a student's late week for them: it approves
 // their pending request, keeps an existing unlock, or records a new one.
 func (p *Store) UnlockMondayUpdate(ctx context.Context, v program.MondayUpdateUnlock, actorID string) (program.MondayUpdateUnlock, error) {
-	tx, err := p.pool.Begin(ctx)
+	tx, err := p.conn().Begin(ctx)
 	if err != nil {
 		return v, err
 	}
@@ -202,7 +202,7 @@ func (p *Store) UnlockMondayUpdate(ctx context.Context, v program.MondayUpdateUn
 // the season's program weeks.
 func (p *Store) MondayUpdateWeekConfigured(ctx context.Context, seasonID, startDate string) (bool, error) {
 	var configured bool
-	err := p.pool.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM app.season_weeks WHERE season_id=$1 AND deleted_at IS NULL
+	err := p.conn().QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM app.season_weeks WHERE season_id=$1 AND deleted_at IS NULL
 		AND date_trunc('week', start_at AT TIME ZONE 'Australia/Adelaide')::date=$2::date)`, seasonID, startDate).Scan(&configured)
 	return configured, err
 }

@@ -35,7 +35,7 @@ func (p *Store) ListMentorships(ctx context.Context, q MentorshipQuery) ([]progr
 		"studentUserID": q.StudentUserID,
 	}
 	var total int64
-	if err := p.pool.QueryRow(ctx, `SELECT count(*)`+base+` WHERE `+filters, args).Scan(&total); err != nil {
+	if err := p.conn().QueryRow(ctx, `SELECT count(*)`+base+` WHERE `+filters, args).Scan(&total); err != nil {
 		return nil, false, 0, err
 	}
 
@@ -61,7 +61,7 @@ func (p *Store) ListMentorships(ctx context.Context, q MentorshipQuery) ([]progr
 	ORDER BY ` + orderBy + ` LIMIT @limit`
 	args["boundary"] = q.Boundary
 	args["limit"] = q.Limit + 1
-	rows, err := p.pool.Query(ctx, query, args)
+	rows, err := p.conn().Query(ctx, query, args)
 	if err != nil {
 		return nil, false, 0, err
 	}
@@ -85,7 +85,7 @@ func (p *Store) ListMentorships(ctx context.Context, q MentorshipQuery) ([]progr
 }
 
 func (p *Store) CreateMentorship(ctx context.Context, v program.MentorshipRecord, actorID string, at time.Time) (program.MentorshipRecord, error) {
-	tx, err := p.pool.Begin(ctx)
+	tx, err := p.conn().Begin(ctx)
 	if err != nil {
 		return v, err
 	}
@@ -111,7 +111,7 @@ type UpdateMentorshipInput struct {
 }
 
 func (p *Store) UpdateMentorship(ctx context.Context, input UpdateMentorshipInput) (program.MentorshipRecord, error) {
-	tx, err := p.pool.Begin(ctx)
+	tx, err := p.conn().Begin(ctx)
 	if err != nil {
 		return program.MentorshipRecord{}, err
 	}
@@ -152,7 +152,7 @@ type DeleteMentorshipInput struct {
 }
 
 func (p *Store) DeleteMentorship(ctx context.Context, input DeleteMentorshipInput) error {
-	tx, err := p.pool.Begin(ctx)
+	tx, err := p.conn().Begin(ctx)
 	if err != nil {
 		return err
 	}
@@ -173,7 +173,7 @@ func (p *Store) DeleteMentorship(ctx context.Context, input DeleteMentorshipInpu
 
 func (p *Store) IsMentorAssigned(ctx context.Context, seasonID, mentorUserID, studentUserID string) (bool, error) {
 	var assigned bool
-	err := p.pool.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM app.mentorships m JOIN app.enrollments mentor ON mentor.id=m.mentor_enrollment_id JOIN app.enrollments student ON student.id=m.student_enrollment_id WHERE m.season_id=$1 AND mentor.user_id=$2 AND student.user_id=$3 AND m.ended_at IS NULL AND m.deleted_at IS NULL)`, seasonID, mentorUserID, studentUserID).Scan(&assigned)
+	err := p.conn().QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM app.mentorships m JOIN app.enrollments mentor ON mentor.id=m.mentor_enrollment_id JOIN app.enrollments student ON student.id=m.student_enrollment_id WHERE m.season_id=$1 AND mentor.user_id=$2 AND student.user_id=$3 AND m.ended_at IS NULL AND m.deleted_at IS NULL)`, seasonID, mentorUserID, studentUserID).Scan(&assigned)
 	return assigned, err
 }
 
@@ -182,7 +182,7 @@ func (p *Store) IsMentorAssigned(ctx context.Context, seasonID, mentorUserID, st
 // the student was kicked during or after that week.
 func (p *Store) IsMentorForWeek(ctx context.Context, seasonID, mentorUserID, studentUserID, startDate string) (bool, error) {
 	var assigned bool
-	err := p.pool.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM app.mentorships m
+	err := p.conn().QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM app.mentorships m
 		JOIN app.enrollments mentor ON mentor.id=m.mentor_enrollment_id
 		JOIN app.enrollments student ON student.id=m.student_enrollment_id
 		WHERE m.season_id=$1 AND mentor.user_id=$2 AND student.user_id=$3 AND m.deleted_at IS NULL
