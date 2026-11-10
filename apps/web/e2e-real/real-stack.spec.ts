@@ -328,6 +328,10 @@ async function emailLink(email: string, subject: string, pattern: RegExp) {
   return link!;
 }
 
+// A stuck step fails by name after 30 seconds instead of hanging until the
+// whole test times out.
+test.use({ actionTimeout: 30_000 });
+
 test('an invited new member verifies their email and joins the season', async ({
   page,
   browser,

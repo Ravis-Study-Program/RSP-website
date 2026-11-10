@@ -582,7 +582,12 @@ export function AdminResourcePage({
     seasons.isError || people.isError || Boolean(selectedQuery?.isError);
   const createAction =
     selectedSeason && resource === 'weeks' ? (
-      <WeekDialog seasonId={selectedSeason.id} />
+      <WeekDialog
+        seasonId={selectedSeason.id}
+        after={[...(weeks.data?.items ?? [])]
+          .sort((left, right) => left.number - right.number)
+          .at(-1)}
+      />
     ) : undefined;
   const personFor = (userId: string) => {
     const person = peopleById.get(userId);
@@ -1198,13 +1203,20 @@ function localDate(value: string) {
   return formatDateTimeInput(new Date(value)).slice(0, 10);
 }
 
-function weekDialogValues(week?: Week) {
-  const now = new Date();
+/**
+ * A new week starts the day after the last one ends (weeks cannot overlap or
+ * run out of order), with the next number; the first starts today.
+ */
+function weekDialogValues(week?: Week, after?: Week) {
+  const day = 86_400_000;
+  const start = after
+    ? new Date(new Date(after.endAt).getTime() + day)
+    : new Date();
   return {
-    number: week?.number ?? 1,
-    startAt: localDate(week?.startAt ?? now.toISOString()),
+    number: week?.number ?? (after ? after.number + 1 : 1),
+    startAt: localDate(week?.startAt ?? start.toISOString()),
     endAt: localDate(
-      week?.endAt ?? new Date(now.getTime() + 6 * 86_400_000).toISOString(),
+      week?.endAt ?? new Date(start.getTime() + 6 * day).toISOString(),
     ),
   };
 }
@@ -1232,17 +1244,20 @@ function upsertPageItem<T extends { id: string }>(
 function WeekDialog({
   seasonId,
   week,
+  after,
   open: controlledOpen,
   onOpenChange,
 }: {
   seasonId: string;
   week?: Week;
+  /** The season's last week, which a new week follows. */
+  after?: Week;
   /** When given, the dialog is opened from outside and shows no trigger. */
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
 }) {
   const queryClient = useQueryClient();
-  const initialValues = weekDialogValues(week);
+  const initialValues = weekDialogValues(week, after);
   const [uncontrolledOpen, setUncontrolledOpen] = useState(false);
   const controlled = controlledOpen !== undefined;
   const open = controlled ? controlledOpen : uncontrolledOpen;
@@ -1264,7 +1279,7 @@ function WeekDialog({
     if (!next && dirty && !window.confirm('Discard unsaved week changes?'))
       return;
     if (next) {
-      const values = weekDialogValues(week);
+      const values = weekDialogValues(week, after);
       setNumber(values.number);
       setStartAt(values.startAt);
       setEndAt(values.endAt);

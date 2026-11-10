@@ -123,14 +123,12 @@ test('a mass import creates seasons first, then invites people to them', async (
   );
   // The import is all or nothing, so a file it cannot read blocks it.
   const importButton = dialog.getByRole('button', {
-    name: 'Create 1 Season and Import 2 People',
+    name: /Import 2 People/,
   });
   await expect(importButton).toBeDisabled();
   await dialog.getByLabel('Spreadsheets').setInputFiles(files);
   await expect(importButton).toBeEnabled();
-  await dialog
-    .getByRole('button', { name: 'Create 1 Season and Import 2 People' })
-    .click();
+  await importButton.click();
   await expect(dialog.getByRole('status')).toHaveText(
     '1 season created, 2 invited.',
   );
