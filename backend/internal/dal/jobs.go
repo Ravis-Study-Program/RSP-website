@@ -10,11 +10,11 @@ import (
 	"github.com/magedmg/RSP-website/backend/internal/jobs"
 )
 
-const jobPositionColumns = `p.id,c.id,c.name,c.category,p.title,p.job_type,p.eligibility,p.application_url,p.locations,p.notes,p.status`
+const jobPositionColumns = `p.id,c.id,c.name,c.category,p.title,p.job_type,p.eligibility,p.application_url,p.locations,p.notes,p.status,p.created_at`
 const jobPositionJoin = `app.job_positions p JOIN app.job_companies c ON c.id=p.company_id`
 
 func positionTargets(v *jobs.Position) []any {
-	return []any{&v.ID, &v.Company.ID, &v.Company.Name, &v.Company.Category, &v.Title, &v.JobType, &v.Eligibility, &v.ApplicationURL, &v.Locations, &v.Notes, &v.Status}
+	return []any{&v.ID, &v.Company.ID, &v.Company.Name, &v.Company.Category, &v.Title, &v.JobType, &v.Eligibility, &v.ApplicationURL, &v.Locations, &v.Notes, &v.Status, &v.CreatedAt}
 }
 
 // The small beta serializes Jobs writes only. This makes deduplication,

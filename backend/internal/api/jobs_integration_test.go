@@ -108,6 +108,9 @@ func readApplications(t *testing.T, h http.Handler, token string) []jobs.Applica
 func TestJobsPublicBoardAndPrivateOwnership(t *testing.T) {
 	_, h := jobFixture(t)
 	p := newJob(t, h, "one", "Sydney")
+	if p.CreatedAt.IsZero() {
+		t.Fatal("position must expose its added date")
+	}
 	public := jobCall(t, h, "GET", "/jobs/positions", "", nil, http.StatusOK)
 	if !strings.Contains(public.Body.String(), p.Title) || strings.Contains(public.Body.String(), studentID) {
 		t.Fatalf("public response: %s", public.Body)
@@ -121,13 +124,23 @@ func TestJobsPublicBoardAndPrivateOwnership(t *testing.T) {
 		jobCall(t, h, "PATCH", "/jobs/positions/"+p.ID, token, input, http.StatusForbidden)
 	}
 	for _, token := range []string{"coordinator", "director", "system_admin"} {
-		jobCall(t, h, "PATCH", "/jobs/positions/"+p.ID, token, input, http.StatusOK)
+		res := jobCall(t, h, "PATCH", "/jobs/positions/"+p.ID, token, input, http.StatusOK)
+		var updated jobs.Position
+		if err := json.Unmarshal(res.Body.Bytes(), &updated); err != nil {
+			t.Fatal(err)
+		}
+		if !updated.CreatedAt.Equal(p.CreatedAt) {
+			t.Fatal("editing or closing a position changed its added date")
+		}
 	}
 	appID := applyJob(t, h, "member", p.ID)
 	if again := applyJob(t, h, "member", p.ID); again != appID {
 		t.Fatal("Applied created duplicate application")
 	}
 	apps := readApplications(t, h, "member")
+	if !apps[0].Position.CreatedAt.Equal(p.CreatedAt) {
+		t.Fatal("application must retain the position's added date")
+	}
 	initial := apps[0].Stages[0]
 	note := jobs.StageInput{Title: "Applied", Date: "2026-11-01", Notes: "private application note"}
 	jobCall(t, h, "PATCH", "/me/job-applications/"+appID+"/stages/"+initial.ID, "member", note, http.StatusOK)

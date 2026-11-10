@@ -36,6 +36,7 @@ let positions: JobPosition[] = seed.map((v, i) => ({
   locations: v.locations,
   notes: v.notes,
   status: 'open',
+  createdAt: new Date(Date.UTC(2026, 10, 8) - i * 86400000).toISOString(),
 }));
 const applications = new Map<string, JobApplication[]>();
 let referrals: JobReferral[] = [
@@ -261,6 +262,9 @@ export function demoJobRequest(
   }
   const saved: JobPosition = {
     id: parts[2] ?? crypto.randomUUID(),
+    createdAt:
+      positions.find((p) => p.id === parts[2])?.createdAt ??
+      new Date().toISOString(),
     company,
     title: input.title,
     jobType: input.jobType,

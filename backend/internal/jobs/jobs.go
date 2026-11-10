@@ -18,15 +18,16 @@ type Company struct {
 }
 
 type Position struct {
-	ID             string   `json:"id"`
-	Company        Company  `json:"company"`
-	Title          string   `json:"title"`
-	JobType        string   `json:"jobType"`
-	Eligibility    string   `json:"eligibility"`
-	ApplicationURL string   `json:"applicationUrl"`
-	Locations      []string `json:"locations"`
-	Notes          string   `json:"notes"`
-	Status         string   `json:"status"`
+	ID             string    `json:"id"`
+	Company        Company   `json:"company"`
+	Title          string    `json:"title"`
+	JobType        string    `json:"jobType"`
+	Eligibility    string    `json:"eligibility"`
+	ApplicationURL string    `json:"applicationUrl"`
+	Locations      []string  `json:"locations"`
+	Notes          string    `json:"notes"`
+	Status         string    `json:"status"`
+	CreatedAt      time.Time `json:"createdAt"`
 }
 
 type PositionInput struct {

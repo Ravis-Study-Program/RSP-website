@@ -19,4 +19,5 @@ export interface JobPosition {
   locations: string[];
   notes: string;
   status: JobListingStatus;
+  createdAt: string;
 }

@@ -3163,6 +3163,7 @@ components:
             'locations',
             'notes',
             'status',
+            'createdAt',
           ],
         'properties':
           {
@@ -3175,6 +3176,7 @@ components:
             'locations': { 'type': 'array', 'items': { 'type': 'string' } },
             'notes': { 'type': 'string' },
             'status': { '$ref': '#/components/schemas/JobListingStatus' },
+            'createdAt': { 'type': 'string', 'format': 'date-time' },
           },
       }
     JobPositionInput:
