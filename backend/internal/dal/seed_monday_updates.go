@@ -171,6 +171,9 @@ func (s *Store) seedMondayUpdates(ctx context.Context, now time.Time) error {
 	if err := seedKickedStudent(ctx, tx, seasonID, now); err != nil {
 		return err
 	}
+	if err := seedAdminMentor(ctx, tx, seasonID); err != nil {
+		return err
+	}
 	// Seeded members are enrolled today but have activity from earlier in the
 	// season; start their participation with the season so that activity
 	// counts towards it.
@@ -399,6 +402,61 @@ func seedKickedStudent(ctx context.Context, tx pgx.Tx, seasonID string, now time
 		VALUES($1,$2,$3,$4,$5,'kicked','Stopped attending sessions and mock interviews.',$6)`,
 		id.New(), enrollmentID, seasonID, studentID, mentorID, kickedAt); err != nil {
 		return fmt.Errorf("seed kicked student removal event: %w", err)
+	}
+	return nil
+}
+
+// adminMentorStudents are the fake students given to the seeded site admin
+// (or director), who also mentors in dev-season so one account can try both
+// roles.
+var adminMentorStudents = []struct{ slug, name, level string }{
+	{"dev-mentee-1", "Nina Alvarez", "novice"},
+	{"dev-mentee-2", "Theo Brandt", "beginner"},
+	{"dev-mentee-3", "Yuki Tanaka", "intermediate"},
+}
+
+// seedAdminMentor makes the seeded site admin (dev-site-admin, or else
+// dev-director) a mentor of dev-season with a few fake students. It does nothing when they have
+// already been given mentees, so a later run leaves them untouched.
+func seedAdminMentor(ctx context.Context, tx pgx.Tx, seasonID string) error {
+	var adminID string
+	err := tx.QueryRow(ctx, `SELECT user_id FROM app.user_profiles WHERE slug IN ('dev-site-admin','dev-director') ORDER BY slug LIMIT 1`).Scan(&adminID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	var mentorEnrollment string
+	err = tx.QueryRow(ctx, `SELECT id FROM app.enrollments WHERE user_id=$1 AND season_id=$2`, adminID, seasonID).Scan(&mentorEnrollment)
+	if errors.Is(err, pgx.ErrNoRows) {
+		err = tx.QueryRow(ctx, `INSERT INTO app.enrollments(user_id,season_id,role,state) VALUES($1,$2,'mentor','active') RETURNING id`,
+			adminID, seasonID).Scan(&mentorEnrollment)
+	}
+	if err != nil {
+		return fmt.Errorf("seed site admin mentor: %w", err)
+	}
+	var hasMentees bool
+	if err := tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM app.mentorships WHERE mentor_enrollment_id=$1)`, mentorEnrollment).Scan(&hasMentees); err != nil {
+		return err
+	}
+	if hasMentees {
+		return nil
+	}
+	for _, student := range adminMentorStudents {
+		userID, err := resolveSeedUser(ctx, tx, seedUser{FallbackEmail: student.slug + "@rsp.local", Slug: student.slug, DisplayName: student.name})
+		if err != nil {
+			return fmt.Errorf("seed site admin student %s: %w", student.slug, err)
+		}
+		var enrollmentID string
+		if err := tx.QueryRow(ctx, `INSERT INTO app.enrollments(user_id,season_id,role,student_level,state) VALUES($1,$2,'student',$3,'active') RETURNING id`,
+			userID, seasonID, student.level).Scan(&enrollmentID); err != nil {
+			return fmt.Errorf("seed site admin student %s: %w", student.slug, err)
+		}
+		if _, err := tx.Exec(ctx, `INSERT INTO app.mentorships(season_id,mentor_enrollment_id,student_enrollment_id) VALUES($1,$2,$3)`,
+			seasonID, mentorEnrollment, enrollmentID); err != nil {
+			return fmt.Errorf("seed site admin mentorship: %w", err)
+		}
 	}
 	return nil
 }
