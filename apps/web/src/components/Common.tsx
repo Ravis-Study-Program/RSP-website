@@ -282,7 +282,7 @@ export function PersonIdentity({
         </Link>
         {duplicates?.has(person.name.trim().toLowerCase()) ? (
           <span className="truncate text-sm text-muted-foreground">
-            ({person.slug})
+            {person.slug}
           </span>
         ) : null}
         {privateView && person.email ? (
