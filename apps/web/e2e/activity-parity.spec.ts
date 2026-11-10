@@ -305,7 +305,6 @@ test('administrators delete empty seasons and retain populated seasons', async (
   const create = page.getByRole('dialog', { name: 'Create Season' });
   await create.getByLabel('Name').fill('Empty test season');
   await create.getByLabel('URL Slug').fill('empty-test-season');
-  await create.getByLabel('Location').fill('Test campus');
   await create.getByRole('button', { name: 'Create Season' }).click();
   const row = page
     .locator('tr:visible, article:visible')

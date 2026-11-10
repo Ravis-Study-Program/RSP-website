@@ -562,7 +562,6 @@ test('director can create, edit and close a season', async ({
   const create = page.getByRole('dialog', { name: 'Create Season' });
   await create.getByLabel('Name').fill('Summer 2027');
   await create.getByLabel('URL Slug').fill('summer-2027');
-  await create.getByLabel('Location').fill('Adelaide University');
   await create.getByRole('button', { name: 'Create Season' }).click();
   await expect(page.getByRole('link', { name: 'Summer 2027' })).toBeVisible();
 
@@ -580,11 +579,15 @@ test('director can create, edit and close a season', async ({
   };
   await editSeason('Edit Details');
   const edit = page.getByRole('dialog', { name: /Edit Summer 2025\/26/ });
-  await edit.getByLabel('Location').fill('Adelaide City Campus');
+  await edit
+    .getByLabel('Resources URL')
+    .fill('https://example.test/season-resources');
   await edit.getByRole('button', { name: 'Save Season' }).click();
   await expect(edit).not.toBeVisible();
   await editSeason('Edit Details');
-  await expect(edit.getByLabel('Location')).toHaveValue('Adelaide City Campus');
+  await expect(edit.getByLabel('Resources URL')).toHaveValue(
+    'https://example.test/season-resources',
+  );
   await page.keyboard.press('Escape');
   await expect(edit).not.toBeVisible();
 

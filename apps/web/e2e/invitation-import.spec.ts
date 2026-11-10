@@ -76,10 +76,10 @@ test('a mass import creates seasons first, then invites people to them', async (
       mimeType: 'text/csv',
       buffer: Buffer.from(
         [
-          'season,location,week,start,end,resources',
-          'Autumn 2027,Adelaide,1,2027-03-01,2027-03-07,"Arrays',
+          'season,week,start,end,resources',
+          'Autumn 2027,1,2027-03-01,2027-03-07,"Arrays',
           '- https://leetcode.com/problems/two-sum/"',
-          'Autumn 2027,,2,8/3/2027,14/3/2027,',
+          'Autumn 2027,2,8/3/2027,14/3/2027,',
         ].join('\n'),
       ),
     },

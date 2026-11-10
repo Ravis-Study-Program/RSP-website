@@ -64,8 +64,6 @@ const seasonSchema = z
       ),
     startAt: z.string().min(1, 'Choose a start date.'),
     endAt: z.string().min(1, 'Choose an end date.'),
-    location: z.string().trim(),
-    imageUrl: optionalHttpsUrl,
     resourcesUrl: optionalHttpsUrl,
   })
   .refine((value) => value.endAt >= value.startAt, {
@@ -93,8 +91,6 @@ function defaultValues(season?: Season): SeasonFormValues {
         slug: season.slug,
         startAt: localInputValue(season.startsAt),
         endAt: localInputValue(season.endsAt),
-        location: season.location,
-        imageUrl: season.imageUrl.startsWith('https://') ? season.imageUrl : '',
         resourcesUrl: season.resourcesUrl,
       }
     : {
@@ -102,8 +98,6 @@ function defaultValues(season?: Season): SeasonFormValues {
         slug: '',
         startAt: localInputValue(start.toISOString()),
         endAt: localInputValue(end.toISOString()),
-        location: '',
-        imageUrl: '',
         resourcesUrl: '',
       };
 }
@@ -161,8 +155,9 @@ export function SeasonEditorDialog({
       // Seasons are whole days: the start of the first to the end of the last.
       startAt: zonedDateTimeToUtc(`${values.startAt}T00:00`),
       endAt: zonedDateTimeToUtc(`${values.endAt}T23:59:59`),
-      location: values.location.trim(),
-      imageUrl: values.imageUrl.trim(),
+      // Not edited in the app; an edit keeps whatever is stored.
+      location: season?.location ?? '',
+      imageUrl: season?.imageUrl ?? '',
       resourcesUrl: values.resourcesUrl.trim(),
     };
     try {
@@ -182,7 +177,7 @@ export function SeasonEditorDialog({
             location: mutation.location,
             imageUrl: mutation.imageUrl,
             resourcesUrl: mutation.resourcesUrl,
-            summary: `Current program at ${mutation.location}.`,
+            summary: 'Current program.',
           }
         : adaptSeason(
             await apiRequest<ApiSeason>(
@@ -302,37 +297,6 @@ export function SeasonEditorDialog({
               />
             )}
           />
-          <FormField
-            id="season-location"
-            label={
-              <>
-                Location <LabelHint>optional</LabelHint>
-              </>
-            }
-            error={form.formState.errors.location?.message}
-          >
-            <Input
-              id="season-location"
-              autoComplete="organization"
-              {...form.register('location')}
-            />
-          </FormField>
-          <FormField
-            id="season-image"
-            label={
-              <>
-                Image URL <LabelHint>optional</LabelHint>
-              </>
-            }
-            error={form.formState.errors.imageUrl?.message}
-          >
-            <Input
-              id="season-image"
-              type="url"
-              inputMode="url"
-              {...form.register('imageUrl')}
-            />
-          </FormField>
           <FormField
             id="season-resources"
             label={

@@ -220,7 +220,6 @@ test('director MFA session creates, edits, closes, and reopens a throwaway seaso
   const create = page.getByRole('dialog', { name: 'Create Season' });
   await create.getByLabel('Name').fill(seasonName);
   await create.getByLabel('URL Slug').fill(seasonSlug);
-  await create.getByLabel('Location').fill('E2E Test Campus');
   await create.getByRole('button', { name: 'Create Season' }).click();
   const row = page.getByRole('row').filter({ hasText: seasonName });
   await expect(row).toBeVisible();
@@ -230,15 +229,17 @@ test('director MFA session creates, edits, closes, and reopens a throwaway seaso
     .click();
   await page.getByRole('menuitem', { name: 'Edit', exact: true }).click();
   const edit = page.getByRole('dialog', { name: `Edit ${seasonName}` });
-  await edit.getByLabel('Location').fill('E2E Test Campus Updated');
+  await edit
+    .getByLabel('Resources URL')
+    .fill('https://example.test/e2e-resources');
   await edit.getByRole('button', { name: 'Save Season' }).click();
   await expect(edit).toBeHidden();
   await row
     .getByRole('button', { name: `More actions for ${seasonName}` })
     .click();
   await page.getByRole('menuitem', { name: 'Edit', exact: true }).click();
-  await expect(edit.getByLabel('Location')).toHaveValue(
-    'E2E Test Campus Updated',
+  await expect(edit.getByLabel('Resources URL')).toHaveValue(
+    'https://example.test/e2e-resources',
   );
   await page.keyboard.press('Escape');
   await expect(edit).toBeHidden();
