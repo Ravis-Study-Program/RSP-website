@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import type { ColumnDef } from '@tanstack/react-table';
 import {
   IconAlertTriangle,
@@ -7,11 +7,11 @@ import {
   IconDots,
   IconPlus,
 } from '@tabler/icons-react';
-import { useJobActions, useJobReferrals } from '@/api/jobs';
+import { useJobActions, useJobCompanies, useJobReferrals } from '@/api/jobs';
 import type { JobReferral } from '@/api/generated/models';
 import { DataTable } from '@/components/DataTable';
 import { NamedConfirmation } from '@/components/Dialogs';
-import { ReferralForm } from '@/components/JobForms';
+import { JobSelect, ReferralForm } from '@/components/JobForms';
 import { useJobsUser } from '@/components/JobsShell';
 import { ReferralNotesHelp } from '@/components/ReferralNotesHelp';
 import { Button } from '@/components/ui/button';
@@ -62,6 +62,22 @@ function Notes({ notes }: { notes: string }) {
 export function Referrals() {
   const user = useJobsUser();
   const referrals = useJobReferrals(user?.id);
+  const companies = useJobCompanies();
+  const [params, setParams] = useSearchParams();
+  const companyID = params.get('company') ?? 'all';
+  const companyOptions = new Map(
+    (referrals.data ?? []).map((r) => [r.company.id, r.company.name]),
+  );
+  if (companyID !== 'all' && !companyOptions.has(companyID)) {
+    companyOptions.set(
+      companyID,
+      companies.data?.find((c) => c.id === companyID)?.name ??
+        'Selected company',
+    );
+  }
+  const shown = (referrals.data ?? []).filter(
+    (r) => companyID === 'all' || r.company.id === companyID,
+  );
   const save = useJobActions(user?.id);
   const [edit, setEdit] = useState<JobReferral>();
   const [remove, setRemove] = useState<JobReferral>();
@@ -96,14 +112,8 @@ export function Referrals() {
       id: 'company',
       header: 'Company',
       accessorFn: (r) => r.company.name,
-      meta: {
-        width: 12,
-        filterOptions: [
-          ...new Set((referrals.data ?? []).map((r) => r.company.name)),
-        ]
-          .sort()
-          .map((name) => ({ label: name, value: name })),
-      },
+      enableColumnFilter: false,
+      meta: { width: 12 },
     },
     {
       id: 'referrer',
@@ -164,16 +174,44 @@ export function Referrals() {
         </div>
       </section>
       <DataTable
+        key={companyID}
         ariaLabel="Referrals"
-        data={referrals.data ?? []}
+        data={shown}
         columns={columns}
         getRowId={(referral) => referral.id}
         loading={referrals.isLoading}
         error={referrals.isError}
         onRetry={() => void referrals.refetch()}
-        emptyTitle="No referrals yet"
-        emptyMessage="Members who are open to referring will appear here."
+        emptyTitle={
+          companyID === 'all'
+            ? 'No referrals yet'
+            : 'No referrers for this company'
+        }
+        emptyMessage={
+          companyID === 'all'
+            ? 'Members who are open to referring will appear here.'
+            : 'Choose All companies to see other members who are open to referring.'
+        }
         searchPlaceholder="Search companies, people or notes…"
+        toolbarStart={
+          <JobSelect
+            label="Company"
+            compact
+            value={companyID}
+            options={[
+              { value: 'all', label: 'All companies' },
+              ...[...companyOptions]
+                .sort((a, b) => a[1].localeCompare(b[1]))
+                .map(([value, label]) => ({ value, label })),
+            ]}
+            onChange={(value) => {
+              const next = new URLSearchParams(params);
+              if (value === 'all') next.delete('company');
+              else next.set('company', value);
+              setParams(next);
+            }}
+          />
+        }
         renderCard={({ original }) => (
           <div className="grid gap-3">
             <div className="flex items-center justify-between gap-3">

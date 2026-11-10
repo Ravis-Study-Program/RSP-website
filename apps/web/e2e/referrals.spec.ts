@@ -98,10 +98,8 @@ test('Members can filter, offer, edit and stop referring', async ({
       });
   }
 
-  await page.getByRole('button', { name: 'Filters', exact: true }).click();
   await page.getByRole('combobox', { name: 'Company', exact: true }).click();
   await page.getByRole('option', { name: 'IMC', exact: true }).click();
-  await page.keyboard.press('Escape');
   await expect(
     page.getByText('Graduate software roles with a distinction average.', {
       exact: false,
@@ -110,9 +108,10 @@ test('Members can filter, offer, edit and stop referring', async ({
   await expect(
     page.getByText('Software engineering internships only.', { exact: false }),
   ).toHaveCount(0);
-  await page.getByRole('button', { name: /^Filters/ }).click();
-  await page.getByRole('button', { name: 'Clear table filters' }).click();
-  await page.keyboard.press('Escape');
+  await page.getByRole('combobox', { name: 'Company', exact: true }).click();
+  await page
+    .getByRole('option', { name: 'All companies', exact: true })
+    .click();
 
   await page
     .getByRole('button', { name: 'Open to referring', exact: true })
@@ -122,6 +121,9 @@ test('Members can filter, offer, edit and stop referring', async ({
     exact: true,
   });
   await form.getByLabel('Company', { exact: true }).fill('Local Test Company');
+  await page
+    .getByRole('option', { name: 'Add “Local Test Company”', exact: true })
+    .click();
   const help = form.getByRole('button', {
     name: 'What to include in referral notes',
   });
@@ -182,6 +184,9 @@ test('Members can filter, offer, edit and stop referring', async ({
     .getByRole('button', { name: 'Open to referring', exact: true })
     .click();
   await form.getByLabel('Company', { exact: true }).fill('local test company');
+  await page
+    .getByRole('option', { name: 'Local Test Company', exact: true })
+    .click();
   await form
     .getByRole('button', { name: 'Open to referring', exact: true })
     .click();
