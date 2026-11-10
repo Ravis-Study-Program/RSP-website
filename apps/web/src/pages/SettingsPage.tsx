@@ -110,7 +110,13 @@ export function SettingsPage() {
         user.data.timezoneConfigured ? user.data.timezone : browserTimezone,
       );
   }, [browserTimezone, user.data]);
-  const timezoneDirty = Boolean(user.data && timezone !== user.data.timezone);
+  // A new account has no timezone of its own yet: the browser's is filled in
+  // for it, and saved automatically, so that is the starting point, not a change.
+  const timezoneDirty = Boolean(
+    user.data &&
+    timezone !==
+      (user.data.timezoneConfigured ? user.data.timezone : browserTimezone),
+  );
   // Practice goals apply to everyone; only coordinators and administrators
   // edit them, and they save with the rest of the settings.
   const signInMethods = useSignInMethods();
