@@ -17,6 +17,9 @@ type SeedOptions struct {
 	CoordinatorEmail string
 	DirectorEmail    string
 	SiteAdminEmail   string
+	// AdminMentorEmail is an existing verified account to make both a System
+	// Admin and a mentor; empty creates a fallback one.
+	AdminMentorEmail string
 	AllowExisting    bool
 }
 
@@ -104,7 +107,7 @@ func (s *Store) Seed(ctx context.Context, options SeedOptions) error {
 		if err := tx.Rollback(ctx); err != nil {
 			return err
 		}
-		return s.seedMondayUpdates(ctx, time.Now())
+		return s.seedMondayUpdates(ctx, time.Now(), options.AdminMentorEmail)
 	}
 
 	studentID, err := resolveSeedUser(ctx, tx, seedUser{
@@ -232,7 +235,7 @@ RETURNING id`, privilegedID, privilegedRole, now).Scan(&privilegedAssignmentID);
 	if err := tx.Commit(ctx); err != nil {
 		return err
 	}
-	return s.seedMondayUpdates(ctx, time.Now())
+	return s.seedMondayUpdates(ctx, time.Now(), options.AdminMentorEmail)
 }
 
 func seedLeetcodeProblem(ctx context.Context, tx pgx.Tx) error {

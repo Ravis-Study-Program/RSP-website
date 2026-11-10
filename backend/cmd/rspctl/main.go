@@ -68,6 +68,7 @@ func parseSeedOptions(args []string) (dal.SeedOptions, error) {
 	set.StringVar(&options.CoordinatorEmail, "coordinator-email", "", "existing verified Better Auth user to enrol as the development coordinator")
 	set.StringVar(&options.DirectorEmail, "director-email", "", "existing verified Better Auth user to grant the development Director role")
 	set.StringVar(&options.SiteAdminEmail, "site-admin-email", "", "existing verified Better Auth user to grant the development Site Admin role")
+	set.StringVar(&options.AdminMentorEmail, "admin-mentor-email", "", "existing verified Better Auth user to make both a System Admin and a development mentor")
 	set.BoolVar(&options.AllowExisting, "allow-existing", false, "succeed when the development season already exists")
 	if err := set.Parse(args); err != nil {
 		return dal.SeedOptions{}, err
@@ -82,6 +83,7 @@ func parseSeedOptions(args []string) (dal.SeedOptions, error) {
 		&options.CoordinatorEmail,
 		&options.DirectorEmail,
 		&options.SiteAdminEmail,
+		&options.AdminMentorEmail,
 	}
 	seen := make(map[string]struct{}, len(values))
 	for _, value := range values {

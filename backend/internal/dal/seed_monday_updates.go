@@ -135,7 +135,7 @@ var devStudentSeed = seedCohortStudent{persona: seedPersona{
 // program weeks with mentor marks) plus LeetCode attempts and mock interviews inside those
 // ranges, so mentor and reviewer screens have realistic volume. Seed runs it;
 // each part is created once and a later run leaves an existing part untouched.
-func (s *Store) seedMondayUpdates(ctx context.Context, now time.Time) error {
+func (s *Store) seedMondayUpdates(ctx context.Context, now time.Time, adminMentorEmail string) error {
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
 		return err
@@ -171,7 +171,7 @@ func (s *Store) seedMondayUpdates(ctx context.Context, now time.Time) error {
 	if err := seedKickedStudent(ctx, tx, seasonID, now); err != nil {
 		return err
 	}
-	if err := seedAdminMentor(ctx, tx, seasonID); err != nil {
+	if err := seedAdminMentor(ctx, tx, seasonID, adminMentorEmail); err != nil {
 		return err
 	}
 	// Seeded members are enrolled today but have activity from earlier in the
@@ -406,26 +406,30 @@ func seedKickedStudent(ctx context.Context, tx pgx.Tx, seasonID string, now time
 	return nil
 }
 
-// adminMentorStudents are the fake students given to the seeded site admin
-// (or director), who also mentors in dev-season so one account can try both
-// roles.
+// adminMentorStudents are the fake students given to the seeded administrator
+// who also mentors in dev-season, so one account can try both roles.
 var adminMentorStudents = []struct{ slug, name, level string }{
-	{"dev-mentee-1", "Nina Alvarez", "novice"},
-	{"dev-mentee-2", "Theo Brandt", "beginner"},
-	{"dev-mentee-3", "Yuki Tanaka", "intermediate"},
+	{"dev-admin-mentee-1", "Imani Okafor", "novice"},
+	{"dev-admin-mentee-2", "Lucas Meyer", "beginner"},
+	{"dev-admin-mentee-3", "Hana Sato", "intermediate"},
 }
 
-// seedAdminMentor makes the seeded site admin (dev-site-admin, or else
-// dev-director) a mentor of dev-season with a few fake students. It does nothing when they have
-// already been given mentees, so a later run leaves them untouched.
-func seedAdminMentor(ctx context.Context, tx pgx.Tx, seasonID string) error {
+// seedAdminMentor makes sure dev-season has one account that is both a System
+// Admin and a mentor, with a few fake students. email names an existing
+// verified account to use; empty creates one. Each part is added only when it
+// is missing, so a later run leaves them untouched.
+func seedAdminMentor(ctx context.Context, tx pgx.Tx, seasonID, email string) error {
 	var adminID string
-	err := tx.QueryRow(ctx, `SELECT user_id FROM app.user_profiles WHERE slug IN ('dev-site-admin','dev-director') ORDER BY slug LIMIT 1`).Scan(&adminID)
+	err := tx.QueryRow(ctx, `SELECT user_id FROM app.user_profiles WHERE slug='dev-admin-mentor'`).Scan(&adminID)
 	if errors.Is(err, pgx.ErrNoRows) {
-		return nil
+		adminID, err = resolveSeedUser(ctx, tx, seedUser{FallbackEmail: "admin-mentor@rsp.local", Email: email, Slug: "dev-admin-mentor", DisplayName: "Dev Admin Mentor"})
 	}
 	if err != nil {
-		return err
+		return fmt.Errorf("seed admin mentor: %w", err)
+	}
+	// The role starts pending; a trigger activates it when MFA is configured.
+	if _, err := tx.Exec(ctx, `INSERT INTO app.global_role_assignments(user_id,role) VALUES($1,'system_admin') ON CONFLICT (user_id,role) DO NOTHING`, adminID); err != nil {
+		return fmt.Errorf("seed admin mentor role: %w", err)
 	}
 	var mentorEnrollment string
 	err = tx.QueryRow(ctx, `SELECT id FROM app.enrollments WHERE user_id=$1 AND season_id=$2`, adminID, seasonID).Scan(&mentorEnrollment)
@@ -434,7 +438,7 @@ func seedAdminMentor(ctx context.Context, tx pgx.Tx, seasonID string) error {
 			adminID, seasonID).Scan(&mentorEnrollment)
 	}
 	if err != nil {
-		return fmt.Errorf("seed site admin mentor: %w", err)
+		return fmt.Errorf("seed admin mentor enrollment: %w", err)
 	}
 	var hasMentees bool
 	if err := tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM app.mentorships WHERE mentor_enrollment_id=$1)`, mentorEnrollment).Scan(&hasMentees); err != nil {
@@ -446,16 +450,16 @@ func seedAdminMentor(ctx context.Context, tx pgx.Tx, seasonID string) error {
 	for _, student := range adminMentorStudents {
 		userID, err := resolveSeedUser(ctx, tx, seedUser{FallbackEmail: student.slug + "@rsp.local", Slug: student.slug, DisplayName: student.name})
 		if err != nil {
-			return fmt.Errorf("seed site admin student %s: %w", student.slug, err)
+			return fmt.Errorf("seed admin mentor student %s: %w", student.slug, err)
 		}
 		var enrollmentID string
 		if err := tx.QueryRow(ctx, `INSERT INTO app.enrollments(user_id,season_id,role,student_level,state) VALUES($1,$2,'student',$3,'active') RETURNING id`,
 			userID, seasonID, student.level).Scan(&enrollmentID); err != nil {
-			return fmt.Errorf("seed site admin student %s: %w", student.slug, err)
+			return fmt.Errorf("seed admin mentor student %s: %w", student.slug, err)
 		}
 		if _, err := tx.Exec(ctx, `INSERT INTO app.mentorships(season_id,mentor_enrollment_id,student_enrollment_id) VALUES($1,$2,$3)`,
 			seasonID, mentorEnrollment, enrollmentID); err != nil {
-			return fmt.Errorf("seed site admin mentorship: %w", err)
+			return fmt.Errorf("seed admin mentor mentorship: %w", err)
 		}
 	}
 	return nil

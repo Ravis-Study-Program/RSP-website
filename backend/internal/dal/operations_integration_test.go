@@ -71,13 +71,13 @@ func TestStoreOperations(t *testing.T) {
 	if err := db.pool.QueryRow(ctx, `SELECT count(*) FROM app.seasons WHERE slug='dev-season'`).Scan(&seasons); err != nil || seasons != 1 {
 		t.Fatalf("seed seasons=%d error=%v", seasons, err)
 	}
-	// The seeded administrator also mentors, with a few fake students.
+	// The seeded admin mentor is a System Admin and mentors, with a few fake students.
 	var mentees int
 	if err := db.pool.QueryRow(ctx, `SELECT count(*) FROM app.mentorships m
 		JOIN app.enrollments me ON me.id=m.mentor_enrollment_id
 		JOIN app.user_profiles p ON p.user_id=me.user_id
-		WHERE p.slug='dev-director' AND m.ended_at IS NULL`).Scan(&mentees); err != nil || mentees != 3 {
-		t.Fatalf("site admin mentees=%d error=%v", mentees, err)
+		WHERE p.slug='dev-admin-mentor' AND m.ended_at IS NULL`).Scan(&mentees); err != nil || mentees != 3 {
+		t.Fatalf("admin mentor mentees=%d error=%v", mentees, err)
 	}
 	// The season has twelve Monday-to-Sunday program weeks and six have
 	// ended, so the seeded student can post a Monday update straight away.

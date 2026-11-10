@@ -49,6 +49,14 @@ const users = [
     password: 'RSP-local-SiteAdmin-2026!',
     mfa: true,
   },
+  {
+    // Both a System Admin and a mentor with students, to try both at once.
+    role: 'admin-mentor',
+    name: 'Fake Admin Mentor',
+    email: 'fake.admin-mentor@rsp.local',
+    password: 'RSP-local-AdminMentor-2026!',
+    mfa: true,
+  },
 ];
 
 class CookieJar {
@@ -393,6 +401,8 @@ await run('go', [
   users[2].email,
   '--site-admin-email',
   users[3].email,
+  '--admin-mentor-email',
+  users[4].email,
   '--allow-existing',
 ]);
 
