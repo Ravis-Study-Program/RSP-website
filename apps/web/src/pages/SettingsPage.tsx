@@ -74,7 +74,6 @@ import {
 } from '@/utils';
 import type { Difficulty } from '@/types';
 
-const listClass = 'm-0 grid list-none gap-3 p-0';
 const formClass = 'flex flex-col gap-4';
 const dialogActionsClass = 'mt-5 button-group';
 // A card's rows share a button column as wide as its widest button
@@ -733,7 +732,7 @@ function BackupCodeList({ codes }: { codes: string[] }) {
   return (
     <div>
       <p>Store these codes somewhere private. They will not be shown again.</p>
-      <ul className={listClass}>
+      <ul className="m-0 mt-2 grid list-none grid-cols-2 gap-x-6 gap-y-2 p-0">
         {codes.map((code) => (
           <li key={code}>
             <code>{code}</code>
@@ -793,6 +792,7 @@ function MfaSetupDialog({ onComplete }: { onComplete: () => void }) {
       open={open}
       onOpenChange={setOpen}
       trigger="Set Up"
+      contentClassName="sm:max-w-2xl"
     >
       <div className={formClass}>
         {error ? <FieldError role="alert">{error}</FieldError> : null}
@@ -812,19 +812,27 @@ function MfaSetupDialog({ onComplete }: { onComplete: () => void }) {
                 before setting up TOTP.
               </FieldDescription>
             </Field>
-            <Button
-              type="button"
-              disabled={pending || password.length < 12}
-              onClick={() => void begin()}
-            >
-              {pending ? 'Starting…' : 'Begin Setup'}
-            </Button>
+            <div className="button-group">
+              <DialogCancel />
+              <Button
+                type="button"
+                disabled={pending || password.length < 12}
+                onClick={() => void begin()}
+              >
+                {pending ? 'Starting…' : 'Begin Setup'}
+              </Button>
+            </div>
           </>
         ) : (
           <>
             <Field>
               <FieldLabel htmlFor="mfa-uri">Authenticator Setup URI</FieldLabel>
-              <Textarea id="mfa-uri" readOnly value={totpURI} />
+              <Textarea
+                id="mfa-uri"
+                readOnly
+                value={totpURI}
+                className="min-w-0 break-all"
+              />
             </Field>
             <BackupCodeList codes={backupCodes} />
             <Field>
@@ -837,13 +845,16 @@ function MfaSetupDialog({ onComplete }: { onComplete: () => void }) {
                 onChange={(event) => setCode(event.target.value)}
               />
             </Field>
-            <Button
-              type="button"
-              disabled={pending || code.length < 6}
-              onClick={() => void verify()}
-            >
-              {pending ? 'Verifying…' : 'Verify and Finish'}
-            </Button>
+            <div className="button-group">
+              <DialogCancel />
+              <Button
+                type="button"
+                disabled={pending || code.length < 6}
+                onClick={() => void verify()}
+              >
+                {pending ? 'Verifying…' : 'Verify and Finish'}
+              </Button>
+            </div>
           </>
         )}
       </div>
