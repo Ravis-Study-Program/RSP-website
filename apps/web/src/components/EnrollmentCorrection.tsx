@@ -8,6 +8,7 @@ import {
 } from '@/components/ui/select';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
+import { useDraftSection, type DraftSection } from '@/components/draftSections';
 import { Field, FieldLabel } from '@/components/ui/field';
 import { useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
@@ -26,8 +27,6 @@ import type {
 } from '@/api/generated/models';
 import type { Season } from '@/types';
 
-// The season choice that removes them from the season instead.
-const noSeason = 'none';
 const noMentor = 'none';
 
 /**
@@ -40,14 +39,14 @@ export function EnrollmentCorrectionForm({
   seasons,
   name,
   onSaved,
-  onRemove,
+  register,
 }: {
   enrollment: Enrollment;
   seasons: Season[];
   name: string;
   onSaved?: () => void;
-  /** Removes them from the season; offered as "(No Season)" when given. */
-  onRemove?: () => void;
+  /** Hands the edits to the dialog, which commits them on Confirm. */
+  register?: (section: DraftSection | null) => void;
 }) {
   const client = useQueryClient();
   const [seasonId, setSeasonId] = useState(enrollment.seasonId);
@@ -79,8 +78,6 @@ export function EnrollmentCorrectionForm({
         value: member.userId,
       })),
   ];
-  const [pending, setPending] = useState(false);
-  const [error, setError] = useState('');
   const candidates = useEnrollmentCandidates(seasonId, true);
   const placementChanged =
     userId !== enrollment.userId || seasonId !== enrollment.seasonId;
@@ -90,7 +87,6 @@ export function EnrollmentCorrectionForm({
     ...seasons
       .filter((s) => s.status === 'open')
       .map((s) => ({ label: s.name, value: s.id })),
-    ...(onRemove ? [{ label: '(No Season)', value: noSeason }] : []),
   ];
   const personItems = [
     { label: name, value: enrollment.userId },
@@ -125,107 +121,77 @@ export function EnrollmentCorrectionForm({
       });
   }
   async function save() {
-    if (seasonId === noSeason) {
-      onRemove?.();
-      return;
-    }
-    setPending(true);
-    setError('');
     if (!placementChanged && mentorChanged) {
-      try {
-        await saveMentor();
-        await client.invalidateQueries();
-        onSaved?.();
-      } catch (e) {
-        setError(
-          e instanceof Error ? e.message : 'Unable to change the mentor.',
-        );
-      } finally {
-        setPending(false);
-      }
+      await saveMentor();
+      await client.invalidateQueries();
+      onSaved?.();
       return;
     }
-    try {
-      const saved: Enrollment = demoMode
-        ? { ...enrollment, userId, seasonId, member: undefined }
-        : await apiRequest<Enrollment>(
-            `/seasons/${enrollment.seasonId}/members/${enrollment.id}/correction`,
-            { method: 'POST', body: JSON.stringify({ userId, seasonId }) },
-          );
-      if (demoMode) {
-        client.setQueryData<EnrollmentPage>(
-          seasonEnrollmentsQueryKey(enrollment.seasonId),
-          (current) =>
-            current
-              ? {
-                  ...current,
-                  items: current.items.filter((e) => e.id !== enrollment.id),
-                  totalCount: current.totalCount - 1,
-                }
-              : current,
+    const saved: Enrollment = demoMode
+      ? { ...enrollment, userId, seasonId, member: undefined }
+      : await apiRequest<Enrollment>(
+          `/seasons/${enrollment.seasonId}/members/${enrollment.id}/correction`,
+          { method: 'POST', body: JSON.stringify({ userId, seasonId }) },
         );
-        client.setQueryData<EnrollmentPage>(
-          seasonEnrollmentsQueryKey(seasonId),
-          (current) =>
-            current
-              ? {
-                  ...current,
-                  items: [
-                    ...current.items.filter((e) => e.id !== saved.id),
-                    saved,
-                  ],
-                  totalCount:
-                    current.items.filter((e) => e.id !== saved.id).length + 1,
-                }
-              : {
-                  items: [saved],
-                  totalCount: 1,
-                  pageInfo: {
-                    hasMore: false,
-                    nextCursor: null,
-                    previousCursor: null,
-                  },
-                },
-        );
-      } else await client.invalidateQueries();
-      onSaved?.();
-    } catch (e) {
-      setError(
-        e instanceof Error ? e.message : 'Unable to correct the enrollment.',
+    if (demoMode) {
+      client.setQueryData<EnrollmentPage>(
+        seasonEnrollmentsQueryKey(enrollment.seasonId),
+        (current) =>
+          current
+            ? {
+                ...current,
+                items: current.items.filter((e) => e.id !== enrollment.id),
+                totalCount: current.totalCount - 1,
+              }
+            : current,
       );
-    } finally {
-      setPending(false);
-    }
+      client.setQueryData<EnrollmentPage>(
+        seasonEnrollmentsQueryKey(seasonId),
+        (current) =>
+          current
+            ? {
+                ...current,
+                items: [
+                  ...current.items.filter((e) => e.id !== saved.id),
+                  saved,
+                ],
+                totalCount:
+                  current.items.filter((e) => e.id !== saved.id).length + 1,
+              }
+            : {
+                items: [saved],
+                totalCount: 1,
+                pageInfo: {
+                  hasMore: false,
+                  nextCursor: null,
+                  previousCursor: null,
+                },
+              },
+      );
+    } else await client.invalidateQueries();
+    onSaved?.();
   }
+  useDraftSection(
+    dirty && !candidates.isLoading && !candidates.isError,
+    save,
+    register,
+  );
   return (
     <section
       aria-labelledby={`enrollment-correction-${enrollment.id}`}
       className="grid gap-3"
     >
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h3
-          id={`enrollment-correction-${enrollment.id}`}
-          className="text-base font-semibold"
-        >
-          Corrections
-        </h3>
-        <Button
-          className="w-48"
-          type="submit"
-          form={`enrollment-correction-form-${enrollment.id}`}
-          disabled={
-            pending || !dirty || candidates.isLoading || candidates.isError
-          }
-        >
-          {pending ? 'Saving…' : 'Save Corrections'}
-        </Button>
-      </div>
+      <h3
+        id={`enrollment-correction-${enrollment.id}`}
+        className="text-base font-semibold"
+      >
+        Corrections
+      </h3>
       <form
         id={`enrollment-correction-form-${enrollment.id}`}
         className="grid gap-4"
         onSubmit={(e) => {
           e.preventDefault();
-          void save();
         }}
       >
         <Field>
@@ -317,13 +283,6 @@ export function EnrollmentCorrectionForm({
               >
                 Retry
               </Button>
-            </AlertDescription>
-          </Alert>
-        ) : null}
-        {error ? (
-          <Alert variant="destructive">
-            <AlertDescription className="text-destructive">
-              {error}
             </AlertDescription>
           </Alert>
         ) : null}

@@ -121,7 +121,7 @@ export function SeasonsPage() {
         title="Seasons"
         actions={
           canCreate ? (
-            <div className="flex flex-wrap items-center gap-2.5">
+            <div className="button-group !ms-0">
               <SpreadsheetImport
                 kinds={['seasons']}
                 title="Import Seasons"

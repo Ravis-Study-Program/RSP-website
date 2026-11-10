@@ -58,6 +58,7 @@ import {
   DirtyFormGuard,
   FormDialog,
   NamedConfirmation,
+  DialogCancel,
 } from '@/components/Dialogs';
 import { TimezoneSelect } from '@/components/TimezoneSelect';
 import {
@@ -75,12 +76,13 @@ import type { Difficulty } from '@/types';
 
 const listClass = 'm-0 grid list-none gap-3 p-0';
 const formClass = 'flex flex-col gap-4';
-const dialogActionsClass = 'mt-5 flex justify-end gap-2.5';
-const rowListClass = 'divide-y';
-// Every row's action button is one width, that of the widest
-// ("✓ Google Connected"), so the buttons line up down the page.
+const dialogActionsClass = 'mt-5 button-group';
+// A card's rows share a button column as wide as its widest button
+// ("✓ Google Connected"), so the buttons line up down the card.
+const rowListClass =
+  'grid grid-cols-[minmax(0,1fr)_max-content] gap-x-4 divide-y';
 const rowClass =
-  'flex items-center justify-between gap-4 py-3 first:pt-0 last:pb-0 [&>button]:w-52 [&>button]:shrink-0';
+  'col-span-2 grid grid-cols-subgrid items-center py-3 first:pt-0 last:pb-0 [&>button]:justify-self-stretch';
 const rowTextClass = 'block text-sm text-muted-foreground';
 
 export function SettingsPage() {
@@ -959,6 +961,7 @@ function ChangeEmailDialog({ onRequested }: { onRequested: () => void }) {
           />
         </Field>
         <div className={dialogActionsClass}>
+          <DialogCancel />
           <Button
             type="button"
             disabled={pending}
@@ -1048,6 +1051,7 @@ function ChangePasswordDialog({ onChanged }: { onChanged: () => void }) {
           />
         </Field>
         <div className={dialogActionsClass}>
+          <DialogCancel />
           <Button
             type="button"
             disabled={pending}
@@ -1119,6 +1123,7 @@ function ConnectPasswordDialog({ onConnected }: { onConnected: () => void }) {
           />
         </Field>
         <div className={dialogActionsClass}>
+          <DialogCancel />
           <Button
             type="button"
             disabled={pending}

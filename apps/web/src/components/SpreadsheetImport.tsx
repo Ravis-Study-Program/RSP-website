@@ -12,7 +12,7 @@ import type {
 } from '@/api/generated/models';
 import { demoMode } from '@/api/queries';
 import { CsvColumns } from '@/components/CsvColumns';
-import { FormDialog } from '@/components/Dialogs';
+import { FormDialog, DialogCancel } from '@/components/Dialogs';
 import { StatusBadge } from '@/components/StatusBadge';
 import { Button } from '@/components/ui/button';
 import { Field, FieldLabel } from '@/components/ui/field';
@@ -545,7 +545,8 @@ export function SpreadsheetImport({
             {summary ? `${summary}.` : 'Nothing was imported.'}
           </p>
         ) : null}
-        <div className="flex flex-wrap justify-end gap-2">
+        <div className="button-group">
+          {done ? null : <DialogCancel />}
           {done ? (
             <Button type="button" onClick={() => setOpen(false)}>
               Done

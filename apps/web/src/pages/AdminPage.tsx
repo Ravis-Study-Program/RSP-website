@@ -45,7 +45,6 @@ import { Link } from 'react-router-dom';
 
 import { ApiError, apiRequest } from '@/api/client';
 import type {
-  AccountStateMutation,
   Enrollment,
   EnrollmentCandidate,
   EnrollmentCandidatePage,
@@ -92,6 +91,11 @@ import {
 import { AppDatePicker } from '@/components/AppDatePicker';
 import { ManagePersonDialog } from '@/components/ManagePersonDialog';
 import { AdminProfileEditor } from '@/components/AdminProfileEditor';
+import {
+  useDraftSections,
+  type DraftSection,
+} from '@/components/draftSections';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Invitations, type InvitationParts } from '@/components/Invitations';
 import { SpreadsheetImport } from '@/components/SpreadsheetImport';
 import { DataTable } from '@/components/DataTable';
@@ -99,6 +103,7 @@ import {
   FormDialog,
   NamedConfirmation,
   ReasonConfirmation,
+  DialogCancel,
 } from '@/components/Dialogs';
 import type { Page as ViewPage, Person, Season, SeasonRole } from '@/types';
 import {
@@ -663,7 +668,7 @@ export function AdminResourcePage({
         titleHint="Admin"
         actions={
           createAction || parts ? (
-            <div className="flex flex-wrap items-center gap-2.5">
+            <div className="button-group !ms-0">
               {createAction}
               {parts ? (
                 <SpreadsheetImport
@@ -778,9 +783,7 @@ export function AdminResourcePage({
                 </p>
               ) : null}
               {row.original.actions ? (
-                <div className="flex flex-wrap justify-end gap-2">
-                  {row.original.actions}
-                </div>
+                <div className="button-group">{row.original.actions}</div>
               ) : null}
             </div>
           )}
@@ -808,11 +811,20 @@ export function UserAdministrationDialog({
   open: controlledOpen,
   onOpenChange: onControlledOpenChange,
   before,
+  onSaved,
+  onRemoveFromSeason,
 }: {
   person: Person;
   currentUserId?: string;
-  /** Shown above the account controls, such as an enrollment correction. */
-  before?: ReactNode;
+  /** Sections shown above the account ones, such as an enrollment
+   *  correction; each registers its edits for the Confirm button. */
+  before?: (
+    register: (key: string) => (section: DraftSection | null) => void,
+  ) => ReactNode;
+  /** Called after changes are committed. */
+  onSaved?: () => void;
+  /** Offers "Remove From Season" and starts it when chosen. */
+  onRemoveFromSeason?: () => void;
   /** When given, the dialog is opened from outside and shows no trigger. */
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
@@ -830,22 +842,21 @@ export function UserAdministrationDialog({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
-  const [grantRole, setGrantRole] = useState<GlobalRole>('director');
-  // The audited action being confirmed, in its own dialog.
-  const [confirming, setConfirming] = useState<
-    | { kind: 'account' }
-    | { kind: 'grant' }
-    | { kind: 'revoke'; assignment: GlobalRoleAssignment }
-    | { kind: 'delete' }
-    | null
-  >(null);
+  const [pending, setPending] = useState(false);
+  // Role changes held until Confirm: roles to grant and roles to revoke.
+  const [grants, setGrants] = useState<GlobalRole[]>([]);
+  const [revokes, setRevokes] = useState<GlobalRole[]>([]);
+  const [confirming, setConfirming] = useState<'roles' | 'delete' | null>(null);
+  const { register, dirty: sectionsDirty, saveAll } = useDraftSections();
+  const rolesDirty = grants.length + revokes.length > 0;
 
   const load = async () => {
     setLoading(true);
     setUser(null);
     setAssignments([]);
+    setGrants([]);
+    setRevokes([]);
     setError('');
-    setMessage('');
     try {
       if (demoMode) {
         const globalRoles = person.roles.filter(
@@ -904,118 +915,84 @@ export function UserAdministrationDialog({
   }, []);
   const onOpenChange = (next: boolean) => {
     setOpen(next);
-    if (next) void load();
-    else setConfirming(null);
+    if (next) {
+      setMessage('');
+      void load();
+    } else setConfirming(null);
   };
-  // These run from the confirmation dialogs, which show any error.
-  const changeAccountState = async (reason: string) => {
-    if (!user) return;
-    const state: AccountStateMutation['state'] =
-      user.accountState === 'suspended' ? 'active' : 'suspended';
-    setMessage('');
-    try {
-      const updated: UserPrivate = demoMode
-        ? { ...user, accountState: state }
-        : await apiRequest<UserPrivate>(
-            `/admin/users/${encodeURIComponent(person.id)}/account-state`,
-            {
-              method: 'POST',
-              body: JSON.stringify({
-                state,
-                reason,
-              } satisfies AccountStateMutation),
-            },
-          );
-      setUser(updated);
-      setMessage(
-        state === 'suspended'
-          ? 'Account suspended and sessions revoked.'
-          : 'Account reactivated.',
-      );
-      queryClient.setQueryData<ViewPage<UserPrivate>>(
-        ['admin-users'],
-        (current) => upsertPageItem(current, updated),
-      );
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ['admin-users'] }),
-        queryClient.invalidateQueries({ queryKey: ['people'] }),
-      ]);
-    } catch (requestError) {
-      if (!demoMode) void load();
-      throw requestError;
-    }
-  };
-  const grantGlobalRole = async (reason: string) => {
-    const role = availableRoles.includes(grantRole)
-      ? grantRole
-      : availableRoles[0];
-    setMessage('');
-    const saved = demoMode
-      ? {
-          id: `role_${person.id}_${role}`,
-          userId: person.id,
-          role,
-          state: 'pending_mfa' as const,
-        }
-      : await apiRequest<GlobalRoleAssignment>(
-          `/admin/users/${encodeURIComponent(person.id)}/global-roles`,
-          {
-            method: 'POST',
-            body: JSON.stringify({
-              role,
-              reason,
-            } satisfies GlobalRoleGrant),
-          },
-        );
-    setAssignments((current) => [
-      ...current.filter((assignment) => assignment.role !== saved.role),
-      saved,
-    ]);
-    setMessage(
-      saved.state === 'pending_mfa'
-        ? `${roleLabel(saved.role)} granted pending MFA configuration.`
-        : `${roleLabel(saved.role)} granted.`,
+  const grantGlobalRole = async (role: GlobalRole, reason: string) => {
+    if (demoMode) return;
+    await apiRequest<GlobalRoleAssignment>(
+      `/admin/users/${encodeURIComponent(person.id)}/global-roles`,
+      {
+        method: 'POST',
+        body: JSON.stringify({ role, reason } satisfies GlobalRoleGrant),
+      },
     );
-    await Promise.all([
-      queryClient.invalidateQueries({ queryKey: ['admin-users'] }),
-      queryClient.invalidateQueries({ queryKey: ['people'] }),
-    ]);
   };
-  const revokeGlobalRole = async (
-    assignment: GlobalRoleAssignment,
-    reason: string,
-  ) => {
-    setMessage('');
+  const revokeGlobalRole = async (role: GlobalRole, reason: string) => {
+    if (demoMode) return;
+    await apiRequest<GlobalRoleAssignment>(
+      `/admin/users/${encodeURIComponent(person.id)}/global-roles/${encodeURIComponent(role)}?reason=${encodeURIComponent(reason)}`,
+      { method: 'DELETE' },
+    );
+  };
+  // Commits every held change: the profile, then roles, then corrections
+  // (which may hand over to removing them from the season).
+  const apply = async (reason: string) => {
+    const notes = await saveAll(['profile']);
     try {
-      if (!demoMode) {
-        await apiRequest<GlobalRoleAssignment>(
-          `/admin/users/${encodeURIComponent(person.id)}/global-roles/${encodeURIComponent(assignment.role)}?reason=${encodeURIComponent(reason)}`,
-          { method: 'DELETE' },
-        );
-      }
-      setAssignments((current) =>
-        current.filter((item) => item.id !== assignment.id),
-      );
-      setMessage(`${roleLabel(assignment.role)} revoked.`);
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ['admin-users'] }),
-        queryClient.invalidateQueries({ queryKey: ['people'] }),
-      ]);
+      for (const role of grants) await grantGlobalRole(role, reason);
+      for (const role of revokes) await revokeGlobalRole(role, reason);
+    } finally {
+      if (rolesDirty)
+        await Promise.all([
+          queryClient.invalidateQueries({ queryKey: ['admin-users'] }),
+          queryClient.invalidateQueries({ queryKey: ['people'] }),
+        ]);
+    }
+    notes.push(...(await saveAll(['corrections'])));
+    onSaved?.();
+    if (notes.length) {
+      setMessage(notes.join(' '));
+      await load();
+    } else setOpen(false);
+  };
+  const confirm = async () => {
+    if (rolesDirty) {
+      setConfirming('roles');
+      return;
+    }
+    setPending(true);
+    setError('');
+    try {
+      await apply('');
     } catch (requestError) {
-      if (!demoMode) void load();
-      throw requestError;
+      setError(
+        requestError instanceof Error
+          ? requestError.message
+          : 'Unable to save the changes.',
+      );
+    } finally {
+      setPending(false);
     }
   };
   const assignedRoles = new Set(
     assignments.map((assignment) => assignment.role),
   );
-  const availableRoles = (['director', 'system_admin'] as const).filter(
-    (role) => !assignedRoles.has(role),
-  );
-  const grantRoleItems = availableRoles.map((role) => ({
-    label: roleLabel(role),
-    value: role,
-  }));
+  const roleChoices = ['director', 'system_admin'] as const;
+  const toggleRole = (role: GlobalRole) => {
+    const flip = (list: GlobalRole[]) =>
+      list.includes(role)
+        ? list.filter((item) => item !== role)
+        : [...list, role];
+    if (assignedRoles.has(role)) setRevokes(flip);
+    else setGrants(flip);
+  };
+  const roleSummary = [
+    ...grants.map((role) => `grant ${roleLabel(role)}`),
+    ...revokes.map((role) => `revoke ${roleLabel(role)}`),
+  ].join(', ');
 
   return (
     <FormDialog
@@ -1034,7 +1011,6 @@ export function UserAdministrationDialog({
       }
     >
       <div className="flex flex-col gap-4">
-        {before}
         {loading ? <p role="status">Loading private account details…</p> : null}
         {error ? <FieldError>{error}</FieldError> : null}
         {message ? (
@@ -1049,227 +1025,119 @@ export function UserAdministrationDialog({
         ) : null}
         {user ? (
           <>
+            {before?.(register)}
             <AdminProfileEditor
               user={user}
               onSaved={(updated) => setUser({ ...user, ...updated })}
+              register={register('profile')}
             />
             <section
               aria-labelledby={`global-roles-${person.id}`}
-              className="flex flex-col gap-4"
+              className="flex flex-col gap-3"
             >
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <h3
-                  id={`global-roles-${person.id}`}
-                  className="text-base font-semibold"
-                >
-                  Global Roles
-                </h3>
-                {availableRoles.length ? (
+              <h3
+                id={`global-roles-${person.id}`}
+                className="text-base font-semibold"
+              >
+                Global Roles
+              </h3>
+              <ul className="m-0 flex list-none flex-col p-0">
+                {roleChoices.map((role) => {
+                  const assigned = assignedRoles.has(role);
+                  const checked = assigned
+                    ? !revokes.includes(role)
+                    : grants.includes(role);
+                  const state = assignments.find(
+                    (item) => item.role === role,
+                  )?.state;
+                  return (
+                    <li
+                      className="flex items-center gap-3 border-b border-border py-3 last:border-b-0"
+                      key={role}
+                    >
+                      <Checkbox
+                        id={`global-role-${person.id}-${role}`}
+                        checked={checked}
+                        disabled={
+                          assigned &&
+                          person.id === currentUserId &&
+                          role === 'system_admin'
+                        }
+                        onCheckedChange={() => toggleRole(role)}
+                      />
+                      <label
+                        htmlFor={`global-role-${person.id}-${role}`}
+                        className="grid gap-0.5"
+                      >
+                        <strong className="font-semibold">
+                          {roleLabel(role)}
+                        </strong>
+                        {assigned && state && state !== 'active' ? (
+                          <span className="text-sm text-muted-foreground">
+                            {state.replace('_', ' ')}
+                          </span>
+                        ) : null}
+                      </label>
+                    </li>
+                  );
+                })}
+              </ul>
+            </section>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="button-group !ms-0">
+                {onRemoveFromSeason ? (
                   <Button
-                    className="w-48"
+                    variant="destructive"
                     type="button"
-                    onClick={() => setConfirming({ kind: 'grant' })}
+                    onClick={onRemoveFromSeason}
                   >
-                    <IconPlus size={17} aria-hidden="true" /> Grant Role
+                    Remove From Season
                   </Button>
                 ) : null}
-              </div>
-              {assignments.length ? (
-                <ul className="m-0 flex list-none flex-col p-0">
-                  {assignments.map((assignment) => (
-                    <li
-                      className="flex flex-wrap items-center justify-between gap-3 border-b border-border py-3 last:border-b-0"
-                      key={assignment.id}
-                    >
-                      <span>
-                        <strong>{roleLabel(assignment.role)}</strong>
-                        <span className="block text-sm text-muted-foreground">
-                          {assignment.state.replace('_', ' ')}
-                        </span>
-                      </span>
-                      <Button
-                        variant="destructive"
-                        type="button"
-                        disabled={
-                          person.id === currentUserId &&
-                          assignment.role === 'system_admin'
-                        }
-                        onClick={() =>
-                          setConfirming({ kind: 'revoke', assignment })
-                        }
-                      >
-                        Revoke
-                      </Button>
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <p className="text-sm text-muted-foreground">
-                  No global roles assigned.
-                </p>
-              )}
-            </section>
-            <section
-              aria-labelledby={`account-state-${person.id}`}
-              className="flex flex-col gap-4"
-            >
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <h3
-                  id={`account-state-${person.id}`}
-                  className="text-base font-semibold"
-                >
-                  Suspension
-                </h3>
                 <Button
-                  className="w-48"
-                  variant={
-                    user.accountState === 'suspended'
-                      ? 'outline'
-                      : 'destructive'
-                  }
-                  type="button"
-                  disabled={
-                    user.accountState !== 'suspended' &&
-                    person.id === currentUserId
-                  }
-                  onClick={() => setConfirming({ kind: 'account' })}
-                >
-                  {user.accountState === 'suspended'
-                    ? 'Reactivate Account'
-                    : 'Suspend Account'}
-                </Button>
-              </div>
-              <p className="text-sm text-muted-foreground">
-                This account is {statusLabel(user.accountState)}.
-                {person.id === currentUserId &&
-                user.accountState !== 'suspended'
-                  ? ' You cannot suspend your own System Admin account.'
-                  : ''}
-              </p>
-            </section>
-            <section
-              aria-labelledby={`delete-account-${person.id}`}
-              className="flex flex-col gap-4"
-            >
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <h3
-                  id={`delete-account-${person.id}`}
-                  className="text-base font-semibold"
-                >
-                  Delete Account
-                </h3>
-                <Button
-                  className="w-48"
                   variant="destructive"
                   type="button"
                   disabled={person.id === currentUserId}
-                  onClick={() => setConfirming({ kind: 'delete' })}
+                  onClick={() => setConfirming('delete')}
                 >
                   Delete Account
                 </Button>
               </div>
-              <p className="text-sm text-muted-foreground">
-                Deletes the account at once and for good: they are signed out,
-                their sign-in is removed and they show as Deleted member.
-              </p>
-            </section>
-            {confirming?.kind === 'account' ? (
+              <div className="button-group">
+                <DialogCancel />
+                <Button
+                  type="button"
+                  disabled={pending || !(sectionsDirty || rolesDirty)}
+                  onClick={() => void confirm()}
+                >
+                  {pending ? 'Saving…' : 'Confirm'}
+                </Button>
+              </div>
+            </div>
+            {confirming === 'roles' ? (
               <ReasonConfirmation
                 open
                 onOpenChange={(next) => {
                   if (!next) setConfirming(null);
                 }}
-                title={`${user.accountState === 'suspended' ? 'Reactivate' : 'Suspend'} ${person.name}?`}
+                title={`Change ${person.name}’s Roles?`}
                 name={person.name}
-                description={
-                  user.accountState === 'suspended'
-                    ? 'They can sign in again straight away. The reason is recorded in the audit log.'
-                    : 'They are signed out everywhere and cannot sign in until reactivated. The reason is recorded in the audit log.'
-                }
-                destructive={user.accountState !== 'suspended'}
-                actionLabel={
-                  user.accountState === 'suspended'
-                    ? 'Reactivate Account'
-                    : 'Suspend Account'
-                }
-                pendingLabel="Applying…"
-                onConfirm={changeAccountState}
+                description={`This will ${roleSummary}. A granted role becomes active once they have set up MFA. The reason is recorded in the audit log.`}
+                actionLabel="Confirm"
+                pendingLabel="Saving…"
+                onConfirm={apply}
               />
             ) : null}
-            {confirming?.kind === 'grant' ? (
-              <ReasonConfirmation
-                open
-                onOpenChange={(next) => {
-                  if (!next) setConfirming(null);
-                }}
-                title={`Grant a Role to ${person.name}?`}
-                name={person.name}
-                description="The role becomes active once they have set up MFA. The reason is recorded in the audit log."
-                actionLabel="Grant Role"
-                pendingLabel="Granting…"
-                onConfirm={grantGlobalRole}
-              >
-                <Field>
-                  <FieldLabel htmlFor={`grant-role-${person.id}`}>
-                    Role
-                  </FieldLabel>
-                  <Select
-                    items={grantRoleItems}
-                    value={
-                      availableRoles.includes(grantRole)
-                        ? grantRole
-                        : availableRoles[0]
-                    }
-                    onValueChange={(value) => {
-                      if (value) setGrantRole(value as GlobalRole);
-                    }}
-                  >
-                    <SelectTrigger
-                      id={`grant-role-${person.id}`}
-                      className="w-full"
-                    >
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectGroup>
-                        {grantRoleItems.map((item) => (
-                          <SelectItem key={item.value} value={item.value}>
-                            {item.label}
-                          </SelectItem>
-                        ))}
-                      </SelectGroup>
-                    </SelectContent>
-                  </Select>
-                </Field>
-              </ReasonConfirmation>
-            ) : null}
-            {confirming?.kind === 'delete' ? (
+            {confirming === 'delete' ? (
               <DeleteAccountDialog
                 person={person}
                 onOpenChange={(next) => {
                   if (!next) setConfirming(null);
                 }}
                 onDeleted={() => {
-                  setMessage('Account deleted.');
-                  void load();
+                  onSaved?.();
+                  setOpen(false);
                 }}
-              />
-            ) : null}
-            {confirming?.kind === 'revoke' ? (
-              <ReasonConfirmation
-                open
-                onOpenChange={(next) => {
-                  if (!next) setConfirming(null);
-                }}
-                title={`Revoke ${roleLabel(confirming.assignment.role)} from ${person.name}?`}
-                name={person.name}
-                description="They lose this role's access straight away. The reason is recorded in the audit log."
-                destructive
-                actionLabel="Revoke Role"
-                pendingLabel="Revoking…"
-                onConfirm={(reason) =>
-                  revokeGlobalRole(confirming.assignment, reason)
-                }
               />
             ) : null}
           </>
@@ -1504,7 +1372,8 @@ function WeekDialog({
           <AppDatePicker label="Starts" value={startAt} onChange={setStartAt} />
           <AppDatePicker label="Ends" value={endAt} onChange={setEndAt} />
         </div>
-        <div className="flex flex-wrap justify-end gap-2">
+        <div className="button-group">
+          <DialogCancel />
           <Button type="button" disabled={pending} onClick={() => void save()}>
             {pending ? 'Saving…' : week ? 'Save Week' : 'Create Week'}
           </Button>
@@ -2089,7 +1958,8 @@ export function EnrollmentDialog({
             </Select>
           </Field>
         ) : null}
-        <div className="flex flex-wrap justify-end gap-2">
+        <div className="button-group">
+          <DialogCancel />
           <Button
             type="button"
             disabled={pending || !userId || !seasonId}
@@ -2212,7 +2082,8 @@ function RemoveEnrollmentDialog({
           />
         </Field>
         {error ? <FieldError>{error}</FieldError> : null}
-        <div className="flex flex-wrap justify-end gap-2">
+        <div className="button-group">
+          <DialogCancel />
           <Button
             variant="destructive"
             type="button"
@@ -2433,7 +2304,8 @@ function MentorshipDialog({
             </SelectContent>
           </Select>
         </Field>
-        <div className="flex flex-wrap justify-end gap-2">
+        <div className="button-group">
+          <DialogCancel />
           <Button
             type="button"
             disabled={pending || !mentorUserId || !studentUserId}

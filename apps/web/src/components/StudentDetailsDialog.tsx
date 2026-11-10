@@ -272,7 +272,7 @@ export function StudentDetailsDialog({
           </div>
         </fieldset>
         {numberField('weeklyHours', 'Weekly hours', 168)}
-        <div className="flex flex-wrap justify-end gap-2">
+        <div className="button-group">
           <Button
             type="button"
             variant="outline"

@@ -137,6 +137,23 @@
 /* Rich text, in the editor and where it is shown, styled the same in both.
    Tailwind's reset strips headings, lists and quotes, so each is set here. */
 @layer components {
+  /* Related buttons side by side share one width: that of the widest. */
+  .button-group {
+    display: grid;
+    width: fit-content;
+    margin-inline-start: auto;
+    grid-auto-flow: column;
+    grid-auto-columns: 1fr;
+    align-items: center;
+    gap: 0.625rem;
+  }
+  @media (max-width: 40rem) {
+    .button-group {
+      width: 100%;
+      grid-auto-flow: row;
+    }
+  }
+
   .rich-text {
     line-height: 1.625;
     overflow-wrap: anywhere;

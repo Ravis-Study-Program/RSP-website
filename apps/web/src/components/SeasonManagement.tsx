@@ -39,12 +39,12 @@ import type {
 import { demoMode, seasonsOptions } from '@/api/queries';
 import { AppDatePicker } from '@/components/AppDatePicker';
 import { DeleteEmptySeason } from '@/components/DeleteEmptySeason';
-import { FormDialog } from '@/components/Dialogs';
+import { FormDialog, DialogCancel } from '@/components/Dialogs';
 import type { Page, Season } from '@/types';
 import { formatDateTimeInput, zonedDateTimeToUtc } from '@/utils';
 
 const formStack = 'grid gap-4';
-const dialogActions = 'mt-5 flex justify-end gap-2.5';
+const dialogActions = 'mt-5 button-group';
 
 const optionalHttpsUrl = z
   .string()
@@ -358,6 +358,7 @@ export function SeasonEditorDialog({
           </Alert>
         ) : null}
         <div className={dialogActions}>
+          <DialogCancel />
           <Button type="submit" disabled={form.formState.isSubmitting}>
             {form.formState.isSubmitting
               ? 'Saving…'
@@ -673,6 +674,7 @@ export function SeasonLifecycleDialog({
           </Alert>
         ) : null}
         <div className={dialogActions}>
+          <DialogCancel />
           <Button
             variant={action === 'close' ? 'destructive' : 'default'}
             type="button"

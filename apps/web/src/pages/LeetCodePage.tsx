@@ -671,7 +671,7 @@ function AttemptDialog({
               />
             )}
           />
-          <div className="mt-5 flex justify-end gap-2.5">
+          <div className="mt-5 button-group">
             <Button
               variant="outline"
               type="button"

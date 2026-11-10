@@ -89,8 +89,10 @@ export function PersonRowActions({
     !allowed.manageAccount
   )
     return null;
-  const close = (next: boolean) => {
-    if (!next) setOpen(null);
+  // A dialog only closes itself, so one that has just handed over to another
+  // (the manage dialog starting a removal) does not close that one.
+  const close = (kind: NonNullable<typeof open>) => (next: boolean) => {
+    if (!next) setOpen((current) => (current === kind ? null : current));
   };
   return (
     <>
@@ -138,7 +140,7 @@ export function PersonRowActions({
           person={person}
           onChanged={onChanged}
           open
-          onOpenChange={close}
+          onOpenChange={close('details')}
         />
       ) : null}
       {open === 'manage' ? (
@@ -151,13 +153,13 @@ export function PersonRowActions({
           seasons={seasons}
           onRemove={allowed.remove ? () => setOpen('remove') : undefined}
           onChanged={onChanged}
-          onOpenChange={close}
+          onOpenChange={close('manage')}
         />
       ) : null}
       {open === 'delete' ? (
         <DeleteAccountDialog
           person={person}
-          onOpenChange={close}
+          onOpenChange={close('delete')}
           onDeleted={onChanged}
         />
       ) : null}
@@ -167,7 +169,7 @@ export function PersonRowActions({
           person={person}
           onRemoved={onChanged}
           open
-          onOpenChange={close}
+          onOpenChange={close('remove')}
         />
       ) : null}
     </>

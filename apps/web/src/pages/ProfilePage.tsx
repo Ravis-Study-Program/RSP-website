@@ -58,7 +58,7 @@ import {
 
 const formClass = 'flex flex-col gap-4';
 const inlineClass = 'flex flex-wrap items-center gap-2.5';
-const dialogActionsClass = 'mt-5 flex justify-end gap-2.5';
+const dialogActionsClass = 'mt-5 button-group';
 
 function statusLabel(status: string | null | undefined) {
   const text = (status ?? '').replace(/_/g, ' ');

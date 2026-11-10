@@ -210,11 +210,16 @@ test('system admin edits profile details and requests email verification separat
   // There is no Discord field: a person's Discord link is their own.
   await expect(editor.getByLabel('Discord')).toHaveCount(0);
   await editor.getByLabel('Email Address').fill('changed@example.test');
-  await editor.getByRole('button', { name: 'Save Profile' }).click();
+  await page
+    .getByRole('dialog')
+    .getByRole('button', { name: 'Confirm' })
+    .click();
   await expect(
-    editor.getByText(
-      'Profile updated. Verification sent to the new address. The current email stays until it is verified.',
-    ),
+    page
+      .getByRole('dialog')
+      .getByText(
+        'Verification sent to the new address. The current email stays until it is verified.',
+      ),
   ).toBeVisible();
 });
 
@@ -237,7 +242,7 @@ test('administrators can correct the person attached to an enrollment', async ({
     dialog.getByLabel('Correct Person', { exact: true }),
   ).toBeEnabled();
   await chooseOption(dialog, 'Correct Person', 'Priya Singh (priya-singh)');
-  await dialog.getByRole('button', { name: 'Save correction' }).click();
+  await dialog.getByRole('button', { name: 'Confirm' }).click();
   await expect(dialog).not.toBeVisible();
 });
 

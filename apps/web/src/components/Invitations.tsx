@@ -32,7 +32,7 @@ import {
 } from '@/api/queries';
 import type { Invitation, InvitationCreate } from '@/api/generated/models';
 import { LabelHint } from '@/components/Common';
-import { FormDialog } from '@/components/Dialogs';
+import { FormDialog, DialogCancel } from '@/components/Dialogs';
 import type { Season } from '@/types';
 
 const formStack = 'grid gap-4';
@@ -352,7 +352,8 @@ export function Invitations({
             {message}
           </p>
         ) : null}
-        <div>
+        <div className="button-group">
+          <DialogCancel />
           <Button type="submit" disabled={busy || !inviteSeason}>
             {busy ? 'Sending…' : 'Send Invitation'}
           </Button>

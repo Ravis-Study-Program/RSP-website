@@ -7,7 +7,7 @@ import { useState } from 'react';
 import { apiRequest } from '@/api/client';
 import type { Enrollment } from '@/api/generated/models';
 import { demoMode } from '@/api/queries';
-import { FormDialog } from '@/components/Dialogs';
+import { FormDialog, DialogCancel } from '@/components/Dialogs';
 import type { Person } from '@/types';
 
 /** Removes a member from the season, opened from their row menu. */
@@ -90,7 +90,8 @@ export function RemovalDialog({
           {error}
         </p>
       ) : null}
-      <div className="flex flex-wrap justify-end gap-2">
+      <div className="button-group">
+        <DialogCancel />
         <Button
           variant="destructive"
           type="button"

@@ -96,6 +96,15 @@ export function FormDialog({
   );
 }
 
+/** The Cancel button along the bottom of an edit dialog. */
+export function DialogCancel({ label = 'Cancel' }: { label?: string }) {
+  return (
+    <DialogClose render={<Button variant="outline" type="button" />}>
+      {label}
+    </DialogClose>
+  );
+}
+
 export function NamedConfirmation({
   name,
   actionLabel,
@@ -185,7 +194,7 @@ export function NamedConfirmation({
           />
         </Field>
         {error ? <FieldError>{error}</FieldError> : null}
-        <div className="mt-5 flex justify-end gap-2.5">
+        <div className="mt-5 button-group">
           <AlertDialogCancel disabled={pending}>Cancel</AlertDialogCancel>
           <Button
             variant="destructive"
@@ -288,7 +297,7 @@ export function ReasonConfirmation({
           </Field>
         </div>
         {error ? <FieldError>{error}</FieldError> : null}
-        <div className="mt-5 flex justify-end gap-2.5">
+        <div className="mt-5 button-group">
           <AlertDialogCancel disabled={pending}>Cancel</AlertDialogCancel>
           <Button
             variant={destructive ? 'destructive' : 'default'}
@@ -319,7 +328,7 @@ export function DirtyFormGuard({
           Your edits have not been saved. You can stay and finish, or discard
           them and leave.
         </AlertDialogDescription>
-        <div className="mt-5 flex justify-end gap-2.5">
+        <div className="mt-5 button-group">
           <Button
             variant="outline"
             type="button"

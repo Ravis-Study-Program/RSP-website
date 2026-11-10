@@ -86,7 +86,11 @@ import {
   LabelHint,
 } from '@/components/Common';
 import { DataTable, ExpandRowButton } from '@/components/DataTable';
-import { FormDialog, NamedConfirmation } from '@/components/Dialogs';
+import {
+  FormDialog,
+  NamedConfirmation,
+  DialogCancel,
+} from '@/components/Dialogs';
 import { cn } from '@/lib/utils';
 import { RichTextContent } from '@/components/RichTextContent';
 import {
@@ -1303,7 +1307,7 @@ function MondayUpdateForm({
         value={content}
         onChange={setContent}
       />
-      <div className="flex flex-wrap justify-end gap-2">
+      <div className="button-group">
         <Button type="button" variant="outline" onClick={onDone}>
           Cancel
         </Button>
@@ -1544,7 +1548,7 @@ function RequestUnlockDialog({
             <span role="alert">{error}</span>
           </InlineNotice>
         ) : null}
-        <div className="flex justify-end gap-2">
+        <div className="button-group">
           <Button
             type="button"
             variant="outline"
@@ -2299,7 +2303,8 @@ function MarkDialog({
             <span role="alert">{error}</span>
           </InlineNotice>
         ) : null}
-        <div className="flex justify-end gap-2">
+        <div className="button-group">
+          <DialogCancel />
           <Button
             type="button"
             disabled={pending || unchanged || (!mark && !current)}

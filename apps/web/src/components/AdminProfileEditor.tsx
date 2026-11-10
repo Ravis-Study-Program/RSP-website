@@ -1,5 +1,6 @@
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
+import { useDraftSection, type DraftSection } from '@/components/draftSections';
 import { Field, FieldLabel } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
 import { useState } from 'react';
@@ -14,9 +15,12 @@ const formStack = 'grid gap-4';
 export function AdminProfileEditor({
   user,
   onSaved,
+  register,
 }: {
   user: UserPrivate;
   onSaved: (value: AdminProfile) => void;
+  /** Hands the edits to the dialog, which commits them on Confirm. */
+  register?: (section: DraftSection | null) => void;
 }) {
   const query = useQuery({
     queryKey: ['admin-profile', user.id],
@@ -54,94 +58,81 @@ export function AdminProfileEditor({
         </AlertDescription>
       </Alert>
     );
-  return <ProfileForm key={user.id} profile={query.data} onSaved={onSaved} />;
+  return (
+    <ProfileForm
+      key={user.id}
+      profile={query.data}
+      onSaved={onSaved}
+      register={register}
+    />
+  );
 }
 function ProfileForm({
   profile,
   onSaved,
+  register,
 }: {
   profile: AdminProfile;
   onSaved: (value: AdminProfile) => void;
+  register?: (section: DraftSection | null) => void;
 }) {
   const client = useQueryClient();
   const [form, setForm] = useState(profile);
   // The email starts as the current one; changing it asks the person to
   // verify the new address.
   const [email, setEmail] = useState(profile.email);
-  const [pending, setPending] = useState(false);
-  const [message, setMessage] = useState('');
-  const [error, setError] = useState('');
+  const newEmail = email.trim().toLowerCase();
+  const dirty =
+    form.name !== profile.name ||
+    form.slug !== profile.slug ||
+    (newEmail !== '' && newEmail !== profile.email.toLowerCase());
   async function save() {
-    setPending(true);
-    setMessage('');
-    setError('');
     const messages: string[] = [];
-    try {
-      if (form.name !== profile.name || form.slug !== profile.slug) {
-        const updated = demoMode
-          ? form
-          : await apiRequest<AdminProfile>(
-              `/admin/users/${profile.id}/profile`,
-              {
-                method: 'PATCH',
-                body: JSON.stringify({ name: form.name, slug: form.slug }),
-              },
-            );
-        client.setQueryData(['admin-profile', profile.id], updated);
-        onSaved(updated);
-        await Promise.all(
-          [
-            ['admin-users'],
-            ['people'],
-            ['users'],
-            ['me'],
-            ['season-people'],
-            ['season-enrollments'],
-            ['mock-interview-participants'],
-          ].map((queryKey) => client.invalidateQueries({ queryKey })),
-        );
-        messages.push('Profile updated.');
-      }
-      const newEmail = email.trim().toLowerCase();
-      if (newEmail && newEmail !== profile.email.toLowerCase()) {
-        if (!demoMode)
-          await apiRequest(`/admin/users/${profile.id}/email-change`, {
-            method: 'POST',
-            body: JSON.stringify({ email: newEmail }),
+    if (form.name !== profile.name || form.slug !== profile.slug) {
+      const updated = demoMode
+        ? form
+        : await apiRequest<AdminProfile>(`/admin/users/${profile.id}/profile`, {
+            method: 'PATCH',
+            body: JSON.stringify({ name: form.name, slug: form.slug }),
           });
-        messages.push(
-          'Verification sent to the new address. The current email stays until it is verified.',
-        );
-      }
-      setMessage(messages.join(' ') || 'Nothing changed.');
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Unable to save the profile.');
-    } finally {
-      setPending(false);
+      client.setQueryData(['admin-profile', profile.id], updated);
+      onSaved(updated);
+      await Promise.all(
+        [
+          ['admin-users'],
+          ['people'],
+          ['users'],
+          ['me'],
+          ['season-people'],
+          ['season-enrollments'],
+          ['mock-interview-participants'],
+        ].map((queryKey) => client.invalidateQueries({ queryKey })),
+      );
     }
+    if (newEmail && newEmail !== profile.email.toLowerCase()) {
+      if (!demoMode)
+        await apiRequest(`/admin/users/${profile.id}/email-change`, {
+          method: 'POST',
+          body: JSON.stringify({ email: newEmail }),
+        });
+      messages.push(
+        'Verification sent to the new address. The current email stays until it is verified.',
+      );
+    }
+    return messages.join(' ') || undefined;
   }
+  useDraftSection(dirty, save, register);
   return (
     <section
       aria-label="Edit profile and contact details"
       className="grid gap-6"
     >
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h3 className="text-base font-semibold">Profile and Contact Details</h3>
-        <Button
-          className="w-48"
-          type="submit"
-          form="admin-profile-form"
-          disabled={pending}
-        >
-          {pending ? 'Saving…' : 'Save Profile'}
-        </Button>
-      </div>
+      <h3 className="text-base font-semibold">Profile and Contact Details</h3>
       <form
         id="admin-profile-form"
         className={formStack}
         onSubmit={(e) => {
           e.preventDefault();
-          void save();
         }}
       >
         <Field>
@@ -176,18 +167,6 @@ function ProfileForm({
           />
         </Field>
       </form>
-      {error ? (
-        <Alert variant="destructive">
-          <AlertDescription className="text-destructive">
-            {error}
-          </AlertDescription>
-        </Alert>
-      ) : null}
-      {message ? (
-        <p role="status" className={notice}>
-          {message}
-        </p>
-      ) : null}
     </section>
   );
 }

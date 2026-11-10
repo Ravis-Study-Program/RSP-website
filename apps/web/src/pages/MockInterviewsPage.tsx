@@ -1828,7 +1828,7 @@ function EditMockDialog({
             onAdd={(type) => setRounds((items) => [...items, newRound(type)])}
           />
         </FieldSet>
-        <div className="mt-5 flex justify-end gap-2.5">
+        <div className="mt-5 button-group">
           <Button
             variant="outline"
             type="button"
@@ -1997,7 +1997,7 @@ function RoundReviewDialog({
             </article>
           ))}
         </FieldSet>
-        <div className="flex justify-end gap-2.5 border-t border-border pt-4">
+        <div className="button-group border-t border-border pt-4">
           <Button
             variant="outline"
             type="button"
@@ -2206,7 +2206,7 @@ function IdentityCorrectionDialog({
             onChange={(event) => setReason(event.target.value)}
           />
         </Field>
-        <div className="mt-5 flex justify-end gap-2.5">
+        <div className="mt-5 button-group">
           <Button
             variant="outline"
             type="button"
@@ -2533,7 +2533,7 @@ function NewMockDialog({
             }}
           />
         </FieldSet>
-        <div className="mt-5 flex justify-end gap-2.5">
+        <div className="mt-5 button-group">
           <Button
             variant="outline"
             type="button"

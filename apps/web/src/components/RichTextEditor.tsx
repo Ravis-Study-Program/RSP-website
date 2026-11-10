@@ -474,7 +474,7 @@ export function RichTextEditor({
                 </p>
               ) : null}
             </div>
-            <div className="mt-5 flex justify-end gap-2.5">
+            <div className="mt-5 button-group">
               <DialogClose render={<Button variant="outline" />}>
                 Cancel
               </DialogClose>

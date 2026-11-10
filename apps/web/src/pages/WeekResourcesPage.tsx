@@ -90,7 +90,7 @@ export function WeekResourcesPage() {
         title={`Week ${week.number} Resources`}
         description={`${season.name} · ${formatDate(week.startAt)} – ${formatDate(week.endAt)}`}
         actions={
-          <div className="flex flex-wrap items-center gap-2.5">
+          <div className="button-group !ms-0">
             <Link
               to={`/seasons/${season.slug}`}
               className={buttonVariants({ variant: 'outline' })}
@@ -189,7 +189,7 @@ function ResourcesPanel({
             value={draft}
             onChange={setDraft}
           />
-          <div className="flex flex-wrap justify-end gap-2">
+          <div className="button-group">
             <Button
               type="button"
               variant="outline"

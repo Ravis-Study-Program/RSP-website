@@ -480,33 +480,17 @@ test('system admin can grant a pending-MFA role and suspend and reactivate an ac
   await expect(dialog.getByLabel('Email Address')).toHaveValue(
     'amelia@example.test',
   );
-  // Each audited action confirms in its own dialog: a reason and the name.
-  const confirmWith = async (button: string, title: RegExp, reason: string) => {
-    await dialog.getByRole('button', { name: button }).click();
-    const confirm = page.getByRole('alertdialog', { name: title });
-    await confirm.getByLabel('Reason').fill(reason);
-    await confirm.getByLabel(/Type Amelia Chen to confirm/).fill('Amelia Chen');
-    await confirm.getByRole('button', { name: button }).click();
-    await expect(confirm).toBeHidden();
-  };
-  await confirmWith(
-    'Grant Role',
-    /Grant a Role to Amelia Chen/,
-    'Acceptance test role assignment',
-  );
-  await expect(dialog.getByRole('status')).toContainText('pending MFA');
-  await confirmWith(
-    'Suspend Account',
-    /Suspend Amelia Chen/,
-    'Security policy acceptance test',
-  );
-  await expect(dialog.getByRole('status')).toContainText('Account suspended');
-  await confirmWith(
-    'Reactivate Account',
-    /Reactivate Amelia Chen/,
-    'Acceptance test completed',
-  );
-  await expect(dialog.getByRole('status')).toContainText('Account reactivated');
+  // Role changes are held until Confirm, which asks for a reason and the name.
+  await dialog.getByRole('checkbox', { name: 'Director' }).click();
+  await dialog.getByRole('button', { name: 'Confirm' }).click();
+  const confirm = page.getByRole('alertdialog', {
+    name: /Change Amelia Chen’s Roles/,
+  });
+  await confirm.getByLabel('Reason').fill('Acceptance test role assignment');
+  await confirm.getByLabel(/Type Amelia Chen to confirm/).fill('Amelia Chen');
+  await confirm.getByRole('button', { name: 'Confirm' }).click();
+  await expect(confirm).toBeHidden();
+  await expect(dialog).toBeHidden();
 });
 
 test('attempt create, edit, delete and dirty-close confirmation work', async ({

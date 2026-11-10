@@ -309,6 +309,8 @@ Exact and unassuming.
 ### Dialogs and Forms
 
 - Dialogs are `FormDialog`; typed confirmations of destructive actions are `NamedConfirmation`. No explanatory subtitle under a dialog title, unless it warns about a consequence (removed access, signing out, invalidated codes).
+- Every editing dialog ends with Cancel and a confirming button along the bottom, right-aligned (`DialogCancel` beside the action). A dialog made of several sections (Manage Account) holds all their edits until its one Confirm commits them (`useDraftSections`); sections have no Save buttons of their own.
+- Related buttons side by side share one width, that of the widest, via `.button-group` (dialog footers, header actions). A Settings card's row buttons line up as a column sized by its widest button.
 - Editing dialogs show every part in one scrolling form (all rounds at once, not a picker), and the same record's dialogs behave the same for every role.
 - Editable dates use `AppDatePicker` (dd/mm/yyyy, whatever the browser); never a native date input. Groups of "Add …" buttons are equal width and fill the row.
 
@@ -357,7 +359,7 @@ Reuse these before writing new markup. If a page needs something close to one of
 
 - `ExternalLink` (`src/components/ExternalLink.tsx`): any inline link that opens a new tab, with the external-link icon (LeetCode questions, references).
 - `ResourceLink` (`Common.tsx`): a block link to an outside resource, such as a week's materials.
-- `FormDialog`, `NamedConfirmation`, `DirtyFormGuard` (`src/components/Dialogs.tsx`): dialogs, typed confirmations and unsaved-change guards.
+- `FormDialog`, `DialogCancel`, `NamedConfirmation`, `DirtyFormGuard` (`src/components/Dialogs.tsx`): dialogs, typed confirmations and unsaved-change guards.
 - `AppDatePicker`: editable dates. `TimezoneSelect`: time zones, listed by UTC offset, smallest first.
 - `RichTextEditor` and `RichTextContent`: notes, edited and displayed.
 - `ProblemSelect`: choosing a LeetCode problem. `Spoiler`: hidden-until-clicked text such as topics.

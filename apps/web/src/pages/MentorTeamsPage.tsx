@@ -72,7 +72,10 @@ export function MentorTeamsPage() {
   const query = useSeasonPeople(season?.id, season?.name);
   const mentorships = useSeasonMentorships(season?.id);
   const [assigning, setAssigning] = useState<Person | null>(null);
-  if (query.isLoading) return <PageSkeleton label="Loading mentor teams" />;
+  // The people query restarts once the season is known; wait for it so an
+  // opened dialog is not unmounted underneath the person.
+  if (seasons.isLoading || query.isLoading)
+    return <PageSkeleton label="Loading mentor teams" />;
   const mentors =
     query.data?.items.filter((person) => person.roles.includes('mentor')) ?? [];
   const students =
@@ -458,7 +461,7 @@ function MentorshipDialog({
             </SelectContent>
           </Select>
         </Field>
-        <div className="flex flex-wrap justify-end gap-2">
+        <div className="button-group">
           <Button
             variant="outline"
             type="button"
