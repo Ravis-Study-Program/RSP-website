@@ -37,6 +37,7 @@ import {
   type Row,
   type RowData,
   type SortingState,
+  type OnChangeFn,
   type VisibilityState,
   useReactTable,
 } from '@tanstack/react-table';
@@ -149,6 +150,9 @@ export interface DataTableProps<TData> {
   extraFilters?: ExtraFilters;
   /** Controls shown beside the search box, such as a view switch. */
   toolbarStart?: ReactNode;
+  /** Optional controlled sorting for a matching toolbar sort selector. */
+  sorting?: SortingState;
+  onSortingChange?: OnChangeFn<SortingState>;
   /**
    * Controls shown before the search box, such as tabs switching between
    * tables. They stay while the table loads or fails.
@@ -203,10 +207,14 @@ export function DataTable<TData>({
   renderSummary,
   extraFilters,
   toolbarStart,
+  sorting: controlledSorting,
+  onSortingChange,
   toolbarLead,
   serverPagination,
 }: DataTableProps<TData>) {
-  const [sorting, setSorting] = useState<SortingState>([]);
+  const [internalSorting, setInternalSorting] = useState<SortingState>([]);
+  const sorting = controlledSorting ?? internalSorting;
+  const setSorting = onSortingChange ?? setInternalSorting;
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
   const [globalFilter, setGlobalFilter] = useState('');
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({});

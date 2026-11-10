@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import type { ColumnDef, Row } from '@tanstack/react-table';
+import type { ColumnDef, Row, SortingState } from '@tanstack/react-table';
 import {
   Link,
   useLocation,
@@ -13,6 +13,7 @@ import {
   useJobActions,
   useJobApplications,
   useJobPositions,
+  useJobReferrals,
 } from '@/api/jobs';
 import type {
   JobApplication,
@@ -238,6 +239,7 @@ function Positions() {
   const user = useJobsUser();
   const positions = useJobPositions();
   const applications = useJobApplications(user?.id);
+  const referrals = useJobReferrals(user?.id);
   const save = useJobActions(user?.id);
   const navigate = useNavigate();
   const [params] = useSearchParams();
@@ -250,6 +252,14 @@ function Positions() {
   });
   const focusID = focused.data?.id ?? focus;
   const [status, setStatus] = useState('open');
+  const [applicationFilter, setApplicationFilter] = useState(() => {
+    const saved =
+      user && localStorage.getItem(`rsp-jobs-applied-filter:${user.id}`);
+    return saved === 'applied' || saved === 'not-applied' ? saved : 'all';
+  });
+  const [sorting, setSorting] = useState<SortingState>([
+    { id: 'added', desc: true },
+  ]);
   const [error, setError] = useState('');
   const [pending, setPending] = useState<string>();
   const [edit, setEdit] = useState<JobPosition>();
@@ -257,6 +267,12 @@ function Positions() {
   const [merge, setMerge] = useState<JobPosition>();
   const [remove, setRemove] = useState<JobApplication>();
   const all = positions.data ?? [];
+  const appliedIDs = new Set(applications.data?.map((a) => a.position.id));
+  const referrerCounts = new Map<string, number>();
+  for (const referral of referrals.data ?? []) {
+    const id = referral.company.id;
+    referrerCounts.set(id, (referrerCounts.get(id) ?? 0) + 1);
+  }
   const shown = all.filter(
     (p) => status === 'all' || p.status === status || p.id === focusID,
   );
@@ -265,6 +281,23 @@ function Positions() {
   );
   const appFor = (p: JobPosition) =>
     applications.data?.find((a) => a.position.id === p.id);
+  function companyCell(position: JobPosition) {
+    const count = user ? (referrerCounts.get(position.company.id) ?? 0) : 0;
+    return (
+      <div className="grid min-w-0 gap-1">
+        <CompanyLink position={position} />
+        {count > 0 && (
+          <Link
+            to={`/jobs/referrals?company=${encodeURIComponent(position.company.id)}`}
+            aria-label={`View ${count} ${count === 1 ? 'referrer' : 'referrers'} at ${position.company.name}`}
+            className="w-fit rounded-sm text-xs text-muted-foreground hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+          >
+            View {count} {count === 1 ? 'referrer' : 'referrers'}
+          </Link>
+        )}
+      </div>
+    );
+  }
   async function applied(p: JobPosition, checked: boolean) {
     if (!user) return;
     const existing = appFor(p);
@@ -380,8 +413,8 @@ function Positions() {
       id: 'company',
       accessorFn: (p) => p.company.name,
       header: 'Company',
-      cell: ({ row }) => <CompanyLink position={row.original} />,
-      meta: { width: 12 },
+      cell: ({ row }) => companyCell(row.original),
+      meta: { width: 12, wrap: true },
     },
     {
       accessorKey: 'title',
@@ -420,6 +453,29 @@ function Positions() {
       cell: ({ row }) => row.original.notes || '—',
       meta: { width: 9 },
     },
+    {
+      id: 'added',
+      accessorFn: (p) => new Date(p.createdAt).getTime(),
+      sortingFn: (a, b) => {
+        // Direct position links stay first under either date ordering.
+        const focusedOrder =
+          Number(a.original.id === focusID) - Number(b.original.id === focusID);
+        if (focusedOrder)
+          return (
+            focusedOrder *
+            (sorting.find((s) => s.id === 'added')?.desc ? 1 : -1)
+          );
+        return a.getValue<number>('added') - b.getValue<number>('added');
+      },
+      header: 'Added',
+      cell: ({ row }) => (
+        <time dateTime={row.original.createdAt}>
+          {formatCalendarDay(new Date(row.original.createdAt))}
+        </time>
+      ),
+      enableColumnFilter: false,
+      meta: { width: 7 },
+    },
     ...(user
       ? [
           {
@@ -447,8 +503,20 @@ function Positions() {
   ];
   const [category, setCategory] = useState('all');
   const filtered = ordered.filter(
-    (p) => category === 'all' || p.company.category === category,
+    (p) =>
+      p.id === focusID ||
+      ((category === 'all' || p.company.category === category) &&
+        (!user ||
+          applicationFilter === 'all' ||
+          (applications.isSuccess &&
+            appliedIDs.has(p.id) === (applicationFilter === 'applied')))),
   );
+  const sortOrder =
+    sorting[0]?.id === 'added'
+      ? sorting[0].desc
+        ? 'newest'
+        : 'oldest'
+      : 'custom';
   return (
     <>
       {error && (
@@ -456,7 +524,7 @@ function Positions() {
           {error}
         </p>
       )}
-      {applications.isError && (
+      {applications.isError && applicationFilter === 'all' && (
         <p role="alert" className="mb-4 text-sm">
           Could not load your Applied markers.{' '}
           <Button variant="link" onClick={() => void applications.refetch()}>
@@ -474,26 +542,83 @@ function Positions() {
         ariaLabel="Job positions"
         data={filtered}
         columns={columns}
+        sorting={sorting}
+        onSortingChange={setSorting}
         getRowId={(p) => p.id}
         defaultExpanded={focusID ? { [focusID]: true } : false}
-        loading={positions.isLoading}
-        error={positions.isError}
-        onRetry={() => void positions.refetch()}
-        emptyTitle="No Positions"
-        emptyMessage="New positions will appear here when they are shared."
+        loading={
+          positions.isLoading ||
+          (Boolean(user) &&
+            applicationFilter !== 'all' &&
+            applications.isPending)
+        }
+        error={
+          positions.isError ||
+          (Boolean(user) && applicationFilter !== 'all' && applications.isError)
+        }
+        onRetry={() => {
+          void positions.refetch();
+          if (user) void applications.refetch();
+        }}
+        emptyTitle={
+          applicationFilter === 'all' ? 'No Positions' : 'No matching positions'
+        }
+        emptyMessage={
+          applicationFilter === 'all'
+            ? 'New positions will appear here when they are shared.'
+            : 'Try All to see positions regardless of whether you have applied.'
+        }
         searchPlaceholder="Search positions…"
         toolbarStart={
-          <JobSelect
-            label="Listings"
-            compact
-            value={status}
-            options={[
-              { value: 'open', label: 'Open positions' },
-              { value: 'all', label: 'All positions' },
-              { value: 'closed', label: 'Closed positions' },
-            ]}
-            onChange={setStatus}
-          />
+          <>
+            <JobSelect
+              label="Listings"
+              compact
+              value={status}
+              options={[
+                { value: 'open', label: 'Open positions' },
+                { value: 'all', label: 'All positions' },
+                { value: 'closed', label: 'Closed positions' },
+              ]}
+              onChange={setStatus}
+            />
+            {user && (
+              <JobSelect
+                label="Application filter"
+                compact
+                value={applicationFilter}
+                disabled={applications.isPending || applications.isError}
+                options={[
+                  { value: 'all', label: 'All' },
+                  { value: 'not-applied', label: 'Not applied' },
+                  { value: 'applied', label: 'Applied' },
+                ]}
+                onChange={(value) => {
+                  setApplicationFilter(value);
+                  localStorage.setItem(
+                    `rsp-jobs-applied-filter:${user.id}`,
+                    value,
+                  );
+                }}
+              />
+            )}
+            <JobSelect
+              label="Sort positions"
+              compact
+              value={sortOrder}
+              options={[
+                { value: 'newest', label: 'Newest' },
+                { value: 'oldest', label: 'Oldest' },
+                ...(sortOrder === 'custom'
+                  ? [{ value: 'custom', label: 'Custom sort' }]
+                  : []),
+              ]}
+              onChange={(value) => {
+                if (value !== 'custom')
+                  setSorting([{ id: 'added', desc: value === 'newest' }]);
+              }}
+            />
+          </>
         }
         extraFilters={{
           content: (
@@ -518,7 +643,7 @@ function Positions() {
             <div className="flex items-center justify-between gap-3">
               <div className="flex min-w-0 items-center gap-3">
                 <JobDetailsButton row={row} position={row.original} />
-                <CompanyLink position={row.original} />
+                {companyCell(row.original)}
               </div>
               {staffMenu(row.original)}
             </div>
@@ -527,6 +652,12 @@ function Positions() {
               {jobTypes.find((t) => t.value === row.original.jobType)?.label} ·{' '}
               {row.original.locations.join(' · ')}
               {row.original.status === 'closed' ? ' · Closed' : ''}
+            </p>
+            <p className="text-sm text-muted-foreground">
+              Added{' '}
+              <time dateTime={row.original.createdAt}>
+                {formatCalendarDay(new Date(row.original.createdAt))}
+              </time>
             </p>
             {user && appliedControl(row.original)}
             {row.getIsExpanded() && <PositionDetails position={row.original} />}
