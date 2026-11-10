@@ -144,6 +144,16 @@ function Outcome({
   label: string;
   details?: string[];
 }) {
+  // An error reads as one line: "[Error]: the reason".
+  if (tone === 'danger' && details.length)
+    return (
+      <span className="flex flex-wrap items-center gap-x-1.5 gap-y-1">
+        <StatusBadge tone={tone}>{label}</StatusBadge>
+        <span className="text-sm text-muted-foreground">
+          <span aria-hidden="true">:</span> {details.join(' ')}
+        </span>
+      </span>
+    );
   return (
     <span className="grid justify-items-start gap-1">
       <StatusBadge tone={tone}>{label}</StatusBadge>

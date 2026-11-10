@@ -41,7 +41,7 @@ test('administrators invite people from a spreadsheet, with bad rows held back',
   ).toContainText('alex-c');
   await expect(
     rows.getByRole('row').filter({ hasText: 'not-an-email' }),
-  ).toContainText('ErrorAdd a valid email address.');
+  ).toContainText('Error: Add a valid email address.');
   await expect(rows).toContainText(
     'Role must be student, mentor or coordinator.',
   );

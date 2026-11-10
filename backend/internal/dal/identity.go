@@ -104,7 +104,7 @@ func (p *Store) createIdentityUser(ctx context.Context, tx pgx.Tx, event account
 		name = "New member"
 	}
 	// The profile's address comes from the name: maddie-frew, then
-	// maddie-frew-2 for the next Maddie Frew.
+	// maddie-frew2 for the next Maddie Frew.
 	slug, err := freeSlug(ctx, tx, NameSlug(name), userID)
 	if err != nil {
 		return err

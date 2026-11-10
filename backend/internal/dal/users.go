@@ -48,7 +48,7 @@ func (p *Store) GetUser(ctx context.Context, userID string) (accounts.User, erro
 }
 
 // SuggestUserSlug suggests a profile slug from the user's name, such as
-// maddie-frew or maddie-frew-2 when that is taken by someone else.
+// maddie-frew or maddie-frew2 when that is taken by someone else.
 func (p *Store) SuggestUserSlug(ctx context.Context, userID string) (string, error) {
 	var name string
 	if err := p.pool.QueryRow(ctx, `SELECT display_name FROM app.user_profiles WHERE user_id=$1`, userID).Scan(&name); err != nil {

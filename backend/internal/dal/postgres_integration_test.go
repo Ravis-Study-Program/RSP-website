@@ -89,8 +89,8 @@ func TestPostgres18MigrationsAndDAL(t *testing.T) {
 	for _, account := range []struct{ event, subject, email, name, want, slug string }{
 		{"00000000-0000-7000-8000-0000000000a1", "auth-named", "test10@rsp.local", "  Maddie Reiter ", "Maddie Reiter", "maddie-reiter"},
 		{"00000000-0000-7000-8000-0000000000a2", "auth-unnamed", "jordan.lee@rsp.local", "", "jordan.lee", "jordan-lee"},
-		{"00000000-0000-7000-8000-0000000000a3", "auth-named-again", "maddie@rsp.local", "Maddie Reiter", "Maddie Reiter", "maddie-reiter-2"},
-		{"00000000-0000-7000-8000-0000000000a4", "auth-named-third", "m.r@rsp.local", "maddie reiter", "maddie reiter", "maddie-reiter-3"},
+		{"00000000-0000-7000-8000-0000000000a3", "auth-named-again", "maddie@rsp.local", "Maddie Reiter", "Maddie Reiter", "maddie-reiter2"},
+		{"00000000-0000-7000-8000-0000000000a4", "auth-named-third", "m.r@rsp.local", "maddie reiter", "maddie reiter", "maddie-reiter3"},
 	} {
 		if err := repository.ApplyIdentityEvent(ctx, accounts.IdentityEvent{
 			EventID: account.event, Type: "auth_user_created", AuthUserID: account.subject,

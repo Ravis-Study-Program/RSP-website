@@ -1,3 +1,4 @@
+import { Tooltip } from '@/components/ui/tooltip';
 import { StatusBadge } from '@/components/StatusBadge';
 import { Button } from '@/components/ui/button';
 import { Field, FieldError, FieldLabel } from '@/components/ui/field';
@@ -1454,11 +1455,15 @@ function UpdateStatus({
       ) : row.unlock?.state === 'approved' && !row.update ? (
         <StatusBadge tone="info">Unlocked</StatusBadge>
       ) : row.locked && !row.update && row.status !== 'Kicked' ? (
-        <IconLock
-          size={15}
-          className="text-muted-foreground"
-          aria-label="Locked"
-        />
+        <Tooltip content="This Monday update is locked. Request an unlock from this row’s menu.">
+          <button
+            type="button"
+            aria-label="Locked. Request an unlock from this row’s menu."
+            className="inline-flex cursor-default rounded-sm text-muted-foreground"
+          >
+            <IconLock size={15} aria-hidden="true" />
+          </button>
+        </Tooltip>
       ) : null}
     </span>
   );

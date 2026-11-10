@@ -10,7 +10,7 @@ import (
 	"golang.org/x/text/unicode/norm"
 )
 
-// maxSlugBase leaves room for a "-NN" suffix within the 50-character limit.
+// maxSlugBase leaves room for a "NN" suffix within the 50-character limit.
 const maxSlugBase = 44
 
 // NameSlug turns a name into the start of a profile slug: lower-case letters
@@ -51,11 +51,11 @@ type rowQuerier interface {
 	Query(ctx context.Context, sql string, args ...any) (pgx.Rows, error)
 }
 
-// freeSlug returns base if no other profile uses it, or else base-2, base-3
-// and so on, whichever is first free. exceptUserID's own slug does not count.
+// freeSlug returns base if no other profile uses it, or else base2, base3
+// and so on ("maddie-frew2"), whichever is first free. exceptUserID's own slug does not count.
 func freeSlug(ctx context.Context, q rowQuerier, base, exceptUserID string) (string, error) {
 	rows, err := q.Query(ctx, `SELECT lower(slug) FROM app.user_profiles
- WHERE (lower(slug)=$1 OR lower(slug) ~ ('^' || $1 || '-[0-9]+$')) AND user_id::text <> $2`, base, exceptUserID)
+ WHERE (lower(slug)=$1 OR lower(slug) ~ ('^' || $1 || '[0-9]+$')) AND user_id::text <> $2`, base, exceptUserID)
 	if err != nil {
 		return "", err
 	}
@@ -75,7 +75,7 @@ func freeSlug(ctx context.Context, q rowQuerier, base, exceptUserID string) (str
 		return base, nil
 	}
 	for n := 2; ; n++ {
-		if candidate := fmt.Sprintf("%s-%d", base, n); !taken[candidate] {
+		if candidate := fmt.Sprintf("%s%d", base, n); !taken[candidate] {
 			return candidate, nil
 		}
 	}
