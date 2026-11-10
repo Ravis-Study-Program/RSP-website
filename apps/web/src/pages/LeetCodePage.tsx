@@ -22,6 +22,7 @@ import {
 import { ProblemSuggestion } from '@/components/ProblemSuggestion';
 import { SeasonWeekChoices } from '@/components/ActivityFilters';
 import { ActivityPeriodFilter } from '@/components/ActivityPeriodFilter';
+import { useManagedSeasons } from '@/components/useSeasonSwitcher';
 import { useActivitySeason, useActivitySeasons } from '@/activityPeriod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import {
@@ -111,6 +112,8 @@ export function LeetCodePage() {
   const { seasons, season, hasSelection } = useActivitySeason('leetcode');
   const user = useCurrentUser();
   // Practice only belongs to seasons where you were a student.
+  // Directors, System Admins and coordinators pick the season at the top left.
+  const managesSeasons = useManagedSeasons().length > 0;
   const studentSeasons = useActivitySeasons(
     user.data?.id,
     seasons.data?.items ?? [],
@@ -253,6 +256,16 @@ export function LeetCodePage() {
           <AttemptTable
             ariaLabel="Problem attempts"
             data={visibleAttempts}
+            toolbarLead={
+              managesSeasons ? (
+                <ActivityPeriodFilter
+                  bare
+                  section="leetcode"
+                  season={season}
+                  seasons={studentSeasons}
+                />
+              ) : undefined
+            }
             extraFilters={{
               content: (
                 <>

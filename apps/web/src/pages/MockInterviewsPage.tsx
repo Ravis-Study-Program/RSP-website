@@ -1,3 +1,4 @@
+import { personOptions } from '@/components/personOptions';
 import { StatusBadge } from '@/components/StatusBadge';
 import { Button } from '@/components/ui/button';
 import {
@@ -22,6 +23,7 @@ import { useActivityFilters, filterMocks } from '@/activityFilters';
 import { MockFilters } from '@/components/ActivityFilters';
 import { programTimezone } from '@/activityDates';
 import { ActivityPeriodFilter } from '@/components/ActivityPeriodFilter';
+import { useManagedSeasons } from '@/components/useSeasonSwitcher';
 import { useActivitySeason, useActivitySeasons } from '@/activityPeriod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import {
@@ -76,6 +78,7 @@ import {
   usePageTitle,
   LabelHint,
 } from '@/components/Common';
+import { duplicateNames } from '@/duplicateNames';
 import { AppDatePicker } from '@/components/AppDatePicker';
 import { ExternalLink } from '@/components/ExternalLink';
 import { FormDialog, NamedConfirmation } from '@/components/Dialogs';
@@ -578,6 +581,7 @@ const columnsForSeason = (
   cells: {
     review: (mock: MockInterview) => ReactNode;
     actions: (row: Row<MockInterview>) => ReactNode;
+    duplicates: ReadonlySet<string>;
   },
 ): ColumnDef<MockInterview, any>[] => [
   // Most important first: who, the result and scores, then the details.
@@ -600,7 +604,11 @@ const columnsForSeason = (
     header: 'Interviewee',
     enableColumnFilter: false,
     cell: ({ row }) => (
-      <PersonIdentity person={row.original.interviewee} seasonId={seasonId} />
+      <PersonIdentity
+        person={row.original.interviewee}
+        seasonId={seasonId}
+        duplicates={cells.duplicates}
+      />
     ),
   },
   {
@@ -610,7 +618,11 @@ const columnsForSeason = (
     // The Interviewers dropdown already filters by interviewer.
     enableColumnFilter: false,
     cell: ({ row }) => (
-      <PersonIdentity person={row.original.interviewer} seasonId={seasonId} />
+      <PersonIdentity
+        person={row.original.interviewer}
+        seasonId={seasonId}
+        duplicates={cells.duplicates}
+      />
     ),
   },
   {
@@ -629,6 +641,7 @@ const columnsForSeason = (
             : row.original.interviewer
         }
         seasonId={seasonId}
+        duplicates={cells.duplicates}
       />
     ),
   },
@@ -759,6 +772,8 @@ export function MockInterviewsPage() {
         : undefined) ?? [];
   // Received mocks belong to seasons where you were a student; ones you gave
   // belong to the interviewee's season, which can be any season you took part in.
+  // Directors, System Admins and coordinators pick the season at the top left.
+  const managesSeasons = useManagedSeasons().length > 0;
   const periodSeasons = useActivitySeasons(
     user.data?.id,
     seasonsQuery.data?.items ?? [],
@@ -921,6 +936,16 @@ export function MockInterviewsPage() {
           onChanged={interviewChanged}
           renderActions={actionsCell}
           ariaLabel={`${mode} mock interviews`}
+          toolbarLead={
+            managesSeasons ? (
+              <ActivityPeriodFilter
+                bare
+                section="mock-interviews"
+                season={season}
+                seasons={periodSeasons}
+              />
+            ) : undefined
+          }
           extraFilters={{
             content: (
               <>
@@ -1080,7 +1105,11 @@ export function MockInterviewTable({
     received: ['interviewee', 'with', 'type'],
     given: ['interviewer', 'with', 'type'],
   };
+  const duplicates = duplicateNames(
+    mocks.flatMap((mock) => [mock.interviewee, mock.interviewer]),
+  );
   const columns = columnsForSeason(seasonId, subjectId, {
+    duplicates,
     review: reviewCell,
     actions: (row) => renderActions?.(row),
   })
@@ -1174,6 +1203,7 @@ export function MockInterviewTable({
                   : row.original.interviewer
               }
               seasonId={seasonId}
+              duplicates={duplicates}
             />
           </h2>
           <p className="text-sm text-muted-foreground">
@@ -2141,10 +2171,7 @@ function IdentityCorrectionDialog({
               Interviewer
             </FieldLabel>
             <Select
-              items={candidates.map((person) => ({
-                label: person.name,
-                value: person.id,
-              }))}
+              items={personOptions(candidates)}
               value={interviewerId}
               onValueChange={(value) => setInterviewerId(value ?? '')}
             >
@@ -2170,10 +2197,7 @@ function IdentityCorrectionDialog({
               Interviewee
             </FieldLabel>
             <Select
-              items={candidates.map((person) => ({
-                label: person.name,
-                value: person.id,
-              }))}
+              items={personOptions(candidates)}
               value={intervieweeId}
               onValueChange={(value) => setIntervieweeId(value ?? '')}
             >
@@ -2418,10 +2442,25 @@ function NewMockDialog({
               const candidates = people.filter(
                 (person) => person.id !== interviewer?.id,
               );
+              // People who share a name also show their slug, in grey.
+              const nameCounts = new Map<string, number>();
+              for (const person of candidates)
+                nameCounts.set(
+                  person.name.toLowerCase(),
+                  (nameCounts.get(person.name.toLowerCase()) ?? 0) + 1,
+                );
+              const slugSuffix = new Map(
+                candidates.map((person) => [
+                  person.id,
+                  (nameCounts.get(person.name.toLowerCase()) ?? 0) > 1
+                    ? ` (${person.slug})`
+                    : '',
+                ]),
+              );
               const labels = new Map(
                 candidates.map((person) => [
                   person.id,
-                  `${person.name}${person.roles.length ? ` · ${person.roles.join(', ')}` : ''}`,
+                  `${person.name}${slugSuffix.get(person.id)}${person.roles.length ? ` · ${person.roles.join(', ')}` : ''}`,
                 ]),
               );
               return (
@@ -2444,7 +2483,16 @@ function NewMockDialog({
                     <ComboboxList>
                       {(id: string) => (
                         <ComboboxItem key={id} value={id}>
-                          {labels.get(id)}
+                          {slugSuffix.get(id) ? (
+                            <>
+                              {labels.get(id)?.replace(slugSuffix.get(id)!, '')}
+                              <span className="text-muted-foreground">
+                                {slugSuffix.get(id)}
+                              </span>
+                            </>
+                          ) : (
+                            labels.get(id)
+                          )}
                         </ComboboxItem>
                       )}
                     </ComboboxList>

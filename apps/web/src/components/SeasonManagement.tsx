@@ -16,7 +16,8 @@ import {
   IconTrash,
   IconChevronDown,
 } from '@tabler/icons-react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { getSelectedSeasonSlug, selectSeason } from '@/selectedSeason';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -134,6 +135,8 @@ export function SeasonEditorDialog({
   onOpenChange?: (open: boolean) => void;
 }) {
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
+  const location = useLocation();
   const [uncontrolledOpen, setUncontrolledOpen] = useState(false);
   const controlled = controlledOpen !== undefined;
   const open = controlled ? controlledOpen : uncontrolledOpen;
@@ -192,6 +195,20 @@ export function SeasonEditorDialog({
         seasonsOptions.queryKey,
         (current) => replaceSeason(current, saved),
       );
+      // A new slug changes the season's address: keep the page, and the season
+      // remembered as selected, pointing at it.
+      if (season && saved.slug !== season.slug) {
+        if (getSelectedSeasonSlug() === season.slug) selectSeason(saved.slug);
+        const old = `/seasons/${season.slug}`;
+        if (
+          location.pathname === old ||
+          location.pathname.startsWith(`${old}/`)
+        )
+          navigate(
+            `/seasons/${saved.slug}${location.pathname.slice(old.length)}${location.search}${location.hash}`,
+            { replace: true },
+          );
+      }
       onSaved?.(saved);
       form.reset(defaultValues(saved));
       setOpen(false);
@@ -642,11 +659,7 @@ export function SeasonLifecycleDialog({
           <Button
             variant={action === 'close' ? 'destructive' : 'default'}
             type="button"
-            disabled={
-              pending ||
-              reason.trim().length < 5 ||
-              confirmation !== season.name
-            }
+            disabled={pending || !reason.trim() || confirmation !== season.name}
             onClick={() => void submit()}
           >
             {pending
@@ -673,15 +686,20 @@ export function SeasonEditMenu({
   canEditResources,
   canClose,
   canReopen,
+  canDelete = false,
+  onDeleted,
 }: {
   season: Season;
   canEditDefinition: boolean;
   canEditResources: boolean;
   canClose: boolean;
   canReopen: boolean;
+  canDelete?: boolean;
+  /** Called once the season has been deleted. */
+  onDeleted?: () => void;
 }) {
   const [open, setOpen] = useState<
-    'details' | 'resources' | 'close' | 'reopen' | null
+    'details' | 'resources' | 'close' | 'reopen' | 'delete' | null
   >(null);
   const close = (next: boolean) => {
     if (!next) setOpen(null);
@@ -719,6 +737,14 @@ export function SeasonEditMenu({
               <IconLock size={17} aria-hidden="true" /> Close Season
             </DropdownMenuItem>
           ) : null}
+          {canDelete ? (
+            <DropdownMenuItem
+              variant="destructive"
+              onClick={() => setOpen('delete')}
+            >
+              <IconTrash size={17} aria-hidden="true" /> Delete Season
+            </DropdownMenuItem>
+          ) : null}
         </DropdownMenuContent>
       </DropdownMenu>
       {open === 'details' ? (
@@ -726,6 +752,14 @@ export function SeasonEditMenu({
       ) : null}
       {open === 'resources' ? (
         <SeasonResourcesDialog season={season} open onOpenChange={close} />
+      ) : null}
+      {open === 'delete' ? (
+        <DeleteEmptySeason
+          season={season}
+          open
+          onOpenChange={close}
+          onDeleted={onDeleted}
+        />
       ) : null}
       {open === 'close' || open === 'reopen' ? (
         <SeasonLifecycleDialog

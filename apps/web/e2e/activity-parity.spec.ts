@@ -159,6 +159,15 @@ test('administrators invite a student with their mentor, then resend and cancel'
   await dialog
     .getByLabel('Email', { exact: true })
     .fill('invited@example.test');
+  // An address with no dotted domain is refused before anything is sent.
+  await dialog.getByLabel('Email', { exact: true }).fill('invited@mail');
+  await dialog.getByRole('button', { name: 'Send Invitation' }).click();
+  await expect(dialog.getByRole('status')).toContainText(
+    'Enter a valid email address',
+  );
+  await dialog
+    .getByLabel('Email', { exact: true })
+    .fill('invited@example.test');
   // The form starts on the page's season.
   await expect(dialog.getByRole('combobox', { name: 'Season' })).toHaveText(
     /Summer 2025\/26/,
@@ -293,9 +302,7 @@ test('administrators delete empty seasons and retain populated seasons', async (
   let confirmation = page.getByRole('alertdialog');
   const label = await confirmation.locator('label strong').textContent();
   await confirmation.getByRole('textbox').fill(label!);
-  await confirmation
-    .getByRole('button', { name: 'Delete Empty Season' })
-    .click();
+  await confirmation.getByRole('button', { name: 'Delete Season' }).click();
   await expect(confirmation.getByRole('alert')).toContainText(
     'cannot be deleted',
   );
@@ -313,8 +320,6 @@ test('administrators delete empty seasons and retain populated seasons', async (
   await page.getByRole('menuitem', { name: 'Delete', exact: true }).click();
   confirmation = page.getByRole('alertdialog');
   await confirmation.getByRole('textbox').fill('Empty test season');
-  await confirmation
-    .getByRole('button', { name: 'Delete Empty Season' })
-    .click();
+  await confirmation.getByRole('button', { name: 'Delete Season' }).click();
   await expect(row).toHaveCount(0);
 });

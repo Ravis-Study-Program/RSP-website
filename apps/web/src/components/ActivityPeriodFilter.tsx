@@ -10,6 +10,7 @@ import { useId } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import type { Season } from '@/types';
 import { rememberActivitySeason } from '@/activityPeriod';
+import { selectSeason } from '@/selectedSeason';
 import { Field, FieldLabel } from '@/components/ui/field';
 
 export function ActivityPeriodFilter({
@@ -17,11 +18,14 @@ export function ActivityPeriodFilter({
   season,
   seasons,
   label = 'View activity',
+  bare = false,
 }: {
   section: 'leetcode' | 'mock-interviews';
   season?: Season;
   seasons: Season[];
   label?: string;
+  /** Just the dropdown, wide, for the top left of a table. */
+  bare?: boolean;
 }) {
   const { slug } = useParams();
   const navigate = useNavigate();
@@ -31,43 +35,53 @@ export function ActivityPeriodFilter({
     { label: 'All time', value: '' },
     ...seasons.map((item) => ({ label: item.name, value: item.id })),
   ];
-  return (
+  const control = (
+    <Select
+      items={seasonItems}
+      value={season?.id ?? ''}
+      onValueChange={(value) => {
+        const selected = seasons.find((item) => item.id === (value ?? ''));
+        rememberActivitySeason(selected?.id);
+        if (selected) selectSeason(selected.slug);
+        const next = new URLSearchParams(params);
+        next.delete('year');
+        next.delete('weekId');
+        next.delete('seasonId');
+        // Personal history stays on its own route, including for former members.
+        if (selected && !slug) next.set('seasonId', selected.id);
+        navigate({
+          pathname:
+            selected && slug
+              ? `/seasons/${selected.slug}/${section}`
+              : `/${section}`,
+          search: next.toString(),
+        });
+      }}
+    >
+      <SelectTrigger
+        id={selectId}
+        aria-label={bare ? 'Season' : undefined}
+        className={bare ? 'w-64' : 'w-full'}
+      >
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent>
+        <SelectGroup>
+          {seasonItems.map((item) => (
+            <SelectItem key={item.value} value={item.value}>
+              {item.label}
+            </SelectItem>
+          ))}
+        </SelectGroup>
+      </SelectContent>
+    </Select>
+  );
+  return bare ? (
+    control
+  ) : (
     <Field>
       <FieldLabel htmlFor={selectId}>{label}</FieldLabel>
-      <Select
-        items={seasonItems}
-        value={season?.id ?? ''}
-        onValueChange={(value) => {
-          const selected = seasons.find((item) => item.id === (value ?? ''));
-          rememberActivitySeason(selected?.id);
-          const next = new URLSearchParams(params);
-          next.delete('year');
-          next.delete('weekId');
-          next.delete('seasonId');
-          // Personal history stays on its own route, including for former members.
-          if (selected && !slug) next.set('seasonId', selected.id);
-          navigate({
-            pathname:
-              selected && slug
-                ? `/seasons/${selected.slug}/${section}`
-                : `/${section}`,
-            search: next.toString(),
-          });
-        }}
-      >
-        <SelectTrigger id={selectId} className="w-full">
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectGroup>
-            {seasonItems.map((item) => (
-              <SelectItem key={item.value} value={item.value}>
-                {item.label}
-              </SelectItem>
-            ))}
-          </SelectGroup>
-        </SelectContent>
-      </Select>
+      {control}
     </Field>
   );
 }

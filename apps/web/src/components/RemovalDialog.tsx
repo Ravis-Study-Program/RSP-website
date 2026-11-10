@@ -97,7 +97,7 @@ export function RemovalDialog({
           type="button"
           disabled={
             pending ||
-            reason.trim().length < 5 ||
+            !reason.trim() ||
             confirmation !== person.name ||
             (!demoMode && (!seasonId || !person.enrollmentId))
           }

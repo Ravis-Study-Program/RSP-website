@@ -1,5 +1,6 @@
 import { parseDelimited } from '@/csv';
 import type { Season } from '@/types';
+import { isValidEmail } from '@/utils';
 
 export { parseDelimited };
 
@@ -29,7 +30,7 @@ const columns = {
   email: ['email', 'email address'],
   mentor: ['mentor', 'mentor email', 'mentor name'],
   season: ['season', 'season name', 'season slug'],
-  slug: ['slug', 'username'],
+  slug: ['username', 'slug'],
 } as const;
 type Column = keyof typeof columns;
 
@@ -82,16 +83,16 @@ export function parseInvitationSheet(
     );
     row.problem = !row.name
       ? 'Add a name.'
-      : !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(row.email)
+      : !isValidEmail(row.email)
         ? 'Add a valid email address.'
         : !roles.includes(row.role)
           ? 'Role must be student, mentor or coordinator.'
           : row.mentor && row.role !== 'student'
             ? 'Only students can be given a mentor.'
             : row.slug && !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(row.slug)
-              ? 'Slugs use lowercase letters, numbers and single hyphens.'
-              : row.slug && (row.slug.length < 3 || row.slug.length > 50)
-                ? 'Slugs are 3 to 50 characters.'
+              ? 'Usernames use lowercase letters, numbers and single hyphens.'
+              : row.slug && (row.slug.length < 2 || row.slug.length > 50)
+                ? 'Usernames are 2 to 50 characters.'
                 : !row.seasonText
                   ? 'Add a season.'
                   : !row.season
@@ -99,7 +100,7 @@ export function parseInvitationSheet(
                     : row.slug &&
                         slugOwners.has(row.slug) &&
                         slugOwners.get(row.slug) !== row.email
-                      ? 'This slug is already used by another row in this file.'
+                      ? 'This username is already used by another row in this file.'
                       : '';
     if (!row.problem && row.slug && !slugOwners.has(row.slug))
       slugOwners.set(row.slug, row.email);

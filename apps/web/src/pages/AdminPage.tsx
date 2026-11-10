@@ -90,6 +90,8 @@ import {
 } from '@/components/Common';
 import { AppDatePicker } from '@/components/AppDatePicker';
 import { ManagePersonDialog } from '@/components/ManagePersonDialog';
+import { personOptions } from '@/components/personOptions';
+import { selectSeason, useSelectedSeasonSlug } from '@/selectedSeason';
 import { AdminProfileEditor } from '@/components/AdminProfileEditor';
 import {
   useDraftSections,
@@ -112,7 +114,7 @@ import {
   initials,
   zonedDateTimeToUtc,
 } from '@/utils';
-import { defaultSeason } from '@/navigation';
+import { mentorTeamsSeason as rememberedMentorTeamsSeason } from '@/navigation';
 import { statusSortingFn } from '@/sortOrder';
 
 function statusLabel(status: string) {
@@ -190,8 +192,9 @@ export function AdminPage() {
     }
   };
   const visibleResources = adminResources;
-  // Mentor teams belong to a season, so the link opens the default one.
-  const mentorTeamsSeason = defaultSeason(
+  // Mentor teams belong to a season, so the link opens the one last chosen
+  // there, or else the default.
+  const mentorTeamsSeason = rememberedMentorTeamsSeason(
     currentUser.data,
     seasons.data?.items,
   );
@@ -516,7 +519,8 @@ export function AdminResourcePage({
   const canAdministerUsers = Boolean(
     currentUser.data?.globalRoles.includes('system_admin'),
   );
-  const [selectedSeasonId, setSelectedSeasonId] = useState('');
+  // The season is shared with every other season table.
+  const selectedSlug = useSelectedSeasonSlug();
   const globallyManaged = Boolean(currentUser.data?.globalRoles.length);
   const activeCoordinatorSeasonIds = new Set(
     currentUser.data?.seasonRoles
@@ -536,7 +540,7 @@ export function AdminResourcePage({
       }))
     : [{ label: 'No manageable season', value: '' }];
   const selectedSeason =
-    manageableSeasons.find((season) => season.id === selectedSeasonId) ??
+    manageableSeasons.find((season) => season.slug === selectedSlug) ??
     manageableSeasons.find((season) => season.status === 'open') ??
     manageableSeasons[0];
   const weeks = useSeasonWeeks(selectedSeason?.id);
@@ -705,7 +709,7 @@ export function AdminResourcePage({
                 const season = manageableSeasons.find(
                   (item) => item.slug === value,
                 );
-                setSelectedSeasonId(season?.id ?? '');
+                if (season) selectSeason(season.slug);
               }}
             >
               <SelectTrigger
@@ -1413,6 +1417,7 @@ function DeleteWeekButton({
   return (
     <NamedConfirmation
       name={`Week ${week.number}`}
+      title={`Delete Week ${week.number}?`}
       actionLabel="Delete Week"
       description="The week is permanently removed. Historical records may prevent deletion."
       open={open}
@@ -2084,9 +2089,7 @@ function RemoveEnrollmentDialog({
           <Button
             variant="destructive"
             type="button"
-            disabled={
-              pending || reason.trim().length < 5 || confirmation !== name
-            }
+            disabled={pending || !reason.trim() || confirmation !== name}
             onClick={() => void remove()}
           >
             {pending ? 'Removing…' : 'Remove Member'}
@@ -2119,11 +2122,11 @@ function MentorshipDialog({
   const students = people.filter((person) => person.roles.includes('student'));
   const mentorItems = [
     { label: 'Choose a mentor', value: '' },
-    ...mentors.map((person) => ({ label: person.name, value: person.id })),
+    ...personOptions(mentors),
   ];
   const studentItems = [
     { label: 'Choose a student', value: '' },
-    ...students.map((person) => ({ label: person.name, value: person.id })),
+    ...personOptions(students),
   ];
   const [uncontrolledOpen, setUncontrolledOpen] = useState(false);
   const controlled = controlledOpen !== undefined;

@@ -284,7 +284,7 @@ test('director MFA session creates, edits, closes, and reopens a throwaway seaso
   await page.getByRole('menuitem', { name: 'Delete', exact: true }).click();
   const deletion = page.getByRole('alertdialog');
   await deletion.getByRole('textbox').fill(seasonName);
-  await deletion.getByRole('button', { name: 'Delete Empty Season' }).click();
+  await deletion.getByRole('button', { name: 'Delete Season' }).click();
   await expect(emptySeason).toHaveCount(0);
 
   // Accounts are managed from People; only System Admins get Manage account.

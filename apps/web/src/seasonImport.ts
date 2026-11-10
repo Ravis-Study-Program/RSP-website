@@ -18,18 +18,37 @@ export interface SeasonImportRow {
 export interface SeasonImportGroup {
   name: string;
   slug: string;
-  location: string;
+  /** The season's resources link; blank keeps an existing season's. */
+  resourcesUrl: string;
   /** The season's first day, as YYYY-MM-DD. */
   startDate: string;
   weeks: SeasonImportRow[];
-  /** Why the season as a whole cannot be created; empty when it can. */
+  /** The open season this sheet updates, when its slug is already used. */
+  existing?: ExistingSeason;
+  /** Why the season as a whole cannot be imported; empty when it can. */
   problem: string;
 }
+
+/** A season that already exists, whose name and slug are taken. */
+export interface ExistingSeason {
+  id?: string;
+  name: string;
+  slug: string;
+  status?: string;
+}
+
+/** The most weeks one season can have. */
+export const maxSeasonWeeks = 52;
 
 const columns = {
   season: ['season', 'season name', 'name'],
   slug: ['slug', 'season slug'],
-  location: ['location'],
+  seasonResources: [
+    'season_resources',
+    'season resources',
+    'season resources url',
+    'resources url',
+  ],
   week: ['week', 'week number', 'number'],
   start: ['start', 'start date', 'starts'],
   end: ['end', 'end date', 'ends'],
@@ -71,37 +90,116 @@ const escapeHtml = (text: string) =>
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;');
 
-const linkify = (escaped: string) =>
-  escaped.replace(
-    /https?:\/\/[^\s<]+[^\s<.,;:!?)]/g,
-    (url) => `<a href="${url}">${url}</a>`,
-  );
+const withScheme = (url: string) =>
+  /^https?:\/\//i.test(url) ? url : `https://${url}`;
+
+/**
+ * Inline Markdown and links in already-escaped text: `code`, [text](address),
+ * bare web addresses (and ones starting www.), **bold**, *italic* or _italic_,
+ * and ~~strikethrough~~. Code and links are set aside first, so nothing inside
+ * them (an underscore in an address) is read as emphasis.
+ */
+function inline(escaped: string): string {
+  const kept: string[] = [];
+  const keep = (html: string) => `\uE000${kept.push(html) - 1}\uE000`;
+  let text = escaped
+    .replace(/`([^`]+)`/g, (_, code: string) => keep(`<code>${code}</code>`))
+    .replace(
+      /\[([^\]]+)\]\(\s*((?:https?:\/\/|www\.)[^\s)]+)\s*\)/gi,
+      (_, label: string, url: string) =>
+        keep(`<a href="${withScheme(url)}">${label}</a>`),
+    )
+    .replace(
+      /(?:https?:\/\/|\bwww\.)[^\s<\uE000]+[^\s<.,;:!?)\uE000]/gi,
+      (url) => keep(`<a href="${withScheme(url)}">${url}</a>`),
+    );
+  text = text
+    .replace(/\*\*([^\s*](?:[^*]*[^\s*])?)\*\*/g, '<strong>$1</strong>')
+    .replace(
+      /(^|[\s(])__([^\s_](?:[^_]*[^\s_])?)__(?=$|[\s).,;:!?])/g,
+      '$1<strong>$2</strong>',
+    )
+    .replace(/~~([^\s~](?:[^~]*[^\s~])?)~~/g, '<s>$1</s>')
+    .replace(/\*([^\s*](?:[^*]*[^\s*])?)\*/g, '<em>$1</em>')
+    .replace(
+      /(^|[\s(])_([^\s_](?:[^_]*[^\s_])?)_(?=$|[\s).,;:!?])/g,
+      '$1<em>$2</em>',
+    );
+  return text.replace(/\uE000(\d+)\uE000/g, (_, n: string) => kept[Number(n)]);
+}
 
 /**
  * Turns a spreadsheet cell into a week's resources page. HTML is kept (the
- * API sanitises it); plain text becomes paragraphs, lines starting with "- "
- * or "* " become a bulleted list, and web addresses become links.
+ * API sanitises it). Otherwise it is read as Markdown: headings (#), bullet
+ * (- * +) and numbered (1.) lists, > quotes, ``` code blocks, --- rules,
+ * **bold**, *italic*, ~~strikethrough~~, `code` and [text](address) links;
+ * bare web addresses become links, and any other line is a paragraph.
  */
 export function resourcesToHtml(text: string): string {
   const trimmed = text.trim();
   if (!trimmed) return '';
   if (/^<[a-z]/i.test(trimmed)) return trimmed;
   const blocks: string[] = [];
-  let items: string[] = [];
+  let list: { tag: 'ul' | 'ol'; items: string[] } | undefined;
+  let quote: string[] = [];
+  let code: string[] | undefined;
   const closeList = () => {
-    if (items.length) blocks.push(`<ul>${items.join('')}</ul>`);
-    items = [];
+    if (list) blocks.push(`<${list.tag}>${list.items.join('')}</${list.tag}>`);
+    list = undefined;
+  };
+  const closeQuote = () => {
+    if (quote.length)
+      blocks.push(
+        `<blockquote>${quote.map((line) => `<p>${line}</p>`).join('')}</blockquote>`,
+      );
+    quote = [];
   };
   for (const raw of trimmed.split(/\r?\n/)) {
-    const line = raw.trim();
-    const bullet = /^[-*•]\s+(.*)$/.exec(line);
-    if (bullet) items.push(`<li><p>${linkify(escapeHtml(bullet[1]))}</p></li>`);
-    else {
-      closeList();
-      if (line) blocks.push(`<p>${linkify(escapeHtml(line))}</p>`);
+    if (code) {
+      if (/^\s*```/.test(raw)) {
+        blocks.push(`<pre><code>${code.join('\n')}</code></pre>`);
+        code = undefined;
+      } else code.push(escapeHtml(raw));
+      continue;
     }
+    const line = raw.trim();
+    if (/^```/.test(line)) {
+      closeList();
+      closeQuote();
+      code = [];
+      continue;
+    }
+    const quoted = /^>\s?(.*)$/.exec(line);
+    if (quoted) {
+      closeList();
+      if (quoted[1]) quote.push(inline(escapeHtml(quoted[1])));
+      continue;
+    }
+    closeQuote();
+    const heading = /^(#{1,6})\s+(.*?)\s*#*$/.exec(line);
+    const bullet = /^[-*+•]\s+(.*)$/.exec(line);
+    const numbered = /^\d+[.)]\s+(.*)$/.exec(line);
+    const item = bullet ?? numbered;
+    if (item) {
+      const tag = bullet ? 'ul' : 'ol';
+      if (list?.tag !== tag) {
+        closeList();
+        list = { tag, items: [] };
+      }
+      list.items.push(`<li><p>${inline(escapeHtml(item[1]))}</p></li>`);
+      continue;
+    }
+    closeList();
+    if (heading)
+      blocks.push(
+        `<h${Math.min(heading[1].length, 4)}>${inline(escapeHtml(heading[2]))}</h${Math.min(heading[1].length, 4)}>`,
+      );
+    else if (/^(?:-{3,}|\*{3,}|_{3,})$/.test(line)) blocks.push('<hr>');
+    else if (line) blocks.push(`<p>${inline(escapeHtml(line))}</p>`);
   }
+  if (code) blocks.push(`<pre><code>${code.join('\n')}</code></pre>`);
   closeList();
+  closeQuote();
   return blocks.join('');
 }
 
@@ -115,16 +213,19 @@ export function weekTimes(row: SeasonImportRow) {
 
 /**
  * Reads seasons and their weeks from a spreadsheet, one row per week, or
- * explains why the sheet cannot be read. Blank season, slug and location
- * cells copy the row above (slug and location only within one season). A
+ * explains why the sheet cannot be read. Blank season and slug
+ * cells copy the row above (the slug only within one season). A
  * blank start is the day after the previous week's end, and a blank end is
  * the seventh day of the week, so weeks run on back to back; a season's first
- * week needs its start. `existing` are the seasons already created, whose
- * names and slugs are taken.
+ * week needs its start. A season whose slug (or, with no slug, name) is that
+ * of an `existing` open season updates it, weeks matched by number; a season
+ * with at most 52 weeks. `scope` limits the sheet to one season, as when
+ * importing from that season's own page.
  */
 export function parseSeasonSheet(
   text: string,
-  existing: Array<{ name: string; slug: string }> = [],
+  existing: ExistingSeason[] = [],
+  scope?: { name: string; slug: string },
 ): SeasonImportGroup[] | string {
   const [header, ...body] = parseDelimited(text);
   if (!header) return 'This file is empty.';
@@ -153,7 +254,7 @@ export function parseSeasonSheet(
     const group = groups.get(key) ?? {
       name,
       slug: '',
-      location: '',
+      resourcesUrl: '',
       startDate: '',
       weeks: [],
       problem: '',
@@ -161,7 +262,7 @@ export function parseSeasonSheet(
     groups.set(key, group);
     current = group;
     group.slug ||= value('slug').toLowerCase();
-    group.location ||= value('location');
+    group.resourcesUrl ||= value('seasonResources');
 
     const numberText = value('week').replace(/^week\s*/i, '');
     const number = /^\d+$/.test(numberText) ? Number(numberText) : 0;
@@ -203,31 +304,51 @@ export function parseSeasonSheet(
     group.weeks.push(row);
   });
 
-  const taken = (value: string, field: 'name' | 'slug') =>
-    existing.some(
+  const find = (field: 'name' | 'slug', value: string) =>
+    existing.find(
       (season) => season[field].toLowerCase() === value.toLowerCase(),
     );
   for (const group of groups.values()) {
-    group.slug ||= seasonSlug(group.name);
-    // Weeks may not overlap: compare each with the one starting before it.
+    // With no slug given, a name that is already a season's name picks that season.
+    if (!group.slug && group.name) {
+      const named = find('name', group.name);
+      group.slug = named ? named.slug : seasonSlug(group.name);
+    }
+    // Weeks run in order of number, each starting after the one before ends.
     const ordered = group.weeks
       .filter((row) => !row.problem)
-      .sort((a, b) => a.startDate.localeCompare(b.startDate));
-    for (let i = 1; i < ordered.length; i += 1)
-      if (ordered[i].startDate <= ordered[i - 1].endDate)
-        ordered[i].problem = `Overlaps week ${ordered[i - 1].number}.`;
-    group.startDate = ordered[0]?.startDate ?? '';
+      .sort((a, b) => a.number - b.number);
+    for (let i = 1; i < ordered.length; i += 1) {
+      const [before, row] = [ordered[i - 1], ordered[i]];
+      if (row.startDate <= before.endDate)
+        row.problem =
+          row.endDate >= before.startDate
+            ? `Overlaps week ${before.number}.`
+            : `Must come after week ${before.number}.`;
+    }
+    group.startDate = seasonDates(group).startDate;
+    const match = find('slug', group.slug);
+    const named = find('name', group.name);
+    if (match) group.existing = match;
     group.problem = !group.name
       ? 'Name the season in the season column.'
-      : taken(group.name, 'name')
-        ? `A season called "${group.name}" already exists.`
-        : !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(group.slug)
-          ? 'The slug may only use lowercase letters, numbers and hyphens.'
-          : taken(group.slug, 'slug')
-            ? `The slug "${group.slug}" is already used.`
-            : group.weeks.some((week) => week.problem)
-              ? 'Fix the weeks marked below.'
-              : '';
+      : !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(group.slug)
+        ? 'The slug may only use lowercase letters, numbers and hyphens.'
+        : group.resourcesUrl && !/^https:\/\/\S+$/i.test(group.resourcesUrl)
+          ? 'Season resources must be a link starting with https://.'
+          : scope && group.slug !== scope.slug
+            ? `This sheet is for "${scope.name}", not "${group.name}". Import it from the Seasons page.`
+            : match?.id?.startsWith('new:')
+              ? `The slug "${group.slug}" is already used.`
+              : match && match.status !== 'open'
+                ? `"${match.name}" is closed, so it cannot be changed.`
+                : named && named !== match
+                  ? `A season called "${group.name}" already exists.`
+                  : group.weeks.length > maxSeasonWeeks
+                    ? `A season can have at most ${maxSeasonWeeks} weeks.`
+                    : group.weeks.some((week) => week.problem)
+                      ? 'Fix the weeks marked below.'
+                      : '';
   }
   const all = [...groups.values()];
   const slugs = all.map((group) => group.slug);

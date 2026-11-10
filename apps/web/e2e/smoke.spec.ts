@@ -387,7 +387,7 @@ test('coordinator can reach season operations and create, edit and delete a week
     .click();
   await page.getByRole('menuitem', { name: 'Delete', exact: true }).click();
   const confirmation = page.getByRole('alertdialog', {
-    name: 'Delete Week Week 16?',
+    name: 'Delete Week 16?',
   });
   await confirmation.getByLabel(/Type Week 16/).fill('Week 16');
   await confirmation.getByRole('button', { name: 'Delete Week' }).click();

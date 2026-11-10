@@ -11,7 +11,8 @@ import {
   IconNotebook,
   IconUsers,
 } from '@tabler/icons-react';
-import { Link, Navigate, useParams } from 'react-router-dom';
+import { SpreadsheetImport } from '@/components/SpreadsheetImport';
+import { Link, Navigate, useNavigate, useParams } from 'react-router-dom';
 
 import {
   useActivitySummary,
@@ -45,6 +46,7 @@ const resourceLinkClass =
 
 export function SeasonPage() {
   const { slug } = useParams();
+  const navigate = useNavigate();
   const query = useSeasons();
   const season = query.data?.items.find((item) => item.slug === slug);
   const user = useCurrentUser();
@@ -121,13 +123,19 @@ export function SeasonPage() {
           </StatusBadge>
         }
         actions={
-          canEditDefinition || canEditResources || canClose || canReopen ? (
+          canEditDefinition ||
+          canEditResources ||
+          canClose ||
+          canReopen ||
+          isGlobalManager ? (
             <SeasonEditMenu
               season={season}
               canEditDefinition={canEditDefinition}
               canEditResources={canEditResources}
               canClose={canClose}
               canReopen={canReopen}
+              canDelete={isGlobalManager}
+              onDeleted={() => navigate('/seasons', { replace: true })}
             />
           ) : undefined
         }
@@ -173,7 +181,21 @@ export function SeasonPage() {
           />
         ) : null}
         <div className="grid items-start gap-6 min-[56rem]:grid-cols-2">
-          <PageSection titleId="schedule-title" title="Program Schedule">
+          <PageSection
+            titleId="schedule-title"
+            title="Program Schedule"
+            actions={
+              canEditDefinition ? (
+                <SpreadsheetImport
+                  kinds={['seasons']}
+                  title="Import Weeks"
+                  trigger="Import Weeks"
+                  seasons={query.data?.items ?? []}
+                  scope={season}
+                />
+              ) : undefined
+            }
+          >
             <Card>
               <CardContent>
                 {weeks.isLoading ? (

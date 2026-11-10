@@ -1,3 +1,4 @@
+import { useSelectedSeasonSlug } from '@/selectedSeason';
 import { Button, buttonVariants } from '@/components/ui/button';
 import {
   Sheet,
@@ -91,9 +92,12 @@ export function AppShell() {
       localStorage.getItem('rsp-theme') ??
       (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'),
   );
+  // The links follow the season last chosen in any table's season filter.
+  const selectedSeason = useSelectedSeasonSlug();
   const navItems = useMemo(
     () => navigationItems(userQuery.data, seasons.data?.items),
-    [userQuery.data, seasons.data?.items],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [userQuery.data, seasons.data?.items, selectedSeason],
   );
   const homePath = navItems[0]?.to ?? '/profile';
   const handleSignOut = async () => {

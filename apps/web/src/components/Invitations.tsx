@@ -1,3 +1,5 @@
+import { personOptions } from '@/components/personOptions';
+import { isValidEmail } from '@/utils';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -119,14 +121,19 @@ export function Invitations({
   }));
   const mentorItems = [
     { label: 'No mentor yet', value: '' },
-    ...mentors.map((mentor) => ({ label: mentor.name, value: mentor.id })),
+    ...personOptions(mentors),
   ];
   async function save(invitation?: Invitation, action?: 'resend' | 'cancel') {
     // A new invitation goes to the season chosen in the form.
     const target = invitation ? season : (inviteSeason ?? season);
     const targetKey = ['invitations', target.id];
-    setBusy(true);
     setMessage('');
+    // Only a new invitation takes the address from the form.
+    if (!invitation && !isValidEmail(form.email)) {
+      setMessage('Enter a valid email address, such as name@example.com.');
+      return;
+    }
+    setBusy(true);
     // A mentor only goes with a student invitation.
     const body: InvitationCreate = {
       name: form.name,

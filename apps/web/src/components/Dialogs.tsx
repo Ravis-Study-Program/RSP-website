@@ -107,6 +107,7 @@ export function DialogCancel({ label = 'Cancel' }: { label?: string }) {
 
 export function NamedConfirmation({
   name,
+  title,
   actionLabel,
   description,
   onConfirm,
@@ -115,6 +116,8 @@ export function NamedConfirmation({
   onOpenChange,
 }: {
   name: string;
+  /** The dialog's title; by default the action and the name. */
+  title?: string;
   actionLabel: string;
   description: string;
   onConfirm: () => void | Promise<void>;
@@ -179,7 +182,7 @@ export function NamedConfirmation({
 
       <AlertDialogContent>
         <AlertDialogTitle>
-          {actionLabel} {name}?
+          {title ?? `${actionLabel} ${name}?`}
         </AlertDialogTitle>
         <AlertDialogDescription>{description}</AlertDialogDescription>
         <Field className="mt-4">

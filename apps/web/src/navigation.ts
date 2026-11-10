@@ -9,6 +9,7 @@ import {
 } from '@tabler/icons-react';
 import type { ComponentType } from 'react';
 
+import { getSelectedSeasonSlug } from '@/selectedSeason';
 import type { CurrentUser, Season, SeasonRole } from '@/types';
 
 export interface NavItem {
@@ -36,6 +37,14 @@ export function defaultSeason(user?: CurrentUser, seasons: Season[] = []) {
     (user?.globalRoles.length
       ? (seasons.find((season) => season.status === 'open') ?? seasons[0])
       : undefined)
+  );
+}
+
+/** The season Mentor Teams opens on: the one selected, else the default. */
+export function mentorTeamsSeason(user?: CurrentUser, seasons: Season[] = []) {
+  return (
+    seasons.find((season) => season.slug === getSelectedSeasonSlug()) ??
+    defaultSeason(user, seasons)
   );
 }
 
@@ -79,8 +88,20 @@ export function navigationItems(
   ];
   const isManager = user.globalRoles.length > 0;
   const membership = preferredMembership(user);
+  // Directors, System Admins and coordinators stay in the season they last
+  // chose; everyone else uses their own.
+  const selected = getSelectedSeasonSlug();
+  const managesSeasons =
+    isManager ||
+    user.seasonRoles.some(
+      (entry) => entry.role === 'coordinator' && entry.state === 'active',
+    );
   const seasonSlug =
-    membership?.seasonSlug ?? defaultSeason(user, seasons)?.slug;
+    (managesSeasons && seasons.some((season) => season.slug === selected)
+      ? selected
+      : undefined) ??
+    membership?.seasonSlug ??
+    defaultSeason(user, seasons)?.slug;
   const mentor = preferredMembership(user, 'mentor');
   const coordinator = preferredMembership(user, 'coordinator');
   const canBrowse =
@@ -93,9 +114,18 @@ export function navigationItems(
       (entry) => entry.role !== 'coordinator' || entry.state === 'active',
     ),
   });
+  // A coordinator stays in the season they last chose among those they run.
+  const coordinatedSelected = user.seasonRoles.some(
+    (entry) =>
+      entry.role === 'coordinator' &&
+      entry.state === 'active' &&
+      entry.seasonSlug === selected,
+  )
+    ? selected
+    : undefined;
   const updatesSeasonSlug = isManager
     ? seasonSlug
-    : updatesMembership?.seasonSlug;
+    : (coordinatedSelected ?? updatesMembership?.seasonSlug);
 
   if (updatesSeasonSlug)
     items.push({
@@ -107,7 +137,9 @@ export function navigationItems(
     });
   // Coordinators and admins manage students from People, so theirs opens on
   // the season they run.
-  const managedSeasonSlug = isManager ? seasonSlug : coordinator?.seasonSlug;
+  const managedSeasonSlug = isManager
+    ? seasonSlug
+    : (coordinatedSelected ?? coordinator?.seasonSlug);
   if (canBrowse || managedSeasonSlug)
     items.push({
       label: 'People',

@@ -9,11 +9,14 @@ export function DeleteEmptySeason({
   season,
   open,
   onOpenChange,
+  onDeleted,
 }: {
   season: Season;
   /** When given, the confirmation is opened from outside with no trigger. */
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
+  /** Called once the season is gone. */
+  onDeleted?: () => void;
 }) {
   const client = useQueryClient();
   async function remove() {
@@ -44,11 +47,12 @@ export function DeleteEmptySeason({
         : current,
     );
     if (!demoMode) await client.invalidateQueries();
+    onDeleted?.();
   }
   return (
     <NamedConfirmation
       name={season.name}
-      actionLabel="Delete Empty Season"
+      actionLabel="Delete Season"
       triggerSize="sm"
       description="Only a season with no enrollment history, recorded activity or pending invitations can be deleted. Its weeks will also disappear from the website."
       open={open}

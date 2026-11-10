@@ -10,7 +10,7 @@ test.beforeEach(async ({ page }, testInfo) => {
   );
 });
 
-test('administrators invite people from a spreadsheet, with bad rows held back', async ({
+test('administrators invite people from a spreadsheet, and nothing imports while a row has an error', async ({
   page,
 }) => {
   await page.goto('/admin/enrollments');
@@ -21,7 +21,7 @@ test('administrators invite people from a spreadsheet, with bad rows held back',
     mimeType: 'text/csv',
     buffer: Buffer.from(
       [
-        'Name,Role,Email,Mentor,Season,Slug',
+        'Name,Role,Email,Mentor,Season,Username',
         'Alex Chen,student,alex@example.com,Noah Williams,Summer 2025/26,alex-c',
         'Sam Lee,Mentor,sam@example.com,,summer-2025-26,',
         '"Lee, Jordan",student,not-an-email,,Summer 2025/26,',
@@ -48,6 +48,22 @@ test('administrators invite people from a spreadsheet, with bad rows held back',
   await expect(
     rows.getByRole('row').filter({ hasText: 'Alex Chen' }),
   ).toContainText('New');
+  await expect(
+    dialog.getByRole('button', { name: 'Import 3 People' }),
+  ).toBeDisabled();
+  // Fixing the sheet makes it importable.
+  await dialog.getByLabel('Spreadsheet').setInputFiles({
+    name: 'season.csv',
+    mimeType: 'text/csv',
+    buffer: Buffer.from(
+      [
+        'Name,Role,Email,Mentor,Season,Username',
+        'Alex Chen,student,alex@example.com,Noah Williams,Summer 2025/26,alex-c',
+        'Sam Lee,Mentor,sam@example.com,,summer-2025-26,',
+        'Alex Again,student,ALEX@example.com,,summer-2025-26,',
+      ].join('\n'),
+    ),
+  });
   await dialog.getByRole('button', { name: 'Import 3 People' }).click();
   await expect(dialog.getByRole('status')).toHaveText('3 invited.');
   await expect(
@@ -63,7 +79,7 @@ test('a mass import creates seasons first, then invites people to them', async (
   await page.goto('/admin');
   await page.getByRole('button', { name: 'Mass Import' }).click();
   const dialog = page.getByRole('dialog', { name: 'Mass Import' });
-  await dialog.getByLabel('Spreadsheets').setInputFiles([
+  const files = [
     {
       name: 'people.csv',
       mimeType: 'text/csv',
@@ -83,12 +99,13 @@ test('a mass import creates seasons first, then invites people to them', async (
         ].join('\n'),
       ),
     },
-    {
-      name: 'notes.csv',
-      mimeType: 'text/csv',
-      buffer: Buffer.from('a,b\n1,2'),
-    },
-  ]);
+  ];
+  const notes = {
+    name: 'notes.csv',
+    mimeType: 'text/csv',
+    buffer: Buffer.from('a,b\n1,2'),
+  };
+  await dialog.getByLabel('Spreadsheets').setInputFiles([...files, notes]);
   const seasonsTable = dialog.getByRole('table', {
     name: 'Seasons in seasons.csv',
   });
@@ -104,6 +121,13 @@ test('a mass import creates seasons first, then invites people to them', async (
   await expect(dialog.getByRole('region', { name: 'notes.csv' })).toContainText(
     'Not recognised',
   );
+  // The import is all or nothing, so a file it cannot read blocks it.
+  const importButton = dialog.getByRole('button', {
+    name: 'Create 1 Season and Import 2 People',
+  });
+  await expect(importButton).toBeDisabled();
+  await dialog.getByLabel('Spreadsheets').setInputFiles(files);
+  await expect(importButton).toBeEnabled();
   await dialog
     .getByRole('button', { name: 'Create 1 Season and Import 2 People' })
     .click();

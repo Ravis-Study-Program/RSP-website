@@ -1,3 +1,4 @@
+import { useSeasonSwitcher } from '@/components/useSeasonSwitcher';
 import { Tooltip } from '@/components/ui/tooltip';
 import { StatusBadge } from '@/components/StatusBadge';
 import { Button } from '@/components/ui/button';
@@ -1621,6 +1622,7 @@ function MentorUpdateTable({
   error: boolean;
   onRetry: () => void;
 }) {
+  const seasonSwitcher = useSeasonSwitcher('monday-updates');
   const ownMark = (row: MentorUpdateRow) =>
     row.update
       ? row.update.marks.find((record) => record.mentor.id === mentorId)
@@ -1807,7 +1809,12 @@ function MentorUpdateTable({
       loading={loading}
       error={error}
       onRetry={onRetry}
-      toolbarLead={weekSelect}
+      toolbarLead={
+        <>
+          {seasonSwitcher}
+          {weekSelect}
+        </>
+      }
       extraFilters={{
         content: weekFilter.content,
         activeCount: Number(weekFilter.active),
@@ -2372,6 +2379,7 @@ function MentorReportsTable({
   error: boolean;
   onRetry: () => void;
 }) {
+  const seasonSwitcher = useSeasonSwitcher('monday-updates');
   const statusOf = (student: MondayMentorReportStudent) =>
     week
       ? weekStatus(
@@ -2574,7 +2582,12 @@ function MentorReportsTable({
       loading={loading}
       error={error}
       onRetry={onRetry}
-      toolbarLead={weekSelect}
+      toolbarLead={
+        <>
+          {seasonSwitcher}
+          {weekSelect}
+        </>
+      }
       extraFilters={{
         content: seasonFilter,
         // A season is always chosen, so it never counts as an extra filter.

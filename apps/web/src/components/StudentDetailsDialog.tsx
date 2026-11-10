@@ -99,7 +99,7 @@ export function StudentDetailsDialog({
   const initialLevel =
     person.studentLevel && person.studentLevel !== 'not_applicable'
       ? person.studentLevel
-      : 'novice';
+      : 'beginner';
   const [level, setLevel] = useState<keyof typeof studentLevels>(initialLevel);
   const [drafts, setDrafts] = useState<Drafts>(draftsFrom());
   const [pending, setPending] = useState(false);

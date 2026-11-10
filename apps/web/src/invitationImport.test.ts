@@ -69,9 +69,9 @@ it('flags each kind of bad row and leaves the good ones ready', () => {
     '',
     '',
     '',
-    'Slugs use lowercase letters, numbers and single hyphens.',
+    'Usernames use lowercase letters, numbers and single hyphens.',
     '',
-    'This slug is already used by another row in this file.',
+    'This username is already used by another row in this file.',
     '',
   ]);
   expect((rows as { slug: string }[]).at(-1)?.slug).toBe('ok-name');

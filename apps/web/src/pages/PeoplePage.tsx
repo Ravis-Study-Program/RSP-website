@@ -13,6 +13,7 @@ import { Page, PageHeader, usePageTitle } from '@/components/Common';
 import { PeopleTable } from '@/components/PeopleTable';
 import { PersonRowActions } from '@/components/PersonRowActions';
 import { Field, FieldLabel } from '@/components/ui/field';
+import { useSeasonSwitcher } from '@/components/useSeasonSwitcher';
 import {
   Select,
   SelectContent,
@@ -65,6 +66,8 @@ export function PeoplePage() {
   const mayAct =
     Boolean(viewer?.globalRoles.includes('system_admin')) ||
     Boolean(season && (isManager || membership));
+  // Directors, System Admins and coordinators switch season at the top left.
+  const seasonSwitcher = useSeasonSwitcher('people', '/people');
   const seasonItems = [
     { value: allSeasons, label: 'All seasons' },
     ...(seasons.data?.items ?? []).map((item) => ({
@@ -79,6 +82,7 @@ export function PeoplePage() {
       <PeopleTable
         variant="people"
         ariaLabel="People directory"
+        toolbarLead={seasonSwitcher}
         data={data}
         seasons={seasons.data?.items}
         seasonId={season?.id}

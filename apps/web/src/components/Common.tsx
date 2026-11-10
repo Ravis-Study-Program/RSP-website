@@ -260,11 +260,15 @@ export function PersonIdentity({
   privateView = false,
   showRoles = true,
   seasonId,
+  duplicates,
 }: {
   person: Person;
   privateView?: boolean;
   showRoles?: boolean;
   seasonId?: string;
+  /** Names shared by several people on the page (`duplicateNames`); such
+   *  people also show their slug, so they can be told apart. */
+  duplicates?: ReadonlySet<string>;
 }) {
   return (
     <span className="flex min-w-0 items-center gap-3">
@@ -276,6 +280,11 @@ export function PersonIdentity({
         >
           {person.name}
         </Link>
+        {duplicates?.has(person.name.trim().toLowerCase()) ? (
+          <span className="truncate text-sm text-muted-foreground">
+            ({person.slug})
+          </span>
+        ) : null}
         {privateView && person.email ? (
           <span className="truncate text-sm text-muted-foreground">
             {person.email}

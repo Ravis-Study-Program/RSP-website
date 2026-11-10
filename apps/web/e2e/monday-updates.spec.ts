@@ -134,33 +134,45 @@ test('staff review is organized by program week', async ({ page }) => {
   }
 });
 
-test('mentors, coordinators and directors choose the season in the filters', async ({
+test('coordinators and directors switch season at the top left and in the filters', async ({
   page,
 }) => {
-  for (const role of ['mentor', 'coordinator']) {
+  // A mentor has no season switch; the season lives in Filters.
+  await page.addInitScript(() =>
+    localStorage.setItem('rsp-demo-role', 'mentor'),
+  );
+  await page.goto('/seasons/summer-2025-26/monday-updates');
+  await expect(
+    page.getByRole('combobox', { name: 'Program week' }),
+  ).toBeVisible();
+  await expect(page.getByRole('combobox', { name: 'Season' })).toHaveCount(0);
+  await page.getByRole('button', { name: 'Filters' }).click();
+  await expect(page.getByRole('combobox', { name: 'Season' })).toContainText(
+    'Summer 2025/26',
+  );
+  await page.keyboard.press('Escape');
+
+  // A coordinator or Director also has it at the top left, in step with the
+  // filter, and can open any season they manage from either.
+  for (const role of ['coordinator', 'director']) {
     await page.addInitScript(
       (value) => localStorage.setItem('rsp-demo-role', value),
       role,
     );
     await page.goto('/seasons/summer-2025-26/monday-updates');
-    // The toolbar keeps only the week; the season lives in Filters.
-    await expect(
-      page.getByRole('combobox', { name: 'Program week' }),
-    ).toBeVisible();
-    await expect(page.getByRole('combobox', { name: 'Season' })).toHaveCount(0);
-    await page.getByRole('button', { name: 'Filters' }).click();
-    await expect(page.getByRole('combobox', { name: 'Season' })).toContainText(
-      'Summer 2025/26',
-    );
-    await page.keyboard.press('Escape');
+    const topLeft = page
+      .getByRole('combobox', { name: 'Season', exact: true })
+      .first();
+    await expect(topLeft).toContainText('Summer 2025/26');
   }
-
-  // A Director can open any season from the same filter.
-  await page.addInitScript(() =>
-    localStorage.setItem('rsp-demo-role', 'director'),
-  );
-  await page.goto('/seasons/summer-2025-26/monday-updates');
   await page.getByRole('button', { name: 'Filters' }).click();
-  await chooseOption(page, 'Season', 'Summer 2024/25');
+  await chooseOption(
+    page.locator('[data-slot=popover-content]'),
+    'Season',
+    'Summer 2024/25',
+  );
   await expect(page).toHaveURL(/\/seasons\/summer-2024-25\/monday-updates/);
+  await expect(
+    page.getByRole('combobox', { name: 'Season', exact: true }).first(),
+  ).toContainText('Summer 2024/25');
 });

@@ -16,8 +16,10 @@ import {
   IconUserExclamation,
   IconUsersGroup,
 } from '@tabler/icons-react';
-import { useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { selectSeason } from '@/selectedSeason';
+import { useSeasonSwitcher } from '@/components/useSeasonSwitcher';
+import { useParams } from 'react-router-dom';
 
 import { apiRequest } from '@/api/client';
 import type {
@@ -27,7 +29,6 @@ import type {
 } from '@/api/generated/models';
 import {
   demoMode,
-  useCurrentUser,
   useSeasonMentorships,
   useSeasons,
   useSeasonPeople,
@@ -39,43 +40,36 @@ import {
   PersonIdentity,
   usePageTitle,
 } from '@/components/Common';
+import { duplicateNames } from '@/duplicateNames';
 import { DataTable, ExpandRowButton } from '@/components/DataTable';
 import { FormDialog } from '@/components/Dialogs';
+import { personOptions } from '@/components/personOptions';
 import { InlineNotice, PageSkeleton } from '@/components/StatusViews';
 import type { Person } from '@/types';
 
 export function MentorTeamsPage() {
   usePageTitle('Mentor Teams');
   const { slug } = useParams();
-  const navigate = useNavigate();
   const seasons = useSeasons();
-  const currentUser = useCurrentUser();
   const season = seasons.data?.items.find((item) => item.slug === slug);
-  // The seasons this person manages: all for a Director or System Admin,
-  // otherwise those they coordinate.
-  const coordinated = new Set(
-    currentUser.data?.seasonRoles
-      .filter(
-        (membership) =>
-          membership.role === 'coordinator' && membership.state === 'active',
-      )
-      .map((membership) => membership.seasonId) ?? [],
-  );
-  const managedSeasons = (seasons.data?.items ?? []).filter(
-    (item) =>
-      Boolean(currentUser.data?.globalRoles.length) || coordinated.has(item.id),
-  );
-  const seasonItems = managedSeasons.map((item) => ({
-    label: item.name,
-    value: item.slug,
-  }));
+  // Opening Mentor Teams again starts from this season.
+  useEffect(() => {
+    if (season) selectSeason(season.slug);
+  }, [season]);
+  const seasonSwitcher = useSeasonSwitcher('mentor-teams');
   const query = useSeasonPeople(season?.id, season?.name);
   const mentorships = useSeasonMentorships(season?.id);
+  // A transfer changes both the people's teams and the mentorships the dialog
+  // reads, so both reload before it can be used again.
+  const refreshTeams = () =>
+    Promise.all([query.refetch(), mentorships.refetch()]);
   const [assigning, setAssigning] = useState<Person | null>(null);
   // The people query restarts once the season is known; wait for it so an
   // opened dialog is not unmounted underneath the person.
   if (seasons.isLoading || query.isLoading)
     return <PageSkeleton label="Loading mentor teams" />;
+  // People who share a name also show their slug.
+  const duplicates = duplicateNames(query.data?.items ?? []);
   const mentors =
     query.data?.items.filter((person) => person.roles.includes('mentor')) ?? [];
   const students =
@@ -108,6 +102,7 @@ export function MentorTeamsPage() {
           person={row.original}
           seasonId={season?.id}
           showRoles={false}
+          duplicates={duplicates}
         />
       ),
     },
@@ -139,6 +134,7 @@ export function MentorTeamsPage() {
             person={student}
             seasonId={season?.id}
             showRoles={false}
+            duplicates={duplicates}
           />
         </li>
       ))}
@@ -167,6 +163,7 @@ export function MentorTeamsPage() {
           person={row.original}
           seasonId={season?.id}
           showRoles={false}
+          duplicates={duplicates}
         />
       ),
     },
@@ -188,7 +185,7 @@ export function MentorTeamsPage() {
             mentors={mentors}
             students={students}
             mentorships={mentorships.data?.items ?? []}
-            onCreated={() => void query.refetch()}
+            onCreated={refreshTeams}
           />
         }
       />
@@ -211,29 +208,8 @@ export function MentorTeamsPage() {
         ) : null}
         <DataTable
           ariaLabel="Mentor teams"
-          // The season sits top-left, as on the other admin tables.
-          toolbarLead={
-            <Select
-              items={seasonItems}
-              value={season?.slug ?? ''}
-              onValueChange={(value) => {
-                if (value) navigate(`/seasons/${value}/mentor-teams`);
-              }}
-            >
-              <SelectTrigger aria-label="Season" className="w-64">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectGroup>
-                  {seasonItems.map((item) => (
-                    <SelectItem key={item.value} value={item.value}>
-                      {item.label}
-                    </SelectItem>
-                  ))}
-                </SelectGroup>
-              </SelectContent>
-            </Select>
-          }
+          // The season sits top-left, as on the other season tables.
+          toolbarLead={seasonSwitcher}
           data={mentors}
           columns={columns}
           getRowId={(mentor) => mentor.id}
@@ -251,6 +227,7 @@ export function MentorTeamsPage() {
                   person={row.original}
                   seasonId={season?.id}
                   showRoles={false}
+                  duplicates={duplicates}
                 />
                 <StatusBadge>{studentsOf(row.original).length}</StatusBadge>
               </div>
@@ -278,6 +255,7 @@ export function MentorTeamsPage() {
                   person={row.original}
                   seasonId={season?.id}
                   showRoles={false}
+                  duplicates={duplicates}
                 />
                 {assignButton(row.original)}
               </div>
@@ -295,7 +273,7 @@ export function MentorTeamsPage() {
             onOpenChange={(next) => {
               if (!next) setAssigning(null);
             }}
-            onCreated={() => void query.refetch()}
+            onCreated={refreshTeams}
           />
         ) : null}
       </div>
@@ -314,10 +292,16 @@ function MentorshipDialog({
   onOpenChange,
 }: {
   seasonId?: string;
-  mentors: Array<{ id: string; name: string }>;
-  students: Array<{ id: string; name: string; status: string | null }>;
+  mentors: Array<{ id: string; name: string; slug?: string }>;
+  students: Array<{
+    id: string;
+    name: string;
+    slug?: string;
+    status: string | null;
+  }>;
   mentorships: Mentorship[];
-  onCreated: () => void;
+  /** Reloads what the page shows; awaited, so a reopened dialog starts fresh. */
+  onCreated: () => Promise<unknown> | void;
   /** Opened from an unassigned student's row, starting with that student. */
   studentId?: string;
   /** When given, the dialog is opened from outside and shows no trigger. */
@@ -377,7 +361,7 @@ function MentorshipDialog({
           },
         );
       }
-      onCreated();
+      await onCreated();
       setOpen(false);
     } catch (requestError) {
       setError(
@@ -391,11 +375,11 @@ function MentorshipDialog({
   };
   const mentorItems = [
     { label: 'Choose a mentor', value: '' },
-    ...mentors.map((mentor) => ({ label: mentor.name, value: mentor.id })),
+    ...personOptions(mentors),
   ];
   const studentItems = [
     { label: 'Choose a student', value: '' },
-    ...students.map((student) => ({ label: student.name, value: student.id })),
+    ...personOptions(students),
   ];
   return (
     <FormDialog

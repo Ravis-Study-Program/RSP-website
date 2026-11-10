@@ -1,3 +1,4 @@
+import { isValidEmail } from '@/utils';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { useDraftSection, type DraftSection } from '@/components/draftSections';
@@ -110,6 +111,10 @@ function ProfileForm({
       );
     }
     if (newEmail && newEmail !== profile.email.toLowerCase()) {
+      if (!isValidEmail(newEmail))
+        throw new Error(
+          'Enter a valid email address, such as name@example.com.',
+        );
       if (!demoMode)
         await apiRequest(`/admin/users/${profile.id}/email-change`, {
           method: 'POST',
@@ -145,12 +150,12 @@ function ProfileForm({
           />
         </Field>
         <Field>
-          <FieldLabel htmlFor="admin-profile-slug">Profile Slug</FieldLabel>
+          <FieldLabel htmlFor="admin-profile-slug">Username</FieldLabel>
           <Input
             id="admin-profile-slug"
             value={form.slug}
             required
-            minLength={3}
+            minLength={2}
             maxLength={50}
             onChange={(e) => setForm({ ...form, slug: e.target.value })}
           />

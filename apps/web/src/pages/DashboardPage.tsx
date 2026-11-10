@@ -31,6 +31,7 @@ import {
   PersonIdentity,
   usePageTitle,
 } from '@/components/Common';
+import { duplicateNames } from '@/duplicateNames';
 import { LevelProgressSection } from '@/components/LevelProgress';
 import { ErrorState, PageSkeleton } from '@/components/StatusViews';
 import { isProgramLevel, solvedDifficultyCounts } from '@/levelProgress';
@@ -327,6 +328,7 @@ export function DashboardPage() {
                             <PersonIdentity
                               person={person}
                               seasonId={currentSeason?.id}
+                              duplicates={duplicateNames(mentees)}
                             />
                             <StatusBadge>
                               {person.attempts ?? '—'} attempts

@@ -6,6 +6,7 @@ import {
   configureDisplayTimezone,
   formatDateTime,
   formatDateTimeInput,
+  isValidEmail,
   problemName,
   zonedDateTimeToUtc,
 } from '@/utils';
@@ -44,4 +45,14 @@ it('lists time zones from the smallest UTC offset to the largest', () => {
   expect(at('Pacific/Honolulu')).toBeGreaterThanOrEqual(0);
   expect(at('Pacific/Honolulu')).toBeLessThan(at('UTC'));
   expect(at('UTC')).toBeLessThan(at('Australia/Adelaide'));
+});
+
+describe('isValidEmail', () => {
+  it('needs a dotted domain', () => {
+    expect(isValidEmail('name@example.com')).toBe(true);
+    expect(isValidEmail(' a.b@mail.co.uk ')).toBe(true);
+    expect(isValidEmail('coord-maddie@mail')).toBe(false);
+    expect(isValidEmail('name@example.')).toBe(false);
+    expect(isValidEmail('no at.com')).toBe(false);
+  });
 });

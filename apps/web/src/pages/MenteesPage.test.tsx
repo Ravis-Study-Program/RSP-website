@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, within } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import type { UseQueryResult } from '@tanstack/react-query';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 
@@ -176,10 +176,10 @@ describe('mentor mentee filtering', () => {
       .find((row) => within(row).queryByText('Kicked Student'))!;
     // Both its status and its Monday Update read Kicked.
     expect(within(kickedRow).getAllByText('Kicked')).toHaveLength(2);
-    fireEvent.click(
-      screen.getByRole('checkbox', { name: 'Include previous students' }),
-    );
-    expect(screen.getAllByText('Completed Student').length).toBeGreaterThan(0);
+    // Earlier students are reached by choosing an earlier season instead.
+    expect(
+      screen.queryByRole('checkbox', { name: 'Include previous students' }),
+    ).not.toBeInTheDocument();
   });
 });
 

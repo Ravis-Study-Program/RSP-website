@@ -16,6 +16,7 @@ import {
   SeasonBadge,
   StudentLevelBadge,
 } from '@/components/Common';
+import { duplicateNames } from '@/duplicateNames';
 import { type ExtraFilters, DataTable } from '@/components/DataTable';
 import { LatestMarkBadge } from '@/components/MondayMark';
 import { StatusBadge } from '@/components/StatusBadge';
@@ -74,6 +75,7 @@ export function PeopleTable({
   emptyTitle,
   emptyMessage,
   toolbarStart,
+  toolbarLead,
   extraFilters,
 }: {
   variant: 'people' | 'students';
@@ -95,9 +97,11 @@ export function PeopleTable({
   emptyTitle: string;
   emptyMessage?: string;
   toolbarStart?: ReactNode;
+  toolbarLead?: ReactNode;
   extraFilters?: ExtraFilters;
 }) {
   const people = variant === 'people';
+  const duplicates = duplicateNames(data);
   const seasonFor = (person: Person) =>
     seasons.find(
       (item) => item.name === person.season || item.slug === person.season,
@@ -113,6 +117,7 @@ export function PeopleTable({
           seasonId={seasonId}
           person={row.original}
           showRoles={false}
+          duplicates={duplicates}
         />
       ),
     },
@@ -268,6 +273,7 @@ export function PeopleTable({
       emptyTitle={emptyTitle}
       emptyMessage={emptyMessage}
       toolbarStart={toolbarStart}
+      toolbarLead={toolbarLead}
       extraFilters={extraFilters}
       getRowId={(person) => person.id}
       rowHref={(person) =>
@@ -284,6 +290,7 @@ export function PeopleTable({
                 seasonId={seasonId}
                 person={person}
                 showRoles={false}
+                duplicates={duplicates}
               />
               {renderActions?.(person)}
             </div>

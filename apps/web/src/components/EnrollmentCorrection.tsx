@@ -6,6 +6,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { personOptions } from '@/components/personOptions';
 import { useDraftSection, type DraftSection } from '@/components/draftSections';
 import { Field, FieldLabel } from '@/components/ui/field';
 import { useState } from 'react';
@@ -62,16 +63,19 @@ export function EnrollmentCorrectionForm({
   const chosenMentor = mentorId ?? currentMentor;
   const mentorItems = [
     { label: '(No Mentor)', value: noMentor },
-    ...(members.data?.items ?? [])
-      .filter(
-        (member) =>
-          member.state === 'active' &&
-          (member.role === 'mentor' || member.role === 'coordinator'),
-      )
-      .map((member) => ({
-        label: member.member?.name ?? member.userId,
-        value: member.userId,
-      })),
+    ...personOptions(
+      (members.data?.items ?? [])
+        .filter(
+          (member) =>
+            member.state === 'active' &&
+            (member.role === 'mentor' || member.role === 'coordinator'),
+        )
+        .map((member) => ({
+          id: member.userId,
+          name: member.member?.name ?? member.userId,
+          slug: member.member?.slug,
+        })),
+    ),
   ];
   const placementChanged = seasonId !== enrollment.seasonId;
   const roleChanged = role !== enrollment.role;
@@ -118,7 +122,7 @@ export function EnrollmentCorrectionForm({
       const level =
         enrollment.studentLevel && enrollment.studentLevel !== 'not_applicable'
           ? enrollment.studentLevel
-          : 'novice';
+          : 'beginner';
       const updated: Enrollment = demoMode
         ? {
             ...enrollment,

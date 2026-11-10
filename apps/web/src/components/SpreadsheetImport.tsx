@@ -16,7 +16,6 @@ import { FormDialog, DialogCancel } from '@/components/Dialogs';
 import { StatusBadge } from '@/components/StatusBadge';
 import { Button } from '@/components/ui/button';
 import { Field, FieldLabel } from '@/components/ui/field';
-import { Input } from '@/components/ui/input';
 import {
   invitationSheetColumns,
   parseInvitationSheet,
@@ -24,6 +23,7 @@ import {
 } from '@/invitationImport';
 import {
   parseSeasonSheet,
+  seasonSlug,
   seasonSheetColumns,
   weekTimes,
   type SeasonImportGroup,
@@ -41,8 +41,8 @@ const templates: Record<ImportKind, { file: string; text: string }> = {
   seasons: {
     file: 'seasons-template.csv',
     text: [
-      'season,slug,location,week,start,end,resources',
-      'Summer 2026/27,summer-2026-27,Adelaide,1,2027-02-01,,"Arrays and hashing',
+      'season,slug,season_resources,week,start,end,resources',
+      'Summer 2026/27,summer-2026-27,https://example.com/summer-2026-27,1,2027-02-01,,"Arrays and hashing',
       '- https://leetcode.com/problems/two-sum/"',
       ',,,2,,,Two pointers',
       ',,,3,,,',
@@ -51,9 +51,9 @@ const templates: Record<ImportKind, { file: string; text: string }> = {
   invitations: {
     file: 'invitations-template.csv',
     text: [
-      'name,role,email,mentor,season,slug',
-      'Alex Chen,student,alex@example.com,priya-raman,Summer 2025/26,',
-      'Sam Lee,mentor,sam@example.com,,summer-2025-26,sam-lee',
+      'name,username,email,role,mentor,season',
+      'Alex Chen,,alex@example.com,student,priya-raman,Summer 2025/26',
+      'Sam Lee,sam-lee,sam@example.com,mentor,,summer-2025-26',
     ].join('\n'),
   },
 };
@@ -65,21 +65,21 @@ const references: Record<
   invitations: {
     columns: [
       { name: 'name', description: 'The person’s full name.' },
-      { name: 'role', description: 'student, mentor or coordinator.' },
+      {
+        name: 'username',
+        description: 'Optional: the username they get with a new account.',
+      },
       {
         name: 'email',
         description: 'Where the invitation goes; matches existing people.',
       },
+      { name: 'role', description: 'student, mentor or coordinator.' },
       {
         name: 'mentor',
         description:
-          'Optional, students only: their mentor’s email, slug or name.',
+          'Optional, students only: their mentor’s email, username or name.',
       },
       { name: 'season', description: 'The season’s name or slug.' },
-      {
-        name: 'slug',
-        description: 'Optional: the slug they get with a new account.',
-      },
     ],
   },
   seasons: {
@@ -91,13 +91,14 @@ const references: Record<
       {
         name: 'slug',
         description:
-          'Optional: the season’s URL slug; made from the name, and copied down.',
+          'Optional: the season’s URL slug; made from the name, and copied down. An open season with this slug is updated, its weeks matched by number.',
       },
       {
-        name: 'location',
-        description: 'Optional: where the season runs; copied down.',
+        name: 'season_resources',
+        description:
+          'Optional: a link (https://…) to the season’s resources, in the season’s first row only. Blank keeps an existing season’s link.',
       },
-      { name: 'week', description: 'The week’s number, from 1.' },
+      { name: 'week', description: 'The week’s number, 1 to 52.' },
       {
         name: 'start',
         description:
@@ -110,7 +111,7 @@ const references: Record<
       {
         name: 'resources',
         description:
-          'Optional: the week’s resources. Lines become paragraphs, “- ” lines a list, web addresses links.',
+          'Optional: the week’s resources. Markdown: # headings, - and 1. lists, > quotes, **bold**, *italic*, `code`, [text](https://…) links; web addresses become links; other lines are paragraphs.',
       },
     ],
   },
@@ -186,12 +187,15 @@ export function SpreadsheetImport({
   title,
   trigger,
   seasons,
+  scope,
 }: {
   kinds: ImportKind[];
   title: string;
   trigger: ReactNode;
   /** Every season, to recognise names and slugs; invitations go to open ones. */
   seasons: Season[];
+  /** Limits a season sheet to this season's weeks, as on its own page. */
+  scope?: Season;
 }) {
   const client = useQueryClient();
   const [open, setOpen] = useState(false);
@@ -209,12 +213,15 @@ export function SpreadsheetImport({
     new Map<ImportRow, InvitationBatchResult>(),
   );
   const [requestError, setRequestError] = useState('');
+  const [chosenNames, setChosenNames] = useState('');
   const mass = kinds.length > 1;
 
   const groups = files.flatMap((file) =>
     file.kind === 'seasons' ? file.groups : [],
   );
-  const newSeasons = groups.filter((group) => !group.problem);
+  const importable = groups.filter((group) => !group.problem);
+  const creating = importable.filter((group) => !group.existing);
+  const updating = importable.filter((group) => group.existing);
   const rows = files.flatMap((file) =>
     file.kind === 'invitations' ? file.rows : [],
   );
@@ -226,7 +233,21 @@ export function SpreadsheetImport({
       plans.get(row)?.outcome !== 'failed' &&
       plans.get(row)?.outcome !== 'unchanged',
   );
-  const nothingToDo = !newSeasons.length && !sendable.length;
+  const nothingToDo = !importable.length && !sendable.length;
+  // Nothing is imported while anything shows an error; "already invited" is a
+  // warning, not an error.
+  const isWarning = (problem?: string) =>
+    !!problem && /^already (invited|a member)/i.test(problem);
+  const hasErrors =
+    files.some((file) => file.kind === 'error') ||
+    groups.some(
+      (group) => !!group.problem || group.weeks.some((week) => !!week.problem),
+    ) ||
+    rows.some((row) => {
+      if (row.problem) return !isWarning(row.problem);
+      const plan = plans.get(row);
+      return plan?.outcome === 'failed' && !isWarning(plan.error);
+    });
 
   const reset = () => {
     setFiles([]);
@@ -282,7 +303,11 @@ export function SpreadsheetImport({
     const created: Season[] = [];
     for (const file of read.filter((f) => kindOf(f.text) === 'seasons')) {
       if (!kinds.includes('seasons')) continue;
-      const parsed = parseSeasonSheet(file.text, [...seasons, ...created]);
+      const parsed = parseSeasonSheet(
+        file.text,
+        [...seasons, ...created],
+        scope,
+      );
       if (typeof parsed === 'string')
         sheets.push({ name: file.name, kind: 'error', error: parsed });
       else {
@@ -348,14 +373,15 @@ export function SpreadsheetImport({
     const seasonOutcomes = new Map<SeasonImportGroup, string>();
     const outcomes = new Map<ImportRow, InvitationBatchResult>();
     const createdIds = new Map<string, string>();
+    let rejected = false;
     try {
-      for (const group of newSeasons) {
+      for (const group of importable) {
         const body: SeasonImport = {
           name: group.name,
           slug: group.slug,
-          location: group.location,
+          location: '',
           imageUrl: '',
-          resourcesUrl: '',
+          resourcesUrl: group.resourcesUrl,
           weeks: group.weeks.map((week) => ({
             number: week.number,
             ...weekTimes(week),
@@ -369,8 +395,8 @@ export function SpreadsheetImport({
                 method: 'POST',
                 body: JSON.stringify(body),
               });
-          createdIds.set(pendingId(group.slug), season.id);
-          seasonOutcomes.set(group, 'created');
+          if (!group.existing) createdIds.set(pendingId(group.slug), season.id);
+          seasonOutcomes.set(group, group.existing ? 'updated' : 'created');
         } catch (error) {
           seasonOutcomes.set(
             group,
@@ -403,7 +429,25 @@ export function SpreadsheetImport({
           for (const result of response.results)
             outcomes.set(chunk[result.row], result);
           setRowResults(new Map(outcomes));
+          // A batch with any failing row saves nothing; stop there.
+          if (!demoMode && response.applied === false) {
+            rejected = true;
+            break;
+          }
         }
+        if (rejected) break;
+      }
+      if (rejected) {
+        // Take back the seasons this run created, so nothing is left half done.
+        for (const season of createdIds.values())
+          await apiRequest(`/seasons/${encodeURIComponent(season)}`, {
+            method: 'DELETE',
+          }).catch(() => undefined);
+        for (const [group, outcome] of seasonOutcomes)
+          if (outcome === 'created') seasonOutcomes.set(group, 'Not created');
+        setRequestError(
+          'Nothing was imported: a row failed, so the whole import was cancelled. Fix the rows marked Error and try again.',
+        );
       }
     } catch (error) {
       setRequestError(
@@ -424,17 +468,24 @@ export function SpreadsheetImport({
 
   const counts = {
     seasons: [...seasonResults.values()].filter((v) => v === 'created').length,
+    seasonsUpdated: [...seasonResults.values()].filter((v) => v === 'updated')
+      .length,
     invited: [...rowResults.values()].filter((r) => r.outcome === 'invited')
       .length,
     updated: [...rowResults.values()].filter((r) => r.outcome === 'updated')
       .length,
     failed:
-      [...seasonResults.values()].filter((v) => v !== 'created').length +
+      [...seasonResults.values()].filter(
+        (v) => v !== 'created' && v !== 'updated',
+      ).length +
       [...rowResults.values()].filter((r) => r.outcome === 'failed').length,
   };
   const summary = [
     counts.seasons
       ? `${counts.seasons} season${counts.seasons === 1 ? '' : 's'} created`
+      : '',
+    counts.seasonsUpdated
+      ? `${counts.seasonsUpdated} season${counts.seasonsUpdated === 1 ? '' : 's'} updated`
       : '',
     counts.invited ? `${counts.invited} invited` : '',
     counts.updated ? `${counts.updated} updated` : '',
@@ -443,12 +494,19 @@ export function SpreadsheetImport({
     .filter(Boolean)
     .join(', ');
 
+  const plural = (count: number, noun: string) =>
+    `${count} ${noun}${count === 1 ? '' : 's'}`;
   const action = [
-    newSeasons.length
-      ? `Create ${newSeasons.length} Season${newSeasons.length === 1 ? '' : 's'}`
-      : '',
+    scope && updating.length
+      ? 'Update Weeks'
+      : [
+          creating.length ? `Create ${plural(creating.length, 'Season')}` : '',
+          updating.length ? `Update ${plural(updating.length, 'Season')}` : '',
+        ]
+          .filter(Boolean)
+          .join(' and '),
     sendable.length
-      ? `${newSeasons.length ? 'and ' : ''}Import ${sendable.length} ${sendable.length === 1 ? 'Person' : 'People'}`
+      ? `${importable.length ? 'and ' : ''}Import ${sendable.length} ${sendable.length === 1 ? 'Person' : 'People'}`
       : '',
   ]
     .filter(Boolean)
@@ -502,14 +560,36 @@ export function SpreadsheetImport({
           <FieldLabel htmlFor={`import-files-${kinds.join('-')}`}>
             {mass ? 'Spreadsheets' : 'Spreadsheet'}
           </FieldLabel>
-          <Input
-            id={`import-files-${kinds.join('-')}`}
-            type="file"
-            multiple={mass}
-            accept=".csv,.tsv,text/csv,text/tab-separated-values"
-            disabled={running}
-            onChange={(event) => void readFiles(event.target.files)}
-          />
+          {/* The browser's own file control cannot show "Choose File: name",
+              so it is hidden and this label stands in for it. */}
+          <div className="relative">
+            <input
+              id={`import-files-${kinds.join('-')}`}
+              type="file"
+              multiple={mass}
+              accept=".csv,.tsv,text/csv,text/tab-separated-values"
+              disabled={running}
+              className="peer absolute inset-0 cursor-pointer opacity-0 disabled:cursor-not-allowed"
+              onChange={(event) => {
+                setChosenNames(
+                  [...(event.target.files ?? [])]
+                    .map((file) => file.name)
+                    .join(', '),
+                );
+                void readFiles(event.target.files);
+              }}
+            />
+            <div
+              aria-hidden="true"
+              className="flex h-9 items-center rounded-lg border border-input bg-transparent px-2.5 text-sm peer-focus-visible:border-ring peer-focus-visible:ring-3 peer-focus-visible:ring-ring/50 peer-disabled:opacity-50"
+            >
+              <span className="font-medium">Choose File</span>
+              <span className="whitespace-pre">{': '}</span>
+              <span className="truncate">
+                {chosenNames || 'No file chosen'}
+              </span>
+            </div>
+          </div>
         </Field>
         {files.map((file) => (
           <section
@@ -560,7 +640,7 @@ export function SpreadsheetImport({
           ) : (
             <Button
               type="button"
-              disabled={running || checking || nothingToDo}
+              disabled={running || checking || nothingToDo || hasErrors}
               onClick={() => void run()}
             >
               {running
@@ -583,6 +663,15 @@ function groupBySeason(rows: ImportRow[]) {
       ...(bySeason.get(row.season!.id) ?? []),
       row,
     ]);
+  // Mentors and coordinators go first, so students named as their mentees
+  // can follow them in a later request.
+  const leads = (row: ImportRow) =>
+    row.role === 'mentor' || row.role === 'coordinator' ? 0 : 1;
+  for (const [season, list] of bySeason)
+    bySeason.set(
+      season,
+      [...list].sort((a, b) => leads(a) - leads(b)),
+    );
   return bySeason;
 }
 
@@ -695,10 +784,11 @@ function SeasonTable({
       columns={[
         ['Season', nameWidth],
         ['Slug', slugWidth],
-        ['Week', 8],
-        ['Start', 11],
-        ['End', 11],
-        ['Resources', 23],
+        ['Season Resources', 12],
+        ['Week', 6],
+        ['Start', 10],
+        ['End', 10],
+        ['Resources', 15],
         ['Result', resultWidth],
       ]}
     >
@@ -709,71 +799,93 @@ function SeasonTable({
           group.problem && !group.weeks.some((week) => week.problem)
             ? group.problem
             : '';
-        return group.weeks.map((week, index) => (
-          <tr
-            key={`${group.slug}:${week.line}`}
-            // Only the last week of a season gets a divider, so no line stops
-            // short of the season and slug cells that span its weeks.
-            className={
-              index === group.weeks.length - 1
-                ? 'border-b last:border-b-0'
-                : undefined
-            }
-          >
-            {index === 0 ? (
-              <>
-                <td className={cell} rowSpan={group.weeks.length}>
-                  {group.name || '—'}
-                  {group.location ? (
-                    <span className="block text-muted-foreground">
-                      {group.location}
+        // A week listed twice is a problem with the season, so it reads at the
+        // top of the season's rows rather than beside the repeat.
+        const repeated = (problem: string) =>
+          /listed more than once/.test(problem);
+        const repeats = [
+          ...new Set(
+            group.weeks.flatMap((week) =>
+              week.problem && repeated(week.problem) ? [week.problem] : [],
+            ),
+          ),
+        ];
+        return group.weeks.map((week, index) => {
+          const problems = [
+            ...(week.problem && !repeated(week.problem) ? [week.problem] : []),
+            ...(index === 0 ? repeats : []),
+          ];
+          return (
+            <tr
+              key={`${group.slug}:${week.line}`}
+              // Only the last week of a season gets a divider, so no line stops
+              // short of the season and slug cells that span its weeks.
+              className={
+                index === group.weeks.length - 1
+                  ? 'border-b last:border-b-0'
+                  : undefined
+              }
+            >
+              {index === 0 ? (
+                <>
+                  <td className={cell} rowSpan={group.weeks.length}>
+                    {group.name || '—'}
+                  </td>
+                  <td
+                    className={`${cell} font-mono text-[0.8125rem]`}
+                    rowSpan={group.weeks.length}
+                  >
+                    {group.slug || '—'}
+                  </td>
+                  <td className={cell} rowSpan={group.weeks.length}>
+                    <span
+                      className="line-clamp-2 break-all"
+                      title={group.resourcesUrl}
+                    >
+                      {group.resourcesUrl || '—'}
                     </span>
-                  ) : null}
-                </td>
-                <td
-                  className={`${cell} font-mono text-[0.8125rem]`}
-                  rowSpan={group.weeks.length}
+                  </td>
+                </>
+              ) : null}
+              <td className={cell}>{week.number || '—'}</td>
+              <td className={cell}>{weekDate(week.startDate)}</td>
+              <td className={cell}>{weekDate(week.endDate)}</td>
+              <td className={cell}>
+                <span
+                  className="line-clamp-2"
+                  title={resourcesText(week.resourcesHtml)}
                 >
-                  {group.slug || '—'}
-                </td>
-              </>
-            ) : null}
-            <td className={cell}>{week.number || '—'}</td>
-            <td className={cell}>{weekDate(week.startDate)}</td>
-            <td className={cell}>{weekDate(week.endDate)}</td>
-            <td className={cell}>
-              <span
-                className="line-clamp-2"
-                title={resourcesText(week.resourcesHtml)}
-              >
-                {resourcesText(week.resourcesHtml) || '—'}
-              </span>
-            </td>
-            <td className={cell}>
-              {week.problem ? (
-                <Outcome tone="danger" label="Error" details={[week.problem]} />
-              ) : seasonProblem ? (
-                <Outcome
-                  tone="danger"
-                  label="Error"
-                  details={index === 0 ? [seasonProblem] : []}
-                />
-              ) : group.problem ? (
-                <Outcome tone="muted" label="Not Created" />
-              ) : result === 'created' ? (
-                <Outcome tone="success" label="Created" />
-              ) : result ? (
-                <Outcome
-                  tone="danger"
-                  label="Error"
-                  details={index === 0 ? [result] : []}
-                />
-              ) : (
-                <Outcome tone="success" label="New" />
-              )}
-            </td>
-          </tr>
-        ));
+                  {resourcesText(week.resourcesHtml) || '—'}
+                </span>
+              </td>
+              <td className={cell}>
+                {problems.length ? (
+                  <Outcome tone="danger" label="Error" details={problems} />
+                ) : week.problem ? null : seasonProblem ? (
+                  <Outcome
+                    tone="danger"
+                    label="Error"
+                    details={index === 0 ? [seasonProblem] : []}
+                  />
+                ) : result === 'created' ? (
+                  <Outcome tone="success" label="Created" />
+                ) : result === 'updated' ? (
+                  <Outcome tone="info" label="Updated" />
+                ) : result ? (
+                  <Outcome
+                    tone="danger"
+                    label="Error"
+                    details={index === 0 ? [result] : []}
+                  />
+                ) : group.existing ? (
+                  <Outcome tone="info" label="Will Update" />
+                ) : (
+                  <Outcome tone="success" label="New" />
+                )}
+              </td>
+            </tr>
+          );
+        });
       })}
     </Table>
   );
@@ -792,12 +904,35 @@ function InvitationTable({
   results: Map<ImportRow, InvitationBatchResult>;
   checking: boolean;
 }) {
+  // The username each person gets: the one written, the one the server made
+  // from their name, or (for a season not created yet) a guess the same way,
+  // numbered (maddie-frew2) when taken in this file.
+  const taken = new Set(rows.map((row) => row.slug).filter(Boolean));
+  const guessed = new Map<string, string>();
+  const slugOf = (row: ImportRow) => {
+    if (row.slug) return { slug: row.slug, made: false };
+    const server = (results.get(row) ?? plans.get(row))?.slug;
+    if (server) return { slug: server, made: true };
+    if (row.problem || !row.name) return { slug: '', made: false };
+    const key = `${row.email}|${row.name.toLowerCase()}`;
+    let slug = guessed.get(key);
+    if (!slug) {
+      const base = seasonSlug(row.name) || 'member';
+      for (let n = 1; ; n += 1) {
+        slug = n === 1 ? base : `${base}${n}`;
+        if (!taken.has(slug)) break;
+      }
+      taken.add(slug);
+      guessed.set(key, slug);
+    }
+    return { slug, made: true };
+  };
   return (
     <Table
       label={`Rows in ${name}`}
       columns={[
         ['Name', nameWidth],
-        ['Slug', slugWidth],
+        ['Username', slugWidth],
         ['Email', 18],
         ['Role', 9],
         ['Mentor', 12],
@@ -813,8 +948,11 @@ function InvitationTable({
         return (
           <tr key={row.line} className="border-b last:border-b-0">
             <td className={cell}>{row.name || '—'}</td>
-            <td className={`${cell} font-mono text-[0.8125rem]`}>
-              {row.slug || '—'}
+            <td
+              className={`${cell} font-mono text-[0.8125rem]`}
+              title={slugOf(row).made ? 'Made from their name' : undefined}
+            >
+              {slugOf(row).slug || '—'}
             </td>
             <td className={cell}>{row.email || '—'}</td>
             <td className={`${cell} capitalize`}>{row.role || '—'}</td>

@@ -1,7 +1,5 @@
-import { Label } from '@/components/ui/label';
-import { Checkbox } from '@/components/ui/checkbox';
-import { useCallback, useMemo, useState } from 'react';
-import { Navigate, useParams } from 'react-router-dom';
+import { useCallback, useMemo } from 'react';
+import { Navigate, useLocation, useParams } from 'react-router-dom';
 
 import {
   completedMondayUpdateWeeks,
@@ -28,6 +26,7 @@ import { canSetStudentLevel } from '@/studentLevels';
 import { RemovalDialog } from '@/components/RemovalDialog';
 import type { Person } from '@/types';
 import { calendarDateKey } from '@/utils';
+import { useSeasonSwitcher } from '@/components/useSeasonSwitcher';
 
 function isKicked(person: Person) {
   return (person.enrollmentState ?? person.status) === 'kicked';
@@ -40,12 +39,14 @@ export function MyStudentsPage() {
 
 export function MenteesPage({ scope }: { scope?: 'mine' } = {}) {
   const { slug } = useParams();
+  const location = useLocation();
   const seasons = useSeasons();
   const currentUser = useCurrentUser();
   const season = seasons.data?.items.find((item) => item.slug === slug);
   const query = useSeasonPeople(season?.id, season?.name);
-  const [includePrevious, setIncludePrevious] = useState(false);
-  const showPrevious = includePrevious || season?.status === 'closed';
+  // A closed season shows its students as they ended up; a mentor looks at an
+  // earlier season by choosing it at the top left.
+  const showPrevious = season?.status === 'closed';
   const canManageEveryStudent =
     scope !== 'mine' &&
     Boolean(
@@ -58,6 +59,19 @@ export function MenteesPage({ scope }: { scope?: 'mine' } = {}) {
       ),
     );
   usePageTitle(canManageEveryStudent ? 'All Students' : 'My Students');
+  // The seasons this person has mentored in, newest first, to switch between.
+  const mentoredSeasonIds = new Set(
+    currentUser.data?.seasonRoles
+      .filter((membership) => membership.role === 'mentor')
+      .map((membership) => membership.seasonId) ?? [],
+  );
+  const seasonSwitcher = useSeasonSwitcher(
+    location.pathname.split('/').pop() ?? 'my-students',
+    undefined,
+    (seasons.data?.items ?? []).filter((item) =>
+      mentoredSeasonIds.has(item.id),
+    ),
+  );
   const canChangeLevel = canSetStudentLevel(currentUser.data, season);
   const mentees = useMemo(
     () =>
@@ -185,19 +199,7 @@ export function MenteesPage({ scope }: { scope?: 'mine' } = {}) {
       />
       <PeopleTable
         variant="students"
-        toolbarStart={
-          <div className="flex h-9 items-center gap-2">
-            <Checkbox
-              id="include-previous-students"
-              checked={showPrevious}
-              disabled={season?.status === 'closed'}
-              onCheckedChange={(checked) => setIncludePrevious(checked)}
-            />
-            <Label htmlFor="include-previous-students" className="font-normal">
-              Include previous students
-            </Label>
-          </div>
-        }
+        toolbarLead={seasonSwitcher}
         ariaLabel={canManageEveryStudent ? 'All Students' : 'Assigned students'}
         data={mentees}
         seasonId={season?.id}
