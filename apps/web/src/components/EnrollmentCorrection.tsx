@@ -6,8 +6,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Button } from '@/components/ui/button';
 import { useDraftSection, type DraftSection } from '@/components/draftSections';
 import { Field, FieldLabel } from '@/components/ui/field';
 import { useState } from 'react';
@@ -16,7 +14,6 @@ import { apiRequest } from '@/api/client';
 import {
   demoMode,
   seasonEnrollmentsQueryKey,
-  useEnrollmentCandidates,
   useSeasonEnrollments,
   useSeasonMentorships,
 } from '@/api/queries';
@@ -30,27 +27,25 @@ import type { Season } from '@/types';
 const noMentor = 'none';
 
 /**
- * Corrections to an enrollment: which season or person it belongs to (or no
- * season, which removes them), and a student's mentor. Shown as a section of
+ * Edits to an enrollment: which season it belongs to, and a student's
+ * mentor. Shown as a section of
  * the manage dialog opened from a table's row menu.
  */
 export function EnrollmentCorrectionForm({
   enrollment,
   seasons,
-  name,
   onSaved,
   register,
 }: {
   enrollment: Enrollment;
   seasons: Season[];
-  name: string;
   onSaved?: () => void;
   /** Hands the edits to the dialog, which commits them on Confirm. */
   register?: (section: DraftSection | null) => void;
 }) {
   const client = useQueryClient();
   const [seasonId, setSeasonId] = useState(enrollment.seasonId);
-  const [userId, setUserId] = useState(enrollment.userId);
+  const [role, setRole] = useState<Enrollment['role']>(enrollment.role);
   // A student's mentor, from the season's current mentorships.
   const student = enrollment.role === 'student';
   const mentorships = useSeasonMentorships(
@@ -78,21 +73,19 @@ export function EnrollmentCorrectionForm({
         value: member.userId,
       })),
   ];
-  const candidates = useEnrollmentCandidates(seasonId, true);
-  const placementChanged =
-    userId !== enrollment.userId || seasonId !== enrollment.seasonId;
+  const placementChanged = seasonId !== enrollment.seasonId;
+  const roleChanged = role !== enrollment.role;
   const mentorChanged = chosenMentor !== currentMentor;
-  const dirty = placementChanged || mentorChanged;
+  const dirty = placementChanged || roleChanged || mentorChanged;
+  const roleItems = [
+    { label: 'Student', value: 'student' },
+    { label: 'Mentor', value: 'mentor' },
+    { label: 'Coordinator', value: 'coordinator' },
+  ];
   const seasonItems = [
     ...seasons
       .filter((s) => s.status === 'open')
       .map((s) => ({ label: s.name, value: s.id })),
-  ];
-  const personItems = [
-    { label: name, value: enrollment.userId },
-    ...(candidates.data?.items
-      .filter((p) => p.id !== enrollment.userId)
-      .map((p) => ({ label: `${p.name} (${p.slug})`, value: p.id })) ?? []),
   ];
   // A student's mentor changes on its own: an existing mentorship moves to
   // the new mentor, or is created or ended.
@@ -121,6 +114,46 @@ export function EnrollmentCorrectionForm({
       });
   }
   async function save() {
+    if (roleChanged) {
+      const level =
+        enrollment.studentLevel && enrollment.studentLevel !== 'not_applicable'
+          ? enrollment.studentLevel
+          : 'novice';
+      const updated: Enrollment = demoMode
+        ? {
+            ...enrollment,
+            role,
+            studentLevel: role === 'student' ? level : 'not_applicable',
+          }
+        : await apiRequest<Enrollment>(
+            `/seasons/${enrollment.seasonId}/members/${enrollment.id}`,
+            {
+              method: 'PATCH',
+              body: JSON.stringify({
+                role,
+                ...(role === 'student' ? { studentLevel: level } : {}),
+              }),
+            },
+          );
+      if (demoMode)
+        client.setQueryData<EnrollmentPage>(
+          seasonEnrollmentsQueryKey(enrollment.seasonId),
+          (current) =>
+            current
+              ? {
+                  ...current,
+                  items: current.items.map((e) =>
+                    e.id === updated.id ? updated : e,
+                  ),
+                }
+              : current,
+        );
+      if (!placementChanged && !mentorChanged) {
+        if (!demoMode) await client.invalidateQueries();
+        onSaved?.();
+        return;
+      }
+    }
     if (!placementChanged && mentorChanged) {
       await saveMentor();
       await client.invalidateQueries();
@@ -128,10 +161,13 @@ export function EnrollmentCorrectionForm({
       return;
     }
     const saved: Enrollment = demoMode
-      ? { ...enrollment, userId, seasonId, member: undefined }
+      ? { ...enrollment, seasonId }
       : await apiRequest<Enrollment>(
           `/seasons/${enrollment.seasonId}/members/${enrollment.id}/correction`,
-          { method: 'POST', body: JSON.stringify({ userId, seasonId }) },
+          {
+            method: 'POST',
+            body: JSON.stringify({ userId: enrollment.userId, seasonId }),
+          },
         );
     if (demoMode) {
       client.setQueryData<EnrollmentPage>(
@@ -171,22 +207,9 @@ export function EnrollmentCorrectionForm({
     } else await client.invalidateQueries();
     onSaved?.();
   }
-  useDraftSection(
-    dirty && !candidates.isLoading && !candidates.isError,
-    save,
-    register,
-  );
+  useDraftSection(dirty, save, register);
   return (
-    <section
-      aria-labelledby={`enrollment-correction-${enrollment.id}`}
-      className="grid gap-3"
-    >
-      <h3
-        id={`enrollment-correction-${enrollment.id}`}
-        className="text-base font-semibold"
-      >
-        Corrections
-      </h3>
+    <section aria-label="Edit enrollment" className="grid gap-3">
       <form
         id={`enrollment-correction-form-${enrollment.id}`}
         className="grid gap-4"
@@ -195,8 +218,65 @@ export function EnrollmentCorrectionForm({
         }}
       >
         <Field>
+          <FieldLabel htmlFor="enrollment-correction-role">
+            Edit Role
+          </FieldLabel>
+          <Select
+            items={roleItems}
+            value={role}
+            onValueChange={(value) =>
+              setRole((value ?? role) as Enrollment['role'])
+            }
+          >
+            <SelectTrigger id="enrollment-correction-role" className="w-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectGroup>
+                {roleItems.map((item) => (
+                  <SelectItem key={item.value} value={item.value}>
+                    {item.label}
+                  </SelectItem>
+                ))}
+              </SelectGroup>
+            </SelectContent>
+          </Select>
+        </Field>
+        {student ? (
+          <Field>
+            <FieldLabel htmlFor="enrollment-correction-mentor">
+              Edit Mentor
+            </FieldLabel>
+            <Select
+              items={mentorItems}
+              value={chosenMentor}
+              onValueChange={(value) => setMentorId(value ?? noMentor)}
+              // A season or person change clears mentors; save that first.
+              disabled={
+                placementChanged || roleChanged || mentorships.isLoading
+              }
+            >
+              <SelectTrigger
+                id="enrollment-correction-mentor"
+                className="w-full"
+              >
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectGroup>
+                  {mentorItems.map((item) => (
+                    <SelectItem key={item.value} value={item.value}>
+                      {item.label}
+                    </SelectItem>
+                  ))}
+                </SelectGroup>
+              </SelectContent>
+            </Select>
+          </Field>
+        ) : null}
+        <Field>
           <FieldLabel htmlFor="enrollment-correction-season">
-            Correct Season
+            Edit Season
           </FieldLabel>
           <Select
             items={seasonItems}
@@ -217,75 +297,6 @@ export function EnrollmentCorrectionForm({
             </SelectContent>
           </Select>
         </Field>
-        <Field>
-          <FieldLabel htmlFor="enrollment-correction-person">
-            Correct Person
-          </FieldLabel>
-          <Select
-            items={personItems}
-            value={userId}
-            onValueChange={(value) => setUserId(value ?? '')}
-            disabled={candidates.isLoading}
-          >
-            <SelectTrigger id="enrollment-correction-person" className="w-full">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectGroup>
-                {personItems.map((item) => (
-                  <SelectItem key={item.value} value={item.value}>
-                    {item.label}
-                  </SelectItem>
-                ))}
-              </SelectGroup>
-            </SelectContent>
-          </Select>
-        </Field>
-        {student ? (
-          <Field>
-            <FieldLabel htmlFor="enrollment-correction-mentor">
-              Correct Mentor
-            </FieldLabel>
-            <Select
-              items={mentorItems}
-              value={chosenMentor}
-              onValueChange={(value) => setMentorId(value ?? noMentor)}
-              // A season or person change clears mentors; save that first.
-              disabled={placementChanged || mentorships.isLoading}
-            >
-              <SelectTrigger
-                id="enrollment-correction-mentor"
-                className="w-full"
-              >
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectGroup>
-                  {mentorItems.map((item) => (
-                    <SelectItem key={item.value} value={item.value}>
-                      {item.label}
-                    </SelectItem>
-                  ))}
-                </SelectGroup>
-              </SelectContent>
-            </Select>
-          </Field>
-        ) : null}
-        {candidates.isError ? (
-          <Alert variant="destructive">
-            <AlertDescription className="flex flex-wrap items-center gap-3 text-destructive">
-              People could not be loaded.
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => void candidates.refetch()}
-              >
-                Retry
-              </Button>
-            </AlertDescription>
-          </Alert>
-        ) : null}
       </form>
     </section>
   );

@@ -261,8 +261,14 @@ func (a *API) updateSeasonMember(w http.ResponseWriter, r *http.Request) {
 		}
 	case "mentor":
 		request.StudentLevel = "not_applicable"
+	case "coordinator":
+		if !canGrantCoordinator(actor, r.PathValue("id")) {
+			writeErrorResponse(w, http.StatusForbidden, "Only a director, system admin or season coordinator can make someone a coordinator.")
+			return
+		}
+		request.StudentLevel = "not_applicable"
 	default:
-		writeErrorResponse(w, http.StatusBadRequest, "role must be student or mentor")
+		writeErrorResponse(w, http.StatusBadRequest, "role must be student, mentor, or coordinator")
 		return
 	}
 	member, err := a.db.UpdateEnrollmentRoleAndLevel(r.Context(), dal.UpdateEnrollmentRoleAndLevelInput{

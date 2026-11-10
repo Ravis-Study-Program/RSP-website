@@ -223,7 +223,7 @@ test('system admin edits profile details and requests email verification separat
   ).toBeVisible();
 });
 
-test('administrators can correct the person attached to an enrollment', async ({
+test('administrators edit an enrollment from Manage Account', async ({
   page,
 }) => {
   await page.addInitScript(() =>
@@ -236,13 +236,14 @@ test('administrators can correct the person attached to an enrollment', async ({
     .first()
     .click();
   await page.getByRole('menuitem', { name: 'Manage Account' }).click();
-  // Correcting an enrollment lives in the row's Manage account dialog.
   const dialog = page.getByRole('dialog', { name: /^Manage / });
-  await expect(
-    dialog.getByLabel('Correct Person', { exact: true }),
-  ).toBeEnabled();
-  await chooseOption(dialog, 'Correct Person', 'Priya Singh (priya-singh)');
-  await dialog.getByRole('button', { name: 'Confirm' }).click();
+  await expect(dialog.getByLabel('Edit Season', { exact: true })).toBeEnabled();
+  await expect(dialog.getByLabel('Edit Role', { exact: true })).toBeEnabled();
+  // The person an enrollment belongs to is not editable here.
+  await expect(dialog.getByLabel('Correct Person')).toHaveCount(0);
+  // Nothing to confirm until something changes.
+  await expect(dialog.getByRole('button', { name: 'Confirm' })).toBeDisabled();
+  await dialog.getByRole('button', { name: 'Cancel' }).click();
   await expect(dialog).not.toBeVisible();
 });
 

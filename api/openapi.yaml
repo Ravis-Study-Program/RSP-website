@@ -3443,7 +3443,7 @@ components:
       required: [role]
       properties:
         {
-          role: { type: string, enum: [student, mentor] },
+          role: { type: string, enum: [student, mentor, coordinator] },
           studentLevel:
             {
               type: string,

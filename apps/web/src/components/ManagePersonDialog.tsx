@@ -8,7 +8,6 @@ import {
   type DraftSection,
 } from '@/components/draftSections';
 import { EnrollmentCorrectionForm } from '@/components/EnrollmentCorrection';
-import { Separator } from '@/components/ui/separator';
 import { UserAdministrationDialog } from '@/pages/AdminPage';
 import type { Person, Season } from '@/types';
 
@@ -50,7 +49,6 @@ export function ManagePersonDialog({
       <EnrollmentCorrectionForm
         enrollment={enrollment}
         seasons={seasons}
-        name={name}
         onSaved={() => onChanged?.()}
         register={register('corrections')}
       />
@@ -64,14 +62,7 @@ export function ManagePersonDialog({
         onOpenChange={onOpenChange}
         onSaved={onChanged}
         onRemoveFromSeason={onRemove}
-        before={(register) =>
-          enrollment ? (
-            <>
-              {correction(register)}
-              <Separator />
-            </>
-          ) : null
-        }
+        before={correction}
       />
     );
   const confirm = async () => {

@@ -1025,12 +1025,12 @@ export function UserAdministrationDialog({
         ) : null}
         {user ? (
           <>
-            {before?.(register)}
             <AdminProfileEditor
               user={user}
               onSaved={(updated) => setUser({ ...user, ...updated })}
               register={register('profile')}
             />
+            {before?.(register)}
             <section
               aria-labelledby={`global-roles-${person.id}`}
               className="flex flex-col gap-3"
@@ -1051,10 +1051,7 @@ export function UserAdministrationDialog({
                     (item) => item.role === role,
                   )?.state;
                   return (
-                    <li
-                      className="flex items-center gap-3 border-b border-border py-3 last:border-b-0"
-                      key={role}
-                    >
+                    <li className="flex items-center gap-3 py-3" key={role}>
                       <Checkbox
                         id={`global-role-${person.id}-${role}`}
                         checked={checked}
@@ -1681,7 +1678,7 @@ export function EnrollmentDialog({
     })),
   ];
   const enrollmentRoleItems = [
-    ...(!enrollment && allowCoordinator
+    ...(allowCoordinator || enrollment?.role === 'coordinator'
       ? [{ label: 'Coordinator', value: 'coordinator' }]
       : []),
     { label: 'Mentor', value: 'mentor' },
@@ -1723,7 +1720,7 @@ export function EnrollmentDialog({
         };
       else if (enrollment) {
         const mutation: EnrollmentUpdate = {
-          role: role === 'coordinator' ? 'mentor' : role,
+          role,
           ...(role === 'student' ? { studentLevel } : {}),
         };
         saved = await apiRequest<Enrollment>(

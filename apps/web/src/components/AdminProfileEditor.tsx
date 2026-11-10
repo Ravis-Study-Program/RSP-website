@@ -125,9 +125,8 @@ function ProfileForm({
   return (
     <section
       aria-label="Edit profile and contact details"
-      className="grid gap-6"
+      className="grid gap-4"
     >
-      <h3 className="text-base font-semibold">Profile and Contact Details</h3>
       <form
         id="admin-profile-form"
         className={formStack}
