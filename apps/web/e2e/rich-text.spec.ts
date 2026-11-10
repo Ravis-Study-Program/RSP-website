@@ -47,6 +47,11 @@ async function startWith(page: Page, text: string) {
   await page.keyboard.press('Delete');
   await page.keyboard.type(text);
   await page.keyboard.press('Shift+Home');
+  // Wait for the browser to report the selection before a toolbar click acts
+  // on it; on a busy runner the two can otherwise race.
+  await expect
+    .poll(() => page.evaluate(() => window.getSelection()?.toString()))
+    .toBe(text);
 }
 
 async function computed(root: Locator, selector: string) {
@@ -154,7 +159,7 @@ const cases: Array<{
   {
     tool: 'Block quote',
     selector: 'blockquote',
-    check: (s) => expect(px(s.borderLeftWidth)).toBeGreaterThan(0),
+    check: (s) => expect(s.backgroundColor).not.toBe('rgba(0, 0, 0, 0)'),
   },
   {
     tool: 'Bulleted list',

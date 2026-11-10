@@ -194,8 +194,9 @@
     margin-top: 0.25em;
   }
   .rich-text blockquote {
-    border-left: 3px solid var(--border-strong);
-    padding-left: 1em;
+    border-radius: var(--radius-lg);
+    background: var(--muted);
+    padding: 0.5em 1em;
     color: var(--muted-foreground);
   }
   .rich-text code {

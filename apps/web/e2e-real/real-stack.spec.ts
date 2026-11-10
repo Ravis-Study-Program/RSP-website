@@ -157,6 +157,9 @@ test('coordinator MFA session creates, edits, and deletes an open-season week', 
   const create = page.getByRole('dialog', { name: 'Create Week' });
   await create.getByLabel('Week Number').fill(String(weekNumber));
   await create.getByRole('button', { name: 'Create Week' }).click();
+  // The table is paged and sorted by number, so find the new week by search.
+  const search = page.getByPlaceholder('Search all columns');
+  await search.fill(`Week ${weekNumber}`);
   const createdWeek = page
     .getByRole('row')
     .filter({ hasText: `Week ${weekNumber}` });
@@ -172,6 +175,7 @@ test('coordinator MFA session creates, edits, and deletes an open-season week', 
   const edit = page.getByRole('dialog', { name: `Edit Week ${weekNumber}` });
   await edit.getByLabel('Week Number').fill(String(updatedWeekNumber));
   await edit.getByRole('button', { name: 'Save Week' }).click();
+  await search.fill(`Week ${updatedWeekNumber}`);
   const updatedWeek = page
     .getByRole('row')
     .filter({ hasText: `Week ${updatedWeekNumber}` });
@@ -187,7 +191,7 @@ test('coordinator MFA session creates, edits, and deletes an open-season week', 
     .click();
   await page.getByRole('menuitem', { name: 'Delete', exact: true }).click();
   const confirmation = page.getByRole('alertdialog', {
-    name: `Delete Week Week ${updatedWeekNumber}?`,
+    name: `Delete Week ${updatedWeekNumber}?`,
   });
   await confirmation
     .getByLabel(`Type Week ${updatedWeekNumber} to confirm`)
@@ -287,9 +291,9 @@ test('director MFA session creates, edits, closes, and reopens a throwaway seaso
   await deletion.getByRole('button', { name: 'Delete Season' }).click();
   await expect(emptySeason).toHaveCount(0);
 
-  // Accounts are managed from People; only System Admins get Manage account.
+  // Account pages are for System Admins; a Director is turned away.
   await page.goto('/admin/users');
-  await expect(page).toHaveURL(/\/people$/);
+  await expect(page).toHaveURL(/\/forbidden$/);
 });
 
 async function emailLink(email: string, subject: string, pattern: RegExp) {
@@ -385,6 +389,7 @@ test('an invited new member verifies their email and joins the season', async ({
       }),
     ).toBeVisible();
     await page.reload();
+    await page.getByPlaceholder('Search all columns').fill(email);
     await expect(
       page.getByText(email).filter({ visible: true }).first(),
     ).toBeVisible();
