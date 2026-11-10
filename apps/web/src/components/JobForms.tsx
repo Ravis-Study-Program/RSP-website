@@ -338,11 +338,6 @@ export function PositionForm({
             onChange={(e) => set('notes', e.target.value)}
           />
         </Field>
-        {!position && (
-          <p className="text-sm text-muted-foreground">
-            Published immediately. Staff can edit or merge listings afterward.
-          </p>
-        )}
       </JobForm>
     </FormDialog>
   );
