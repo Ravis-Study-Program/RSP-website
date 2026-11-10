@@ -54,6 +54,8 @@ it('flags each kind of bad row and leaves the good ones ready', () => {
       'G elsewhere,student,g@example.com,,Winter 2026',
       'H,student,h@example.com,,Winter 2026,Not A Slug',
       'I,student,i@example.com,,Winter 2026,@ok-name',
+      'J,student,j@example.com,,Winter 2026,ok-name',
+      'I again,student,i@example.com,,Winter 2026,ok-name',
     ].join('\n'),
     seasons,
   ) as ReturnType<typeof parseInvitationSheet> & object[];
@@ -65,12 +67,15 @@ it('flags each kind of bad row and leaves the good ones ready', () => {
     'Add a season.',
     'No open season called "Autumn 2030".',
     '',
-    'This email is already listed for this season.',
+    '',
     '',
     'Slugs use lowercase letters, numbers and single hyphens.',
     '',
+    'This slug is already used by another row in this file.',
+    '',
   ]);
   expect((rows as { slug: string }[]).at(-1)?.slug).toBe('ok-name');
+  // The same person may be listed twice; only a shared slug is a problem.
 });
 
 it('explains a sheet it cannot read', () => {

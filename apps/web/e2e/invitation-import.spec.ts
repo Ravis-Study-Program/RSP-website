@@ -34,7 +34,7 @@ test('administrators invite people from a spreadsheet, with bad rows held back',
   await expect(rows.getByRole('row')).toHaveCount(6);
   await expect(
     rows.getByRole('row').filter({ hasText: 'Alex Again' }),
-  ).toContainText('Duplicate');
+  ).toContainText('New');
   await expect(rows).toContainText('Lee, Jordan');
   await expect(
     rows.getByRole('row').filter({ hasText: 'Alex Chen' }),
@@ -48,8 +48,8 @@ test('administrators invite people from a spreadsheet, with bad rows held back',
   await expect(
     rows.getByRole('row').filter({ hasText: 'Alex Chen' }),
   ).toContainText('New');
-  await dialog.getByRole('button', { name: 'Import 2 People' }).click();
-  await expect(dialog.getByRole('status')).toHaveText('2 invited.');
+  await dialog.getByRole('button', { name: 'Import 3 People' }).click();
+  await expect(dialog.getByRole('status')).toHaveText('3 invited.');
   await expect(
     rows.getByRole('row').filter({ hasText: 'Alex Chen' }),
   ).toContainText('Invited');

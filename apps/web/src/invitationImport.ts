@@ -59,7 +59,9 @@ export function parseInvitationSheet(
     return `The first row must name the columns; missing: ${missing.join(', ')}.`;
   if (!body.length) return 'This file has no rows under its header.';
 
-  const seen = new Set<string>();
+  // Who first asked for each slug; the same person may repeat a row, but two
+  // people cannot share a slug.
+  const slugOwners = new Map<string, string>();
   return body.map((cells, offset) => {
     const value = (column: Column) =>
       index[column] < 0 ? '' : (cells[index[column]] ?? '').trim();
@@ -78,7 +80,6 @@ export function parseInvitationSheet(
         normalise(season.name) === normalise(row.seasonText) ||
         normalise(season.slug) === normalise(row.seasonText),
     );
-    const key = `${row.email}|${row.season?.id}`;
     row.problem = !row.name
       ? 'Add a name.'
       : !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(row.email)
@@ -95,10 +96,13 @@ export function parseInvitationSheet(
                   ? 'Add a season.'
                   : !row.season
                     ? `No open season called "${row.seasonText}".`
-                    : seen.has(key)
-                      ? 'This email is already listed for this season.'
+                    : row.slug &&
+                        slugOwners.has(row.slug) &&
+                        slugOwners.get(row.slug) !== row.email
+                      ? 'This slug is already used by another row in this file.'
                       : '';
-    if (!row.problem) seen.add(key);
+    if (!row.problem && row.slug && !slugOwners.has(row.slug))
+      slugOwners.set(row.slug, row.email);
     return row;
   });
 }

@@ -165,14 +165,12 @@ function Outcome({
 }
 
 /**
- * A problem as a badge: someone already invited (yellow), listed twice in
- * the file (grey), or anything else as an error (red) with its reason.
+ * A problem as a badge: someone already invited (yellow), or anything else
+ * as an error (red) with its reason.
  */
 function ProblemOutcome({ problem }: { problem: string }) {
   if (/^already (invited|a member)/i.test(problem))
     return <Outcome tone="warning" label="Already Invited" />;
-  if (/already listed/i.test(problem))
-    return <Outcome tone="muted" label="Duplicate" />;
   return <Outcome tone="danger" label="Error" details={[problem]} />;
 }
 
