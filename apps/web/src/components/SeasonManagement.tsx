@@ -725,7 +725,9 @@ export function SeasonEditMenu({
   return (
     <>
       <DropdownMenu>
-        <DropdownMenuTrigger render={<Button />}>
+        <DropdownMenuTrigger
+          render={<Button className="min-w-66 justify-center" />}
+        >
           <IconEdit size={17} aria-hidden="true" /> Edit Season
           <IconChevronDown size={16} aria-hidden="true" />
         </DropdownMenuTrigger>
