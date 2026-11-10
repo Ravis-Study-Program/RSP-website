@@ -37,9 +37,9 @@ const breakdownColor = (name: string) =>
 
 const difficultyOrder: Difficulty[] = ['Easy', 'Medium', 'Hard'];
 const difficultyColor: Record<Difficulty, string> = {
-  Easy: 'var(--success)',
-  Medium: 'var(--warning)',
-  Hard: 'var(--danger)',
+  Easy: 'var(--chart-easy)',
+  Medium: 'var(--chart-medium)',
+  Hard: 'var(--chart-hard)',
 };
 
 type TimedPoint = {
