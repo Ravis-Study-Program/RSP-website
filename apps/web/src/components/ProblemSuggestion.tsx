@@ -81,7 +81,7 @@ export function ProblemSuggestion() {
             disabled={pending}
             onClick={() => void suggest()}
           >
-            {pending ? 'Finding a question…' : 'Suggest a question'}
+            {pending ? 'Finding a Question…' : 'Suggest a Question'}
           </Button>
           <span className="min-w-0 text-sm text-muted-foreground">
             Suggests a question you haven’t attempted.

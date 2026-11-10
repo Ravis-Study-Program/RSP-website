@@ -19,7 +19,7 @@ import {
 } from '@/pendingInvitation';
 
 export function InvitationAcceptPage() {
-  usePageTitle('Accept invitation');
+  usePageTitle('Accept Invitation');
   const navigate = useNavigate();
   const client = useQueryClient();
   const [token] = useState(() => {
@@ -85,6 +85,11 @@ export function InvitationAcceptPage() {
     enabled: verified && Boolean(token),
     retry: false,
   });
+  // An invitation that cannot be used (accepted, expired, cancelled or for
+  // another address) is forgotten, so the dashboard stops sending you here.
+  useEffect(() => {
+    if (preview.isError) clearPendingInvitation();
+  }, [preview.isError]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   async function accept() {
@@ -180,7 +185,7 @@ export function InvitationAcceptPage() {
         disabled={busy}
         onClick={() => void accept()}
       >
-        {busy ? 'Joining…' : 'Accept invitation'}
+        {busy ? 'Joining…' : 'Accept Invitation'}
       </Button>
       {error ? (
         <p role="alert" className="text-center text-sm text-destructive">
@@ -202,7 +207,7 @@ export function InvitationAcceptPage() {
             navigate('/profile');
           }}
         >
-          Dismiss invitation
+          Dismiss Invitation
         </Button>
       </div>
     </AuthFrame>

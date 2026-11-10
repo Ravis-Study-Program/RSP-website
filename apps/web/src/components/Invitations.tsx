@@ -205,7 +205,7 @@ export function Invitations({
             variant="destructive"
             onClick={() => void save(invitation, 'cancel')}
           >
-            <IconX size={17} aria-hidden="true" /> Cancel invitation
+            <IconX size={17} aria-hidden="true" /> Cancel Invitation
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
@@ -227,7 +227,7 @@ export function Invitations({
       trigger={
         season.status === 'open' ? (
           <>
-            <IconMail size={17} aria-hidden="true" /> Invite a member
+            <IconMail size={17} aria-hidden="true" /> Invite a Member
           </>
         ) : undefined
       }
@@ -354,7 +354,7 @@ export function Invitations({
         ) : null}
         <div>
           <Button type="submit" disabled={busy || !inviteSeason}>
-            {busy ? 'Sending…' : 'Send invitation'}
+            {busy ? 'Sending…' : 'Send Invitation'}
           </Button>
         </div>
       </form>

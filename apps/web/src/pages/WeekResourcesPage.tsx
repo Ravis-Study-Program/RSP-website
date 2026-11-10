@@ -2,7 +2,7 @@ import { IconArrowLeft, IconEdit } from '@tabler/icons-react';
 import { isBlankRichText } from '@/richText';
 import { useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
-import { Link, Navigate, useParams } from 'react-router-dom';
+import { Link, Navigate, useParams, useSearchParams } from 'react-router-dom';
 
 import { ApiError, apiRequest } from '@/api/client';
 import type { Week, WeekPage } from '@/api/generated/models';
@@ -39,7 +39,17 @@ export function WeekResourcesPage() {
   const weeks = useSeasonWeeks(season?.id);
   const week = weeks.data?.items.find((item) => String(item.number) === number);
   usePageTitle(week ? `Week ${week.number} Resources` : 'Week Resources');
-  const [editing, setEditing] = useState(false);
+  // Edit Resources in the weeks table links here with ?edit=resources, to
+  // open the editor straight away for someone who may edit.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [editing, setEditingState] = useState(
+    searchParams.get('edit') === 'resources',
+  );
+  const setEditing = (next: boolean) => {
+    setEditingState(next);
+    if (!next && searchParams.has('edit'))
+      setSearchParams({}, { replace: true });
+  };
 
   if (seasons.isLoading || user.isLoading || weeks.isLoading)
     return <PageSkeleton label="Loading week resources" />;
@@ -105,7 +115,7 @@ export function WeekResourcesPage() {
           key={`${week.id}:${week.resourcesHtml}`}
           seasonId={season.id}
           week={week}
-          editing={editing}
+          editing={editing && canEdit}
           onEditingChange={setEditing}
         />
       </div>

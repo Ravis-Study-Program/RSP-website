@@ -16,45 +16,135 @@ import {
   demoMode,
   seasonEnrollmentsQueryKey,
   useEnrollmentCandidates,
+  useSeasonEnrollments,
+  useSeasonMentorships,
 } from '@/api/queries';
-import type { Enrollment, EnrollmentPage } from '@/api/generated/models';
+import type {
+  Enrollment,
+  EnrollmentPage,
+  Mentorship,
+} from '@/api/generated/models';
 import type { Season } from '@/types';
 
+// The season choice that removes them from the season instead.
+const noSeason = 'none';
+const noMentor = 'none';
+
 /**
- * Correcting which person or season an enrollment belongs to. Shown as a
- * section of the manage dialog opened from a table's row menu.
+ * Corrections to an enrollment: which season or person it belongs to (or no
+ * season, which removes them), and a student's mentor. Shown as a section of
+ * the manage dialog opened from a table's row menu.
  */
 export function EnrollmentCorrectionForm({
   enrollment,
   seasons,
   name,
   onSaved,
+  onRemove,
 }: {
   enrollment: Enrollment;
   seasons: Season[];
   name: string;
   onSaved?: () => void;
+  /** Removes them from the season; offered as "(No Season)" when given. */
+  onRemove?: () => void;
 }) {
   const client = useQueryClient();
   const [seasonId, setSeasonId] = useState(enrollment.seasonId);
   const [userId, setUserId] = useState(enrollment.userId);
+  // A student's mentor, from the season's current mentorships.
+  const student = enrollment.role === 'student';
+  const mentorships = useSeasonMentorships(
+    student ? enrollment.seasonId : undefined,
+  );
+  const members = useSeasonEnrollments(
+    student ? enrollment.seasonId : undefined,
+  );
+  const mentorship = mentorships.data?.items.find(
+    (item: Mentorship) => item.studentUserId === enrollment.userId,
+  );
+  const currentMentor = mentorship?.mentorUserId ?? noMentor;
+  const [mentorId, setMentorId] = useState<string | null>(null);
+  const chosenMentor = mentorId ?? currentMentor;
+  const mentorItems = [
+    { label: '(No Mentor)', value: noMentor },
+    ...(members.data?.items ?? [])
+      .filter(
+        (member) =>
+          member.state === 'active' &&
+          (member.role === 'mentor' || member.role === 'coordinator'),
+      )
+      .map((member) => ({
+        label: member.member?.name ?? member.userId,
+        value: member.userId,
+      })),
+  ];
   const [pending, setPending] = useState(false);
   const [error, setError] = useState('');
   const candidates = useEnrollmentCandidates(seasonId, true);
-  const dirty =
+  const placementChanged =
     userId !== enrollment.userId || seasonId !== enrollment.seasonId;
-  const seasonItems = seasons
-    .filter((s) => s.status === 'open')
-    .map((s) => ({ label: s.name, value: s.id }));
+  const mentorChanged = chosenMentor !== currentMentor;
+  const dirty = placementChanged || mentorChanged;
+  const seasonItems = [
+    ...seasons
+      .filter((s) => s.status === 'open')
+      .map((s) => ({ label: s.name, value: s.id })),
+    ...(onRemove ? [{ label: '(No Season)', value: noSeason }] : []),
+  ];
   const personItems = [
     { label: name, value: enrollment.userId },
     ...(candidates.data?.items
       .filter((p) => p.id !== enrollment.userId)
       .map((p) => ({ label: `${p.name} (${p.slug})`, value: p.id })) ?? []),
   ];
+  // A student's mentor changes on its own: an existing mentorship moves to
+  // the new mentor, or is created or ended.
+  async function saveMentor() {
+    const base = `/seasons/${encodeURIComponent(enrollment.seasonId)}/mentorships`;
+    if (demoMode) return;
+    if (chosenMentor === noMentor && mentorship)
+      await apiRequest(`${base}/${encodeURIComponent(mentorship.id)}`, {
+        method: 'DELETE',
+      });
+    else if (mentorship)
+      await apiRequest(`${base}/${encodeURIComponent(mentorship.id)}`, {
+        method: 'PATCH',
+        body: JSON.stringify({
+          mentorUserId: chosenMentor,
+          studentUserId: enrollment.userId,
+        }),
+      });
+    else
+      await apiRequest(base, {
+        method: 'POST',
+        body: JSON.stringify({
+          mentorUserId: chosenMentor,
+          studentUserId: enrollment.userId,
+        }),
+      });
+  }
   async function save() {
+    if (seasonId === noSeason) {
+      onRemove?.();
+      return;
+    }
     setPending(true);
     setError('');
+    if (!placementChanged && mentorChanged) {
+      try {
+        await saveMentor();
+        await client.invalidateQueries();
+        onSaved?.();
+      } catch (e) {
+        setError(
+          e instanceof Error ? e.message : 'Unable to change the mentor.',
+        );
+      } finally {
+        setPending(false);
+      }
+      return;
+    }
     try {
       const saved: Enrollment = demoMode
         ? { ...enrollment, userId, seasonId, member: undefined }
@@ -112,17 +202,26 @@ export function EnrollmentCorrectionForm({
       aria-labelledby={`enrollment-correction-${enrollment.id}`}
       className="grid gap-3"
     >
-      <h3
-        id={`enrollment-correction-${enrollment.id}`}
-        className="text-base font-semibold"
-      >
-        Correct Person or Season
-      </h3>
-      <p className="text-sm text-muted-foreground">
-        Participation dates are kept and affected mentor assignments are
-        cleared. Recorded practice and mocks stay with their original owners.
-      </p>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h3
+          id={`enrollment-correction-${enrollment.id}`}
+          className="text-base font-semibold"
+        >
+          Corrections
+        </h3>
+        <Button
+          className="w-48"
+          type="submit"
+          form={`enrollment-correction-form-${enrollment.id}`}
+          disabled={
+            pending || !dirty || candidates.isLoading || candidates.isError
+          }
+        >
+          {pending ? 'Saving…' : 'Save Corrections'}
+        </Button>
+      </div>
       <form
+        id={`enrollment-correction-form-${enrollment.id}`}
         className="grid gap-4"
         onSubmit={(e) => {
           e.preventDefault();
@@ -131,7 +230,7 @@ export function EnrollmentCorrectionForm({
       >
         <Field>
           <FieldLabel htmlFor="enrollment-correction-season">
-            Correct season
+            Correct Season
           </FieldLabel>
           <Select
             items={seasonItems}
@@ -154,7 +253,7 @@ export function EnrollmentCorrectionForm({
         </Field>
         <Field>
           <FieldLabel htmlFor="enrollment-correction-person">
-            Correct person
+            Correct Person
           </FieldLabel>
           <Select
             items={personItems}
@@ -176,6 +275,36 @@ export function EnrollmentCorrectionForm({
             </SelectContent>
           </Select>
         </Field>
+        {student ? (
+          <Field>
+            <FieldLabel htmlFor="enrollment-correction-mentor">
+              Correct Mentor
+            </FieldLabel>
+            <Select
+              items={mentorItems}
+              value={chosenMentor}
+              onValueChange={(value) => setMentorId(value ?? noMentor)}
+              // A season or person change clears mentors; save that first.
+              disabled={placementChanged || mentorships.isLoading}
+            >
+              <SelectTrigger
+                id="enrollment-correction-mentor"
+                className="w-full"
+              >
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectGroup>
+                  {mentorItems.map((item) => (
+                    <SelectItem key={item.value} value={item.value}>
+                      {item.label}
+                    </SelectItem>
+                  ))}
+                </SelectGroup>
+              </SelectContent>
+            </Select>
+          </Field>
+        ) : null}
         {candidates.isError ? (
           <Alert variant="destructive">
             <AlertDescription className="flex flex-wrap items-center gap-3 text-destructive">
@@ -198,16 +327,6 @@ export function EnrollmentCorrectionForm({
             </AlertDescription>
           </Alert>
         ) : null}
-        <div>
-          <Button
-            type="submit"
-            disabled={
-              pending || !dirty || candidates.isLoading || candidates.isError
-            }
-          >
-            {pending ? 'Correcting…' : 'Save correction'}
-          </Button>
-        </div>
       </form>
     </section>
   );

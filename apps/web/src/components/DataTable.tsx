@@ -391,7 +391,7 @@ export function DataTable<TData>({
                 type="button"
                 onClick={() => setDense((value) => !value)}
               >
-                {dense ? 'Comfortable rows' : 'Compact rows'}
+                {dense ? 'Comfortable Rows' : 'Compact Rows'}
               </Button>
               <Popover>
                 <PopoverTrigger
@@ -516,7 +516,7 @@ export function DataTable<TData>({
                         extraFilters?.onClear();
                       }}
                     >
-                      Clear table filters
+                      Clear Table Filters
                     </Button>
                   ) : null}
                 </PopoverContent>
@@ -574,7 +574,7 @@ export function DataTable<TData>({
                       extraFilters?.onClear();
                     }}
                   >
-                    Clear filters
+                    Clear Filters
                   </Button>
                 ) : undefined
               }
@@ -756,7 +756,7 @@ export function DataTable<TData>({
                     disabled={serverPagination.loadingMore}
                     onClick={serverPagination.onLoadMore}
                   >
-                    {serverPagination.loadingMore ? 'Loading…' : 'Load more'}
+                    {serverPagination.loadingMore ? 'Loading…' : 'Load More'}
                   </Button>
                 </div>
               ) : null}

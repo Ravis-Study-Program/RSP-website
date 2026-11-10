@@ -298,7 +298,7 @@ func TestInvitationBatchInvitesAndChangesExistingRoles(t *testing.T) {
 	for _, change := range changed[0].Changes {
 		fields = append(fields, change.Field)
 	}
-	if strings.Join(fields, ",") != "role,mentor,name,username" {
+	if strings.Join(fields, ",") != "role,mentor,name,slug" {
 		t.Fatalf("changes = %+v", changed[0].Changes)
 	}
 	var name, slug, mentor string

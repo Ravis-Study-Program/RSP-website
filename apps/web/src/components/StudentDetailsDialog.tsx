@@ -240,7 +240,7 @@ export function StudentDetailsDialog({
           </p>
         ) : null}
         <Field>
-          <FieldLabel htmlFor={levelId}>Student level</FieldLabel>
+          <FieldLabel htmlFor={levelId}>Student Level</FieldLabel>
           <Select
             items={levelItems}
             value={level}

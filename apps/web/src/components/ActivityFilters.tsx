@@ -122,7 +122,7 @@ export function SeasonWeekChoices({
   }));
   return (
     <Field>
-      <FieldLabel htmlFor={selectId}>Season weeks</FieldLabel>
+      <FieldLabel htmlFor={selectId}>Season Weeks</FieldLabel>
       <Select
         multiple
         items={items}

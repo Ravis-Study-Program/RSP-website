@@ -2,14 +2,22 @@ import userEvent from '@testing-library/user-event';
 import { render, screen, within } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 
-import { useSeasonPeople, useSeasons } from '@/api/queries';
+import {
+  useSeasonMentorships,
+  useSeasonPeople,
+  useSeasons,
+} from '@/api/queries';
 import { MentorTeamsPage } from '@/pages/MentorTeamsPage';
 import type { Person } from '@/types';
 
 vi.mock('@/api/queries', () => ({
   demoMode: true,
+  useSeasonMentorships: vi.fn(),
   useSeasonPeople: vi.fn(),
   useSeasons: vi.fn(),
+  useCurrentUser: () => ({
+    data: { globalRoles: ['director'], seasonRoles: [] },
+  }),
 }));
 
 function person(id: string, name: string, overrides: Partial<Person>): Person {
@@ -42,6 +50,9 @@ describe('mentor team presentation', () => {
       isError: false,
       refetch: vi.fn(),
     } as unknown as ReturnType<typeof useSeasons>);
+    vi.mocked(useSeasonMentorships).mockReturnValue({
+      data: { items: [] },
+    } as unknown as ReturnType<typeof useSeasonMentorships>);
     vi.mocked(useSeasonPeople).mockReturnValue({
       data: {
         items: [
@@ -102,7 +113,7 @@ describe('mentor team presentation', () => {
         name: 'Assign a mentor to Unassigned Student',
       }),
     );
-    const dialog = screen.getByRole('dialog', { name: 'Add Mentorship' });
+    const dialog = screen.getByRole('dialog', { name: 'Edit Mentorship' });
     expect(
       within(dialog).getByRole('combobox', { name: 'Student' }),
     ).toHaveTextContent('Unassigned Student');

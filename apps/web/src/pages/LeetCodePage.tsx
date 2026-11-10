@@ -321,7 +321,7 @@ export function LeetCodePage() {
                 />
                 <NamedConfirmation
                   name={attempt.problem}
-                  actionLabel="Delete attempt"
+                  actionLabel="Delete Attempt"
                   description="This permanently removes the attempt from your practice history."
                   onConfirm={() => void deleteAttempt(attempt)}
                 />
@@ -365,7 +365,7 @@ function AttemptRowMenu({
           {hasRichText(attempt.notes) ? (
             <DropdownMenuItem onClick={onToggleNotes}>
               <IconNotes size={17} aria-hidden="true" />
-              {notesExpanded ? 'Hide notes' : 'View notes'}
+              {notesExpanded ? 'Hide Notes' : 'View Notes'}
             </DropdownMenuItem>
           ) : null}
           <DropdownMenuItem onClick={() => setEditOpen(true)}>
@@ -375,7 +375,7 @@ function AttemptRowMenu({
             variant="destructive"
             onClick={() => setDeleteOpen(true)}
           >
-            <IconTrash size={17} aria-hidden="true" /> Delete attempt
+            <IconTrash size={17} aria-hidden="true" /> Delete Attempt
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
@@ -388,7 +388,7 @@ function AttemptRowMenu({
       />
       <NamedConfirmation
         name={attempt.problem}
-        actionLabel="Delete attempt"
+        actionLabel="Delete Attempt"
         description="This permanently removes the attempt from your practice history."
         open={deleteOpen}
         onOpenChange={setDeleteOpen}
@@ -543,7 +543,7 @@ function AttemptDialog({
             </>
           ) : (
             <>
-              <IconPlus size={18} aria-hidden="true" /> Log attempt
+              <IconPlus size={18} aria-hidden="true" /> Log Attempt
             </>
           )
         }
@@ -616,7 +616,7 @@ function AttemptDialog({
             </Field>
             <Field>
               <FieldLabel htmlFor="attempt-minutes">
-                Time taken <LabelHint>minutes</LabelHint>
+                Time Taken <LabelHint>minutes</LabelHint>
               </FieldLabel>
               <Input
                 id="attempt-minutes"
@@ -644,7 +644,7 @@ function AttemptDialog({
             />
             <Field>
               <FieldLabel htmlFor="attempt-time">
-                Attempt time <LabelHint>optional</LabelHint>
+                Attempt Time <LabelHint>optional</LabelHint>
               </FieldLabel>
               <Input
                 id="attempt-time"
@@ -664,6 +664,7 @@ function AttemptDialog({
               <RichTextEditor
                 id="attempt-notes"
                 label="Notes"
+                labelHint={<LabelHint>optional</LabelHint>}
                 value={field.value}
                 onChange={field.onChange}
                 error={errors.notes?.message}
@@ -682,8 +683,8 @@ function AttemptDialog({
               {isSubmitting
                 ? 'Saving…'
                 : attempt
-                  ? 'Update attempt'
-                  : 'Save attempt'}
+                  ? 'Update Attempt'
+                  : 'Save Attempt'}
             </Button>
           </div>
         </form>

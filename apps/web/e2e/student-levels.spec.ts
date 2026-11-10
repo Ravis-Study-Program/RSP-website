@@ -17,10 +17,10 @@ test("coordinators edit a student's details from People", async ({
     .filter({ visible: true })
     .first()
     .click();
-  await page.getByRole('menuitem', { name: 'Edit details' }).click();
+  await page.getByRole('menuitem', { name: 'Edit Details' }).click();
   const dialog = page.getByRole('dialog');
-  await expectSelected(dialog, 'Student level', 'Beginner');
-  await dialog.getByRole('combobox', { name: 'Student level' }).click();
+  await expectSelected(dialog, 'Student Level', 'Beginner');
+  await dialog.getByRole('combobox', { name: 'Student Level' }).click();
   await expect(page.getByRole('option')).toHaveText([
     'Novice',
     'Beginner',
@@ -83,7 +83,7 @@ test('coordinators change the practice goals for everyone from settings', async 
   await expect(easy).toHaveValue('10');
   await easy.fill('0');
   await expect(goals.getByText('Enter 1 to 180 minutes.')).toBeVisible();
-  const save = page.getByRole('button', { name: 'Save settings' });
+  const save = page.getByRole('button', { name: 'Save Settings' });
   await expect(save).toBeDisabled();
   await easy.fill('15');
   await save.click();

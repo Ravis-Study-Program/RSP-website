@@ -638,7 +638,7 @@ function internalUserRoute(
   pathname: string,
 ): { authUserId: string; action: string } | undefined {
   const match =
-    /^\/internal\/auth\/users\/([^/]+)\/(revoke-sessions|state|mfa-state|email-change|deletion|deletion-cancel|pseudonymize)$/.exec(
+    /^\/internal\/auth\/users\/([^/]+)\/(revoke-sessions|state|mfa-state|email-change|deletion|deletion-cancel|pseudonymize|erase)$/.exec(
       pathname,
     );
   if (!match?.[1] || !match[2]) return undefined;
@@ -872,6 +872,11 @@ async function handleInternal(
       return;
     case 'pseudonymize':
       await accountLifecycle.pseudonymize(route.authUserId);
+      send(response, 204, undefined, { 'x-request-id': id });
+      return;
+    // An administrator's deletion: immediate, with no recovery period.
+    case 'erase':
+      await accountLifecycle.eraseNow(route.authUserId);
       send(response, 204, undefined, { 'x-request-id': id });
       return;
     default:

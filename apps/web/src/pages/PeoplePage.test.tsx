@@ -114,7 +114,7 @@ describe('season people directory', () => {
       expect(within(row).getByText(label, { selector: 'span' })).toBeVisible();
     }
     expect(
-      screen.queryByRole('button', { name: 'Edit details' }),
+      screen.queryByRole('button', { name: 'Edit Details' }),
     ).not.toBeInTheDocument();
   });
 

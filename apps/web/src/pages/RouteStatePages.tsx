@@ -355,11 +355,11 @@ export function SignInPage() {
             >
               {isSubmitting
                 ? mode === 'sign-up'
-                  ? 'Creating account…'
-                  : 'Signing in…'
+                  ? 'Creating Account…'
+                  : 'Signing In…'
                 : mode === 'sign-up'
-                  ? 'Create account'
-                  : 'Sign in with email'}
+                  ? 'Create Account'
+                  : 'Sign In with Email'}
             </Button>
             {mode === 'sign-in' ? (
               <Button
@@ -399,7 +399,7 @@ function signedOutNotice(params: URLSearchParams) {
 }
 
 export function ResetPasswordPage() {
-  usePageTitle('Reset password');
+  usePageTitle('Reset Password');
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const token = searchParams.get('token') ?? '';
@@ -442,7 +442,7 @@ export function ResetPasswordPage() {
       >
         {error ? <FieldError>{error}</FieldError> : null}
         <div className="grid gap-2">
-          <FieldLabel htmlFor="reset-password">New password</FieldLabel>
+          <FieldLabel htmlFor="reset-password">New Password</FieldLabel>
           <Input
             id="reset-password"
             type="password"
@@ -453,7 +453,7 @@ export function ResetPasswordPage() {
         </div>
         <div className="grid gap-2">
           <FieldLabel htmlFor="reset-password-confirmation">
-            Confirm new password
+            Confirm New Password
           </FieldLabel>
           <Input
             id="reset-password-confirmation"
@@ -464,7 +464,7 @@ export function ResetPasswordPage() {
           />
         </div>
         <Button type="submit" disabled={pending}>
-          {pending ? 'Resetting…' : 'Reset password'}
+          {pending ? 'Resetting…' : 'Reset Password'}
         </Button>
         <Link to="/sign-in" className={buttonVariants({ variant: 'outline' })}>
           Back to sign in
@@ -527,14 +527,14 @@ export function VerifyEmailPage() {
           />
         </div>
         <Button type="button" disabled={pending} onClick={() => void resend()}>
-          {pending ? 'Sending…' : 'Resend verification email'}
+          {pending ? 'Sending…' : 'Resend Verification Email'}
         </Button>
         <Button
           variant="outline"
           type="button"
           onClick={() => void anotherAccount()}
         >
-          Use another account
+          Use Another Account
         </Button>
       </div>
     </StateLayout>
@@ -578,7 +578,7 @@ export function TwoFactorPage() {
         {error ? <FieldError>{error}</FieldError> : null}
         <div className="grid gap-2">
           <FieldLabel htmlFor="two-factor-code">
-            {method === 'totp' ? 'Authenticator code' : 'Backup code'}
+            {method === 'totp' ? 'Authenticator Code' : 'Backup code'}
           </FieldLabel>
           <Input
             id="two-factor-code"
@@ -601,8 +601,8 @@ export function TwoFactorPage() {
           }}
         >
           {method === 'totp'
-            ? 'Use a backup code'
-            : 'Use an authenticator code'}
+            ? 'Use a Backup Code'
+            : 'Use an Authenticator Code'}
         </Button>
       </form>
     </StateLayout>
@@ -677,7 +677,7 @@ export function RouteErrorPage() {
       message={message}
     >
       <Button type="button" onClick={() => window.location.reload()}>
-        <IconRefresh size={18} aria-hidden="true" /> Reload page
+        <IconRefresh size={18} aria-hidden="true" /> Reload Page
       </Button>
       <Link to="/dashboard" className={buttonVariants({ variant: 'outline' })}>
         Dashboard

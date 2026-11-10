@@ -77,8 +77,10 @@ const listClass = 'm-0 grid list-none gap-3 p-0';
 const formClass = 'flex flex-col gap-4';
 const dialogActionsClass = 'mt-5 flex justify-end gap-2.5';
 const rowListClass = 'divide-y';
+// Every row's action button is one width, that of the widest
+// ("✓ Google Connected"), so the buttons line up down the page.
 const rowClass =
-  'flex items-center justify-between gap-4 py-3 first:pt-0 last:pb-0';
+  'flex items-center justify-between gap-4 py-3 first:pt-0 last:pb-0 [&>button]:w-52 [&>button]:shrink-0';
 const rowTextClass = 'block text-sm text-muted-foreground';
 
 export function SettingsPage() {
@@ -272,7 +274,7 @@ export function SettingsPage() {
             disabled={saving || !dirty || !timezoneValid || !goalsValid}
             onClick={() => void saveSettings()}
           >
-            {saving ? 'Saving…' : 'Save settings'}
+            {saving ? 'Saving…' : 'Save Settings'}
           </Button>
         }
       />
@@ -364,7 +366,7 @@ export function SettingsPage() {
         <SecurityGroup title="Sign-In">
           <div className={rowClass}>
             <span>
-              <strong className="font-semibold">Account email</strong>
+              <strong className="font-semibold">Account Email</strong>
               <span className={rowTextClass}>{user.data.email}</span>
             </span>
             <ChangeEmailDialog onRequested={() => finishSecurityChange()} />
@@ -393,7 +395,7 @@ export function SettingsPage() {
           </div>
           <div className={rowClass}>
             <span>
-              <strong className="font-semibold">Google sign-in</strong>
+              <strong className="font-semibold">Google Sign-In</strong>
               <span className={rowTextClass}>
                 {signInMethods.data?.google
                   ? 'Sign in with your Google account.'
@@ -402,7 +404,7 @@ export function SettingsPage() {
             </span>
             {signInMethods.data?.google ? (
               <Button type="button" disabled>
-                <IconCheck size={17} aria-hidden="true" /> Google connected
+                <IconCheck size={17} aria-hidden="true" /> Google Connected
               </Button>
             ) : (
               <Button
@@ -425,7 +427,7 @@ export function SettingsPage() {
           {providers.data?.discord || signInMethods.data?.discordAccountId ? (
             <div className={rowClass}>
               <span>
-                <strong className="font-semibold">Discord sign-in</strong>
+                <strong className="font-semibold">Discord Sign-In</strong>
                 <span className={rowTextClass}>
                   {signInMethods.data?.discordAccountId
                     ? 'Sign in with your Discord account. Your Discord profile picture is shown on this site and kept up to date. Disconnecting signs you out on all devices.'
@@ -468,7 +470,7 @@ export function SettingsPage() {
             <span className="grid min-w-0 flex-1">
               <span className="flex flex-wrap items-center gap-2">
                 <strong className="font-semibold">
-                  Two-factor authentication
+                  Two-Factor Authentication
                 </strong>
                 {signInMethods.data ? (
                   <StatusBadge tone={twoFactorEnabled ? 'success' : 'danger'}>
@@ -484,7 +486,7 @@ export function SettingsPage() {
           </div>
           <div className={rowClass}>
             <span className="grid min-w-0">
-              <strong className="font-semibold">Backup codes</strong>
+              <strong className="font-semibold">Backup Codes</strong>
               <span className={rowTextClass}>
                 {twoFactorEnabled
                   ? 'Single-use codes for when you can’t use your authenticator.'
@@ -524,7 +526,7 @@ export function SettingsPage() {
                       aria-hidden="true"
                       className="text-destructive"
                     />{' '}
-                    Delete your account
+                    Delete Your Account
                   </strong>
                   <span className={rowTextClass}>
                     Requesting deletion signs you out on all devices. You have
@@ -534,7 +536,7 @@ export function SettingsPage() {
                 </span>
                 <NamedConfirmation
                   name="DELETE MY ACCOUNT"
-                  actionLabel="Request account deletion"
+                  actionLabel="Request Account Deletion"
                   description="After 30 days, your sign-in details and profile contact information are removed or replaced. Program history is kept under an account ID."
                   onConfirm={() => void deleteAccount()}
                 />
@@ -660,7 +662,7 @@ function validWeekly(key: WeeklyKey, value: string) {
 }
 
 const weeklyFields: { key: WeeklyKey; label: string; error: string }[] = [
-  { key: 'hours', label: 'Hours per week', error: 'Enter 1 to 168 hours.' },
+  { key: 'hours', label: 'Hours per Week', error: 'Enter 1 to 168 hours.' },
 ];
 
 /**
@@ -782,14 +784,14 @@ function MfaSetupDialog({ onComplete }: { onComplete: () => void }) {
       title="Set Up Two-Factor Authentication"
       open={open}
       onOpenChange={setOpen}
-      trigger="Set up"
+      trigger="Set Up"
     >
       <div className={formClass}>
         {error ? <FieldError role="alert">{error}</FieldError> : null}
         {!totpURI ? (
           <>
             <Field>
-              <FieldLabel htmlFor="mfa-password">Current password</FieldLabel>
+              <FieldLabel htmlFor="mfa-password">Current Password</FieldLabel>
               <Input
                 id="mfa-password"
                 type="password"
@@ -807,18 +809,18 @@ function MfaSetupDialog({ onComplete }: { onComplete: () => void }) {
               disabled={pending || password.length < 12}
               onClick={() => void begin()}
             >
-              {pending ? 'Starting…' : 'Begin setup'}
+              {pending ? 'Starting…' : 'Begin Setup'}
             </Button>
           </>
         ) : (
           <>
             <Field>
-              <FieldLabel htmlFor="mfa-uri">Authenticator setup URI</FieldLabel>
+              <FieldLabel htmlFor="mfa-uri">Authenticator Setup URI</FieldLabel>
               <Textarea id="mfa-uri" readOnly value={totpURI} />
             </Field>
             <BackupCodeList codes={backupCodes} />
             <Field>
-              <FieldLabel htmlFor="mfa-code">Authenticator code</FieldLabel>
+              <FieldLabel htmlFor="mfa-code">Authenticator Code</FieldLabel>
               <Input
                 id="mfa-code"
                 inputMode="numeric"
@@ -832,7 +834,7 @@ function MfaSetupDialog({ onComplete }: { onComplete: () => void }) {
               disabled={pending || code.length < 6}
               onClick={() => void verify()}
             >
-              {pending ? 'Verifying…' : 'Verify and finish'}
+              {pending ? 'Verifying…' : 'Verify and Finish'}
             </Button>
           </>
         )}
@@ -881,14 +883,14 @@ function BackupCodesDialog({ onComplete }: { onComplete: () => void }) {
               continuing.
             </FieldDescription>
             <Button type="button" onClick={onComplete}>
-              I stored the codes — sign in again
+              I Stored the Codes — Sign In Again
             </Button>
           </>
         ) : (
           <>
             <Field>
               <FieldLabel htmlFor="backup-password">
-                Current password
+                Current Password
               </FieldLabel>
               <Input
                 id="backup-password"
@@ -903,7 +905,7 @@ function BackupCodesDialog({ onComplete }: { onComplete: () => void }) {
               disabled={pending || password.length < 12}
               onClick={() => void regenerate()}
             >
-              {pending ? 'Regenerating…' : 'Regenerate codes'}
+              {pending ? 'Regenerating…' : 'Regenerate Codes'}
             </Button>
           </>
         )}
@@ -942,12 +944,12 @@ function ChangeEmailDialog({ onRequested }: { onRequested: () => void }) {
       title="Change Account Email"
       open={open}
       onOpenChange={setOpen}
-      trigger="Change email"
+      trigger="Change Email"
     >
       <div className={formClass}>
         {error ? <FieldError role="alert">{error}</FieldError> : null}
         <Field>
-          <FieldLabel htmlFor="new-account-email">New email</FieldLabel>
+          <FieldLabel htmlFor="new-account-email">New Email</FieldLabel>
           <Input
             id="new-account-email"
             type="email"
@@ -962,7 +964,7 @@ function ChangeEmailDialog({ onRequested }: { onRequested: () => void }) {
             disabled={pending}
             onClick={() => void submit()}
           >
-            {pending ? 'Requesting…' : 'Send verification'}
+            {pending ? 'Requesting…' : 'Send Verification'}
           </Button>
         </div>
       </div>
@@ -1007,13 +1009,13 @@ function ChangePasswordDialog({ onChanged }: { onChanged: () => void }) {
       description="Enter your current password. Changing it signs you out on all devices."
       open={open}
       onOpenChange={setOpen}
-      trigger="Change password"
+      trigger="Change Password"
     >
       <div className={formClass}>
         {error ? <FieldError role="alert">{error}</FieldError> : null}
         <Field>
           <FieldLabel htmlFor="current-account-password">
-            Current password
+            Current Password
           </FieldLabel>
           <Input
             id="current-account-password"
@@ -1024,7 +1026,7 @@ function ChangePasswordDialog({ onChanged }: { onChanged: () => void }) {
           />
         </Field>
         <Field>
-          <FieldLabel htmlFor="new-account-password">New password</FieldLabel>
+          <FieldLabel htmlFor="new-account-password">New Password</FieldLabel>
           <Input
             id="new-account-password"
             type="password"
@@ -1035,7 +1037,7 @@ function ChangePasswordDialog({ onChanged }: { onChanged: () => void }) {
         </Field>
         <Field>
           <FieldLabel htmlFor="confirm-account-password">
-            Confirm new password
+            Confirm New Password
           </FieldLabel>
           <Input
             id="confirm-account-password"
@@ -1051,7 +1053,7 @@ function ChangePasswordDialog({ onChanged }: { onChanged: () => void }) {
             disabled={pending}
             onClick={() => void submit()}
           >
-            {pending ? 'Changing…' : 'Change password'}
+            {pending ? 'Changing…' : 'Change Password'}
           </Button>
         </div>
       </div>
@@ -1090,12 +1092,12 @@ function ConnectPasswordDialog({ onConnected }: { onConnected: () => void }) {
       description="Add a password if you currently sign in with Google only. You’ll be signed out on all devices afterward."
       open={open}
       onOpenChange={setOpen}
-      trigger="Set password"
+      trigger="Set Password"
     >
       <div className={formClass}>
         {error ? <FieldError role="alert">{error}</FieldError> : null}
         <Field>
-          <FieldLabel htmlFor="connect-password">New password</FieldLabel>
+          <FieldLabel htmlFor="connect-password">New Password</FieldLabel>
           <Input
             id="connect-password"
             type="password"
@@ -1106,7 +1108,7 @@ function ConnectPasswordDialog({ onConnected }: { onConnected: () => void }) {
         </Field>
         <Field>
           <FieldLabel htmlFor="connect-password-confirmation">
-            Confirm new password
+            Confirm New Password
           </FieldLabel>
           <Input
             id="connect-password-confirmation"
@@ -1122,7 +1124,7 @@ function ConnectPasswordDialog({ onConnected }: { onConnected: () => void }) {
             disabled={pending}
             onClick={() => void submit()}
           >
-            {pending ? 'Connecting…' : 'Connect and sign out'}
+            {pending ? 'Connecting…' : 'Connect and Sign Out'}
           </Button>
         </div>
       </div>

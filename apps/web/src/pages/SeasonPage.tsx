@@ -27,11 +27,7 @@ import {
   PageSection,
   usePageTitle,
 } from '@/components/Common';
-import {
-  SeasonEditorDialog,
-  SeasonLifecycleDialog,
-  SeasonResourcesDialog,
-} from '@/components/SeasonManagement';
+import { SeasonEditMenu } from '@/components/SeasonManagement';
 import {
   ErrorState,
   InlineNotice,
@@ -126,20 +122,13 @@ export function SeasonPage() {
         }
         actions={
           canEditDefinition || canEditResources || canClose || canReopen ? (
-            <div className={inlineClass}>
-              {canEditDefinition ? (
-                <SeasonEditorDialog season={season} />
-              ) : null}
-              {canEditResources ? (
-                <SeasonResourcesDialog season={season} />
-              ) : null}
-              {canClose ? (
-                <SeasonLifecycleDialog season={season} action="close" />
-              ) : null}
-              {canReopen ? (
-                <SeasonLifecycleDialog season={season} action="reopen" />
-              ) : null}
-            </div>
+            <SeasonEditMenu
+              season={season}
+              canEditDefinition={canEditDefinition}
+              canEditResources={canEditResources}
+              canClose={canClose}
+              canReopen={canReopen}
+            />
           ) : undefined
         }
       />

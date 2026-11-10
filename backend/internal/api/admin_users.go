@@ -283,3 +283,59 @@ func (a *API) revokeUserGlobalRole(w http.ResponseWriter, r *http.Request) {
 
 	writeJSONResponse(w, http.StatusOK, assignment)
 }
+
+type deleteUserRequest struct {
+	Reason string `json:"reason"`
+}
+
+// deleteUser deletes someone's account at once, with no recovery: they are
+// signed out, their sign-in data is removed, and they show as "Deleted
+// member". A System Admin does this with a recorded reason.
+func (a *API) deleteUser(w http.ResponseWriter, r *http.Request) {
+	actor := actorFrom(r.Context())
+	if !actor.HasGlobalRole(authz.SystemAdmin) || !actor.HasRecentMFA(time.Now()) {
+		writeErrorResponse(w, http.StatusForbidden, "System Admin access with recent MFA is required.")
+		return
+	}
+	var request deleteUserRequest
+	if err := decodeJSON(r.Body, &request); err != nil {
+		writeErrorResponse(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	reason := strings.TrimSpace(request.Reason)
+	if reason == "" || len(reason) > 500 {
+		writeErrorResponse(w, http.StatusBadRequest, "reason must contain 1-500 characters")
+		return
+	}
+	if a.eraseAccount == nil {
+		writeErrorResponse(w, http.StatusServiceUnavailable, "Account deletion is temporarily unavailable.")
+		return
+	}
+	current, err := a.db.GetUser(r.Context(), r.PathValue("id"))
+	if err != nil {
+		a.writeStoreErrorResponse(w, err)
+		return
+	}
+	if current.ID == actor.UserID {
+		writeErrorResponse(w, http.StatusConflict, "A System Admin cannot delete their own account here.")
+		return
+	}
+	subject, err := a.db.ResolveAuthSubjectForUser(r.Context(), current.ID)
+	if err != nil {
+		a.writeStoreErrorResponse(w, err)
+		return
+	}
+	// Record the reason first, so the audit trail names who deleted whom
+	// even though the account is anonymised straight after.
+	actorID := actor.UserID
+	if err := a.db.AppendAudit(r.Context(), audit.Event{ID: id.New(), ActorID: &actorID, Action: "user.deleted", SubjectType: "user", SubjectID: current.ID, Data: map[string]any{"reason": reason}, OccurredAt: time.Now().UTC()}); err != nil {
+		a.writeStoreErrorResponse(w, err)
+		return
+	}
+	if err := a.eraseAccount(r.Context(), subject); err != nil {
+		a.logger.Error("account deletion failed", "userId", current.ID, "error", err)
+		writeErrorResponse(w, http.StatusBadGateway, "The account was not deleted.")
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}

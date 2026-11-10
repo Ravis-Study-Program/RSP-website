@@ -366,7 +366,7 @@ export function StudentRowActions({
         <DropdownMenuContent>
           {canSetLevel ? (
             <DropdownMenuItem onClick={() => setOpen('level')}>
-              <IconEdit size={17} aria-hidden="true" /> Edit details
+              <IconEdit size={17} aria-hidden="true" /> Edit Details
             </DropdownMenuItem>
           ) : null}
           {canRemove ? (
@@ -374,7 +374,7 @@ export function StudentRowActions({
               variant="destructive"
               onClick={() => setOpen('remove')}
             >
-              <IconUserMinus size={17} aria-hidden="true" /> Remove student
+              <IconUserMinus size={17} aria-hidden="true" /> Remove Student
             </DropdownMenuItem>
           ) : null}
         </DropdownMenuContent>

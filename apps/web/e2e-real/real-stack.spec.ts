@@ -63,14 +63,14 @@ async function signIn(page: Page, kind: AccountKind) {
   // browser sign-in to the production-equivalent 5 requests/minute IP bucket
   // instead of weakening or bypassing authentication protections in E2E.
   await page.waitForTimeout(13_000);
-  await page.getByRole('button', { name: 'Sign in with email' }).click();
+  await page.getByRole('button', { name: 'Sign In with Email' }).click();
   if (credentials.totpSecret) {
     await expect(page).toHaveURL(/\/two-factor$/);
     const secondsInWindow = Math.floor(Date.now() / 1_000) % 30;
     if (secondsInWindow >= 27)
       await page.waitForTimeout((31 - secondsInWindow) * 1_000);
     await page
-      .getByLabel('Authenticator code')
+      .getByLabel('Authenticator Code')
       .fill(totp(credentials.totpSecret));
     await page.getByRole('button', { name: 'Verify' }).click();
   }
@@ -86,7 +86,7 @@ test('student creates, edits, and deletes a Go-backed practice attempt', async (
   await expect(
     page.getByRole('heading', { name: 'LeetCode Practice' }),
   ).toBeVisible();
-  await page.getByRole('button', { name: 'Log attempt' }).click();
+  await page.getByRole('button', { name: 'Log Attempt' }).click();
   const create = page.getByRole('dialog', { name: 'Log Problem Attempt' });
   await create.getByLabel('Problem').fill('Two Sum');
   await page.getByRole('option').filter({ hasText: 'Two Sum' }).first().click();
@@ -94,7 +94,7 @@ test('student creates, edits, and deletes a Go-backed practice attempt', async (
   await create
     .locator('#attempt-notes')
     .fill('Real-stack note with structured details.');
-  await create.getByRole('button', { name: 'Save attempt' }).click();
+  await create.getByRole('button', { name: 'Save Attempt' }).click();
   await expect(
     page.getByRole('status').filter({ hasText: '1. Two Sum was added.' }),
   ).toBeVisible();
@@ -121,7 +121,7 @@ test('student creates, edits, and deletes a Go-backed practice attempt', async (
   await edit
     .locator('#attempt-notes')
     .fill('Updated real-stack note with rich-text persistence.');
-  await edit.getByRole('button', { name: 'Update attempt' }).click();
+  await edit.getByRole('button', { name: 'Update Attempt' }).click();
   await expect(page.getByText('1. Two Sum was saved.')).toBeVisible();
   await expect(row).toContainText('Unsolved');
   const reviewed = row.getByRole('checkbox', { name: '1. Two Sum reviewed' });
@@ -132,12 +132,12 @@ test('student creates, edits, and deletes a Go-backed practice attempt', async (
   ).toContainText('Updated real-stack note with rich-text persistence.');
 
   await rowMenu.click();
-  await page.getByRole('menuitem', { name: 'Delete attempt' }).click();
+  await page.getByRole('menuitem', { name: 'Delete Attempt' }).click();
   const confirmation = page.getByRole('alertdialog', {
     name: 'Delete attempt 1. Two Sum?',
   });
   await confirmation.getByLabel(/Type 1\. Two Sum/).fill('1. Two Sum');
-  await confirmation.getByRole('button', { name: 'Delete attempt' }).click();
+  await confirmation.getByRole('button', { name: 'Delete Attempt' }).click();
   await expect(page.getByText('1. Two Sum was deleted.')).toBeVisible();
 });
 
@@ -153,10 +153,10 @@ test('coordinator MFA session creates, edits, and deletes an open-season week', 
   ).toBeVisible();
   await expectSelected(page, 'Season', 'Development Season · Open');
 
-  await page.getByRole('button', { name: 'Create week' }).click();
+  await page.getByRole('button', { name: 'Create Week' }).click();
   const create = page.getByRole('dialog', { name: 'Create Week' });
-  await create.getByLabel('Week number').fill(String(weekNumber));
-  await create.getByRole('button', { name: 'Create week' }).click();
+  await create.getByLabel('Week Number').fill(String(weekNumber));
+  await create.getByRole('button', { name: 'Create Week' }).click();
   const createdWeek = page
     .getByRole('row')
     .filter({ hasText: `Week ${weekNumber}` });
@@ -170,8 +170,8 @@ test('coordinator MFA session creates, edits, and deletes an open-season week', 
     .click();
   await page.getByRole('menuitem', { name: 'Edit', exact: true }).click();
   const edit = page.getByRole('dialog', { name: `Edit Week ${weekNumber}` });
-  await edit.getByLabel('Week number').fill(String(updatedWeekNumber));
-  await edit.getByRole('button', { name: 'Save week' }).click();
+  await edit.getByLabel('Week Number').fill(String(updatedWeekNumber));
+  await edit.getByRole('button', { name: 'Save Week' }).click();
   const updatedWeek = page
     .getByRole('row')
     .filter({ hasText: `Week ${updatedWeekNumber}` });
@@ -185,14 +185,14 @@ test('coordinator MFA session creates, edits, and deletes an open-season week', 
       name: `More actions for Week ${updatedWeekNumber}`,
     })
     .click();
-  await page.getByRole('menuitem', { name: 'Delete week' }).click();
+  await page.getByRole('menuitem', { name: 'Delete', exact: true }).click();
   const confirmation = page.getByRole('alertdialog', {
-    name: `Delete week Week ${updatedWeekNumber}?`,
+    name: `Delete Week Week ${updatedWeekNumber}?`,
   });
   await confirmation
     .getByLabel(`Type Week ${updatedWeekNumber} to confirm`)
     .fill(`Week ${updatedWeekNumber}`);
-  await confirmation.getByRole('button', { name: 'Delete week' }).click();
+  await confirmation.getByRole('button', { name: 'Delete Week' }).click();
   await expect(updatedWeek).toHaveCount(0);
 
   await page.goto('/admin/enrollments');
@@ -200,7 +200,7 @@ test('coordinator MFA session creates, edits, and deletes an open-season week', 
     page.getByRole('heading', { name: 'Enrollments' }),
   ).toBeVisible();
   await expect(
-    page.getByRole('button', { name: 'Invite a member' }),
+    page.getByRole('button', { name: 'Invite a Member' }),
   ).toBeEnabled();
 
   await page.goto('/seasons/unknown-real-stack-season');
@@ -216,27 +216,27 @@ test('director MFA session creates, edits, closes, and reopens a throwaway seaso
   await signIn(page, 'DIRECTOR');
   await page.goto('/seasons');
   await expect(page.getByRole('heading', { name: 'Seasons' })).toBeVisible();
-  await page.getByRole('button', { name: 'Create season' }).click();
+  await page.getByRole('button', { name: 'Create Season' }).click();
   const create = page.getByRole('dialog', { name: 'Create Season' });
   await create.getByLabel('Name').fill(seasonName);
-  await create.getByLabel('URL slug').fill(seasonSlug);
+  await create.getByLabel('URL Slug').fill(seasonSlug);
   await create.getByLabel('Location').fill('E2E Test Campus');
-  await create.getByRole('button', { name: 'Create season' }).click();
+  await create.getByRole('button', { name: 'Create Season' }).click();
   const row = page.getByRole('row').filter({ hasText: seasonName });
   await expect(row).toBeVisible();
 
   await row
     .getByRole('button', { name: `More actions for ${seasonName}` })
     .click();
-  await page.getByRole('menuitem', { name: 'Edit season' }).click();
+  await page.getByRole('menuitem', { name: 'Edit', exact: true }).click();
   const edit = page.getByRole('dialog', { name: `Edit ${seasonName}` });
   await edit.getByLabel('Location').fill('E2E Test Campus Updated');
-  await edit.getByRole('button', { name: 'Save season' }).click();
+  await edit.getByRole('button', { name: 'Save Season' }).click();
   await expect(edit).toBeHidden();
   await row
     .getByRole('button', { name: `More actions for ${seasonName}` })
     .click();
-  await page.getByRole('menuitem', { name: 'Edit season' }).click();
+  await page.getByRole('menuitem', { name: 'Edit', exact: true }).click();
   await expect(edit.getByLabel('Location')).toHaveValue(
     'E2E Test Campus Updated',
   );
@@ -245,30 +245,34 @@ test('director MFA session creates, edits, closes, and reopens a throwaway seaso
 
   await row.getByRole('link', { name: seasonName }).click();
   await expect(page.getByRole('heading', { name: seasonName })).toBeVisible();
-  await page.getByRole('button', { name: 'Close season' }).click();
+  await page.getByRole('button', { name: 'Edit Season' }).click();
+  await page.getByRole('menuitem', { name: 'Close Season' }).click();
   const close = page.getByRole('dialog', {
-    name: `Close season: ${seasonName}`,
+    name: `Close Season: ${seasonName}`,
   });
   await close
     .getByLabel('Reason')
     .fill('Disposable real-stack acceptance workflow');
   await close.getByLabel(/Type E2E Release Season/).fill(seasonName);
-  await close.getByRole('button', { name: 'Close season' }).click();
+  await close.getByRole('button', { name: 'Close Season' }).click();
   await expect(page.getByText('This season is read-only.')).toBeVisible();
 
-  await page.getByRole('button', { name: 'Reopen season' }).click();
+  await page.getByRole('button', { name: 'Edit Season' }).click();
+  await page.getByRole('menuitem', { name: 'Reopen Season' }).click();
   const reopen = page.getByRole('dialog', {
-    name: `Reopen season: ${seasonName}`,
+    name: `Reopen Season: ${seasonName}`,
   });
   await reopen
     .getByLabel('Reason')
     .fill('Reopen lifecycle acceptance workflow');
   await reopen.getByLabel(/Type E2E Release Season/).fill(seasonName);
-  await reopen.getByRole('button', { name: 'Reopen season' }).click();
+  await reopen.getByRole('button', { name: 'Reopen Season' }).click();
   await expect(page.getByText('This season is read-only.')).toHaveCount(0);
+  await page.getByRole('button', { name: 'Edit Season' }).click();
   await expect(
-    page.getByRole('button', { name: 'Close season' }),
+    page.getByRole('menuitem', { name: 'Close Season' }),
   ).toBeVisible();
+  await page.keyboard.press('Escape');
 
   // Seasons are managed on the Seasons page, from each row's menu.
   await page.goto('/seasons');
@@ -276,10 +280,10 @@ test('director MFA session creates, edits, closes, and reopens a throwaway seaso
   await emptySeason
     .getByRole('button', { name: `More actions for ${seasonName}` })
     .click();
-  await page.getByRole('menuitem', { name: 'Delete empty season' }).click();
+  await page.getByRole('menuitem', { name: 'Delete', exact: true }).click();
   const deletion = page.getByRole('alertdialog');
   await deletion.getByRole('textbox').fill(seasonName);
-  await deletion.getByRole('button', { name: 'Delete empty season' }).click();
+  await deletion.getByRole('button', { name: 'Delete Empty Season' }).click();
   await expect(emptySeason).toHaveCount(0);
 
   // Accounts are managed from People; only System Admins get Manage account.
@@ -332,11 +336,11 @@ test('an invited new member verifies their email and joins the season', async ({
   await signIn(page, 'DIRECTOR');
   await page.goto('/admin/enrollments');
   await chooseOption(page, 'Season', 'Development Season · Open');
-  await page.getByRole('button', { name: 'Invite a member' }).click();
+  await page.getByRole('button', { name: 'Invite a Member' }).click();
   const invite = page.getByRole('dialog', { name: 'Invite a Member' });
   await invite.getByLabel('Name', { exact: true }).fill('Invited E2E Member');
   await invite.getByLabel('Email', { exact: true }).fill(email);
-  await invite.getByRole('button', { name: 'Send invitation' }).click();
+  await invite.getByRole('button', { name: 'Send Invitation' }).click();
   await expect(
     page.getByText(
       /^Invitation email queued for .+\. The recipient has 7 days to accept\.$/,
@@ -364,13 +368,13 @@ test('an invited new member verifies their email and joins the season', async ({
     await recipient.getByLabel('Password', { exact: true }).fill(password);
     await recipient.waitForTimeout(13_000);
     await recipient
-      .getByRole('button', { name: 'Create account', exact: true })
+      .getByRole('button', { name: 'Create Account', exact: true })
       .click();
     // The invitation link proved the inbox: no verification email, and the
     // new account is signed in and taken straight to the invitation.
     await expect(recipient).toHaveURL(/\/invitations\/accept$/);
     await recipient
-      .getByRole('button', { name: 'Accept invitation', exact: true })
+      .getByRole('button', { name: 'Accept Invitation', exact: true })
       .click();
     // Accepting goes straight into the season.
     await expect(

@@ -1,6 +1,6 @@
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
-import { Field, FieldDescription, FieldLabel } from '@/components/ui/field';
+import { Field, FieldLabel } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
 import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -65,54 +65,55 @@ function ProfileForm({
 }) {
   const client = useQueryClient();
   const [form, setForm] = useState(profile);
-  const [email, setEmail] = useState('');
+  // The email starts as the current one; changing it asks the person to
+  // verify the new address.
+  const [email, setEmail] = useState(profile.email);
   const [pending, setPending] = useState(false);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
-  async function save(emailOnly: boolean) {
+  async function save() {
     setPending(true);
     setMessage('');
     setError('');
+    const messages: string[] = [];
     try {
-      if (emailOnly) {
-        if (!demoMode)
-          await apiRequest(`/admin/users/${profile.id}/email-change`, {
-            method: 'POST',
-            body: JSON.stringify({ email }),
-          });
-        setMessage(
-          'Verification sent to the new address. The current email remains until it is verified.',
-        );
-        setEmail('');
-      } else {
+      if (form.name !== profile.name || form.slug !== profile.slug) {
         const updated = demoMode
           ? form
           : await apiRequest<AdminProfile>(
               `/admin/users/${profile.id}/profile`,
               {
                 method: 'PATCH',
-                body: JSON.stringify({
-                  name: form.name,
-                  slug: form.slug,
-                  discordId: form.discordId || null,
-                }),
+                body: JSON.stringify({ name: form.name, slug: form.slug }),
               },
             );
         client.setQueryData(['admin-profile', profile.id], updated);
         onSaved(updated);
-        await Promise.all([
-          client.invalidateQueries({ queryKey: ['admin-users'] }),
-          client.invalidateQueries({ queryKey: ['people'] }),
-          client.invalidateQueries({ queryKey: ['users'] }),
-          client.invalidateQueries({ queryKey: ['me'] }),
-          client.invalidateQueries({ queryKey: ['season-people'] }),
-          client.invalidateQueries({ queryKey: ['season-enrollments'] }),
-          client.invalidateQueries({
-            queryKey: ['mock-interview-participants'],
-          }),
-        ]);
-        setMessage('Profile updated.');
+        await Promise.all(
+          [
+            ['admin-users'],
+            ['people'],
+            ['users'],
+            ['me'],
+            ['season-people'],
+            ['season-enrollments'],
+            ['mock-interview-participants'],
+          ].map((queryKey) => client.invalidateQueries({ queryKey })),
+        );
+        messages.push('Profile updated.');
       }
+      const newEmail = email.trim().toLowerCase();
+      if (newEmail && newEmail !== profile.email.toLowerCase()) {
+        if (!demoMode)
+          await apiRequest(`/admin/users/${profile.id}/email-change`, {
+            method: 'POST',
+            body: JSON.stringify({ email: newEmail }),
+          });
+        messages.push(
+          'Verification sent to the new address. The current email stays until it is verified.',
+        );
+      }
+      setMessage(messages.join(' ') || 'Nothing changed.');
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Unable to save the profile.');
     } finally {
@@ -124,12 +125,23 @@ function ProfileForm({
       aria-label="Edit profile and contact details"
       className="grid gap-6"
     >
-      <h3 className="text-base font-semibold">Profile and Contact Details</h3>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h3 className="text-base font-semibold">Profile and Contact Details</h3>
+        <Button
+          className="w-48"
+          type="submit"
+          form="admin-profile-form"
+          disabled={pending}
+        >
+          {pending ? 'Saving…' : 'Save Profile'}
+        </Button>
+      </div>
       <form
+        id="admin-profile-form"
         className={formStack}
         onSubmit={(e) => {
           e.preventDefault();
-          void save(false);
+          void save();
         }}
       >
         <Field>
@@ -143,7 +155,7 @@ function ProfileForm({
           />
         </Field>
         <Field>
-          <FieldLabel htmlFor="admin-profile-slug">Profile slug</FieldLabel>
+          <FieldLabel htmlFor="admin-profile-slug">Profile Slug</FieldLabel>
           <Input
             id="admin-profile-slug"
             value={form.slug}
@@ -154,50 +166,15 @@ function ProfileForm({
           />
         </Field>
         <Field>
-          <FieldLabel htmlFor="admin-profile-discord">Discord</FieldLabel>
+          <FieldLabel htmlFor="admin-profile-email">Email Address</FieldLabel>
           <Input
-            id="admin-profile-discord"
-            value={form.discordId ?? ''}
-            maxLength={100}
-            onChange={(e) => setForm({ ...form, discordId: e.target.value })}
-          />
-        </Field>
-        <div>
-          <Button type="submit" disabled={pending}>
-            Save profile
-          </Button>
-        </div>
-      </form>
-      <form
-        className={`${formStack} border-t pt-6`}
-        onSubmit={(e) => {
-          e.preventDefault();
-          void save(true);
-        }}
-      >
-        <p className={notice}>Current email: {profile.email}</p>
-        <Field>
-          <FieldLabel htmlFor="admin-profile-new-email">
-            New email address
-          </FieldLabel>
-          <Input
-            id="admin-profile-new-email"
+            id="admin-profile-email"
             type="email"
             required
             value={email}
-            aria-describedby="admin-profile-new-email-help"
             onChange={(e) => setEmail(e.target.value)}
           />
-          <FieldDescription id="admin-profile-new-email-help">
-            The recipient must verify the new address before their sign-in email
-            changes.
-          </FieldDescription>
         </Field>
-        <div>
-          <Button variant="outline" type="submit" disabled={pending}>
-            Send email verification
-          </Button>
-        </div>
       </form>
       {error ? (
         <Alert variant="destructive">

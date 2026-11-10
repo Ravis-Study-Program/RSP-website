@@ -52,7 +52,7 @@ test('a row menu does not also open the row', async ({ page }) => {
     .getByRole('button', { name: 'More actions for Summer 2025/26' })
     .click();
   await expect(
-    page.getByRole('menuitem', { name: 'Edit season' }),
+    page.getByRole('menuitem', { name: 'Edit', exact: true }),
   ).toBeVisible();
   await expect(page).toHaveURL(/\/seasons$/);
 });

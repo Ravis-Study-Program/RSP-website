@@ -8,7 +8,7 @@ async function toggleWeekOption(page: Page, week: number, selected: boolean) {
     exact: true,
   });
   if (!(await option.isVisible()))
-    await page.getByRole('combobox', { name: 'Season weeks' }).click();
+    await page.getByRole('combobox', { name: 'Season Weeks' }).click();
   await expect(option).toHaveAttribute('aria-selected', String(!selected));
   await option.click();
   // URL changes use a React navigation transition; wait for that state to settle.
@@ -21,7 +21,7 @@ test('practice uses season or all time and clears weeks when changing periods @c
   // Season and weeks live in the attempt table's Filters popover.
   const openTableFilters = () =>
     page.getByRole('button', { name: /^Filters/ }).click();
-  const weeksFilter = page.getByRole('combobox', { name: 'Season weeks' });
+  const weeksFilter = page.getByRole('combobox', { name: 'Season Weeks' });
   await page.goto('/seasons/summer-2025-26/leetcode');
   await expect(page.getByRole('combobox', { name: /^Season$/ })).toHaveCount(0);
   await openTableFilters();

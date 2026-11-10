@@ -67,7 +67,7 @@ export function RemovalDialog({
       onOpenChange={onOpenChange}
     >
       <Field>
-        <FieldLabel htmlFor={`reason-${person.id}`}>Removal reason</FieldLabel>
+        <FieldLabel htmlFor={`reason-${person.id}`}>Removal Reason</FieldLabel>
         <Textarea
           id={`reason-${person.id}`}
           required
@@ -102,7 +102,7 @@ export function RemovalDialog({
           }
           onClick={() => void remove()}
         >
-          {pending ? 'Removing…' : 'Remove member'}
+          {pending ? 'Removing…' : 'Remove Member'}
         </Button>
       </div>
     </FormDialog>

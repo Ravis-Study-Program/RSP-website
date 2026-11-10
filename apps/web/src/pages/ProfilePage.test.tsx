@@ -165,7 +165,7 @@ describe('profile slug suggestion', () => {
     await user.click(screen.getByRole('button', { name: 'Suggest' }));
 
     expect(apiRequest).toHaveBeenCalledWith('/me/slug-suggestion');
-    expect(await screen.findByLabelText('Profile slug')).toHaveValue(
+    expect(await screen.findByLabelText('Profile Slug')).toHaveValue(
       'member-one-2',
     );
   });
@@ -278,6 +278,6 @@ describe('basic profiles', () => {
 
     await user.click(screen.getByRole('button', { name: /edit profile/i }));
     expect(screen.getByLabelText('Name')).toHaveValue('Member One');
-    expect(screen.queryByLabelText('Profile slug')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Profile Slug')).not.toBeInTheDocument();
   });
 });

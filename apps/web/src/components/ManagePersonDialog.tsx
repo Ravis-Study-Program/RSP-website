@@ -7,7 +7,7 @@ import type { Person, Season } from '@/types';
 
 /**
  * Everything an administrator manages about one person, opened from a table
- * row's "Manage account": correcting their enrollment's person or season,
+ * row's "Manage Account": correcting their enrollment's person or season,
  * and, for System Admins, their account itself.
  */
 export function ManagePersonDialog({
@@ -17,6 +17,7 @@ export function ManagePersonDialog({
   canManageAccount,
   enrollment,
   seasons,
+  onRemove,
   onChanged,
   onOpenChange,
 }: {
@@ -27,6 +28,8 @@ export function ManagePersonDialog({
   /** The enrollment to correct; omit when it cannot be corrected. */
   enrollment?: Enrollment;
   seasons: Season[];
+  /** Starts removing them from the season; omit when not allowed. */
+  onRemove?: () => void;
   onChanged?: () => void;
   onOpenChange: (open: boolean) => void;
 }) {
@@ -35,12 +38,14 @@ export function ManagePersonDialog({
       enrollment={enrollment}
       seasons={seasons}
       name={name}
+      onRemove={onRemove}
       onSaved={() => {
         onChanged?.();
         onOpenChange(false);
       }}
     />
   ) : null;
+  const seasonSections = correction;
   if (canManageAccount && person)
     return (
       <UserAdministrationDialog
@@ -49,9 +54,9 @@ export function ManagePersonDialog({
         open
         onOpenChange={onOpenChange}
         before={
-          correction ? (
+          seasonSections ? (
             <>
-              {correction}
+              {seasonSections}
               <Separator />
             </>
           ) : undefined
@@ -65,7 +70,7 @@ export function ManagePersonDialog({
       onOpenChange={onOpenChange}
       contentClassName="sm:max-w-3xl"
     >
-      {correction}
+      <div className="flex flex-col gap-4">{seasonSections}</div>
     </FormDialog>
   );
 }

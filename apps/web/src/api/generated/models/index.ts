@@ -178,6 +178,7 @@ export * from './syncAccepted';
 export * from './syncAcceptedStatus';
 export * from './updateMe';
 export * from './user';
+export * from './userDeletionRequest';
 export * from './userPage';
 export * from './userPrivate';
 export * from './userPrivateAccountState';

@@ -2032,6 +2032,25 @@ paths:
         '401': { $ref: '#/components/responses/Error' }
         '403': { $ref: '#/components/responses/Error' }
         '429': { $ref: '#/components/responses/RateLimited' }
+  /admin/users/{id}/deletion:
+    parameters: [{ $ref: '#/components/parameters/ID' }]
+    post:
+      operationId: deleteUser
+      description: Deletes an account at once, with no recovery. The person is signed out, their sign-in data is removed and they show as Deleted member. System Admins only, with recent MFA and an audited reason.
+      requestBody:
+        {
+          required: true,
+          content:
+            {
+              application/json:
+                {
+                  schema: { $ref: '#/components/schemas/UserDeletionRequest' },
+                },
+            },
+        }
+      responses:
+        default: { $ref: '#/components/responses/Error' }
+        '204': { description: Account deleted }
   /admin/users/{id}/account-state:
     parameters: [{ $ref: '#/components/parameters/ID' }]
     post:
@@ -2754,6 +2773,11 @@ components:
         field: { type: string }
         from: { type: string }
         to: { type: string }
+    UserDeletionRequest:
+      type: object
+      required: [reason]
+      properties:
+        reason: { type: string, minLength: 1, maxLength: 500 }
     InvitationInvitee:
       type: object
       required: [name, email]

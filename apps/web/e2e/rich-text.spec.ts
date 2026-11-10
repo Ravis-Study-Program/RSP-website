@@ -217,11 +217,11 @@ test.describe('rich text editor', () => {
     await startWith(page, 'Linked sample');
     await tool(page, 'Link').click();
     const dialog = page.getByRole('dialog', { name: 'Add or edit link' });
-    await dialog.getByLabel('Link address').fill('javascript:alert(1)');
-    await dialog.getByRole('button', { name: 'Save link' }).click();
+    await dialog.getByLabel('Link Address').fill('javascript:alert(1)');
+    await dialog.getByRole('button', { name: 'Save Link' }).click();
     await expect(dialog.getByRole('alert')).toContainText('HTTP, HTTPS');
-    await dialog.getByLabel('Link address').fill('example.com/notes');
-    await dialog.getByRole('button', { name: 'Save link' }).click();
+    await dialog.getByLabel('Link Address').fill('example.com/notes');
+    await dialog.getByRole('button', { name: 'Save Link' }).click();
     await expect(editor(page).locator('a')).toHaveAttribute(
       'href',
       'https://example.com/notes',

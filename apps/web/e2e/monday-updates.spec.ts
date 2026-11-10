@@ -27,12 +27,12 @@ test('Monday reminder clears after the fixed weekly report is submitted; missed 
   let dialog = page.getByRole('dialog', { name: 'Week 2 Update' });
   await expect(dialog).toBeVisible();
   await dialog
-    .getByRole('textbox', { name: 'Your update', exact: true })
+    .getByRole('textbox', { name: 'Your Update', exact: true })
     .fill(
       'Completed trees, learned traversal patterns, no blockers. Next week: graphs.',
     );
   await dialog
-    .getByRole('spinbutton', { name: 'Hours spent (Expected: ~30h/week)' })
+    .getByRole('spinbutton', { name: 'Hours Spent (Expected: ~30h/week)' })
     .fill('30');
   await dialog
     .getByRole('button', { name: 'Post Update', exact: true })
@@ -52,9 +52,9 @@ test('Monday reminder clears after the fixed weekly report is submitted; missed 
   await page.goto('/seasons/summer-2025-26/monday-updates');
   await page.getByRole('button', { name: 'More actions for Week 1' }).click();
   await expect(
-    page.getByRole('menuitem', { name: 'Write update' }),
+    page.getByRole('menuitem', { name: 'Write Update' }),
   ).toHaveCount(0);
-  await page.getByRole('menuitem', { name: 'Request unlock' }).click();
+  await page.getByRole('menuitem', { name: 'Request Unlock' }).click();
   dialog = page.getByRole('dialog', { name: 'Request Unlock · Week 1' });
   await dialog.getByRole('textbox', { name: 'Reason' }).fill('I was sick.');
   await dialog.getByRole('button', { name: 'Send Request' }).click();
@@ -66,17 +66,17 @@ test('Monday reminder clears after the fixed weekly report is submitted; missed 
   });
   // The week due now can still be edited.
   await page.getByRole('button', { name: 'More actions for Week 2' }).click();
-  await page.getByRole('menuitem', { name: 'Edit update' }).click();
+  await page.getByRole('menuitem', { name: 'Edit Update' }).click();
   dialog = page.getByRole('dialog', { name: 'Edit Week 2 Update' });
   await dialog
-    .getByRole('textbox', { name: 'Your update', exact: true })
+    .getByRole('textbox', { name: 'Your Update', exact: true })
     .fill('Completed trees and graphs, now with detail.');
   await dialog
     .getByRole('button', { name: 'Save Update', exact: true })
     .click();
   await expect(dialog).toHaveCount(0);
   await page.getByRole('button', { name: 'More actions for Week 2' }).click();
-  await page.getByRole('menuitem', { name: 'Show details' }).click();
+  await page.getByRole('menuitem', { name: 'Show Details' }).click();
   await expect(
     page.getByText('Completed trees and graphs, now with detail.'),
   ).toBeVisible();

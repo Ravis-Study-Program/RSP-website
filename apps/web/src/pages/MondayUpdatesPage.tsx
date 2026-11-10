@@ -998,25 +998,25 @@ function StudentUpdateRowActions({
           {update ? (
             <DropdownMenuItem onClick={row.getToggleExpandedHandler()}>
               <IconListDetails size={17} aria-hidden="true" />
-              {row.getIsExpanded() ? 'Hide details' : 'Show details'}
+              {row.getIsExpanded() ? 'Hide Details' : 'Show Details'}
             </DropdownMenuItem>
           ) : null}
           {canWrite || canChange ? (
             <DropdownMenuItem onClick={() => setOpen('write')}>
               {update ? (
                 <>
-                  <IconEdit size={17} aria-hidden="true" /> Edit update
+                  <IconEdit size={17} aria-hidden="true" /> Edit Update
                 </>
               ) : (
                 <>
-                  <IconPencil size={17} aria-hidden="true" /> Write update
+                  <IconPencil size={17} aria-hidden="true" /> Write Update
                 </>
               )}
             </DropdownMenuItem>
           ) : null}
           {canRequest ? (
             <DropdownMenuItem onClick={() => setOpen('unlock')}>
-              <IconLockOpen size={17} aria-hidden="true" /> Request unlock
+              <IconLockOpen size={17} aria-hidden="true" /> Request Unlock
             </DropdownMenuItem>
           ) : null}
           {canChange ? (
@@ -1024,7 +1024,7 @@ function StudentUpdateRowActions({
               variant="destructive"
               onClick={() => setOpen('delete')}
             >
-              <IconTrash size={17} aria-hidden="true" /> Delete update
+              <IconTrash size={17} aria-hidden="true" /> Delete Update
             </DropdownMenuItem>
           ) : null}
         </DropdownMenuContent>
@@ -1262,7 +1262,7 @@ function MondayUpdateForm({
       ) : null}
       <Field className="max-w-sm">
         <FieldLabel htmlFor="monday-update-hours">
-          Hours spent <LabelHint>Expected: ~{weeklyHours}h/week</LabelHint>
+          Hours Spent <LabelHint>Expected: ~{weeklyHours}h/week</LabelHint>
         </FieldLabel>
         <Input
           id="monday-update-hours"
@@ -1298,7 +1298,7 @@ function MondayUpdateForm({
       </section>
       <RichTextEditor
         id="monday-update-content"
-        label="Your update"
+        label="Your Update"
         labelHint={<WhatToInclude />}
         value={content}
         onChange={setContent}
@@ -1352,7 +1352,7 @@ function UpdateActivitySummary({
     <dl className="m-0 grid border-b border-border tabular-nums">
       {hours === undefined ? null : (
         <div className={rowClass}>
-          <dt className="text-sm font-semibold">Hours spent</dt>
+          <dt className="text-sm font-semibold">Hours Spent</dt>
           <dd className="m-0 text-sm">
             <strong className="text-base font-semibold">{hours}</strong>
           </dd>
@@ -1951,17 +1951,17 @@ function MentorUpdateRowActions({
           {update ? (
             <DropdownMenuItem onClick={row.getToggleExpandedHandler()}>
               <IconListDetails size={17} aria-hidden="true" />
-              {row.getIsExpanded() ? 'Hide details' : 'Show details'}
+              {row.getIsExpanded() ? 'Hide Details' : 'Show Details'}
             </DropdownMenuItem>
           ) : null}
           {update || row.original.weekNumber ? (
             <DropdownMenuItem onClick={() => setOpen(true)}>
-              <IconEdit size={17} aria-hidden="true" /> Edit notes
+              <IconEdit size={17} aria-hidden="true" /> Edit Notes
             </DropdownMenuItem>
           ) : null}
           {canUnlock ? (
             <DropdownMenuItem onClick={unlock}>
-              <IconLockOpen size={17} aria-hidden="true" /> Unlock update
+              <IconLockOpen size={17} aria-hidden="true" /> Unlock Update
             </DropdownMenuItem>
           ) : null}
         </DropdownMenuContent>
@@ -2080,7 +2080,7 @@ function UnlockRequestsTable({
       </DropdownMenuTrigger>
       <DropdownMenuContent>
         <DropdownMenuItem onClick={() => decide(request, true)}>
-          <IconLockOpen size={17} aria-hidden="true" /> Approve and unlock
+          <IconLockOpen size={17} aria-hidden="true" /> Approve and Unlock
         </DropdownMenuItem>
         <DropdownMenuItem
           variant="destructive"

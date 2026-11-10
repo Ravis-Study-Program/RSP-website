@@ -15,7 +15,7 @@ test('Discord is for returning members and explains unlinked accounts', async ({
   await expect(
     page.getByRole('button', { name: 'Continue with Discord' }),
   ).toBeVisible();
-  await page.getByRole('tab', { name: 'Create account' }).click();
+  await page.getByRole('tab', { name: 'Create Account' }).click();
   await expect(
     page.getByRole('button', { name: 'Continue with Discord' }),
   ).toHaveCount(0);

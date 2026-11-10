@@ -93,7 +93,7 @@ it('accepts after review and directs a pending coordinator to MFA settings', asy
   setup(true);
   const user = userEvent.setup();
   await user.click(
-    await screen.findByRole('button', { name: 'Accept invitation' }),
+    await screen.findByRole('button', { name: 'Accept Invitation' }),
   );
   // No confirmation screen: straight on, to MFA settings for a coordinator.
   expect(await screen.findByText('Landed on /settings')).toBeInTheDocument();
@@ -156,4 +156,15 @@ it('sends a signed-out visitor to sign-up with the invited name and email', asyn
     expect.objectContaining({ body: JSON.stringify({ token }) }),
   );
   vi.unstubAllGlobals();
+});
+
+it('forgets an invitation that can no longer be used', async () => {
+  vi.mocked(apiRequest).mockRejectedValue(
+    new Error(
+      'This invitation is expired, cancelled, already used, or belongs to another email address.',
+    ),
+  );
+  setup(true);
+  expect(await screen.findByText(/already used/)).toBeInTheDocument();
+  expect(pendingInvitation()).toBe('');
 });

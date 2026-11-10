@@ -32,6 +32,7 @@ func registerAccountRoutes(mux *http.ServeMux, a *API) {
 	mux.HandleFunc("GET /api/v2/users/{id}", a.protected(ratelimit.Read, a.getUser))
 	mux.HandleFunc("GET /api/v2/admin/users", a.protected(ratelimit.Read, a.listAdminUsers))
 	mux.HandleFunc("POST /api/v2/admin/users/{id}/account-state", a.protected(ratelimit.Sensitive, a.setUserAccountState))
+	mux.HandleFunc("POST /api/v2/admin/users/{id}/deletion", a.protected(ratelimit.Sensitive, a.deleteUser))
 	mux.HandleFunc("POST /api/v2/admin/users/{id}/global-roles", a.protected(ratelimit.Sensitive, a.grantUserGlobalRole))
 	mux.HandleFunc("GET /api/v2/admin/users/{id}/global-roles", a.protected(ratelimit.Read, a.listUserGlobalRoles))
 	mux.HandleFunc("DELETE /api/v2/admin/users/{id}/global-roles/{role}", a.protected(ratelimit.Sensitive, a.revokeUserGlobalRole))

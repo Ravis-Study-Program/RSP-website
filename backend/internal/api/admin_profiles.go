@@ -39,6 +39,8 @@ func (a *API) updateAdminProfile(w http.ResponseWriter, r *http.Request) {
 	if !a.authorizeAdminProfile(w, r) {
 		return
 	}
+	// discordId is accepted for older clients but ignored: a person's Discord
+	// link is theirs to connect, not an administrator's to edit.
 	var request struct {
 		Name      string  `json:"name"`
 		Slug      string  `json:"slug"`
@@ -54,16 +56,7 @@ func (a *API) updateAdminProfile(w http.ResponseWriter, r *http.Request) {
 		writeErrorResponse(w, 400, "Enter a name and a 3–50 character profile slug using letters, numbers and hyphens.")
 		return
 	}
-
-	if request.DiscordID != nil {
-		value := strings.TrimSpace(*request.DiscordID)
-		if len(value) > 100 {
-			writeErrorResponse(w, 400, "Discord must be at most 100 characters.")
-			return
-		}
-		request.DiscordID = &value
-	}
-	v, err := a.db.UpdateAdminProfile(r.Context(), accounts.AdminProfile{ID: r.PathValue("id"), Name: request.Name, Slug: request.Slug, DiscordID: request.DiscordID}, actorFrom(r.Context()).UserID, time.Now().UTC())
+	v, err := a.db.UpdateAdminProfile(r.Context(), accounts.AdminProfile{ID: r.PathValue("id"), Name: request.Name, Slug: request.Slug}, actorFrom(r.Context()).UserID, time.Now().UTC())
 	if err != nil {
 		a.writeStoreErrorResponse(w, err)
 		return

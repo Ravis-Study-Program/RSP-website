@@ -73,12 +73,12 @@ const references: Record<
       {
         name: 'mentor',
         description:
-          'Optional, students only: their mentor’s email, username or name.',
+          'Optional, students only: their mentor’s email, slug or name.',
       },
       { name: 'season', description: 'The season’s name or slug.' },
       {
         name: 'slug',
-        description: 'Optional: the username they get with a new account.',
+        description: 'Optional: the slug they get with a new account.',
       },
     ],
   },
@@ -128,7 +128,7 @@ const fieldLabels: Record<string, string> = {
   role: 'Role',
   mentor: 'Mentor',
   name: 'Name',
-  username: 'Username',
+  slug: 'Slug',
 };
 
 const changeText = (change: ImportChange) =>

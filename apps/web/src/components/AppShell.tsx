@@ -71,7 +71,7 @@ function ThemeButton({
     >
       <Icon size={19} aria-hidden="true" />
       {inverse ? (
-        <span>{theme === 'dark' ? 'Light theme' : 'Dark theme'}</span>
+        <span>{theme === 'dark' ? 'Light Theme' : 'Dark Theme'}</span>
       ) : null}
     </Button>
   );
@@ -171,7 +171,7 @@ export function AppShell() {
               type="button"
               onClick={() => void handleSignOut()}
             >
-              <IconLogout size={19} aria-hidden="true" /> Sign out
+              <IconLogout size={19} aria-hidden="true" /> Sign Out
             </Button>
           ) : null}
         </div>

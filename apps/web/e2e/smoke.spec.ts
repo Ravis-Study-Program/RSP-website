@@ -354,13 +354,13 @@ test('coordinator can reach season operations and create, edit and delete a week
   await page.goto('/admin/weeks');
   await expect(page.getByRole('heading', { name: 'Weeks' })).toBeVisible();
 
-  await page.getByRole('button', { name: 'Create week' }).click();
+  await page.getByRole('button', { name: 'Create Week' }).click();
   const create = page.getByRole('dialog', { name: 'Create Week' });
-  await create.getByLabel('Week number').fill('15');
+  await create.getByLabel('Week Number').fill('15');
   page.once('dialog', async (confirmation) => confirmation.dismiss());
   await page.keyboard.press('Escape');
   await expect(create).toBeVisible();
-  await create.getByRole('button', { name: 'Create week' }).click();
+  await create.getByRole('button', { name: 'Create Week' }).click();
   const createdWeek = page.getByRole('row').filter({ hasText: 'Week 15' });
   await expect(createdWeek).toBeVisible();
   // Resources are their own column, empty until a page is written.
@@ -374,8 +374,8 @@ test('coordinator can reach season operations and create, edit and delete a week
     .click();
   await page.getByRole('menuitem', { name: 'Edit', exact: true }).click();
   const edit = page.getByRole('dialog', { name: 'Edit Week 15' });
-  await edit.getByLabel('Week number').fill('16');
-  await edit.getByRole('button', { name: 'Save week' }).click();
+  await edit.getByLabel('Week Number').fill('16');
+  await edit.getByRole('button', { name: 'Save Week' }).click();
   await expect(
     page.getByRole('row').filter({ hasText: 'Week 16' }),
   ).toBeVisible();
@@ -385,12 +385,12 @@ test('coordinator can reach season operations and create, edit and delete a week
     .filter({ hasText: 'Week 16' })
     .getByRole('button', { name: 'More actions for Week 16' })
     .click();
-  await page.getByRole('menuitem', { name: 'Delete week' }).click();
+  await page.getByRole('menuitem', { name: 'Delete', exact: true }).click();
   const confirmation = page.getByRole('alertdialog', {
-    name: 'Delete week Week 16?',
+    name: 'Delete Week Week 16?',
   });
   await confirmation.getByLabel(/Type Week 16/).fill('Week 16');
-  await confirmation.getByRole('button', { name: 'Delete week' }).click();
+  await confirmation.getByRole('button', { name: 'Delete Week' }).click();
   await expect(
     page.getByRole('row').filter({ hasText: 'Week 16' }),
   ).toHaveCount(0);
@@ -405,28 +405,30 @@ test('coordinator edits only season resources and mentorship forms protect dirty
   );
   await selectDemoRole(page, 'coordinator');
   await page.goto('/seasons/summer-2025-26');
-  await expect(page.getByRole('button', { name: 'Edit season' })).toHaveCount(
-    0,
-  );
-  await page.getByRole('button', { name: 'Edit resources' }).click();
+  // A coordinator's Edit Season menu offers resources, not the details.
+  await page.getByRole('button', { name: 'Edit Season' }).click();
+  await expect(
+    page.getByRole('menuitem', { name: 'Edit Details' }),
+  ).toHaveCount(0);
+  await page.getByRole('menuitem', { name: 'Edit Resources' }).click();
   const resources = page.getByRole('dialog', {
     name: /Edit Resources for Summer 2025\/26/,
   });
   await resources
-    .getByLabel('Season resources URL')
+    .getByLabel('Season Resources URL')
     .fill('https://rsp.org.au/resources/summer-2025-26');
   page.once('dialog', async (confirmation) => confirmation.dismiss());
   await page.keyboard.press('Escape');
   await expect(resources).toBeVisible();
-  await resources.getByRole('button', { name: 'Save resources' }).click();
+  await resources.getByRole('button', { name: 'Save Resources' }).click();
   await expect(
     page.getByRole('link', { name: 'Season Resources' }),
   ).toHaveAttribute('href', 'https://rsp.org.au/resources/summer-2025-26');
 
   // Mentorships are added from Mentor Teams.
   await page.goto('/seasons/summer-2025-26/mentor-teams');
-  await page.getByRole('button', { name: 'Assign student' }).click();
-  const mentorship = page.getByRole('dialog', { name: 'Add Mentorship' });
+  await page.getByRole('button', { name: 'Edit Mentorship' }).click();
+  const mentorship = page.getByRole('dialog', { name: 'Edit Mentorship' });
   await chooseOption(mentorship, 'Mentor', 'Noah Williams');
   page.once('dialog', async (confirmation) => confirmation.dismiss());
   await page.keyboard.press('Escape');
@@ -473,26 +475,37 @@ test('system admin can grant a pending-MFA role and suspend and reactivate an ac
   await row
     .getByRole('button', { name: 'More actions for Amelia Chen' })
     .click();
-  await page.getByRole('menuitem', { name: 'Manage account' }).click();
+  await page.getByRole('menuitem', { name: 'Manage Account' }).click();
   const dialog = page.getByRole('dialog', { name: 'Administer Amelia Chen' });
-  await expect(
-    dialog.getByText('Current email: amelia@example.test', { exact: true }),
-  ).toBeVisible();
-  await dialog
-    .getByLabel('Reason for role grant')
-    .fill('Acceptance test role assignment');
-  await dialog.getByRole('button', { name: 'Grant role' }).click();
+  await expect(dialog.getByLabel('Email Address')).toHaveValue(
+    'amelia@example.test',
+  );
+  // Each audited action confirms in its own dialog: a reason and the name.
+  const confirmWith = async (button: string, title: RegExp, reason: string) => {
+    await dialog.getByRole('button', { name: button }).click();
+    const confirm = page.getByRole('alertdialog', { name: title });
+    await confirm.getByLabel('Reason').fill(reason);
+    await confirm.getByLabel(/Type Amelia Chen to confirm/).fill('Amelia Chen');
+    await confirm.getByRole('button', { name: button }).click();
+    await expect(confirm).toBeHidden();
+  };
+  await confirmWith(
+    'Grant Role',
+    /Grant a Role to Amelia Chen/,
+    'Acceptance test role assignment',
+  );
   await expect(dialog.getByRole('status')).toContainText('pending MFA');
-  await dialog
-    .getByLabel('Audited reason')
-    .fill('Security policy acceptance test');
-  await dialog
-    .getByLabel(/Type Amelia Chen to confirm suspension/)
-    .fill('Amelia Chen');
-  await dialog.getByRole('button', { name: 'Suspend account' }).click();
+  await confirmWith(
+    'Suspend Account',
+    /Suspend Amelia Chen/,
+    'Security policy acceptance test',
+  );
   await expect(dialog.getByRole('status')).toContainText('Account suspended');
-  await dialog.getByLabel('Audited reason').fill('Acceptance test completed');
-  await dialog.getByRole('button', { name: 'Reactivate account' }).click();
+  await confirmWith(
+    'Reactivate Account',
+    /Reactivate Amelia Chen/,
+    'Acceptance test completed',
+  );
   await expect(dialog.getByRole('status')).toContainText('Account reactivated');
 });
 
@@ -502,7 +515,7 @@ test('attempt create, edit, delete and dirty-close confirmation work', async ({
   test.skip(testInfo.project.name.includes('mobile'), 'Desktop CRUD coverage');
   await selectDemoRole(page, 'student');
   await page.goto('/leetcode');
-  await page.getByRole('button', { name: 'Log attempt' }).click();
+  await page.getByRole('button', { name: 'Log Attempt' }).click();
   const dialog = page.getByRole('dialog', { name: 'Log Problem Attempt' });
   await dialog.getByLabel('Problem').fill('Two Sum');
   await page.getByRole('option').filter({ hasText: 'Two Sum' }).first().click();
@@ -510,7 +523,7 @@ test('attempt create, edit, delete and dirty-close confirmation work', async ({
   page.once('dialog', async (confirmation) => confirmation.dismiss());
   await dialog.getByRole('button', { name: 'Close dialog' }).click();
   await expect(dialog).toBeVisible();
-  await dialog.getByRole('button', { name: 'Save attempt' }).click();
+  await dialog.getByRole('button', { name: 'Save Attempt' }).click();
   await expect(
     page.getByRole('status').filter({ hasText: 'was added.' }),
   ).toBeVisible();
@@ -525,7 +538,7 @@ test('attempt create, edit, delete and dirty-close confirmation work', async ({
     name: /Edit Binary Tree Level Order Traversal/,
   });
   await chooseOption(edit, 'Outcome', 'Unsolved');
-  await edit.getByRole('button', { name: 'Update attempt' }).click();
+  await edit.getByRole('button', { name: 'Update Attempt' }).click();
   await expect(
     page.getByText('Binary Tree Level Order Traversal was saved.'),
   ).toBeVisible();
@@ -539,14 +552,14 @@ test('attempt create, edit, delete and dirty-close confirmation work', async ({
   await expect(reviewed).toBeChecked({ checked: !wasReviewed });
 
   await localRow.getByRole('button', { name: /More actions for/ }).click();
-  await page.getByRole('menuitem', { name: 'Delete attempt' }).click();
+  await page.getByRole('menuitem', { name: 'Delete Attempt' }).click();
   const confirmation = page.getByRole('alertdialog', {
-    name: /Delete attempt Binary Tree Level Order Traversal/,
+    name: /Delete Attempt Binary Tree Level Order Traversal/,
   });
   await confirmation
     .getByLabel(/Type Binary Tree Level Order Traversal/)
     .fill('Binary Tree Level Order Traversal');
-  await confirmation.getByRole('button', { name: 'Delete attempt' }).click();
+  await confirmation.getByRole('button', { name: 'Delete Attempt' }).click();
   await expect(
     page.getByText('Binary Tree Level Order Traversal was deleted.'),
   ).toBeVisible();
@@ -561,12 +574,12 @@ test('director can create, edit and close a season', async ({
   );
   await selectDemoRole(page, 'director');
   await page.goto('/seasons');
-  await page.getByRole('button', { name: 'Create season' }).click();
+  await page.getByRole('button', { name: 'Create Season' }).click();
   const create = page.getByRole('dialog', { name: 'Create Season' });
   await create.getByLabel('Name').fill('Summer 2027');
-  await create.getByLabel('URL slug').fill('summer-2027');
+  await create.getByLabel('URL Slug').fill('summer-2027');
   await create.getByLabel('Location').fill('Adelaide University');
-  await create.getByRole('button', { name: 'Create season' }).click();
+  await create.getByRole('button', { name: 'Create Season' }).click();
   await expect(page.getByRole('link', { name: 'Summer 2027' })).toBeVisible();
 
   await page
@@ -577,23 +590,27 @@ test('director can create, edit and close a season', async ({
   await expect(
     page.getByRole('heading', { name: 'Summer 2025/26' }),
   ).toBeVisible();
-  await page.getByRole('button', { name: 'Edit season' }).click();
+  const editSeason = async (item: string) => {
+    await page.getByRole('button', { name: 'Edit Season' }).click();
+    await page.getByRole('menuitem', { name: item }).click();
+  };
+  await editSeason('Edit Details');
   const edit = page.getByRole('dialog', { name: /Edit Summer 2025\/26/ });
   await edit.getByLabel('Location').fill('Adelaide City Campus');
-  await edit.getByRole('button', { name: 'Save season' }).click();
+  await edit.getByRole('button', { name: 'Save Season' }).click();
   await expect(edit).not.toBeVisible();
-  await page.getByRole('button', { name: 'Edit season' }).click();
+  await editSeason('Edit Details');
   await expect(edit.getByLabel('Location')).toHaveValue('Adelaide City Campus');
   await page.keyboard.press('Escape');
   await expect(edit).not.toBeVisible();
 
-  await page.getByRole('button', { name: 'Close season' }).click();
+  await editSeason('Close Season');
   const close = page.getByRole('dialog', {
-    name: /Close season: Summer 2025\/26/,
+    name: /Close Season: Summer 2025\/26/,
   });
   await close.getByLabel('Reason').fill('Program completed successfully');
   await close.getByLabel(/Type Summer 2025\/26/).fill('Summer 2025/26');
-  await close.getByRole('button', { name: 'Close season' }).click();
+  await close.getByRole('button', { name: 'Close Season' }).click();
   await expect(page.getByText('This season is read-only.')).toBeVisible();
 
   await page.getByRole('link', { name: 'Seasons', exact: true }).click();
@@ -609,13 +626,16 @@ test('mock interview create, round edit and named deletion work', async ({
   );
   await selectDemoRole(page, 'director');
   await page.goto('/mock-interviews');
-  await page.getByRole('button', { name: 'New interview' }).click();
+  await page.getByRole('button', { name: 'New Interview' }).click();
   const create = page.getByRole('dialog', { name: 'New Mock Interview' });
   await chooseOption(create, 'Interviewee', 'Amelia Chen · student');
-  await create.getByRole('button', { name: 'Add LeetCode' }).click();
-  await create.getByLabel('LeetCode problem').fill('Two Sum');
-  await page.getByRole('option').filter({ hasText: 'Two Sum' }).first().click();
-  await create.getByRole('button', { name: 'Create interview' }).click();
+  // A new interview starts with a behavioural round and two LeetCode rounds.
+  await expect(create.getByLabel('LeetCode Problem')).toHaveCount(2);
+  for (const [index, problem] of ['Two Sum', 'Merge Intervals'].entries()) {
+    await create.getByLabel('LeetCode Problem').nth(index).fill(problem);
+    await page.getByRole('option').filter({ hasText: problem }).first().click();
+  }
+  await create.getByRole('button', { name: 'Create Interview' }).click();
   await page.getByRole('tab', { name: 'Given' }).click();
   await expect(
     page
@@ -631,14 +651,14 @@ test('mock interview create, round edit and named deletion work', async ({
     .filter({ visible: true })
     .first()
     .click();
-  await page.getByRole('menuitem', { name: 'Edit notes and scores' }).click();
+  await page.getByRole('menuitem', { name: 'Edit Notes and Scores' }).click();
   const edit = page.getByRole('dialog', { name: 'Edit Notes and Scores' });
   await edit.getByLabel('Duration (minutes)').fill('65');
   await edit
-    .getByLabel(/custom score/i)
+    .getByLabel(/behavioural score/i)
     .first()
     .fill('8');
-  await edit.getByRole('button', { name: 'Save changes' }).click();
+  await edit.getByRole('button', { name: 'Save Changes' }).click();
   await expect(page.getByText('65 min').first()).toBeVisible();
 
   await page
@@ -648,12 +668,12 @@ test('mock interview create, round edit and named deletion work', async ({
     .filter({ visible: true })
     .first()
     .click();
-  await page.getByRole('menuitem', { name: 'Delete interview' }).click();
+  await page.getByRole('menuitem', { name: 'Delete Interview' }).click();
   const confirmation = page.getByRole('alertdialog', {
-    name: /Delete interview/,
+    name: /Delete Interview/,
   });
   const interviewee = await confirmation.getByText(/Type/).textContent();
   const name = interviewee?.match(/Type (.+) to confirm/)?.[1] ?? 'Amelia Chen';
   await confirmation.getByRole('textbox').fill(name);
-  await confirmation.getByRole('button', { name: 'Delete interview' }).click();
+  await confirmation.getByRole('button', { name: 'Delete Interview' }).click();
 });

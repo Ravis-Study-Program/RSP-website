@@ -414,7 +414,7 @@ function EditProfileDialog({
         </Field>
         {showProgramDetails ? (
           <Field>
-            <FieldLabel htmlFor="profile-slug">Profile slug</FieldLabel>
+            <FieldLabel htmlFor="profile-slug">Profile Slug</FieldLabel>
             <div className={inlineClass}>
               <Input
                 id="profile-slug"
@@ -482,7 +482,7 @@ function EditProfileDialog({
             Cancel
           </Button>
           <Button type="submit" disabled={isSubmitting}>
-            {isSubmitting ? 'Saving…' : 'Save profile'}
+            {isSubmitting ? 'Saving…' : 'Save Profile'}
           </Button>
         </div>
       </form>

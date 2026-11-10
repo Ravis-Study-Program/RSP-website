@@ -88,9 +88,9 @@ export function parseInvitationSheet(
           : row.mentor && row.role !== 'student'
             ? 'Only students can be given a mentor.'
             : row.slug && !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(row.slug)
-              ? 'Usernames use lowercase letters, numbers and single hyphens.'
+              ? 'Slugs use lowercase letters, numbers and single hyphens.'
               : row.slug && (row.slug.length < 3 || row.slug.length > 50)
-                ? 'Usernames are 3 to 50 characters.'
+                ? 'Slugs are 3 to 50 characters.'
                 : !row.seasonText
                   ? 'Add a season.'
                   : !row.season

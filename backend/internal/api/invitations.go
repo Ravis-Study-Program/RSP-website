@@ -311,7 +311,7 @@ func (a *API) mentorsAfter(r *http.Request, seasonID string, rows []invitationBa
 			switch change.Field {
 			case "name":
 				mentor.Name = change.To
-			case "username":
+			case "slug":
 				mentor.Slug = change.To
 			}
 		}
@@ -432,14 +432,14 @@ func (a *API) checkInvitation(r *http.Request, seasonID string, in invitationInp
 // slugProblem says why a username cannot be used (by anyone but ownerID).
 func (a *API) slugProblem(r *http.Request, slug, ownerID string) string {
 	if len(slug) < 3 || len(slug) > 50 || !validSlug(slug) || strings.Contains(slug, "--") {
-		return "Usernames are 3–50 lowercase letters, numbers and single hyphens."
+		return "Slugs are 3–50 lowercase letters, numbers and single hyphens."
 	}
 	owner, err := a.db.ProfileSlugOwner(r.Context(), slug)
 	if err != nil {
 		return invitationStoreProblem(a, err)
 	}
 	if owner != "" && owner != ownerID {
-		return fmt.Sprintf("The username %q is taken.", slug)
+		return fmt.Sprintf("The slug %q is taken.", slug)
 	}
 	return ""
 }
@@ -475,7 +475,7 @@ func (a *API) planMemberUpdate(r *http.Request, season program.SeasonRecord, men
 		}
 	}
 	if in.Slug != "" && in.Slug != member.Slug {
-		change := importChange{"username", member.Slug, in.Slug}
+		change := importChange{"slug", member.Slug, in.Slug}
 		if !profileAdmin {
 			plan.skipped = append(plan.skipped, change)
 		} else if problem := a.slugProblem(r, in.Slug, member.UserID); problem != "" {
@@ -582,7 +582,7 @@ func matchMentor(mentors []dal.SeasonMentor, named string) (string, string) {
 	case 0:
 		return "", fmt.Sprintf("No mentor called %q in this season.", named)
 	default:
-		return "", fmt.Sprintf("More than one mentor is called %q; use their username.", named)
+		return "", fmt.Sprintf("More than one mentor is called %q; use their slug.", named)
 	}
 }
 

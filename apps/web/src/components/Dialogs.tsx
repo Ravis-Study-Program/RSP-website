@@ -1,4 +1,5 @@
 import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import {
@@ -200,6 +201,111 @@ export function NamedConfirmation({
   );
 }
 
+/**
+ * An audited account action (suspending, granting a role…): the reason is
+ * recorded, and the person's name must be typed to confirm. `children` adds
+ * fields of its own, such as which role to grant.
+ */
+export function ReasonConfirmation({
+  title,
+  name,
+  actionLabel,
+  pendingLabel = 'Working…',
+  description,
+  destructive = false,
+  canConfirm = true,
+  children,
+  onConfirm,
+  open,
+  onOpenChange,
+}: {
+  title: string;
+  name: string;
+  actionLabel: string;
+  pendingLabel?: string;
+  description: string;
+  destructive?: boolean;
+  /** Whether the dialog's own fields allow confirming. */
+  canConfirm?: boolean;
+  children?: React.ReactNode;
+  onConfirm: (reason: string) => Promise<void>;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}) {
+  const [reason, setReason] = useState('');
+  const [value, setValue] = useState('');
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState('');
+  const reasonId = useId();
+  const confirmationId = useId();
+  const confirm = async () => {
+    setPending(true);
+    setError('');
+    try {
+      await onConfirm(reason.trim());
+      onOpenChange(false);
+    } catch (requestError) {
+      setError(
+        requestError instanceof Error
+          ? requestError.message
+          : `Unable to ${actionLabel.toLowerCase()}.`,
+      );
+    } finally {
+      setPending(false);
+    }
+  };
+  return (
+    <AlertDialog
+      open={open}
+      onOpenChange={(next) => {
+        if (!pending) onOpenChange(next);
+      }}
+    >
+      <AlertDialogContent>
+        <AlertDialogTitle>{title}</AlertDialogTitle>
+        <AlertDialogDescription>{description}</AlertDialogDescription>
+        <div className="mt-4 grid gap-4">
+          {children}
+          <Field>
+            <FieldLabel htmlFor={reasonId}>Reason</FieldLabel>
+            <Textarea
+              id={reasonId}
+              maxLength={500}
+              value={reason}
+              onChange={(event) => setReason(event.target.value)}
+            />
+          </Field>
+          <Field>
+            <FieldLabel htmlFor={confirmationId}>
+              Type <strong>{name}</strong> to confirm
+            </FieldLabel>
+            <Input
+              id={confirmationId}
+              value={value}
+              autoComplete="off"
+              onChange={(event) => setValue(event.target.value)}
+            />
+          </Field>
+        </div>
+        {error ? <FieldError>{error}</FieldError> : null}
+        <div className="mt-5 flex justify-end gap-2.5">
+          <AlertDialogCancel disabled={pending}>Cancel</AlertDialogCancel>
+          <Button
+            variant={destructive ? 'destructive' : 'default'}
+            type="button"
+            disabled={
+              pending || !canConfirm || !reason.trim() || value !== name
+            }
+            onClick={() => void confirm()}
+          >
+            {pending ? pendingLabel : actionLabel}
+          </Button>
+        </div>
+      </AlertDialogContent>
+    </AlertDialog>
+  );
+}
+
 export function DirtyFormGuard({
   blocker,
 }: {
@@ -219,14 +325,14 @@ export function DirtyFormGuard({
             type="button"
             onClick={() => blocker.reset?.()}
           >
-            Stay here
+            Stay Here
           </Button>
           <Button
             variant="destructive"
             type="button"
             onClick={() => blocker.proceed?.()}
           >
-            Discard changes
+            Discard Changes
           </Button>
         </div>
       </AlertDialogContent>

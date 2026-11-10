@@ -2,12 +2,14 @@ import {
   IconDotsVertical,
   IconEdit,
   IconShieldLock,
+  IconTrash,
   IconUserMinus,
 } from '@tabler/icons-react';
 import { useState } from 'react';
 
 import type { Enrollment } from '@/api/generated/models';
 import { ManagePersonDialog } from '@/components/ManagePersonDialog';
+import { DeleteAccountDialog } from '@/pages/AdminPage';
 import { RemovalDialog } from '@/components/RemovalDialog';
 import { StudentDetailsDialog } from '@/components/StudentDetailsDialog';
 import { Button } from '@/components/ui/button';
@@ -75,9 +77,9 @@ export function PersonRowActions({
   enrollment?: Enrollment;
   onChanged: () => void;
 }) {
-  const [open, setOpen] = useState<'details' | 'manage' | 'remove' | null>(
-    null,
-  );
+  const [open, setOpen] = useState<
+    'details' | 'manage' | 'remove' | 'delete' | null
+  >(null);
   const allowed = personActions(viewer, person, season);
   const canCorrect = allowed.correct && Boolean(enrollment);
   if (
@@ -102,20 +104,30 @@ export function PersonRowActions({
         <DropdownMenuContent>
           {allowed.editDetails ? (
             <DropdownMenuItem onClick={() => setOpen('details')}>
-              <IconEdit size={17} aria-hidden="true" /> Edit details
+              <IconEdit size={17} aria-hidden="true" /> Edit Details
             </DropdownMenuItem>
           ) : null}
           {canCorrect || allowed.manageAccount ? (
             <DropdownMenuItem onClick={() => setOpen('manage')}>
-              <IconShieldLock size={17} aria-hidden="true" /> Manage account
+              <IconShieldLock size={17} aria-hidden="true" /> Manage Account
             </DropdownMenuItem>
           ) : null}
-          {allowed.remove ? (
+          {/* Without corrections (a mentor and their student), removal is
+              here; otherwise it is "(No Season)" in Manage Account. */}
+          {allowed.remove && !canCorrect ? (
             <DropdownMenuItem
               variant="destructive"
               onClick={() => setOpen('remove')}
             >
-              <IconUserMinus size={17} aria-hidden="true" /> Remove from season
+              <IconUserMinus size={17} aria-hidden="true" /> Remove From Season
+            </DropdownMenuItem>
+          ) : null}
+          {allowed.manageAccount && person.id !== viewer?.id ? (
+            <DropdownMenuItem
+              variant="destructive"
+              onClick={() => setOpen('delete')}
+            >
+              <IconTrash size={17} aria-hidden="true" /> Delete
             </DropdownMenuItem>
           ) : null}
         </DropdownMenuContent>
@@ -137,8 +149,16 @@ export function PersonRowActions({
           canManageAccount={allowed.manageAccount}
           enrollment={canCorrect ? enrollment : undefined}
           seasons={seasons}
+          onRemove={allowed.remove ? () => setOpen('remove') : undefined}
           onChanged={onChanged}
           onOpenChange={close}
+        />
+      ) : null}
+      {open === 'delete' ? (
+        <DeleteAccountDialog
+          person={person}
+          onOpenChange={close}
+          onDeleted={onChanged}
         />
       ) : null}
       {open === 'remove' ? (

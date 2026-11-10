@@ -161,6 +161,25 @@ func (c Client) SendRoleChange(ctx context.Context, input RoleChangeEmailInput) 
 	return nil
 }
 
+// EraseAccount deletes an account at once, with no recovery period: its
+// sign-in data is removed and the person becomes "Deleted member".
+func (c Client) EraseAccount(ctx context.Context, authUserID string) error {
+	request, err := c.request(ctx, http.MethodPost, "/internal/auth/users/"+url.PathEscape(authUserID)+"/erase", nil)
+	if err != nil {
+		return err
+	}
+	response, err := c.httpClient().Do(request)
+	if err != nil {
+		return err
+	}
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusNoContent {
+		message, _ := io.ReadAll(io.LimitReader(response.Body, 4096))
+		return fmt.Errorf("auth erase returned %d: %s", response.StatusCode, strings.TrimSpace(string(message)))
+	}
+	return nil
+}
+
 type EmailChangeInput struct {
 	AuthUserID string `json:"-"`
 	Email      string `json:"email"`

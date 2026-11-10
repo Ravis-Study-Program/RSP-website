@@ -67,7 +67,7 @@ it('flags each kind of bad row and leaves the good ones ready', () => {
     '',
     'This email is already listed for this season.',
     '',
-    'Usernames use lowercase letters, numbers and single hyphens.',
+    'Slugs use lowercase letters, numbers and single hyphens.',
     '',
   ]);
   expect((rows as { slug: string }[]).at(-1)?.slug).toBe('ok-name');

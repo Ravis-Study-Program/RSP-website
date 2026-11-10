@@ -1,4 +1,5 @@
 import { statusTone } from '@/badgeTones';
+import { InlineNotice } from '@/components/StatusViews';
 import { isBlankRichText } from '@/richText';
 import { StatusBadge } from '@/components/StatusBadge';
 import { Card, CardContent } from '@/components/ui/card';
@@ -23,6 +24,8 @@ import { Field, FieldError, FieldLabel } from '@/components/ui/field';
 import {
   IconArrowRight,
   IconCalendarEvent,
+  IconAlertTriangle,
+  IconCheck,
   IconChecklist,
   IconClock,
   IconShieldLock,
@@ -92,7 +95,11 @@ import { AdminProfileEditor } from '@/components/AdminProfileEditor';
 import { Invitations, type InvitationParts } from '@/components/Invitations';
 import { SpreadsheetImport } from '@/components/SpreadsheetImport';
 import { DataTable } from '@/components/DataTable';
-import { FormDialog, NamedConfirmation } from '@/components/Dialogs';
+import {
+  FormDialog,
+  NamedConfirmation,
+  ReasonConfirmation,
+} from '@/components/Dialogs';
 import type { Page as ViewPage, Person, Season, SeasonRole } from '@/types';
 import {
   formatDate,
@@ -144,7 +151,11 @@ export function AdminPage() {
   const seasons = useSeasons();
   const people = usePeople();
   const currentUser = useCurrentUser();
-  const [syncStatus, setSyncStatus] = useState('');
+  // The sync's outcome, shown as a notice at the top of the page.
+  const [syncStatus, setSyncStatus] = useState<{
+    tone: 'success' | 'warning';
+    text: string;
+  } | null>(null);
   // Mass import creates seasons, which only Directors and System Admins may.
   const canMassImport = Boolean(
     currentUser.data?.globalRoles.some(
@@ -154,19 +165,23 @@ export function AdminPage() {
   const [syncPending, setSyncPending] = useState(false);
   const sync = async () => {
     setSyncPending(true);
-    setSyncStatus('');
+    setSyncStatus(null);
     try {
       if (!demoMode)
         await apiRequest<{ status: string }>('/admin/leetcode/sync', {
           method: 'POST',
         });
-      setSyncStatus('LeetCode sync queued.');
+      setSyncStatus({ tone: 'success', text: 'LeetCode sync queued.' });
     } catch (error) {
-      setSyncStatus(
-        error instanceof Error ? error.message : 'Unable to queue the sync.',
-      );
+      setSyncStatus({
+        tone: 'warning',
+        text:
+          error instanceof Error ? error.message : 'Unable to queue the sync.',
+      });
     } finally {
       setSyncPending(false);
+      // The notice is at the top of the page, away from the button.
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     }
   };
   const visibleResources = adminResources;
@@ -207,10 +222,20 @@ export function AdminPage() {
     <div>
       <PageHeader title="Administration" />
       <div className="flex flex-col gap-6">
+        {syncStatus ? (
+          <InlineNotice tone={syncStatus.tone}>
+            {syncStatus.tone === 'success' ? (
+              <IconCheck size={19} aria-hidden="true" />
+            ) : (
+              <IconAlertTriangle size={19} aria-hidden="true" />
+            )}{' '}
+            {syncStatus.text}
+          </InlineNotice>
+        ) : null}
         <div className="grid gap-6 sm:grid-cols-2">
           <MetricCard label="Seasons" value={seasons.data?.totalCount ?? '—'} />
           <MetricCard
-            label="Visible users"
+            label="Visible Users"
             value={people.data?.totalCount ?? '—'}
           />
         </div>
@@ -257,7 +282,6 @@ export function AdminPage() {
                 />
               </div>
             ) : null}
-            {syncStatus ? <p role="status">{syncStatus}</p> : null}
             <div className="flex flex-wrap items-center justify-between gap-3">
               <span>
                 <strong>LeetCode catalogue sync</strong>
@@ -272,7 +296,7 @@ export function AdminPage() {
                 disabled={syncPending}
                 onClick={() => void sync()}
               >
-                {syncPending ? 'Queueing…' : 'Sync now'}
+                {syncPending ? 'Queueing…' : 'Sync Now'}
               </Button>
             </div>
           </Card>
@@ -804,15 +828,17 @@ export function UserAdministrationDialog({
   const [user, setUser] = useState<UserPrivate | null>(null);
   const [assignments, setAssignments] = useState<GlobalRoleAssignment[]>([]);
   const [loading, setLoading] = useState(false);
-  const [pending, setPending] = useState('');
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
-  const [accountReason, setAccountReason] = useState('');
-  const [accountConfirmation, setAccountConfirmation] = useState('');
   const [grantRole, setGrantRole] = useState<GlobalRole>('director');
-  const [grantReason, setGrantReason] = useState('');
-  const [roleReason, setRoleReason] = useState('');
-  const [roleConfirmation, setRoleConfirmation] = useState('');
+  // The audited action being confirmed, in its own dialog.
+  const [confirming, setConfirming] = useState<
+    | { kind: 'account' }
+    | { kind: 'grant' }
+    | { kind: 'revoke'; assignment: GlobalRoleAssignment }
+    | { kind: 'delete' }
+    | null
+  >(null);
 
   const load = async () => {
     setLoading(true);
@@ -877,28 +903,15 @@ export function UserAdministrationDialog({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   const onOpenChange = (next: boolean) => {
-    if (pending) return;
     setOpen(next);
     if (next) void load();
-    else {
-      setAccountReason('');
-      setAccountConfirmation('');
-      setGrantReason('');
-      setRoleReason('');
-      setRoleConfirmation('');
-    }
+    else setConfirming(null);
   };
-  const changeAccountState = async () => {
+  // These run from the confirmation dialogs, which show any error.
+  const changeAccountState = async (reason: string) => {
     if (!user) return;
     const state: AccountStateMutation['state'] =
       user.accountState === 'suspended' ? 'active' : 'suspended';
-    if (
-      !accountReason.trim() ||
-      (state === 'suspended' && accountConfirmation !== person.name)
-    )
-      return;
-    setPending('account');
-    setError('');
     setMessage('');
     try {
       const updated: UserPrivate = demoMode
@@ -909,13 +922,11 @@ export function UserAdministrationDialog({
               method: 'POST',
               body: JSON.stringify({
                 state,
-                reason: accountReason.trim(),
+                reason,
               } satisfies AccountStateMutation),
             },
           );
       setUser(updated);
-      setAccountReason('');
-      setAccountConfirmation('');
       setMessage(
         state === 'suspended'
           ? 'Account suspended and sessions revoked.'
@@ -930,94 +941,69 @@ export function UserAdministrationDialog({
         queryClient.invalidateQueries({ queryKey: ['people'] }),
       ]);
     } catch (requestError) {
-      setError(
-        requestError instanceof Error
-          ? requestError.message
-          : 'Unable to change the account state.',
-      );
       if (!demoMode) void load();
-    } finally {
-      setPending('');
+      throw requestError;
     }
   };
-  const grantGlobalRole = async () => {
-    if (!grantReason.trim()) return;
-    setPending(`grant-${grantRole}`);
-    setError('');
+  const grantGlobalRole = async (reason: string) => {
+    const role = availableRoles.includes(grantRole)
+      ? grantRole
+      : availableRoles[0];
     setMessage('');
-    try {
-      const saved = demoMode
-        ? {
-            id: `role_${person.id}_${grantRole}`,
-            userId: person.id,
-            role: grantRole,
-            state: 'pending_mfa' as const,
-          }
-        : await apiRequest<GlobalRoleAssignment>(
-            `/admin/users/${encodeURIComponent(person.id)}/global-roles`,
-            {
-              method: 'POST',
-              body: JSON.stringify({
-                role: grantRole,
-                reason: grantReason.trim(),
-              } satisfies GlobalRoleGrant),
-            },
-          );
-      setAssignments((current) => [
-        ...current.filter((assignment) => assignment.role !== saved.role),
-        saved,
-      ]);
-      setGrantReason('');
-      setMessage(
-        saved.state === 'pending_mfa'
-          ? `${roleLabel(saved.role)} granted pending MFA configuration.`
-          : `${roleLabel(saved.role)} granted.`,
-      );
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ['admin-users'] }),
-        queryClient.invalidateQueries({ queryKey: ['people'] }),
-      ]);
-    } catch (requestError) {
-      setError(
-        requestError instanceof Error
-          ? requestError.message
-          : 'Unable to grant the global role.',
-      );
-    } finally {
-      setPending('');
-    }
+    const saved = demoMode
+      ? {
+          id: `role_${person.id}_${role}`,
+          userId: person.id,
+          role,
+          state: 'pending_mfa' as const,
+        }
+      : await apiRequest<GlobalRoleAssignment>(
+          `/admin/users/${encodeURIComponent(person.id)}/global-roles`,
+          {
+            method: 'POST',
+            body: JSON.stringify({
+              role,
+              reason,
+            } satisfies GlobalRoleGrant),
+          },
+        );
+    setAssignments((current) => [
+      ...current.filter((assignment) => assignment.role !== saved.role),
+      saved,
+    ]);
+    setMessage(
+      saved.state === 'pending_mfa'
+        ? `${roleLabel(saved.role)} granted pending MFA configuration.`
+        : `${roleLabel(saved.role)} granted.`,
+    );
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: ['admin-users'] }),
+      queryClient.invalidateQueries({ queryKey: ['people'] }),
+    ]);
   };
-  const revokeGlobalRole = async (assignment: GlobalRoleAssignment) => {
-    if (!roleReason.trim() || roleConfirmation !== person.name) return;
-    setPending(`revoke-${assignment.role}`);
-    setError('');
+  const revokeGlobalRole = async (
+    assignment: GlobalRoleAssignment,
+    reason: string,
+  ) => {
     setMessage('');
     try {
       if (!demoMode) {
         await apiRequest<GlobalRoleAssignment>(
-          `/admin/users/${encodeURIComponent(person.id)}/global-roles/${encodeURIComponent(assignment.role)}?reason=${encodeURIComponent(roleReason.trim())}`,
+          `/admin/users/${encodeURIComponent(person.id)}/global-roles/${encodeURIComponent(assignment.role)}?reason=${encodeURIComponent(reason)}`,
           { method: 'DELETE' },
         );
       }
       setAssignments((current) =>
         current.filter((item) => item.id !== assignment.id),
       );
-      setRoleReason('');
-      setRoleConfirmation('');
       setMessage(`${roleLabel(assignment.role)} revoked.`);
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['admin-users'] }),
         queryClient.invalidateQueries({ queryKey: ['people'] }),
       ]);
     } catch (requestError) {
-      setError(
-        requestError instanceof Error
-          ? requestError.message
-          : 'Unable to revoke the global role.',
-      );
       if (!demoMode) void load();
-    } finally {
-      setPending('');
+      throw requestError;
     }
   };
   const assignedRoles = new Set(
@@ -1042,7 +1028,7 @@ export function UserAdministrationDialog({
       trigger={
         controlled ? undefined : (
           <>
-            <IconShieldLock size={17} aria-hidden="true" /> Manage account
+            <IconShieldLock size={17} aria-hidden="true" /> Manage Account
           </>
         )
       }
@@ -1068,87 +1054,26 @@ export function UserAdministrationDialog({
               onSaved={(updated) => setUser({ ...user, ...updated })}
             />
             <section
-              aria-labelledby={`account-state-${person.id}`}
-              className="flex flex-col gap-4"
-            >
-              <h3
-                id={`account-state-${person.id}`}
-                className="text-base font-semibold"
-              >
-                Account Lifecycle
-              </h3>
-              <p className="text-sm text-muted-foreground">
-                {user.email} ·{' '}
-                <StatusBadge tone={statusTone(user.accountState)}>
-                  {statusLabel(user.accountState)}
-                </StatusBadge>{' '}
-              </p>
-              <Field>
-                <FieldLabel htmlFor={`account-reason-${person.id}`}>
-                  Audited reason
-                </FieldLabel>
-                <Textarea
-                  id={`account-reason-${person.id}`}
-                  maxLength={500}
-                  value={accountReason}
-                  onChange={(event) => setAccountReason(event.target.value)}
-                />
-              </Field>
-              {user.accountState !== 'suspended' ? (
-                <Field>
-                  <FieldLabel htmlFor={`account-confirm-${person.id}`}>
-                    Type <strong>{person.name}</strong> to confirm suspension
-                  </FieldLabel>
-                  <Input
-                    id={`account-confirm-${person.id}`}
-                    value={accountConfirmation}
-                    onChange={(event) =>
-                      setAccountConfirmation(event.target.value)
-                    }
-                  />
-                </Field>
-              ) : null}
-              <div>
-                <Button
-                  variant={
-                    user.accountState === 'suspended'
-                      ? 'outline'
-                      : 'destructive'
-                  }
-                  type="button"
-                  disabled={
-                    Boolean(pending) ||
-                    !accountReason.trim() ||
-                    (user.accountState !== 'suspended' &&
-                      (accountConfirmation !== person.name ||
-                        person.id === currentUserId))
-                  }
-                  onClick={() => void changeAccountState()}
-                >
-                  {pending === 'account'
-                    ? 'Applying…'
-                    : user.accountState === 'suspended'
-                      ? 'Reactivate account'
-                      : 'Suspend account'}
-                </Button>
-              </div>
-              {person.id === currentUserId &&
-              user.accountState !== 'suspended' ? (
-                <p className="text-sm text-muted-foreground">
-                  You cannot suspend your own System Admin account.
-                </p>
-              ) : null}
-            </section>
-            <section
               aria-labelledby={`global-roles-${person.id}`}
               className="flex flex-col gap-4"
             >
-              <h3
-                id={`global-roles-${person.id}`}
-                className="text-base font-semibold"
-              >
-                Global Roles
-              </h3>
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <h3
+                  id={`global-roles-${person.id}`}
+                  className="text-base font-semibold"
+                >
+                  Global Roles
+                </h3>
+                {availableRoles.length ? (
+                  <Button
+                    className="w-48"
+                    type="button"
+                    onClick={() => setConfirming({ kind: 'grant' })}
+                  >
+                    <IconPlus size={17} aria-hidden="true" /> Grant Role
+                  </Button>
+                ) : null}
+              </div>
               {assignments.length ? (
                 <ul className="m-0 flex list-none flex-col p-0">
                   {assignments.map((assignment) => (
@@ -1166,17 +1091,14 @@ export function UserAdministrationDialog({
                         variant="destructive"
                         type="button"
                         disabled={
-                          Boolean(pending) ||
-                          !roleReason.trim() ||
-                          roleConfirmation !== person.name ||
-                          (person.id === currentUserId &&
-                            assignment.role === 'system_admin')
+                          person.id === currentUserId &&
+                          assignment.role === 'system_admin'
                         }
-                        onClick={() => void revokeGlobalRole(assignment)}
+                        onClick={() =>
+                          setConfirming({ kind: 'revoke', assignment })
+                        }
                       >
-                        {pending === `revoke-${assignment.role}`
-                          ? 'Revoking…'
-                          : 'Revoke'}
+                        Revoke
                       </Button>
                     </li>
                   ))}
@@ -1186,93 +1108,170 @@ export function UserAdministrationDialog({
                   No global roles assigned.
                 </p>
               )}
-              {availableRoles.length ? (
-                <>
-                  <Field>
-                    <FieldLabel htmlFor={`grant-reason-${person.id}`}>
-                      Reason for role grant
-                    </FieldLabel>
-                    <Textarea
-                      id={`grant-reason-${person.id}`}
-                      maxLength={500}
-                      value={grantReason}
-                      onChange={(event) => setGrantReason(event.target.value)}
-                    />
-                  </Field>
-                  <div className="flex flex-wrap items-end gap-2">
-                    <Field className="min-w-40 flex-1">
-                      <FieldLabel htmlFor={`grant-role-${person.id}`}>
-                        Grant role
-                      </FieldLabel>
-                      <Select
-                        items={grantRoleItems}
-                        value={
-                          availableRoles.includes(grantRole)
-                            ? grantRole
-                            : availableRoles[0]
-                        }
-                        onValueChange={(value) => {
-                          if (value) setGrantRole(value as GlobalRole);
-                        }}
-                      >
-                        <SelectTrigger
-                          id={`grant-role-${person.id}`}
-                          className="w-full"
-                        >
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectGroup>
-                            {grantRoleItems.map((item) => (
-                              <SelectItem key={item.value} value={item.value}>
-                                {item.label}
-                              </SelectItem>
-                            ))}
-                          </SelectGroup>
-                        </SelectContent>
-                      </Select>
-                    </Field>
-                    <Button
-                      type="button"
-                      disabled={Boolean(pending) || !grantReason.trim()}
-                      onClick={() => void grantGlobalRole()}
-                    >
-                      {pending.startsWith('grant-')
-                        ? 'Granting…'
-                        : 'Grant role'}
-                    </Button>
-                  </div>
-                </>
-              ) : null}
-              {assignments.length ? (
-                <>
-                  <Field>
-                    <FieldLabel htmlFor={`role-reason-${person.id}`}>
-                      Reason for role revocation
-                    </FieldLabel>
-                    <Textarea
-                      id={`role-reason-${person.id}`}
-                      maxLength={500}
-                      value={roleReason}
-                      onChange={(event) => setRoleReason(event.target.value)}
-                    />
-                  </Field>
-                  <Field>
-                    <FieldLabel htmlFor={`role-confirm-${person.id}`}>
-                      Type <strong>{person.name}</strong> to confirm a
-                      revocation
-                    </FieldLabel>
-                    <Input
-                      id={`role-confirm-${person.id}`}
-                      value={roleConfirmation}
-                      onChange={(event) =>
-                        setRoleConfirmation(event.target.value)
-                      }
-                    />
-                  </Field>
-                </>
-              ) : null}
             </section>
+            <section
+              aria-labelledby={`account-state-${person.id}`}
+              className="flex flex-col gap-4"
+            >
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <h3
+                  id={`account-state-${person.id}`}
+                  className="text-base font-semibold"
+                >
+                  Suspension
+                </h3>
+                <Button
+                  className="w-48"
+                  variant={
+                    user.accountState === 'suspended'
+                      ? 'outline'
+                      : 'destructive'
+                  }
+                  type="button"
+                  disabled={
+                    user.accountState !== 'suspended' &&
+                    person.id === currentUserId
+                  }
+                  onClick={() => setConfirming({ kind: 'account' })}
+                >
+                  {user.accountState === 'suspended'
+                    ? 'Reactivate Account'
+                    : 'Suspend Account'}
+                </Button>
+              </div>
+              <p className="text-sm text-muted-foreground">
+                This account is {statusLabel(user.accountState)}.
+                {person.id === currentUserId &&
+                user.accountState !== 'suspended'
+                  ? ' You cannot suspend your own System Admin account.'
+                  : ''}
+              </p>
+            </section>
+            <section
+              aria-labelledby={`delete-account-${person.id}`}
+              className="flex flex-col gap-4"
+            >
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <h3
+                  id={`delete-account-${person.id}`}
+                  className="text-base font-semibold"
+                >
+                  Delete Account
+                </h3>
+                <Button
+                  className="w-48"
+                  variant="destructive"
+                  type="button"
+                  disabled={person.id === currentUserId}
+                  onClick={() => setConfirming({ kind: 'delete' })}
+                >
+                  Delete Account
+                </Button>
+              </div>
+              <p className="text-sm text-muted-foreground">
+                Deletes the account at once and for good: they are signed out,
+                their sign-in is removed and they show as Deleted member.
+              </p>
+            </section>
+            {confirming?.kind === 'account' ? (
+              <ReasonConfirmation
+                open
+                onOpenChange={(next) => {
+                  if (!next) setConfirming(null);
+                }}
+                title={`${user.accountState === 'suspended' ? 'Reactivate' : 'Suspend'} ${person.name}?`}
+                name={person.name}
+                description={
+                  user.accountState === 'suspended'
+                    ? 'They can sign in again straight away. The reason is recorded in the audit log.'
+                    : 'They are signed out everywhere and cannot sign in until reactivated. The reason is recorded in the audit log.'
+                }
+                destructive={user.accountState !== 'suspended'}
+                actionLabel={
+                  user.accountState === 'suspended'
+                    ? 'Reactivate Account'
+                    : 'Suspend Account'
+                }
+                pendingLabel="Applying…"
+                onConfirm={changeAccountState}
+              />
+            ) : null}
+            {confirming?.kind === 'grant' ? (
+              <ReasonConfirmation
+                open
+                onOpenChange={(next) => {
+                  if (!next) setConfirming(null);
+                }}
+                title={`Grant a Role to ${person.name}?`}
+                name={person.name}
+                description="The role becomes active once they have set up MFA. The reason is recorded in the audit log."
+                actionLabel="Grant Role"
+                pendingLabel="Granting…"
+                onConfirm={grantGlobalRole}
+              >
+                <Field>
+                  <FieldLabel htmlFor={`grant-role-${person.id}`}>
+                    Role
+                  </FieldLabel>
+                  <Select
+                    items={grantRoleItems}
+                    value={
+                      availableRoles.includes(grantRole)
+                        ? grantRole
+                        : availableRoles[0]
+                    }
+                    onValueChange={(value) => {
+                      if (value) setGrantRole(value as GlobalRole);
+                    }}
+                  >
+                    <SelectTrigger
+                      id={`grant-role-${person.id}`}
+                      className="w-full"
+                    >
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectGroup>
+                        {grantRoleItems.map((item) => (
+                          <SelectItem key={item.value} value={item.value}>
+                            {item.label}
+                          </SelectItem>
+                        ))}
+                      </SelectGroup>
+                    </SelectContent>
+                  </Select>
+                </Field>
+              </ReasonConfirmation>
+            ) : null}
+            {confirming?.kind === 'delete' ? (
+              <DeleteAccountDialog
+                person={person}
+                onOpenChange={(next) => {
+                  if (!next) setConfirming(null);
+                }}
+                onDeleted={() => {
+                  setMessage('Account deleted.');
+                  void load();
+                }}
+              />
+            ) : null}
+            {confirming?.kind === 'revoke' ? (
+              <ReasonConfirmation
+                open
+                onOpenChange={(next) => {
+                  if (!next) setConfirming(null);
+                }}
+                title={`Revoke ${roleLabel(confirming.assignment.role)} from ${person.name}?`}
+                name={person.name}
+                description="They lose this role's access straight away. The reason is recorded in the audit log."
+                destructive
+                actionLabel="Revoke Role"
+                pendingLabel="Revoking…"
+                onConfirm={(reason) =>
+                  revokeGlobalRole(confirming.assignment, reason)
+                }
+              />
+            ) : null}
           </>
         ) : null}
       </div>
@@ -1280,21 +1279,62 @@ export function UserAdministrationDialog({
   );
 }
 
+/**
+ * Deletes someone's account at once, with an audited reason and their
+ * name typed to confirm. There is no recovery.
+ */
+export function DeleteAccountDialog({
+  person,
+  onOpenChange,
+  onDeleted,
+}: {
+  person: { id: string; name: string };
+  onOpenChange: (open: boolean) => void;
+  onDeleted?: () => void;
+}) {
+  const queryClient = useQueryClient();
+  return (
+    <ReasonConfirmation
+      open
+      onOpenChange={onOpenChange}
+      title={`Delete ${person.name}’s Account?`}
+      name={person.name}
+      description="This cannot be undone. They are signed out, their sign-in is removed and they show as Deleted member. The reason is recorded in the audit log."
+      destructive
+      actionLabel="Delete Account"
+      pendingLabel="Deleting…"
+      onConfirm={async (reason) => {
+        if (!demoMode)
+          await apiRequest(
+            `/admin/users/${encodeURIComponent(person.id)}/deletion`,
+            { method: 'POST', body: JSON.stringify({ reason }) },
+          );
+        await Promise.all(
+          [['admin-users'], ['people'], ['users']].map((queryKey) =>
+            queryClient.invalidateQueries({ queryKey }),
+          ),
+        );
+        onDeleted?.();
+      }}
+    />
+  );
+}
+
 function roleLabel(role: GlobalRole) {
   return role === 'system_admin' ? 'System Admin' : 'Director';
 }
 
-function localDateTime(value: string) {
-  const date = new Date(value);
-  return formatDateTimeInput(date);
+/** A stored time as the local calendar date (YYYY-MM-DD) it falls on. */
+function localDate(value: string) {
+  return formatDateTimeInput(new Date(value)).slice(0, 10);
 }
 
 function weekDialogValues(week?: Week) {
   const now = new Date();
   return {
     number: week?.number ?? 1,
-    startAt: localDateTime(week?.startAt ?? now.toISOString()),
-    endAt: localDateTime(
+    startAt: localDate(week?.startAt ?? now.toISOString()),
+    endAt: localDate(
       week?.endAt ?? new Date(now.getTime() + 6 * 86_400_000).toISOString(),
     ),
   };
@@ -1368,15 +1408,18 @@ function WeekDialog({
     if (
       !Number.isInteger(number) ||
       number < 1 ||
-      new Date(endAt) <= new Date(startAt)
+      !startAt ||
+      !endAt ||
+      endAt < startAt
     )
       return setError('Enter a positive week number and valid dates.');
     setPending(true);
     setError('');
+    // Weeks are whole days: from the start of the first to the end of the last.
     const mutation: WeekMutation = {
       number,
-      startAt: zonedDateTimeToUtc(startAt),
-      endAt: zonedDateTimeToUtc(endAt),
+      startAt: zonedDateTimeToUtc(`${startAt}T00:00`),
+      endAt: zonedDateTimeToUtc(`${endAt}T23:59:59`),
     };
     try {
       const saved = demoMode
@@ -1438,7 +1481,7 @@ function WeekDialog({
           </>
         ) : (
           <>
-            <IconPlus size={17} aria-hidden="true" /> Create week
+            <IconPlus size={17} aria-hidden="true" /> Create Week
           </>
         )
       }
@@ -1448,7 +1491,7 @@ function WeekDialog({
         <div className="grid gap-6 sm:grid-cols-2">
           <Field>
             <FieldLabel htmlFor={`week-number-${week?.id ?? 'new'}`}>
-              Week number
+              Week Number
             </FieldLabel>
             <Input
               id={`week-number-${week?.id ?? 'new'}`}
@@ -1458,22 +1501,12 @@ function WeekDialog({
               onChange={(event) => setNumber(event.target.valueAsNumber)}
             />
           </Field>
-          <AppDatePicker
-            label="Starts"
-            granularity="minute"
-            value={startAt}
-            onChange={setStartAt}
-          />
-          <AppDatePicker
-            label="Ends"
-            granularity="minute"
-            value={endAt}
-            onChange={setEndAt}
-          />
+          <AppDatePicker label="Starts" value={startAt} onChange={setStartAt} />
+          <AppDatePicker label="Ends" value={endAt} onChange={setEndAt} />
         </div>
         <div className="flex flex-wrap justify-end gap-2">
           <Button type="button" disabled={pending} onClick={() => void save()}>
-            {pending ? 'Saving…' : week ? 'Save week' : 'Create week'}
+            {pending ? 'Saving…' : week ? 'Save Week' : 'Create Week'}
           </Button>
         </div>
       </div>
@@ -1514,7 +1547,7 @@ function DeleteWeekButton({
   return (
     <NamedConfirmation
       name={`Week ${week.number}`}
-      actionLabel="Delete week"
+      actionLabel="Delete Week"
       description="The week is permanently removed. Historical records may prevent deletion."
       open={open}
       onOpenChange={onOpenChange}
@@ -1575,16 +1608,16 @@ function EnrollmentRowMenu({
           {canAssignMentor ? (
             <DropdownMenuItem onClick={() => setOpen('mentor')}>
               <IconSchool size={17} aria-hidden="true" />{' '}
-              {mentorship ? 'Change mentor' : 'Assign mentor'}
+              {mentorship ? 'Change Mentor' : 'Assign Mentor'}
             </DropdownMenuItem>
           ) : null}
           {canAssignMentor && mentorship ? (
             <DropdownMenuItem onClick={() => setOpen('end-mentorship')}>
-              <IconTrash size={17} aria-hidden="true" /> End mentorship
+              <IconTrash size={17} aria-hidden="true" /> End Mentorship
             </DropdownMenuItem>
           ) : null}
           <DropdownMenuItem onClick={() => setOpen('manage')}>
-            <IconShieldLock size={17} aria-hidden="true" /> Manage account
+            <IconShieldLock size={17} aria-hidden="true" /> Manage Account
           </DropdownMenuItem>
           {canRemove ? (
             <DropdownMenuItem
@@ -1666,7 +1699,10 @@ function WeekRowMenu({ season, week }: { season: Season; week: Week }) {
           </DropdownMenuItem>
           <DropdownMenuItem
             render={
-              <Link to={`/seasons/${season.slug}/weeks/${week.number}`} />
+              // Opens the week's page with its editor already open.
+              <Link
+                to={`/seasons/${season.slug}/weeks/${week.number}?edit=resources`}
+              />
             }
           >
             <IconNotes size={17} aria-hidden="true" /> Edit Resources
@@ -1675,7 +1711,7 @@ function WeekRowMenu({ season, week }: { season: Season; week: Week }) {
             variant="destructive"
             onClick={() => setDeleteOpen(true)}
           >
-            <IconTrash size={17} aria-hidden="true" /> Delete week
+            <IconTrash size={17} aria-hidden="true" /> Delete
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
@@ -1920,7 +1956,7 @@ export function EnrollmentDialog({
           </>
         ) : (
           <>
-            <IconPlus size={17} aria-hidden="true" /> Add member
+            <IconPlus size={17} aria-hidden="true" /> Add Member
           </>
         )
       }
@@ -1937,7 +1973,7 @@ export function EnrollmentDialog({
               type="button"
               onClick={() => void candidates.refetch()}
             >
-              Retry accounts
+              Retry Accounts
             </Button>
           </div>
         ) : null}
@@ -2026,7 +2062,7 @@ export function EnrollmentDialog({
         {enrollment && role === 'student' ? (
           <Field>
             <FieldLabel htmlFor={`enrollment-level-${enrollment.id}`}>
-              Student level
+              Student Level
             </FieldLabel>
             <Select
               items={studentLevelItems}
@@ -2062,8 +2098,8 @@ export function EnrollmentDialog({
             {pending
               ? 'Saving…'
               : enrollment
-                ? 'Save enrollment'
-                : 'Add member'}
+                ? 'Save Enrollment'
+                : 'Add Member'}
           </Button>
         </div>
       </div>
@@ -2185,7 +2221,7 @@ function RemoveEnrollmentDialog({
             }
             onClick={() => void remove()}
           >
-            {pending ? 'Removing…' : 'Remove member'}
+            {pending ? 'Removing…' : 'Remove Member'}
           </Button>
         </div>
       </div>
@@ -2338,7 +2374,7 @@ function MentorshipDialog({
           </>
         ) : (
           <>
-            <IconPlus size={17} aria-hidden="true" /> Add mentorship
+            <IconPlus size={17} aria-hidden="true" /> Add Mentorship
           </>
         )
       }
@@ -2406,8 +2442,8 @@ function MentorshipDialog({
             {pending
               ? 'Saving…'
               : mentorship
-                ? 'Save mentorship'
-                : 'Add mentorship'}
+                ? 'Save Mentorship'
+                : 'Add Mentorship'}
           </Button>
         </div>
       </div>
@@ -2448,7 +2484,7 @@ function DeleteMentorshipButton({
   return (
     <NamedConfirmation
       name="END MENTORSHIP"
-      actionLabel="End mentorship"
+      actionLabel="End Mentorship"
       description="This ends the mentorship. Past records are kept."
       open={open}
       onOpenChange={onOpenChange}

@@ -445,7 +445,7 @@ export function RichTextEditor({
                 className="text-sm font-medium"
                 htmlFor={`${id}-link-address`}
               >
-                Link address
+                Link Address
               </label>
               <Input
                 id={`${id}-link-address`}
@@ -478,7 +478,7 @@ export function RichTextEditor({
               <DialogClose render={<Button variant="outline" />}>
                 Cancel
               </DialogClose>
-              <Button type="submit">Save link</Button>
+              <Button type="submit">Save Link</Button>
             </div>
           </form>
         </DialogContent>
