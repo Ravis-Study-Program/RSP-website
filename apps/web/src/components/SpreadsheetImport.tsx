@@ -144,14 +144,12 @@ function Outcome({
   label: string;
   details?: string[];
 }) {
-  // An error reads as one line: "[Error]: the reason".
+  // An error reads on one line, flowing on from its badge: "[Error]: reason".
   if (tone === 'danger' && details.length)
     return (
-      <span className="flex flex-wrap items-center gap-x-1.5 gap-y-1">
+      <span className="text-sm text-muted-foreground">
         <StatusBadge tone={tone}>{label}</StatusBadge>
-        <span className="text-sm text-muted-foreground">
-          <span aria-hidden="true">:</span> {details.join(' ')}
-        </span>
+        <span aria-hidden="true">:</span> {details.join(' ')}
       </span>
     );
   return (
@@ -716,7 +714,13 @@ function SeasonTable({
         return group.weeks.map((week, index) => (
           <tr
             key={`${group.slug}:${week.line}`}
-            className="border-b last:border-b-0"
+            // Only the last week of a season gets a divider, so no line stops
+            // short of the season and slug cells that span its weeks.
+            className={
+              index === group.weeks.length - 1
+                ? 'border-b last:border-b-0'
+                : undefined
+            }
           >
             {index === 0 ? (
               <>
