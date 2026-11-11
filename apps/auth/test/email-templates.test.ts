@@ -57,3 +57,23 @@ it('role change messages name both roles and escape markup', () => {
   expect(message.html).toContain('&lt;b&gt;Member&lt;/b&gt;');
   expect(message.html).not.toContain('<b>');
 });
+
+it('invitation messages name the inviter in the footer and repeat the link as text', () => {
+  const url = 'https://rsp.test/invitations/accept#token=token';
+  const message = invitationEmail(
+    'member@example.test',
+    'Member',
+    'Summer 2026',
+    'student',
+    url,
+    'Ravi <Admin>',
+  );
+  expect(message.subject).toBe(
+    'Your Invitation to the RSP Website (Summer 2026)',
+  );
+  expect(message.html).toContain('Ravi &lt;Admin&gt;');
+  expect(message.html).toContain('If the button doesn’t work');
+  const html = message.html ?? '';
+  expect(html.indexOf('rsp-logo.png')).toBeLessThan(html.indexOf('Member'));
+  expect(message.text).toContain('Ravi <Admin>, Ravi’s Study Program');
+});

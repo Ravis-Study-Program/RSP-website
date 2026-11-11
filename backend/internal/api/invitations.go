@@ -79,7 +79,11 @@ func (a *API) sendInvitationEmail(r *http.Request, v *program.Invitation, token 
 		*a.afterCommit = append(*a.afterCommit, func(root *API) { root.sendInvitationEmail(r, v, token) })
 		return
 	}
-	err := a.sendInvitation(r.Context(), authadmin.InvitationEmailInput{ID: v.DeliveryID, To: v.Email, Name: v.Name, Season: v.SeasonName, Role: v.Role, URL: strings.TrimRight(a.publicOrigin, "/") + "/invitations/accept#token=" + token})
+	inviterName := ""
+	if inviter, err := a.db.GetUser(r.Context(), actorFrom(r.Context()).UserID); err == nil {
+		inviterName = inviter.Name
+	}
+	err := a.sendInvitation(r.Context(), authadmin.InvitationEmailInput{InviterName: inviterName, ID: v.DeliveryID, To: v.Email, Name: v.Name, Season: v.SeasonName, Role: v.Role, URL: strings.TrimRight(a.publicOrigin, "/") + "/invitations/accept#token=" + token})
 	if err != nil {
 		a.logger.Error("invitation email enqueue failed", "invitationId", v.ID)
 		return

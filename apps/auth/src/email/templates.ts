@@ -1,3 +1,4 @@
+import { config } from '../config.js';
 import type { EmailMessage } from './provider.js';
 
 function escapeHtml(value: string): string {
@@ -18,7 +19,9 @@ function linkEmail(options: {
   readonly url: string;
   readonly expiry: string;
   readonly note?: string;
+  readonly senderName?: string;
 }): EmailMessage {
+  const senderName = options.senderName ?? config.operatorName;
   const safeUrl = escapeHtml(options.url);
   const safeAction = escapeHtml(options.action);
   const safeGreeting = options.greeting ? escapeHtml(options.greeting) : '';
@@ -32,7 +35,7 @@ function linkEmail(options: {
     options.note,
     `${options.action}: ${options.url}`,
     options.expiry,
-    'Ravi’s Study Program',
+    `${senderName}, Ravi’s Study Program`,
   ]
     .filter(Boolean)
     .join('\n\n');
@@ -43,18 +46,17 @@ function linkEmail(options: {
 <html lang="en"><body style="margin:0;padding:0;background:#f4f4f2;">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f4f4f2;"><tr><td align="center" style="padding:32px 16px;">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:520px;background:#ffffff;border:1px solid #e3e3df;border-radius:12px;">
-<tr><td style="padding:32px 32px 8px;">
+<tr><td style="padding:32px 32px 0;"><img src="${logoUrl}" alt="RSP" width="48" height="48" style="display:block;border:0;border-radius:24px;"></td></tr>
+<tr><td style="padding:24px 32px 8px;">
 ${safeGreeting ? `<p style="${paragraph}font-weight:600;">${safeGreeting}</p>` : ''}
 <p style="${paragraph}">${safeIntroduction}</p>
 ${safeNote ? `<p style="${paragraph}color:#5c5c58;">${safeNote}</p>` : ''}
 </td></tr>
-<tr><td style="padding:8px 32px 24px;"><a href="${safeUrl}" style="display:inline-block;padding:12px 24px;background:#1a1a1a;color:#ffffff;${font}font-size:16px;font-weight:600;text-decoration:none;border-radius:8px;">${safeAction}</a></td></tr>
+<tr><td style="padding:8px 32px 16px;"><a href="${safeUrl}" style="display:inline-block;padding:12px 24px;background:#1a1a1a;color:#ffffff;${font}font-size:16px;font-weight:600;text-decoration:none;border-radius:8px;">${safeAction}</a></td></tr>
+<tr><td style="padding:0 32px 24px;"><p style="margin:0;${font}font-size:13px;line-height:1.5;color:#5c5c58;">If the button doesn’t work, copy and paste this link into your browser:<br><a href="${safeUrl}" style="color:#5c5c58;word-break:break-all;">${safeUrl}</a></p></td></tr>
 <tr><td style="padding:0 32px 32px;"><p style="margin:0;${font}font-size:14px;line-height:1.5;color:#5c5c58;">${safeExpiry}</p></td></tr>
 <tr><td style="padding:20px 32px;border-top:1px solid #e3e3df;background:#fafaf8;border-radius:0 0 12px 12px;">
-<table role="presentation" cellpadding="0" cellspacing="0"><tr>
-<td style="padding-right:12px;"><img src="${logoUrl}" alt="RSP" width="32" height="32" style="display:block;border:0;"></td>
-<td style="${font}font-size:14px;line-height:1.4;color:#5c5c58;"><strong style="color:#1a1a1a;">RSP</strong><br>Ravi’s Study Program</td>
-</tr></table>
+<p style="margin:0;${font}font-size:14px;line-height:1.4;color:#5c5c58;"><strong style="color:#1a1a1a;">${escapeHtml(senderName)}</strong><br>Ravi’s Study Program</p>
 </td></tr>
 </table>
 </td></tr></table>
@@ -127,10 +129,12 @@ export function invitationEmail(
   season: string,
   role: string,
   url: string,
+  inviterName?: string,
 ): EmailMessage {
   return linkEmail({
     to,
-    subject: `Your invitation to ${season}`,
+    subject: `Your Invitation to the RSP Website (${season})`,
+    senderName: inviterName,
     greeting: `Hi ${name},`,
     introduction: `You've been invited to join the ${season} season of RSP as a ${role}.`,
     note: 'Sign in or create an account using this email address, then accept your invitation.',

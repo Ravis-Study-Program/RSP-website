@@ -106,6 +106,8 @@ type InvitationEmailInput struct {
 	Season string `json:"season"`
 	Role   string `json:"role"`
 	URL    string `json:"url"`
+	// InviterName is shown in the email footer; empty uses the site default.
+	InviterName string `json:"inviterName,omitempty"`
 }
 
 func (c Client) SendInvitation(ctx context.Context, input InvitationEmailInput) error {

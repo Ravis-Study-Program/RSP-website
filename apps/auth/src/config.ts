@@ -42,6 +42,8 @@ const environmentSchema = z
     AUTH_TRUSTED_ORIGINS: z
       .string()
       .default('http://localhost:8080,http://localhost:5173'),
+    // Shown in the footer of every email as the person running this site.
+    AUTH_OPERATOR_NAME: z.string().trim().min(1).default('RSP'),
     AUTH_COOKIE_SECURE: booleanFromEnvironment.default(false),
     AUTH_TRUST_PROXY_HEADERS: booleanFromEnvironment.default(false),
     AUTH_IP_ADDRESS_HEADER: z.string().trim().min(1).default('x-real-ip'),
@@ -223,6 +225,7 @@ export interface AuthConfig {
   readonly secret: string;
   readonly databaseUrl: string;
   readonly trustedOrigins: readonly string[];
+  readonly operatorName: string;
   readonly secureCookies: boolean;
   readonly trustProxyHeaders: boolean;
   readonly ipAddressHeader: string;
@@ -303,6 +306,7 @@ export function loadConfig(
     secret: parsed.BETTER_AUTH_SECRET,
     databaseUrl: parsed.DATABASE_URL,
     trustedOrigins,
+    operatorName: parsed.AUTH_OPERATOR_NAME,
     secureCookies: parsed.AUTH_COOKIE_SECURE,
     trustProxyHeaders: parsed.AUTH_TRUST_PROXY_HEADERS,
     ipAddressHeader: parsed.AUTH_IP_ADDRESS_HEADER.toLowerCase(),

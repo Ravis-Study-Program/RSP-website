@@ -357,7 +357,7 @@ test('an invited new member verifies their email and joins the season', async ({
   ).toBeVisible();
   const link = await emailLink(
     email,
-    'Your invitation to',
+    'Your Invitation to the RSP Website',
     /https?:\/\/[^\s]+\/invitations\/accept#token=[^\s]+/,
   );
   const recipientContext = await browser.newContext({

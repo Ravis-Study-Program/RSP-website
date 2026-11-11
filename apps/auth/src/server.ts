@@ -952,6 +952,7 @@ async function handleRequest(
           season: z.string().min(1).max(200),
           role: z.enum(['student', 'mentor', 'coordinator']),
           url: z.url(),
+          inviterName: z.string().trim().min(1).max(200).optional(),
         })
         .safeParse(jsonBody);
       if (!parsed.success) {
@@ -980,6 +981,7 @@ async function handleRequest(
           parsed.data.season,
           parsed.data.role,
           parsed.data.url,
+          parsed.data.inviterName,
         ),
       );
       sendJson(response, 202, { queued: true }, id);
