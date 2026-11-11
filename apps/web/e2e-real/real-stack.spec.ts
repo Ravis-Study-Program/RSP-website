@@ -393,14 +393,16 @@ test('an invited new member verifies their email and joins the season', async ({
       }),
     ).toBeVisible();
     await page.reload();
-    await page.getByPlaceholder('Search all columns').fill(email);
-    await expect(
-      page.getByText(email).filter({ visible: true }).first(),
-    ).toBeVisible();
+    // The table is paged, so find the new member by name.
+    await page
+      .getByPlaceholder('Search all columns')
+      .fill('Invited E2E Member');
+    const memberRow = page
+      .getByRole('row')
+      .filter({ hasText: 'Invited E2E Member' });
+    await expect(memberRow.first()).toBeVisible();
     // The accepted invitation shows on the new member's enrollment row.
-    await expect(
-      page.getByRole('row').filter({ hasText: email }),
-    ).toContainText('Accepted');
+    await expect(memberRow.first()).toContainText('Accepted');
   } finally {
     await recipientContext.close();
   }
