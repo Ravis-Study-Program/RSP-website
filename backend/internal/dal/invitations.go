@@ -182,6 +182,18 @@ func (p *Store) AccountExistsByEmail(ctx context.Context, email string) (bool, e
 	return exists, err
 }
 
+// ActiveAccountIDByEmail is the id of the active account with this email, or
+// "" when there is none.
+func (p *Store) ActiveAccountIDByEmail(ctx context.Context, email string) (string, error) {
+	var userID string
+	err := p.conn().QueryRow(ctx, `SELECT u.id::text FROM app.user_contacts c JOIN app.users u ON u.id=c.user_id
+ WHERE lower(c.email)=lower($1) AND u.account_state='active' AND u.deleted_at IS NULL LIMIT 1`, email).Scan(&userID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return "", nil
+	}
+	return userID, err
+}
+
 // AccountSlugByEmail is the username of the account with this email, or "".
 func (p *Store) AccountSlugByEmail(ctx context.Context, email string) (string, error) {
 	var slug string

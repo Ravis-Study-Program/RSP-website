@@ -154,6 +154,18 @@ func (a *API) inviteOne(r *http.Request, seasonID string, in invitationInput) (p
 	if err != nil {
 		return program.Invitation{}, 0, "", err
 	}
+	// Someone who already has an account joins straight away, without an email.
+	userID, err := a.db.ActiveAccountIDByEmail(r.Context(), in.Email)
+	if err != nil {
+		return program.Invitation{}, 0, "", err
+	}
+	if userID != "" {
+		if _, err := a.db.AcceptInvitation(r.Context(), hash, userID, at); err != nil {
+			return program.Invitation{}, 0, "", err
+		}
+		v.Status, v.AcceptedBy = "accepted", &userID
+		return v, 0, "", nil
+	}
 	a.sendInvitationEmail(r, &v, token)
 	return v, 0, "", nil
 }
