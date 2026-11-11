@@ -62,11 +62,11 @@
       "ledger-red": {
         "role": "status",
         "displayName": "Ledger Red",
-        "canonical": "#b42335",
+        "canonical": "#dc2626",
         "tonalRamp": [
           "#3d0c12",
           "#6b1520",
-          "#b42335",
+          "#dc2626",
           "#d0485a",
           "#e57b88",
           "#f2aeb6",
@@ -82,11 +82,11 @@
       "ledger-green": {
         "role": "status",
         "displayName": "Ledger Green",
-        "canonical": "#167047",
+        "canonical": "#15803d",
         "tonalRamp": [
           "#08261a",
           "#0f4a2f",
-          "#167047",
+          "#15803d",
           "#24945f",
           "#4fb983",
           "#86d9a6",
@@ -102,11 +102,11 @@
       "ledger-amber": {
         "role": "status",
         "displayName": "Ledger Amber",
-        "canonical": "#865b0b",
+        "canonical": "#a16207",
         "tonalRamp": [
           "#2e1f04",
           "#5a3d07",
-          "#865b0b",
+          "#a16207",
           "#b07c17",
           "#d4a243",
           "#efc87c",
@@ -233,7 +233,7 @@
       "refersTo": "button-destructive",
       "description": "Red-on-wash tint for destructive actions.",
       "html": "<button class=\"ds-btn-destructive\">Delete update</button>",
-      "css": ".ds-btn-destructive { display: inline-flex; align-items: center; height: 36px; padding: 0 10px; border: 1px solid transparent; border-radius: 10px; background: color-mix(in srgb, var(--destructive, #b42335) 10%, transparent); color: var(--destructive, #b42335); font: 500 14px/1 'Source Sans 3', sans-serif; cursor: pointer; } .ds-btn-destructive:hover { background: color-mix(in srgb, var(--destructive, #b42335) 20%, transparent); } .ds-btn-destructive:focus-visible { outline: none; box-shadow: 0 0 0 3px color-mix(in srgb, var(--destructive, #b42335) 20%, transparent); }"
+      "css": ".ds-btn-destructive { display: inline-flex; align-items: center; height: 36px; padding: 0 10px; border: 1px solid transparent; border-radius: 10px; background: color-mix(in srgb, var(--destructive, #dc2626) 10%, transparent); color: var(--destructive, #dc2626); font: 500 14px/1 'Source Sans 3', sans-serif; cursor: pointer; } .ds-btn-destructive:hover { background: color-mix(in srgb, var(--destructive, #dc2626) 20%, transparent); } .ds-btn-destructive:focus-visible { outline: none; box-shadow: 0 0 0 3px color-mix(in srgb, var(--destructive, #dc2626) 20%, transparent); }"
     },
     {
       "name": "Text Input",
@@ -257,7 +257,7 @@
       "refersTo": "badge",
       "description": "20px pill; ink, outline or status-tinted.",
       "html": "<span class=\"ds-badge\">Mentor</span> <span class=\"ds-badge ds-badge-success\">Marked</span> <span class=\"ds-badge ds-badge-warning\">Read-only</span>",
-      "css": ".ds-badge { display: inline-flex; align-items: center; height: 20px; padding: 2px 8px; border-radius: 9999px; background: var(--primary, #171717); color: var(--primary-foreground, #fafafa); font: 500 12px/1 'Source Sans 3', sans-serif; } .ds-badge-success { background: var(--success-soft, #edf8f1); color: var(--success, #167047); } .ds-badge-warning { background: var(--warning-soft, #fff7e6); color: var(--warning, #865b0b); }"
+      "css": ".ds-badge { display: inline-flex; align-items: center; height: 20px; padding: 2px 8px; border-radius: 9999px; background: var(--primary, #171717); color: var(--primary-foreground, #fafafa); font: 500 12px/1 'Source Sans 3', sans-serif; } .ds-badge-success { background: var(--success-soft, #edf8f1); color: var(--success, #15803d); } .ds-badge-warning { background: var(--warning-soft, #fff7e6); color: var(--warning, #a16207); }"
     },
     {
       "name": "Sidebar Nav",
