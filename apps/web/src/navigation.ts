@@ -1,5 +1,6 @@
 import {
   IconAdjustments,
+  IconBriefcase,
   IconCalendarEvent,
   IconCode,
   IconDashboard,

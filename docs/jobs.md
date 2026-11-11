@@ -43,11 +43,11 @@ Position and referral forms share the same company field and Jobs company databa
 
 ## Storage and API
 
-Jobs uses five separate tables: `app.job_companies`, `app.job_positions`, `app.job_applications`, `app.job_application_stages` and `app.job_referrals`. Migration `00023_jobs.sql` creates the first four; `00024_jobs_initial_positions.sql` imports the supplied positions once. Neither migration updates existing program or profile data. Rolling back `00023` drops those four tables; the import migration's down step intentionally preserves listings that accounts may have used.
+Jobs uses five separate tables: `app.job_companies`, `app.job_positions`, `app.job_applications`, `app.job_application_stages` and `app.job_referrals`. Migration `00032_jobs.sql` creates the first four; `00033_jobs_initial_positions.sql` imports the supplied positions once. Neither migration updates existing program or profile data. Rolling back `00032` drops those four tables; the import migration's down step intentionally preserves listings that accounts may have used.
 
-Migration `00025_job_application_status.sql` adds the constrained status field to `app.job_applications`, defaulting existing and new applications to Active. Stored and API values are `active` (Active), `inactive` (Rejected) and `offer` (Offer). The owner-only `PATCH /api/v2/me/job-applications/{id}` route requires `status` and a `date` in YYYY-MM-DD form. It saves the status change and new stage atomically; requests for the current status add no stage.
+Migration `00034_job_application_status.sql` adds the constrained status field to `app.job_applications`, defaulting existing and new applications to Active. Stored and API values are `active` (Active), `inactive` (Rejected) and `offer` (Offer). The owner-only `PATCH /api/v2/me/job-applications/{id}` route requires `status` and a `date` in YYYY-MM-DD form. It saves the status change and new stage atomically; requests for the current status add no stage.
 
-Migration `00026_job_referrals.sql` adds `app.job_referrals`, sharing the existing Jobs companies and enforcing one offer per account/company. It does not rewrite existing program or profile data; its down step drops only referral offers.
+Migration `00035_job_referrals.sql` adds `app.job_referrals`, sharing the existing Jobs companies and enforcing one offer per account/company. It does not rewrite existing program or profile data; its down step drops only referral offers.
 
 Public API routes are under `/api/v2/jobs/companies` and `/api/v2/jobs/positions`. Private application and stage routes are under `/api/v2/me/job-applications`. The API scopes every private read/write to the authenticated owner, including staff requests. Shared changes are audited without private stage notes. See `api/openapi.yaml` for the contract.
 
