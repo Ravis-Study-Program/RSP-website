@@ -1,7 +1,15 @@
 import { statusTone } from '@/badgeTones';
+import { InlineNotice } from '@/components/StatusViews';
+import { isBlankRichText } from '@/richText';
 import { StatusBadge } from '@/components/StatusBadge';
-import { Card } from '@/components/ui/card';
-import { Button, buttonVariants } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import {
   Select,
   SelectContent,
@@ -14,24 +22,29 @@ import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { Field, FieldError, FieldLabel } from '@/components/ui/field';
 import {
+  IconArrowRight,
   IconCalendarEvent,
+  IconAlertTriangle,
+  IconCheck,
   IconChecklist,
   IconClock,
   IconShieldLock,
   IconUsers,
-  IconUsersGroup,
+  IconDotsVertical,
   IconEdit,
+  IconNotes,
   IconPlus,
+  IconSchool,
+  IconTrash,
   IconUserMinus,
 } from '@tabler/icons-react';
 import type { ColumnDef } from '@tanstack/react-table';
 import { useQueryClient } from '@tanstack/react-query';
-import { useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 
 import { ApiError, apiRequest } from '@/api/client';
 import type {
-  AccountStateMutation,
   Enrollment,
   EnrollmentCandidate,
   EnrollmentCandidatePage,
@@ -59,7 +72,6 @@ import {
   seasonEnrollmentsQueryKey,
   seasonMentorshipsQueryKey,
   seasonWeeksQueryKey,
-  useAdminUsers,
   useCurrentUser,
   useEnrollmentCandidates,
   usePeople,
@@ -68,20 +80,41 @@ import {
   useSeasonWeeks,
   useSeasons,
 } from '@/api/queries';
-import { MetricCard, PageHeader, usePageTitle } from '@/components/Common';
-import { AppDatePicker } from '@/components/AppDatePicker';
-import { DeleteEmptySeason } from '@/components/DeleteEmptySeason';
-import { EnrollmentCorrection } from '@/components/EnrollmentCorrection';
-import { AdminProfileEditor } from '@/components/AdminProfileEditor';
-import { Invitations } from '@/components/Invitations';
-import { DataTable } from '@/components/DataTable';
-import { FormDialog, NamedConfirmation } from '@/components/Dialogs';
 import {
-  SeasonEditorDialog,
-  SeasonLifecycleDialog,
-} from '@/components/SeasonManagement';
-import type { Page as ViewPage, Person, SeasonRole } from '@/types';
-import { formatDate, formatDateTimeInput, zonedDateTimeToUtc } from '@/utils';
+  Avatar,
+  MetricCard,
+  PageHeader,
+  PageSection,
+  RoleBadge,
+  usePageTitle,
+} from '@/components/Common';
+import { AppDatePicker } from '@/components/AppDatePicker';
+import { ManagePersonDialog } from '@/components/ManagePersonDialog';
+import { personOptions } from '@/components/personOptions';
+import { selectSeason, useSelectedSeasonSlug } from '@/selectedSeason';
+import { AdminProfileEditor } from '@/components/AdminProfileEditor';
+import {
+  useDraftSections,
+  type DraftSection,
+} from '@/components/draftSections';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Invitations, type InvitationParts } from '@/components/Invitations';
+import { SpreadsheetImport } from '@/components/SpreadsheetImport';
+import { DataTable } from '@/components/DataTable';
+import {
+  FormDialog,
+  NamedConfirmation,
+  ReasonConfirmation,
+  DialogCancel,
+} from '@/components/Dialogs';
+import type { Page as ViewPage, Person, Season, SeasonRole } from '@/types';
+import {
+  formatDate,
+  formatDateTimeInput,
+  initials,
+  zonedDateTimeToUtc,
+} from '@/utils';
+import { mentorTeamsSeason as rememberedMentorTeamsSeason } from '@/navigation';
 import { statusSortingFn } from '@/sortOrder';
 
 function statusLabel(status: string) {
@@ -95,30 +128,28 @@ const adminResources = [
     title: 'Seasons',
     description: 'Definitions, dates and lifecycle',
     icon: IconCalendarEvent,
+    // Managed on the Seasons page, which carries the lifecycle actions.
+    to: '/seasons',
   },
   {
     slug: 'weeks',
     title: 'Weeks',
-    description: 'Schedule and resource links',
+    description: 'Schedule and week resources',
     icon: IconClock,
   },
   {
     slug: 'users',
-    title: 'Users',
+    title: 'People',
     description: 'Profiles and account states',
     icon: IconUsers,
+    // Accounts are managed from People's row menu.
+    to: '/people',
   },
   {
     slug: 'enrollments',
     title: 'Enrollments',
     description: 'Season roles and membership',
     icon: IconChecklist,
-  },
-  {
-    slug: 'mentorships',
-    title: 'Mentorships',
-    description: 'Mentor–student assignments',
-    icon: IconUsersGroup,
   },
 ] as const;
 
@@ -127,82 +158,138 @@ export function AdminPage() {
   const seasons = useSeasons();
   const people = usePeople();
   const currentUser = useCurrentUser();
-  const [syncStatus, setSyncStatus] = useState('');
+  // The sync's outcome, shown as a notice at the top of the page.
+  const [syncStatus, setSyncStatus] = useState<{
+    tone: 'success' | 'warning';
+    text: string;
+  } | null>(null);
+  // Mass import creates seasons, which only Directors and System Admins may.
+  const canMassImport = Boolean(
+    currentUser.data?.globalRoles.some(
+      (role) => role === 'director' || role === 'system_admin',
+    ),
+  );
   const [syncPending, setSyncPending] = useState(false);
   const sync = async () => {
     setSyncPending(true);
-    setSyncStatus('');
+    setSyncStatus(null);
     try {
       if (!demoMode)
         await apiRequest<{ status: string }>('/admin/leetcode/sync', {
           method: 'POST',
         });
-      setSyncStatus('LeetCode sync queued.');
+      setSyncStatus({ tone: 'success', text: 'LeetCode sync queued.' });
     } catch (error) {
-      setSyncStatus(
-        error instanceof Error ? error.message : 'Unable to queue the sync.',
-      );
+      setSyncStatus({
+        tone: 'warning',
+        text:
+          error instanceof Error ? error.message : 'Unable to queue the sync.',
+      });
     } finally {
       setSyncPending(false);
+      // The notice is at the top of the page, away from the button.
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     }
   };
-  const visibleResources = adminResources.filter(
-    (resource) =>
-      resource.slug !== 'users' ||
-      currentUser.data?.globalRoles.includes('system_admin'),
+  const visibleResources = adminResources;
+  // Mentor teams belong to a season, so the link opens the one last chosen
+  // there, or else the default.
+  const mentorTeamsSeason = rememberedMentorTeamsSeason(
+    currentUser.data,
+    seasons.data?.items,
   );
+  const pageFor = (slug: string) => {
+    const resource = visibleResources.find((item) => item.slug === slug);
+    return resource
+      ? [
+          {
+            title: resource.title,
+            icon: resource.icon,
+            to: 'to' in resource ? resource.to : `/admin/${resource.slug}`,
+          },
+        ]
+      : [];
+  };
+  // People and their season roles first, then the program's structure.
+  const adminPages = [
+    ...pageFor('users'),
+    ...pageFor('enrollments'),
+    ...(mentorTeamsSeason
+      ? [
+          {
+            title: 'Mentor Teams',
+            icon: IconSchool,
+            to: `/seasons/${mentorTeamsSeason.slug}/mentor-teams`,
+          },
+        ]
+      : []),
+    ...pageFor('seasons'),
+    ...pageFor('weeks'),
+  ];
   return (
     <div>
       <PageHeader title="Administration" />
       <div className="flex flex-col gap-6">
+        {syncStatus ? (
+          <InlineNotice tone={syncStatus.tone}>
+            {syncStatus.tone === 'success' ? (
+              <IconCheck size={19} aria-hidden="true" />
+            ) : (
+              <IconAlertTriangle size={19} aria-hidden="true" />
+            )}{' '}
+            {syncStatus.text}
+          </InlineNotice>
+        ) : null}
         <div className="grid gap-6 sm:grid-cols-2">
+          <MetricCard label="Seasons" value={seasons.data?.totalCount ?? '—'} />
           <MetricCard
-            label="Seasons"
-            value={seasons.data?.totalCount ?? '—'}
-            detail={`${seasons.data?.items.filter((season) => season.status === 'open').length ?? '—'} open`}
-          />
-          <MetricCard
-            label="Visible users"
+            label="Visible Users"
             value={people.data?.totalCount ?? '—'}
-            detail="Active members and alumni"
           />
         </div>
-        <div className="grid gap-6 md:grid-cols-2">
-          {visibleResources.map((resource, index) => {
-            const Icon = resource.icon;
-            const spansRow =
-              visibleResources.length % 2 === 1 &&
-              index === visibleResources.length - 1;
-            return (
-              <article
-                className={`flex flex-col items-start gap-3 rounded-lg border border-border bg-card p-5${spansRow ? ' md:col-span-2' : ''}`}
-                key={resource.slug}
-              >
-                <span className="inline-flex size-9 items-center justify-center rounded-full bg-primary text-primary-foreground">
-                  <Icon size={20} aria-hidden="true" />
-                </span>
-                <h2 className="text-base font-semibold">{resource.title}</h2>
-                <div className="mt-4">
-                  <Link
-                    to={`/admin/${resource.slug}`}
-                    className={buttonVariants({
-                      variant: 'outline',
-                      size: 'sm',
-                    })}
-                  >
-                    Manage {resource.title.toLowerCase()}
-                  </Link>
-                </div>
-              </article>
-            );
-          })}
-        </div>
+        <PageSection titleId="admin-pages-title" title="Admin Pages">
+          <Card>
+            <CardContent>
+              <ul className="m-0 list-none divide-y p-0">
+                {adminPages.map((page) => {
+                  const Icon = page.icon;
+                  return (
+                    <li key={page.to}>
+                      <Link className={adminLinkClass} to={page.to}>
+                        <span className="flex flex-wrap items-center gap-2.5">
+                          <Icon size={18} aria-hidden="true" /> {page.title}
+                        </span>
+                        <IconArrowRight size={17} aria-hidden="true" />
+                      </Link>
+                    </li>
+                  );
+                })}
+              </ul>
+            </CardContent>
+          </Card>
+        </PageSection>
         <section className="flex flex-col gap-3">
           <div className="flex items-center justify-between gap-3">
             <h2 className="text-lg font-semibold">Technical Operations</h2>
           </div>
           <Card className="gap-4 p-5">
-            {syncStatus ? <p role="status">{syncStatus}</p> : null}
+            {canMassImport ? (
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <span>
+                  <strong>Mass import</strong>
+                  <span className="block text-sm text-muted-foreground">
+                    Create seasons and invite people from several spreadsheets
+                    at once.
+                  </span>
+                </span>
+                <SpreadsheetImport
+                  kinds={['seasons', 'invitations']}
+                  title="Mass Import"
+                  trigger="Mass Import"
+                  seasons={seasons.data?.items ?? []}
+                />
+              </div>
+            ) : null}
             <div className="flex flex-wrap items-center justify-between gap-3">
               <span>
                 <strong>LeetCode catalogue sync</strong>
@@ -217,7 +304,7 @@ export function AdminPage() {
                 disabled={syncPending}
                 onClick={() => void sync()}
               >
-                {syncPending ? 'Queueing…' : 'Sync now'}
+                {syncPending ? 'Queueing…' : 'Sync Now'}
               </Button>
             </div>
           </Card>
@@ -227,14 +314,56 @@ export function AdminPage() {
   );
 }
 
+interface AdminPerson {
+  name: string;
+  slug: string;
+  avatarUrl?: string | null;
+}
+
+/** A person as tables show them: picture and name, linking to the profile. */
+function PersonCell({ person }: { person: AdminPerson }) {
+  return (
+    <span className="flex min-w-0 items-center gap-3">
+      <Avatar initials={initials(person.name)} avatarUrl={person.avatarUrl} />
+      {person.slug ? (
+        <Link
+          className="truncate font-medium text-foreground"
+          to={`/people/${person.slug}`}
+        >
+          {person.name}
+        </Link>
+      ) : (
+        <span className="truncate font-medium">{person.name}</span>
+      )}
+    </span>
+  );
+}
+
 interface AdminRow {
   id: string;
   primary: string;
   secondary: string;
   status: string;
   detail: string;
+  /** Weeks only: whether the week's resources page has content. */
+  hasResources?: boolean;
+  /** Where clicking the row goes. */
+  href?: string;
+  /** The person a row is about (enrollments, users, mentorship students). */
+  member?: AdminPerson;
+  /** Mentorships only: the student's mentor. */
+  mentor?: AdminPerson;
+  /** Enrollments: the season role held, or the one invited to. */
+  role?: SeasonRole;
+  /** Enrollments: how the member was invited, when, and to which email. */
+  invitationStatus?: 'pending' | 'expired' | 'accepted' | 'cancelled';
+  sentAt?: string;
+  email?: string;
   actions?: ReactNode;
 }
+
+const adminLinkClass =
+  'flex min-h-11 items-center justify-between gap-4 py-3 font-medium text-foreground hover:underline';
 
 const columns: ColumnDef<AdminRow, any>[] = [
   {
@@ -243,9 +372,11 @@ const columns: ColumnDef<AdminRow, any>[] = [
     cell: ({ row }) => (
       <div>
         <strong>{row.original.primary}</strong>
-        <div className="text-sm text-muted-foreground">
-          {row.original.secondary}
-        </div>
+        {row.original.secondary ? (
+          <div className="text-sm text-muted-foreground">
+            {row.original.secondary}
+          </div>
+        ) : null}
       </div>
     ),
   },
@@ -264,31 +395,132 @@ const columns: ColumnDef<AdminRow, any>[] = [
   {
     id: 'actions',
     header: 'Actions',
-    meta: { width: 16, align: 'end' },
+    meta: { width: 6, align: 'end' },
     enableSorting: false,
     enableHiding: false,
     cell: ({ row }) => row.original.actions ?? '—',
   },
 ];
 
+/** The enrollments table, laid out like the people tables. */
+function invitationLabel(status: NonNullable<AdminRow['invitationStatus']>) {
+  return status === 'pending'
+    ? 'Invited'
+    : status.charAt(0).toUpperCase() + status.slice(1);
+}
+
+/**
+ * The enrollments table: each member or invitee, the student's mentor, their
+ * season role (or the role invited to), and how they were invited. Levels
+ * and states live on People.
+ */
+const enrollmentColumns: ColumnDef<AdminRow, any>[] = [
+  {
+    accessorKey: 'primary',
+    header: 'Name',
+    meta: { width: 12 },
+    cell: ({ row }) =>
+      row.original.member ? (
+        <PersonCell person={row.original.member} />
+      ) : (
+        row.original.primary
+      ),
+  },
+  {
+    id: 'mentor',
+    header: 'Mentor',
+    meta: { width: 12 },
+    accessorFn: (row) => row.mentor?.name ?? '',
+    cell: ({ row }) =>
+      row.original.mentor ? <PersonCell person={row.original.mentor} /> : '—',
+  },
+  {
+    id: 'role',
+    header: 'Role',
+    meta: { width: 7.5 },
+    accessorFn: (row) => row.role ?? '',
+    cell: ({ row }) =>
+      row.original.role ? <RoleBadge role={row.original.role} /> : '—',
+  },
+  {
+    id: 'invitation',
+    header: 'Invitation',
+    meta: { width: 8 },
+    accessorFn: (row) =>
+      row.invitationStatus ? invitationLabel(row.invitationStatus) : '',
+    cell: ({ row }) =>
+      row.original.invitationStatus ? (
+        <StatusBadge
+          tone={
+            row.original.invitationStatus === 'accepted'
+              ? 'success'
+              : row.original.invitationStatus === 'pending'
+                ? 'info'
+                : 'muted'
+          }
+        >
+          {invitationLabel(row.original.invitationStatus)}
+        </StatusBadge>
+      ) : (
+        '—'
+      ),
+  },
+  {
+    accessorKey: 'sentAt',
+    header: 'Sent',
+    meta: { width: 8 },
+    cell: ({ row }) =>
+      row.original.sentAt ? formatDate(row.original.sentAt) : '—',
+  },
+  {
+    accessorKey: 'email',
+    header: 'Email',
+    meta: { width: 14 },
+    cell: ({ row }) => row.original.email ?? '—',
+  },
+  columns[columns.length - 1],
+];
+
+const nameColumn = columns[0];
+const statusColumn = columns[1];
+const datesColumn: ColumnDef<AdminRow, any> = {
+  accessorKey: 'detail',
+  header: 'Dates',
+};
+const actionsColumn = columns[columns.length - 1];
+
+/** The weeks table: its own Resources column, and actions in a row menu. */
+const weekColumns: ColumnDef<AdminRow, any>[] = [
+  nameColumn,
+  statusColumn,
+  {
+    id: 'hasResources',
+    header: 'Has Resources',
+    meta: { width: 11 },
+    accessorFn: (row) => (row.hasResources ? 'Yes' : 'No'),
+    cell: ({ getValue }) => (
+      <StatusBadge tone={getValue() === 'Yes' ? 'success' : 'danger'}>
+        {getValue()}
+      </StatusBadge>
+    ),
+  },
+  datesColumn,
+  actionsColumn,
+];
+
 export function AdminResourcePage({
   resource,
 }: {
-  resource: (typeof adminResources)[number]['slug'];
+  resource: 'weeks' | 'enrollments';
 }) {
   const seasons = useSeasons();
-  const people = usePeople(resource !== 'users');
+  const people = usePeople();
   const currentUser = useCurrentUser();
-  const canGrantCoordinator = Boolean(
-    currentUser.data?.globalRoles.some(
-      (role) => role === 'director' || role === 'system_admin',
-    ),
-  );
   const canAdministerUsers = Boolean(
     currentUser.data?.globalRoles.includes('system_admin'),
   );
-  const adminUsers = useAdminUsers(resource === 'users' && canAdministerUsers);
-  const [selectedSeasonId, setSelectedSeasonId] = useState('');
+  // The season is shared with every other season table.
+  const selectedSlug = useSelectedSeasonSlug();
   const globallyManaged = Boolean(currentUser.data?.globalRoles.length);
   const activeCoordinatorSeasonIds = new Set(
     currentUser.data?.seasonRoles
@@ -308,16 +540,12 @@ export function AdminResourcePage({
       }))
     : [{ label: 'No manageable season', value: '' }];
   const selectedSeason =
-    manageableSeasons.find((season) => season.id === selectedSeasonId) ??
+    manageableSeasons.find((season) => season.slug === selectedSlug) ??
     manageableSeasons.find((season) => season.status === 'open') ??
     manageableSeasons[0];
   const weeks = useSeasonWeeks(selectedSeason?.id);
   const enrollments = useSeasonEnrollments(selectedSeason?.id);
   const mentorships = useSeasonMentorships(selectedSeason?.id);
-  const enrollmentCandidates = useEnrollmentCandidates(
-    selectedSeason?.id,
-    resource === 'enrollments',
-  );
   const config = adminResources.find((item) => item.slug === resource)!;
   usePageTitle(`Admin ${config.title}`);
   const peopleById = useMemo(
@@ -325,271 +553,197 @@ export function AdminResourcePage({
       new Map((people.data?.items ?? []).map((person) => [person.id, person])),
     [people.data],
   );
-  const administeredPeople = useMemo(
-    () =>
-      (adminUsers.data?.items ?? []).map((account) => ({
-        account,
-        person: {
-          id: account.id,
-          name: account.name,
-          slug: account.slug,
-          initials: account.name
-            .split(/\s+/)
-            .map((part) => part[0])
-            .join('')
-            .slice(0, 2)
-            .toUpperCase(),
-          avatarUrl: account.avatarUrl ?? null,
-          roles: [
-            ...new Set([
-              ...account.globalRoles,
-              ...account.seasonRoles.map((membership) => membership.role),
-            ]),
-          ],
-          season:
-            account.seasonRoles.find(
-              (membership) => membership.state === 'active',
-            )?.seasonSlug ?? null,
-          status:
-            account.accountState === 'active' ? ('active' as const) : null,
-          attempts: account.attemptCount,
-          interviews: account.mockInterviewCount,
-          email: account.email,
-          lastActiveAt: null,
-        } satisfies Person,
-      })),
-    [adminUsers.data],
-  );
   const rows: AdminRow[] =
-    resource === 'seasons'
-      ? (seasons.data?.items ?? []).map((season) => ({
-          id: season.id,
-          primary: season.name,
-          secondary: season.slug,
-          status: season.status,
-          detail: `${formatDate(season.startsAt)} – ${formatDate(season.endsAt)}`,
-          actions: (
-            <div className="flex flex-wrap justify-end gap-2">
-              <SeasonEditorDialog season={season} />
-              <DeleteEmptySeason season={season} />
-              {season.status === 'open' ? (
-                <SeasonLifecycleDialog season={season} action="close" />
-              ) : (
-                <SeasonLifecycleDialog season={season} action="reopen" />
-              )}
-            </div>
-          ),
-        }))
-      : resource === 'weeks'
-        ? (weeks.data?.items ?? []).map((week) => ({
-            id: week.id,
-            primary: `Week ${week.number}`,
-            secondary: week.resourceUrl || 'No resource link',
-            status:
-              new Date(week.endAt).getTime() < Date.now()
-                ? 'completed'
-                : new Date(week.startAt).getTime() > Date.now()
-                  ? 'scheduled'
-                  : 'active',
-            detail: `${formatDate(week.startAt)} – ${formatDate(week.endAt)}`,
-            actions: selectedSeason ? (
-              <div className="flex flex-wrap items-center justify-end gap-2">
-                <WeekDialog seasonId={selectedSeason.id} week={week} />
-                <DeleteWeekButton seasonId={selectedSeason.id} week={week} />
-              </div>
-            ) : undefined,
-          }))
-        : resource === 'users'
-          ? administeredPeople.map(({ account, person }) => ({
-              id: account.id,
-              primary: account.name,
-              secondary: account.email,
-              status: account.accountState,
-              detail: person.roles.join(', ') || 'Registered nonmember',
-              actions: (
-                <div className="flex flex-wrap items-center justify-end gap-2">
-                  <Link
-                    to={`/people/${account.slug}`}
-                    className={buttonVariants({
-                      variant: 'outline',
-                      size: 'sm',
-                    })}
-                  >
-                    Open profile
-                  </Link>
-                  <UserAdministrationDialog
-                    person={person}
-                    currentUserId={currentUser.data?.id}
-                  />
-                </div>
-              ),
-            }))
-          : resource === 'enrollments'
-            ? (enrollments.data?.items ?? []).map((enrollment) => ({
-                id: enrollment.id,
-                primary:
-                  enrollment.member?.name ??
-                  peopleById.get(enrollment.userId)?.name ??
-                  enrollment.userId,
-                secondary:
-                  enrollment.member?.slug ??
-                  peopleById.get(enrollment.userId)?.slug ??
-                  enrollment.userId,
-                status: enrollment.state,
-                detail: `${enrollment.role}${enrollment.role === 'student' ? ` · ${enrollment.studentLevel.replace('_', ' ')}` : ''}${enrollment.assignmentState === 'pending_mfa' ? ' · pending MFA' : ''}`,
-                actions:
-                  selectedSeason?.status === 'open' ? (
-                    <div className="flex flex-wrap items-center justify-end gap-2">
-                      <EnrollmentCorrection
-                        enrollment={enrollment}
-                        seasons={manageableSeasons}
-                        name={
-                          enrollment.member?.name ??
-                          peopleById.get(enrollment.userId)?.name ??
-                          enrollment.userId
-                        }
-                      />
-                      {enrollment.state === 'active' &&
-                      enrollment.role !== 'coordinator' ? (
-                        <EnrollmentDialog
-                          seasonId={selectedSeason.id}
-                          accounts={people.data?.items ?? []}
-                          enrollment={enrollment}
-                        />
-                      ) : null}
-                      <RemoveEnrollmentDialog
-                        seasonId={selectedSeason.id}
-                        enrollment={enrollment}
-                        name={
-                          peopleById.get(enrollment.userId)?.name ??
-                          enrollment.userId
-                        }
-                      />
-                    </div>
-                  ) : undefined,
-              }))
-            : (mentorships.data?.items ?? []).map((mentorship) => ({
-                id: mentorship.id,
-                primary:
-                  peopleById.get(mentorship.studentUserId)?.name ??
-                  mentorship.studentUserId,
-                secondary: `Student · ${peopleById.get(mentorship.studentUserId)?.slug ?? mentorship.studentUserId}`,
-                status: 'active',
-                detail: `Mentored by ${peopleById.get(mentorship.mentorUserId)?.name ?? mentorship.mentorUserId}`,
-                actions: selectedSeason ? (
-                  <div className="flex flex-wrap items-center justify-end gap-2">
-                    <MentorshipDialog
-                      seasonId={selectedSeason.id}
-                      people={people.data?.items ?? []}
-                      mentorship={mentorship}
-                    />
-                    <DeleteMentorshipButton
-                      seasonId={selectedSeason.id}
-                      mentorship={mentorship}
-                    />
-                  </div>
-                ) : undefined,
-              }));
-  const selectedQuery =
     resource === 'weeks'
-      ? weeks
-      : resource === 'enrollments'
-        ? enrollments
-        : resource === 'mentorships'
-          ? mentorships
-          : null;
+      ? (weeks.data?.items ?? []).map((week) => ({
+          id: week.id,
+          primary: `Week ${week.number}`,
+          secondary: '',
+          href: selectedSeason
+            ? `/seasons/${selectedSeason.slug}/weeks/${week.number}`
+            : undefined,
+          hasResources: !isBlankRichText(week.resourcesHtml),
+          status:
+            new Date(week.endAt).getTime() < Date.now()
+              ? 'completed'
+              : new Date(week.startAt).getTime() > Date.now()
+                ? 'scheduled'
+                : 'active',
+          detail: `${formatDate(week.startAt)} – ${formatDate(week.endAt)}`,
+          actions: selectedSeason ? (
+            <WeekRowMenu season={selectedSeason} week={week} />
+          ) : undefined,
+        }))
+      : [];
+  const selectedQuery = resource === 'weeks' ? weeks : enrollments;
   const loading =
-    resource === 'seasons'
-      ? seasons.isLoading
-      : resource === 'users'
-        ? adminUsers.isLoading || currentUser.isLoading
-        : seasons.isLoading ||
-          people.isLoading ||
-          Boolean(selectedQuery?.isLoading);
+    seasons.isLoading || people.isLoading || Boolean(selectedQuery?.isLoading);
   const error =
-    resource === 'seasons'
-      ? seasons.isError
-      : resource === 'users'
-        ? adminUsers.isError || currentUser.isError
-        : seasons.isError || people.isError || Boolean(selectedQuery?.isError);
+    seasons.isError || people.isError || Boolean(selectedQuery?.isError);
   const createAction =
-    resource === 'seasons' ? (
-      <SeasonEditorDialog />
-    ) : selectedSeason && resource === 'weeks' ? (
-      <WeekDialog seasonId={selectedSeason.id} />
-    ) : selectedSeason && resource === 'enrollments' ? (
-      <EnrollmentDialog
+    selectedSeason && resource === 'weeks' ? (
+      <WeekDialog
         seasonId={selectedSeason.id}
-        accounts={enrollmentCandidates.data?.items ?? []}
-        accountsLoading={enrollmentCandidates.isLoading}
-        accountsError={enrollmentCandidates.isError}
-        onRetryAccounts={() => void enrollmentCandidates.refetch()}
-        allowCoordinator={canGrantCoordinator}
-      />
-    ) : selectedSeason && resource === 'mentorships' ? (
-      <MentorshipDialog
-        seasonId={selectedSeason.id}
-        people={people.data?.items ?? []}
+        after={[...(weeks.data?.items ?? [])]
+          .sort((left, right) => left.number - right.number)
+          .at(-1)}
       />
     ) : undefined;
+  const personFor = (userId: string) => {
+    const person = peopleById.get(userId);
+    return person
+      ? { name: person.name, slug: person.slug, avatarUrl: person.avatarUrl }
+      : undefined;
+  };
+  // The enrollments table: current members and the invitations not yet
+  // accepted, with each student's mentor and how each member was invited.
+  const enrollmentRows = (parts?: InvitationParts): AdminRow[] => {
+    const invitations = parts?.invitations ?? [];
+    const members = (enrollments.data?.items ?? [])
+      .filter((enrollment) => enrollment.state === 'active')
+      .map((enrollment): AdminRow => {
+        const name =
+          enrollment.member?.name ??
+          peopleById.get(enrollment.userId)?.name ??
+          enrollment.userId;
+        const invitation = invitations.find(
+          (item) => item.acceptedBy === enrollment.userId,
+        );
+        const mentorship = (mentorships.data?.items ?? []).find(
+          (item) => item.studentUserId === enrollment.userId,
+        );
+        const slug =
+          enrollment.member?.slug ?? peopleById.get(enrollment.userId)?.slug;
+        return {
+          id: enrollment.id,
+          primary: name,
+          secondary: '',
+          detail: '',
+          status: enrollment.state,
+          href: slug ? `/people/${slug}` : undefined,
+          member: {
+            name,
+            slug: slug ?? '',
+            avatarUrl:
+              enrollment.member?.avatarUrl ??
+              peopleById.get(enrollment.userId)?.avatarUrl,
+          },
+          mentor: mentorship ? personFor(mentorship.mentorUserId) : undefined,
+          role: enrollment.role,
+          invitationStatus: invitation ? 'accepted' : undefined,
+          sentAt: invitation?.sentAt ?? undefined,
+          email: invitation?.email,
+          actions:
+            selectedSeason?.status === 'open' ? (
+              <EnrollmentRowMenu
+                season={selectedSeason}
+                seasons={manageableSeasons}
+                enrollment={enrollment}
+                accounts={people.data?.items ?? []}
+                person={peopleById.get(enrollment.userId)}
+                currentUserId={currentUser.data?.id}
+                canManageAccount={canAdministerUsers}
+                mentorship={mentorship}
+                name={name}
+              />
+            ) : undefined,
+        };
+      });
+    const invited = invitations
+      .filter((item) => item.status === 'pending' || item.status === 'expired')
+      .map((invitation): AdminRow => ({
+        id: `invitation:${invitation.id}`,
+        primary: invitation.name,
+        secondary: '',
+        detail: '',
+        status: invitation.status,
+        member: { name: invitation.name, slug: '' },
+        mentor: invitation.mentorUserId
+          ? personFor(invitation.mentorUserId)
+          : undefined,
+        role: invitation.role,
+        invitationStatus: invitation.status,
+        sentAt: invitation.sentAt ?? undefined,
+        email: invitation.email,
+        actions: parts?.menuFor(invitation),
+      }));
+    return [...invited, ...members];
+  };
 
-  return (
+  const page = (parts?: InvitationParts) => (
     <div>
-      <PageHeader title={config.title} actions={createAction} />
+      <PageHeader
+        title={config.title}
+        titleHint="Admin"
+        actions={
+          createAction || parts ? (
+            <div className="button-group !ms-0">
+              {createAction}
+              {parts ? (
+                <SpreadsheetImport
+                  kinds={['invitations']}
+                  title="Import Invitations"
+                  trigger="Import Spreadsheet"
+                  seasons={manageableSeasons}
+                />
+              ) : null}
+              {parts?.invite}
+            </div>
+          ) : undefined
+        }
+      />
       <div className="flex flex-col gap-6">
-        {resource !== 'seasons' && resource !== 'users' ? (
-          <div className="rounded-lg border border-border bg-card p-4">
-            <Field>
-              <FieldLabel htmlFor={`admin-${resource}-season`}>
-                Season
-              </FieldLabel>
-              <Select
-                items={seasonItems}
-                value={selectedSeason?.slug ?? ''}
-                disabled={!manageableSeasons.length}
-                onValueChange={(value) => {
-                  const season = manageableSeasons.find(
-                    (item) => item.slug === value,
-                  );
-                  setSelectedSeasonId(season?.id ?? '');
-                }}
-              >
-                <SelectTrigger
-                  id={`admin-${resource}-season`}
-                  className="w-full"
-                >
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectGroup>
-                    {seasonItems.map((item) => (
-                      <SelectItem key={item.value} value={item.value}>
-                        {item.label}
-                      </SelectItem>
-                    ))}
-                  </SelectGroup>
-                </SelectContent>
-              </Select>
-            </Field>
-          </div>
-        ) : null}
-        {resource === 'enrollments' && selectedSeason ? (
-          <Invitations key={selectedSeason.id} season={selectedSeason} />
+        {parts?.status ? (
+          <p role="status" className="text-sm text-muted-foreground">
+            {parts.status}
+          </p>
         ) : null}
         <DataTable
           ariaLabel={`Admin ${config.title}`}
-          data={rows}
-          columns={columns}
-          loading={loading}
-          error={error}
+          data={resource === 'enrollments' ? enrollmentRows(parts) : rows}
+          columns={resource === 'weeks' ? weekColumns : enrollmentColumns}
+          rowHref={(row) => row.href}
+          // The season sits top-left of the table, as the week does on
+          // Monday Updates.
+          toolbarLead={
+            <Select
+              items={seasonItems}
+              value={selectedSeason?.slug ?? ''}
+              disabled={!manageableSeasons.length}
+              onValueChange={(value) => {
+                const season = manageableSeasons.find(
+                  (item) => item.slug === value,
+                );
+                if (season) selectSeason(season.slug);
+              }}
+            >
+              <SelectTrigger
+                id={`admin-${resource}-season`}
+                aria-label="Season"
+                className="w-64"
+              >
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectGroup>
+                  {seasonItems.map((item) => (
+                    <SelectItem key={item.value} value={item.value}>
+                      {item.label}
+                    </SelectItem>
+                  ))}
+                </SelectGroup>
+              </SelectContent>
+            </Select>
+          }
+          loading={loading || Boolean(parts?.loading)}
+          error={error || Boolean(parts?.error)}
           onRetry={() =>
             void Promise.all([
               seasons.refetch(),
-              resource === 'users' ? adminUsers.refetch() : people.refetch(),
+              people.refetch(),
               selectedQuery?.refetch(),
-              resource === 'enrollments'
-                ? enrollmentCandidates.refetch()
-                : undefined,
+              mentorships.refetch(),
+              parts?.refetch(),
             ])
           }
           emptyTitle={`No ${config.title.toLowerCase()}`}
@@ -597,22 +751,48 @@ export function AdminResourcePage({
           getRowId={(row) => row.id}
           renderCard={(row) => (
             <div className="flex flex-col gap-2">
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <StatusBadge tone={statusTone(row.original.status)}>
                   {statusLabel(row.original.status)}
                 </StatusBadge>
+                {row.original.role ? (
+                  <RoleBadge role={row.original.role} />
+                ) : null}
               </div>
               <h2 className="text-base font-semibold">
                 {row.original.primary}
               </h2>
-              <p className="text-sm text-muted-foreground">
-                {row.original.secondary}
-              </p>
-              <p>{row.original.detail}</p>
+              {row.original.secondary ? (
+                <p className="text-sm text-muted-foreground">
+                  {row.original.secondary}
+                </p>
+              ) : null}
+              {row.original.detail ? <p>{row.original.detail}</p> : null}
+              {row.original.email ? (
+                <p className="text-sm text-muted-foreground">
+                  {row.original.email}
+                </p>
+              ) : null}
+              {row.original.mentor ? (
+                <p className="text-sm text-muted-foreground">
+                  Mentor: {row.original.mentor.name}
+                </p>
+              ) : null}
+              {row.original.invitationStatus ? (
+                <p className="text-sm text-muted-foreground">
+                  {invitationLabel(row.original.invitationStatus)}
+                  {row.original.sentAt
+                    ? ` · sent ${formatDate(row.original.sentAt)}`
+                    : ''}
+                </p>
+              ) : null}
+              {row.original.hasResources !== undefined ? (
+                <p className="text-sm text-muted-foreground">
+                  Has resources: {row.original.hasResources ? 'Yes' : 'No'}
+                </p>
+              ) : null}
               {row.original.actions ? (
-                <div className="flex flex-wrap justify-end gap-2">
-                  {row.original.actions}
-                </div>
+                <div className="button-group">{row.original.actions}</div>
               ) : null}
             </div>
           )}
@@ -620,36 +800,72 @@ export function AdminResourcePage({
       </div>
     </div>
   );
+  // Enrollments carry the season's invitations: the invite button joins the
+  // header and the invitations table sits above the members.
+  return resource === 'enrollments' && selectedSeason ? (
+    <Invitations
+      key={selectedSeason.id}
+      season={selectedSeason}
+      seasons={manageableSeasons.filter((season) => season.status === 'open')}
+      render={page}
+    />
+  ) : (
+    page()
+  );
 }
 
-function UserAdministrationDialog({
+export function UserAdministrationDialog({
   person,
   currentUserId,
+  open: controlledOpen,
+  onOpenChange: onControlledOpenChange,
+  before,
+  onSaved,
+  onRemoveFromSeason,
 }: {
   person: Person;
   currentUserId?: string;
+  /** Sections shown above the account ones, such as an enrollment
+   *  correction; each registers its edits for the Confirm button. */
+  before?: (
+    register: (key: string) => (section: DraftSection | null) => void,
+  ) => ReactNode;
+  /** Called after changes are committed. */
+  onSaved?: () => void;
+  /** Offers "Remove From Season" and starts it when chosen. */
+  onRemoveFromSeason?: () => void;
+  /** When given, the dialog is opened from outside and shows no trigger. */
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }) {
   const queryClient = useQueryClient();
-  const [open, setOpen] = useState(false);
+  const [uncontrolledOpen, setUncontrolledOpen] = useState(false);
+  const controlled = controlledOpen !== undefined;
+  const open = controlled ? controlledOpen : uncontrolledOpen;
+  const setOpen = (next: boolean) => {
+    if (!controlled) setUncontrolledOpen(next);
+    onControlledOpenChange?.(next);
+  };
   const [user, setUser] = useState<UserPrivate | null>(null);
   const [assignments, setAssignments] = useState<GlobalRoleAssignment[]>([]);
   const [loading, setLoading] = useState(false);
-  const [pending, setPending] = useState('');
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
-  const [accountReason, setAccountReason] = useState('');
-  const [accountConfirmation, setAccountConfirmation] = useState('');
-  const [grantRole, setGrantRole] = useState<GlobalRole>('director');
-  const [grantReason, setGrantReason] = useState('');
-  const [roleReason, setRoleReason] = useState('');
-  const [roleConfirmation, setRoleConfirmation] = useState('');
+  const [pending, setPending] = useState(false);
+  // Role changes held until Confirm: roles to grant and roles to revoke.
+  const [grants, setGrants] = useState<GlobalRole[]>([]);
+  const [revokes, setRevokes] = useState<GlobalRole[]>([]);
+  const [confirming, setConfirming] = useState<'roles' | 'delete' | null>(null);
+  const { register, dirty: sectionsDirty, saveAll } = useDraftSections();
+  const rolesDirty = grants.length + revokes.length > 0;
 
   const load = async () => {
     setLoading(true);
     setUser(null);
     setAssignments([]);
+    setGrants([]);
+    setRevokes([]);
     setError('');
-    setMessage('');
     try {
       if (demoMode) {
         const globalRoles = person.roles.filter(
@@ -700,172 +916,107 @@ function UserAdministrationDialog({
       setLoading(false);
     }
   };
+  // A row menu mounts this dialog already open, so load straight away.
+  useEffect(() => {
+    if (controlledOpen) void load();
+    // Only on mount; later opens load through onOpenChange.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const onOpenChange = (next: boolean) => {
-    if (pending) return;
     setOpen(next);
-    if (next) void load();
-    else {
-      setAccountReason('');
-      setAccountConfirmation('');
-      setGrantReason('');
-      setRoleReason('');
-      setRoleConfirmation('');
-    }
+    if (next) {
+      setMessage('');
+      void load();
+    } else setConfirming(null);
   };
-  const changeAccountState = async () => {
-    if (!user) return;
-    const state: AccountStateMutation['state'] =
-      user.accountState === 'suspended' ? 'active' : 'suspended';
-    if (
-      !accountReason.trim() ||
-      (state === 'suspended' && accountConfirmation !== person.name)
-    )
+  const grantGlobalRole = async (role: GlobalRole, reason: string) => {
+    if (demoMode) return;
+    await apiRequest<GlobalRoleAssignment>(
+      `/admin/users/${encodeURIComponent(person.id)}/global-roles`,
+      {
+        method: 'POST',
+        body: JSON.stringify({ role, reason } satisfies GlobalRoleGrant),
+      },
+    );
+  };
+  const revokeGlobalRole = async (role: GlobalRole, reason: string) => {
+    if (demoMode) return;
+    await apiRequest<GlobalRoleAssignment>(
+      `/admin/users/${encodeURIComponent(person.id)}/global-roles/${encodeURIComponent(role)}?reason=${encodeURIComponent(reason)}`,
+      { method: 'DELETE' },
+    );
+  };
+  // Commits every held change: the profile, then roles, then corrections
+  // (which may hand over to removing them from the season).
+  const apply = async (reason: string) => {
+    const notes = await saveAll(['profile']);
+    try {
+      for (const role of grants) await grantGlobalRole(role, reason);
+      for (const role of revokes) await revokeGlobalRole(role, reason);
+    } finally {
+      if (rolesDirty)
+        await Promise.all([
+          queryClient.invalidateQueries({ queryKey: ['admin-users'] }),
+          queryClient.invalidateQueries({ queryKey: ['people'] }),
+        ]);
+    }
+    notes.push(...(await saveAll(['corrections'])));
+    onSaved?.();
+    if (notes.length) {
+      setMessage(notes.join(' '));
+      await load();
+    } else setOpen(false);
+  };
+  const confirm = async () => {
+    if (rolesDirty) {
+      setConfirming('roles');
       return;
-    setPending('account');
-    setError('');
-    setMessage('');
-    try {
-      const updated: UserPrivate = demoMode
-        ? { ...user, accountState: state }
-        : await apiRequest<UserPrivate>(
-            `/admin/users/${encodeURIComponent(person.id)}/account-state`,
-            {
-              method: 'POST',
-              body: JSON.stringify({
-                state,
-                reason: accountReason.trim(),
-              } satisfies AccountStateMutation),
-            },
-          );
-      setUser(updated);
-      setAccountReason('');
-      setAccountConfirmation('');
-      setMessage(
-        state === 'suspended'
-          ? 'Account suspended and sessions revoked.'
-          : 'Account reactivated.',
-      );
-      queryClient.setQueryData<ViewPage<UserPrivate>>(
-        ['admin-users'],
-        (current) => upsertPageItem(current, updated),
-      );
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ['admin-users'] }),
-        queryClient.invalidateQueries({ queryKey: ['people'] }),
-      ]);
-    } catch (requestError) {
-      setError(
-        requestError instanceof Error
-          ? requestError.message
-          : 'Unable to change the account state.',
-      );
-      if (!demoMode) void load();
-    } finally {
-      setPending('');
     }
-  };
-  const grantGlobalRole = async () => {
-    if (!grantReason.trim()) return;
-    setPending(`grant-${grantRole}`);
+    setPending(true);
     setError('');
-    setMessage('');
     try {
-      const saved = demoMode
-        ? {
-            id: `role_${person.id}_${grantRole}`,
-            userId: person.id,
-            role: grantRole,
-            state: 'pending_mfa' as const,
-          }
-        : await apiRequest<GlobalRoleAssignment>(
-            `/admin/users/${encodeURIComponent(person.id)}/global-roles`,
-            {
-              method: 'POST',
-              body: JSON.stringify({
-                role: grantRole,
-                reason: grantReason.trim(),
-              } satisfies GlobalRoleGrant),
-            },
-          );
-      setAssignments((current) => [
-        ...current.filter((assignment) => assignment.role !== saved.role),
-        saved,
-      ]);
-      setGrantReason('');
-      setMessage(
-        saved.state === 'pending_mfa'
-          ? `${roleLabel(saved.role)} granted pending MFA configuration.`
-          : `${roleLabel(saved.role)} granted.`,
-      );
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ['admin-users'] }),
-        queryClient.invalidateQueries({ queryKey: ['people'] }),
-      ]);
+      await apply('');
     } catch (requestError) {
       setError(
         requestError instanceof Error
           ? requestError.message
-          : 'Unable to grant the global role.',
+          : 'Unable to save the changes.',
       );
     } finally {
-      setPending('');
-    }
-  };
-  const revokeGlobalRole = async (assignment: GlobalRoleAssignment) => {
-    if (!roleReason.trim() || roleConfirmation !== person.name) return;
-    setPending(`revoke-${assignment.role}`);
-    setError('');
-    setMessage('');
-    try {
-      if (!demoMode) {
-        await apiRequest<GlobalRoleAssignment>(
-          `/admin/users/${encodeURIComponent(person.id)}/global-roles/${encodeURIComponent(assignment.role)}?reason=${encodeURIComponent(roleReason.trim())}`,
-          { method: 'DELETE' },
-        );
-      }
-      setAssignments((current) =>
-        current.filter((item) => item.id !== assignment.id),
-      );
-      setRoleReason('');
-      setRoleConfirmation('');
-      setMessage(`${roleLabel(assignment.role)} revoked.`);
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ['admin-users'] }),
-        queryClient.invalidateQueries({ queryKey: ['people'] }),
-      ]);
-    } catch (requestError) {
-      setError(
-        requestError instanceof Error
-          ? requestError.message
-          : 'Unable to revoke the global role.',
-      );
-      if (!demoMode) void load();
-    } finally {
-      setPending('');
+      setPending(false);
     }
   };
   const assignedRoles = new Set(
     assignments.map((assignment) => assignment.role),
   );
-  const availableRoles = (['director', 'system_admin'] as const).filter(
-    (role) => !assignedRoles.has(role),
-  );
-  const grantRoleItems = availableRoles.map((role) => ({
-    label: roleLabel(role),
-    value: role,
-  }));
+  const roleChoices = ['director', 'system_admin'] as const;
+  const toggleRole = (role: GlobalRole) => {
+    const flip = (list: GlobalRole[]) =>
+      list.includes(role)
+        ? list.filter((item) => item !== role)
+        : [...list, role];
+    if (assignedRoles.has(role)) setRevokes(flip);
+    else setGrants(flip);
+  };
+  const roleSummary = [
+    ...grants.map((role) => `grant ${roleLabel(role)}`),
+    ...revokes.map((role) => `revoke ${roleLabel(role)}`),
+  ].join(', ');
 
   return (
     <FormDialog
       title={`Administer ${person.name}`}
       open={open}
       onOpenChange={onOpenChange}
+      contentClassName="sm:max-w-3xl"
       triggerVariant="outline"
       triggerSize="sm"
       trigger={
-        <>
-          <IconShieldLock size={17} aria-hidden="true" /> Manage account
-        </>
+        controlled ? undefined : (
+          <>
+            <IconShieldLock size={17} aria-hidden="true" /> Manage Account
+          </>
+        )
       }
     >
       <div className="flex flex-col gap-4">
@@ -886,82 +1037,12 @@ function UserAdministrationDialog({
             <AdminProfileEditor
               user={user}
               onSaved={(updated) => setUser({ ...user, ...updated })}
+              register={register('profile')}
             />
-            <section
-              aria-labelledby={`account-state-${person.id}`}
-              className="flex flex-col gap-4"
-            >
-              <h3
-                id={`account-state-${person.id}`}
-                className="text-base font-semibold"
-              >
-                Account Lifecycle
-              </h3>
-              <p className="text-sm text-muted-foreground">
-                {user.email} ·{' '}
-                <StatusBadge tone={statusTone(user.accountState)}>
-                  {statusLabel(user.accountState)}
-                </StatusBadge>{' '}
-              </p>
-              <Field>
-                <FieldLabel htmlFor={`account-reason-${person.id}`}>
-                  Audited reason
-                </FieldLabel>
-                <Textarea
-                  id={`account-reason-${person.id}`}
-                  maxLength={500}
-                  value={accountReason}
-                  onChange={(event) => setAccountReason(event.target.value)}
-                />
-              </Field>
-              {user.accountState !== 'suspended' ? (
-                <Field>
-                  <FieldLabel htmlFor={`account-confirm-${person.id}`}>
-                    Type <strong>{person.name}</strong> to confirm suspension
-                  </FieldLabel>
-                  <Input
-                    id={`account-confirm-${person.id}`}
-                    value={accountConfirmation}
-                    onChange={(event) =>
-                      setAccountConfirmation(event.target.value)
-                    }
-                  />
-                </Field>
-              ) : null}
-              <div>
-                <Button
-                  variant={
-                    user.accountState === 'suspended'
-                      ? 'outline'
-                      : 'destructive'
-                  }
-                  type="button"
-                  disabled={
-                    Boolean(pending) ||
-                    !accountReason.trim() ||
-                    (user.accountState !== 'suspended' &&
-                      (accountConfirmation !== person.name ||
-                        person.id === currentUserId))
-                  }
-                  onClick={() => void changeAccountState()}
-                >
-                  {pending === 'account'
-                    ? 'Applying…'
-                    : user.accountState === 'suspended'
-                      ? 'Reactivate account'
-                      : 'Suspend account'}
-                </Button>
-              </div>
-              {person.id === currentUserId &&
-              user.accountState !== 'suspended' ? (
-                <p className="text-sm text-muted-foreground">
-                  You cannot suspend your own System Admin account.
-                </p>
-              ) : null}
-            </section>
+            {before?.(register)}
             <section
               aria-labelledby={`global-roles-${person.id}`}
-              className="flex flex-col gap-4"
+              className="flex flex-col gap-3"
             >
               <h3
                 id={`global-roles-${person.id}`}
@@ -969,130 +1050,102 @@ function UserAdministrationDialog({
               >
                 Global Roles
               </h3>
-              {assignments.length ? (
-                <ul className="m-0 flex list-none flex-col p-0">
-                  {assignments.map((assignment) => (
-                    <li
-                      className="flex flex-wrap items-center justify-between gap-3 border-b border-border py-3 last:border-b-0"
-                      key={assignment.id}
-                    >
-                      <span>
-                        <strong>{roleLabel(assignment.role)}</strong>
-                        <span className="block text-sm text-muted-foreground">
-                          {assignment.state.replace('_', ' ')}
-                        </span>
-                      </span>
-                      <Button
-                        variant="destructive"
-                        type="button"
+              <ul className="m-0 flex list-none flex-col p-0">
+                {roleChoices.map((role) => {
+                  const assigned = assignedRoles.has(role);
+                  const checked = assigned
+                    ? !revokes.includes(role)
+                    : grants.includes(role);
+                  const state = assignments.find(
+                    (item) => item.role === role,
+                  )?.state;
+                  return (
+                    <li className="flex items-center gap-3 py-3" key={role}>
+                      <Checkbox
+                        id={`global-role-${person.id}-${role}`}
+                        checked={checked}
                         disabled={
-                          Boolean(pending) ||
-                          !roleReason.trim() ||
-                          roleConfirmation !== person.name ||
-                          (person.id === currentUserId &&
-                            assignment.role === 'system_admin')
+                          assigned &&
+                          person.id === currentUserId &&
+                          role === 'system_admin'
                         }
-                        onClick={() => void revokeGlobalRole(assignment)}
+                        onCheckedChange={() => toggleRole(role)}
+                      />
+                      <label
+                        htmlFor={`global-role-${person.id}-${role}`}
+                        className="grid gap-0.5"
                       >
-                        {pending === `revoke-${assignment.role}`
-                          ? 'Revoking…'
-                          : 'Revoke'}
-                      </Button>
+                        <strong className="font-semibold">
+                          {roleLabel(role)}
+                        </strong>
+                        {assigned && state && state !== 'active' ? (
+                          <span className="text-sm text-muted-foreground">
+                            {state.replace('_', ' ')}
+                          </span>
+                        ) : null}
+                      </label>
                     </li>
-                  ))}
-                </ul>
-              ) : (
-                <p className="text-sm text-muted-foreground">
-                  No global roles assigned.
-                </p>
-              )}
-              {availableRoles.length ? (
-                <>
-                  <Field>
-                    <FieldLabel htmlFor={`grant-reason-${person.id}`}>
-                      Reason for role grant
-                    </FieldLabel>
-                    <Textarea
-                      id={`grant-reason-${person.id}`}
-                      maxLength={500}
-                      value={grantReason}
-                      onChange={(event) => setGrantReason(event.target.value)}
-                    />
-                  </Field>
-                  <div className="flex flex-wrap items-end gap-2">
-                    <Field className="min-w-40 flex-1">
-                      <FieldLabel htmlFor={`grant-role-${person.id}`}>
-                        Grant role
-                      </FieldLabel>
-                      <Select
-                        items={grantRoleItems}
-                        value={
-                          availableRoles.includes(grantRole)
-                            ? grantRole
-                            : availableRoles[0]
-                        }
-                        onValueChange={(value) => {
-                          if (value) setGrantRole(value as GlobalRole);
-                        }}
-                      >
-                        <SelectTrigger
-                          id={`grant-role-${person.id}`}
-                          className="w-full"
-                        >
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectGroup>
-                            {grantRoleItems.map((item) => (
-                              <SelectItem key={item.value} value={item.value}>
-                                {item.label}
-                              </SelectItem>
-                            ))}
-                          </SelectGroup>
-                        </SelectContent>
-                      </Select>
-                    </Field>
-                    <Button
-                      type="button"
-                      disabled={Boolean(pending) || !grantReason.trim()}
-                      onClick={() => void grantGlobalRole()}
-                    >
-                      {pending.startsWith('grant-')
-                        ? 'Granting…'
-                        : 'Grant role'}
-                    </Button>
-                  </div>
-                </>
-              ) : null}
-              {assignments.length ? (
-                <>
-                  <Field>
-                    <FieldLabel htmlFor={`role-reason-${person.id}`}>
-                      Reason for role revocation
-                    </FieldLabel>
-                    <Textarea
-                      id={`role-reason-${person.id}`}
-                      maxLength={500}
-                      value={roleReason}
-                      onChange={(event) => setRoleReason(event.target.value)}
-                    />
-                  </Field>
-                  <Field>
-                    <FieldLabel htmlFor={`role-confirm-${person.id}`}>
-                      Type <strong>{person.name}</strong> to confirm a
-                      revocation
-                    </FieldLabel>
-                    <Input
-                      id={`role-confirm-${person.id}`}
-                      value={roleConfirmation}
-                      onChange={(event) =>
-                        setRoleConfirmation(event.target.value)
-                      }
-                    />
-                  </Field>
-                </>
-              ) : null}
+                  );
+                })}
+              </ul>
             </section>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="button-group !ms-0">
+                {onRemoveFromSeason ? (
+                  <Button
+                    variant="destructive"
+                    type="button"
+                    onClick={onRemoveFromSeason}
+                  >
+                    Remove From Season
+                  </Button>
+                ) : null}
+                <Button
+                  variant="destructive"
+                  type="button"
+                  disabled={person.id === currentUserId}
+                  onClick={() => setConfirming('delete')}
+                >
+                  Delete Account
+                </Button>
+              </div>
+              <div className="button-group">
+                <DialogCancel />
+                <Button
+                  type="button"
+                  disabled={pending || !(sectionsDirty || rolesDirty)}
+                  onClick={() => void confirm()}
+                >
+                  {pending ? 'Saving…' : 'Confirm'}
+                </Button>
+              </div>
+            </div>
+            {confirming === 'roles' ? (
+              <ReasonConfirmation
+                open
+                onOpenChange={(next) => {
+                  if (!next) setConfirming(null);
+                }}
+                title={`Change ${person.name}’s Roles?`}
+                name={person.name}
+                description={`This will ${roleSummary}. A granted role becomes active once they have set up MFA. The reason is recorded in the audit log.`}
+                actionLabel="Confirm"
+                pendingLabel="Saving…"
+                onConfirm={apply}
+              />
+            ) : null}
+            {confirming === 'delete' ? (
+              <DeleteAccountDialog
+                person={person}
+                onOpenChange={(next) => {
+                  if (!next) setConfirming(null);
+                }}
+                onDeleted={() => {
+                  onSaved?.();
+                  setOpen(false);
+                }}
+              />
+            ) : null}
           </>
         ) : null}
       </div>
@@ -1100,24 +1153,71 @@ function UserAdministrationDialog({
   );
 }
 
+/**
+ * Deletes someone's account at once, with an audited reason and their
+ * name typed to confirm. There is no recovery.
+ */
+export function DeleteAccountDialog({
+  person,
+  onOpenChange,
+  onDeleted,
+}: {
+  person: { id: string; name: string };
+  onOpenChange: (open: boolean) => void;
+  onDeleted?: () => void;
+}) {
+  const queryClient = useQueryClient();
+  return (
+    <ReasonConfirmation
+      open
+      onOpenChange={onOpenChange}
+      title={`Delete ${person.name}’s Account?`}
+      name={person.name}
+      description="This cannot be undone. They are signed out, their sign-in is removed and they show as Deleted member. The reason is recorded in the audit log."
+      destructive
+      actionLabel="Delete Account"
+      pendingLabel="Deleting…"
+      onConfirm={async (reason) => {
+        if (!demoMode)
+          await apiRequest(
+            `/admin/users/${encodeURIComponent(person.id)}/deletion`,
+            { method: 'POST', body: JSON.stringify({ reason }) },
+          );
+        await Promise.all(
+          [['admin-users'], ['people'], ['users']].map((queryKey) =>
+            queryClient.invalidateQueries({ queryKey }),
+          ),
+        );
+        onDeleted?.();
+      }}
+    />
+  );
+}
+
 function roleLabel(role: GlobalRole) {
   return role === 'system_admin' ? 'System Admin' : 'Director';
 }
 
-function localDateTime(value: string) {
-  const date = new Date(value);
-  return formatDateTimeInput(date);
+/** A stored time as the local calendar date (YYYY-MM-DD) it falls on. */
+function localDate(value: string) {
+  return formatDateTimeInput(new Date(value)).slice(0, 10);
 }
 
-function weekDialogValues(week?: Week) {
-  const now = new Date();
+/**
+ * A new week starts the day after the last one ends (weeks cannot overlap or
+ * run out of order), with the next number; the first starts today.
+ */
+function weekDialogValues(week?: Week, after?: Week) {
+  const day = 86_400_000;
+  const start = after
+    ? new Date(new Date(after.endAt).getTime() + day)
+    : new Date();
   return {
-    number: week?.number ?? 1,
-    startAt: localDateTime(week?.startAt ?? now.toISOString()),
-    endAt: localDateTime(
-      week?.endAt ?? new Date(now.getTime() + 6 * 86_400_000).toISOString(),
+    number: week?.number ?? (after ? after.number + 1 : 1),
+    startAt: localDate(week?.startAt ?? start.toISOString()),
+    endAt: localDate(
+      week?.endAt ?? new Date(start.getTime() + 6 * day).toISOString(),
     ),
-    resourceUrl: week?.resourceUrl ?? '',
   };
 }
 
@@ -1141,31 +1241,48 @@ function upsertPageItem<T extends { id: string }>(
   };
 }
 
-function WeekDialog({ seasonId, week }: { seasonId: string; week?: Week }) {
+function WeekDialog({
+  seasonId,
+  week,
+  after,
+  open: controlledOpen,
+  onOpenChange,
+}: {
+  seasonId: string;
+  week?: Week;
+  /** The season's last week, which a new week follows. */
+  after?: Week;
+  /** When given, the dialog is opened from outside and shows no trigger. */
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+}) {
   const queryClient = useQueryClient();
-  const initialValues = weekDialogValues(week);
-  const [open, setOpen] = useState(false);
+  const initialValues = weekDialogValues(week, after);
+  const [uncontrolledOpen, setUncontrolledOpen] = useState(false);
+  const controlled = controlledOpen !== undefined;
+  const open = controlled ? controlledOpen : uncontrolledOpen;
+  const setOpen = (next: boolean) => {
+    if (!controlled) setUncontrolledOpen(next);
+    onOpenChange?.(next);
+  };
   const [number, setNumber] = useState(initialValues.number);
   const [startAt, setStartAt] = useState(initialValues.startAt);
   const [endAt, setEndAt] = useState(initialValues.endAt);
-  const [resourceUrl, setResourceUrl] = useState(initialValues.resourceUrl);
   const [baseline, setBaseline] = useState(initialValues);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState('');
   const dirty =
     number !== baseline.number ||
     startAt !== baseline.startAt ||
-    endAt !== baseline.endAt ||
-    resourceUrl !== baseline.resourceUrl;
+    endAt !== baseline.endAt;
   const requestOpenChange = (next: boolean) => {
     if (!next && dirty && !window.confirm('Discard unsaved week changes?'))
       return;
     if (next) {
-      const values = weekDialogValues(week);
+      const values = weekDialogValues(week, after);
       setNumber(values.number);
       setStartAt(values.startAt);
       setEndAt(values.endAt);
-      setResourceUrl(values.resourceUrl);
       setBaseline(values);
       setError('');
     }
@@ -1175,19 +1292,18 @@ function WeekDialog({ seasonId, week }: { seasonId: string; week?: Week }) {
     if (
       !Number.isInteger(number) ||
       number < 1 ||
-      new Date(endAt) <= new Date(startAt) ||
-      (resourceUrl && !/^https:\/\//i.test(resourceUrl))
+      !startAt ||
+      !endAt ||
+      endAt < startAt
     )
-      return setError(
-        'Enter a positive week number, valid dates and an HTTPS resource URL.',
-      );
+      return setError('Enter a positive week number and valid dates.');
     setPending(true);
     setError('');
+    // Weeks are whole days: from the start of the first to the end of the last.
     const mutation: WeekMutation = {
       number,
-      startAt: zonedDateTimeToUtc(startAt),
-      endAt: zonedDateTimeToUtc(endAt),
-      ...(resourceUrl.trim() ? { resourceUrl: resourceUrl.trim() } : {}),
+      startAt: zonedDateTimeToUtc(`${startAt}T00:00`),
+      endAt: zonedDateTimeToUtc(`${endAt}T23:59:59`),
     };
     try {
       const saved = demoMode
@@ -1195,7 +1311,7 @@ function WeekDialog({ seasonId, week }: { seasonId: string; week?: Week }) {
             id: week?.id ?? `week_demo_${Date.now()}`,
             seasonId,
             ...mutation,
-            resourceUrl: mutation.resourceUrl ?? '',
+            resourcesHtml: week?.resourcesHtml ?? '',
           }
         : await apiRequest<Week>(
             week
@@ -1243,13 +1359,13 @@ function WeekDialog({ seasonId, week }: { seasonId: string; week?: Week }) {
       triggerVariant={week ? 'outline' : undefined}
       triggerSize={week ? 'sm' : undefined}
       trigger={
-        week ? (
+        controlled ? undefined : week ? (
           <>
             <IconEdit size={17} aria-hidden="true" /> Edit
           </>
         ) : (
           <>
-            <IconPlus size={17} aria-hidden="true" /> Create week
+            <IconPlus size={17} aria-hidden="true" /> Create Week
           </>
         )
       }
@@ -1259,7 +1375,7 @@ function WeekDialog({ seasonId, week }: { seasonId: string; week?: Week }) {
         <div className="grid gap-6 sm:grid-cols-2">
           <Field>
             <FieldLabel htmlFor={`week-number-${week?.id ?? 'new'}`}>
-              Week number
+              Week Number
             </FieldLabel>
             <Input
               id={`week-number-${week?.id ?? 'new'}`}
@@ -1269,33 +1385,13 @@ function WeekDialog({ seasonId, week }: { seasonId: string; week?: Week }) {
               onChange={(event) => setNumber(event.target.valueAsNumber)}
             />
           </Field>
-          <AppDatePicker
-            label="Starts"
-            granularity="minute"
-            value={startAt}
-            onChange={setStartAt}
-          />
-          <AppDatePicker
-            label="Ends"
-            granularity="minute"
-            value={endAt}
-            onChange={setEndAt}
-          />
-          <Field>
-            <FieldLabel htmlFor={`week-resource-${week?.id ?? 'new'}`}>
-              Resource URL (optional)
-            </FieldLabel>
-            <Input
-              id={`week-resource-${week?.id ?? 'new'}`}
-              type="url"
-              value={resourceUrl}
-              onChange={(event) => setResourceUrl(event.target.value)}
-            />
-          </Field>
+          <AppDatePicker label="Starts" value={startAt} onChange={setStartAt} />
+          <AppDatePicker label="Ends" value={endAt} onChange={setEndAt} />
         </div>
-        <div className="flex flex-wrap justify-end gap-2">
+        <div className="button-group">
+          <DialogCancel />
           <Button type="button" disabled={pending} onClick={() => void save()}>
-            {pending ? 'Saving…' : week ? 'Save week' : 'Create week'}
+            {pending ? 'Saving…' : week ? 'Save Week' : 'Create Week'}
           </Button>
         </div>
       </div>
@@ -1306,9 +1402,13 @@ function WeekDialog({ seasonId, week }: { seasonId: string; week?: Week }) {
 function DeleteWeekButton({
   seasonId,
   week,
+  open,
+  onOpenChange,
 }: {
   seasonId: string;
   week: Week;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }) {
   const queryClient = useQueryClient();
   const remove = async () => {
@@ -1332,10 +1432,192 @@ function DeleteWeekButton({
   return (
     <NamedConfirmation
       name={`Week ${week.number}`}
-      actionLabel="Delete week"
+      title={`Delete Week ${week.number}?`}
+      actionLabel="Delete Week"
       description="The week is permanently removed. Historical records may prevent deletion."
+      open={open}
+      onOpenChange={onOpenChange}
       onConfirm={remove}
     />
+  );
+}
+
+/** Correct, edit and remove for an enrollment, behind a kebab menu. */
+function EnrollmentRowMenu({
+  season,
+  seasons,
+  enrollment,
+  accounts,
+  name,
+  person,
+  currentUserId,
+  canManageAccount,
+  mentorship,
+}: {
+  season: Season;
+  seasons: Season[];
+  enrollment: Enrollment;
+  accounts: Person[];
+  name: string;
+  person?: Person;
+  currentUserId?: string;
+  canManageAccount: boolean;
+  /** A student's current mentorship, changed or ended from the menu. */
+  mentorship?: Mentorship;
+}) {
+  const [open, setOpen] = useState<
+    'manage' | 'edit' | 'remove' | 'mentor' | 'end-mentorship' | null
+  >(null);
+  const canAssignMentor =
+    enrollment.state === 'active' && enrollment.role === 'student';
+  const canEdit =
+    enrollment.state === 'active' && enrollment.role !== 'coordinator';
+  const canRemove = enrollment.state === 'active';
+  const close = (next: boolean) => {
+    if (!next) setOpen(null);
+  };
+  return (
+    <>
+      <DropdownMenu>
+        <DropdownMenuTrigger
+          render={<Button variant="ghost" size="icon" />}
+          aria-label={`More actions for ${name}`}
+        >
+          <IconDotsVertical size={18} aria-hidden="true" />
+        </DropdownMenuTrigger>
+        <DropdownMenuContent>
+          {canEdit ? (
+            <DropdownMenuItem onClick={() => setOpen('edit')}>
+              <IconEdit size={17} aria-hidden="true" /> Edit
+            </DropdownMenuItem>
+          ) : null}
+          {canAssignMentor ? (
+            <DropdownMenuItem onClick={() => setOpen('mentor')}>
+              <IconSchool size={17} aria-hidden="true" />{' '}
+              {mentorship ? 'Change Mentor' : 'Assign Mentor'}
+            </DropdownMenuItem>
+          ) : null}
+          {canAssignMentor && mentorship ? (
+            <DropdownMenuItem onClick={() => setOpen('end-mentorship')}>
+              <IconTrash size={17} aria-hidden="true" /> End Mentorship
+            </DropdownMenuItem>
+          ) : null}
+          <DropdownMenuItem onClick={() => setOpen('manage')}>
+            <IconShieldLock size={17} aria-hidden="true" /> Manage Account
+          </DropdownMenuItem>
+          {canRemove ? (
+            <DropdownMenuItem
+              variant="destructive"
+              onClick={() => setOpen('remove')}
+            >
+              <IconUserMinus size={17} aria-hidden="true" /> Remove
+            </DropdownMenuItem>
+          ) : null}
+        </DropdownMenuContent>
+      </DropdownMenu>
+      {open === 'manage' ? (
+        <ManagePersonDialog
+          person={person}
+          name={name}
+          currentUserId={currentUserId}
+          canManageAccount={canManageAccount}
+          enrollment={enrollment}
+          seasons={seasons}
+          onOpenChange={close}
+        />
+      ) : null}
+      {open === 'mentor' ? (
+        <MentorshipDialog
+          seasonId={season.id}
+          people={accounts}
+          mentorship={mentorship}
+          studentUserId={enrollment.userId}
+          open
+          onOpenChange={close}
+        />
+      ) : null}
+      {open === 'end-mentorship' && mentorship ? (
+        <DeleteMentorshipButton
+          seasonId={season.id}
+          mentorship={mentorship}
+          open
+          onOpenChange={close}
+        />
+      ) : null}
+      {open === 'edit' ? (
+        <EnrollmentDialog
+          seasonId={season.id}
+          accounts={accounts}
+          enrollment={enrollment}
+          open
+          onOpenChange={close}
+        />
+      ) : null}
+      {open === 'remove' ? (
+        <RemoveEnrollmentDialog
+          seasonId={season.id}
+          enrollment={enrollment}
+          name={name}
+          open
+          onOpenChange={close}
+        />
+      ) : null}
+    </>
+  );
+}
+
+/** Edit, resources and delete for a week, behind a kebab menu. */
+function WeekRowMenu({ season, week }: { season: Season; week: Week }) {
+  const [editOpen, setEditOpen] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  return (
+    <>
+      <DropdownMenu>
+        <DropdownMenuTrigger
+          render={<Button variant="ghost" size="icon" />}
+          aria-label={`More actions for Week ${week.number}`}
+        >
+          <IconDotsVertical size={18} aria-hidden="true" />
+        </DropdownMenuTrigger>
+        <DropdownMenuContent>
+          <DropdownMenuItem onClick={() => setEditOpen(true)}>
+            <IconEdit size={17} aria-hidden="true" /> Edit
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            render={
+              // Opens the week's page with its editor already open.
+              <Link
+                to={`/seasons/${season.slug}/weeks/${week.number}?edit=resources`}
+              />
+            }
+          >
+            <IconNotes size={17} aria-hidden="true" /> Edit Resources
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            variant="destructive"
+            onClick={() => setDeleteOpen(true)}
+          >
+            <IconTrash size={17} aria-hidden="true" /> Delete
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+      {editOpen ? (
+        <WeekDialog
+          seasonId={season.id}
+          week={week}
+          open
+          onOpenChange={setEditOpen}
+        />
+      ) : null}
+      {deleteOpen ? (
+        <DeleteWeekButton
+          seasonId={season.id}
+          week={week}
+          open
+          onOpenChange={setDeleteOpen}
+        />
+      ) : null}
+    </>
   );
 }
 
@@ -1343,24 +1625,45 @@ type EnrollmentAccountOption =
   Pick<Person, 'id' | 'name' | 'slug'> | EnrollmentCandidate;
 
 export function EnrollmentDialog({
-  seasonId,
-  accounts,
+  seasonId: suggestedSeasonId,
+  seasons = [],
+  accounts: editAccounts = [],
   enrollment,
   allowCoordinator = false,
-  accountsLoading = false,
-  accountsError = false,
-  onRetryAccounts,
+  open: controlledOpen,
+  onOpenChange,
 }: {
+  /** The enrollment's season, or the suggested season for a new member. */
   seasonId: string;
-  accounts: EnrollmentAccountOption[];
+  /** The seasons a new member can be added to. */
+  seasons?: Season[];
+  /** Editing only: the accounts, to name the enrollment's account. */
+  accounts?: EnrollmentAccountOption[];
   enrollment?: Enrollment;
   allowCoordinator?: boolean;
-  accountsLoading?: boolean;
-  accountsError?: boolean;
-  onRetryAccounts?: () => void;
+  /** When given, the dialog is opened from outside and shows no trigger. */
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }) {
   const queryClient = useQueryClient();
-  const [open, setOpen] = useState(false);
+  const [uncontrolledOpen, setUncontrolledOpen] = useState(false);
+  const controlled = controlledOpen !== undefined;
+  const open = controlled ? controlledOpen : uncontrolledOpen;
+  const setOpen = (next: boolean) => {
+    if (!controlled) setUncontrolledOpen(next);
+    onOpenChange?.(next);
+  };
+  const [seasonId, setSeasonId] = useState(suggestedSeasonId);
+  const candidates = useEnrollmentCandidates(seasonId, open && !enrollment);
+  const accounts: EnrollmentAccountOption[] = enrollment
+    ? editAccounts
+    : (candidates.data?.items ?? []);
+  const accountsLoading = !enrollment && candidates.isLoading;
+  const accountsError = !enrollment && candidates.isError;
+  const seasonItems = [
+    { label: 'Choose a season', value: '' },
+    ...seasons.map((season) => ({ label: season.name, value: season.id })),
+  ];
   const [userId, setUserId] = useState(enrollment?.userId ?? '');
   const [role, setRole] = useState<SeasonRole>(enrollment?.role ?? 'student');
   const [studentLevel, setStudentLevel] = useState<
@@ -1369,6 +1672,7 @@ export function EnrollmentDialog({
   const [pending, setPending] = useState(false);
   const [error, setError] = useState('');
   const dirty =
+    seasonId !== suggestedSeasonId ||
     userId !== (enrollment?.userId ?? '') ||
     role !== (enrollment?.role ?? 'student') ||
     studentLevel !== (enrollment?.studentLevel ?? 'not_applicable');
@@ -1394,7 +1698,7 @@ export function EnrollmentDialog({
     })),
   ];
   const enrollmentRoleItems = [
-    ...(!enrollment && allowCoordinator
+    ...(allowCoordinator || enrollment?.role === 'coordinator'
       ? [{ label: 'Coordinator', value: 'coordinator' }]
       : []),
     { label: 'Mentor', value: 'mentor' },
@@ -1408,6 +1712,7 @@ export function EnrollmentDialog({
     )
       return;
     if (next) {
+      setSeasonId(suggestedSeasonId);
       setUserId(enrollment?.userId ?? '');
       setRole(enrollment?.role ?? 'student');
       setStudentLevel(enrollment?.studentLevel ?? 'not_applicable');
@@ -1416,6 +1721,7 @@ export function EnrollmentDialog({
     setOpen(next);
   };
   const save = async () => {
+    if (!seasonId) return setError('Choose a season.');
     if (!userId) return setError('Choose a verified account.');
     setPending(true);
     setError('');
@@ -1434,7 +1740,7 @@ export function EnrollmentDialog({
         };
       else if (enrollment) {
         const mutation: EnrollmentUpdate = {
-          role: role === 'coordinator' ? 'mentor' : role,
+          role,
           ...(role === 'student' ? { studentLevel } : {}),
         };
         saved = await apiRequest<Enrollment>(
@@ -1524,19 +1830,19 @@ export function EnrollmentDialog({
   };
   return (
     <FormDialog
-      title={enrollment ? 'Edit Enrollment' : 'Add Season Member'}
+      title={enrollment ? 'Edit Enrollment' : 'Add Member'}
       open={open}
       onOpenChange={requestOpenChange}
       triggerVariant="outline"
       triggerSize={enrollment ? 'sm' : undefined}
       trigger={
-        enrollment ? (
+        controlled ? undefined : enrollment ? (
           <>
             <IconEdit size={17} aria-hidden="true" /> Edit
           </>
         ) : (
           <>
-            <IconPlus size={17} aria-hidden="true" /> Add member
+            <IconPlus size={17} aria-hidden="true" /> Add Member
           </>
         )
       }
@@ -1548,13 +1854,42 @@ export function EnrollmentDialog({
             <FieldError>
               Verified enrollment candidates could not be loaded.
             </FieldError>
-            {onRetryAccounts ? (
-              <Button variant="outline" type="button" onClick={onRetryAccounts}>
-                Retry accounts
-              </Button>
-            ) : null}
+            <Button
+              variant="outline"
+              type="button"
+              onClick={() => void candidates.refetch()}
+            >
+              Retry Accounts
+            </Button>
           </div>
         ) : null}
+        {enrollment ? null : (
+          <Field>
+            <FieldLabel htmlFor="enrollment-season-new">Season</FieldLabel>
+            <Select
+              items={seasonItems}
+              value={seasonId}
+              onValueChange={(value) => {
+                setSeasonId(value ?? '');
+                // Accounts differ by season, so the choice starts over.
+                setUserId('');
+              }}
+            >
+              <SelectTrigger id="enrollment-season-new" className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectGroup>
+                  {seasonItems.map((item) => (
+                    <SelectItem key={item.value} value={item.value}>
+                      {item.label}
+                    </SelectItem>
+                  ))}
+                </SelectGroup>
+              </SelectContent>
+            </Select>
+          </Field>
+        )}
         <Field>
           <FieldLabel htmlFor={`enrollment-user-${enrollment?.id ?? 'new'}`}>
             Account
@@ -1584,7 +1919,7 @@ export function EnrollmentDialog({
         </Field>
         <Field>
           <FieldLabel htmlFor={`enrollment-role-${enrollment?.id ?? 'new'}`}>
-            Season role
+            Role
           </FieldLabel>
           <Select
             items={enrollmentRoleItems}
@@ -1613,7 +1948,7 @@ export function EnrollmentDialog({
         {enrollment && role === 'student' ? (
           <Field>
             <FieldLabel htmlFor={`enrollment-level-${enrollment.id}`}>
-              Student level
+              Student Level
             </FieldLabel>
             <Select
               items={studentLevelItems}
@@ -1640,17 +1975,18 @@ export function EnrollmentDialog({
             </Select>
           </Field>
         ) : null}
-        <div className="flex flex-wrap justify-end gap-2">
+        <div className="button-group">
+          <DialogCancel />
           <Button
             type="button"
-            disabled={pending || !userId}
+            disabled={pending || !userId || !seasonId}
             onClick={() => void save()}
           >
             {pending
               ? 'Saving…'
               : enrollment
-                ? 'Save enrollment'
-                : 'Add member'}
+                ? 'Save Enrollment'
+                : 'Add Member'}
           </Button>
         </div>
       </div>
@@ -1662,13 +1998,24 @@ function RemoveEnrollmentDialog({
   seasonId,
   enrollment,
   name,
+  open: controlledOpen,
+  onOpenChange,
 }: {
   seasonId: string;
   enrollment: Enrollment;
   name: string;
+  /** When given, the dialog is opened from outside and shows no trigger. */
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }) {
   const queryClient = useQueryClient();
-  const [open, setOpen] = useState(false);
+  const [uncontrolledOpen, setUncontrolledOpen] = useState(false);
+  const controlled = controlledOpen !== undefined;
+  const open = controlled ? controlledOpen : uncontrolledOpen;
+  const setOpen = (next: boolean) => {
+    if (!controlled) setUncontrolledOpen(next);
+    onOpenChange?.(next);
+  };
   const [reason, setReason] = useState('');
   const [confirmation, setConfirmation] = useState('');
   const [pending, setPending] = useState(false);
@@ -1722,9 +2069,11 @@ function RemoveEnrollmentDialog({
       triggerVariant="destructive"
       triggerSize="sm"
       trigger={
-        <>
-          <IconUserMinus size={17} aria-hidden="true" /> Remove
-        </>
+        controlled ? undefined : (
+          <>
+            <IconUserMinus size={17} aria-hidden="true" /> Remove
+          </>
+        )
       }
     >
       <div className="flex flex-col gap-4">
@@ -1750,16 +2099,15 @@ function RemoveEnrollmentDialog({
           />
         </Field>
         {error ? <FieldError>{error}</FieldError> : null}
-        <div className="flex flex-wrap justify-end gap-2">
+        <div className="button-group">
+          <DialogCancel />
           <Button
             variant="destructive"
             type="button"
-            disabled={
-              pending || reason.trim().length < 5 || confirmation !== name
-            }
+            disabled={pending || !reason.trim() || confirmation !== name}
             onClick={() => void remove()}
           >
-            {pending ? 'Removing…' : 'Remove member'}
+            {pending ? 'Removing…' : 'Remove Member'}
           </Button>
         </div>
       </div>
@@ -1771,34 +2119,48 @@ function MentorshipDialog({
   seasonId,
   people,
   mentorship,
+  studentUserId: presetStudentId,
+  open: controlledOpen,
+  onOpenChange,
 }: {
   seasonId: string;
   people: Person[];
   mentorship?: Mentorship;
+  /** Assigning a mentor from a student's row starts with that student. */
+  studentUserId?: string;
+  /** When given, the dialog is opened from outside and shows no trigger. */
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }) {
   const queryClient = useQueryClient();
   const mentors = people.filter((person) => person.roles.includes('mentor'));
   const students = people.filter((person) => person.roles.includes('student'));
   const mentorItems = [
     { label: 'Choose a mentor', value: '' },
-    ...mentors.map((person) => ({ label: person.name, value: person.id })),
+    ...personOptions(mentors),
   ];
   const studentItems = [
     { label: 'Choose a student', value: '' },
-    ...students.map((person) => ({ label: person.name, value: person.id })),
+    ...personOptions(students),
   ];
-  const [open, setOpen] = useState(false);
+  const [uncontrolledOpen, setUncontrolledOpen] = useState(false);
+  const controlled = controlledOpen !== undefined;
+  const open = controlled ? controlledOpen : uncontrolledOpen;
+  const setOpen = (next: boolean) => {
+    if (!controlled) setUncontrolledOpen(next);
+    onOpenChange?.(next);
+  };
   const [mentorUserId, setMentorUserId] = useState(
     mentorship?.mentorUserId ?? '',
   );
   const [studentUserId, setStudentUserId] = useState(
-    mentorship?.studentUserId ?? '',
+    mentorship?.studentUserId ?? presetStudentId ?? '',
   );
   const [pending, setPending] = useState(false);
   const [error, setError] = useState('');
   const dirty =
     mentorUserId !== (mentorship?.mentorUserId ?? '') ||
-    studentUserId !== (mentorship?.studentUserId ?? '');
+    studentUserId !== (mentorship?.studentUserId ?? presetStudentId ?? '');
   const requestOpenChange = (next: boolean) => {
     if (
       !next &&
@@ -1808,7 +2170,7 @@ function MentorshipDialog({
       return;
     if (next) {
       setMentorUserId(mentorship?.mentorUserId ?? '');
-      setStudentUserId(mentorship?.studentUserId ?? '');
+      setStudentUserId(mentorship?.studentUserId ?? presetStudentId ?? '');
       setError('');
     }
     setOpen(next);
@@ -1886,51 +2248,25 @@ function MentorshipDialog({
   };
   return (
     <FormDialog
-      title={mentorship ? 'Edit Mentorship' : 'Create Mentorship'}
+      title={mentorship ? 'Change Mentor' : 'Add Mentorship'}
       open={open}
       onOpenChange={requestOpenChange}
-      triggerVariant={mentorship ? 'outline' : undefined}
+      triggerVariant="outline"
       triggerSize={mentorship ? 'sm' : undefined}
       trigger={
-        mentorship ? (
+        controlled ? undefined : mentorship ? (
           <>
             <IconEdit size={17} aria-hidden="true" /> Edit
           </>
         ) : (
           <>
-            <IconPlus size={17} aria-hidden="true" /> Create mentorship
+            <IconPlus size={17} aria-hidden="true" /> Add Mentorship
           </>
         )
       }
     >
       <div className="flex flex-col gap-4">
         {error ? <FieldError>{error}</FieldError> : null}
-        <Field>
-          <FieldLabel htmlFor={`admin-mentor-${mentorship?.id ?? 'new'}`}>
-            Mentor
-          </FieldLabel>
-          <Select
-            items={mentorItems}
-            value={mentorUserId}
-            onValueChange={(value) => setMentorUserId(value ?? '')}
-          >
-            <SelectTrigger
-              id={`admin-mentor-${mentorship?.id ?? 'new'}`}
-              className="w-full"
-            >
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectGroup>
-                {mentorItems.map((item) => (
-                  <SelectItem key={item.value} value={item.value}>
-                    {item.label}
-                  </SelectItem>
-                ))}
-              </SelectGroup>
-            </SelectContent>
-          </Select>
-        </Field>
         <Field>
           <FieldLabel htmlFor={`admin-student-${mentorship?.id ?? 'new'}`}>
             Student
@@ -1957,7 +2293,34 @@ function MentorshipDialog({
             </SelectContent>
           </Select>
         </Field>
-        <div className="flex flex-wrap justify-end gap-2">
+        <Field>
+          <FieldLabel htmlFor={`admin-mentor-${mentorship?.id ?? 'new'}`}>
+            Mentor
+          </FieldLabel>
+          <Select
+            items={mentorItems}
+            value={mentorUserId}
+            onValueChange={(value) => setMentorUserId(value ?? '')}
+          >
+            <SelectTrigger
+              id={`admin-mentor-${mentorship?.id ?? 'new'}`}
+              className="w-full"
+            >
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectGroup>
+                {mentorItems.map((item) => (
+                  <SelectItem key={item.value} value={item.value}>
+                    {item.label}
+                  </SelectItem>
+                ))}
+              </SelectGroup>
+            </SelectContent>
+          </Select>
+        </Field>
+        <div className="button-group">
+          <DialogCancel />
           <Button
             type="button"
             disabled={pending || !mentorUserId || !studentUserId}
@@ -1966,8 +2329,8 @@ function MentorshipDialog({
             {pending
               ? 'Saving…'
               : mentorship
-                ? 'Save mentorship'
-                : 'Create mentorship'}
+                ? 'Save Mentorship'
+                : 'Add Mentorship'}
           </Button>
         </div>
       </div>
@@ -1978,9 +2341,13 @@ function MentorshipDialog({
 function DeleteMentorshipButton({
   seasonId,
   mentorship,
+  open,
+  onOpenChange,
 }: {
   seasonId: string;
   mentorship: Mentorship;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }) {
   const queryClient = useQueryClient();
   const remove = async () => {
@@ -2004,19 +2371,16 @@ function DeleteMentorshipButton({
   return (
     <NamedConfirmation
       name="END MENTORSHIP"
-      actionLabel="End mentorship"
+      actionLabel="End Mentorship"
       description="This ends the mentorship. Past records are kept."
+      open={open}
+      onOpenChange={onOpenChange}
       onConfirm={remove}
     />
   );
 }
 
-export const AdminSeasonsPage = () => <AdminResourcePage resource="seasons" />;
 export const AdminWeeksPage = () => <AdminResourcePage resource="weeks" />;
-export const AdminUsersPage = () => <AdminResourcePage resource="users" />;
 export const AdminEnrollmentsPage = () => (
   <AdminResourcePage resource="enrollments" />
-);
-export const AdminMentorshipsPage = () => (
-  <AdminResourcePage resource="mentorships" />
 );

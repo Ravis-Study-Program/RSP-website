@@ -216,7 +216,7 @@ A few fixed categories have their own wash-and-text pair (tokens `purple`, `pink
 
 ### Named Rules
 
-**The Title Case Rule.** Titles and buttons are Title Case: page titles, section and panel headings, dialog titles, tab labels, error and empty-state titles, and the text of every button, including dialog actions and links styled as buttons ("Edit Notes and Scores", "Two-Factor", "Time by Difficulty", "No Practice in This Period", "Write Week 3 Update", "Save Settings"). Small words (a, an, and, as, at, by, for, in, of, on, or, the, to, with) stay lower case unless first or last, and each part of a hyphenated word is capitalised ("Sign-In").
+**The Title Case Rule.** Titles and buttons are Title Case: page titles, section and panel headings, dialog titles, tab labels, form field labels ("Username", "Email Address", "Current Password", "Overall Notes"), metric card labels, error and empty-state titles, and the text of every button, including dialog actions and links styled as buttons ("Edit Notes and Scores", "Two-Factor", "Time by Difficulty", "No Practice in This Period", "Write Week 3 Update", "Save Settings"). Small words (a, an, and, as, at, by, for, in, of, on, or, the, to, with) stay lower case unless first or last, and each part of a hyphenated word is capitalised ("Sign-In"). Hints after a label ("optional", "minutes") stay lower case in a `LabelHint`. Sentences are not titles and stay sentence case: checkbox and switch labels that read as a statement ("Mark this round reviewed"), descriptions, notices, and labels only screen readers hear (`aria-label`).
 
 **The Sentence-Case Label Rule.** Everything that is not a title or a button is sentence case with normal tracking: labels, eyebrows, menu items, badges and body text ("Edit notes and scores" as a menu item, "Hours per week" as a field label). Uppercase letter-spaced labels are not part of this system.
 
@@ -309,6 +309,8 @@ Exact and unassuming.
 ### Dialogs and Forms
 
 - Dialogs are `FormDialog`; typed confirmations of destructive actions are `NamedConfirmation`. No explanatory subtitle under a dialog title, unless it warns about a consequence (removed access, signing out, invalidated codes).
+- Every editing dialog ends with Cancel and a confirming button along the bottom, right-aligned (`DialogCancel` beside the action). A dialog made of several sections (Manage Account) holds all their edits until its one Confirm commits them (`useDraftSections`); sections have no Save buttons of their own.
+- Related buttons side by side share one width, that of the widest, via `.button-group` (dialog footers, header actions). A Settings card's row buttons line up as a column sized by its widest button.
 - Editing dialogs show every part in one scrolling form (all rounds at once, not a picker), and the same record's dialogs behave the same for every role.
 - Editable dates use `AppDatePicker` (dd/mm/yyyy, whatever the browser); never a native date input. Groups of "Add …" buttons are equal width and fill the row.
 
@@ -357,7 +359,7 @@ Reuse these before writing new markup. If a page needs something close to one of
 
 - `ExternalLink` (`src/components/ExternalLink.tsx`): any inline link that opens a new tab, with the external-link icon (LeetCode questions, references).
 - `ResourceLink` (`Common.tsx`): a block link to an outside resource, such as a week's materials.
-- `FormDialog`, `NamedConfirmation`, `DirtyFormGuard` (`src/components/Dialogs.tsx`): dialogs, typed confirmations and unsaved-change guards.
+- `FormDialog`, `DialogCancel`, `NamedConfirmation`, `DirtyFormGuard` (`src/components/Dialogs.tsx`): dialogs, typed confirmations and unsaved-change guards.
 - `AppDatePicker`: editable dates. `TimezoneSelect`: time zones, listed by UTC offset, smallest first.
 - `RichTextEditor` and `RichTextContent`: notes, edited and displayed.
 - `ProblemSelect`: choosing a LeetCode problem. `Spoiler`: hidden-until-clicked text such as topics.
@@ -370,7 +372,6 @@ Places that still bypass the inventory or the rules. Fix them when touching the 
 - Section spacing: the dashboard, season page and Monday updates still space sections with top margins (`mt-6`, and `mt-4` on the season page's grid) rather than one `gap-6` stack, so the gap above their first section is larger than 1.5rem. Move them into the page's stack.
 - The kebab row menus (`AttemptRowMenu` in the LeetCode page, `MockRowActions` in Mock Interviews, `StudentRowActions` in `PeopleTable`, `StudentUpdateRowActions` in Monday updates) share no base. Extract a row-menu component (trigger, Show/Hide details item, dialog state) when touching them next.
 - Monday updates keeps its own card and subsection title classes (`cardTitleClass`, `subTitleClass`) for the per-student blocks inside a section.
-- Buttons are Title Case (see the Title Case Rule), but most still read sentence case: "Save settings", "Sign in with email", "Log attempt", "Clear filters", "Discard changes", "Change password" and `actionLabel`s such as "Delete attempt". Convert them, and the matching names in `e2e` and `e2e-real`, in one sweep.
 - `PageSkeleton` draws the page column itself (it needs ARIA attributes `Page` does not take).
 
 ## Do's and Don'ts

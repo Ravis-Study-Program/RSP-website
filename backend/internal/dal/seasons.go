@@ -2,6 +2,7 @@ package dal
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -22,7 +23,7 @@ func scanSeason(row pgx.Row) (program.SeasonRecord, error) {
 const seasonColumns = `id,slug,name,status::text,start_at,end_at,location,image_url,resources_url`
 
 func (p *Store) GetSeason(ctx context.Context, id string) (program.SeasonRecord, error) {
-	return scanSeason(p.pool.QueryRow(ctx, `SELECT `+seasonColumns+` FROM app.seasons WHERE id=$1 AND deleted_at IS NULL`, id))
+	return scanSeason(p.conn().QueryRow(ctx, `SELECT `+seasonColumns+` FROM app.seasons WHERE id=$1 AND deleted_at IS NULL`, id))
 }
 
 type SeasonQuery struct {
@@ -36,7 +37,7 @@ func (p *Store) ListSeasons(ctx context.Context, q SeasonQuery) ([]program.Seaso
 	const filters = `deleted_at IS NULL AND (@status = '' OR status::text = @status)`
 	args := pgx.NamedArgs{"status": q.Status}
 	var total int64
-	if err := p.pool.QueryRow(ctx, `SELECT count(*) FROM app.seasons WHERE `+filters, args).Scan(&total); err != nil {
+	if err := p.conn().QueryRow(ctx, `SELECT count(*) FROM app.seasons WHERE `+filters, args).Scan(&total); err != nil {
 		return nil, false, 0, err
 	}
 
@@ -49,7 +50,7 @@ func (p *Store) ListSeasons(ctx context.Context, q SeasonQuery) ([]program.Seaso
 	}
 	args["boundary"] = q.Boundary
 	args["limit"] = q.Limit + 1
-	rows, err := p.pool.Query(ctx, `SELECT `+seasonColumns+`
+	rows, err := p.conn().Query(ctx, `SELECT `+seasonColumns+`
 		FROM app.seasons WHERE `+comparison+` AND `+filters+`
 		ORDER BY id `+order+` LIMIT @limit`, args)
 	if err != nil {
@@ -71,7 +72,7 @@ func (p *Store) ListSeasons(ctx context.Context, q SeasonQuery) ([]program.Seaso
 }
 
 func (p *Store) CreateSeason(ctx context.Context, v program.SeasonRecord, actorID string, at time.Time) (program.SeasonRecord, error) {
-	tx, err := p.pool.Begin(ctx)
+	tx, err := p.conn().Begin(ctx)
 	if err != nil {
 		return v, err
 	}
@@ -90,6 +91,80 @@ func (p *Store) CreateSeason(ctx context.Context, v program.SeasonRecord, actorI
 	return v, tx.Commit(ctx)
 }
 
+// ImportSeason creates a season and all its weeks together, so a failed
+// import leaves nothing behind. When an open season already has the slug it
+// is updated instead: its name (and location and resources link, if given) are replaced, weeks
+// are matched by number and replaced (a blank resources page keeps the
+// existing one), weeks not in the import are left alone, and the season's
+// dates widen to hold every week. It reports whether a season was created.
+func (p *Store) ImportSeason(ctx context.Context, v program.SeasonRecord, weeks []program.WeekRecord, actorID string, at time.Time) (program.SeasonRecord, bool, error) {
+	tx, err := p.conn().Begin(ctx)
+	if err != nil {
+		return v, false, err
+	}
+	defer tx.Rollback(context.Background())
+	existing, err := scanSeason(tx.QueryRow(ctx, `SELECT `+seasonColumns+` FROM app.seasons WHERE slug=$1 AND deleted_at IS NULL FOR UPDATE`, v.Slug))
+	created := errors.Is(err, ErrNotFound)
+	if err != nil && !created {
+		return v, false, err
+	}
+	if created {
+		if _, err = tx.Exec(ctx, `INSERT INTO app.seasons(id,slug,name,status,start_at,end_at,location,image_url,resources_url) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)`, v.ID, v.Slug, v.Name, v.Status, v.StartAt, v.EndAt, v.Location, v.ImageURL, v.ResourcesURL); err != nil {
+			return v, false, mapDatabaseError(err)
+		}
+	} else {
+		if existing.Status != "open" {
+			return v, false, ErrConflict
+		}
+		name, location, resourcesURL := v.Name, v.Location, v.ResourcesURL
+		v = existing
+		v.Name = name
+		if resourcesURL != "" {
+			v.ResourcesURL = resourcesURL
+		}
+		if location != "" {
+			v.Location = location
+		}
+		// Widen first, so every imported week fits; the season never shrinks.
+		startAt, endAt := existing.StartAt, existing.EndAt
+		for _, week := range weeks {
+			if week.StartAt.Before(startAt) {
+				startAt = week.StartAt
+			}
+			if week.EndAt.After(endAt) {
+				endAt = week.EndAt
+			}
+		}
+		v.StartAt, v.EndAt = startAt, endAt
+		if _, err = tx.Exec(ctx, `UPDATE app.seasons SET name=$2,location=$3,start_at=$4,end_at=$5,resources_url=$6 WHERE id=$1`, v.ID, v.Name, v.Location, v.StartAt, v.EndAt, v.ResourcesURL); err != nil {
+			return v, false, mapDatabaseError(err)
+		}
+	}
+	for _, week := range weeks {
+		if _, err = tx.Exec(ctx, `INSERT INTO app.season_weeks(id,season_id,week_number,start_at,end_at,resources_html) VALUES($1,$2,$3,$4,$5,$6)
+			ON CONFLICT (season_id,week_number) DO UPDATE SET start_at=EXCLUDED.start_at,end_at=EXCLUDED.end_at,deleted_at=NULL,
+			resources_html=CASE WHEN EXCLUDED.resources_html='' THEN app.season_weeks.resources_html ELSE EXCLUDED.resources_html END`, week.ID, v.ID, week.Number, week.StartAt, week.EndAt, week.ResourcesHTML); err != nil {
+			return v, false, mapDatabaseError(err)
+		}
+	}
+	if !created {
+		if err = checkWeekOrder(ctx, tx, v.ID); err != nil {
+			return v, false, err
+		}
+		if v, err = scanSeason(tx.QueryRow(ctx, `SELECT `+seasonColumns+` FROM app.seasons WHERE id=$1`, v.ID)); err != nil {
+			return v, false, err
+		}
+	}
+	action := "season.imported"
+	if !created {
+		action = "season.import_updated"
+	}
+	if err := appendAuditTx(ctx, tx, newAudit(actorID, action, "season", v.ID, map[string]any{"weeks": len(weeks)}, at)); err != nil {
+		return v, false, err
+	}
+	return v, created, tx.Commit(ctx)
+}
+
 type UpdateSeasonDefinitionInput struct {
 	SeasonID     string
 	ActorID      string
@@ -104,7 +179,7 @@ type UpdateSeasonDefinitionInput struct {
 }
 
 func (p *Store) UpdateSeasonDefinition(ctx context.Context, input UpdateSeasonDefinitionInput) (program.SeasonRecord, error) {
-	tx, err := p.pool.Begin(ctx)
+	tx, err := p.conn().Begin(ctx)
 	if err != nil {
 		return program.SeasonRecord{}, err
 	}
@@ -153,7 +228,7 @@ type UpdateSeasonResourcesInput struct {
 }
 
 func (p *Store) UpdateSeasonResources(ctx context.Context, input UpdateSeasonResourcesInput) (program.SeasonRecord, error) {
-	tx, err := p.pool.Begin(ctx)
+	tx, err := p.conn().Begin(ctx)
 	if err != nil {
 		return program.SeasonRecord{}, err
 	}
@@ -197,7 +272,7 @@ type CloseSeasonInput struct {
 }
 
 func (p *Store) CloseSeason(ctx context.Context, input CloseSeasonInput) (program.SeasonRecord, error) {
-	tx, err := p.pool.Begin(ctx)
+	tx, err := p.conn().Begin(ctx)
 	if err != nil {
 		return program.SeasonRecord{}, err
 	}
@@ -255,7 +330,7 @@ type ReopenSeasonInput struct {
 }
 
 func (p *Store) ReopenSeason(ctx context.Context, input ReopenSeasonInput) (program.SeasonRecord, error) {
-	tx, err := p.pool.Begin(ctx)
+	tx, err := p.conn().Begin(ctx)
 	if err != nil {
 		return program.SeasonRecord{}, err
 	}

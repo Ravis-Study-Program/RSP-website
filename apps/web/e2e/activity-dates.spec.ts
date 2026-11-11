@@ -12,7 +12,7 @@ test('former students can record mocks on past days and filter their personal hi
   await expect(
     page.getByRole('heading', { name: 'Mock Interviews', exact: true }),
   ).toBeVisible();
-  await page.getByRole('button', { name: 'New interview' }).click();
+  await page.getByRole('button', { name: 'New Interview' }).click();
   const create = page.getByRole('dialog', { name: 'New Mock Interview' });
   // Mocks are dated, not timed; the date defaults to today in Adelaide and
   // reads day, month, year.
@@ -22,13 +22,18 @@ test('former students can record mocks on past days and filter their personal hi
     await when.getByRole('spinbutton', { name: /^day/ }).click();
     await page.keyboard.type(digits);
   };
-  await expect(create.getByLabel('Type', { exact: true })).toHaveAttribute(
+  await expect(
+    create.getByLabel('Type', { exact: true }).first(),
+  ).toHaveAttribute(
     'id',
     /^round-type-[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/,
   );
   await chooseOption(create, 'Interviewee', 'Amelia Chen · student');
+  // Keep only the behavioural round, so the dates are all that is checked.
+  await create.getByRole('button', { name: 'Remove round 3' }).click();
+  await create.getByRole('button', { name: 'Remove round 2' }).click();
   await setDate('07092026');
-  await create.getByRole('button', { name: 'Create interview' }).click();
+  await create.getByRole('button', { name: 'Create Interview' }).click();
   await expect(
     create.getByText('Choose a date that has already happened.'),
   ).toBeVisible();
@@ -37,7 +42,7 @@ test('former students can record mocks on past days and filter their personal hi
   await create.screenshot({
     path: testInfo.outputPath('adelaide-recording.png'),
   });
-  await create.getByRole('button', { name: 'Create interview' }).click();
+  await create.getByRole('button', { name: 'Create Interview' }).click();
   await expect(create).toBeHidden();
   // All, the default view, already includes the interview just given.
   await expect(page.getByRole('tab', { name: 'All' })).toHaveAttribute(
@@ -57,7 +62,7 @@ test('former students can record mocks on past days and filter their personal hi
     .filter({ visible: true })
     .first()
     .click();
-  await page.getByRole('menuitem', { name: 'Edit notes and scores' }).click();
+  await page.getByRole('menuitem', { name: 'Edit Notes and Scores' }).click();
   const edit = page.getByRole('dialog', { name: 'Edit Notes and Scores' });
   // The date is shown but cannot be changed.
   await expect(edit.getByLabel('Date', { exact: true })).toHaveAttribute(
@@ -67,7 +72,7 @@ test('former students can record mocks on past days and filter their personal hi
     edit.locator('input[type="date"], input[type="time"]'),
   ).toHaveCount(0);
   await edit.getByLabel('Duration (minutes)').fill('65');
-  await edit.getByRole('button', { name: 'Save changes' }).click();
+  await edit.getByRole('button', { name: 'Save Changes' }).click();
   await expect(edit).toBeHidden();
   await page.getByRole('button', { name: /^Filters/ }).click();
   await chooseOption(page, /^Season$/, 'Summer 2024/25');

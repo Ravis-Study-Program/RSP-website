@@ -15,6 +15,7 @@ var discordAvatarPattern = regexp.MustCompile(`^https://cdn\.discordapp\.com/ava
 
 type receiveIdentityLifecycleEventRequest struct {
 	AvatarURL        *string    `json:"avatarUrl"`
+	Name             string     `json:"name"`
 	EventID          string     `json:"eventId"`
 	Type             string     `json:"type"`
 	AuthUserID       string     `json:"authUserId"`
@@ -28,16 +29,43 @@ type receiveIdentityLifecycleEventRequest struct {
 	SecurityVersion  int64      `json:"securityVersion"`
 }
 
-func (a *API) receiveIdentityLifecycleEvent(w http.ResponseWriter, r *http.Request) {
+// authorizeIdentityService admits only the auth service, by its shared token.
+func authorizeIdentityService(w http.ResponseWriter, r *http.Request) bool {
 	expected := os.Getenv("IDENTITY_SERVICE_TOKEN")
 	header := r.Header.Get("Authorization")
-	if !strings.HasPrefix(header, "Bearer ") {
+	provided := strings.TrimPrefix(header, "Bearer ")
+	if !strings.HasPrefix(header, "Bearer ") || expected == "" || len(provided) != len(expected) || subtle.ConstantTimeCompare([]byte(provided), []byte(expected)) != 1 {
 		writeErrorResponse(w, http.StatusUnauthorized, "A valid service token is required.")
+		return false
+	}
+	return true
+}
+
+// checkInvitationEmail tells the auth service whether an invitation token was
+// sent to an email address. Opening the invitation link proves the person
+// reads that inbox, so an account signed up with it needs no verification email.
+func (a *API) checkInvitationEmail(w http.ResponseWriter, r *http.Request) {
+	if !authorizeIdentityService(w, r) {
 		return
 	}
-	provided := strings.TrimPrefix(header, "Bearer ")
-	if expected == "" || len(provided) != len(expected) || subtle.ConstantTimeCompare([]byte(provided), []byte(expected)) != 1 {
-		writeErrorResponse(w, http.StatusUnauthorized, "A valid service token is required.")
+	var request struct {
+		Token string `json:"token"`
+		Email string `json:"email"`
+	}
+	if err := decodeJSON(r.Body, &request); err != nil || len(request.Token) != 43 || request.Email == "" {
+		writeErrorResponse(w, http.StatusBadRequest, "A token and email are required.")
+		return
+	}
+	matches, err := a.db.InvitationSentTo(r.Context(), hashInvitationToken(request.Token), request.Email, time.Now().UTC())
+	if err != nil {
+		a.writeStoreErrorResponse(w, err)
+		return
+	}
+	writeJSONResponse(w, http.StatusOK, map[string]bool{"matches": matches})
+}
+
+func (a *API) receiveIdentityLifecycleEvent(w http.ResponseWriter, r *http.Request) {
+	if !authorizeIdentityService(w, r) {
 		return
 	}
 	var request receiveIdentityLifecycleEventRequest
@@ -58,6 +86,7 @@ func (a *API) receiveIdentityLifecycleEvent(w http.ResponseWriter, r *http.Reque
 	err := a.db.ApplyIdentityEvent(r.Context(), accounts.IdentityEvent{
 		EventID:          request.EventID,
 		AvatarURL:        request.AvatarURL,
+		Name:             request.Name,
 		Type:             request.Type,
 		AuthUserID:       request.AuthUserID,
 		Email:            request.Email,

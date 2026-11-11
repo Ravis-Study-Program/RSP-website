@@ -1,15 +1,18 @@
 import { StatusBadge } from '@/components/StatusBadge';
-import { buttonVariants } from '@/components/ui/button';
+import { isBlankRichText } from '@/richText';
 import { Card, CardContent } from '@/components/ui/card';
 import {
   IconArrowRight,
-  IconCalendarEvent,
+  IconCode,
+  IconCircleCheckFilled,
   IconExternalLink,
   IconLock,
+  IconMessage2,
   IconNotebook,
   IconUsers,
 } from '@tabler/icons-react';
-import { Link, Navigate, useParams } from 'react-router-dom';
+import { SpreadsheetImport } from '@/components/SpreadsheetImport';
+import { Link, Navigate, useNavigate, useParams } from 'react-router-dom';
 
 import {
   useActivitySummary,
@@ -23,19 +26,15 @@ import {
   Page,
   PageHeader,
   PageSection,
-  ResourceLink,
   usePageTitle,
 } from '@/components/Common';
-import {
-  SeasonEditorDialog,
-  SeasonLifecycleDialog,
-  SeasonResourcesDialog,
-} from '@/components/SeasonManagement';
+import { SeasonEditMenu } from '@/components/SeasonManagement';
 import {
   ErrorState,
   InlineNotice,
   PageSkeleton,
 } from '@/components/StatusViews';
+import { seasonAccess } from '@/seasonAccess';
 import { formatDate } from '@/utils';
 
 const inlineClass = 'flex flex-wrap items-center gap-2.5';
@@ -47,6 +46,7 @@ const resourceLinkClass =
 
 export function SeasonPage() {
   const { slug } = useParams();
+  const navigate = useNavigate();
   const query = useSeasons();
   const season = query.data?.items.find((item) => item.slug === slug);
   const user = useCurrentUser();
@@ -75,32 +75,11 @@ export function SeasonPage() {
       </Page>
     );
 
-  const hasSeasonAccess = Boolean(
-    user.data &&
-    (user.data.globalRoles.length > 0 ||
-      user.data.alumni ||
-      user.data.seasonRoles.some(
-        (membership) =>
-          membership.state === 'active' ||
-          (membership.seasonId === season.id &&
-            membership.state === 'completed'),
-      )),
+  const { hasSeasonAccess, isGlobalManager, isCoordinator } = seasonAccess(
+    user.data,
+    season.id,
   );
   if (!hasSeasonAccess) return <Navigate to="/forbidden" replace />;
-
-  const isGlobalManager = Boolean(
-    user.data?.globalRoles.some(
-      (role) => role === 'director' || role === 'system_admin',
-    ),
-  );
-  const isCoordinator = Boolean(
-    user.data?.seasonRoles.some(
-      (membership) =>
-        membership.seasonId === season.id &&
-        membership.role === 'coordinator' &&
-        membership.state === 'active',
-    ),
-  );
   const canEditDefinition = season.status === 'open' && isGlobalManager;
   const canEditResources =
     season.status === 'open' && (isGlobalManager || isCoordinator);
@@ -144,21 +123,20 @@ export function SeasonPage() {
           </StatusBadge>
         }
         actions={
-          canEditDefinition || canEditResources || canClose || canReopen ? (
-            <div className={inlineClass}>
-              {canEditDefinition ? (
-                <SeasonEditorDialog season={season} />
-              ) : null}
-              {canEditResources ? (
-                <SeasonResourcesDialog season={season} />
-              ) : null}
-              {canClose ? (
-                <SeasonLifecycleDialog season={season} action="close" />
-              ) : null}
-              {canReopen ? (
-                <SeasonLifecycleDialog season={season} action="reopen" />
-              ) : null}
-            </div>
+          canEditDefinition ||
+          canEditResources ||
+          canClose ||
+          canReopen ||
+          isGlobalManager ? (
+            <SeasonEditMenu
+              season={season}
+              canEditDefinition={canEditDefinition}
+              canEditResources={canEditResources}
+              canClose={canClose}
+              canReopen={canReopen}
+              canDelete={isGlobalManager}
+              onDeleted={() => navigate('/seasons', { replace: true })}
+            />
           ) : undefined
         }
       />
@@ -184,7 +162,6 @@ export function SeasonPage() {
           <MetricCard
             label="Program Weeks"
             value={weeks.data?.totalCount ?? '—'}
-            detail={`${formatDate(season.startsAt)} – ${formatDate(season.endsAt)}`}
           />
         </div>
         <div className={metricGridClass}>
@@ -208,14 +185,15 @@ export function SeasonPage() {
             titleId="schedule-title"
             title="Program Schedule"
             actions={
-              <>
-                <Link
-                  to={`/seasons/${season.slug}/leetcode`}
-                  className={buttonVariants({ variant: 'outline', size: 'sm' })}
-                >
-                  Open LeetCode
-                </Link>
-              </>
+              canEditDefinition ? (
+                <SpreadsheetImport
+                  kinds={['seasons']}
+                  title="Import Weeks"
+                  trigger="Import Weeks"
+                  seasons={query.data?.items ?? []}
+                  scope={season}
+                />
+              ) : undefined
             }
           >
             <Card>
@@ -234,43 +212,53 @@ export function SeasonPage() {
                   </p>
                 ) : (
                   <ol className="m-0 grid list-none gap-0 p-0">
-                    {orderedWeeks.map((week) => (
-                      <li
-                        className="relative grid grid-cols-[2.2rem_1fr] gap-3 pb-4 last:pb-0 before:absolute before:top-4 before:bottom-[-0.2rem] before:left-[0.45rem] before:w-0.5 before:bg-border before:content-[''] last:before:hidden"
-                        key={week.id}
-                        aria-current={
-                          week.id === currentWeek?.id ? 'date' : undefined
-                        }
-                      >
-                        <span
-                          className="z-10 mt-1 size-3.5 rounded-sm bg-primary"
-                          aria-hidden="true"
-                        />
-                        <div className="min-w-0">
-                          <div className="flex flex-wrap items-center gap-2">
-                            <h3 className="text-base font-semibold">
-                              Week {week.number}
-                            </h3>
-                            {week.id === currentWeek?.id ? (
-                              <StatusBadge>Current week</StatusBadge>
-                            ) : null}
+                    {orderedWeeks.map((week) => {
+                      const done = new Date(week.endAt).getTime() < now;
+                      const current = week.id === currentWeek?.id;
+                      return (
+                        <li
+                          className="relative grid grid-cols-[2.2rem_1fr] gap-3 pb-4 last:pb-0 before:absolute before:top-4 before:bottom-[-0.2rem] before:left-[0.45rem] before:w-0.5 before:bg-border before:content-[''] last:before:hidden"
+                          key={week.id}
+                          aria-current={
+                            week.id === currentWeek?.id ? 'date' : undefined
+                          }
+                        >
+                          <WeekMarker done={done} current={current} />
+                          <div className="min-w-0">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <h3 className="text-base font-semibold">
+                                Week {week.number}
+                              </h3>
+                            </div>
+                            <p className="text-sm">
+                              {formatDate(week.startAt)} –{' '}
+                              {formatDate(week.endAt)}
+                            </p>
+                            {!isBlankRichText(week.resourcesHtml) ? (
+                              <Link
+                                className="mt-1.5 inline-flex items-center gap-1.5 text-sm font-medium text-foreground underline-offset-4 hover:underline"
+                                to={`/seasons/${season.slug}/weeks/${week.number}`}
+                              >
+                                Week Resources
+                                <IconArrowRight size={15} aria-hidden="true" />
+                              </Link>
+                            ) : canEditResources ? (
+                              <Link
+                                className="mt-1.5 inline-flex items-center gap-1.5 text-sm font-medium text-foreground underline-offset-4 hover:underline"
+                                to={`/seasons/${season.slug}/weeks/${week.number}`}
+                              >
+                                Add Resources
+                                <IconArrowRight size={15} aria-hidden="true" />
+                              </Link>
+                            ) : (
+                              <span className={helperClass}>
+                                No resources yet
+                              </span>
+                            )}
                           </div>
-                          <p className="text-sm">
-                            {formatDate(week.startAt)} –{' '}
-                            {formatDate(week.endAt)}
-                          </p>
-                          {week.resourceUrl ? (
-                            <ResourceLink href={week.resourceUrl}>
-                              Open week resources
-                            </ResourceLink>
-                          ) : (
-                            <span className={helperClass}>
-                              No resource link
-                            </span>
-                          )}
-                        </div>
-                      </li>
-                    ))}
+                        </li>
+                      );
+                    })}
                   </ol>
                 )}
               </CardContent>
@@ -287,7 +275,18 @@ export function SeasonPage() {
                     >
                       <span className={inlineClass}>
                         <IconUsers size={18} aria-hidden="true" /> People
-                        directory
+                        Directory
+                      </span>
+                      <IconArrowRight size={17} aria-hidden="true" />
+                    </Link>
+                  </li>
+                  <li>
+                    <Link
+                      className={resourceLinkClass}
+                      to={`/seasons/${season.slug}/leetcode`}
+                    >
+                      <span className={inlineClass}>
+                        <IconCode size={18} aria-hidden="true" /> LeetCode
                       </span>
                       <IconArrowRight size={17} aria-hidden="true" />
                     </Link>
@@ -298,8 +297,8 @@ export function SeasonPage() {
                       to={`/seasons/${season.slug}/mock-interviews`}
                     >
                       <span className={inlineClass}>
-                        <IconCalendarEvent size={18} aria-hidden="true" /> Mock
-                        interviews
+                        <IconMessage2 size={18} aria-hidden="true" /> Mock
+                        Interviews
                       </span>
                       <IconArrowRight size={17} aria-hidden="true" />
                     </Link>
@@ -312,23 +311,37 @@ export function SeasonPage() {
                       >
                         <span className={inlineClass}>
                           <IconNotebook size={18} aria-hidden="true" /> Monday
-                          updates
+                          Updates
                         </span>
                         <IconArrowRight size={17} aria-hidden="true" />
                       </Link>
                     </li>
                   ) : null}
-                  {canViewStudents ? (
+                  {canViewStudents &&
+                  !isGlobalManager &&
+                  membership?.role === 'mentor' ? (
                     <li>
                       <Link
                         className={resourceLinkClass}
                         to={`/seasons/${season.slug}/mentees`}
                       >
                         <span className={inlineClass}>
-                          <IconUsers size={18} aria-hidden="true" />
-                          {isGlobalManager || membership?.role === 'coordinator'
-                            ? 'All Students'
-                            : 'My Students'}
+                          <IconUsers size={18} aria-hidden="true" /> My Students
+                        </span>
+                        <IconArrowRight size={17} aria-hidden="true" />
+                      </Link>
+                    </li>
+                  ) : null}
+                  {isGlobalManager &&
+                  membership?.role === 'mentor' &&
+                  retainedMembership ? (
+                    <li>
+                      <Link
+                        className={resourceLinkClass}
+                        to={`/seasons/${season.slug}/my-students`}
+                      >
+                        <span className={inlineClass}>
+                          <IconUsers size={18} aria-hidden="true" /> My Students
                         </span>
                         <IconArrowRight size={17} aria-hidden="true" />
                       </Link>
@@ -356,7 +369,7 @@ export function SeasonPage() {
                         target="_blank"
                         rel="noreferrer"
                       >
-                        <span className={inlineClass}>Season resources</span>
+                        <span className={inlineClass}>Season Resources</span>
                         <IconExternalLink size={17} aria-hidden="true" />
                       </a>
                     </li>
@@ -369,7 +382,7 @@ export function SeasonPage() {
                       rel="noreferrer"
                     >
                       <span className={inlineClass}>
-                        LeetCode problem catalogue
+                        LeetCode Problem Catalogue
                       </span>
                       <IconExternalLink size={17} aria-hidden="true" />
                     </a>
@@ -381,5 +394,24 @@ export function SeasonPage() {
         </div>
       </div>
     </Page>
+  );
+}
+
+/** Done weeks get a check, the current week a filled dot, future weeks an empty circle. */
+function WeekMarker({ done, current }: { done: boolean; current: boolean }) {
+  const label = done ? 'Completed' : current ? 'In progress' : 'Upcoming';
+  const base = 'z-10 mt-0.5 size-4 shrink-0';
+  return (
+    <span className="flex">
+      <span className="sr-only">{label}. </span>
+      {done ? (
+        <IconCircleCheckFilled className={base} aria-hidden="true" />
+      ) : (
+        <span
+          className={`${base} rounded-full border-2 ${current ? 'border-success bg-success shadow-[inset_0_0_0_2px_var(--card)]' : 'border-foreground bg-card'}`}
+          aria-hidden="true"
+        />
+      )}
+    </span>
   );
 }

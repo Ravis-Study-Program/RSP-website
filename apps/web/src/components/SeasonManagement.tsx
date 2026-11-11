@@ -6,12 +6,24 @@ import { Field, FieldError, FieldLabel } from '@/components/ui/field';
 import { Textarea } from '@/components/ui/textarea';
 import { zodResolver } from '@hookform/resolvers/zod';
 import {
+  IconArrowRight,
+  IconDotsVertical,
   IconEdit,
   IconLink,
   IconLock,
   IconLockOpen,
   IconPlus,
+  IconTrash,
+  IconChevronDown,
 } from '@tabler/icons-react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { getSelectedSeasonSlug, selectSeason } from '@/selectedSeason';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { useQueryClient } from '@tanstack/react-query';
 import { useState, type ReactNode } from 'react';
 import { Controller, useForm, type Resolver } from 'react-hook-form';
@@ -27,12 +39,13 @@ import type {
 } from '@/api/generated/models';
 import { demoMode, seasonsOptions } from '@/api/queries';
 import { AppDatePicker } from '@/components/AppDatePicker';
-import { FormDialog } from '@/components/Dialogs';
+import { DeleteEmptySeason } from '@/components/DeleteEmptySeason';
+import { FormDialog, DialogCancel } from '@/components/Dialogs';
 import type { Page, Season } from '@/types';
 import { formatDateTimeInput, zonedDateTimeToUtc } from '@/utils';
 
 const formStack = 'grid gap-4';
-const dialogActions = 'mt-5 flex justify-end gap-2.5';
+const dialogActions = 'mt-5 button-group';
 
 const optionalHttpsUrl = z
   .string()
@@ -52,21 +65,20 @@ const seasonSchema = z
       ),
     startAt: z.string().min(1, 'Choose a start date.'),
     endAt: z.string().min(1, 'Choose an end date.'),
-    location: z.string().trim().min(1, 'Enter a location.'),
-    imageUrl: optionalHttpsUrl,
     resourcesUrl: optionalHttpsUrl,
   })
-  .refine((value) => new Date(value.endAt) > new Date(value.startAt), {
+  .refine((value) => value.endAt >= value.startAt, {
     path: ['endAt'],
     message: 'The end must be after the start.',
   });
 
 type SeasonFormValues = z.infer<typeof seasonSchema>;
 
+/** A stored time as the local calendar date (YYYY-MM-DD) it falls on. */
 function localInputValue(value: string) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return '';
-  return formatDateTimeInput(date);
+  return formatDateTimeInput(date).slice(0, 10);
 }
 
 function defaultValues(season?: Season): SeasonFormValues {
@@ -80,8 +92,6 @@ function defaultValues(season?: Season): SeasonFormValues {
         slug: season.slug,
         startAt: localInputValue(season.startsAt),
         endAt: localInputValue(season.endsAt),
-        location: season.location,
-        imageUrl: season.imageUrl.startsWith('https://') ? season.imageUrl : '',
         resourcesUrl: season.resourcesUrl,
       }
     : {
@@ -89,8 +99,6 @@ function defaultValues(season?: Season): SeasonFormValues {
         slug: '',
         startAt: localInputValue(start.toISOString()),
         endAt: localInputValue(end.toISOString()),
-        location: '',
-        imageUrl: '',
         resourcesUrl: '',
       };
 }
@@ -116,13 +124,26 @@ export function SeasonEditorDialog({
   season,
   trigger,
   onSaved,
+  open: controlledOpen,
+  onOpenChange,
 }: {
   season?: Season;
   trigger?: ReactNode;
   onSaved?: (season: Season) => void;
+  /** When given, the dialog is opened from outside and shows no trigger. */
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }) {
   const queryClient = useQueryClient();
-  const [open, setOpen] = useState(false);
+  const navigate = useNavigate();
+  const location = useLocation();
+  const [uncontrolledOpen, setUncontrolledOpen] = useState(false);
+  const controlled = controlledOpen !== undefined;
+  const open = controlled ? controlledOpen : uncontrolledOpen;
+  const setOpen = (next: boolean) => {
+    if (!controlled) setUncontrolledOpen(next);
+    onOpenChange?.(next);
+  };
   const [requestError, setRequestError] = useState('');
   const form = useForm<SeasonFormValues>({
     resolver: zodResolver(seasonSchema as never) as Resolver<SeasonFormValues>,
@@ -134,10 +155,12 @@ export function SeasonEditorDialog({
     const mutation: SeasonMutation = {
       name: values.name.trim(),
       slug: values.slug.trim(),
-      startAt: zonedDateTimeToUtc(values.startAt),
-      endAt: zonedDateTimeToUtc(values.endAt),
-      location: values.location.trim(),
-      imageUrl: values.imageUrl.trim(),
+      // Seasons are whole days: the start of the first to the end of the last.
+      startAt: zonedDateTimeToUtc(`${values.startAt}T00:00`),
+      endAt: zonedDateTimeToUtc(`${values.endAt}T23:59:59`),
+      // Not edited in the app; an edit keeps whatever is stored.
+      location: season?.location ?? '',
+      imageUrl: season?.imageUrl ?? '',
       resourcesUrl: values.resourcesUrl.trim(),
     };
     try {
@@ -157,7 +180,7 @@ export function SeasonEditorDialog({
             location: mutation.location,
             imageUrl: mutation.imageUrl,
             resourcesUrl: mutation.resourcesUrl,
-            summary: `Current program at ${mutation.location}.`,
+            summary: 'Current program.',
           }
         : adaptSeason(
             await apiRequest<ApiSeason>(
@@ -172,6 +195,20 @@ export function SeasonEditorDialog({
         seasonsOptions.queryKey,
         (current) => replaceSeason(current, saved),
       );
+      // A new slug changes the season's address: keep the page, and the season
+      // remembered as selected, pointing at it.
+      if (season && saved.slug !== season.slug) {
+        if (getSelectedSeasonSlug() === season.slug) selectSeason(saved.slug);
+        const old = `/seasons/${season.slug}`;
+        if (
+          location.pathname === old ||
+          location.pathname.startsWith(`${old}/`)
+        )
+          navigate(
+            `/seasons/${saved.slug}${location.pathname.slice(old.length)}${location.search}${location.hash}`,
+            { replace: true },
+          );
+      }
       onSaved?.(saved);
       form.reset(defaultValues(saved));
       setOpen(false);
@@ -210,16 +247,18 @@ export function SeasonEditorDialog({
       triggerVariant={season ? 'outline' : undefined}
       triggerSize={season ? 'sm' : undefined}
       trigger={
-        trigger ??
-        (season ? (
-          <>
-            <IconEdit size={17} aria-hidden="true" /> Edit season
-          </>
-        ) : (
-          <>
-            <IconPlus size={18} aria-hidden="true" /> Create season
-          </>
-        ))
+        controlled
+          ? undefined
+          : (trigger ??
+            (season ? (
+              <>
+                <IconEdit size={17} aria-hidden="true" /> Edit Season
+              </>
+            ) : (
+              <>
+                <IconPlus size={18} aria-hidden="true" /> Create Season
+              </>
+            )))
       }
     >
       <form
@@ -241,7 +280,7 @@ export function SeasonEditorDialog({
           </FormField>
           <FormField
             id="season-slug"
-            label="URL slug"
+            label="URL Slug"
             error={form.formState.errors.slug?.message}
           >
             <Input
@@ -257,7 +296,6 @@ export function SeasonEditorDialog({
             render={({ field }) => (
               <AppDatePicker
                 label="Starts"
-                granularity="minute"
                 value={field.value}
                 onChange={field.onChange}
                 error={form.formState.errors.startAt?.message}
@@ -270,40 +308,12 @@ export function SeasonEditorDialog({
             render={({ field }) => (
               <AppDatePicker
                 label="Ends"
-                granularity="minute"
                 value={field.value}
                 onChange={field.onChange}
                 error={form.formState.errors.endAt?.message}
               />
             )}
           />
-          <FormField
-            id="season-location"
-            label="Location"
-            error={form.formState.errors.location?.message}
-          >
-            <Input
-              id="season-location"
-              autoComplete="organization"
-              {...form.register('location')}
-            />
-          </FormField>
-          <FormField
-            id="season-image"
-            label={
-              <>
-                Image URL <LabelHint>optional</LabelHint>
-              </>
-            }
-            error={form.formState.errors.imageUrl?.message}
-          >
-            <Input
-              id="season-image"
-              type="url"
-              inputMode="url"
-              {...form.register('imageUrl')}
-            />
-          </FormField>
           <FormField
             id="season-resources"
             label={
@@ -329,12 +339,13 @@ export function SeasonEditorDialog({
           </Alert>
         ) : null}
         <div className={dialogActions}>
+          <DialogCancel />
           <Button type="submit" disabled={form.formState.isSubmitting}>
             {form.formState.isSubmitting
               ? 'Saving…'
               : season
-                ? 'Save season'
-                : 'Create season'}
+                ? 'Save Season'
+                : 'Create Season'}
           </Button>
         </div>
       </form>
@@ -342,9 +353,24 @@ export function SeasonEditorDialog({
   );
 }
 
-export function SeasonResourcesDialog({ season }: { season: Season }) {
+export function SeasonResourcesDialog({
+  season,
+  open: controlledOpen,
+  onOpenChange,
+}: {
+  season: Season;
+  /** When given, the dialog is opened from outside and shows no trigger. */
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+}) {
   const queryClient = useQueryClient();
-  const [open, setOpen] = useState(false);
+  const [uncontrolledOpen, setUncontrolledOpen] = useState(false);
+  const controlled = controlledOpen !== undefined;
+  const open = controlled ? controlledOpen : uncontrolledOpen;
+  const setOpen = (next: boolean) => {
+    if (!controlled) setUncontrolledOpen(next);
+    onOpenChange?.(next);
+  };
   const [resourcesUrl, setResourcesUrl] = useState(season.resourcesUrl);
   const [baseline, setBaseline] = useState(season.resourcesUrl);
   const [pending, setPending] = useState(false);
@@ -423,15 +449,17 @@ export function SeasonResourcesDialog({ season }: { season: Season }) {
       triggerVariant="outline"
       triggerSize="sm"
       trigger={
-        <>
-          <IconLink size={17} aria-hidden="true" /> Edit resources
-        </>
+        controlled ? undefined : (
+          <>
+            <IconLink size={17} aria-hidden="true" /> Edit Resources
+          </>
+        )
       }
     >
       <div className={formStack}>
         <Field>
           <FieldLabel htmlFor={`season-resources-only-${season.id}`}>
-            Season resources URL
+            Season Resources URL
           </FieldLabel>
           <Input
             id={`season-resources-only-${season.id}`}
@@ -462,7 +490,7 @@ export function SeasonResourcesDialog({ season }: { season: Season }) {
             disabled={pending || !dirty}
             onClick={() => void save()}
           >
-            {pending ? 'Saving…' : 'Save resources'}
+            {pending ? 'Saving…' : 'Save Resources'}
           </Button>
         </div>
       </div>
@@ -494,18 +522,29 @@ export function SeasonLifecycleDialog({
   season,
   action,
   onSaved,
+  open: controlledOpen,
+  onOpenChange,
 }: {
   season: Season;
   action: 'close' | 'reopen';
   onSaved?: (season: Season) => void;
+  /** When given, the dialog is opened from outside and shows no trigger. */
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }) {
   const queryClient = useQueryClient();
-  const [open, setOpen] = useState(false);
+  const [uncontrolledOpen, setUncontrolledOpen] = useState(false);
+  const controlled = controlledOpen !== undefined;
+  const open = controlled ? controlledOpen : uncontrolledOpen;
+  const setOpen = (next: boolean) => {
+    if (!controlled) setUncontrolledOpen(next);
+    onOpenChange?.(next);
+  };
   const [reason, setReason] = useState('');
   const [confirmation, setConfirmation] = useState('');
   const [pending, setPending] = useState(false);
   const [error, setError] = useState('');
-  const label = action === 'close' ? 'Close season' : 'Reopen season';
+  const label = action === 'close' ? 'Close Season' : 'Reopen Season';
   const Icon = action === 'close' ? IconLock : IconLockOpen;
   const dirty = reason.length > 0 || confirmation.length > 0;
   const requestOpenChange = (next: boolean) => {
@@ -580,9 +619,11 @@ export function SeasonLifecycleDialog({
       triggerVariant={action === 'close' ? 'destructive' : 'outline'}
       triggerSize="sm"
       trigger={
-        <>
-          <Icon size={17} aria-hidden="true" /> {label}
-        </>
+        controlled ? undefined : (
+          <>
+            <Icon size={17} aria-hidden="true" /> {label}
+          </>
+        )
       }
     >
       <div className={formStack}>
@@ -614,14 +655,11 @@ export function SeasonLifecycleDialog({
           </Alert>
         ) : null}
         <div className={dialogActions}>
+          <DialogCancel />
           <Button
             variant={action === 'close' ? 'destructive' : 'default'}
             type="button"
-            disabled={
-              pending ||
-              reason.trim().length < 5 ||
-              confirmation !== season.name
-            }
+            disabled={pending || !reason.trim() || confirmation !== season.name}
             onClick={() => void submit()}
           >
             {pending
@@ -631,5 +669,193 @@ export function SeasonLifecycleDialog({
         </div>
       </div>
     </FormDialog>
+  );
+}
+
+/**
+ * A season row's actions. Opening is the only action for most members, so
+ * that is a plain arrow; anyone who can change the season gets a menu.
+ */
+/**
+ * The season page's one Edit Season button: a menu of the changes this
+ * person may make (details, resources, closing or reopening).
+ */
+export function SeasonEditMenu({
+  season,
+  canEditDefinition,
+  canEditResources,
+  canClose,
+  canReopen,
+  canDelete = false,
+  onDeleted,
+}: {
+  season: Season;
+  canEditDefinition: boolean;
+  canEditResources: boolean;
+  canClose: boolean;
+  canReopen: boolean;
+  canDelete?: boolean;
+  /** Called once the season has been deleted. */
+  onDeleted?: () => void;
+}) {
+  const [open, setOpen] = useState<
+    'details' | 'resources' | 'close' | 'reopen' | 'delete' | null
+  >(null);
+  const close = (next: boolean) => {
+    if (!next) setOpen(null);
+  };
+  return (
+    <>
+      <DropdownMenu>
+        <DropdownMenuTrigger
+          render={<Button className="min-w-66 justify-center" />}
+        >
+          <IconEdit size={17} aria-hidden="true" /> Edit Season
+          <IconChevronDown size={16} aria-hidden="true" />
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          {canEditDefinition ? (
+            <DropdownMenuItem onClick={() => setOpen('details')}>
+              <IconEdit size={17} aria-hidden="true" /> Edit Details
+            </DropdownMenuItem>
+          ) : null}
+          {canEditResources ? (
+            <DropdownMenuItem onClick={() => setOpen('resources')}>
+              <IconLink size={17} aria-hidden="true" /> Edit Resources
+            </DropdownMenuItem>
+          ) : null}
+          {canReopen ? (
+            <DropdownMenuItem onClick={() => setOpen('reopen')}>
+              <IconLockOpen size={17} aria-hidden="true" /> Reopen Season
+            </DropdownMenuItem>
+          ) : null}
+          {canClose ? (
+            <DropdownMenuItem
+              variant="destructive"
+              onClick={() => setOpen('close')}
+            >
+              <IconLock size={17} aria-hidden="true" /> Close Season
+            </DropdownMenuItem>
+          ) : null}
+          {canDelete ? (
+            <DropdownMenuItem
+              variant="destructive"
+              onClick={() => setOpen('delete')}
+            >
+              <IconTrash size={17} aria-hidden="true" /> Delete Season
+            </DropdownMenuItem>
+          ) : null}
+        </DropdownMenuContent>
+      </DropdownMenu>
+      {open === 'details' ? (
+        <SeasonEditorDialog season={season} open onOpenChange={close} />
+      ) : null}
+      {open === 'resources' ? (
+        <SeasonResourcesDialog season={season} open onOpenChange={close} />
+      ) : null}
+      {open === 'delete' ? (
+        <DeleteEmptySeason
+          season={season}
+          open
+          onOpenChange={close}
+          onDeleted={onDeleted}
+        />
+      ) : null}
+      {open === 'close' || open === 'reopen' ? (
+        <SeasonLifecycleDialog
+          season={season}
+          action={open}
+          open
+          onOpenChange={close}
+        />
+      ) : null}
+    </>
+  );
+}
+
+export function SeasonRowMenu({
+  season,
+  canEdit = false,
+  canClose = false,
+  canReopen = false,
+  canDelete = false,
+}: {
+  season: Season;
+  canEdit?: boolean;
+  canClose?: boolean;
+  canReopen?: boolean;
+  canDelete?: boolean;
+}) {
+  const [open, setOpen] = useState<'edit' | 'lifecycle' | 'delete' | null>(
+    null,
+  );
+  const close = (next: boolean) => {
+    if (!next) setOpen(null);
+  };
+  const lifecycle = season.status === 'open' ? 'close' : 'reopen';
+  const canChangeLifecycle = lifecycle === 'close' ? canClose : canReopen;
+  if (!canEdit && !canChangeLifecycle && !canDelete)
+    return (
+      <Link
+        to={`/seasons/${season.slug}`}
+        className="inline-flex size-9 items-center justify-center rounded-md text-foreground hover:bg-muted"
+        aria-label={`Open ${season.name}`}
+      >
+        <IconArrowRight size={18} aria-hidden="true" />
+      </Link>
+    );
+  return (
+    <>
+      <DropdownMenu>
+        <DropdownMenuTrigger
+          render={<Button variant="ghost" size="icon" />}
+          aria-label={`More actions for ${season.name}`}
+        >
+          <IconDotsVertical size={18} aria-hidden="true" />
+        </DropdownMenuTrigger>
+        <DropdownMenuContent>
+          {canEdit ? (
+            <DropdownMenuItem onClick={() => setOpen('edit')}>
+              <IconEdit size={17} aria-hidden="true" /> Edit
+            </DropdownMenuItem>
+          ) : null}
+          {canChangeLifecycle ? (
+            <DropdownMenuItem
+              variant={lifecycle === 'close' ? 'destructive' : undefined}
+              onClick={() => setOpen('lifecycle')}
+            >
+              {lifecycle === 'close' ? (
+                <IconLock size={17} aria-hidden="true" />
+              ) : (
+                <IconLockOpen size={17} aria-hidden="true" />
+              )}
+              {lifecycle === 'close' ? 'Close' : 'Reopen'}
+            </DropdownMenuItem>
+          ) : null}
+          {canDelete ? (
+            <DropdownMenuItem
+              variant="destructive"
+              onClick={() => setOpen('delete')}
+            >
+              <IconTrash size={17} aria-hidden="true" /> Delete
+            </DropdownMenuItem>
+          ) : null}
+        </DropdownMenuContent>
+      </DropdownMenu>
+      {open === 'edit' ? (
+        <SeasonEditorDialog season={season} open onOpenChange={close} />
+      ) : null}
+      {open === 'lifecycle' ? (
+        <SeasonLifecycleDialog
+          season={season}
+          action={lifecycle}
+          open
+          onOpenChange={close}
+        />
+      ) : null}
+      {open === 'delete' ? (
+        <DeleteEmptySeason season={season} open onOpenChange={close} />
+      ) : null}
+    </>
   );
 }

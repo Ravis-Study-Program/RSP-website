@@ -102,10 +102,28 @@ export function signInWithEmail(email: string, password: string) {
   });
 }
 
-export function signUpWithEmail(name: string, email: string, password: string) {
-  return authRequest<{ token: string | null }>('/sign-up/email', {
+/**
+ * Signs up. With the token of an invitation sent to this email, the account
+ * starts verified: opening the invitation already proved the inbox.
+ */
+export function signUpWithEmail(
+  name: string,
+  email: string,
+  password: string,
+  invitationToken?: string,
+) {
+  return authRequest<{
+    token: string | null;
+    user?: { emailVerified?: boolean };
+  }>('/sign-up/email', {
     method: 'POST',
-    body: JSON.stringify({ name, email, password, callbackURL: '/dashboard' }),
+    body: JSON.stringify({
+      name,
+      email,
+      password,
+      callbackURL: '/dashboard',
+      ...(invitationToken ? { invitationToken } : {}),
+    }),
   });
 }
 

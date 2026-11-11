@@ -48,12 +48,13 @@ type MentorshipRecord struct {
 
 // WeekRecord is a scheduled week within a season.
 type WeekRecord struct {
-	ID          string    `json:"id"`
-	SeasonID    string    `json:"seasonId"`
-	Number      int       `json:"number"`
-	StartAt     time.Time `json:"startAt"`
-	EndAt       time.Time `json:"endAt"`
-	ResourceURL string    `json:"resourceUrl"`
+	ID       string    `json:"id"`
+	SeasonID string    `json:"seasonId"`
+	Number   int       `json:"number"`
+	StartAt  time.Time `json:"startAt"`
+	EndAt    time.Time `json:"endAt"`
+	// ResourcesHTML is the week's editable resources page, already sanitized.
+	ResourcesHTML string `json:"resourcesHtml"`
 }
 
 // EnrollmentRecord is the persisted and HTTP-facing season membership.

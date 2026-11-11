@@ -1,3 +1,4 @@
+import { useSelectedSeasonSlug } from '@/selectedSeason';
 import { Button, buttonVariants } from '@/components/ui/button';
 import {
   Sheet,
@@ -71,7 +72,7 @@ function ThemeButton({
     >
       <Icon size={19} aria-hidden="true" />
       {inverse ? (
-        <span>{theme === 'dark' ? 'Light theme' : 'Dark theme'}</span>
+        <span>{theme === 'dark' ? 'Light Theme' : 'Dark Theme'}</span>
       ) : null}
     </Button>
   );
@@ -91,9 +92,12 @@ export function AppShell() {
       localStorage.getItem('rsp-theme') ??
       (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'),
   );
+  // The links follow the season last chosen in any table's season filter.
+  const selectedSeason = useSelectedSeasonSlug();
   const navItems = useMemo(
     () => navigationItems(userQuery.data, seasons.data?.items),
-    [userQuery.data, seasons.data?.items],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [userQuery.data, seasons.data?.items, selectedSeason],
   );
   const homePath = navItems[0]?.to ?? '/profile';
   const handleSignOut = async () => {
@@ -171,7 +175,7 @@ export function AppShell() {
               type="button"
               onClick={() => void handleSignOut()}
             >
-              <IconLogout size={19} aria-hidden="true" /> Sign out
+              <IconLogout size={19} aria-hidden="true" /> Sign Out
             </Button>
           ) : null}
         </div>

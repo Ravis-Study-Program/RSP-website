@@ -1,4 +1,5 @@
 import { StatusBadge } from '@/components/StatusBadge';
+import { isBlankRichText } from '@/richText';
 import { buttonVariants } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 
@@ -30,6 +31,7 @@ import {
   PersonIdentity,
   usePageTitle,
 } from '@/components/Common';
+import { duplicateNames } from '@/duplicateNames';
 import { LevelProgressSection } from '@/components/LevelProgress';
 import { ErrorState, PageSkeleton } from '@/components/StatusViews';
 import { isProgramLevel, solvedDifficultyCounts } from '@/levelProgress';
@@ -85,8 +87,8 @@ export function DashboardPage() {
         currentTime <= new Date(week.endAt).getTime(),
     ) ??
     orderedWeeks.find((week) => new Date(week.startAt).getTime() > currentTime);
-  const missingWeekResources = orderedWeeks.filter(
-    (week) => !week.resourceUrl,
+  const missingWeekResources = orderedWeeks.filter((week) =>
+    isBlankRichText(week.resourcesHtml),
   ).length;
   const activity = recentActivitySeries(
     attempts.data?.items ?? [],
@@ -300,8 +302,8 @@ export function DashboardPage() {
                         <span className="flex items-center gap-2">
                           <IconCalendarEvent size={18} aria-hidden="true" />{' '}
                           {missingWeekResources
-                            ? `${missingWeekResources} ${missingWeekResources === 1 ? 'week has' : 'weeks have'} no resource link`
-                            : 'All scheduled weeks have resource links'}
+                            ? `${missingWeekResources} ${missingWeekResources === 1 ? 'week has' : 'weeks have'} no resources page`
+                            : 'All scheduled weeks have a resources page'}
                         </span>
                         <Link
                           to="/admin/weeks"
@@ -326,6 +328,7 @@ export function DashboardPage() {
                             <PersonIdentity
                               person={person}
                               seasonId={currentSeason?.id}
+                              duplicates={duplicateNames(mentees)}
                             />
                             <StatusBadge>
                               {person.attempts ?? '—'} attempts
@@ -345,16 +348,10 @@ export function DashboardPage() {
           ) : null}
 
           <PageSection titleId="activity-title" title="Your Recent Activity">
-            <Card className="flex-1">
-              <CardContent>
-                <ActivityChart
-                  data={activity}
-                  expected={
-                    role === 'student' ? studentWeeklyExpected : undefined
-                  }
-                />
-              </CardContent>
-            </Card>
+            <ActivityChart
+              data={activity}
+              expected={role === 'student' ? studentWeeklyExpected : undefined}
+            />
           </PageSection>
         </div>
       </div>

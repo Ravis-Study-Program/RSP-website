@@ -15,10 +15,10 @@ func scanAdminProfile(row pgx.Row) (accounts.AdminProfile, error) {
 	return v, noRows(err)
 }
 func (p *Store) GetAdminProfile(ctx context.Context, userID string) (accounts.AdminProfile, error) {
-	return scanAdminProfile(p.pool.QueryRow(ctx, adminProfileQuery, userID))
+	return scanAdminProfile(p.conn().QueryRow(ctx, adminProfileQuery, userID))
 }
 func (p *Store) UpdateAdminProfile(ctx context.Context, v accounts.AdminProfile, actorID string, at time.Time) (accounts.AdminProfile, error) {
-	tx, err := p.pool.Begin(ctx)
+	tx, err := p.conn().Begin(ctx)
 	if err != nil {
 		return v, err
 	}
@@ -30,9 +30,8 @@ func (p *Store) UpdateAdminProfile(ctx context.Context, v accounts.AdminProfile,
 	if _, err = tx.Exec(ctx, `UPDATE app.user_profiles SET display_name=$2,slug=$3 WHERE user_id=$1`, v.ID, v.Name, v.Slug); err != nil {
 		return v, mapDatabaseError(err)
 	}
-	if _, err = tx.Exec(ctx, `UPDATE app.user_contacts SET discord_id=$2 WHERE user_id=$1`, v.ID, v.DiscordID); err != nil {
-		return v, err
-	}
+	// Only the name and slug change; the Discord link stays the person's own.
+	v.DiscordID = before.DiscordID
 	v.AvatarURL = before.AvatarURL
 	v.Email = before.Email
 	if err = appendAuditTx(ctx, tx, newAudit(actorID, "user.profile_corrected", "user", v.ID, map[string]any{"before": before, "after": v}, at)); err != nil {

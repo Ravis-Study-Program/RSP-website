@@ -21,6 +21,8 @@ vi.mock('@/api/queries', () => ({
   usePeople: vi.fn(),
   useSeasons: vi.fn(),
   useSeasonPeople: vi.fn(),
+  useAdminUsers: () => ({ data: undefined, isLoading: false }),
+  useSeasonEnrollments: () => ({ data: { items: [] }, refetch: vi.fn() }),
 }));
 
 function member(role: SeasonRole): Person {
@@ -112,7 +114,7 @@ describe('season people directory', () => {
       expect(within(row).getByText(label, { selector: 'span' })).toBeVisible();
     }
     expect(
-      screen.queryByRole('button', { name: 'Edit details' }),
+      screen.queryByRole('button', { name: 'Edit Details' }),
     ).not.toBeInTheDocument();
   });
 
@@ -145,15 +147,47 @@ describe('season people directory', () => {
     } as ReturnType<typeof useCurrentUser>);
   }
 
-  it('takes no actions, even for a mentor who can set levels', () => {
+  it('lets a mentor manage only their own students', () => {
     setMentor();
+    vi.mocked(useSeasonPeople).mockReturnValue({
+      data: {
+        items: [
+          { ...member('student'), mentorshipMentorId: 'mentor' },
+          { ...member('student'), id: 'other', name: 'Other Student' },
+          member('coordinator'),
+        ],
+      },
+      isLoading: false,
+      isError: false,
+      refetch: vi.fn(),
+    } as unknown as ReturnType<typeof useSeasonPeople>);
     renderDirectory();
-    // Levels are set on All Students and My Students, not in the directory.
     expect(
-      screen.queryByRole('button', { name: /Edit details|More actions/ }),
-    ).not.toBeInTheDocument();
-    expect(
-      screen.queryByRole('columnheader', { name: 'Actions' }),
-    ).not.toBeInTheDocument();
+      screen.getByRole('button', { name: 'More actions for Student Member' }),
+    ).toBeInTheDocument();
+    for (const name of ['Other Student', 'Coordinator Member'])
+      expect(
+        screen.queryByRole('button', { name: `More actions for ${name}` }),
+      ).not.toBeInTheDocument();
+  });
+
+  it('lets a coordinator manage everyone in their season', () => {
+    setMentor();
+    const viewer = vi.mocked(useCurrentUser)().data!;
+    vi.mocked(useCurrentUser).mockReturnValue({
+      data: {
+        ...viewer,
+        seasonRoles: [{ ...viewer.seasonRoles[0], role: 'coordinator' }],
+      },
+    } as ReturnType<typeof useCurrentUser>);
+    renderDirectory();
+    for (const name of [
+      'Student Member',
+      'Mentor Member',
+      'Coordinator Member',
+    ])
+      expect(
+        screen.getByRole('button', { name: `More actions for ${name}` }),
+      ).toBeInTheDocument();
   });
 });

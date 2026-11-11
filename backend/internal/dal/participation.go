@@ -8,7 +8,7 @@ import (
 )
 
 func (p *Store) ListUserParticipation(ctx context.Context, userID string) ([]program.Participation, error) {
-	rows, err := p.pool.Query(ctx, `SELECT e.id,e.season_id,s.slug,e.user_id,e.role::text,e.student_level::text,e.state::text,e.assignment_state::text,
+	rows, err := p.conn().Query(ctx, `SELECT e.id,e.season_id,s.slug,e.user_id,e.role::text,e.student_level::text,e.state::text,e.assignment_state::text,
  s.name,s.start_at,s.end_at,
  COALESCE(NULLIF(e.student_level::text,'not_applicable'),(
   SELECT data->>'studentLevel' FROM app.audit_events

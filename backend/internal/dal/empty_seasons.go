@@ -5,10 +5,12 @@ import (
 	"time"
 )
 
-// DeleteEmptySeason keeps the audit record and rejects any membership or
-// activity history, including previously removed memberships and records.
-func (p *Store) DeleteEmptySeason(ctx context.Context, seasonID, actorID string, at time.Time) error {
-	tx, err := p.pool.Begin(ctx)
+// DeleteSeason removes a season and everything in it from the site: its
+// weeks, members, mentorships and pending invitations go with it. Rows are
+// marked deleted rather than dropped, so the audit record of what existed is
+// kept, but nothing of the season is shown or reachable afterwards.
+func (p *Store) DeleteSeason(ctx context.Context, seasonID, actorID string, at time.Time) error {
+	tx, err := p.conn().Begin(ctx)
 	if err != nil {
 		return err
 	}
@@ -17,17 +19,14 @@ func (p *Store) DeleteEmptySeason(ctx context.Context, seasonID, actorID string,
 	if err = tx.QueryRow(ctx, `SELECT name FROM app.seasons WHERE id=$1 AND deleted_at IS NULL FOR UPDATE`, seasonID).Scan(&name); err != nil {
 		return noRows(err)
 	}
-	var occupied bool
-	err = tx.QueryRow(ctx, `SELECT
- EXISTS(SELECT 1 FROM app.enrollments WHERE season_id=$1)
- OR EXISTS(SELECT 1 FROM app.mock_interviews WHERE season_id=$1 OR season_week_id IN(SELECT id FROM app.season_weeks WHERE season_id=$1))
- OR EXISTS(SELECT 1 FROM app.problem_attempts WHERE season_week_id IN(SELECT id FROM app.season_weeks WHERE season_id=$1))
- OR EXISTS(SELECT 1 FROM app.season_invitations WHERE season_id=$1 AND accepted_at IS NULL AND cancelled_at IS NULL AND expires_at>$2)`, seasonID, at).Scan(&occupied)
-	if err != nil {
+	if _, err = tx.Exec(ctx, `UPDATE app.mentorships SET deleted_at=$2 WHERE season_id=$1 AND deleted_at IS NULL`, seasonID, at); err != nil {
 		return err
 	}
-	if occupied {
-		return ErrConflict
+	if _, err = tx.Exec(ctx, `UPDATE app.enrollments SET deleted_at=$2 WHERE season_id=$1 AND deleted_at IS NULL`, seasonID, at); err != nil {
+		return err
+	}
+	if _, err = tx.Exec(ctx, `UPDATE app.season_invitations SET cancelled_at=$2 WHERE season_id=$1 AND accepted_at IS NULL AND cancelled_at IS NULL`, seasonID, at); err != nil {
+		return err
 	}
 	if _, err = tx.Exec(ctx, `UPDATE app.season_weeks SET deleted_at=$2 WHERE season_id=$1 AND deleted_at IS NULL`, seasonID, at); err != nil {
 		return err

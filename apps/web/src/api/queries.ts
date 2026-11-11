@@ -497,7 +497,7 @@ function demoWeekPage(seasonId: string): WeekPage {
     number: week.week,
     startAt: new Date(start + (week.week - 1) * 7 * 86_400_000).toISOString(),
     endAt: new Date(start + week.week * 7 * 86_400_000 - 1).toISOString(),
-    resourceUrl: `https://example.test/resources/week-${week.week}`,
+    resourcesHtml: `<h2>Week ${week.week} Resources</h2><p>Reading and practice for the week.</p><ul><li><a href="https://example.test/resources/week-${week.week}">Week ${week.week} reading</a></li></ul>`,
   }));
   return page(items);
 }

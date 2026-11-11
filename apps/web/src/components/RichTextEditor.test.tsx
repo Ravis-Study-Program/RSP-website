@@ -18,20 +18,20 @@ describe('RichTextEditor link dialog', () => {
     const linkButton = await screen.findByRole('button', { name: 'Link' });
     await user.click(linkButton);
     const dialog = screen.getByRole('dialog', { name: 'Add or edit link' });
-    const input = screen.getByLabelText('Link address');
+    const input = screen.getByLabelText('Link Address');
     expect(dialog).toBeInTheDocument();
     expect(input).toHaveFocus();
 
     await user.clear(input);
     await user.type(input, 'javascript:alert(1)');
-    await user.click(screen.getByRole('button', { name: 'Save link' }));
+    await user.click(screen.getByRole('button', { name: 'Save Link' }));
     expect(screen.getByRole('alert')).toHaveTextContent(
       'HTTP, HTTPS or mailto',
     );
 
     await user.clear(input);
     await user.type(input, 'example.com/guide');
-    await user.click(screen.getByRole('button', { name: 'Save link' }));
+    await user.click(screen.getByRole('button', { name: 'Save Link' }));
     await waitFor(() => expect(dialog).not.toBeInTheDocument());
     await waitFor(() => expect(linkButton).toHaveFocus());
   });

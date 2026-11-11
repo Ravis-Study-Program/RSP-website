@@ -53,8 +53,12 @@ func (a Actor) IsDirectorOrSystemAdmin() bool {
 	return a.HasGlobalRole(Director) || a.HasGlobalRole(SystemAdmin)
 }
 
+// RecentMFAWindow is how long one MFA check covers privileged actions. The
+// auth service's AUTH_MFA_MAX_AGE_SECONDS caps it too; keep the two in step.
+const RecentMFAWindow = 24 * time.Hour
+
 func (a Actor) HasRecentMFA(now time.Time) bool {
-	return a.MFAAt != nil && now.Sub(a.MFAAt.UTC()) >= 0 && now.Sub(a.MFAAt.UTC()) <= 15*time.Minute
+	return a.MFAAt != nil && now.Sub(a.MFAAt.UTC()) >= 0 && now.Sub(a.MFAAt.UTC()) <= RecentMFAWindow
 }
 
 func (a Actor) Enrollment(seasonID string) (Enrollment, bool) {
@@ -169,6 +173,24 @@ func (a Actor) IsSeasonAdmin(seasonID string) bool {
 }
 
 func (a Actor) CanCloseSeason(seasonID string) bool { return a.IsSeasonAdmin(seasonID) }
+
+// CanManageMockInterviews reports whether the actor may edit or delete any
+// mock interview in a season, not only their own: its active mentors and
+// coordinators, and directors and system admins. A mock outside any season
+// is managed only by directors and system admins (and its interviewer).
+func (a Actor) CanManageMockInterviews(seasonID *string) bool {
+	if !a.authenticated() {
+		return false
+	}
+	if a.IsDirectorOrSystemAdmin() {
+		return true
+	}
+	if seasonID == nil {
+		return false
+	}
+	e, ok := a.Enrollment(*seasonID)
+	return ok && e.State == Active && (e.Role == Mentor || e.Role == Coordinator)
+}
 
 // CanSetPracticeGoals reports whether the actor may change the program's
 // practice time goals, which apply to every member: directors, system

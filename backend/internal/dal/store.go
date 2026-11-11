@@ -12,7 +12,37 @@ import (
 )
 
 // Store uses one connection pool. Call Close after all users of the store stop.
-type Store struct{ pool *pgxpool.Pool }
+type Store struct {
+	pool *pgxpool.Pool
+	// tx, when set, is the transaction every operation of this Store runs in
+	// (each operation's own transaction becomes a savepoint within it).
+	tx pgx.Tx
+}
+
+// conn is where this Store's queries run: the pool, or its open transaction.
+func (s *Store) conn() interface {
+	queryer
+	Begin(context.Context) (pgx.Tx, error)
+} {
+	if s.tx != nil {
+		return s.tx
+	}
+	return s.pool
+}
+
+// WithTx runs fn with a Store whose operations all share one transaction. It
+// commits when fn returns nil and rolls everything back otherwise.
+func (s *Store) WithTx(ctx context.Context, fn func(*Store) error) error {
+	tx, err := s.conn().Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(context.Background())
+	if err := fn(&Store{pool: s.pool, tx: tx}); err != nil {
+		return err
+	}
+	return tx.Commit(ctx)
+}
 
 // New uses the supplied pool, including its connection settings and tracer.
 func New(pool *pgxpool.Pool) *Store { return &Store{pool: pool} }
@@ -51,7 +81,7 @@ func (s *Store) ObservabilitySnapshot(ctx context.Context) (observability.Snapsh
 		DBPoolIdleConnections:     stats.IdleConns(),
 		WorkerRuns:                map[string]uint64{"success": 0, "partial_failure": 0, "failure": 0},
 	}
-	rows, err := s.pool.Query(ctx, `SELECT CASE WHEN succeeded THEN 'success'
+	rows, err := s.conn().Query(ctx, `SELECT CASE WHEN succeeded THEN 'success'
   WHEN error_summary IS NOT NULL THEN 'failure' ELSE 'partial_failure' END AS result, count(*)
   FROM app.leetcode_sync_runs WHERE finished_at IS NOT NULL GROUP BY result`)
 	if err != nil {

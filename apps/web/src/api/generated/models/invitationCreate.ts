@@ -15,4 +15,6 @@ export interface InvitationCreate {
   name: string;
   email: string;
   role: InvitationCreateRole;
+  /** A student's mentor; accepting the invitation assigns them. */
+  mentorUserId?: string;
 }

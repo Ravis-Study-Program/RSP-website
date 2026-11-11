@@ -27,7 +27,7 @@ func (p *Store) ApplyIdentityEvent(ctx context.Context, event accounts.IdentityE
 		return errors.New("identity event id is required")
 	}
 
-	tx, err := p.pool.Begin(ctx)
+	tx, err := p.conn().Begin(ctx)
 	if err != nil {
 		return err
 	}
@@ -89,14 +89,26 @@ func (p *Store) ApplyIdentityEvent(ctx context.Context, event accounts.IdentityE
 
 func (p *Store) createIdentityUser(ctx context.Context, tx pgx.Tx, event accounts.IdentityEvent) error {
 	userID := id.New()
-	name := event.Email
-	if at := strings.IndexByte(name, '@'); at > 0 {
-		name = name[:at]
+	// The name given at sign-up; failing that, the email's local part.
+	name := strings.TrimSpace(event.Name)
+	if len([]rune(name)) > 100 {
+		name = string([]rune(name)[:100])
+	}
+	if name == "" {
+		name = event.Email
+		if at := strings.IndexByte(name, '@'); at > 0 {
+			name = name[:at]
+		}
 	}
 	if strings.TrimSpace(name) == "" {
 		name = "New member"
 	}
-	slug := "member-" + strings.ReplaceAll(userID, "-", "")[:12]
+	// The profile's address comes from the name: maddie-frew, then
+	// maddie-frew2 for the next Maddie Frew.
+	slug, err := freeSlug(ctx, tx, NameSlug(name), userID)
+	if err != nil {
+		return err
+	}
 	if _, err := tx.Exec(ctx, `INSERT INTO app.users(id,account_state)
  VALUES($1,$2)`, userID, "active"); err != nil {
 		return err

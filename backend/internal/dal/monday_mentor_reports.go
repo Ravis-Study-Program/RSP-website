@@ -15,7 +15,7 @@ import (
 // UpsertMondayWeekMark saves a mentor's mark on a student's week that has
 // no update, replacing their earlier one.
 func (p *Store) UpsertMondayWeekMark(ctx context.Context, v program.MondayWeekMark, actorID string) (program.MondayWeekMark, error) {
-	tx, err := p.pool.Begin(ctx)
+	tx, err := p.conn().Begin(ctx)
 	if err != nil {
 		return v, err
 	}
@@ -43,7 +43,7 @@ func (p *Store) ListMondayMentorReports(ctx context.Context, seasonID, startDate
 		return nil, err
 	}
 	args := pgx.NamedArgs{"seasonID": seasonID, "startDate": startDate, "endDate": endDate, "mentorID": nullableID(mentorID)}
-	rows, err := p.pool.Query(ctx, `SELECT mentor.user_id,mp.slug,mp.display_name,mp.avatar_url,
+	rows, err := p.conn().Query(ctx, `SELECT mentor.user_id,mp.slug,mp.display_name,mp.avatar_url,
 			student.user_id,sp.slug,sp.display_name,sp.avatar_url,student.student_level::text,
 			r.weekly_hours,
 			-- Listed students were kicked during or after this week; either
@@ -113,7 +113,7 @@ func (p *Store) ListMondayMentorReports(ctx context.Context, seasonID, startDate
 		hours    float64
 	}
 	updates := map[string]posted{}
-	if rows, err = p.pool.Query(ctx, `SELECT student_user_id,id,created_at,edited_at,hours::float8 FROM app.monday_updates
+	if rows, err = p.conn().Query(ctx, `SELECT student_user_id,id,created_at,edited_at,hours::float8 FROM app.monday_updates
 		WHERE season_id=@seasonID AND deleted_at IS NULL AND start_date=@startDate::date AND end_date=@endDate::date
 		  AND student_user_id=ANY(@studentIDs::uuid[])`, args); err != nil {
 		return nil, err
@@ -133,7 +133,7 @@ func (p *Store) ListMondayMentorReports(ctx context.Context, seasonID, startDate
 	type markKey struct{ student, mentor string }
 	type markValue struct{ mark, comment string }
 	marks := map[markKey]markValue{}
-	if rows, err = p.pool.Query(ctx, `SELECT u.student_user_id,k.mentor_user_id,k.mark::text,COALESCE(k.comment_html,'')
+	if rows, err = p.conn().Query(ctx, `SELECT u.student_user_id,k.mentor_user_id,k.mark::text,COALESCE(k.comment_html,'')
 		FROM app.monday_update_marks k JOIN app.monday_updates u ON u.id=k.update_id
 		WHERE u.season_id=@seasonID AND u.deleted_at IS NULL AND u.start_date=@startDate::date AND u.end_date=@endDate::date
 		  AND u.student_user_id=ANY(@studentIDs::uuid[])
@@ -159,7 +159,7 @@ func (p *Store) ListMondayMentorReports(ctx context.Context, seasonID, startDate
 	// The week's solved LeetCode by difficulty and mock interviews.
 	counts := map[string]*program.MondayUpdateDifficultyCounts{}
 	mocks := map[string]int64{}
-	if rows, err = p.pool.Query(ctx, `SELECT a.user_id,l.difficulty::text,count(*)
+	if rows, err = p.conn().Query(ctx, `SELECT a.user_id,l.difficulty::text,count(*)
 		FROM app.problem_attempts a
 		JOIN app.leetcode_problems l ON l.problem_id=a.problem_id AND l.deleted_at IS NULL
 		WHERE a.user_id=ANY(@studentIDs::uuid[]) AND a.deleted_at IS NULL
@@ -191,7 +191,7 @@ func (p *Store) ListMondayMentorReports(ctx context.Context, seasonID, startDate
 		}
 	}
 	rows.Close()
-	if rows, err = p.pool.Query(ctx, `SELECT m.interviewee_user_id,count(*) FROM app.mock_interviews m
+	if rows, err = p.conn().Query(ctx, `SELECT m.interviewee_user_id,count(*) FROM app.mock_interviews m
 		WHERE m.interviewee_user_id=ANY(@studentIDs::uuid[]) AND m.deleted_at IS NULL
 		  AND (m.scheduled_at AT TIME ZONE 'Australia/Adelaide') >= @startDate::date
 		  AND (m.scheduled_at AT TIME ZONE 'Australia/Adelaide') < (@endDate::date + 1)
@@ -241,7 +241,7 @@ func weeklyTargets(settings practice.PracticeSettings) program.MondayWeeklyTarge
 
 // ClearMondayWeekMark removes a mentor's mark on a student's week.
 func (p *Store) ClearMondayWeekMark(ctx context.Context, seasonID, studentID, mentorID, startDate string) error {
-	tx, err := p.pool.Begin(ctx)
+	tx, err := p.conn().Begin(ctx)
 	if err != nil {
 		return err
 	}
@@ -264,7 +264,7 @@ func (p *Store) ClearMondayWeekMark(ctx context.Context, seasonID, studentID, me
 
 // ClearMondayUpdateMark removes a mentor's mark on an update.
 func (p *Store) ClearMondayUpdateMark(ctx context.Context, updateID, mentorID string) error {
-	tx, err := p.pool.Begin(ctx)
+	tx, err := p.conn().Begin(ctx)
 	if err != nil {
 		return err
 	}

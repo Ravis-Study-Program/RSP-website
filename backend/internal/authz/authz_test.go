@@ -131,3 +131,32 @@ func TestPracticeGoalsAreSetByCoordinatorsAndAdmins(t *testing.T) {
 		}
 	}
 }
+
+func TestCanManageMockInterviews(t *testing.T) {
+	season, other := "season", "other"
+	for _, tc := range []struct {
+		name    string
+		role    SeasonRole
+		state   EnrollmentState
+		season  *string
+		manages bool
+	}{
+		{"active mentor in the season", Mentor, Active, &season, true},
+		{"active coordinator in the season", Coordinator, Active, &season, true},
+		{"student in the season", Student, Active, &season, false},
+		{"mentor of another season", Mentor, Active, &other, false},
+		{"former mentor", Mentor, Completed, &season, false},
+		{"mock outside any season", Mentor, Active, nil, false},
+	} {
+		actor := activeActor("member")
+		actor.Enrollments = []Enrollment{{SeasonID: season, Role: tc.role, State: tc.state}}
+		if got := actor.CanManageMockInterviews(tc.season); got != tc.manages {
+			t.Errorf("%s: CanManageMockInterviews = %v, want %v", tc.name, got, tc.manages)
+		}
+	}
+	director := activeActor("director")
+	director.GlobalRoles = map[GlobalRole]bool{Director: true}
+	if !director.CanManageMockInterviews(nil) {
+		t.Error("a director manages every mock interview")
+	}
+}

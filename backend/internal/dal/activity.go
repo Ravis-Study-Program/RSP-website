@@ -31,7 +31,7 @@ const activitySummaryColumns = `attempts.count,mocks.count,mocks.received,mocks.
 
 func (p *Store) GetActivitySummary(ctx context.Context, userID, seasonID string, year int) (program.ActivitySummary, error) {
 	var summary program.ActivitySummary
-	err := p.pool.QueryRow(ctx, `SELECT `+activitySummaryColumns+`
+	err := p.conn().QueryRow(ctx, `SELECT `+activitySummaryColumns+`
  FROM (SELECT NULLIF($3,'')::uuid AS user_id) subject`+activitySummaryJoins, seasonID, year, userID).
 		Scan(&summary.AttemptCount, &summary.MockInterviewCount, &summary.MocksReceived, &summary.MocksConducted, &summary.LastActivityAt)
 	return summary, err
@@ -42,7 +42,7 @@ func (p *Store) SeasonMemberSummaries(ctx context.Context, seasonID string, user
 	if len(userIDs) == 0 {
 		return out, nil
 	}
-	rows, err := p.pool.Query(ctx, `SELECT subject.user_id,profile.slug,profile.display_name,profile.avatar_url,`+activitySummaryColumns+`
+	rows, err := p.conn().Query(ctx, `SELECT subject.user_id,profile.slug,profile.display_name,profile.avatar_url,`+activitySummaryColumns+`
  FROM (SELECT unnest($3::uuid[]) AS user_id) subject
  JOIN app.user_profiles profile ON profile.user_id=subject.user_id
  JOIN app.users u ON u.id=subject.user_id AND u.account_state<>'deleted' AND u.deleted_at IS NULL

@@ -45,12 +45,13 @@ const environmentSchema = z
     AUTH_COOKIE_SECURE: booleanFromEnvironment.default(false),
     AUTH_TRUST_PROXY_HEADERS: booleanFromEnvironment.default(false),
     AUTH_IP_ADDRESS_HEADER: z.string().trim().min(1).default('x-real-ip'),
+    // How long one MFA check counts as recent for privileged actions.
     AUTH_MFA_MAX_AGE_SECONDS: z.coerce
       .number()
       .int()
       .min(60)
-      .max(3_600)
-      .default(300),
+      .max(86_400)
+      .default(86_400),
     RSP_API_AUDIENCE: z.string().trim().min(1).default('rsp-api'),
     GOOGLE_CLIENT_ID: optionalNonEmptyString,
     GOOGLE_CLIENT_SECRET: optionalNonEmptyString,

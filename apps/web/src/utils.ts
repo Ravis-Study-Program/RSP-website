@@ -349,3 +349,8 @@ export function recordedDateTime(
 
 /** An optional HH:MM time field: empty, or a valid 24-hour time. */
 export const optionalTimePattern = /^(?:[01]\d|2[0-3]):[0-5]\d$|^$/;
+
+/** Whether `email` looks like name@example.com: a domain needs a dot. */
+export function isValidEmail(email: string) {
+  return /^[^\s@]+@[^\s@.]+(?:\.[^\s@.]+)+$/.test(email.trim());
+}

@@ -99,7 +99,7 @@ export function StudentDetailsDialog({
   const initialLevel =
     person.studentLevel && person.studentLevel !== 'not_applicable'
       ? person.studentLevel
-      : 'novice';
+      : 'beginner';
   const [level, setLevel] = useState<keyof typeof studentLevels>(initialLevel);
   const [drafts, setDrafts] = useState<Drafts>(draftsFrom());
   const [pending, setPending] = useState(false);
@@ -240,7 +240,7 @@ export function StudentDetailsDialog({
           </p>
         ) : null}
         <Field>
-          <FieldLabel htmlFor={levelId}>Student level</FieldLabel>
+          <FieldLabel htmlFor={levelId}>Student Level</FieldLabel>
           <Select
             items={levelItems}
             value={level}
@@ -272,7 +272,7 @@ export function StudentDetailsDialog({
           </div>
         </fieldset>
         {numberField('weeklyHours', 'Weekly hours', 168)}
-        <div className="flex flex-wrap justify-end gap-2">
+        <div className="button-group">
           <Button
             type="button"
             variant="outline"

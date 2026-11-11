@@ -1,6 +1,8 @@
 import { chooseOption, expectSelected } from './select';
 import { expect, test, type Page } from '@playwright/test';
 
+const popoverOf = (page: Page) => page.locator('[data-slot=popover-content]');
+
 /** Toggles a week in the LeetCode table's Season weeks dropdown. */
 async function toggleWeekOption(page: Page, week: number, selected: boolean) {
   const option = page.getByRole('option', {
@@ -8,7 +10,7 @@ async function toggleWeekOption(page: Page, week: number, selected: boolean) {
     exact: true,
   });
   if (!(await option.isVisible()))
-    await page.getByRole('combobox', { name: 'Season weeks' }).click();
+    await page.getByRole('combobox', { name: 'Season Weeks' }).click();
   await expect(option).toHaveAttribute('aria-selected', String(!selected));
   await option.click();
   // URL changes use a React navigation transition; wait for that state to settle.
@@ -21,11 +23,17 @@ test('practice uses season or all time and clears weeks when changing periods @c
   // Season and weeks live in the attempt table's Filters popover.
   const openTableFilters = () =>
     page.getByRole('button', { name: /^Filters/ }).click();
-  const weeksFilter = page.getByRole('combobox', { name: 'Season weeks' });
+  const weeksFilter = page.getByRole('combobox', { name: 'Season Weeks' });
+  // A Director also has the season at the top left, kept in step with it.
+  const popover = page.locator('[data-slot=popover-content]');
+  const topLeft = page
+    .getByRole('combobox', { name: 'Season', exact: true })
+    .first();
   await page.goto('/seasons/summer-2025-26/leetcode');
-  await expect(page.getByRole('combobox', { name: /^Season$/ })).toHaveCount(0);
+  await expect(popover).toHaveCount(0);
+  await expect(topLeft).toHaveText('Summer 2025/26');
   await openTableFilters();
-  await expectSelected(page, /^Season$/, 'Summer 2025/26');
+  await expectSelected(popover, /^Season$/, 'Summer 2025/26');
   await expect(page.getByLabel('Year (Adelaide time)')).toHaveCount(0);
   await toggleWeekOption(page, 3, true);
   await expect(page).toHaveURL(/weekId=week_season_2026_s2_3/);
@@ -42,28 +50,29 @@ test('practice uses season or all time and clears weeks when changing periods @c
   await page.keyboard.press('Escape');
   await expect(weeksFilter).toHaveText('Week 2, Week 3');
   await expect(page.getByRole('button', { name: 'Filters (3)' })).toBeVisible();
-  await chooseOption(page, /^Season$/, 'Summer 2024/25');
+  await chooseOption(popover, /^Season$/, 'Summer 2024/25');
   await page.keyboard.press('Escape');
   await expect(page).toHaveURL(/\/seasons\/summer-2024-25\/leetcode$/);
+  await expect(topLeft).toHaveText('Summer 2024/25');
   await expect(page.getByRole('button', { name: 'Filters (1)' })).toBeVisible();
   await expect(tree).toHaveCount(0);
   await page.goBack();
   await openTableFilters();
-  await expectSelected(page, /^Season$/, 'Summer 2025/26');
+  await expectSelected(popover, /^Season$/, 'Summer 2025/26');
   await expect(weeksFilter).toHaveText('Week 2, Week 3');
   await page.screenshot({
     path: testInfo.outputPath('practice-filters.png'),
     fullPage: true,
   });
   await page.keyboard.press('Escape');
-  await expect(page.getByRole('combobox', { name: /^Season$/ })).toHaveCount(0);
+  await expect(popover).toHaveCount(0);
   await expect(tree).toBeVisible();
   await page.screenshot({
     path: testInfo.outputPath('season-practice-weeks.png'),
     fullPage: true,
   });
   await openTableFilters();
-  await chooseOption(page, /^Season$/, 'All time');
+  await chooseOption(popover, /^Season$/, 'All time');
   await expect(page).toHaveURL(/\/leetcode$/);
   await expect(weeksFilter).toHaveCount(0);
   await page.keyboard.press('Escape');
@@ -80,7 +89,7 @@ test('practice uses season or all time and clears weeks when changing periods @c
   );
   await expect(anagram).toBeVisible();
   await openTableFilters();
-  await expectSelected(page, /^Season$/, 'All time');
+  await expectSelected(popoverOf(page), /^Season$/, 'All time');
   await expect(weeksFilter).toHaveCount(0);
 });
 
@@ -92,7 +101,7 @@ test('mock interviews support weeks inside a season', async ({
     0,
   );
   await expect(
-    page.getByRole('combobox', { name: 'Season', exact: true }),
+    popoverOf(page).getByRole('combobox', { name: 'Season', exact: true }),
   ).toHaveCount(0);
   await expect(
     page.getByRole('link', { name: 'Avery Example', exact: true }),
@@ -103,8 +112,8 @@ test('mock interviews support weeks inside a season', async ({
       .filter({ visible: true }),
   ).toBeVisible();
   await page.getByRole('button', { name: /^Filters/ }).click();
-  await expectSelected(page, /^Season$/, 'All time');
-  await chooseOption(page, /^Season$/, 'Summer 2025/26');
+  await expectSelected(popoverOf(page), /^Season$/, 'All time');
+  await chooseOption(popoverOf(page), /^Season$/, 'Summer 2025/26');
   await page.keyboard.press('Escape');
   await page.getByRole('tab', { name: 'Given', exact: true }).click();
   await page.getByRole('button', { name: /^Filters/ }).click();
@@ -137,7 +146,7 @@ test('mock interviews support weeks inside a season', async ({
     fullPage: true,
   });
   await page.getByRole('button', { name: /^Filters/ }).click();
-  await chooseOption(page, /^Season$/, 'All time');
+  await chooseOption(popoverOf(page), /^Season$/, 'All time');
   await expect(page).toHaveURL(/\/mock-interviews$/);
   await expect(page.getByText(/^Season weeks/)).toHaveCount(0);
   await page.keyboard.press('Escape');
@@ -149,7 +158,9 @@ test('season pickers only offer seasons where the member was a student', async (
   // The demo account was a student in both demo seasons.
   await page.goto('/leetcode');
   await page.getByRole('button', { name: /^Filters/ }).click();
-  await page.getByRole('combobox', { name: 'Season', exact: true }).click();
+  await popoverOf(page)
+    .getByRole('combobox', { name: 'Season', exact: true })
+    .click();
   await expect(page.getByRole('option')).toHaveText([
     'All time',
     'Summer 2025/26',
@@ -162,17 +173,17 @@ test('the season chosen in one table is remembered in the others', async ({
 }) => {
   await page.goto('/mock-interviews');
   await page.getByRole('button', { name: /^Filters/ }).click();
-  await chooseOption(page, /^Season$/, 'Summer 2024/25');
+  await chooseOption(popoverOf(page), /^Season$/, 'Summer 2024/25');
   await page.keyboard.press('Escape');
 
   // A plain link to another table opens on the same season.
   await page.goto('/leetcode');
   await expect(page).toHaveURL(/seasonId=season_2026_s1/);
   await page.getByRole('button', { name: /^Filters/ }).click();
-  await expectSelected(page, /^Season$/, 'Summer 2024/25');
+  await expectSelected(popoverOf(page), /^Season$/, 'Summer 2024/25');
 
   // All time is remembered too, even over a season link.
-  await chooseOption(page, /^Season$/, 'All time');
+  await chooseOption(popoverOf(page), /^Season$/, 'All time');
   await page.keyboard.press('Escape');
   await page.goto('/seasons/summer-2025-26/mock-interviews');
   await expect(page).toHaveURL(/\/mock-interviews$/);

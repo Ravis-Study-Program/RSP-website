@@ -9,7 +9,6 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/magedmg/RSP-website/backend/internal/accounts"
-	"github.com/magedmg/RSP-website/backend/internal/platform/id"
 )
 
 const userColumns = `u.id,p.slug,p.display_name,p.avatar_url,pr.timezone,pr.timezone_configured,
@@ -45,21 +44,17 @@ func (p *Store) GetUser(ctx context.Context, userID string) (accounts.User, erro
 		LEFT JOIN app.global_role_assignments g ON g.user_id=u.id
 		WHERE (u.id::text=$1 OR p.slug=$1) AND u.deleted_at IS NULL
 		GROUP BY u.id,p.slug,p.display_name,p.avatar_url,pr.timezone,pr.timezone_configured,c.email,u.account_state`
-	return scanUser(p.pool.QueryRow(ctx, query, userID))
+	return scanUser(p.conn().QueryRow(ctx, query, userID))
 }
 
-func (p *Store) SuggestUserSlug(ctx context.Context) (string, error) {
-	for attempt := 0; attempt < 32; attempt++ {
-		candidate := "member-" + strings.ReplaceAll(id.New(), "-", "")[:12]
-		var count int64
-		if err := p.pool.QueryRow(ctx, `SELECT count(*) FROM app.user_profiles WHERE lower(slug) = lower($1)`, candidate).Scan(&count); err != nil {
-			return "", err
-		}
-		if count == 0 {
-			return candidate, nil
-		}
+// SuggestUserSlug suggests a profile slug from the user's name, such as
+// maddie-frew or maddie-frew2 when that is taken by someone else.
+func (p *Store) SuggestUserSlug(ctx context.Context, userID string) (string, error) {
+	var name string
+	if err := p.conn().QueryRow(ctx, `SELECT display_name FROM app.user_profiles WHERE user_id=$1`, userID).Scan(&name); err != nil {
+		return "", noRows(err)
 	}
-	return "", ErrConflict
+	return freeSlug(ctx, p.conn(), NameSlug(name), userID)
 }
 
 type UserQuery struct {
@@ -98,7 +93,7 @@ func (p *Store) ListUsers(ctx context.Context, q UserQuery) ([]accounts.User, bo
 		"globalRole":         q.GlobalRole,
 	}
 	var total int64
-	if err := p.pool.QueryRow(ctx, `SELECT count(*) FROM app.users u JOIN app.user_profiles p ON p.user_id=u.id WHERE `+filters, args).Scan(&total); err != nil {
+	if err := p.conn().QueryRow(ctx, `SELECT count(*) FROM app.users u JOIN app.user_profiles p ON p.user_id=u.id WHERE `+filters, args).Scan(&total); err != nil {
 		return nil, false, 0, err
 	}
 	items, more, err := p.listUsers(ctx, q.Boundary, q.Limit, q.Direction, filters, args)
@@ -130,7 +125,7 @@ func (p *Store) ListAdminUsers(ctx context.Context, q AdminUserQuery) ([]account
 		"globalRole":   q.GlobalRole,
 	}
 	var total int64
-	if err := p.pool.QueryRow(ctx, `SELECT count(*) FROM app.users u JOIN app.user_profiles p ON p.user_id=u.id JOIN app.user_contacts c ON c.user_id=u.id WHERE `+filters, args).Scan(&total); err != nil {
+	if err := p.conn().QueryRow(ctx, `SELECT count(*) FROM app.users u JOIN app.user_profiles p ON p.user_id=u.id JOIN app.user_contacts c ON c.user_id=u.id WHERE `+filters, args).Scan(&total); err != nil {
 		return nil, false, 0, err
 	}
 	items, more, err := p.listUsers(ctx, q.Boundary, q.Limit, q.Direction, filters, args)
@@ -155,7 +150,7 @@ func (p *Store) listUsers(ctx context.Context, boundary string, limit int, direc
 		ORDER BY u.id ` + order + ` LIMIT @limit`
 	args["boundary"] = boundary
 	args["limit"] = limit + 1
-	rows, err := p.pool.Query(ctx, query, args)
+	rows, err := p.conn().Query(ctx, query, args)
 	if err != nil {
 		return nil, false, err
 	}
@@ -190,7 +185,7 @@ func (p *Store) ListEnrollmentCandidates(ctx context.Context, q EnrollmentCandid
 		AND (@search = '' OR p.display_name ILIKE '%' || @search || '%' OR p.slug ILIKE '%' || @search || '%')`
 	args := pgx.NamedArgs{"seasonID": q.SeasonID, "search": strings.TrimSpace(q.Search)}
 	var total int64
-	if err := p.pool.QueryRow(ctx, `SELECT count(*) FROM app.users u JOIN app.user_profiles p ON p.user_id=u.id WHERE `+filters, args).Scan(&total); err != nil {
+	if err := p.conn().QueryRow(ctx, `SELECT count(*) FROM app.users u JOIN app.user_profiles p ON p.user_id=u.id WHERE `+filters, args).Scan(&total); err != nil {
 		return nil, false, 0, err
 	}
 
@@ -203,7 +198,7 @@ func (p *Store) ListEnrollmentCandidates(ctx context.Context, q EnrollmentCandid
 	}
 	args["boundary"] = q.Boundary
 	args["limit"] = q.Limit + 1
-	rows, err := p.pool.Query(ctx, `SELECT u.id,p.slug,p.display_name,p.avatar_url
+	rows, err := p.conn().Query(ctx, `SELECT u.id,p.slug,p.display_name,p.avatar_url
 		FROM app.users u
 		JOIN app.user_profiles p ON p.user_id=u.id
 		WHERE `+filters+` AND `+comparison+`
@@ -237,7 +232,7 @@ type UpdateUserProfileInput struct {
 }
 
 func (p *Store) UpdateUserProfile(ctx context.Context, input UpdateUserProfileInput) (accounts.User, error) {
-	tx, err := p.pool.Begin(ctx)
+	tx, err := p.conn().Begin(ctx)
 	if err != nil {
 		return accounts.User{}, err
 	}

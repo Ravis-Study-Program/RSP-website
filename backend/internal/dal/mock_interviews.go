@@ -104,7 +104,7 @@ func (p *Store) SummarizeMockInterviews(ctx context.Context, q MockInterviewQuer
 		args["subjectID"] = q.ViewerID
 	}
 	summary := mockinterviews.Summary{Days: []mockinterviews.DayCount{}, Interviewers: []mockinterviews.ParticipantSummary{}, Interviewees: []mockinterviews.ParticipantSummary{}}
-	if err := p.pool.QueryRow(ctx, `SELECT count(*),
+	if err := p.conn().QueryRow(ctx, `SELECT count(*),
   count(*) FILTER (WHERE mi.interviewee_user_id=NULLIF(@subjectID,'')::uuid),
   count(*) FILTER (WHERE mi.interviewer_user_id=NULLIF(@subjectID,'')::uuid),
   count(*) FILTER (WHERE NOT EXISTS (
@@ -114,7 +114,7 @@ func (p *Store) SummarizeMockInterviews(ctx context.Context, q MockInterviewQuer
 		Scan(&summary.Total, &summary.Received, &summary.Given, &summary.Reviewed); err != nil {
 		return mockinterviews.Summary{}, err
 	}
-	rows, err := p.pool.Query(ctx, `SELECT to_char((mi.scheduled_at AT TIME ZONE 'Australia/Adelaide')::date,'YYYY-MM-DD') AS day, count(*)
+	rows, err := p.conn().Query(ctx, `SELECT to_char((mi.scheduled_at AT TIME ZONE 'Australia/Adelaide')::date,'YYYY-MM-DD') AS day, count(*)
  FROM app.scoped_mock_interviews mi WHERE `+where+` GROUP BY day ORDER BY day`, args)
 	if err != nil {
 		return mockinterviews.Summary{}, err
@@ -143,7 +143,7 @@ func (p *Store) SummarizeMockInterviews(ctx context.Context, q MockInterviewQuer
 // mockParticipantsInScope lists the people in one participant column of the
 // interviews a scope matches, ordered by name, for filter options.
 func (p *Store) mockParticipantsInScope(ctx context.Context, column, where string, args pgx.NamedArgs) ([]mockinterviews.ParticipantSummary, error) {
-	rows, err := p.pool.Query(ctx, `SELECT u.id,p.slug,p.display_name,p.avatar_url FROM app.users u
+	rows, err := p.conn().Query(ctx, `SELECT u.id,p.slug,p.display_name,p.avatar_url FROM app.users u
  JOIN app.user_profiles p ON p.user_id=u.id
  WHERE u.deleted_at IS NULL AND u.account_state<>'deleted' AND u.id IN (
   SELECT `+column+` FROM app.scoped_mock_interviews mi WHERE `+where+`)
@@ -168,7 +168,7 @@ func (p *Store) ListMockInterviews(ctx context.Context, q MockInterviewQuery) ([
 	args["boundary"] = q.Boundary
 	args["limit"] = q.Limit + 1
 	var total int64
-	if err := p.pool.QueryRow(ctx, `SELECT count(*) FROM app.scoped_mock_interviews mi WHERE `+where, args).Scan(&total); err != nil {
+	if err := p.conn().QueryRow(ctx, `SELECT count(*) FROM app.scoped_mock_interviews mi WHERE `+where, args).Scan(&total); err != nil {
 		return nil, false, 0, err
 	}
 	comparator, order := ">", "ASC"
@@ -195,7 +195,7 @@ func (p *Store) ListMockInterviews(ctx context.Context, q MockInterviewQuery) ([
 	WHERE ` + where + `
 	  AND (NULLIF(@boundary,'')::uuid IS NULL OR EXISTS (SELECT 1 FROM boundary b WHERE ` + key + ` ` + comparator + ` ` + boundaryKey + `))
 	ORDER BY ` + orderBy + ` LIMIT @limit`
-	rows, err := p.pool.Query(ctx, query, args)
+	rows, err := p.conn().Query(ctx, query, args)
 	if err != nil {
 		return nil, false, 0, err
 	}
@@ -215,14 +215,14 @@ func (p *Store) ListMockInterviews(ctx context.Context, q MockInterviewQuery) ([
 	rows.Close()
 
 	items, more := finishPage(items, q.Limit, q.Direction)
-	if err := loadMockRounds(ctx, p.pool, items); err != nil {
+	if err := loadMockRounds(ctx, p.conn(), items); err != nil {
 		return nil, false, 0, err
 	}
 	return items, more, total, nil
 }
 
 func (p *Store) GetMockInterview(ctx context.Context, interviewID string) (mockinterviews.Interview, error) {
-	return loadMockInterview(ctx, p.pool, interviewID)
+	return loadMockInterview(ctx, p.conn(), interviewID)
 }
 
 func loadMockInterview(ctx context.Context, db queryer, interviewID string) (mockinterviews.Interview, error) {
@@ -290,7 +290,7 @@ func (p *Store) ListMockParticipantSummaries(ctx context.Context, userIDs []stri
 	if len(userIDs) == 0 {
 		return byID, nil
 	}
-	rows, err := p.pool.Query(ctx, `SELECT u.id,p.slug,p.display_name,p.avatar_url FROM app.users u
+	rows, err := p.conn().Query(ctx, `SELECT u.id,p.slug,p.display_name,p.avatar_url FROM app.users u
 		JOIN app.user_profiles p ON p.user_id=u.id
 		WHERE u.id=ANY($1::uuid[]) AND u.deleted_at IS NULL AND u.account_state<>'deleted'`, userIDs)
 	if err != nil {
@@ -330,7 +330,7 @@ func scoresFromDB(values ...*int16) mockinterviews.Scores {
 }
 
 func (p *Store) CreateMockInterview(ctx context.Context, v mockinterviews.Interview, actorID string, at time.Time) (mockinterviews.Interview, error) {
-	tx, err := p.pool.Begin(ctx)
+	tx, err := p.conn().Begin(ctx)
 	if err != nil {
 		return mockinterviews.Interview{}, err
 	}
@@ -441,7 +441,7 @@ func (p *Store) CorrectMockInterviewIdentities(ctx context.Context, input Correc
 
 // Action and reason are metadata only; the supplied mutation selects the writable fields.
 func (p *Store) writeMockInterview(ctx context.Context, v mockinterviews.Interview, actorID, reason, action string, at time.Time, mutate func(pgx.Tx) error) (mockinterviews.Interview, error) {
-	tx, err := p.pool.Begin(ctx)
+	tx, err := p.conn().Begin(ctx)
 	if err != nil {
 		return mockinterviews.Interview{}, err
 	}

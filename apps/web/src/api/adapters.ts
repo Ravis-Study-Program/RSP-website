@@ -84,9 +84,8 @@ export function adaptSeason(season: ApiSeason): Season {
     resourcesUrl: season.resourcesUrl,
     memberCount: null,
     weekCount: null,
-    summary: season.location
-      ? `${season.status === 'open' ? 'Current program' : 'Completed program'} at ${season.location}.`
-      : season.status === 'open'
+    summary:
+      season.status === 'open'
         ? 'Current program.'
         : 'Completed program history.',
   };

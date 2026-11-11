@@ -33,7 +33,6 @@ import {
 } from '@/api/queries';
 import { useQueryClient } from '@tanstack/react-query';
 import { ActivityChart } from '@/components/ActivityChart';
-import { Card, CardContent } from '@/components/ui/card';
 import {
   Avatar,
   MetricCard,
@@ -59,7 +58,7 @@ import {
 
 const formClass = 'flex flex-col gap-4';
 const inlineClass = 'flex flex-wrap items-center gap-2.5';
-const dialogActionsClass = 'mt-5 flex justify-end gap-2.5';
+const dialogActionsClass = 'mt-5 button-group';
 
 function statusLabel(status: string | null | undefined) {
   const text = (status ?? '').replace(/_/g, ' ');
@@ -71,7 +70,7 @@ const profileSchema = z.object({
   slug: z
     .string()
     .trim()
-    .min(3, 'Use at least 3 characters.')
+    .min(2, 'Use at least 2 characters.')
     .max(50)
     .regex(
       /^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/,
@@ -269,14 +268,7 @@ export function ProfilePage() {
               }
             />
           ) : (
-            <Card className="flex-1">
-              <CardContent>
-                <ActivityChart
-                  data={activity}
-                  expected={studentWeeklyExpected}
-                />
-              </CardContent>
-            </Card>
+            <ActivityChart data={activity} expected={studentWeeklyExpected} />
           )}
         </PageSection>
       ) : null}
@@ -357,7 +349,7 @@ function EditProfileDialog({
     } catch (error) {
       setRequestError(
         error instanceof ApiError && error.status === 409
-          ? 'That profile slug is already in use, or this profile changed elsewhere. Choose another slug or reopen the form.'
+          ? 'That username is already in use, or this profile changed elsewhere. Choose another username or reopen the form.'
           : error instanceof Error
             ? error.message
             : 'Unable to update your profile.',
@@ -385,7 +377,7 @@ function EditProfileDialog({
       setSuggestionError(
         error instanceof Error
           ? error.message
-          : 'Unable to suggest a profile slug.',
+          : 'Unable to suggest a username.',
       );
     } finally {
       setIsSuggesting(false);
@@ -396,7 +388,7 @@ function EditProfileDialog({
       title="Edit Profile"
       description={
         showProgramDetails
-          ? 'Your name and slug are visible to approved active members and alumni.'
+          ? 'Your name and username are visible to approved active members and alumni.'
           : 'Set the name shown on your account.'
       }
       open={open}
@@ -422,7 +414,7 @@ function EditProfileDialog({
         </Field>
         {showProgramDetails ? (
           <Field>
-            <FieldLabel htmlFor="profile-slug">Profile slug</FieldLabel>
+            <FieldLabel htmlFor="profile-slug">Username</FieldLabel>
             <div className={inlineClass}>
               <Input
                 id="profile-slug"
@@ -451,7 +443,7 @@ function EditProfileDialog({
               </FieldError>
             ) : (
               <FieldDescription>
-                3–50 lowercase letters, numbers and hyphens.
+                2–50 lowercase letters, numbers and hyphens.
               </FieldDescription>
             )}
           </Field>
@@ -490,7 +482,7 @@ function EditProfileDialog({
             Cancel
           </Button>
           <Button type="submit" disabled={isSubmitting}>
-            {isSubmitting ? 'Saving…' : 'Save profile'}
+            {isSubmitting ? 'Saving…' : 'Save Profile'}
           </Button>
         </div>
       </form>

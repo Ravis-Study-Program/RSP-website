@@ -139,9 +139,10 @@ type UpdateInput struct {
 	Rounds          []Round
 }
 
-// Update updates a value without changing the input.
-func (s Service) Update(m Interview, actorID string, in UpdateInput) (Interview, error) {
-	if actorID != m.InterviewerID {
+// Update updates a value without changing the input. The interviewer may
+// update their interview; so may anyone who manages the season's mocks.
+func (s Service) Update(m Interview, actorID string, canManage bool, in UpdateInput) (Interview, error) {
+	if actorID != m.InterviewerID && !canManage {
 		return Interview{}, ErrForbidden
 	}
 	candidate := m
@@ -245,9 +246,10 @@ func (s Service) CorrectIdentities(m Interview, input CorrectIdentitiesInput) (I
 	return updated, nil
 }
 
-// Delete soft-deletes an interview without changing the input.
-func (s Service) Delete(m Interview, actorID string, now time.Time) (Interview, error) {
-	if actorID != m.InterviewerID {
+// Delete soft-deletes an interview without changing the input. As with
+// Update, the interviewer or anyone who manages the season's mocks may.
+func (s Service) Delete(m Interview, actorID string, canManage bool, now time.Time) (Interview, error) {
+	if actorID != m.InterviewerID && !canManage {
 		return Interview{}, ErrForbidden
 	}
 	at := now.UTC()

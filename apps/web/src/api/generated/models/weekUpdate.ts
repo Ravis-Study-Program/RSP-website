@@ -11,5 +11,4 @@ export interface WeekUpdate {
   number: number;
   startAt: string;
   endAt: string;
-  resourceUrl?: string;
 }

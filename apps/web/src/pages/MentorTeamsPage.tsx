@@ -1,4 +1,4 @@
-import { Card } from '@/components/ui/card';
+import type { ColumnDef } from '@tanstack/react-table';
 import { StatusBadge } from '@/components/StatusBadge';
 import {
   Select,
@@ -8,146 +8,275 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Button, buttonVariants } from '@/components/ui/button';
+import { Button } from '@/components/ui/button';
 import { Field, FieldLabel } from '@/components/ui/field';
-import { IconArrowRight, IconPlus, IconUsersGroup } from '@tabler/icons-react';
-import { useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import {
+  IconLink,
+  IconEdit,
+  IconUserExclamation,
+  IconUsersGroup,
+} from '@tabler/icons-react';
+import { useEffect, useState } from 'react';
+import { selectSeason } from '@/selectedSeason';
+import { useSeasonSwitcher } from '@/components/useSeasonSwitcher';
+import { useParams } from 'react-router-dom';
 
 import { apiRequest } from '@/api/client';
-import type { Mentorship, MentorshipCreate } from '@/api/generated/models';
-import { demoMode, useSeasons, useSeasonPeople } from '@/api/queries';
+import type {
+  Mentorship,
+  MentorshipCreate,
+  MentorshipUpdate,
+} from '@/api/generated/models';
+import {
+  demoMode,
+  useSeasonMentorships,
+  useSeasons,
+  useSeasonPeople,
+} from '@/api/queries';
 import {
   Page,
   PageHeader,
+  PageSection,
   PersonIdentity,
   usePageTitle,
 } from '@/components/Common';
+import { duplicateNames } from '@/duplicateNames';
+import { DataTable, ExpandRowButton } from '@/components/DataTable';
 import { FormDialog } from '@/components/Dialogs';
-import {
-  EmptyState,
-  InlineNotice,
-  PageSkeleton,
-} from '@/components/StatusViews';
+import { personOptions } from '@/components/personOptions';
+import { InlineNotice, PageSkeleton } from '@/components/StatusViews';
+import type { Person } from '@/types';
 
 export function MentorTeamsPage() {
   usePageTitle('Mentor Teams');
   const { slug } = useParams();
   const seasons = useSeasons();
   const season = seasons.data?.items.find((item) => item.slug === slug);
+  // Opening Mentor Teams again starts from this season.
+  useEffect(() => {
+    if (season) selectSeason(season.slug);
+  }, [season]);
+  const seasonSwitcher = useSeasonSwitcher('mentor-teams');
   const query = useSeasonPeople(season?.id, season?.name);
-  if (query.isLoading) return <PageSkeleton label="Loading mentor teams" />;
+  const mentorships = useSeasonMentorships(season?.id);
+  // A transfer changes both the people's teams and the mentorships the dialog
+  // reads, so both reload before it can be used again.
+  const refreshTeams = () =>
+    Promise.all([query.refetch(), mentorships.refetch()]);
+  const [assigning, setAssigning] = useState<Person | null>(null);
+  // The people query restarts once the season is known; wait for it so an
+  // opened dialog is not unmounted underneath the person.
+  if (seasons.isLoading || query.isLoading)
+    return <PageSkeleton label="Loading mentor teams" />;
+  // People who share a name also show their slug.
+  const duplicates = duplicateNames(query.data?.items ?? []);
   const mentors =
     query.data?.items.filter((person) => person.roles.includes('mentor')) ?? [];
   const students =
     query.data?.items.filter((person) => person.roles.includes('student')) ??
     [];
+  const unassignedCount = students.filter(
+    (student) => student.status === 'unassigned',
+  ).length;
+  const unassigned = students.filter(
+    (student) => student.status === 'unassigned',
+  );
+  // Clicking an unassigned student, or their link icon, assigns them a mentor.
+  const assignButton = (student: Person) => (
+    <Button
+      type="button"
+      variant="ghost"
+      size="icon"
+      aria-label={`Assign a mentor to ${student.name}`}
+      onClick={() => setAssigning(student)}
+    >
+      <IconLink size={18} aria-hidden="true" />
+    </Button>
+  );
+  const unassignedColumns: ColumnDef<Person, any>[] = [
+    {
+      accessorKey: 'name',
+      header: 'Student',
+      cell: ({ row }) => (
+        <PersonIdentity
+          person={row.original}
+          seasonId={season?.id}
+          showRoles={false}
+          duplicates={duplicates}
+        />
+      ),
+    },
+    {
+      id: 'actions',
+      header: 'Actions',
+      meta: { width: 6, align: 'end' },
+      enableSorting: false,
+      enableHiding: false,
+      cell: ({ row }) => assignButton(row.original),
+    },
+  ];
+  const studentsOf = (mentor: Person) =>
+    students.filter((student) => student.mentorshipMentorId === mentor.id);
+  const idleMentors = mentors.filter(
+    (mentor) => studentsOf(mentor).length === 0,
+  ).length;
+  const studentList = (mentor: Person) => (
+    <ul
+      aria-label={`Students of ${mentor.name}`}
+      className="m-0 grid list-none p-0"
+    >
+      {studentsOf(mentor).map((student) => (
+        <li
+          className="flex items-center justify-between gap-4 border-b border-border py-3 first:pt-0 last:border-b-0 last:pb-0"
+          key={student.id}
+        >
+          <PersonIdentity
+            person={student}
+            seasonId={season?.id}
+            showRoles={false}
+            duplicates={duplicates}
+          />
+        </li>
+      ))}
+    </ul>
+  );
+  const columns: ColumnDef<Person, any>[] = [
+    {
+      id: 'expand',
+      header: 'Details',
+      meta: { width: 4.5 },
+      enableSorting: false,
+      enableHiding: false,
+      cell: ({ row }) =>
+        studentsOf(row.original).length ? (
+          <ExpandRowButton
+            row={row}
+            subject={`students of ${row.original.name}`}
+          />
+        ) : null,
+    },
+    {
+      accessorKey: 'name',
+      header: 'Mentor',
+      cell: ({ row }) => (
+        <PersonIdentity
+          person={row.original}
+          seasonId={season?.id}
+          showRoles={false}
+          duplicates={duplicates}
+        />
+      ),
+    },
+    {
+      id: 'students',
+      header: 'Students',
+      meta: { width: 8 },
+      accessorFn: (mentor) => studentsOf(mentor).length,
+    },
+  ];
   return (
     <Page>
       <PageHeader
         title="Mentor Teams"
+        titleHint="Admin"
         actions={
           <MentorshipDialog
             seasonId={season?.id}
             mentors={mentors}
             students={students}
-            onCreated={() => void query.refetch()}
+            mentorships={mentorships.data?.items ?? []}
+            onCreated={refreshTeams}
           />
         }
       />
-      {students.some((student) => student.status === 'unassigned') ? (
-        <InlineNotice tone="warning">
-          <IconUsersGroup size={19} aria-hidden="true" />{' '}
-          {students.filter((student) => student.status === 'unassigned').length}{' '}
-          student needs a mentor assignment.
-        </InlineNotice>
-      ) : null}
-      <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,18rem),1fr))] gap-4">
-        {mentors.map((mentor) => (
-          <article key={mentor.id}>
-            <Card className="gap-4 p-5">
-              <PersonIdentity
-                person={mentor}
-                seasonId={season?.id}
-                privateView
-              />
-              <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
-                <h2 className="text-base font-semibold tracking-tight">
-                  Assigned Students
-                </h2>
-                <StatusBadge>
-                  {
-                    students.filter(
-                      (student) => student.mentorshipMentorId === mentor.id,
-                    ).length
-                  }
-                </StatusBadge>
+      <div className="flex flex-col gap-6">
+        {unassignedCount ? (
+          <InlineNotice tone="warning">
+            <IconUsersGroup size={19} aria-hidden="true" />{' '}
+            {unassignedCount === 1
+              ? '1 student needs a mentor.'
+              : `${unassignedCount} students need a mentor.`}
+          </InlineNotice>
+        ) : null}
+        {idleMentors ? (
+          <InlineNotice tone="warning">
+            <IconUserExclamation size={19} aria-hidden="true" />{' '}
+            {idleMentors === 1
+              ? '1 mentor has no students.'
+              : `${idleMentors} mentors have no students.`}
+          </InlineNotice>
+        ) : null}
+        <DataTable
+          ariaLabel="Mentor teams"
+          // The season sits top-left, as on the other season tables.
+          toolbarLead={seasonSwitcher}
+          data={mentors}
+          columns={columns}
+          getRowId={(mentor) => mentor.id}
+          rowCanExpand={(mentor) => studentsOf(mentor).length > 0}
+          renderExpanded={(row) => studentList(row.original)}
+          loading={query.isLoading}
+          error={query.isError}
+          onRetry={() => void query.refetch()}
+          emptyTitle="No Mentors in This Season"
+          emptyMessage="Mentors appear here once they are enrolled."
+          renderCard={(row) => (
+            <div className="grid gap-3">
+              <div className="flex items-center justify-between gap-3">
+                <PersonIdentity
+                  person={row.original}
+                  seasonId={season?.id}
+                  showRoles={false}
+                  duplicates={duplicates}
+                />
+                <StatusBadge>{studentsOf(row.original).length}</StatusBadge>
               </div>
-              <ul className="m-0 grid list-none gap-3 p-0">
-                {students
-                  .filter((student) => student.mentorshipMentorId === mentor.id)
-                  .map((student) => (
-                    <li
-                      className="flex items-center justify-between gap-4 border-b border-border py-3 last:border-b-0"
-                      key={student.id}
-                    >
-                      <PersonIdentity person={student} seasonId={season?.id} />
-                      <Link
-                        className={buttonVariants({
-                          variant: 'ghost',
-                          size: 'icon',
-                        })}
-                        to={`/people/${student.slug}?seasonId=${encodeURIComponent(season!.id)}`}
-                        aria-label={`Open ${student.name}`}
-                      >
-                        <IconArrowRight size={18} aria-hidden="true" />
-                      </Link>
-                    </li>
-                  ))}
-              </ul>
-            </Card>
-          </article>
-        ))}
-      </div>
-      <section className="mt-6">
-        <div className="mb-3 flex flex-wrap items-end justify-between gap-x-4 gap-y-1">
-          <h2 className="text-xl font-semibold tracking-tight">
-            Unassigned Students
-          </h2>
-        </div>
-        {students.some((student) => student.status === 'unassigned') ? (
-          <Card className="gap-4 p-5">
-            <ul className="m-0 grid list-none gap-3 p-0">
-              {students
-                .filter((student) => student.status === 'unassigned')
-                .map((student) => (
-                  <li
-                    className="flex items-center justify-between gap-4 border-b border-border py-3 last:border-b-0"
-                    key={student.id}
-                  >
-                    <PersonIdentity
-                      person={student}
-                      seasonId={season?.id}
-                      privateView
-                    />
-                    <MentorshipDialog
-                      seasonId={season?.id}
-                      mentors={mentors}
-                      students={students}
-                      initialStudentId={student.id}
-                      onCreated={() => void query.refetch()}
-                    />
-                  </li>
-                ))}
-            </ul>
-          </Card>
-        ) : (
-          <EmptyState
-            title="All Students Assigned"
-            message="Every active student has a mentor team."
+              {studentsOf(row.original).length
+                ? studentList(row.original)
+                : null}
+            </div>
+          )}
+        />
+        <PageSection
+          titleId="unassigned-students-title"
+          title="Unassigned Students"
+        >
+          <DataTable
+            ariaLabel="Unassigned students"
+            data={unassigned}
+            columns={unassignedColumns}
+            getRowId={(student) => student.id}
+            onRowClick={setAssigning}
+            emptyTitle="All Students Assigned"
+            emptyMessage="Every active student has a mentor team."
+            renderCard={(row) => (
+              <div className="flex items-center justify-between gap-3">
+                <PersonIdentity
+                  person={row.original}
+                  seasonId={season?.id}
+                  showRoles={false}
+                  duplicates={duplicates}
+                />
+                {assignButton(row.original)}
+              </div>
+            )}
           />
-        )}
-      </section>
+        </PageSection>
+        {assigning ? (
+          <MentorshipDialog
+            seasonId={season?.id}
+            mentors={mentors}
+            students={students}
+            mentorships={mentorships.data?.items ?? []}
+            studentId={assigning.id}
+            open
+            onOpenChange={(next) => {
+              if (!next) setAssigning(null);
+            }}
+            onCreated={refreshTeams}
+          />
+        ) : null}
+      </div>
     </Page>
   );
 }
@@ -156,21 +285,46 @@ function MentorshipDialog({
   seasonId,
   mentors,
   students,
-  initialStudentId = '',
+  mentorships,
   onCreated,
+  studentId: presetStudentId = '',
+  open: controlledOpen,
+  onOpenChange,
 }: {
   seasonId?: string;
-  mentors: Array<{ id: string; name: string }>;
-  students: Array<{ id: string; name: string; status: string | null }>;
-  initialStudentId?: string;
-  onCreated: () => void;
+  mentors: Array<{ id: string; name: string; slug?: string }>;
+  students: Array<{
+    id: string;
+    name: string;
+    slug?: string;
+    status: string | null;
+  }>;
+  mentorships: Mentorship[];
+  /** Reloads what the page shows; awaited, so a reopened dialog starts fresh. */
+  onCreated: () => Promise<unknown> | void;
+  /** Opened from an unassigned student's row, starting with that student. */
+  studentId?: string;
+  /** When given, the dialog is opened from outside and shows no trigger. */
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }) {
-  const [open, setOpen] = useState(false);
-  const [mentorId, setMentorId] = useState('');
-  const [studentId, setStudentId] = useState(initialStudentId);
+  const [uncontrolledOpen, setUncontrolledOpen] = useState(false);
+  const controlled = controlledOpen !== undefined;
+  const open = controlled ? controlledOpen : uncontrolledOpen;
+  const setOpen = (next: boolean) => {
+    if (!controlled) setUncontrolledOpen(next);
+    onOpenChange?.(next);
+  };
+  // A student's current mentor, so editing starts from the existing pair.
+  const mentorOf = (student: string) =>
+    mentorships.find((item) => item.studentUserId === student)?.mentorUserId ??
+    '';
+  const [mentorId, setMentorId] = useState(mentorOf(presetStudentId));
+  const [studentId, setStudentId] = useState(presetStudentId);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState('');
-  const dirty = mentorId !== '' || studentId !== initialStudentId;
+  const dirty =
+    mentorId !== mentorOf(presetStudentId) || studentId !== presetStudentId;
   const requestOpenChange = (next: boolean) => {
     if (
       !next &&
@@ -179,36 +333,41 @@ function MentorshipDialog({
     )
       return;
     if (next) {
-      setMentorId('');
-      setStudentId(initialStudentId);
+      setMentorId(mentorOf(presetStudentId));
+      setStudentId(presetStudentId);
       setError('');
     }
     setOpen(next);
   };
-  const create = async () => {
+  const save = async () => {
     if (!seasonId || !mentorId || !studentId) return;
     setPending(true);
     setError('');
     try {
       if (!demoMode) {
-        const body: MentorshipCreate = {
+        const body: MentorshipCreate | MentorshipUpdate = {
           mentorUserId: mentorId,
           studentUserId: studentId,
         };
+        const existing = mentorships.find(
+          (item) => item.studentUserId === studentId,
+        );
+        const base = `/seasons/${encodeURIComponent(seasonId)}/mentorships`;
         await apiRequest<Mentorship>(
-          `/seasons/${encodeURIComponent(seasonId)}/mentorships`,
-          { method: 'POST', body: JSON.stringify(body) },
+          existing ? `${base}/${encodeURIComponent(existing.id)}` : base,
+          {
+            method: existing ? 'PATCH' : 'POST',
+            body: JSON.stringify(body),
+          },
         );
       }
-      onCreated();
-      setMentorId('');
-      setStudentId(initialStudentId);
+      await onCreated();
       setOpen(false);
     } catch (requestError) {
       setError(
         requestError instanceof Error
           ? requestError.message
-          : 'Unable to create this mentorship.',
+          : 'Unable to save this mentorship.',
       );
     } finally {
       setPending(false);
@@ -216,24 +375,23 @@ function MentorshipDialog({
   };
   const mentorItems = [
     { label: 'Choose a mentor', value: '' },
-    ...mentors.map((mentor) => ({ label: mentor.name, value: mentor.id })),
+    ...personOptions(mentors),
   ];
   const studentItems = [
     { label: 'Choose a student', value: '' },
-    ...students
-      .filter((student) => student.status === 'unassigned')
-      .map((student) => ({ label: student.name, value: student.id })),
+    ...personOptions(students),
   ];
   return (
     <FormDialog
-      title="Create Mentorship"
+      title="Edit Mentorship"
       open={open}
       onOpenChange={requestOpenChange}
       trigger={
-        <>
-          <IconPlus size={18} aria-hidden="true" />{' '}
-          {initialStudentId ? 'Assign mentor' : 'Assign student'}
-        </>
+        controlled ? undefined : (
+          <>
+            <IconEdit size={18} aria-hidden="true" /> Edit Mentorship
+          </>
+        )
       }
     >
       <div className="grid gap-4">
@@ -243,45 +401,16 @@ function MentorshipDialog({
           </p>
         ) : null}
         <Field>
-          <FieldLabel htmlFor={`mentor-${initialStudentId || 'new'}`}>
-            Mentor
-          </FieldLabel>
-          <Select
-            items={mentorItems}
-            value={mentorId}
-            onValueChange={(value) => setMentorId(value ?? '')}
-          >
-            <SelectTrigger
-              id={`mentor-${initialStudentId || 'new'}`}
-              className="w-full"
-            >
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectGroup>
-                {mentorItems.map((item) => (
-                  <SelectItem key={item.value} value={item.value}>
-                    {item.label}
-                  </SelectItem>
-                ))}
-              </SelectGroup>
-            </SelectContent>
-          </Select>
-        </Field>
-        <Field>
-          <FieldLabel htmlFor={`student-${initialStudentId || 'new'}`}>
-            Student
-          </FieldLabel>
+          <FieldLabel htmlFor={'student-new'}>Student</FieldLabel>
           <Select
             items={studentItems}
             value={studentId}
-            disabled={Boolean(initialStudentId)}
-            onValueChange={(value) => setStudentId(value ?? '')}
+            onValueChange={(value) => {
+              setStudentId(value ?? '');
+              setMentorId(mentorOf(value ?? ''));
+            }}
           >
-            <SelectTrigger
-              id={`student-${initialStudentId || 'new'}`}
-              className="w-full"
-            >
+            <SelectTrigger id={'student-new'} className="w-full">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -295,7 +424,28 @@ function MentorshipDialog({
             </SelectContent>
           </Select>
         </Field>
-        <div className="flex flex-wrap justify-end gap-2">
+        <Field>
+          <FieldLabel htmlFor={'mentor-new'}>Mentor</FieldLabel>
+          <Select
+            items={mentorItems}
+            value={mentorId}
+            onValueChange={(value) => setMentorId(value ?? '')}
+          >
+            <SelectTrigger id={'mentor-new'} className="w-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectGroup>
+                {mentorItems.map((item) => (
+                  <SelectItem key={item.value} value={item.value}>
+                    {item.label}
+                  </SelectItem>
+                ))}
+              </SelectGroup>
+            </SelectContent>
+          </Select>
+        </Field>
+        <div className="button-group">
           <Button
             variant="outline"
             type="button"
@@ -307,11 +457,15 @@ function MentorshipDialog({
           <Button
             type="button"
             disabled={
-              pending || !mentorId || !studentId || (!demoMode && !seasonId)
+              pending ||
+              !mentorId ||
+              !studentId ||
+              mentorId === mentorOf(studentId) ||
+              (!demoMode && !seasonId)
             }
-            onClick={() => void create()}
+            onClick={() => void save()}
           >
-            {pending ? 'Assigning…' : 'Create mentorship'}
+            {pending ? 'Saving…' : 'Save Mentorship'}
           </Button>
         </div>
       </div>

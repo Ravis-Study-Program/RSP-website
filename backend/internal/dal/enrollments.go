@@ -44,7 +44,7 @@ func (p *Store) ListEnrollments(ctx context.Context, q EnrollmentQuery) ([]progr
 		"includeInactive": q.IncludeInactive,
 	}
 	var total int64
-	if err := p.pool.QueryRow(ctx, `SELECT count(*) FROM app.enrollments e WHERE `+filters, args).Scan(&total); err != nil {
+	if err := p.conn().QueryRow(ctx, `SELECT count(*) FROM app.enrollments e WHERE `+filters, args).Scan(&total); err != nil {
 		return nil, false, 0, err
 	}
 
@@ -73,7 +73,7 @@ func (p *Store) ListEnrollments(ctx context.Context, q EnrollmentQuery) ([]progr
 	ORDER BY ` + orderBy + ` LIMIT @limit`
 	args["boundary"] = q.Boundary
 	args["limit"] = q.Limit + 1
-	rows, err := p.pool.Query(ctx, query, args)
+	rows, err := p.conn().Query(ctx, query, args)
 	if err != nil {
 		return nil, false, 0, err
 	}
@@ -100,7 +100,7 @@ func (p *Store) ListEnrollmentsForUser(ctx context.Context, userID string) ([]pr
 }
 
 func (p *Store) listEnrollments(ctx context.Context, predicate, value string) ([]program.EnrollmentRecord, error) {
-	rows, err := p.pool.Query(ctx, `SELECT `+enrollmentColumns+` FROM app.enrollments e JOIN app.seasons s ON s.id=e.season_id WHERE `+predicate+` AND (e.deleted_at IS NULL OR e.state IN ('kicked','withdrawn')) ORDER BY e.id`, value)
+	rows, err := p.conn().Query(ctx, `SELECT `+enrollmentColumns+` FROM app.enrollments e JOIN app.seasons s ON s.id=e.season_id WHERE `+predicate+` AND (e.deleted_at IS NULL OR e.state IN ('kicked','withdrawn')) ORDER BY e.id`, value)
 	if err != nil {
 		return nil, err
 	}
@@ -119,11 +119,11 @@ func (p *Store) listEnrollments(ctx context.Context, predicate, value string) ([
 }
 
 func (p *Store) GetEnrollment(ctx context.Context, enrollmentID string) (program.EnrollmentRecord, error) {
-	return scanEnrollment(p.pool.QueryRow(ctx, `SELECT `+enrollmentColumns+` FROM app.enrollments e JOIN app.seasons s ON s.id=e.season_id WHERE e.id=$1 AND e.deleted_at IS NULL`, enrollmentID))
+	return scanEnrollment(p.conn().QueryRow(ctx, `SELECT `+enrollmentColumns+` FROM app.enrollments e JOIN app.seasons s ON s.id=e.season_id WHERE e.id=$1 AND e.deleted_at IS NULL`, enrollmentID))
 }
 
 func (p *Store) CreateEnrollment(ctx context.Context, v program.EnrollmentRecord, actorID string, at time.Time) (program.EnrollmentRecord, error) {
-	tx, err := p.pool.Begin(ctx)
+	tx, err := p.conn().Begin(ctx)
 	if err != nil {
 		return v, err
 	}
@@ -134,7 +134,7 @@ func (p *Store) CreateEnrollment(ctx context.Context, v program.EnrollmentRecord
 	}
 	studentLevel := "not_applicable"
 	if v.Role == "student" {
-		studentLevel = "novice"
+		studentLevel = "beginner"
 	}
 	assignmentState := "active"
 	if v.Role == "coordinator" {
@@ -162,7 +162,7 @@ type UpdateEnrollmentRoleAndLevelInput struct {
 }
 
 func (p *Store) UpdateEnrollmentRoleAndLevel(ctx context.Context, input UpdateEnrollmentRoleAndLevelInput) (program.EnrollmentRecord, error) {
-	tx, err := p.pool.Begin(ctx)
+	tx, err := p.conn().Begin(ctx)
 	if err != nil {
 		return program.EnrollmentRecord{}, err
 	}
@@ -194,7 +194,7 @@ type PromoteEnrollmentInput struct {
 }
 
 func (p *Store) PromoteEnrollment(ctx context.Context, input PromoteEnrollmentInput) (program.EnrollmentRecord, error) {
-	tx, err := p.pool.Begin(ctx)
+	tx, err := p.conn().Begin(ctx)
 	if err != nil {
 		return program.EnrollmentRecord{}, err
 	}
@@ -209,7 +209,7 @@ func (p *Store) PromoteEnrollment(ctx context.Context, input PromoteEnrollmentIn
 	}
 	studentLevel := "not_applicable"
 	if input.Role == "student" {
-		studentLevel = "novice"
+		studentLevel = "beginner"
 	}
 	if err := tx.QueryRow(ctx, `UPDATE app.enrollments SET role=$2::app.season_role,student_level=$3,state_changed_at=$4,assignment_state=CASE WHEN $2::app.season_role='coordinator' THEN 'pending_mfa'::app.assignment_state ELSE 'active'::app.assignment_state END,activated_at=CASE WHEN $2::app.season_role='coordinator' THEN NULL ELSE $4::timestamptz END WHERE id=$1 AND state='active' RETURNING assignment_state::text`, input.EnrollmentID, input.Role, studentLevel, input.ChangedAt.UTC()).Scan(&v.AssignmentState); err != nil {
 		return v, noRows(err)
@@ -245,7 +245,7 @@ type RemoveEnrollmentInput struct {
 }
 
 func (p *Store) RemoveEnrollment(ctx context.Context, input RemoveEnrollmentInput) (program.EnrollmentRecord, error) {
-	tx, err := p.pool.Begin(ctx)
+	tx, err := p.conn().Begin(ctx)
 	if err != nil {
 		return program.EnrollmentRecord{}, err
 	}

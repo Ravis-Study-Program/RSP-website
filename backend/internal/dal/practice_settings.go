@@ -14,7 +14,7 @@ import (
 // every member. Personal settings are historical data only.
 func (p *Store) GetPracticeSettings(ctx context.Context, userID string) (practice.PracticeSettings, error) {
 	var storedID string
-	if err := p.pool.QueryRow(ctx, `SELECT id FROM app.users WHERE id=$1 AND deleted_at IS NULL`, userID).Scan(&storedID); err != nil {
+	if err := p.conn().QueryRow(ctx, `SELECT id FROM app.users WHERE id=$1 AND deleted_at IS NULL`, userID).Scan(&storedID); err != nil {
 		return practice.PracticeSettings{}, noRows(err)
 	}
 	settings, err := p.programPracticeSettings(ctx)
@@ -24,7 +24,7 @@ func (p *Store) GetPracticeSettings(ctx context.Context, userID string) (practic
 	// A student's own requirements, from their latest active enrollment,
 	// replace the program's defaults.
 	var own practice.StudentRequirements
-	err = p.pool.QueryRow(ctx, `SELECT r.easy_minutes,r.medium_minutes,r.hard_minutes,r.weekly_hours
+	err = p.conn().QueryRow(ctx, `SELECT r.easy_minutes,r.medium_minutes,r.hard_minutes,r.weekly_hours
 		FROM app.student_requirements r JOIN app.enrollments e ON e.id=r.enrollment_id
 		WHERE e.user_id=$1 AND e.role='student' AND e.state='active' AND e.deleted_at IS NULL
 		ORDER BY e.created_at DESC LIMIT 1`, userID).Scan(&own.EasyMinutes, &own.MediumMinutes, &own.HardMinutes, &own.WeeklyHours)
@@ -42,14 +42,14 @@ func (p *Store) GetPracticeSettings(ctx context.Context, userID string) (practic
 func (p *Store) GetStudentRequirements(ctx context.Context, seasonID, enrollmentID string) (practice.StudentRequirements, error) {
 	var own practice.StudentRequirements
 	var found bool
-	if err := p.pool.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM app.enrollments WHERE id=$1 AND season_id=$2 AND role='student' AND deleted_at IS NULL)`,
+	if err := p.conn().QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM app.enrollments WHERE id=$1 AND season_id=$2 AND role='student' AND deleted_at IS NULL)`,
 		enrollmentID, seasonID).Scan(&found); err != nil {
 		return own, err
 	}
 	if !found {
 		return own, ErrNotFound
 	}
-	err := p.pool.QueryRow(ctx, `SELECT easy_minutes,medium_minutes,hard_minutes,weekly_hours
+	err := p.conn().QueryRow(ctx, `SELECT easy_minutes,medium_minutes,hard_minutes,weekly_hours
 		FROM app.student_requirements WHERE enrollment_id=$1`,
 		enrollmentID).Scan(&own.EasyMinutes, &own.MediumMinutes, &own.HardMinutes, &own.WeeklyHours)
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -60,7 +60,7 @@ func (p *Store) GetStudentRequirements(ctx context.Context, seasonID, enrollment
 
 // SetStudentRequirements replaces a student enrollment's own requirements.
 func (p *Store) SetStudentRequirements(ctx context.Context, seasonID, enrollmentID string, own practice.StudentRequirements, actorID string, changedAt time.Time) (practice.StudentRequirements, error) {
-	tx, err := p.pool.Begin(ctx)
+	tx, err := p.conn().Begin(ctx)
 	if err != nil {
 		return own, err
 	}
@@ -90,7 +90,7 @@ func (p *Store) SetStudentRequirements(ctx context.Context, seasonID, enrollment
 
 func (p *Store) programPracticeSettings(ctx context.Context) (practice.PracticeSettings, error) {
 	settings := practice.PracticeSettings{GoalsEnabled: true}
-	err := p.pool.QueryRow(ctx, `SELECT easy_minutes,medium_minutes,hard_minutes,weekly_hours
+	err := p.conn().QueryRow(ctx, `SELECT easy_minutes,medium_minutes,hard_minutes,weekly_hours
 		FROM app.program_practice_goals`).
 		Scan(&settings.EasyMinutes, &settings.MediumMinutes, &settings.HardMinutes, &settings.WeeklyHours)
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -102,7 +102,7 @@ func (p *Store) programPracticeSettings(ctx context.Context) (practice.PracticeS
 
 // SetPracticeSettings changes the program's practice goals for everyone.
 func (p *Store) SetPracticeSettings(ctx context.Context, actorID string, settings practice.PracticeSettings, changedAt time.Time) (practice.PracticeSettings, error) {
-	tx, err := p.pool.Begin(ctx)
+	tx, err := p.conn().Begin(ctx)
 	if err != nil {
 		return practice.PracticeSettings{}, err
 	}

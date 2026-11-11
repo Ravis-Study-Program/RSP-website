@@ -27,14 +27,21 @@ func TestOwnershipVersionsReviewAndPass(t *testing.T) {
 	if err != nil || m.InterviewerID != "mentor" || !Passed(m) {
 		t.Fatal("create failed")
 	}
-	if _, err := s.Update(m, "student", UpdateInput{}); !errors.Is(err, ErrForbidden) {
+	if _, err := s.Update(m, "student", false, UpdateInput{}); !errors.Is(err, ErrForbidden) {
 		t.Fatalf("ownership: %v", err)
+	}
+	// Someone who manages the season's mocks may update one they did not run.
+	if _, err := s.Update(m, "coordinator", true, UpdateInput{OccurredAt: m.OccurredAt, DurationMinutes: 30, Rounds: m.Rounds}); err != nil {
+		t.Fatalf("season manager update: %v", err)
+	}
+	if _, err := s.Delete(m, "coordinator", false, time.Now()); !errors.Is(err, ErrForbidden) {
+		t.Fatalf("non-manager delete: %v", err)
 	}
 	m, err = s.ReviewRound(m, ReviewRoundInput{ActorID: "student", RoundID: "r1", Comment: "thanks", Reviewed: true})
 	if err != nil {
 		t.Fatalf("review: %v", err)
 	}
-	if _, err := s.Delete(m, "mentor", time.Now()); err != nil {
+	if _, err := s.Delete(m, "mentor", false, time.Now()); err != nil {
 		t.Fatalf("delete: %v", err)
 	}
 }
@@ -59,7 +66,7 @@ func TestInterviewerCannotWriteIntervieweeReview(t *testing.T) {
 	updateRounds := append([]Round(nil), m.Rounds...)
 	updateRounds[0].Reviewed = false
 	updateRounds[0].IntervieweeComment = "forged update"
-	m, err = s.Update(m, "mentor", UpdateInput{
+	m, err = s.Update(m, "mentor", false, UpdateInput{
 		OccurredAt:      m.OccurredAt,
 		DurationMinutes: 70,
 		Rounds:          updateRounds,

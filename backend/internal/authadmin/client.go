@@ -129,6 +129,57 @@ func (c Client) SendInvitation(ctx context.Context, input InvitationEmailInput) 
 	return nil
 }
 
+// RoleChangeEmailInput tells a season member their role there has changed.
+type RoleChangeEmailInput struct {
+	ID           string `json:"id"`
+	To           string `json:"to"`
+	Name         string `json:"name"`
+	Season       string `json:"season"`
+	Role         string `json:"role"`
+	PreviousRole string `json:"previousRole"`
+	URL          string `json:"url"`
+}
+
+func (c Client) SendRoleChange(ctx context.Context, input RoleChangeEmailInput) error {
+	body, err := json.Marshal(input)
+	if err != nil {
+		return err
+	}
+	request, err := c.request(ctx, http.MethodPost, "/internal/auth/role-changes", bytes.NewReader(body))
+	if err != nil {
+		return err
+	}
+	request.Header.Set("Content-Type", "application/json")
+	response, err := c.httpClient().Do(request)
+	if err != nil {
+		return err
+	}
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusAccepted {
+		return fmt.Errorf("auth role change delivery returned %d", response.StatusCode)
+	}
+	return nil
+}
+
+// EraseAccount deletes an account at once, with no recovery period: its
+// sign-in data is removed and the person becomes "Deleted member".
+func (c Client) EraseAccount(ctx context.Context, authUserID string) error {
+	request, err := c.request(ctx, http.MethodPost, "/internal/auth/users/"+url.PathEscape(authUserID)+"/erase", nil)
+	if err != nil {
+		return err
+	}
+	response, err := c.httpClient().Do(request)
+	if err != nil {
+		return err
+	}
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusNoContent {
+		message, _ := io.ReadAll(io.LimitReader(response.Body, 4096))
+		return fmt.Errorf("auth erase returned %d: %s", response.StatusCode, strings.TrimSpace(string(message)))
+	}
+	return nil
+}
+
 type EmailChangeInput struct {
 	AuthUserID string `json:"-"`
 	Email      string `json:"email"`

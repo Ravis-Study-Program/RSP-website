@@ -14,6 +14,7 @@ import {
   Mark,
   mergeAttributes,
   useEditor,
+  useEditorState,
 } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import {
@@ -83,9 +84,12 @@ export function RichTextEditor({
   onChange,
   error,
   labelHint,
+  hideLabel = false,
 }: {
   id: string;
   label: string;
+  /** Keep the label for screen readers only, where the page already says it. */
+  hideLabel?: boolean;
   value: string;
   onChange: (value: string) => void;
   error?: string;
@@ -108,11 +112,45 @@ export function RichTextEditor({
     editorProps: {
       attributes: {
         id,
+        class: 'rich-text',
         'aria-labelledby': `${id}-label`,
         ...(error ? { 'aria-describedby': `${id}-error` } : {}),
       },
     },
     onUpdate: ({ editor: activeEditor }) => onChange(activeEditor.getHTML()),
+  });
+
+  // Which formats apply at the cursor, kept live (including a format turned
+  // on with nothing selected, which applies to what is typed next).
+  const active = useEditorState({
+    editor,
+    selector: ({ editor: current }) => {
+      if (!current) return {} as Record<string, boolean>;
+      const is = (name: string, attributes?: Record<string, unknown>) =>
+        current.isActive(name, attributes);
+      return {
+        bold: is('bold'),
+        italic: is('italic'),
+        underline: is('underline'),
+        strike: is('strike'),
+        highlight: is('highlight'),
+        code: is('code'),
+        heading1: is('heading', { level: 1 }),
+        heading2: is('heading', { level: 2 }),
+        heading3: is('heading', { level: 3 }),
+        heading4: is('heading', { level: 4 }),
+        blockquote: is('blockquote'),
+        bulletList: is('bulletList'),
+        orderedList: is('orderedList'),
+        subscript: is('subscript'),
+        superscript: is('superscript'),
+        link: is('link'),
+        alignleft: current.isActive({ textAlign: 'left' }),
+        aligncenter: current.isActive({ textAlign: 'center' }),
+        alignright: current.isActive({ textAlign: 'right' }),
+        alignjustify: current.isActive({ textAlign: 'justify' }),
+      } as Record<string, boolean>;
+    },
   });
 
   useEffect(() => {
@@ -159,7 +197,7 @@ export function RichTextEditor({
 
   return (
     <div className="grid gap-1.5">
-      <span className="flex items-center gap-1.5">
+      <span className={hideLabel ? 'sr-only' : 'flex items-center gap-1.5'}>
         <span id={`${id}-label`} className="text-sm font-medium">
           {label}
         </span>
@@ -177,21 +215,21 @@ export function RichTextEditor({
           <div className="flex shrink-0 items-center gap-0.5">
             <EditorButton
               label="Bold"
-              active={editor?.isActive('bold')}
+              active={active?.bold}
               onClick={() => editor?.chain().focus().toggleBold().run()}
             >
               <IconBold size={18} />
             </EditorButton>
             <EditorButton
               label="Italic"
-              active={editor?.isActive('italic')}
+              active={active?.italic}
               onClick={() => editor?.chain().focus().toggleItalic().run()}
             >
               <IconItalic size={18} />
             </EditorButton>
             <EditorButton
               label="Underline"
-              active={editor?.isActive('underline')}
+              active={active?.underline}
               onClick={() =>
                 editor?.chain().focus().toggleMark('underline').run()
               }
@@ -200,14 +238,14 @@ export function RichTextEditor({
             </EditorButton>
             <EditorButton
               label="Strikethrough"
-              active={editor?.isActive('strike')}
+              active={active?.strike}
               onClick={() => editor?.chain().focus().toggleStrike().run()}
             >
               <IconStrikethrough size={18} />
             </EditorButton>
             <EditorButton
               label="Highlight"
-              active={editor?.isActive('highlight')}
+              active={active?.highlight}
               onClick={() =>
                 editor?.chain().focus().toggleMark('highlight').run()
               }
@@ -216,7 +254,7 @@ export function RichTextEditor({
             </EditorButton>
             <EditorButton
               label="Inline code"
-              active={editor?.isActive('code')}
+              active={active?.code}
               onClick={() => editor?.chain().focus().toggleCode().run()}
             >
               <IconCode size={18} />
@@ -231,7 +269,7 @@ export function RichTextEditor({
               <EditorButton
                 key={level}
                 label={`Heading ${level}`}
-                active={editor?.isActive('heading', { level })}
+                active={active?.[`heading${level}`]}
                 onClick={() =>
                   editor
                     ?.chain()
@@ -245,7 +283,7 @@ export function RichTextEditor({
             ))}
             <EditorButton
               label="Block quote"
-              active={editor?.isActive('blockquote')}
+              active={active?.blockquote}
               onClick={() => editor?.chain().focus().toggleBlockquote().run()}
             >
               Quote
@@ -258,14 +296,14 @@ export function RichTextEditor({
             />
             <EditorButton
               label="Bulleted list"
-              active={editor?.isActive('bulletList')}
+              active={active?.bulletList}
               onClick={() => editor?.chain().focus().toggleBulletList().run()}
             >
               <IconList size={18} />
             </EditorButton>
             <EditorButton
               label="Numbered list"
-              active={editor?.isActive('orderedList')}
+              active={active?.orderedList}
               onClick={() => editor?.chain().focus().toggleOrderedList().run()}
             >
               <IconListNumbers size={18} />
@@ -278,7 +316,7 @@ export function RichTextEditor({
             />
             <EditorButton
               label="Subscript"
-              active={editor?.isActive('subscript')}
+              active={active?.subscript}
               onClick={() =>
                 editor
                   ?.chain()
@@ -292,7 +330,7 @@ export function RichTextEditor({
             </EditorButton>
             <EditorButton
               label="Superscript"
-              active={editor?.isActive('superscript')}
+              active={active?.superscript}
               onClick={() =>
                 editor
                   ?.chain()
@@ -313,7 +351,7 @@ export function RichTextEditor({
             <EditorButton
               buttonRef={linkButtonRef}
               label="Link"
-              active={editor?.isActive('link')}
+              active={active?.link}
               onClick={openLinkDialog}
             >
               <IconLink size={18} />
@@ -347,7 +385,7 @@ export function RichTextEditor({
               <EditorButton
                 key={alignment}
                 label={`Align ${alignment}`}
-                active={editor?.isActive({ textAlign: alignment })}
+                active={active?.[`align${alignment}`]}
                 onClick={() => setAlignment(alignment)}
               >
                 <Icon size={18} aria-hidden="true" />
@@ -382,7 +420,7 @@ export function RichTextEditor({
           </div>
         </div>
         <EditorContent
-          className="[&_.tiptap]:min-h-32 [&_.tiptap]:p-3 [&_.tiptap]:outline-none [&_.tiptap_p:first-child]:mt-0 [&_[data-text-align=center]]:text-center [&_[data-text-align=right]]:text-right [&_[data-text-align=justify]]:text-justify"
+          className="[&_.tiptap]:min-h-32 [&_.tiptap]:p-3 [&_.tiptap]:outline-none"
           editor={editor}
         />
       </div>
@@ -407,7 +445,7 @@ export function RichTextEditor({
                 className="text-sm font-medium"
                 htmlFor={`${id}-link-address`}
               >
-                Link address
+                Link Address
               </label>
               <Input
                 id={`${id}-link-address`}
@@ -436,11 +474,11 @@ export function RichTextEditor({
                 </p>
               ) : null}
             </div>
-            <div className="mt-5 flex justify-end gap-2.5">
+            <div className="mt-5 button-group">
               <DialogClose render={<Button variant="outline" />}>
                 Cancel
               </DialogClose>
-              <Button type="submit">Save link</Button>
+              <Button type="submit">Save Link</Button>
             </div>
           </form>
         </DialogContent>
@@ -488,10 +526,13 @@ function EditorButton({
       variant="ghost"
       size="icon"
       ref={buttonRef}
-      className="h-8 w-auto min-w-8 px-1.5 aria-pressed:bg-primary aria-pressed:text-primary-foreground"
+      className="h-8 w-auto min-w-8 px-1.5 aria-pressed:bg-primary aria-pressed:text-primary-foreground aria-pressed:hover:bg-primary aria-pressed:hover:text-primary-foreground"
       type="button"
       aria-label={label}
       aria-pressed={active}
+      // Keep focus and the cursor in the editor, so a format turned on with
+      // nothing selected carries on into what is typed next.
+      onMouseDown={(event) => event.preventDefault()}
       onClick={onClick}
     >
       {children}

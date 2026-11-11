@@ -1,15 +1,15 @@
 import {
   IconAdjustments,
-  IconBriefcase,
   IconCalendarEvent,
+  IconCode,
   IconDashboard,
   IconMessage2,
   IconNotebook,
-  IconSchool,
   IconUsers,
 } from '@tabler/icons-react';
 import type { ComponentType } from 'react';
 
+import { getSelectedSeasonSlug } from '@/selectedSeason';
 import type { CurrentUser, Season, SeasonRole } from '@/types';
 
 export interface NavItem {
@@ -40,6 +40,14 @@ export function defaultSeason(user?: CurrentUser, seasons: Season[] = []) {
   );
 }
 
+/** The season Mentor Teams opens on: the one selected, else the default. */
+export function mentorTeamsSeason(user?: CurrentUser, seasons: Season[] = []) {
+  return (
+    seasons.find((season) => season.slug === getSelectedSeasonSlug()) ??
+    defaultSeason(user, seasons)
+  );
+}
+
 /** Account capabilities are additive; visiting a season never switches roles. */
 export function navigationItems(
   user?: CurrentUser,
@@ -67,7 +75,7 @@ export function navigationItems(
       label: 'LeetCode',
       description: 'Problem attempt history',
       to: '/leetcode',
-      icon: IconBriefcase,
+      icon: IconCode,
       section: 'leetcode',
     },
     {
@@ -80,8 +88,20 @@ export function navigationItems(
   ];
   const isManager = user.globalRoles.length > 0;
   const membership = preferredMembership(user);
+  // Directors, System Admins and coordinators stay in the season they last
+  // chose; everyone else uses their own.
+  const selected = getSelectedSeasonSlug();
+  const managesSeasons =
+    isManager ||
+    user.seasonRoles.some(
+      (entry) => entry.role === 'coordinator' && entry.state === 'active',
+    );
   const seasonSlug =
-    membership?.seasonSlug ?? defaultSeason(user, seasons)?.slug;
+    (managesSeasons && seasons.some((season) => season.slug === selected)
+      ? selected
+      : undefined) ??
+    membership?.seasonSlug ??
+    defaultSeason(user, seasons)?.slug;
   const mentor = preferredMembership(user, 'mentor');
   const coordinator = preferredMembership(user, 'coordinator');
   const canBrowse =
@@ -94,17 +114,19 @@ export function navigationItems(
       (entry) => entry.role !== 'coordinator' || entry.state === 'active',
     ),
   });
+  // A coordinator stays in the season they last chose among those they run.
+  const coordinatedSelected = user.seasonRoles.some(
+    (entry) =>
+      entry.role === 'coordinator' &&
+      entry.state === 'active' &&
+      entry.seasonSlug === selected,
+  )
+    ? selected
+    : undefined;
   const updatesSeasonSlug = isManager
     ? seasonSlug
-    : updatesMembership?.seasonSlug;
+    : (coordinatedSelected ?? updatesMembership?.seasonSlug);
 
-  if (mentor && !isManager)
-    items.push({
-      label: 'My Students',
-      description: 'Assigned students and mentoring actions',
-      to: `/seasons/${mentor.seasonSlug}/mentees`,
-      icon: IconUsers,
-    });
   if (updatesSeasonSlug)
     items.push({
       label: 'Monday Updates',
@@ -113,13 +135,30 @@ export function navigationItems(
       icon: IconNotebook,
       section: 'monday-updates',
     });
-  if (canBrowse)
+  // Coordinators and admins manage students from People, so theirs opens on
+  // the season they run.
+  const managedSeasonSlug = isManager
+    ? seasonSlug
+    : (coordinatedSelected ?? coordinator?.seasonSlug);
+  if (canBrowse || managedSeasonSlug)
     items.push({
       label: 'People',
-      description: 'Everyone, across every season',
-      to: '/people',
+      description: 'Everyone, and the students and staff you manage',
+      to: managedSeasonSlug
+        ? `/seasons/${managedSeasonSlug}/people`
+        : '/people',
       icon: IconUsers,
       section: 'people',
+    });
+  // Mentors keep their own list, admins who mentor included.
+  if (mentor)
+    items.push({
+      label: 'My Students',
+      description: 'Assigned students and mentoring actions',
+      to: isManager
+        ? `/seasons/${mentor.seasonSlug}/my-students`
+        : `/seasons/${mentor.seasonSlug}/mentees`,
+      icon: IconUsers,
     });
   if (canBrowse || mentor || coordinator)
     items.push({
@@ -128,23 +167,6 @@ export function navigationItems(
       to: '/seasons',
       icon: IconCalendarEvent,
     });
-  const managedSeasonSlug = isManager ? seasonSlug : coordinator?.seasonSlug;
-  if (managedSeasonSlug) {
-    items.push({
-      label: 'All Students',
-      description: 'Students and their progress',
-      to: `/seasons/${managedSeasonSlug}/mentees`,
-      icon: IconUsers,
-    });
-    if (isManager || coordinator?.state === 'active')
-      items.push({
-        label: 'Mentor Teams',
-        description: 'Mentorship assignments',
-        to: `/seasons/${managedSeasonSlug}/mentor-teams`,
-        icon: IconSchool,
-        section: 'mentor-teams',
-      });
-  }
   if (isManager)
     items.push({
       label: 'Administration',

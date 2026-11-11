@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, within } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import type { UseQueryResult } from '@tanstack/react-query';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 
@@ -22,6 +22,7 @@ vi.mock('@/api/queries', () => ({
   useMondayUpdates: vi.fn(),
   useSeasonPeople: vi.fn(),
   useSeasons: vi.fn(),
+  useSeasonEnrollments: () => ({ data: { items: [] } }),
   // One ended program week, the one due: 5–11 October.
   useSeasonWeeks: () => ({
     data: {
@@ -32,7 +33,7 @@ vi.mock('@/api/queries', () => ({
           seasonId: 'season-1',
           startAt: '2026-10-05T00:00:00+10:30',
           endAt: '2026-10-11T23:59:59+10:30',
-          resourceUrl: '',
+          resourcesHtml: '',
         },
       ],
     },
@@ -175,10 +176,10 @@ describe('mentor mentee filtering', () => {
       .find((row) => within(row).queryByText('Kicked Student'))!;
     // Both its status and its Monday Update read Kicked.
     expect(within(kickedRow).getAllByText('Kicked')).toHaveLength(2);
-    fireEvent.click(
-      screen.getByRole('checkbox', { name: 'Include previous students' }),
-    );
-    expect(screen.getAllByText('Completed Student').length).toBeGreaterThan(0);
+    // Earlier students are reached by choosing an earlier season instead.
+    expect(
+      screen.queryByRole('checkbox', { name: 'Include previous students' }),
+    ).not.toBeInTheDocument();
   });
 });
 

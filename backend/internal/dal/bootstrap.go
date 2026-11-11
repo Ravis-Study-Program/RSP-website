@@ -16,7 +16,7 @@ func (s *Store) BootstrapAdmin(ctx context.Context, subject, email string) error
 		return errors.New("--auth-subject and --email are required")
 	}
 
-	tx, err := s.pool.Begin(ctx)
+	tx, err := s.conn().Begin(ctx)
 	if err != nil {
 		return err
 	}

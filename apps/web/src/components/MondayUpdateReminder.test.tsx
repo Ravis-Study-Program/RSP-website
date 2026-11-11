@@ -8,7 +8,7 @@ const weeks = [1, 2].map((number) => ({
   id: `week-${number}`,
   seasonId: 'season',
   number,
-  resourceUrl: '',
+  resourcesHtml: '',
   startAt: `2026-10-${number === 1 ? '05' : '12'}T00:00:00+10:30`,
   endAt: `2026-10-${number === 1 ? '11' : '18'}T23:59:59+10:30`,
 }));

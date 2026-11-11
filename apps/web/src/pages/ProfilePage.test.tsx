@@ -25,6 +25,7 @@ vi.mock('@/api/queries', () => ({
   demoMode: false,
   useCurrentUser: vi.fn(),
   useSeasons: vi.fn(),
+  useSeasonPeople: vi.fn(() => ({ data: undefined })),
   useUserAttempts: vi.fn(),
   usePracticeGoals: vi.fn(() => ({ Easy: 10, Medium: 25, Hard: 40 })),
   useUserProfile: vi.fn(),
@@ -92,7 +93,7 @@ const currentUser: CurrentUser = {
   mockInterviewCount: 0,
 };
 
-describe('profile slug suggestion', () => {
+describe('username suggestion', () => {
   it('requests a uniqueness-aware suggestion from the API', async () => {
     vi.mocked(useCurrentUser).mockReturnValue({
       data: currentUser,
@@ -164,7 +165,7 @@ describe('profile slug suggestion', () => {
     await user.click(screen.getByRole('button', { name: 'Suggest' }));
 
     expect(apiRequest).toHaveBeenCalledWith('/me/slug-suggestion');
-    expect(await screen.findByLabelText('Profile slug')).toHaveValue(
+    expect(await screen.findByLabelText('Username')).toHaveValue(
       'member-one-2',
     );
   });
@@ -277,6 +278,6 @@ describe('basic profiles', () => {
 
     await user.click(screen.getByRole('button', { name: /edit profile/i }));
     expect(screen.getByLabelText('Name')).toHaveValue('Member One');
-    expect(screen.queryByLabelText('Profile slug')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Username')).not.toBeInTheDocument();
   });
 });
