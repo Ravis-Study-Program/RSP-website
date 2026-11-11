@@ -23,7 +23,7 @@ func scanAttempt(row pgx.Row) (practice.AttemptRecord, error) {
 const attemptColumns = `a.id,a.user_id,COALESCE((SELECT id FROM app.leetcode_problems WHERE problem_id=a.problem_id),a.problem_id),a.outcome::text,a.reviewed,a.time_taken_minutes,COALESCE(a.notes_html,''),a.attempted_at,a.activity_season_id,a.activity_week_id,a.deleted_at`
 
 func (p *Store) GetAttempt(ctx context.Context, id string) (practice.AttemptRecord, error) {
-	return scanAttempt(p.pool.QueryRow(ctx, `SELECT `+attemptColumns+`
+	return scanAttempt(p.conn().QueryRow(ctx, `SELECT `+attemptColumns+`
 		FROM app.scoped_problem_attempts a
 		WHERE a.id=$1`, id))
 }
@@ -76,7 +76,7 @@ func (p *Store) ListAttempts(ctx context.Context, q AttemptQuery) ([]practice.At
 		"categories":   q.Categories, "weeks": q.WeekIDs,
 	}
 	var total int64
-	err := p.pool.QueryRow(ctx, `SELECT count(*) FROM app.scoped_problem_attempts a WHERE `+filters, args).Scan(&total)
+	err := p.conn().QueryRow(ctx, `SELECT count(*) FROM app.scoped_problem_attempts a WHERE `+filters, args).Scan(&total)
 	if err != nil {
 		return nil, false, 0, err
 	}
@@ -90,7 +90,7 @@ func (p *Store) ListAttempts(ctx context.Context, q AttemptQuery) ([]practice.At
 	}
 	args["boundary"] = q.Boundary
 	args["limit"] = q.Limit + 1
-	rows, err := p.pool.Query(ctx, `SELECT `+attemptColumns+`
+	rows, err := p.conn().Query(ctx, `SELECT `+attemptColumns+`
 		FROM app.scoped_problem_attempts a
 		WHERE `+filters+` AND `+comparison+`
 		ORDER BY a.id `+order+` LIMIT @limit`, args)
@@ -113,7 +113,7 @@ func (p *Store) ListAttempts(ctx context.Context, q AttemptQuery) ([]practice.At
 }
 
 func (p *Store) CreateAttempt(ctx context.Context, v practice.AttemptRecord) (practice.AttemptRecord, error) {
-	tx, err := p.pool.Begin(ctx)
+	tx, err := p.conn().Begin(ctx)
 	if err != nil {
 		return practice.AttemptRecord{}, err
 	}
@@ -161,7 +161,7 @@ type UpdateAttemptInput struct {
 }
 
 func (p *Store) UpdateAttempt(ctx context.Context, input UpdateAttemptInput) (practice.AttemptRecord, error) {
-	tx, err := p.pool.Begin(ctx)
+	tx, err := p.conn().Begin(ctx)
 	if err != nil {
 		return practice.AttemptRecord{}, err
 	}
@@ -200,7 +200,7 @@ func (p *Store) UpdateAttempt(ctx context.Context, input UpdateAttemptInput) (pr
 
 // SetAttemptReviewed marks the owner's attempt reviewed or not.
 func (p *Store) SetAttemptReviewed(ctx context.Context, attemptID, userID string, reviewed bool, changedAt time.Time) (practice.AttemptRecord, error) {
-	tx, err := p.pool.Begin(ctx)
+	tx, err := p.conn().Begin(ctx)
 	if err != nil {
 		return practice.AttemptRecord{}, err
 	}
@@ -222,7 +222,7 @@ func (p *Store) SetAttemptReviewed(ctx context.Context, attemptID, userID string
 }
 
 func (p *Store) DeleteAttempt(ctx context.Context, id, userID string) error {
-	tx, err := p.pool.Begin(ctx)
+	tx, err := p.conn().Begin(ctx)
 	if err != nil {
 		return err
 	}

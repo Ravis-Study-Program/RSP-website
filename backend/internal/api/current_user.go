@@ -75,7 +75,7 @@ func (a *API) getCurrentUser(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *API) suggestCurrentUserSlug(w http.ResponseWriter, r *http.Request) {
-	slug, err := a.db.SuggestUserSlug(r.Context())
+	slug, err := a.db.SuggestUserSlug(r.Context(), actorFrom(r.Context()).UserID)
 	if err != nil {
 		a.writeStoreErrorResponse(w, err)
 		return
@@ -85,10 +85,9 @@ func (a *API) suggestCurrentUserSlug(w http.ResponseWriter, r *http.Request) {
 }
 
 type updateCurrentUserRequest struct {
-	Name      string  `json:"name"`
-	Slug      *string `json:"slug"`
-	AvatarURL *string `json:"avatarUrl"`
-	Timezone  string  `json:"timezone"`
+	Name     string  `json:"name"`
+	Slug     *string `json:"slug"`
+	Timezone string  `json:"timezone"`
 }
 
 func (a *API) updateCurrentUser(w http.ResponseWriter, r *http.Request) {
@@ -106,15 +105,11 @@ func (a *API) updateCurrentUser(w http.ResponseWriter, r *http.Request) {
 		writeErrorResponse(w, http.StatusBadRequest, "timezone must be an IANA timezone")
 		return
 	}
-	if request.AvatarURL != nil && *request.AvatarURL != "" && !isValidHTTPSURL(*request.AvatarURL) {
-		writeErrorResponse(w, http.StatusBadRequest, "avatarUrl must be an HTTPS URL")
-		return
-	}
 
 	if request.Slug != nil {
 		slug := strings.ToLower(strings.TrimSpace(*request.Slug))
-		if len(slug) < 3 || len(slug) > 50 || !validSlug(slug) {
-			writeErrorResponse(w, http.StatusBadRequest, "slug must be 3-50 lowercase letters, numbers, or hyphens")
+		if len(slug) < 2 || len(slug) > 50 || !validSlug(slug) {
+			writeErrorResponse(w, http.StatusBadRequest, "username must be 2-50 lowercase letters, numbers, or hyphens")
 			return
 		}
 		request.Slug = &slug
@@ -124,7 +119,6 @@ func (a *API) updateCurrentUser(w http.ResponseWriter, r *http.Request) {
 		UserID:    actor.UserID,
 		Name:      strings.TrimSpace(request.Name),
 		Slug:      request.Slug,
-		AvatarURL: request.AvatarURL,
 		Timezone:  request.Timezone,
 		ActorID:   actor.UserID,
 		ChangedAt: time.Now().UTC(),

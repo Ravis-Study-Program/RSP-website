@@ -22,6 +22,7 @@ import {
 import { ProblemSuggestion } from '@/components/ProblemSuggestion';
 import { SeasonWeekChoices } from '@/components/ActivityFilters';
 import { ActivityPeriodFilter } from '@/components/ActivityPeriodFilter';
+import { useManagedSeasons } from '@/components/useSeasonSwitcher';
 import { useActivitySeason, useActivitySeasons } from '@/activityPeriod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import {
@@ -111,6 +112,8 @@ export function LeetCodePage() {
   const { seasons, season, hasSelection } = useActivitySeason('leetcode');
   const user = useCurrentUser();
   // Practice only belongs to seasons where you were a student.
+  // Directors, System Admins and coordinators pick the season at the top left.
+  const managesSeasons = useManagedSeasons().length > 0;
   const studentSeasons = useActivitySeasons(
     user.data?.id,
     seasons.data?.items ?? [],
@@ -253,6 +256,16 @@ export function LeetCodePage() {
           <AttemptTable
             ariaLabel="Problem attempts"
             data={visibleAttempts}
+            toolbarLead={
+              managesSeasons ? (
+                <ActivityPeriodFilter
+                  bare
+                  section="leetcode"
+                  season={season}
+                  seasons={studentSeasons}
+                />
+              ) : undefined
+            }
             extraFilters={{
               content: (
                 <>
@@ -321,7 +334,7 @@ export function LeetCodePage() {
                 />
                 <NamedConfirmation
                   name={attempt.problem}
-                  actionLabel="Delete attempt"
+                  actionLabel="Delete Attempt"
                   description="This permanently removes the attempt from your practice history."
                   onConfirm={() => void deleteAttempt(attempt)}
                 />
@@ -365,7 +378,7 @@ function AttemptRowMenu({
           {hasRichText(attempt.notes) ? (
             <DropdownMenuItem onClick={onToggleNotes}>
               <IconNotes size={17} aria-hidden="true" />
-              {notesExpanded ? 'Hide notes' : 'View notes'}
+              {notesExpanded ? 'Hide Notes' : 'View Notes'}
             </DropdownMenuItem>
           ) : null}
           <DropdownMenuItem onClick={() => setEditOpen(true)}>
@@ -375,7 +388,7 @@ function AttemptRowMenu({
             variant="destructive"
             onClick={() => setDeleteOpen(true)}
           >
-            <IconTrash size={17} aria-hidden="true" /> Delete attempt
+            <IconTrash size={17} aria-hidden="true" /> Delete Attempt
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
@@ -388,7 +401,7 @@ function AttemptRowMenu({
       />
       <NamedConfirmation
         name={attempt.problem}
-        actionLabel="Delete attempt"
+        actionLabel="Delete Attempt"
         description="This permanently removes the attempt from your practice history."
         open={deleteOpen}
         onOpenChange={setDeleteOpen}
@@ -543,7 +556,7 @@ function AttemptDialog({
             </>
           ) : (
             <>
-              <IconPlus size={18} aria-hidden="true" /> Log attempt
+              <IconPlus size={18} aria-hidden="true" /> Log Attempt
             </>
           )
         }
@@ -616,7 +629,7 @@ function AttemptDialog({
             </Field>
             <Field>
               <FieldLabel htmlFor="attempt-minutes">
-                Time taken <LabelHint>minutes</LabelHint>
+                Time Taken <LabelHint>minutes</LabelHint>
               </FieldLabel>
               <Input
                 id="attempt-minutes"
@@ -644,7 +657,7 @@ function AttemptDialog({
             />
             <Field>
               <FieldLabel htmlFor="attempt-time">
-                Attempt time <LabelHint>optional</LabelHint>
+                Attempt Time <LabelHint>optional</LabelHint>
               </FieldLabel>
               <Input
                 id="attempt-time"
@@ -664,13 +677,14 @@ function AttemptDialog({
               <RichTextEditor
                 id="attempt-notes"
                 label="Notes"
+                labelHint={<LabelHint>optional</LabelHint>}
                 value={field.value}
                 onChange={field.onChange}
                 error={errors.notes?.message}
               />
             )}
           />
-          <div className="mt-5 flex justify-end gap-2.5">
+          <div className="mt-5 button-group">
             <Button
               variant="outline"
               type="button"
@@ -682,8 +696,8 @@ function AttemptDialog({
               {isSubmitting
                 ? 'Saving…'
                 : attempt
-                  ? 'Update attempt'
-                  : 'Save attempt'}
+                  ? 'Update Attempt'
+                  : 'Save Attempt'}
             </Button>
           </div>
         </form>

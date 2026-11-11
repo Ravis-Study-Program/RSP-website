@@ -12,4 +12,5 @@ export type EnrollmentUpdateRole =
 export const EnrollmentUpdateRole = {
   student: 'student',
   mentor: 'mentor',
+  coordinator: 'coordinator',
 } as const;

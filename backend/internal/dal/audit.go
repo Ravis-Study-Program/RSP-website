@@ -10,7 +10,7 @@ import (
 )
 
 func (p *Store) AppendAudit(ctx context.Context, event audit.Event) error {
-	return appendAuditTx(ctx, p.pool, event)
+	return appendAuditTx(ctx, p.conn(), event)
 }
 
 func appendAuditTx(ctx context.Context, db queryer, event audit.Event) error {

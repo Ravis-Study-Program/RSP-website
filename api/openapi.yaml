@@ -315,6 +315,34 @@ paths:
               },
           }
 
+  /invitations/invitee:
+    post:
+      operationId: getInvitationInvitee
+      description: 'Who an invitation is for, so a signed-out visitor holding the link can sign up with that name and email.'
+      security: []
+      requestBody:
+        {
+          required: true,
+          content:
+            {
+              application/json:
+                { schema: { $ref: '#/components/schemas/InvitationToken' } },
+            },
+        }
+      responses:
+        default: { $ref: '#/components/responses/Error' }
+        '200':
+          {
+            description: The invited name and email,
+            content:
+              {
+                application/json:
+                  {
+                    schema: { $ref: '#/components/schemas/InvitationInvitee' },
+                  },
+              },
+          }
+
   /invitations/accept:
     post:
       operationId: acceptInvitation
@@ -379,6 +407,70 @@ paths:
               {
                 application/json:
                   { schema: { $ref: '#/components/schemas/Invitation' } },
+              },
+          }
+
+  /seasons/{id}/invitations/batch:
+    parameters: [{ $ref: '#/components/parameters/ID' }]
+    post:
+      operationId: createInvitationBatch
+      description: 'Invites many people to one season, as from a spreadsheet, matching each row to a person by email. Someone already in the season is updated instead (role and mentor; name and username for a System Admin), and emailed if their role changes. Each row succeeds or fails on its own.'
+      requestBody:
+        {
+          required: true,
+          content:
+            {
+              application/json:
+                {
+                  schema:
+                    { $ref: '#/components/schemas/InvitationBatchCreate' },
+                },
+            },
+        }
+      responses:
+        default: { $ref: '#/components/responses/Error' }
+        '200':
+          {
+            description: One result per row,
+            content:
+              {
+                application/json:
+                  {
+                    schema:
+                      { $ref: '#/components/schemas/InvitationBatchResults' },
+                  },
+              },
+          }
+
+  /seasons/{id}/invitations/batch/preview:
+    parameters: [{ $ref: '#/components/parameters/ID' }]
+    post:
+      operationId: previewInvitationBatch
+      description: Says what createInvitationBatch would do with the same rows, without changing anything or sending email.
+      requestBody:
+        {
+          required: true,
+          content:
+            {
+              application/json:
+                {
+                  schema:
+                    { $ref: '#/components/schemas/InvitationBatchCreate' },
+                },
+            },
+        }
+      responses:
+        default: { $ref: '#/components/responses/Error' }
+        '200':
+          {
+            description: What would happen to each row,
+            content:
+              {
+                application/json:
+                  {
+                    schema:
+                      { $ref: '#/components/schemas/InvitationBatchResults' },
+                  },
               },
           }
 
@@ -485,6 +577,39 @@ paths:
         '409': { $ref: '#/components/responses/Error' }
         '401': { $ref: '#/components/responses/Error' }
         '429': { $ref: '#/components/responses/RateLimited' }
+  /seasons/import:
+    post:
+      operationId: importSeason
+      description: "Creates a season with all its weeks and their resources in one step, as from a spreadsheet; a new season runs from its first week's start to its last week's end. When an open season already has the slug it is updated instead: weeks are matched by number and replaced (a blank resources page keeps the existing one), other weeks are left alone, and the season's dates widen to hold every week."
+      requestBody:
+        {
+          required: true,
+          content:
+            {
+              application/json:
+                { schema: { $ref: '#/components/schemas/SeasonImport' } },
+            },
+        }
+      responses:
+        default: { $ref: '#/components/responses/Error' }
+        '200':
+          {
+            description: Updated season,
+            content:
+              {
+                application/json:
+                  { schema: { $ref: '#/components/schemas/Season' } },
+              },
+          }
+        '201':
+          {
+            description: Created season,
+            content:
+              {
+                application/json:
+                  { schema: { $ref: '#/components/schemas/Season' } },
+              },
+          }
   /seasons/{id}:
     parameters: [{ $ref: '#/components/parameters/ID' }]
     get:
@@ -748,6 +873,42 @@ paths:
       responses:
         default: { $ref: '#/components/responses/Error' }
         '204': { description: Deleted }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+        '401': { $ref: '#/components/responses/Error' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+  /seasons/{id}/weeks/{weekId}/resources:
+    parameters:
+      [
+        { $ref: '#/components/parameters/ID' },
+        { name: weekId, in: path, required: true, schema: { type: string } },
+      ]
+    put:
+      operationId: updateSeasonWeekResources
+      requestBody:
+        {
+          required: true,
+          content:
+            {
+              application/json:
+                {
+                  schema: { $ref: '#/components/schemas/WeekResourcesUpdate' },
+                },
+            },
+        }
+      responses:
+        default: { $ref: '#/components/responses/Error' }
+        '200':
+          {
+            description: Week with its updated resources page,
+            content:
+              {
+                application/json:
+                  { schema: { $ref: '#/components/schemas/Week' } },
+              },
+          }
+        '400': { $ref: '#/components/responses/Error' }
         '403': { $ref: '#/components/responses/Error' }
         '404': { $ref: '#/components/responses/Error' }
         '409': { $ref: '#/components/responses/Error' }
@@ -1880,6 +2041,25 @@ paths:
         '401': { $ref: '#/components/responses/Error' }
         '403': { $ref: '#/components/responses/Error' }
         '429': { $ref: '#/components/responses/RateLimited' }
+  /admin/users/{id}/deletion:
+    parameters: [{ $ref: '#/components/parameters/ID' }]
+    post:
+      operationId: deleteUser
+      description: Deletes an account at once, with no recovery. The person is signed out, their sign-in data is removed and they show as Deleted member. System Admins only, with recent MFA and an audited reason.
+      requestBody:
+        {
+          required: true,
+          content:
+            {
+              application/json:
+                {
+                  schema: { $ref: '#/components/schemas/UserDeletionRequest' },
+                },
+            },
+        }
+      responses:
+        default: { $ref: '#/components/responses/Error' }
+        '204': { description: Account deleted }
   /admin/users/{id}/account-state:
     parameters: [{ $ref: '#/components/parameters/ID' }]
     post:
@@ -3368,18 +3548,18 @@ components:
       }
     AdminProfileUpdate:
       type: object
-      required: [name, slug, avatarUrl, discordId]
+      required: [name, slug, discordId]
       properties:
         name: { type: string, minLength: 1, maxLength: 100 }
-        slug: { type: string, minLength: 3, maxLength: 50 }
-        avatarUrl: { type: string, nullable: true }
+        slug: { type: string, minLength: 2, maxLength: 50 }
         discordId: { type: string, nullable: true, maxLength: 100 }
     AdminProfile:
       allOf:
         - { $ref: '#/components/schemas/AdminProfileUpdate' }
         - type: object
-          required: [id, email]
+          required: [id, email, avatarUrl]
           properties:
+            avatarUrl: { type: string, nullable: true, readOnly: true }
             id: { type: string, format: uuid }
             email: { type: string, format: email }
 
@@ -3388,6 +3568,82 @@ components:
       required: [token]
       properties:
         token: { type: string, minLength: 43, maxLength: 43 }
+    InvitationBatchCreate:
+      type: object
+      required: [invitations]
+      properties:
+        invitations:
+          type: array
+          minItems: 1
+          maxItems: 200
+          items: { $ref: '#/components/schemas/InvitationBatchRow' }
+    InvitationBatchRow:
+      type: object
+      required: [name, email, role]
+      properties:
+        name: { type: string }
+        email: { type: string }
+        role: { type: string }
+        mentor:
+          type: string
+          description: "A student's mentor, by email, username or full name."
+        slug:
+          type: string
+          description: The person's username, if their account is new.
+    InvitationBatchResults:
+      type: object
+      required: [results]
+      properties:
+        applied:
+          type: boolean
+          description: 'False for a preview, or when a row failed: the import is all or nothing, so nothing was saved.'
+        results:
+          type: array
+          items: { $ref: '#/components/schemas/InvitationBatchResult' }
+    InvitationBatchResult:
+      type: object
+      required: [row, outcome]
+      properties:
+        row: { type: integer }
+        slug:
+          type: string
+          description: 'The username the person has or is given: the one in the row, or else one made from their name.'
+        outcome:
+          type: string
+          description: 'For a dry run: invite, update or unchanged. Once sent: invited, updated or unchanged. Or failed.'
+          enum: [invite, update, invited, updated, unchanged, failed]
+        person:
+          type: string
+          description: 'Who the email matched: new (no account), account (an account not in the season) or member (already in the season).'
+          enum: [new, account, member]
+        invitation: { $ref: '#/components/schemas/Invitation' }
+        role: { type: string }
+        changes:
+          type: array
+          items: { $ref: '#/components/schemas/ImportChange' }
+        skipped:
+          type: array
+          description: Fields the sheet differs on that this administrator may not change.
+          items: { $ref: '#/components/schemas/ImportChange' }
+        error: { type: string }
+    ImportChange:
+      type: object
+      required: [field, from, to]
+      properties:
+        field: { type: string }
+        from: { type: string }
+        to: { type: string }
+    UserDeletionRequest:
+      type: object
+      required: [reason]
+      properties:
+        reason: { type: string, minLength: 1, maxLength: 500 }
+    InvitationInvitee:
+      type: object
+      required: [name, email]
+      properties:
+        name: { type: string }
+        email: { type: string, format: email }
     InvitationCreate:
       type: object
       required: [name, email, role]
@@ -3395,6 +3651,10 @@ components:
         name: { type: string, minLength: 1, maxLength: 100 }
         email: { type: string, format: email }
         role: { type: string, enum: [student, mentor, coordinator] }
+        mentorUserId:
+          type: string
+          format: uuid
+          description: A student's mentor; accepting the invitation assigns them.
     Invitation:
       type: object
       required:
@@ -3409,6 +3669,8 @@ components:
           status,
           expiresAt,
           sentAt,
+          mentorUserId,
+          acceptedBy,
         ]
       properties:
         id: { type: string, format: uuid }
@@ -3421,6 +3683,20 @@ components:
         status: { type: string, enum: [pending, accepted, cancelled, expired] }
         expiresAt: { type: string, format: date-time }
         sentAt: { type: string, format: date-time, nullable: true }
+        mentorUserId:
+          type: string
+          format: uuid
+          nullable: true
+          description: The mentor a student was invited to.
+        acceptedBy:
+          type: string
+          format: uuid
+          nullable: true
+          description: The account that accepted the invitation.
+        profileSlug:
+          type: string
+          nullable: true
+          description: The username the person gets on accepting with a new account.
     InvitationPage:
       type: object
       required: [items, pageInfo, totalCount]
@@ -3567,7 +3843,6 @@ components:
           name: { type: string, minLength: 1, maxLength: 100 },
           slug:
             { type: string, pattern: '^[a-z0-9](?:[a-z0-9-]{1,48}[a-z0-9])?$' },
-          avatarUrl: { type: string, format: uri, nullable: true },
           timezone: { type: string },
         }
     SlugSuggestion:
@@ -3785,6 +4060,34 @@ components:
         location: { type: string }
         imageUrl: { type: string, format: uri }
         resourcesUrl: { type: string, format: uri }
+    SeasonImport:
+      type: object
+      required: [name, slug, location, imageUrl, resourcesUrl, weeks]
+      properties:
+        name: { type: string, minLength: 1 }
+        slug:
+          {
+            type: string,
+            minLength: 1,
+            maxLength: 50,
+            pattern: '^[a-z0-9]+(?:-[a-z0-9]+)*$',
+          }
+        location: { type: string }
+        imageUrl: { type: string }
+        resourcesUrl: { type: string }
+        weeks:
+          type: array
+          minItems: 1
+          maxItems: 52
+          items: { $ref: '#/components/schemas/SeasonImportWeek' }
+    SeasonImportWeek:
+      type: object
+      required: [number, startAt, endAt, resourcesHtml]
+      properties:
+        number: { type: integer, minimum: 1 }
+        startAt: { type: string, format: date-time }
+        endAt: { type: string, format: date-time }
+        resourcesHtml: { type: string }
     SeasonUpdate:
       allOf:
         - $ref: '#/components/schemas/SeasonMutation'
@@ -3815,7 +4118,7 @@ components:
       }
     Week:
       type: object
-      required: [id, seasonId, number, startAt, endAt, resourceUrl]
+      required: [id, seasonId, number, startAt, endAt, resourcesHtml]
       properties:
         {
           id: { type: string },
@@ -3823,8 +4126,13 @@ components:
           number: { type: integer, minimum: 1 },
           startAt: { type: string, format: date-time },
           endAt: { type: string, format: date-time },
-          resourceUrl: { type: string },
+          resourcesHtml: { type: string, maxLength: 50000 },
         }
+    WeekResourcesUpdate:
+      type: object
+      additionalProperties: false
+      required: [resourcesHtml]
+      properties: { resourcesHtml: { type: string, maxLength: 50000 } }
     WeekMutation:
       type: object
       additionalProperties: false
@@ -3834,7 +4142,6 @@ components:
           number: { type: integer, minimum: 1 },
           startAt: { type: string, format: date-time },
           endAt: { type: string, format: date-time },
-          resourceUrl: { type: string, format: uri },
         }
     WeekUpdate:
       type: object
@@ -3845,7 +4152,6 @@ components:
           number: { type: integer, minimum: 1 },
           startAt: { type: string, format: date-time },
           endAt: { type: string, format: date-time },
-          resourceUrl: { type: string, format: uri },
         }
     WeekPage:
       {
@@ -3997,7 +4303,7 @@ components:
       required: [role]
       properties:
         {
-          role: { type: string, enum: [student, mentor] },
+          role: { type: string, enum: [student, mentor, coordinator] },
           studentLevel:
             {
               type: string,

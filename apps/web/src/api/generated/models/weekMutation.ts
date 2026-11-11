@@ -11,5 +11,4 @@ export interface WeekMutation {
   number: number;
   startAt: string;
   endAt: string;
-  resourceUrl?: string;
 }

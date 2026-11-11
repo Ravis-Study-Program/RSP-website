@@ -82,8 +82,8 @@ func TestMockWeekSelectionRecalculatesDatesAndBindsCursors(t *testing.T) {
 
 func TestFormerMembersCanReadOwnWeekDatesWithoutResourceLinks(t *testing.T) {
 	f := newPostgresFixture(t)
-	if _, err := f.pool.Exec(context.Background(), `INSERT INTO app.season_weeks(id,season_id,week_number,start_at,end_at,resource_url)
-		VALUES($1,$2,1,'2026-01-01','2026-01-07','https://example.test/private-week')`, id.New(), seasonID); err != nil {
+	if _, err := f.pool.Exec(context.Background(), `INSERT INTO app.season_weeks(id,season_id,week_number,start_at,end_at,resources_html)
+		VALUES($1,$2,1,'2026-01-01','2026-01-07','<p>Private week</p>')`, id.New(), seasonID); err != nil {
 		t.Fatal(err)
 	}
 	for _, state := range []authz.EnrollmentState{authz.Active, authz.Kicked, authz.Withdrawn} {
@@ -98,7 +98,7 @@ func TestFormerMembersCanReadOwnWeekDatesWithoutResourceLinks(t *testing.T) {
 			if err := json.Unmarshal(response.Body.Bytes(), &result); err != nil || response.Code != 200 || len(result.Items) != 1 || result.Items[0].StartAt.IsZero() {
 				t.Fatalf("week metadata=%d %s error=%v", response.Code, response.Body, err)
 			}
-			if (result.Items[0].ResourceURL != "") != (state == authz.Active) {
+			if (result.Items[0].ResourcesHTML != "") != (state == authz.Active) {
 				t.Fatalf("resource visibility for %s: %+v", state, result.Items[0])
 			}
 			if response := testRequest(t, handler, http.MethodGet, "/api/v2/seasons/"+id.New()+"/weeks", "student", ""); state != authz.Active && response.Code != 403 {

@@ -51,3 +51,12 @@ describe('account lifecycle policy', () => {
     ).toBe(false);
   });
 });
+
+describe('administrator erase', () => {
+  it('deletes at once from any state but deleted', () => {
+    expect(nextAccountState('active', 'erase')).toBe('deleted');
+    expect(nextAccountState('suspended', 'erase')).toBe('deleted');
+    expect(nextAccountState('deletion_pending', 'erase')).toBe('deleted');
+    expect(() => nextAccountState('deleted', 'erase')).toThrow();
+  });
+});

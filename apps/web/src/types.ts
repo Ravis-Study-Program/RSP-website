@@ -73,7 +73,16 @@ export interface Person {
   avatarUrl: string | null;
   roles: Role[];
   season: string | null;
-  status: 'active' | 'completed' | 'unassigned' | 'kicked' | 'withdrawn' | null;
+  status:
+    | 'active'
+    | 'completed'
+    | 'unassigned'
+    | 'kicked'
+    | 'withdrawn'
+    | 'suspended'
+    | 'deletion_pending'
+    | 'deleted'
+    | null;
   attempts: number | null;
   interviews: number | null;
   mocksReceived?: number;

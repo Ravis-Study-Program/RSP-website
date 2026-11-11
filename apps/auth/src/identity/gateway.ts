@@ -16,7 +16,16 @@ export type IdentityLifecycleEvent = LifecycleEventIdentity &
         readonly type: 'auth_user_created';
         readonly authUserId: string;
         readonly email: string;
+        /** The name given at sign-up (or by Google or Discord). */
+        readonly name?: string;
         readonly emailVerified: boolean;
+        readonly securityVersion: number;
+        readonly occurredAt: string;
+      }
+    | {
+        readonly type: 'discord_avatar_updated';
+        readonly authUserId: string;
+        readonly avatarUrl: string | null;
         readonly securityVersion: number;
         readonly occurredAt: string;
       }
@@ -110,6 +119,33 @@ export class HttpIdentityLifecycleGateway implements IdentityLifecycleGateway {
       throw new Error(
         `identity lifecycle callback failed with status ${response.status}`,
       );
+    }
+  }
+
+  /**
+   * Whether a live invitation with this token was sent to this email. Any
+   * failure counts as no match, so sign-up falls back to email verification.
+   */
+  async invitationSentTo(token: string, email: string): Promise<boolean> {
+    const fetchImplementation = this.options.fetchImplementation ?? fetch;
+    try {
+      const response = await fetchImplementation(
+        `${this.options.baseUrl}/internal/auth/invitation-email`,
+        {
+          method: 'POST',
+          headers: {
+            authorization: `Bearer ${this.options.token}`,
+            'content-type': 'application/json',
+          },
+          body: JSON.stringify({ token, email }),
+          signal: AbortSignal.timeout(this.options.timeoutMs),
+        },
+      );
+      if (!response.ok) return false;
+      const result = (await response.json()) as { matches?: unknown };
+      return result.matches === true;
+    } catch {
+      return false;
     }
   }
 }

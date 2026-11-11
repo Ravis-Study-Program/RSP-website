@@ -15,6 +15,10 @@ type IdentityEvent struct {
 	SecurityVersion                                                     int64
 	OccurredAt                                                          time.Time
 	RecoveryDeadline                                                    *time.Time
+	AvatarURL                                                           *string
+	// Name is the name given at sign-up (or by Google or Discord), for a new
+	// account's profile.
+	Name string
 }
 
 // IdentityEventHash returns the stable replay-detection hash for an event.
@@ -27,7 +31,9 @@ func IdentityEventHash(event IdentityEvent) string {
 		Type, AuthUserID, Email, Reason, AccountState, ActorUserID, OccurredAt, RecoveryDeadline string
 		EmailVerified                                                                            bool
 		SecurityVersion                                                                          int64
-	}{event.Type, event.AuthUserID, event.Email, event.Reason, event.AccountState, event.ActorUserID, event.OccurredAt.UTC().Format(time.RFC3339Nano), recoveryDeadline, event.EmailVerified, event.SecurityVersion})
+		AvatarURL                                                                                *string `json:",omitempty"`
+		Name                                                                                     string  `json:",omitempty"`
+	}{event.Type, event.AuthUserID, event.Email, event.Reason, event.AccountState, event.ActorUserID, event.OccurredAt.UTC().Format(time.RFC3339Nano), recoveryDeadline, event.EmailVerified, event.SecurityVersion, event.AvatarURL, event.Name})
 	sum := sha256.Sum256(payload)
 	return hex.EncodeToString(sum[:])
 }

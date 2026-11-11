@@ -21,7 +21,7 @@ type GrantGlobalRoleInput struct {
 }
 
 func (p *Store) GrantGlobalRole(ctx context.Context, input GrantGlobalRoleInput) (accounts.GlobalRoleAssignment, error) {
-	tx, err := p.pool.Begin(ctx)
+	tx, err := p.conn().Begin(ctx)
 	if err != nil {
 		return accounts.GlobalRoleAssignment{}, err
 	}
@@ -59,14 +59,14 @@ func (p *Store) GrantGlobalRole(ctx context.Context, input GrantGlobalRoleInput)
 
 func (p *Store) ListGlobalRoles(ctx context.Context, userID string) ([]accounts.GlobalRoleAssignment, error) {
 	var userCount int64
-	if err := p.pool.QueryRow(ctx, `SELECT count(*) FROM app.users WHERE id = $1 AND deleted_at IS NULL`, userID).Scan(&userCount); err != nil {
+	if err := p.conn().QueryRow(ctx, `SELECT count(*) FROM app.users WHERE id = $1 AND deleted_at IS NULL`, userID).Scan(&userCount); err != nil {
 		return nil, err
 	}
 	if userCount == 0 {
 		return nil, ErrNotFound
 	}
 
-	rows, err := p.pool.Query(ctx, `SELECT id,user_id,role::text,state::text FROM app.global_role_assignments WHERE user_id=$1 AND state<>'revoked' ORDER BY role`, userID)
+	rows, err := p.conn().Query(ctx, `SELECT id,user_id,role::text,state::text FROM app.global_role_assignments WHERE user_id=$1 AND state<>'revoked' ORDER BY role`, userID)
 	if err != nil {
 		return nil, err
 	}
@@ -82,7 +82,7 @@ type RevokeGlobalRoleInput struct {
 }
 
 func (p *Store) RevokeGlobalRole(ctx context.Context, input RevokeGlobalRoleInput) (accounts.GlobalRoleAssignment, error) {
-	tx, err := p.pool.Begin(ctx)
+	tx, err := p.conn().Begin(ctx)
 	if err != nil {
 		return accounts.GlobalRoleAssignment{}, err
 	}

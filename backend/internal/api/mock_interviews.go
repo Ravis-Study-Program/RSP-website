@@ -387,7 +387,8 @@ func (a *API) updateMockInterview(w http.ResponseWriter, r *http.Request) {
 		a.writeStoreErrorResponse(w, err)
 		return
 	}
-	if actor.UserID != storedInterview.InterviewerID {
+	canManage := actor.CanManageMockInterviews(storedInterview.SeasonID)
+	if actor.UserID != storedInterview.InterviewerID && !canManage {
 		writeErrorResponse(w, http.StatusNotFound, "The requested resource does not exist.")
 		return
 	}
@@ -402,7 +403,7 @@ func (a *API) updateMockInterview(w http.ResponseWriter, r *http.Request) {
 		Notes:           request.Notes,
 		Rounds:          mockRoundsFromRequest(request.Rounds),
 	}
-	storedInterview, err = a.mockRules.Update(storedInterview, actor.UserID, input)
+	storedInterview, err = a.mockRules.Update(storedInterview, actor.UserID, canManage, input)
 	if err != nil {
 		a.writeMockErrorResponse(w, err)
 		return
@@ -434,12 +435,13 @@ func (a *API) deleteMockInterview(w http.ResponseWriter, r *http.Request) {
 		a.writeStoreErrorResponse(w, err)
 		return
 	}
-	if actor.UserID != storedInterview.InterviewerID {
+	canManage := actor.CanManageMockInterviews(storedInterview.SeasonID)
+	if actor.UserID != storedInterview.InterviewerID && !canManage {
 		writeErrorResponse(w, http.StatusNotFound, "The requested resource does not exist.")
 		return
 	}
 	now := time.Now().UTC()
-	storedInterview, err = a.mockRules.Delete(storedInterview, actor.UserID, now)
+	storedInterview, err = a.mockRules.Delete(storedInterview, actor.UserID, canManage, now)
 	if err != nil {
 		a.writeMockErrorResponse(w, err)
 		return

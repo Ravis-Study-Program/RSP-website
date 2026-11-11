@@ -1,3 +1,4 @@
+import { personOptions } from '@/components/personOptions';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -122,7 +123,7 @@ export function SeasonWeekChoices({
   }));
   return (
     <Field>
-      <FieldLabel htmlFor={selectId}>Season weeks</FieldLabel>
+      <FieldLabel htmlFor={selectId}>Season Weeks</FieldLabel>
       <Select
         multiple
         items={items}
@@ -217,10 +218,7 @@ export function MockFilters({
           {participantLabel}
           <Select
             multiple
-            items={people.map((person) => ({
-              label: person.name,
-              value: person.id,
-            }))}
+            items={personOptions(people)}
             value={filters[participantKey]}
             onValueChange={(selected) =>
               onChange({ [participantKey]: selected })

@@ -213,7 +213,7 @@ function CanaryRoleForm({
         </p>
       ) : null}
       <Button type="submit" disabled={pending}>
-        {pending ? 'Saving…' : 'Save roles'}
+        {pending ? 'Saving…' : 'Save Roles'}
       </Button>
     </form>
   );

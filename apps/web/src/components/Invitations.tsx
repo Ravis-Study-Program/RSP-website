@@ -1,5 +1,18 @@
+import { personOptions } from '@/components/personOptions';
+import { isValidEmail } from '@/utils';
 import { Button } from '@/components/ui/button';
-import { PageSection } from '@/components/Common';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import {
+  IconDotsVertical,
+  IconMail,
+  IconSend,
+  IconX,
+} from '@tabler/icons-react';
 import { Field, FieldLabel } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
 import {
@@ -10,16 +23,19 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiRequest } from '@/api/client';
-import { demoMode, fetchAllPages } from '@/api/queries';
+import {
+  demoMode,
+  fetchAllPages,
+  usePeople,
+  useSeasonEnrollments,
+} from '@/api/queries';
 import type { Invitation, InvitationCreate } from '@/api/generated/models';
-import { FormDialog } from '@/components/Dialogs';
-import { DataTable } from '@/components/DataTable';
+import { LabelHint } from '@/components/Common';
+import { FormDialog, DialogCancel } from '@/components/Dialogs';
 import type { Season } from '@/types';
-import { formatDateTime } from '@/utils';
-import { roleSortingFn } from '@/sortOrder';
 
 const formStack = 'grid gap-4';
 const notice = 'text-sm text-muted-foreground';
@@ -29,7 +45,36 @@ const invitationRoleItems = [
   { label: 'Coordinator', value: 'coordinator' },
 ];
 
-export function Invitations({ season }: { season: Season }) {
+export interface InvitationParts {
+  /** The header button that opens the invitation form. */
+  invite: ReactNode;
+  invitations: Invitation[];
+  loading: boolean;
+  error: boolean;
+  refetch: () => void;
+  /** A pending or expired invitation's row menu: resend or cancel. */
+  menuFor: (invitation: Invitation) => ReactNode;
+  /** The latest invitation outcome, for a status line above the table. */
+  status: string;
+}
+
+/**
+ * A season's invitations, handed to `render` in parts so the page can put the
+ * invite button in its header and the invitations in its table. The invite
+ * form starts on that season but can invite to any of `seasons`; accepting
+ * enrols the person in the invitation's season. A student can be invited
+ * together with a mentor from that season.
+ */
+export function Invitations({
+  season,
+  seasons,
+  render,
+}: {
+  season: Season;
+  /** The seasons the invite form offers. */
+  seasons: Season[];
+  render: (parts: InvitationParts) => ReactNode;
+}) {
   const client = useQueryClient();
   const key = ['invitations', season.id];
   const query = useQuery({
@@ -57,9 +102,47 @@ export function Invitations({ season }: { season: Season }) {
     email: '',
     role: 'student',
   });
+  const [inviteSeasonId, setInviteSeasonId] = useState(season.id);
+  const inviteSeason = seasons.find((item) => item.id === inviteSeasonId);
+  // Mentors come from the season the invitation is for.
+  const people = usePeople(open);
+  const enrollments = useSeasonEnrollments(open ? inviteSeasonId : undefined);
+  const mentors = (people.data?.items ?? []).filter((person) =>
+    (enrollments.data?.items ?? []).some(
+      (enrollment) =>
+        enrollment.userId === person.id &&
+        enrollment.state === 'active' &&
+        (enrollment.role === 'mentor' || enrollment.role === 'coordinator'),
+    ),
+  );
+  const seasonItems = seasons.map((item) => ({
+    label: item.name,
+    value: item.id,
+  }));
+  const mentorItems = [
+    { label: 'No mentor yet', value: '' },
+    ...personOptions(mentors),
+  ];
   async function save(invitation?: Invitation, action?: 'resend' | 'cancel') {
-    setBusy(true);
+    // A new invitation goes to the season chosen in the form.
+    const target = invitation ? season : (inviteSeason ?? season);
+    const targetKey = ['invitations', target.id];
     setMessage('');
+    // Only a new invitation takes the address from the form.
+    if (!invitation && !isValidEmail(form.email)) {
+      setMessage('Enter a valid email address, such as name@example.com.');
+      return;
+    }
+    setBusy(true);
+    // A mentor only goes with a student invitation.
+    const body: InvitationCreate = {
+      name: form.name,
+      email: form.email,
+      role: form.role,
+      ...(form.role === 'student' && form.mentorUserId
+        ? { mentorUserId: form.mentorUserId }
+        : {}),
+    };
     try {
       const at = new Date();
       const saved: Invitation = demoMode
@@ -67,41 +150,42 @@ export function Invitations({ season }: { season: Season }) {
             id: invitation?.id ?? crypto.randomUUID(),
             ...form,
             ...invitation,
-            seasonId: season.id,
-            seasonName: season.name,
-            seasonSlug: season.slug,
+            seasonId: target.id,
+            seasonName: target.name,
+            seasonSlug: target.slug,
             expiresAt: new Date(at.getTime() + 7 * 86400000).toISOString(),
             sentAt: at.toISOString(),
             status: action === 'cancel' ? 'cancelled' : 'pending',
+            mentorUserId: invitation?.mentorUserId ?? form.mentorUserId ?? null,
+            acceptedBy: null,
           }
         : await apiRequest<Invitation>(
-            `/seasons/${season.id}/invitations${invitation ? `/${invitation.id}/${action}` : ''}`,
+            `/seasons/${target.id}/invitations${invitation ? `/${invitation.id}/${action}` : ''}`,
             {
               method: 'POST',
-              ...(invitation ? {} : { body: JSON.stringify(form) }),
+              ...(invitation ? {} : { body: JSON.stringify(body) }),
             },
           );
-      if (demoMode)
-        client.setQueryData(key, {
-          items: [
-            ...(query.data?.items ?? []).filter((i) => i.id !== saved.id),
-            saved,
-          ],
-          totalCount:
-            (query.data?.items ?? []).filter((i) => i.id !== saved.id).length +
-            1,
+      if (demoMode) {
+        const others = (
+          client.getQueryData<{ items: Invitation[] }>(targetKey)?.items ?? []
+        ).filter((i) => i.id !== saved.id);
+        client.setQueryData(targetKey, {
+          items: [...others, saved],
+          totalCount: others.length + 1,
           pageInfo: { hasMore: false, nextCursor: null, previousCursor: null },
         });
-      else await client.invalidateQueries({ queryKey: key });
+      } else await client.invalidateQueries({ queryKey: targetKey });
       setMessage(
         saved.status === 'cancelled'
           ? 'Invitation cancelled.'
           : saved.sentAt
-            ? 'Invitation email queued. The recipient has 7 days to accept.'
+            ? `Invitation email queued for ${target.name}. The recipient has 7 days to accept.`
             : 'Invitation saved, but the email could not be queued. Use Resend to try again.',
       );
       setOpen(false);
       setForm({ name: '', email: '', role: 'student' });
+      setInviteSeasonId(season.id);
     } catch (e) {
       setMessage(
         e instanceof Error ? e.message : 'Unable to update this invitation.',
@@ -110,181 +194,187 @@ export function Invitations({ season }: { season: Season }) {
       setBusy(false);
     }
   }
-  const actions = (invitation: Invitation) =>
+  const menuFor = (invitation: Invitation) =>
     ['pending', 'expired'].includes(invitation.status) &&
     season.status === 'open' ? (
-      <div className="flex flex-wrap items-center gap-2.5">
-        <Button
-          variant="outline"
-          size="sm"
-          type="submit"
-          disabled={busy}
-          onClick={() => void save(invitation, 'resend')}
+      <DropdownMenu>
+        <DropdownMenuTrigger
+          render={<Button variant="ghost" size="icon" disabled={busy} />}
+          aria-label={`More actions for ${invitation.name}`}
         >
-          Resend
-        </Button>
-        <Button
-          variant="destructive"
-          size="sm"
-          type="submit"
-          disabled={busy}
-          onClick={() => void save(invitation, 'cancel')}
-        >
-          Cancel invitation
-        </Button>
-      </div>
-    ) : null;
-  return (
-    <PageSection
-      titleId="invitations-title"
-      title="Invitations"
-      actions={
-        <>
-          <FormDialog
-            open={open}
-            onOpenChange={(next) => {
-              if (
-                !next &&
-                (form.name || form.email) &&
-                !window.confirm('Discard this unsent invitation?')
-              )
-                return;
-              setOpen(next);
-            }}
-            title="Invite a Member"
-            trigger={season.status === 'open' ? 'Invite a member' : undefined}
+          <IconDotsVertical size={18} aria-hidden="true" />
+        </DropdownMenuTrigger>
+        <DropdownMenuContent>
+          <DropdownMenuItem onClick={() => void save(invitation, 'resend')}>
+            <IconSend size={17} aria-hidden="true" /> Resend
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            variant="destructive"
+            onClick={() => void save(invitation, 'cancel')}
           >
-            <form
-              onSubmit={(e) => {
-                e.preventDefault();
-                void save();
-              }}
-              className={formStack}
-            >
-              <Field>
-                <FieldLabel htmlFor="invitation-name">Name</FieldLabel>
-                <Input
-                  id="invitation-name"
-                  required
-                  maxLength={100}
-                  value={form.name}
-                  onChange={(e) => setForm({ ...form, name: e.target.value })}
-                />
-              </Field>
-              <Field>
-                <FieldLabel htmlFor="invitation-email">Email</FieldLabel>
-                <Input
-                  id="invitation-email"
-                  type="email"
-                  required
-                  maxLength={254}
-                  value={form.email}
-                  onChange={(e) => setForm({ ...form, email: e.target.value })}
-                />
-              </Field>
-              <Field>
-                <FieldLabel htmlFor="invitation-role">Role</FieldLabel>
-                <Select
-                  items={invitationRoleItems}
-                  value={form.role}
-                  onValueChange={(value) => {
-                    if (value)
-                      setForm({
-                        ...form,
-                        role: value as InvitationCreate['role'],
-                      });
-                  }}
-                >
-                  <SelectTrigger id="invitation-role" className="w-full">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectGroup>
-                      {invitationRoleItems.map((item) => (
-                        <SelectItem key={item.value} value={item.value}>
-                          {item.label}
-                        </SelectItem>
-                      ))}
-                    </SelectGroup>
-                  </SelectContent>
-                </Select>
-              </Field>
-              {form.role === 'coordinator' ? (
-                <p className={notice}>
-                  Coordinator access becomes active after MFA is configured.
-                </p>
-              ) : null}
-              {/* Gate on open: the dialog stays mounted through its close
-                animation, which would briefly duplicate the section status. */}
-              {message && open ? (
-                <p role="status" className={notice}>
-                  {message}
-                </p>
-              ) : null}
-              <div>
-                <Button type="submit" disabled={busy}>
-                  {busy ? 'Sending…' : 'Send invitation'}
-                </Button>
-              </div>
-            </form>
-          </FormDialog>
-        </>
+            <IconX size={17} aria-hidden="true" /> Cancel Invitation
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    ) : null;
+  const invite = (
+    <FormDialog
+      open={open}
+      onOpenChange={(next) => {
+        if (
+          !next &&
+          (form.name || form.email) &&
+          !window.confirm('Discard this unsent invitation?')
+        )
+          return;
+        if (next) setInviteSeasonId(season.id);
+        setOpen(next);
+      }}
+      title="Invite a Member"
+      trigger={
+        season.status === 'open' ? (
+          <>
+            <IconMail size={17} aria-hidden="true" /> Invite a Member
+          </>
+        ) : undefined
       }
     >
-      {message && !open ? (
-        <p role="status" className={`${notice} mb-3`}>
-          {message}
-        </p>
-      ) : null}
-      <DataTable
-        ariaLabel="Season invitations"
-        data={query.data?.items ?? []}
-        columns={[
-          { accessorKey: 'name', header: 'Name' },
-          { accessorKey: 'email', header: 'Email' },
-          { accessorKey: 'role', header: 'Role', sortingFn: roleSortingFn },
-          {
-            accessorKey: 'status',
-            header: 'Status',
-            cell: ({ row }) =>
-              row.original.status === 'pending' && !row.original.sentAt
-                ? 'Pending · email not queued'
-                : statusLabel(row.original.status),
-          },
-          {
-            accessorKey: 'expiresAt',
-            header: 'Expires',
-            cell: ({ getValue }) => formatDateTime(String(getValue())),
-          },
-          {
-            id: 'actions',
-            header: 'Actions',
-            meta: { align: 'end' },
-            cell: ({ row }) => actions(row.original),
-          },
-        ]}
-        loading={query.isLoading}
-        error={query.isError}
-        onRetry={() => void query.refetch()}
-        emptyTitle="No Invitations"
-        emptyMessage="Invite someone using their name and email address."
-        getRowId={(i) => i.id}
-        renderCard={({ original: i }) => (
-          <div>
-            <strong>{i.name}</strong>
-            <p className={notice}>
-              {i.email} · {i.role} · {statusLabel(i.status)}
-              {!i.sentAt && i.status === 'pending' ? ' · email not queued' : ''}
-            </p>
-            {actions(i)}
-          </div>
-        )}
-      />
-    </PageSection>
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          void save();
+        }}
+        className={formStack}
+      >
+        <Field>
+          <FieldLabel htmlFor="invitation-season">Season</FieldLabel>
+          <Select
+            items={seasonItems}
+            value={inviteSeasonId}
+            onValueChange={(value) => {
+              if (!value) return;
+              setInviteSeasonId(value);
+              // Mentors differ by season, so the mentor starts over.
+              setForm({ ...form, mentorUserId: undefined });
+            }}
+          >
+            <SelectTrigger id="invitation-season" className="w-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectGroup>
+                {seasonItems.map((item) => (
+                  <SelectItem key={item.value} value={item.value}>
+                    {item.label}
+                  </SelectItem>
+                ))}
+              </SelectGroup>
+            </SelectContent>
+          </Select>
+        </Field>
+        <Field>
+          <FieldLabel htmlFor="invitation-name">Name</FieldLabel>
+          <Input
+            id="invitation-name"
+            required
+            maxLength={100}
+            value={form.name}
+            onChange={(e) => setForm({ ...form, name: e.target.value })}
+          />
+        </Field>
+        <Field>
+          <FieldLabel htmlFor="invitation-email">Email</FieldLabel>
+          <Input
+            id="invitation-email"
+            type="email"
+            required
+            maxLength={254}
+            value={form.email}
+            onChange={(e) => setForm({ ...form, email: e.target.value })}
+          />
+        </Field>
+        <Field>
+          <FieldLabel htmlFor="invitation-role">Role</FieldLabel>
+          <Select
+            items={invitationRoleItems}
+            value={form.role}
+            onValueChange={(value) => {
+              if (value)
+                setForm({
+                  ...form,
+                  role: value as InvitationCreate['role'],
+                });
+            }}
+          >
+            <SelectTrigger id="invitation-role" className="w-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectGroup>
+                {invitationRoleItems.map((item) => (
+                  <SelectItem key={item.value} value={item.value}>
+                    {item.label}
+                  </SelectItem>
+                ))}
+              </SelectGroup>
+            </SelectContent>
+          </Select>
+        </Field>
+        {form.role === 'student' ? (
+          <Field>
+            <FieldLabel htmlFor="invitation-mentor">
+              Mentor <LabelHint>optional</LabelHint>
+            </FieldLabel>
+            <Select
+              items={mentorItems}
+              value={form.mentorUserId ?? ''}
+              onValueChange={(value) =>
+                setForm({ ...form, mentorUserId: value || undefined })
+              }
+            >
+              <SelectTrigger id="invitation-mentor" className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectGroup>
+                  {mentorItems.map((item) => (
+                    <SelectItem key={item.value} value={item.value}>
+                      {item.label}
+                    </SelectItem>
+                  ))}
+                </SelectGroup>
+              </SelectContent>
+            </Select>
+          </Field>
+        ) : null}
+        {form.role === 'coordinator' ? (
+          <p className={notice}>
+            Coordinator access becomes active after MFA is configured.
+          </p>
+        ) : null}
+        {/* Gate on open: the dialog stays mounted through its close
+                animation, which would briefly duplicate the section status. */}
+        {message && open ? (
+          <p role="status" className={notice}>
+            {message}
+          </p>
+        ) : null}
+        <div className="button-group">
+          <DialogCancel />
+          <Button type="submit" disabled={busy || !inviteSeason}>
+            {busy ? 'Sending…' : 'Send Invitation'}
+          </Button>
+        </div>
+      </form>
+    </FormDialog>
   );
-}
-
-function statusLabel(status: string) {
-  const text = status.replace(/_/g, ' ');
-  return text.charAt(0).toUpperCase() + text.slice(1);
+  return render({
+    invite,
+    invitations: query.data?.items ?? [],
+    loading: query.isLoading,
+    error: query.isError,
+    refetch: () => void query.refetch(),
+    menuFor,
+    status: open ? '' : message,
+  });
 }

@@ -1,3 +1,5 @@
+import { useSeasonSwitcher } from '@/components/useSeasonSwitcher';
+import { Tooltip } from '@/components/ui/tooltip';
 import { StatusBadge } from '@/components/StatusBadge';
 import { Button } from '@/components/ui/button';
 import { Field, FieldError, FieldLabel } from '@/components/ui/field';
@@ -30,7 +32,13 @@ import {
   IconX,
 } from '@tabler/icons-react';
 import { useMemo, useState, type FormEvent, type ReactNode } from 'react';
-import { Link, Navigate, useParams, useSearchParams } from 'react-router-dom';
+import {
+  Link,
+  Navigate,
+  useNavigate,
+  useParams,
+  useSearchParams,
+} from 'react-router-dom';
 
 import {
   defaultMondayUpdateRange,
@@ -80,7 +88,11 @@ import {
   LabelHint,
 } from '@/components/Common';
 import { DataTable, ExpandRowButton } from '@/components/DataTable';
-import { FormDialog, NamedConfirmation } from '@/components/Dialogs';
+import {
+  FormDialog,
+  NamedConfirmation,
+  DialogCancel,
+} from '@/components/Dialogs';
 import { cn } from '@/lib/utils';
 import { RichTextContent } from '@/components/RichTextContent';
 import {
@@ -165,6 +177,7 @@ export function MondayUpdatesPage() {
   const season = seasons.data?.items.find((item) => item.slug === slug);
   const weeks = useSeasonWeeks(season?.id);
   const [searchParams, setSearchParams] = useSearchParams();
+  const navigate = useNavigate();
 
   const actor = user.data;
   const membership = actor?.seasonRoles.find(
@@ -175,9 +188,17 @@ export function MondayUpdatesPage() {
       (role) => role === 'director' || role === 'system_admin',
     ),
   );
-  const experience: Experience | null =
-    isGlobalManager ||
-    (membership?.role === 'coordinator' && membership.state === 'active')
+  // An admin who also mentors in this season can switch to their own mentees.
+  const mentoringHere =
+    membership?.role === 'mentor' &&
+    (membership.state === 'active' || membership.state === 'completed');
+  const canSwitchView = isGlobalManager && mentoringHere;
+  const mineView = canSwitchView && searchParams.get('view') === 'mine';
+  const viewParam: Record<string, string> = mineView ? { view: 'mine' } : {};
+  const experience: Experience | null = mineView
+    ? 'mentor'
+    : isGlobalManager ||
+        (membership?.role === 'coordinator' && membership.state === 'active')
       ? 'reviewer'
       : membership?.role === 'mentor' &&
           (membership.state === 'active' || membership.state === 'completed')
@@ -332,6 +353,28 @@ export function MondayUpdatesPage() {
   );
   const writeWeek = linkedWeek ?? [...startedWeeks].reverse().find(writable);
   const canPost = season.status === 'open' && membership?.state === 'active';
+  // Mentors and coordinators pick the season here rather than switching
+  // workspace: Directors and System Admins can open any season, everyone else
+  // the seasons where they mentor or coordinate.
+  const seasonItems =
+    experience === 'mentor' || experience === 'reviewer'
+      ? (seasons.data?.items ?? [])
+          .filter(
+            (item) =>
+              isGlobalManager ||
+              actor.seasonRoles.some(
+                (entry) =>
+                  entry.seasonId === item.id &&
+                  ((entry.role === 'coordinator' && entry.state === 'active') ||
+                    (entry.role === 'mentor' &&
+                      (entry.state === 'active' ||
+                        entry.state === 'completed'))),
+              ),
+          )
+          .map((item) => ({ value: item.slug, label: item.name }))
+      : [];
+  const goToSeason = (nextSlug: string) =>
+    navigate(`/seasons/${encodeURIComponent(nextSlug)}/monday-updates`);
   const weekItems = [
     ...(experience === 'mentor'
       ? [{ value: 'all', label: 'All updates' }]
@@ -480,6 +523,25 @@ export function MondayUpdatesPage() {
               student={actor}
               defaultOpen={writeWeek.id === searchParams.get('week')}
             />
+          ) : canSwitchView ? (
+            <div role="group" aria-label="Updates view" className="flex gap-2">
+              <Button
+                type="button"
+                variant={mineView ? 'default' : 'outline'}
+                aria-pressed={mineView}
+                onClick={() => setSearchParams({ view: 'mine' })}
+              >
+                My Students
+              </Button>
+              <Button
+                type="button"
+                variant={mineView ? 'outline' : 'default'}
+                aria-pressed={!mineView}
+                onClick={() => setSearchParams({})}
+              >
+                All Students
+              </Button>
+            </div>
           ) : null
         }
       />
@@ -511,25 +573,43 @@ export function MondayUpdatesPage() {
                 ariaLabel="Program week"
                 items={weekItems}
                 value={weekValue}
-                onChange={(value) => setSearchParams({ week: value })}
+                onChange={(value) =>
+                  setSearchParams({ ...viewParam, week: value })
+                }
                 className="w-64"
               />
             }
             weekFilter={{
               content: (
-                <Field>
-                  <FieldLabel htmlFor="monday-week-filter">Week</FieldLabel>
-                  <WeekSelect
-                    id="monday-week-filter"
-                    items={weekItems}
-                    value={weekValue}
-                    onChange={(value) => setSearchParams({ week: value })}
-                    className="w-full"
-                  />
-                </Field>
+                <>
+                  <Field>
+                    <FieldLabel htmlFor="monday-season-filter">
+                      Season
+                    </FieldLabel>
+                    <WeekSelect
+                      id="monday-season-filter"
+                      items={seasonItems}
+                      value={season.slug}
+                      onChange={goToSeason}
+                      className="w-full"
+                    />
+                  </Field>
+                  <Field>
+                    <FieldLabel htmlFor="monday-week-filter">Week</FieldLabel>
+                    <WeekSelect
+                      id="monday-week-filter"
+                      items={weekItems}
+                      value={weekValue}
+                      onChange={(value) =>
+                        setSearchParams({ ...viewParam, week: value })
+                      }
+                      className="w-full"
+                    />
+                  </Field>
+                </>
               ),
               active: searchParams.has('week'),
-              onClear: () => setSearchParams({}),
+              onClear: () => setSearchParams(viewParam),
             }}
             loading={updates.isLoading || mentorships.isLoading}
             error={updates.isError || mentorships.isError}
@@ -558,9 +638,23 @@ export function MondayUpdatesPage() {
               ariaLabel="Program week"
               items={weekItems}
               value={weekValue}
-              onChange={(value) => setSearchParams({ week: value })}
+              onChange={(value) =>
+                setSearchParams({ ...viewParam, week: value })
+              }
               className="w-64"
             />
+          }
+          seasonFilter={
+            <Field>
+              <FieldLabel htmlFor="monday-season-filter">Season</FieldLabel>
+              <WeekSelect
+                id="monday-season-filter"
+                items={seasonItems}
+                value={season.slug}
+                onChange={goToSeason}
+                className="w-full"
+              />
+            </Field>
           }
           loading={reports.isLoading}
           error={reports.isError}
@@ -799,8 +893,8 @@ function StudentUpdateTableBody({
     },
     {
       id: 'actions',
-      header: () => <span className="sr-only">Actions</span>,
-      meta: { width: 4, align: 'end' },
+      header: 'Actions',
+      meta: { width: 6, align: 'end' },
       enableSorting: false,
       enableHiding: false,
       cell: ({ row }) => actions(row),
@@ -817,6 +911,7 @@ function StudentUpdateTableBody({
       emptyTitle="No Updates Yet"
       emptyMessage="Updates open after the first program week ends."
       getRowId={(row) => row.id}
+      rowCanExpand={(row) => Boolean(row.update)}
       renderExpanded={(row) =>
         row.original.update ? (
           <StudentUpdateDetails update={row.original.update} />
@@ -909,25 +1004,25 @@ function StudentUpdateRowActions({
           {update ? (
             <DropdownMenuItem onClick={row.getToggleExpandedHandler()}>
               <IconListDetails size={17} aria-hidden="true" />
-              {row.getIsExpanded() ? 'Hide details' : 'Show details'}
+              {row.getIsExpanded() ? 'Hide Details' : 'Show Details'}
             </DropdownMenuItem>
           ) : null}
           {canWrite || canChange ? (
             <DropdownMenuItem onClick={() => setOpen('write')}>
               {update ? (
                 <>
-                  <IconEdit size={17} aria-hidden="true" /> Edit update
+                  <IconEdit size={17} aria-hidden="true" /> Edit Update
                 </>
               ) : (
                 <>
-                  <IconPencil size={17} aria-hidden="true" /> Write update
+                  <IconPencil size={17} aria-hidden="true" /> Write Update
                 </>
               )}
             </DropdownMenuItem>
           ) : null}
           {canRequest ? (
             <DropdownMenuItem onClick={() => setOpen('unlock')}>
-              <IconLockOpen size={17} aria-hidden="true" /> Request unlock
+              <IconLockOpen size={17} aria-hidden="true" /> Request Unlock
             </DropdownMenuItem>
           ) : null}
           {canChange ? (
@@ -935,7 +1030,7 @@ function StudentUpdateRowActions({
               variant="destructive"
               onClick={() => setOpen('delete')}
             >
-              <IconTrash size={17} aria-hidden="true" /> Delete update
+              <IconTrash size={17} aria-hidden="true" /> Delete Update
             </DropdownMenuItem>
           ) : null}
         </DropdownMenuContent>
@@ -1173,7 +1268,7 @@ function MondayUpdateForm({
       ) : null}
       <Field className="max-w-sm">
         <FieldLabel htmlFor="monday-update-hours">
-          Hours spent <LabelHint>Expected: ~{weeklyHours}h/week</LabelHint>
+          Hours Spent <LabelHint>Expected: ~{weeklyHours}h/week</LabelHint>
         </FieldLabel>
         <Input
           id="monday-update-hours"
@@ -1209,12 +1304,12 @@ function MondayUpdateForm({
       </section>
       <RichTextEditor
         id="monday-update-content"
-        label="Your update"
+        label="Your Update"
         labelHint={<WhatToInclude />}
         value={content}
         onChange={setContent}
       />
-      <div className="flex flex-wrap justify-end gap-2">
+      <div className="button-group">
         <Button type="button" variant="outline" onClick={onDone}>
           Cancel
         </Button>
@@ -1263,7 +1358,7 @@ function UpdateActivitySummary({
     <dl className="m-0 grid border-b border-border tabular-nums">
       {hours === undefined ? null : (
         <div className={rowClass}>
-          <dt className="text-sm font-semibold">Hours spent</dt>
+          <dt className="text-sm font-semibold">Hours Spent</dt>
           <dd className="m-0 text-sm">
             <strong className="text-base font-semibold">{hours}</strong>
           </dd>
@@ -1361,11 +1456,15 @@ function UpdateStatus({
       ) : row.unlock?.state === 'approved' && !row.update ? (
         <StatusBadge tone="info">Unlocked</StatusBadge>
       ) : row.locked && !row.update && row.status !== 'Kicked' ? (
-        <IconLock
-          size={15}
-          className="text-muted-foreground"
-          aria-label="Locked"
-        />
+        <Tooltip content="This Monday update is locked. Request an unlock from this row’s menu.">
+          <button
+            type="button"
+            aria-label="Locked. Request an unlock from this row’s menu."
+            className="inline-flex cursor-default rounded-sm text-muted-foreground"
+          >
+            <IconLock size={15} aria-hidden="true" />
+          </button>
+        </Tooltip>
       ) : null}
     </span>
   );
@@ -1455,7 +1554,7 @@ function RequestUnlockDialog({
             <span role="alert">{error}</span>
           </InlineNotice>
         ) : null}
-        <div className="flex justify-end gap-2">
+        <div className="button-group">
           <Button
             type="button"
             variant="outline"
@@ -1523,6 +1622,7 @@ function MentorUpdateTable({
   error: boolean;
   onRetry: () => void;
 }) {
+  const seasonSwitcher = useSeasonSwitcher('monday-updates');
   const ownMark = (row: MentorUpdateRow) =>
     row.update
       ? row.update.marks.find((record) => record.mentor.id === mentorId)
@@ -1688,8 +1788,8 @@ function MentorUpdateTable({
     },
     {
       id: 'actions',
-      header: () => <span className="sr-only">Actions</span>,
-      meta: { width: 4, align: 'end' },
+      header: 'Actions',
+      meta: { width: 6, align: 'end' },
       enableSorting: false,
       enableHiding: false,
       cell: ({ row }) => (
@@ -1709,7 +1809,12 @@ function MentorUpdateTable({
       loading={loading}
       error={error}
       onRetry={onRetry}
-      toolbarLead={weekSelect}
+      toolbarLead={
+        <>
+          {seasonSwitcher}
+          {weekSelect}
+        </>
+      }
       extraFilters={{
         content: weekFilter.content,
         activeCount: Number(weekFilter.active),
@@ -1718,6 +1823,7 @@ function MentorUpdateTable({
       emptyTitle="No Updates in This Week"
       emptyMessage="A coordinator can assign students to your mentor team."
       getRowId={(row) => row.id}
+      rowCanExpand={(row) => Boolean(row.update)}
       renderExpanded={(row) =>
         row.original.update ? (
           <MentorUpdateDetails
@@ -1861,17 +1967,17 @@ function MentorUpdateRowActions({
           {update ? (
             <DropdownMenuItem onClick={row.getToggleExpandedHandler()}>
               <IconListDetails size={17} aria-hidden="true" />
-              {row.getIsExpanded() ? 'Hide details' : 'Show details'}
+              {row.getIsExpanded() ? 'Hide Details' : 'Show Details'}
             </DropdownMenuItem>
           ) : null}
           {update || row.original.weekNumber ? (
             <DropdownMenuItem onClick={() => setOpen(true)}>
-              <IconEdit size={17} aria-hidden="true" /> Edit notes
+              <IconEdit size={17} aria-hidden="true" /> Edit Notes
             </DropdownMenuItem>
           ) : null}
           {canUnlock ? (
             <DropdownMenuItem onClick={unlock}>
-              <IconLockOpen size={17} aria-hidden="true" /> Unlock update
+              <IconLockOpen size={17} aria-hidden="true" /> Unlock Update
             </DropdownMenuItem>
           ) : null}
         </DropdownMenuContent>
@@ -1990,7 +2096,7 @@ function UnlockRequestsTable({
       </DropdownMenuTrigger>
       <DropdownMenuContent>
         <DropdownMenuItem onClick={() => decide(request, true)}>
-          <IconLockOpen size={17} aria-hidden="true" /> Approve and unlock
+          <IconLockOpen size={17} aria-hidden="true" /> Approve and Unlock
         </DropdownMenuItem>
         <DropdownMenuItem
           variant="destructive"
@@ -2029,8 +2135,8 @@ function UnlockRequestsTable({
     },
     {
       id: 'actions',
-      header: () => <span className="sr-only">Actions</span>,
-      meta: { width: 4, align: 'end' },
+      header: 'Actions',
+      meta: { width: 6, align: 'end' },
       enableSorting: false,
       enableHiding: false,
       cell: ({ row }) => actions(row.original),
@@ -2209,7 +2315,8 @@ function MarkDialog({
             <span role="alert">{error}</span>
           </InlineNotice>
         ) : null}
-        <div className="flex justify-end gap-2">
+        <div className="button-group">
+          <DialogCancel />
           <Button
             type="button"
             disabled={pending || unchanged || (!mark && !current)}
@@ -2259,6 +2366,7 @@ function MentorReportsTable({
   reports,
   week,
   weekSelect,
+  seasonFilter,
   loading,
   error,
   onRetry,
@@ -2266,10 +2374,12 @@ function MentorReportsTable({
   reports: MondayMentorReport[];
   week?: MondayUpdateRange;
   weekSelect: ReactNode;
+  seasonFilter: ReactNode;
   loading: boolean;
   error: boolean;
   onRetry: () => void;
 }) {
+  const seasonSwitcher = useSeasonSwitcher('monday-updates');
   const statusOf = (student: MondayMentorReportStudent) =>
     week
       ? weekStatus(
@@ -2472,7 +2582,18 @@ function MentorReportsTable({
       loading={loading}
       error={error}
       onRetry={onRetry}
-      toolbarLead={weekSelect}
+      toolbarLead={
+        <>
+          {seasonSwitcher}
+          {weekSelect}
+        </>
+      }
+      extraFilters={{
+        content: seasonFilter,
+        // A season is always chosen, so it never counts as an extra filter.
+        activeCount: 0,
+        onClear: () => {},
+      }}
       emptyTitle="No Mentors in This Week"
       emptyMessage="Mentors appear here once students are assigned to them."
       getRowId={(report) => report.mentor.id}

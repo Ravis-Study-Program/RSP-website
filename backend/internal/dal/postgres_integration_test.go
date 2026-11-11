@@ -5,6 +5,7 @@ package dal
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"path/filepath"
 	"testing"
 	"time"
@@ -81,6 +82,27 @@ func TestPostgres18MigrationsAndDAL(t *testing.T) {
 	}
 	if _, err := repository.ResolveAuthSubject(ctx, "auth-unverified"); err != ErrNotFound {
 		t.Fatalf("unverified inactive link resolved: %v", err)
+	}
+	// A new account's profile takes the name given at sign-up, and falls back
+	// to the email's local part without one.
+	// Its slug comes from that name, numbered when the name is taken.
+	for _, account := range []struct{ event, subject, email, name, want, slug string }{
+		{"00000000-0000-7000-8000-0000000000a1", "auth-named", "test10@rsp.local", "  Maddie Reiter ", "Maddie Reiter", "maddie-reiter"},
+		{"00000000-0000-7000-8000-0000000000a2", "auth-unnamed", "jordan.lee@rsp.local", "", "jordan.lee", "jordan-lee"},
+		{"00000000-0000-7000-8000-0000000000a3", "auth-named-again", "maddie@rsp.local", "Maddie Reiter", "Maddie Reiter", "maddie-reiter2"},
+		{"00000000-0000-7000-8000-0000000000a4", "auth-named-third", "m.r@rsp.local", "maddie reiter", "maddie reiter", "maddie-reiter3"},
+	} {
+		if err := repository.ApplyIdentityEvent(ctx, accounts.IdentityEvent{
+			EventID: account.event, Type: "auth_user_created", AuthUserID: account.subject,
+			Email: account.email, Name: account.name, EmailVerified: true,
+			SecurityVersion: 1, OccurredAt: createdAt,
+		}); err != nil {
+			t.Fatalf("create %s: %v", account.subject, err)
+		}
+		var name, slug string
+		if err := repository.pool.QueryRow(ctx, `SELECT p.display_name, p.slug FROM app.user_profiles p JOIN app.user_auth_links l ON l.user_id=p.user_id WHERE l.auth_subject=$1`, account.subject).Scan(&name, &slug); err != nil || name != account.want || slug != account.slug {
+			t.Fatalf("%s profile = %q @%s, %v; want %q @%s", account.subject, name, slug, err, account.want, account.slug)
+		}
 	}
 	if err := repository.ApplyIdentityEvent(ctx, accounts.IdentityEvent{
 		EventID:         "00000000-0000-7000-8000-000000000006",
@@ -389,14 +411,30 @@ func TestPostgres18MigrationsAndDAL(t *testing.T) {
 		t.Fatal(err)
 	}
 	if _, err := repository.CreateWeek(ctx, program.WeekRecord{
-		ID:          "00000000-0000-7000-8000-000000000034",
-		SeasonID:    season.ID,
-		Number:      1,
-		StartAt:     season.StartAt,
-		EndAt:       season.EndAt,
-		ResourceURL: "https://rsp.local/week",
+		ID:            "00000000-0000-7000-8000-000000000034",
+		SeasonID:      season.ID,
+		Number:        1,
+		StartAt:       season.StartAt,
+		EndAt:         season.EndAt,
+		ResourcesHTML: "<p>Week notes</p>",
 	}, "00000000-0000-7000-8000-000000000033", time.Now()); err != nil {
 		t.Fatal(err)
+	}
+	updatedWeek, err := repository.UpdateWeekResources(ctx, UpdateWeekResourcesInput{
+		SeasonID:  season.ID,
+		WeekID:    "00000000-0000-7000-8000-000000000034",
+		HTML:      "<h2>Reading</h2>",
+		ActorID:   "00000000-0000-7000-8000-000000000033",
+		ChangedAt: time.Now(),
+	})
+	if err != nil || updatedWeek.ResourcesHTML != "<h2>Reading</h2>" {
+		t.Fatalf("week resources after update=%+v err=%v", updatedWeek, err)
+	}
+	if _, err := repository.UpdateWeekResources(ctx, UpdateWeekResourcesInput{
+		SeasonID: season.ID, WeekID: "00000000-0000-7000-8000-0000000000ff",
+		HTML: "<p>x</p>", ActorID: "00000000-0000-7000-8000-000000000033", ChangedAt: time.Now(),
+	}); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("unknown week resources update err=%v", err)
 	}
 	if _, err := repository.CreateMentorship(ctx, program.MentorshipRecord{
 		ID:            "00000000-0000-7000-8000-000000000020",

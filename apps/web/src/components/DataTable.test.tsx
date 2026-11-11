@@ -1,8 +1,13 @@
 import type { ColumnDef } from '@tanstack/react-table';
-import { render, screen } from '@testing-library/react';
+import { render as renderUi, screen } from '@testing-library/react';
+import type { ReactElement } from 'react';
+import { MemoryRouter } from 'react-router-dom';
 import userEvent from '@testing-library/user-event';
 
 import { DataTable } from '@/components/DataTable';
+
+// Clickable rows navigate, so the table always renders inside a router.
+const render = (ui: ReactElement) => renderUi(ui, { wrapper: MemoryRouter });
 
 interface RowData {
   id: string;
@@ -72,7 +77,7 @@ describe('DataTable', () => {
     expect(
       screen.getByText('Try a different search or clear the current filters.'),
     ).toBeInTheDocument();
-    await user.click(screen.getByRole('button', { name: 'Clear filters' }));
+    await user.click(screen.getByRole('button', { name: 'Clear Filters' }));
     expect(screen.getAllByText('Amelia').length).toBeGreaterThan(0);
   });
 });
@@ -123,7 +128,7 @@ it('keeps server pagination available until all records are loaded', async () =>
   const { rerender } = render(
     <DataTable {...props} serverPagination={pagination} />,
   );
-  await user.click(screen.getByRole('button', { name: 'Load more' }));
+  await user.click(screen.getByRole('button', { name: 'Load More' }));
   expect(onLoadMore).toHaveBeenCalledOnce();
   rerender(
     <DataTable
@@ -139,6 +144,6 @@ it('keeps server pagination available until all records are loaded', async () =>
     />,
   );
   expect(
-    screen.queryByRole('button', { name: 'Load more' }),
+    screen.queryByRole('button', { name: 'Load More' }),
   ).not.toBeInTheDocument();
 });

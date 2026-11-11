@@ -23,17 +23,21 @@ import type { Me } from '@/api/generated/models';
 import {
   currentUserOptions,
   demoMode,
-  useCurrentUser,
-  useSeasons,
   useActivitySummary,
+  useCurrentUser,
+  useMockInterviewSummary,
+  useSeasons,
+  useUserAttempts,
   useUserParticipation,
   useUserProfile,
 } from '@/api/queries';
 import { useQueryClient } from '@tanstack/react-query';
+import { ActivityChart } from '@/components/ActivityChart';
 import {
   Avatar,
   MetricCard,
   Page,
+  PageSection,
   RoleBadge,
   SeasonBadge,
   StudentLevelBadge,
@@ -43,12 +47,18 @@ import { ProfileActivity } from '@/components/ProfileActivity';
 import { FormDialog } from '@/components/Dialogs';
 import { TimezoneSelect } from '@/components/TimezoneSelect';
 import { ErrorState, PageSkeleton } from '@/components/StatusViews';
-import { formatDateTime, initials, supportedTimezones } from '@/utils';
 import { sortRoles } from '@/sortOrder';
+import { studentWeeklyExpected } from '@/studentWeeklyExpected';
+import {
+  formatDateTime,
+  initials,
+  recentActivitySeries,
+  supportedTimezones,
+} from '@/utils';
 
 const formClass = 'flex flex-col gap-4';
 const inlineClass = 'flex flex-wrap items-center gap-2.5';
-const dialogActionsClass = 'mt-5 flex justify-end gap-2.5';
+const dialogActionsClass = 'mt-5 button-group';
 
 function statusLabel(status: string | null | undefined) {
   const text = (status ?? '').replace(/_/g, ' ');
@@ -60,7 +70,7 @@ const profileSchema = z.object({
   slug: z
     .string()
     .trim()
-    .min(3, 'Use at least 3 characters.')
+    .min(2, 'Use at least 2 characters.')
     .max(50)
     .regex(
       /^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/,
@@ -101,6 +111,17 @@ export function ProfilePage() {
   // Profiles always show all-time activity.
   const summary = useActivitySummary(hasProgramAccess ? person?.id : undefined);
   const showProgramDetails = !isSelf || hasProgramAccess;
+  const showActivityChart =
+    showProgramDetails && Boolean(person?.roles.includes('student'));
+  const chartAttempts = useUserAttempts(person?.id, showActivityChart);
+  const chartInterviews = useMockInterviewSummary(
+    { mode: 'all', userId: person?.id },
+    showActivityChart,
+  );
+  const activity = recentActivitySeries(
+    chartAttempts.data?.items ?? [],
+    chartInterviews.data?.days,
+  );
   const [savedName, setSavedName] = useState<string | null>(null);
   const [savedSlug, setSavedSlug] = useState<string | null>(null);
   const [activityTab, setActivityTab] = useState('leetcode');
@@ -159,7 +180,11 @@ export function ProfilePage() {
     <Page className={'flex flex-col gap-6'}>
       <header className="flex flex-wrap items-center justify-between gap-4 border-b pb-4">
         <div className="flex min-w-0 items-center gap-4">
-          <Avatar initials={initials(displayName)} size="lg" />
+          <Avatar
+            initials={initials(displayName)}
+            avatarUrl={person.avatarUrl}
+            size="lg"
+          />
           <div className="grid min-w-0 gap-1">
             <h1 className="text-2xl font-semibold tracking-tight md:text-3xl">
               {displayName}
@@ -230,6 +255,23 @@ export function ProfilePage() {
           onRetry={() => void summary.refetch()}
         />
       ) : null}
+      {showActivityChart ? (
+        <PageSection titleId="profile-activity-chart" title="Recent Activity">
+          {chartAttempts.isError || chartInterviews.isError ? (
+            <ErrorState
+              title="Activity Chart Unavailable"
+              onRetry={() =>
+                void Promise.all([
+                  chartAttempts.refetch(),
+                  chartInterviews.refetch(),
+                ])
+              }
+            />
+          ) : (
+            <ActivityChart data={activity} expected={studentWeeklyExpected} />
+          )}
+        </PageSection>
+      ) : null}
       {showProgramDetails ? (
         <div>
           <ProfileActivity
@@ -288,7 +330,6 @@ function EditProfileDialog({
             body: JSON.stringify({
               name: values.name,
               slug: values.slug,
-              avatarUrl: user.avatarUrl,
               timezone: values.timezone,
             }),
           }),
@@ -308,7 +349,7 @@ function EditProfileDialog({
     } catch (error) {
       setRequestError(
         error instanceof ApiError && error.status === 409
-          ? 'That profile slug is already in use, or this profile changed elsewhere. Choose another slug or reopen the form.'
+          ? 'That username is already in use, or this profile changed elsewhere. Choose another username or reopen the form.'
           : error instanceof Error
             ? error.message
             : 'Unable to update your profile.',
@@ -336,7 +377,7 @@ function EditProfileDialog({
       setSuggestionError(
         error instanceof Error
           ? error.message
-          : 'Unable to suggest a profile slug.',
+          : 'Unable to suggest a username.',
       );
     } finally {
       setIsSuggesting(false);
@@ -347,7 +388,7 @@ function EditProfileDialog({
       title="Edit Profile"
       description={
         showProgramDetails
-          ? 'Your name and slug are visible to approved active members and alumni.'
+          ? 'Your name and username are visible to approved active members and alumni.'
           : 'Set the name shown on your account.'
       }
       open={open}
@@ -373,7 +414,7 @@ function EditProfileDialog({
         </Field>
         {showProgramDetails ? (
           <Field>
-            <FieldLabel htmlFor="profile-slug">Profile slug</FieldLabel>
+            <FieldLabel htmlFor="profile-slug">Username</FieldLabel>
             <div className={inlineClass}>
               <Input
                 id="profile-slug"
@@ -402,7 +443,7 @@ function EditProfileDialog({
               </FieldError>
             ) : (
               <FieldDescription>
-                3–50 lowercase letters, numbers and hyphens.
+                2–50 lowercase letters, numbers and hyphens.
               </FieldDescription>
             )}
           </Field>
@@ -441,7 +482,7 @@ function EditProfileDialog({
             Cancel
           </Button>
           <Button type="submit" disabled={isSubmitting}>
-            {isSubmitting ? 'Saving…' : 'Save profile'}
+            {isSubmitting ? 'Saving…' : 'Save Profile'}
           </Button>
         </div>
       </form>

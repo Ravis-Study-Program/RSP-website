@@ -1,29 +1,26 @@
 import { expect, test } from '@playwright/test';
 import { expectSelected } from './select';
 
-test("coordinators edit a student's details from All Students", async ({
+test("coordinators edit a student's details from People", async ({
   page,
 }, testInfo) => {
   await page.addInitScript(() => {
     localStorage.setItem('rsp-demo-role', 'coordinator');
     localStorage.removeItem('rsp-demo-auth-state');
   });
-  // Levels are set from the student list's row menu; People takes no actions.
-  await page.goto('/seasons/summer-2025-26/people');
-  await expect(page.getByRole('heading', { name: 'People' })).toBeVisible();
-  await expect(
-    page.getByRole('button', { name: /Edit details|More actions/ }),
-  ).toHaveCount(0);
+  // The old All Students address now opens People, where students are managed.
   await page.goto('/seasons/summer-2025-26/mentees');
+  await expect(page).toHaveURL(/\/seasons\/summer-2025-26\/people$/);
+  await expect(page.getByRole('heading', { name: 'People' })).toBeVisible();
   await page
-    .getByRole('button', { name: /^More actions for / })
+    .getByRole('button', { name: 'More actions for Amelia Chen' })
     .filter({ visible: true })
     .first()
     .click();
-  await page.getByRole('menuitem', { name: 'Edit details' }).click();
+  await page.getByRole('menuitem', { name: 'Edit Details' }).click();
   const dialog = page.getByRole('dialog');
-  await expectSelected(dialog, 'Student level', 'Beginner');
-  await dialog.getByRole('combobox', { name: 'Student level' }).click();
+  await expectSelected(dialog, 'Student Level', 'Beginner');
+  await dialog.getByRole('combobox', { name: 'Student Level' }).click();
   await expect(page.getByRole('option')).toHaveText([
     'Novice',
     'Beginner',
@@ -86,7 +83,7 @@ test('coordinators change the practice goals for everyone from settings', async 
   await expect(easy).toHaveValue('10');
   await easy.fill('0');
   await expect(goals.getByText('Enter 1 to 180 minutes.')).toBeVisible();
-  const save = page.getByRole('button', { name: 'Save settings' });
+  const save = page.getByRole('button', { name: 'Save Settings' });
   await expect(save).toBeDisabled();
   await easy.fill('15');
   await save.click();

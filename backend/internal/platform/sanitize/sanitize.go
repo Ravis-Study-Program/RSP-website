@@ -2,7 +2,9 @@
 package sanitize
 
 import (
+	"html"
 	"regexp"
+	"strings"
 
 	"github.com/microcosm-cc/bluemonday"
 )
@@ -27,3 +29,12 @@ func New() *HTML {
 }
 
 func (h *HTML) String(value string) string { return h.policy.Sanitize(value) }
+
+var textOnly = bluemonday.StrictPolicy()
+
+// IsBlank reports whether rich text has no visible words: only tags (such as
+// an empty paragraph or a divider), spaces and non-breaking spaces.
+func IsBlank(value string) bool {
+	text := html.UnescapeString(textOnly.Sanitize(value))
+	return strings.TrimSpace(strings.ReplaceAll(text, "\u00a0", " ")) == ""
+}

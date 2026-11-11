@@ -20,4 +20,19 @@ export interface Invitation {
   expiresAt: string;
   /** @nullable */
   sentAt: string | null;
+  /**
+   * The mentor a student was invited to.
+   * @nullable
+   */
+  mentorUserId: string | null;
+  /**
+   * The account that accepted the invitation.
+   * @nullable
+   */
+  acceptedBy: string | null;
+  /**
+   * The username the person gets on accepting with a new account.
+   * @nullable
+   */
+  profileSlug?: string | null;
 }

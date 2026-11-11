@@ -550,47 +550,26 @@ export class AccountLifecycleService {
         throw new Error('account deletion grace period has not elapsed');
       }
       nextAccountState(account.account_state, 'pseudonymize');
-      await client.query('DELETE FROM sessions WHERE user_id = $1', [
-        authUserId,
-      ]);
-      await client.query('DELETE FROM accounts WHERE user_id = $1', [
-        authUserId,
-      ]);
-      await client.query('DELETE FROM two_factors WHERE user_id = $1', [
-        authUserId,
-      ]);
-      await client.query(
-        'DELETE FROM verifications WHERE identifier = $1 OR value = $2',
-        [account.email, authUserId],
+      return eraseAccount(client, authUserId, account.email, occurredAt);
+    });
+    await this.requireIdentityDelivery(outbox);
+  }
+
+  /**
+   * Deletes an account at once, as an administrator may: no recovery period,
+   * from any state but already deleted.
+   */
+  async eraseNow(authUserId: string): Promise<void> {
+    const occurredAt = this.now();
+    const outbox = await inTransaction(this.pool, async (client) => {
+      const result = await client.query<AccountRow>(
+        'SELECT email, account_state, deletion_recovery_deadline FROM users WHERE id = $1 FOR UPDATE',
+        [authUserId],
       );
-      await erasePseudonymizedAccountArtifacts(
-        client,
-        authUserId,
-        account.email,
-      );
-      const updated = await client.query<{ security_version: number }>(
-        `UPDATE users
-           SET name = 'Deleted member', email = $2, email_verified = FALSE, image = NULL,
-               account_state = 'deleted', deletion_requested_at = NULL,
-               deletion_recovery_deadline = NULL, two_factor_enabled = FALSE,
-               security_version = security_version + 1, updated_at = $3
-         WHERE id = $1
-         RETURNING security_version`,
-        [authUserId, `deleted+${authUserId}@invalid.rsp.local`, occurredAt],
-      );
-      const version = updated.rows[0]?.security_version;
-      if (!version) throw new Error('auth user not found');
-      return enqueueOutbox(
-        client,
-        'identity',
-        {
-          type: 'auth_pseudonymized',
-          authUserId,
-          securityVersion: version,
-          occurredAt: occurredAt.toISOString(),
-        },
-        occurredAt,
-      );
+      const account = result.rows[0];
+      if (!account) throw new Error('auth user not found');
+      nextAccountState(account.account_state, 'erase');
+      return eraseAccount(client, authUserId, account.email, occurredAt);
     });
     await this.requireIdentityDelivery(outbox);
   }
@@ -665,4 +644,49 @@ export class AccountLifecycleService {
     await this.deliverBestEffort(completed);
     return completed.length;
   }
+}
+
+/**
+ * Removes an account's sign-in data and anonymises it, leaving the record as
+ * "Deleted member", and queues the event that does the same in the app.
+ */
+async function eraseAccount(
+  client: PoolClient,
+  authUserId: string,
+  email: string,
+  occurredAt: Date,
+) {
+  await client.query('DELETE FROM sessions WHERE user_id = $1', [authUserId]);
+  await client.query('DELETE FROM accounts WHERE user_id = $1', [authUserId]);
+  await client.query('DELETE FROM two_factors WHERE user_id = $1', [
+    authUserId,
+  ]);
+  await client.query(
+    'DELETE FROM verifications WHERE identifier = $1 OR value = $2',
+    [email, authUserId],
+  );
+  await erasePseudonymizedAccountArtifacts(client, authUserId, email);
+  const updated = await client.query<{ security_version: number }>(
+    `UPDATE users
+       SET name = 'Deleted member', email = $2, email_verified = FALSE, image = NULL,
+           account_state = 'deleted', deletion_requested_at = NULL,
+           deletion_recovery_deadline = NULL, two_factor_enabled = FALSE,
+           security_version = security_version + 1, updated_at = $3
+     WHERE id = $1
+     RETURNING security_version`,
+    [authUserId, `deleted+${authUserId}@invalid.rsp.local`, occurredAt],
+  );
+  const version = updated.rows[0]?.security_version;
+  if (!version) throw new Error('auth user not found');
+  return enqueueOutbox(
+    client,
+    'identity',
+    {
+      type: 'auth_pseudonymized',
+      authUserId,
+      securityVersion: version,
+      occurredAt: occurredAt.toISOString(),
+    },
+    occurredAt,
+  );
 }

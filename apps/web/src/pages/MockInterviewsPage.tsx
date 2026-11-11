@@ -1,3 +1,4 @@
+import { personOptions } from '@/components/personOptions';
 import { StatusBadge } from '@/components/StatusBadge';
 import { Button } from '@/components/ui/button';
 import {
@@ -22,6 +23,7 @@ import { useActivityFilters, filterMocks } from '@/activityFilters';
 import { MockFilters } from '@/components/ActivityFilters';
 import { programTimezone } from '@/activityDates';
 import { ActivityPeriodFilter } from '@/components/ActivityPeriodFilter';
+import { useManagedSeasons } from '@/components/useSeasonSwitcher';
 import { useActivitySeason, useActivitySeasons } from '@/activityPeriod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import {
@@ -76,6 +78,7 @@ import {
   usePageTitle,
   LabelHint,
 } from '@/components/Common';
+import { duplicateNames } from '@/duplicateNames';
 import { AppDatePicker } from '@/components/AppDatePicker';
 import { ExternalLink } from '@/components/ExternalLink';
 import { FormDialog, NamedConfirmation } from '@/components/Dialogs';
@@ -279,7 +282,7 @@ function RoundReference({ round }: { round: MockRound }) {
   if (round.apiType !== 'custom' || !round.link) return null;
   return (
     <dl className="mt-1.5 grid grid-cols-[minmax(0,9rem)_1fr] items-center gap-x-3 text-xs">
-      <dt className="truncate text-muted-foreground">Reference link</dt>
+      <dt className="truncate text-muted-foreground">Reference Link</dt>
       <dd className="min-w-0 truncate">
         <a
           href={round.link}
@@ -319,6 +322,11 @@ function newRound(type: MockRound['apiType'] = 'custom'): MockRound {
     reviewed: false,
     intervieweeComment: '',
   };
+}
+
+/** A new interview starts with the usual layout: behavioural, then two LeetCode rounds. */
+function defaultRounds(): MockRound[] {
+  return [newRound('behavioural'), newRound('leetcode'), newRound('leetcode')];
 }
 
 function interviewContext(
@@ -437,8 +445,14 @@ function RoundEditor({
             <IconArrowDown size={16} aria-hidden="true" />
           </Button>
           {total > 1 ? (
-            <Button variant="ghost" type="button" onClick={onRemove}>
-              <IconTrash size={16} aria-hidden="true" /> Remove
+            <Button
+              variant="ghost"
+              size="icon"
+              type="button"
+              aria-label={`Remove round ${index + 1}`}
+              onClick={onRemove}
+            >
+              <IconTrash size={16} aria-hidden="true" />
             </Button>
           ) : null}
         </div>
@@ -470,7 +484,7 @@ function RoundEditor({
         {round.apiType === 'leetcode' ? (
           <Field>
             <FieldLabel htmlFor={`round-problem-${round.id}`}>
-              LeetCode problem
+              LeetCode Problem
             </FieldLabel>
             <ProblemSelect
               id={`round-problem-${round.id}`}
@@ -510,7 +524,7 @@ function RoundEditor({
         {round.apiType === 'custom' ? (
           <Field>
             <FieldLabel htmlFor={`round-link-${round.id}`}>
-              Reference link <LabelHint>optional</LabelHint>
+              Reference Link <LabelHint>optional</LabelHint>
             </FieldLabel>
             <Input
               id={`round-link-${round.id}`}
@@ -525,7 +539,7 @@ function RoundEditor({
         {Object.entries(round.scores).map(([criterion, score]) => (
           <Field key={criterion}>
             <FieldLabel htmlFor={`round-score-${round.id}-${criterion}`}>
-              {scoreLabel(criterion)} score <LabelHint>0–10</LabelHint>
+              {scoreLabel(criterion)} Score <LabelHint>0–10</LabelHint>
             </FieldLabel>
             <Input
               id={`round-score-${round.id}-${criterion}`}
@@ -553,6 +567,7 @@ function RoundEditor({
       <RichTextEditor
         id={`round-content-${round.id}`}
         label="Notes"
+        labelHint={<LabelHint>optional</LabelHint>}
         value={round.notes}
         onChange={(notes) => onChange({ ...round, notes })}
       />
@@ -566,6 +581,7 @@ const columnsForSeason = (
   cells: {
     review: (mock: MockInterview) => ReactNode;
     actions: (row: Row<MockInterview>) => ReactNode;
+    duplicates: ReadonlySet<string>;
   },
 ): ColumnDef<MockInterview, any>[] => [
   // Most important first: who, the result and scores, then the details.
@@ -588,7 +604,11 @@ const columnsForSeason = (
     header: 'Interviewee',
     enableColumnFilter: false,
     cell: ({ row }) => (
-      <PersonIdentity person={row.original.interviewee} seasonId={seasonId} />
+      <PersonIdentity
+        person={row.original.interviewee}
+        seasonId={seasonId}
+        duplicates={cells.duplicates}
+      />
     ),
   },
   {
@@ -598,7 +618,11 @@ const columnsForSeason = (
     // The Interviewers dropdown already filters by interviewer.
     enableColumnFilter: false,
     cell: ({ row }) => (
-      <PersonIdentity person={row.original.interviewer} seasonId={seasonId} />
+      <PersonIdentity
+        person={row.original.interviewer}
+        seasonId={seasonId}
+        duplicates={cells.duplicates}
+      />
     ),
   },
   {
@@ -617,6 +641,7 @@ const columnsForSeason = (
             : row.original.interviewer
         }
         seasonId={seasonId}
+        duplicates={cells.duplicates}
       />
     ),
   },
@@ -707,8 +732,8 @@ const columnsForSeason = (
   },
   {
     id: 'actions',
-    header: () => <span className="sr-only">Actions</span>,
-    meta: { width: 4, align: 'end' },
+    header: 'Actions',
+    meta: { width: 6, align: 'end' },
     enableSorting: false,
     enableHiding: false,
     cell: ({ row }) => cells.actions(row),
@@ -747,6 +772,8 @@ export function MockInterviewsPage() {
         : undefined) ?? [];
   // Received mocks belong to seasons where you were a student; ones you gave
   // belong to the interviewee's season, which can be any season you took part in.
+  // Directors, System Admins and coordinators pick the season at the top left.
+  const managesSeasons = useManagedSeasons().length > 0;
   const periodSeasons = useActivitySeasons(
     user.data?.id,
     seasonsQuery.data?.items ?? [],
@@ -838,11 +865,27 @@ export function MockInterviewsPage() {
     if (changed) setUpdated((items) => ({ ...items, [changed.id]: changed }));
     else void query.refetch();
   };
+  // Mentors and coordinators active in a mock's season, and Directors and
+  // System Admins, may edit or delete any mock there (the API agrees).
+  const canManageMock = (seasonId?: string | null) =>
+    Boolean(user.data?.globalRoles.length) ||
+    Boolean(
+      seasonId &&
+      user.data?.seasonRoles.some(
+        (membership) =>
+          membership.seasonId === seasonId &&
+          membership.state === 'active' &&
+          (membership.role === 'mentor' || membership.role === 'coordinator'),
+      ),
+    );
   const actionsCell = (row: Row<MockInterview>) => (
     <MockRowActions
       row={row}
       canReview={row.original.interviewee.id === user.data?.id}
-      canEdit={row.original.interviewer.id === user.data?.id}
+      canEdit={
+        row.original.interviewer.id === user.data?.id ||
+        canManageMock(row.original.seasonId)
+      }
       canCorrectIdentities={canCorrectIdentities}
       people={availablePeople}
       seasons={seasonsQuery.data?.items ?? []}
@@ -893,6 +936,16 @@ export function MockInterviewsPage() {
           onChanged={interviewChanged}
           renderActions={actionsCell}
           ariaLabel={`${mode} mock interviews`}
+          toolbarLead={
+            managesSeasons ? (
+              <ActivityPeriodFilter
+                bare
+                section="mock-interviews"
+                season={season}
+                seasons={periodSeasons}
+              />
+            ) : undefined
+          }
           extraFilters={{
             content: (
               <>
@@ -1052,7 +1105,11 @@ export function MockInterviewTable({
     received: ['interviewee', 'with', 'type'],
     given: ['interviewer', 'with', 'type'],
   };
+  const duplicates = duplicateNames(
+    mocks.flatMap((mock) => [mock.interviewee, mock.interviewer]),
+  );
   const columns = columnsForSeason(seasonId, subjectId, {
+    duplicates,
     review: reviewCell,
     actions: (row) => renderActions?.(row),
   })
@@ -1098,6 +1155,7 @@ export function MockInterviewTable({
       data={mocks}
       columns={columns}
       getRowId={(mock) => mock.id}
+      rowCanExpand={canViewDetails}
       renderExpanded={(row) =>
         canViewDetails(row.original) ? (
           <MockDetails
@@ -1145,6 +1203,7 @@ export function MockInterviewTable({
                   : row.original.interviewer
               }
               seasonId={seasonId}
+              duplicates={duplicates}
             />
           </h2>
           <p className="text-sm text-muted-foreground">
@@ -1161,7 +1220,7 @@ export function MockInterviewTable({
               aria-expanded={row.getIsExpanded()}
               onClick={row.getToggleExpandedHandler()}
             >
-              View details
+              View Details
             </Button>
           ) : null}
           {row.getIsExpanded() && canViewDetails(row.original) ? (
@@ -1318,21 +1377,21 @@ function MockRowActions({
         <DropdownMenuContent>
           <DropdownMenuItem onClick={row.getToggleExpandedHandler()}>
             <IconListDetails size={17} aria-hidden="true" />
-            {row.getIsExpanded() ? 'Hide details' : 'Show details'}
+            {row.getIsExpanded() ? 'Hide Details' : 'Show Details'}
           </DropdownMenuItem>
           {canReview ? (
             <DropdownMenuItem onClick={() => setOpen('review')}>
-              <IconEdit size={17} aria-hidden="true" /> Edit notes
+              <IconEdit size={17} aria-hidden="true" /> Edit Notes
             </DropdownMenuItem>
           ) : null}
           {canEdit ? (
             <DropdownMenuItem onClick={() => setOpen('edit')}>
-              <IconEdit size={17} aria-hidden="true" /> Edit notes and scores
+              <IconEdit size={17} aria-hidden="true" /> Edit Notes and Scores
             </DropdownMenuItem>
           ) : null}
           {canCorrectIdentities ? (
             <DropdownMenuItem onClick={() => setOpen('identities')}>
-              <IconUsers size={17} aria-hidden="true" /> Correct identities
+              <IconUsers size={17} aria-hidden="true" /> Correct Identities
             </DropdownMenuItem>
           ) : null}
           {canEdit ? (
@@ -1340,7 +1399,7 @@ function MockRowActions({
               variant="destructive"
               onClick={() => setOpen('delete')}
             >
-              <IconTrash size={17} aria-hidden="true" /> Delete interview
+              <IconTrash size={17} aria-hidden="true" /> Delete Interview
             </DropdownMenuItem>
           ) : null}
         </DropdownMenuContent>
@@ -1377,7 +1436,7 @@ function MockRowActions({
       {canEdit ? (
         <NamedConfirmation
           name={mock.interviewee.name}
-          actionLabel="Delete interview"
+          actionLabel="Delete Interview"
           description="This removes the interview from your history. Earlier versions and the record of changes are retained."
           open={open === 'delete'}
           onOpenChange={close}
@@ -1756,7 +1815,8 @@ function EditMockDialog({
         <div className="border-t pt-4">
           <RichTextEditor
             id={`edit-notes-${mock.id}`}
-            label="Overall notes"
+            label="Overall Notes"
+            labelHint={<LabelHint>optional</LabelHint>}
             value={notes}
             onChange={setNotes}
           />
@@ -1798,7 +1858,7 @@ function EditMockDialog({
             onAdd={(type) => setRounds((items) => [...items, newRound(type)])}
           />
         </FieldSet>
-        <div className="mt-5 flex justify-end gap-2.5">
+        <div className="mt-5 button-group">
           <Button
             variant="outline"
             type="button"
@@ -1818,7 +1878,7 @@ function EditMockDialog({
             }
             onClick={() => void save()}
           >
-            {pending ? 'Saving…' : 'Save changes'}
+            {pending ? 'Saving…' : 'Save Changes'}
           </Button>
         </div>
       </div>
@@ -1930,7 +1990,8 @@ function RoundReviewDialog({
         {error ? <FieldError>{error}</FieldError> : null}
         <RichTextEditor
           id={`interviewee-notes-${mock.id}`}
-          label="Overall notes"
+          label="Overall Notes"
+          labelHint={<LabelHint>optional</LabelHint>}
           value={overall}
           onChange={setOverall}
         />
@@ -1947,6 +2008,7 @@ function RoundReviewDialog({
               <RichTextEditor
                 id={`review-comment-${round.id}`}
                 label="Notes"
+                labelHint={<LabelHint>optional</LabelHint>}
                 value={drafts[round.id].comment}
                 onChange={(comment) => updateDraft(round.id, { comment })}
               />
@@ -1965,7 +2027,7 @@ function RoundReviewDialog({
             </article>
           ))}
         </FieldSet>
-        <div className="flex justify-end gap-2.5 border-t border-border pt-4">
+        <div className="button-group border-t border-border pt-4">
           <Button
             variant="outline"
             type="button"
@@ -1978,7 +2040,7 @@ function RoundReviewDialog({
             disabled={pending || !dirty}
             onClick={() => void save()}
           >
-            {pending ? 'Saving…' : 'Save notes'}
+            {pending ? 'Saving…' : 'Save Notes'}
           </Button>
         </div>
       </div>
@@ -2109,10 +2171,7 @@ function IdentityCorrectionDialog({
               Interviewer
             </FieldLabel>
             <Select
-              items={candidates.map((person) => ({
-                label: person.name,
-                value: person.id,
-              }))}
+              items={personOptions(candidates)}
               value={interviewerId}
               onValueChange={(value) => setInterviewerId(value ?? '')}
             >
@@ -2138,10 +2197,7 @@ function IdentityCorrectionDialog({
               Interviewee
             </FieldLabel>
             <Select
-              items={candidates.map((person) => ({
-                label: person.name,
-                value: person.id,
-              }))}
+              items={personOptions(candidates)}
               value={intervieweeId}
               onValueChange={(value) => setIntervieweeId(value ?? '')}
             >
@@ -2165,7 +2221,7 @@ function IdentityCorrectionDialog({
         </div>
         <Field>
           <FieldLabel htmlFor={`correction-reason-${mock.id}`}>
-            Audited reason
+            Audited Reason
           </FieldLabel>
           <Textarea
             id={`correction-reason-${mock.id}`}
@@ -2174,7 +2230,7 @@ function IdentityCorrectionDialog({
             onChange={(event) => setReason(event.target.value)}
           />
         </Field>
-        <div className="mt-5 flex justify-end gap-2.5">
+        <div className="mt-5 button-group">
           <Button
             variant="outline"
             type="button"
@@ -2187,7 +2243,7 @@ function IdentityCorrectionDialog({
             disabled={pending || !reason.trim()}
             onClick={() => void save()}
           >
-            {pending ? 'Correcting…' : 'Save audited correction'}
+            {pending ? 'Correcting…' : 'Save Audited Correction'}
           </Button>
         </div>
       </div>
@@ -2207,7 +2263,7 @@ function NewMockDialog({
   onCreated: (mock: MockInterview) => void;
 }) {
   const [open, setOpen] = useState(false);
-  const [rounds, setRounds] = useState<MockRound[]>(() => [newRound('custom')]);
+  const [rounds, setRounds] = useState<MockRound[]>(defaultRounds);
   const [roundError, setRoundError] = useState('');
   const [roundsDirty, setRoundsDirty] = useState(false);
   const [notes, setNotes] = useState('');
@@ -2323,7 +2379,7 @@ function NewMockDialog({
       return;
     }
     reset();
-    setRounds([newRound('custom')]);
+    setRounds(defaultRounds());
     setRoundsDirty(false);
     setNotes('');
     setOpen(false);
@@ -2341,7 +2397,7 @@ function NewMockDialog({
         occurredAt: calendarDateKey(new Date(), programTimezone),
         durationMinutes: 60,
       });
-      setRounds([newRound('custom')]);
+      setRounds(defaultRounds());
       setRoundsDirty(false);
       setNotes('');
       setRoundError('');
@@ -2372,7 +2428,7 @@ function NewMockDialog({
       onOpenChange={requestOpen}
       trigger={
         <>
-          <IconPlus size={18} aria-hidden="true" /> New interview
+          <IconPlus size={18} aria-hidden="true" /> New Interview
         </>
       }
     >
@@ -2386,10 +2442,25 @@ function NewMockDialog({
               const candidates = people.filter(
                 (person) => person.id !== interviewer?.id,
               );
+              // People who share a name also show their slug, in grey.
+              const nameCounts = new Map<string, number>();
+              for (const person of candidates)
+                nameCounts.set(
+                  person.name.toLowerCase(),
+                  (nameCounts.get(person.name.toLowerCase()) ?? 0) + 1,
+                );
+              const slugSuffix = new Map(
+                candidates.map((person) => [
+                  person.id,
+                  (nameCounts.get(person.name.toLowerCase()) ?? 0) > 1
+                    ? ` (${person.slug})`
+                    : '',
+                ]),
+              );
               const labels = new Map(
                 candidates.map((person) => [
                   person.id,
-                  `${person.name}${person.roles.length ? ` · ${person.roles.join(', ')}` : ''}`,
+                  `${person.name}${slugSuffix.get(person.id)}${person.roles.length ? ` · ${person.roles.join(', ')}` : ''}`,
                 ]),
               );
               return (
@@ -2412,7 +2483,16 @@ function NewMockDialog({
                     <ComboboxList>
                       {(id: string) => (
                         <ComboboxItem key={id} value={id}>
-                          {labels.get(id)}
+                          {slugSuffix.get(id) ? (
+                            <>
+                              {labels.get(id)?.replace(slugSuffix.get(id)!, '')}
+                              <span className="text-muted-foreground">
+                                {slugSuffix.get(id)}
+                              </span>
+                            </>
+                          ) : (
+                            labels.get(id)
+                          )}
                         </ComboboxItem>
                       )}
                     </ComboboxList>
@@ -2469,7 +2549,8 @@ function NewMockDialog({
         <div className="border-t pt-4">
           <RichTextEditor
             id="new-mock-notes"
-            label="Overall notes"
+            label="Overall Notes"
+            labelHint={<LabelHint>optional</LabelHint>}
             value={notes}
             onChange={setNotes}
           />
@@ -2500,7 +2581,7 @@ function NewMockDialog({
             }}
           />
         </FieldSet>
-        <div className="mt-5 flex justify-end gap-2.5">
+        <div className="mt-5 button-group">
           <Button
             variant="outline"
             type="button"
@@ -2509,7 +2590,7 @@ function NewMockDialog({
             Cancel
           </Button>
           <Button type="submit" disabled={isSubmitting}>
-            {isSubmitting ? 'Creating…' : 'Create interview'}
+            {isSubmitting ? 'Creating…' : 'Create Interview'}
           </Button>
         </div>
       </form>

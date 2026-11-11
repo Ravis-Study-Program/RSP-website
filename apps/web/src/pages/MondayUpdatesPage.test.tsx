@@ -94,7 +94,7 @@ const week = {
   seasonId: season.id,
   startAt: `${range.startDate}T00:00:00+10:30`,
   endAt: `${range.endDate}T23:59:59+10:30`,
-  resourceUrl: '',
+  resourcesHtml: '',
 };
 const studentIdentity = {
   id: 'student-1',
@@ -420,12 +420,12 @@ describe('student Monday Updates', () => {
     expect(solved).toHaveTextContent(/^2 solved1Easy0Medium1Hard$/);
     expect(mocks).toHaveTextContent(/^2 interviews$/);
 
-    fireEvent.change(within(dialog).getByLabelText('Your update'), {
+    fireEvent.change(within(dialog).getByLabelText('Your Update'), {
       target: { value: '<p>Intervals are clearer now.</p>' },
     });
     // Hours default to 0; an off-step value is blocked before any request.
     const hoursInput = within(dialog).getByLabelText(
-      'Hours spent (Expected: ~30h/week)',
+      'Hours Spent (Expected: ~30h/week)',
     );
     expect(hoursInput).toHaveValue(0);
     fireEvent.change(hoursInput, { target: { value: '7.3' } });
@@ -608,7 +608,7 @@ describe('mentor Monday Updates', () => {
       within(firstRow).getByRole('button', { name: /^More actions for/ }),
     );
     await user.click(
-      await screen.findByRole('menuitem', { name: 'Edit notes' }),
+      await screen.findByRole('menuitem', { name: 'Edit Notes' }),
     );
     const dialog = await screen.findByRole('dialog');
     const markField = within(dialog).getByRole('combobox', {
@@ -819,16 +819,16 @@ describe('fixed weekly submissions', () => {
       screen.getByRole('button', { name: 'More actions for Week 1' }),
     );
     expect(
-      screen.queryByRole('menuitem', { name: 'Write update' }),
+      screen.queryByRole('menuitem', { name: 'Write Update' }),
     ).not.toBeInTheDocument();
     await user.click(
-      await screen.findByRole('menuitem', { name: 'Edit update' }),
+      await screen.findByRole('menuitem', { name: 'Edit Update' }),
     );
     const dialog = await screen.findByRole('dialog');
-    const content = within(dialog).getByLabelText('Your update');
+    const content = within(dialog).getByLabelText('Your Update');
     expect(content).toHaveValue('<p>Update existing</p>');
     expect(
-      within(dialog).getByLabelText('Hours spent (Expected: ~30h/week)'),
+      within(dialog).getByLabelText('Hours Spent (Expected: ~30h/week)'),
     ).toHaveValue(30);
     fireEvent.change(content, { target: { value: '<p>Rewritten</p>' } });
     fireEvent.click(
@@ -878,7 +878,7 @@ describe('fixed weekly submissions', () => {
     // Week 1 was posted on time, so it reads Submitted until edited late.
     expect(screen.getAllByText('Submitted').length).toBeGreaterThan(0);
     await user.click(
-      await screen.findByRole('menuitem', { name: 'Edit update' }),
+      await screen.findByRole('menuitem', { name: 'Edit Update' }),
     );
     expect(await screen.findByRole('dialog')).toHaveTextContent(
       'Saving this edit marks it late.',
@@ -920,10 +920,10 @@ describe('fixed weekly submissions', () => {
       screen.getByRole('button', { name: 'More actions for Week 1' }),
     );
     expect(
-      screen.queryByRole('menuitem', { name: 'Write update' }),
+      screen.queryByRole('menuitem', { name: 'Write Update' }),
     ).not.toBeInTheDocument();
     await user.click(
-      await screen.findByRole('menuitem', { name: 'Request unlock' }),
+      await screen.findByRole('menuitem', { name: 'Request Unlock' }),
     );
     const request = await screen.findByRole('dialog');
     fireEvent.change(within(request).getByLabelText('Reason'), {
@@ -958,7 +958,7 @@ describe('fixed weekly submissions', () => {
       screen.getByRole('button', { name: 'More actions for Week 1' }),
     );
     await user.click(
-      await screen.findByRole('menuitem', { name: 'Write update' }),
+      await screen.findByRole('menuitem', { name: 'Write Update' }),
     );
     const dialog = await screen.findByRole('dialog');
     // Writing is optional: an update can be just its hours.

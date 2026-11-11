@@ -78,7 +78,7 @@ describe('student details dialog', () => {
       'placeholder',
       '30',
     );
-    await user.click(screen.getByRole('combobox', { name: 'Student level' }));
+    await user.click(screen.getByRole('combobox', { name: 'Student Level' }));
     expect(
       (await screen.findAllByRole('option')).map(
         (option) => option.textContent,

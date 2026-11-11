@@ -9,7 +9,7 @@ import (
 
 // QueueLeetCodeSync records the worker request and audit event atomically.
 func (s *Store) QueueLeetCodeSync(ctx context.Context, actorID, requestID string) error {
-	tx, err := s.pool.Begin(ctx)
+	tx, err := s.conn().Begin(ctx)
 	if err != nil {
 		return err
 	}

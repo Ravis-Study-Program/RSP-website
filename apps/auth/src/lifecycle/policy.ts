@@ -1,7 +1,7 @@
 import type { AccountState } from '../security/access-policy.js';
 
 export type LifecycleCommand =
-  'suspend' | 'request_deletion' | 'cancel_deletion' | 'pseudonymize';
+  'suspend' | 'request_deletion' | 'cancel_deletion' | 'pseudonymize' | 'erase';
 
 export function nextAccountState(
   current: AccountState,
@@ -11,9 +11,17 @@ export function nextAccountState(
     AccountState,
     Partial<Record<LifecycleCommand, AccountState>>
   > = {
-    active: { suspend: 'suspended', request_deletion: 'deletion_pending' },
-    suspended: { request_deletion: 'deletion_pending' },
-    deletion_pending: { cancel_deletion: 'active', pseudonymize: 'deleted' },
+    active: {
+      suspend: 'suspended',
+      request_deletion: 'deletion_pending',
+      erase: 'deleted',
+    },
+    suspended: { request_deletion: 'deletion_pending', erase: 'deleted' },
+    deletion_pending: {
+      cancel_deletion: 'active',
+      pseudonymize: 'deleted',
+      erase: 'deleted',
+    },
     deleted: {},
   };
   const next = transitions[current][command];

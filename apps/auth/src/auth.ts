@@ -1,12 +1,16 @@
 import { randomBytes } from 'node:crypto';
 
 import { APIError, betterAuth } from 'better-auth';
-import { createAuthMiddleware } from 'better-auth/api';
+import { createAuthMiddleware, getSessionFromCtx } from 'better-auth/api';
 import { deleteSessionCookie } from 'better-auth/cookies';
 import { jwt, twoFactor } from 'better-auth/plugins';
 import { Pool } from 'pg';
 
 import { config } from './config.js';
+import {
+  captureDiscordProfile,
+  oauthRequestContext,
+} from './identity/discord-profile.js';
 import { createEmailProvider } from './email/provider.js';
 import { passwordResetEmail, verificationEmail } from './email/templates.js';
 import { HttpIdentityLifecycleGateway } from './identity/gateway.js';
@@ -89,7 +93,10 @@ const securitySensitiveReasonByPath = {
 } as const;
 
 const authAfterHook = createAuthMiddleware(async (context) => {
-  if (context.path === '/callback/google') {
+  const callbackProvider = context.path?.startsWith('/callback/')
+    ? (context.params?.id ?? context.path.split('/')[2])
+    : undefined;
+  if (callbackProvider === 'google' || callbackProvider === 'discord') {
     const newSession = context.context.newSession;
     if (!newSession?.user.twoFactorEnabled) return;
 
@@ -121,9 +128,7 @@ const authAfterHook = createAuthMiddleware(async (context) => {
       context.context.secret,
       challengeCookie.attributes,
     );
-    throw context.redirect(
-      `${config.baseUrl}/api/auth/mfa/step-up?source=google`,
-    );
+    throw context.redirect(`${config.baseUrl}/api/auth/mfa/step-up`);
   }
 
   if (
@@ -148,15 +153,28 @@ const authAfterHook = createAuthMiddleware(async (context) => {
   }
 });
 
-const socialProviders = config.google
-  ? {
-      google: {
-        clientId: config.google.clientId,
-        clientSecret: config.google.clientSecret,
-        prompt: 'select_account' as const,
-      },
-    }
-  : {};
+const socialProviders = {
+  ...(config.google
+    ? {
+        google: {
+          clientId: config.google.clientId,
+          clientSecret: config.google.clientSecret,
+          prompt: 'select_account' as const,
+        },
+      }
+    : {}),
+  ...(config.discord
+    ? {
+        discord: {
+          clientId: config.discord.clientId,
+          clientSecret: config.discord.clientSecret,
+          disableSignUp: true,
+          overrideUserInfoOnSignIn: false,
+          prompt: 'consent' as const,
+        },
+      }
+    : {}),
+};
 
 export const auth = betterAuth({
   appName: 'RSP',
@@ -165,7 +183,13 @@ export const auth = betterAuth({
   secret: config.secret,
   database: pool,
   trustedOrigins: [...config.trustedOrigins],
-  disabledPaths: ['/delete-user', '/two-factor/view-backup-codes'],
+  // Stored OAuth tokens stay server-side; only the avatar refresh uses them.
+  disabledPaths: [
+    '/delete-user',
+    '/two-factor/view-backup-codes',
+    '/get-access-token',
+    '/refresh-token',
+  ],
   advanced: {
     cookiePrefix: 'rsp-auth',
     useSecureCookies: config.secureCookies,
@@ -186,6 +210,98 @@ export const auth = betterAuth({
     },
   },
   user: {
+    async validateUserInfo({ user, source }, context) {
+      const provider = source.oauth?.providerId;
+      if (!provider) return;
+      if (source.action === 'link-account') {
+        const session = await getSessionFromCtx(context);
+        if (
+          !session ||
+          session.user.id !== user.id ||
+          Date.now() - new Date(session.session.createdAt).getTime() >
+            FIVE_MINUTES_SECONDS * 1000
+        ) {
+          return { error: 'reauthentication_required' };
+        }
+        context.context.session = session;
+        const local = await pool.query<{
+          email: string;
+          email_verified: boolean;
+          account_state: string;
+        }>(
+          'SELECT email, email_verified, account_state FROM users WHERE id = $1',
+          [user.id],
+        );
+        const member = local.rows[0];
+        if (!member?.email_verified || member.account_state !== 'active') {
+          return {
+            error: 'email_not_verified',
+            errorDescription:
+              'Sign in with your verified RSP email or Google first.',
+          };
+        }
+        if (
+          provider === 'google' &&
+          user.email?.toLowerCase() !== member.email.toLowerCase()
+        ) {
+          return { error: 'email_does_not_match' };
+        }
+        if (provider === 'discord') {
+          const methods = await pool.query<{
+            provider_id: string;
+            account_id: string;
+          }>(
+            'SELECT provider_id, account_id FROM accounts WHERE user_id = $1',
+            [user.id],
+          );
+          if (
+            !methods.rows.some(
+              (account) =>
+                account.provider_id === 'credential' ||
+                account.provider_id === 'google',
+            )
+          ) {
+            return { error: 'primary_sign_in_required' };
+          }
+          if (
+            methods.rows.some(
+              (account) =>
+                account.provider_id === 'discord' &&
+                account.account_id !== source.oauth?.profile?.id,
+            )
+          ) {
+            return {
+              error: 'discord_already_connected',
+              errorDescription:
+                'Disconnect your current Discord account first.',
+            };
+          }
+        }
+        const requestState = oauthRequestContext.getStore();
+        const accountId =
+          provider === 'discord'
+            ? source.oauth?.profile?.id
+            : source.oauth?.profile?.sub;
+        if (requestState && user.id && typeof accountId === 'string') {
+          requestState.link = {
+            authUserId: user.id,
+            providerId: provider,
+            accountId,
+          };
+        }
+      }
+      if (provider === 'discord') {
+        if (source.action === 'create-user')
+          return { error: 'signup_disabled' };
+        if (user.id && source.oauth?.profile) {
+          try {
+            captureDiscordProfile(user.id, source.oauth.profile);
+          } catch {
+            writeLog('warn', 'Discord avatar could not be read');
+          }
+        }
+      }
+    },
     modelName: 'users',
     fields: {
       createdAt: 'created_at',
@@ -281,7 +397,7 @@ export const auth = betterAuth({
     accountLinking: {
       enabled: true,
       disableImplicitLinking: true,
-      allowDifferentEmails: false,
+      allowDifferentEmails: true,
       allowUnlinkingAll: false,
       updateUserInfoOnLink: false,
       trustedProviders: [],
@@ -317,6 +433,8 @@ export const auth = betterAuth({
     autoSignInAfterVerification: false,
     expiresIn: 60 * 60,
     async sendVerificationEmail({ user, url }) {
+      // Signed up from an invitation to this address: already verified.
+      if (user.emailVerified) return;
       await emailProvider.send(verificationEmail(user.email, url));
     },
     async afterEmailVerification(user, request) {
@@ -464,32 +582,33 @@ export const auth = betterAuth({
   databaseHooks: {
     user: {
       create: {
+        // Signing up from an invitation link proves the person reads the
+        // invited inbox, so an account for that address starts verified.
+        async before(user, context) {
+          const invitationToken = (
+            context?.body as { invitationToken?: unknown } | undefined
+          )?.invitationToken;
+          if (
+            context?.path !== '/sign-up/email' ||
+            typeof invitationToken !== 'string' ||
+            invitationToken.length !== 43
+          )
+            return;
+          if (
+            await identityGateway.invitationSentTo(invitationToken, user.email)
+          )
+            return { data: { ...user, emailVerified: true } };
+        },
         async after(user) {
           await accountLifecycle.queueIdentityEvent({
             type: 'auth_user_created',
             authUserId: user.id,
             email: user.email,
+            name: user.name,
             emailVerified: user.emailVerified,
             securityVersion: await currentSecurityVersion(user.id),
             occurredAt: new Date().toISOString(),
           });
-        },
-      },
-    },
-    account: {
-      create: {
-        async after(account, context) {
-          const linkingSessionUserId = context?.context.session?.user.id;
-          if (
-            context?.path === '/callback/google' &&
-            account.providerId === 'google' &&
-            linkingSessionUserId === account.userId
-          ) {
-            await accountLifecycle.revokeSessions(
-              account.userId,
-              'provider_linked',
-            );
-          }
         },
       },
     },

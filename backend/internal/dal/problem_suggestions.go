@@ -9,7 +9,7 @@ import (
 // SuggestProblem excludes the member's complete practice history, regardless of
 // the season or year currently being viewed.
 func (p *Store) SuggestProblem(ctx context.Context, userID string, difficulties, categories []string) (practice.ProblemRecord, error) {
-	return scanProblem(p.pool.QueryRow(ctx, problemQuery+`
+	return scanProblem(p.conn().QueryRow(ctx, problemQuery+`
  AND (COALESCE(cardinality(@difficulties::text[]),0)=0 OR l.difficulty::text=ANY(@difficulties::text[]))
  AND (COALESCE(cardinality(@categories::text[]),0)=0 OR EXISTS (
   SELECT 1 FROM app.leetcode_problem_category_mappings mapping

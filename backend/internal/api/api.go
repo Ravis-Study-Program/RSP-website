@@ -29,6 +29,8 @@ const maxRequestBodyBytes int64 = 1 << 20
 type Config struct {
 	RequestEmailChange func(context.Context, authadmin.EmailChangeInput) error
 	SendInvitation     func(context.Context, authadmin.InvitationEmailInput) error
+	SendRoleChange     func(context.Context, authadmin.RoleChangeEmailInput) error
+	EraseAccount       func(context.Context, string) error
 	DB                 *dal.Store
 	Authenticator      Authenticator
 	PublicOrigin       string
@@ -48,6 +50,8 @@ type Config struct {
 type API struct {
 	requestEmailChange   func(context.Context, authadmin.EmailChangeInput) error
 	sendInvitation       func(context.Context, authadmin.InvitationEmailInput) error
+	sendRoleChange       func(context.Context, authadmin.RoleChangeEmailInput) error
+	eraseAccount         func(context.Context, string) error
 	db                   *dal.Store
 	auth                 Authenticator
 	publicOrigin         string
@@ -62,6 +66,9 @@ type API struct {
 	mockRules            mockinterviews.Service
 	sanitizeHTML         func(string) string
 	canary               bool
+	// afterCommit, set while an import runs in one transaction, collects the
+	// emails to send once it has been saved.
+	afterCommit *[]func(*API)
 }
 
 // New constructs the HTTP API from its dependencies.
@@ -78,6 +85,8 @@ func New(c Config) *API {
 	return &API{
 		requestEmailChange:   c.RequestEmailChange,
 		sendInvitation:       c.SendInvitation,
+		sendRoleChange:       c.SendRoleChange,
+		eraseAccount:         c.EraseAccount,
 		db:                   c.DB,
 		auth:                 c.Authenticator,
 		publicOrigin:         c.PublicOrigin,
@@ -103,6 +112,7 @@ func (a *API) Handler() http.Handler {
 	routes := http.NewServeMux()
 	registerRoutes(routes, a)
 	routes.HandleFunc("POST /internal/auth/lifecycle-events", a.receiveIdentityLifecycleEvent)
+	routes.HandleFunc("POST /internal/auth/invitation-email", a.checkInvitationEmail)
 
 	handler := a.limitRequestBody(routes)
 	return requestContext(a.logger, a.telemetry.observeHTTP, handler)

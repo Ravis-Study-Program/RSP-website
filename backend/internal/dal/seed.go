@@ -17,6 +17,9 @@ type SeedOptions struct {
 	CoordinatorEmail string
 	DirectorEmail    string
 	SiteAdminEmail   string
+	// AdminMentorEmail is an existing verified account to make both a System
+	// Admin and a mentor; empty creates a fallback one.
+	AdminMentorEmail string
 	AllowExisting    bool
 }
 
@@ -79,7 +82,7 @@ FOR UPDATE`, user.Email).Scan(&userID)
 }
 
 func (s *Store) Seed(ctx context.Context, options SeedOptions) error {
-	tx, err := s.pool.Begin(ctx)
+	tx, err := s.conn().Begin(ctx)
 	if err != nil {
 		return err
 	}
@@ -104,7 +107,7 @@ func (s *Store) Seed(ctx context.Context, options SeedOptions) error {
 		if err := tx.Rollback(ctx); err != nil {
 			return err
 		}
-		return s.seedMondayUpdates(ctx, time.Now())
+		return s.seedMondayUpdates(ctx, time.Now(), options.AdminMentorEmail)
 	}
 
 	studentID, err := resolveSeedUser(ctx, tx, seedUser{
@@ -171,12 +174,15 @@ func (s *Store) Seed(ctx context.Context, options SeedOptions) error {
 	}
 	local := now.In(adelaide)
 	monday := time.Date(local.Year(), local.Month(), local.Day()-(int(local.Weekday())+6)%7, 0, 0, 0, 0, adelaide)
-	seasonStart, seasonEnd := monday.AddDate(0, 0, -42), monday.AddDate(0, 0, 42).Add(-time.Second)
+	seasonStart, weeksEnd := monday.AddDate(0, 0, -42), monday.AddDate(0, 0, 42).Add(-time.Second)
+	// The season runs a fortnight past its twelfth week, so a thirteenth can be
+	// added to it.
+	seasonEnd := weeksEnd.AddDate(0, 0, 14)
 	var seasonID string
 	if err := tx.QueryRow(ctx, `INSERT INTO app.seasons(slug,name,status,start_at,end_at,location,image_url,resources_url) VALUES('dev-season','Development Season','open',$1,$2,'Adelaide','https://example.invalid/rsp-season','https://example.invalid/rsp-resources') RETURNING id`, seasonStart, seasonEnd).Scan(&seasonID); err != nil {
 		return fmt.Errorf("seed season: %w", err)
 	}
-	if err := seedSeasonWeeks(ctx, tx, seasonID, seasonStart, seasonEnd); err != nil {
+	if err := seedSeasonWeeks(ctx, tx, seasonID, seasonStart, weeksEnd); err != nil {
 		return fmt.Errorf("seed season weeks: %w", err)
 	}
 
@@ -232,7 +238,7 @@ RETURNING id`, privilegedID, privilegedRole, now).Scan(&privilegedAssignmentID);
 	if err := tx.Commit(ctx); err != nil {
 		return err
 	}
-	return s.seedMondayUpdates(ctx, time.Now())
+	return s.seedMondayUpdates(ctx, time.Now(), options.AdminMentorEmail)
 }
 
 func seedLeetcodeProblem(ctx context.Context, tx pgx.Tx) error {
@@ -272,8 +278,8 @@ func seedSeasonWeeks(ctx context.Context, tx pgx.Tx, seasonID string, seasonStar
 		if end.After(seasonEnd) {
 			return nil
 		}
-		if _, err := tx.Exec(ctx, `INSERT INTO app.season_weeks(season_id,week_number,start_at,end_at,resource_url) VALUES($1,$2,$3,$4,$5)`,
-			seasonID, number, start, end, fmt.Sprintf("https://example.invalid/rsp-week-%d", number)); err != nil {
+		if _, err := tx.Exec(ctx, `INSERT INTO app.season_weeks(season_id,week_number,start_at,end_at,resources_html) VALUES($1,$2,$3,$4,$5)`,
+			seasonID, number, start, end, fmt.Sprintf(`<h2>Week %d Resources</h2><p>Reading and practice for the week.</p><ul><li><a href="https://example.invalid/rsp-week-%d">Week %d reading</a></li></ul>`, number, number, number)); err != nil {
 			return err
 		}
 	}

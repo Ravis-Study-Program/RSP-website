@@ -20,7 +20,7 @@ type CorrectEnrollmentInput struct {
 // CorrectEnrollment retains the membership's participation periods. Activities
 // continue to belong to their original recorder; their season is derived again.
 func (p *Store) CorrectEnrollment(ctx context.Context, input CorrectEnrollmentInput) (program.EnrollmentRecord, error) {
-	tx, err := p.pool.Begin(ctx)
+	tx, err := p.conn().Begin(ctx)
 	if err != nil {
 		return program.EnrollmentRecord{}, err
 	}

@@ -13,7 +13,7 @@ async function openDetails(page: Page, interviewee = 'Avery Example') {
       page
         .getByRole('article')
         .filter({ hasText: other })
-        .getByRole('button', { name: 'View details' }),
+        .getByRole('button', { name: 'View Details' }),
     )
     .filter({ visible: true })
     .click();
@@ -36,12 +36,12 @@ test('a saved review shows straight away without reloading', async ({
     })
     .filter({ visible: true })
     .click();
-  await page.getByRole('menuitem', { name: 'Edit notes' }).click();
+  await page.getByRole('menuitem', { name: 'Edit Notes', exact: true }).click();
   const dialog = page.getByRole('dialog', { name: 'Edit Notes' });
   await dialog
     .locator('#review-comment-round_4')
     .fill('Clearer on trade-offs now.');
-  await dialog.getByRole('button', { name: 'Save notes' }).click();
+  await dialog.getByRole('button', { name: 'Save Notes' }).click();
   await expect(dialog).toBeHidden();
 
   await expect(review.getByText('Clearer on trade-offs now.')).toBeVisible();
@@ -52,7 +52,7 @@ test('a saved review shows straight away without reloading', async ({
     })
     .filter({ visible: true })
     .click();
-  await page.getByRole('menuitem', { name: 'Edit notes' }).click();
+  await page.getByRole('menuitem', { name: 'Edit Notes', exact: true }).click();
   await expect(
     page.getByRole('dialog', { name: 'Edit Notes' }).getByText(/^Round \d:/),
   ).toHaveText([
@@ -193,10 +193,10 @@ test('the row menu shows details and holds the review', async ({ page }) => {
     })
     .filter({ visible: true });
   await menu.click();
-  await page.getByRole('menuitem', { name: 'Show details' }).click();
+  await page.getByRole('menuitem', { name: 'Show Details' }).click();
   await expect(details).toBeVisible();
   await menu.click();
-  await page.getByRole('menuitem', { name: 'Hide details' }).click();
+  await page.getByRole('menuitem', { name: 'Hide Details' }).click();
   await expect(details).toHaveCount(0);
 });
 
@@ -221,10 +221,10 @@ test('the interviewer edits and deletes from the row menu', async ({
     .filter({ visible: true });
   await menu.click();
   await expect(page.getByRole('menuitem')).toHaveText([
-    'Hide details',
-    'Edit notes and scores',
-    'Correct identities',
-    'Delete interview',
+    'Hide Details',
+    'Edit Notes and Scores',
+    'Correct Identities',
+    'Delete Interview',
   ]);
   // Only the interviewee reviews, and only they can tick the row's checkbox
   // or its mirror in the details.
@@ -234,7 +234,7 @@ test('the interviewer edits and deletes from the row menu', async ({
   await expect(reviewed).toHaveCount(2);
   for (const checkbox of await reviewed.all())
     await expect(checkbox).toBeDisabled();
-  await page.getByRole('menuitem', { name: 'Edit notes and scores' }).click();
+  await page.getByRole('menuitem', { name: 'Edit Notes and Scores' }).click();
   await expect(
     page.getByRole('dialog', { name: 'Edit Notes and Scores' }),
   ).toBeVisible();

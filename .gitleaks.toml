@@ -13,3 +13,11 @@ regexes = [
   '''44a4e5a1b012d49ca6399b078a76787f6a3e10117bdf3f4dce5a234d9fed900a''',
   '''2fa931b8823d620bba07862c6e59d20982f413b6132b2f1034d75deb246ab2a9''',
 ]
+
+[[allowlists]]
+description = "Synthetic avatar hashes used by the Discord OAuth regression tests"
+targetRules = ["discord-client-secret"]
+condition = "AND"
+regexTarget = "secret"
+paths = ['''(?:^|/)apps/auth/test/discord-oauth\.test\.ts$''']
+regexes = ['''^(?:abcdef0123456789abcdef0123456789|fedcba9876543210fedcba9876543210)$''']

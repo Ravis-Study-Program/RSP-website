@@ -228,14 +228,20 @@ export function AttemptTable({
     meta: { width: 4.5 },
     enableSorting: false,
     enableHiding: false,
-    // Only an attempt with notes has anything to expand.
+    // Only an attempt with notes has anything to expand; the rest show a
+    // dash the width of the chevron button, so the column stays aligned.
     cell: ({ row }) =>
       hasRichText(row.original.notes) ? (
         <ExpandRowButton
           row={row}
           subject={`notes for ${row.original.problem}`}
         />
-      ) : null,
+      ) : (
+        <span className="inline-flex size-9 items-center justify-center text-muted-foreground">
+          <span aria-hidden="true">—</span>
+          <span className="sr-only">No notes</span>
+        </span>
+      ),
   };
   const columns: ColumnDef<Attempt, any>[] = [
     ...(showNotes ? [expandColumn] : []),
@@ -252,8 +258,8 @@ export function AttemptTable({
       ? [
           {
             id: 'actions',
-            header: () => <span className="sr-only">Actions</span>,
-            meta: { width: 4, align: 'end' },
+            header: 'Actions',
+            meta: { width: 6, align: 'end' },
             enableSorting: false,
             enableHiding: false,
             cell: ({ row }) => renderActions(row),
@@ -266,6 +272,7 @@ export function AttemptTable({
       {...props}
       columns={columns}
       getRowId={(attempt) => attempt.id}
+      rowCanExpand={(attempt) => hasRichText(attempt.notes)}
       renderExpanded={
         showNotes
           ? (row) => (

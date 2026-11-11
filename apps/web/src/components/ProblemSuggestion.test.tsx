@@ -27,7 +27,7 @@ it('shows only the question name, numbered once', async () => {
   });
   const user = userEvent.setup();
   render(<ProblemSuggestion />);
-  await user.click(screen.getByRole('button', { name: 'Suggest a question' }));
+  await user.click(screen.getByRole('button', { name: 'Suggest a Question' }));
 
   const link = await screen.findByRole('link');
   expect(link).toHaveTextContent(/^3379\. Transformed Array$/);
@@ -51,7 +51,7 @@ it('sends only the chosen difficulty and topics with the request', async () => {
   await user.click(screen.getByRole('button', { name: /^Difficulty/ }));
   await user.click(await screen.findByRole('checkbox', { name: 'Hard' }));
   await user.keyboard('{Escape}');
-  await user.click(screen.getByRole('button', { name: 'Suggest a question' }));
+  await user.click(screen.getByRole('button', { name: 'Suggest a Question' }));
   expect(apiRequest).toHaveBeenLastCalledWith(
     '/me/problem-suggestion?difficulty=hard',
   );

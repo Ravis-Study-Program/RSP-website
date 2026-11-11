@@ -11,7 +11,7 @@
   --muted-foreground: #666666;
   --border: #e5e5e5;
   --ring: #a3a3a3;
-  --destructive: #b42335;
+  --destructive: #dc2626;
   --radius: 0.625rem;
   --bg: var(--background);
   --surface: var(--card);
@@ -24,9 +24,9 @@
   --accent-strong: var(--primary);
   --accent-soft: var(--muted);
   --on-accent: var(--primary-foreground);
-  --success: #167047;
+  --success: #15803d;
   --success-soft: #edf8f1;
-  --warning: #865b0b;
+  --warning: #a16207;
   --warning-soft: #fff7e6;
   --info: #1d5fa8;
   --info-soft: #eaf2fb;
@@ -40,6 +40,11 @@
   --danger-soft: #fef0f1;
   --on-danger: #ffffff;
   --chart-secondary: #a3a3a3;
+  --chart-leetcode: #e07c00;
+  --chart-mocks: #3a86d4;
+  --chart-easy: #1b9e4b;
+  --chart-medium: #d4920a;
+  --chart-hard: #e23b3b;
   --focus: var(--ring);
   --sidebar-bg: #fafafa;
   --sidebar-text: var(--foreground);
@@ -80,6 +85,11 @@
   --danger-soft: #401e24;
   --on-danger: #171717;
   --chart-secondary: #a3a3a3;
+  --chart-leetcode: #ffa116;
+  --chart-mocks: var(--info);
+  --chart-easy: var(--success);
+  --chart-medium: var(--warning);
+  --chart-hard: var(--danger);
   --sidebar-bg: #1c1c1c;
   --sidebar-hover: #303030;
 }

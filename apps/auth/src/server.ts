@@ -11,7 +11,16 @@ import { z } from 'zod';
 
 import { accountLifecycle, auth, pool } from './auth.js';
 import { config } from './config.js';
-import { verificationEmail, invitationEmail } from './email/templates.js';
+import {
+  oauthRequestContext,
+  type OAuthRequestState,
+} from './identity/discord-profile.js';
+import { refreshDiscordAvatar } from './identity/discord-avatar-refresh.js';
+import {
+  verificationEmail,
+  invitationEmail,
+  roleChangeEmail,
+} from './email/templates.js';
 import {
   ACCOUNT_DELETION_RECOVERY_PATH,
   ACCOUNT_DELETION_REQUEST_PATH,
@@ -355,6 +364,33 @@ async function handleBrowserExtension(
   response: ServerResponse,
   id: string,
 ): Promise<boolean> {
+  if (url.pathname === '/api/auth/providers' && request.method === 'GET') {
+    sendJson(response, 200, { discord: Boolean(config.discord) }, id);
+    return true;
+  }
+  if (url.pathname === '/api/auth/discord/avatar/refresh') {
+    if (request.method !== 'POST') {
+      sendProblem(response, 405, 'method_not_allowed', 'POST is required', id, {
+        allow: 'POST',
+      });
+      return true;
+    }
+    const session = await auth.api.getSession({ headers: webRequest.headers });
+    if (!session) {
+      sendProblem(response, 401, 'not_authenticated', 'Sign in first', id);
+      return true;
+    }
+    let result: Awaited<ReturnType<typeof refreshDiscordAvatar>>;
+    try {
+      result = await refreshDiscordAvatar(session.user.id);
+    } catch (error) {
+      // Best effort: a failed check must never disturb the member's visit.
+      log('error', 'Discord avatar refresh failed', { requestId: id, error });
+      result = 'unavailable';
+    }
+    sendJson(response, 200, { result }, id);
+    return true;
+  }
   if (url.pathname === '/api/auth/connect-password') {
     if (request.method !== 'POST') {
       sendProblem(response, 405, 'method_not_allowed', 'POST is required', id, {
@@ -602,7 +638,7 @@ function internalUserRoute(
   pathname: string,
 ): { authUserId: string; action: string } | undefined {
   const match =
-    /^\/internal\/auth\/users\/([^/]+)\/(revoke-sessions|state|mfa-state|email-change|deletion|deletion-cancel|pseudonymize)$/.exec(
+    /^\/internal\/auth\/users\/([^/]+)\/(revoke-sessions|state|mfa-state|email-change|deletion|deletion-cancel|pseudonymize|erase)$/.exec(
       pathname,
     );
   if (!match?.[1] || !match[2]) return undefined;
@@ -838,6 +874,11 @@ async function handleInternal(
       await accountLifecycle.pseudonymize(route.authUserId);
       send(response, 204, undefined, { 'x-request-id': id });
       return;
+    // An administrator's deletion: immediate, with no recovery period.
+    case 'erase':
+      await accountLifecycle.eraseNow(route.authUserId);
+      send(response, 204, undefined, { 'x-request-id': id });
+      return;
     default:
       sendProblem(
         response,
@@ -911,6 +952,7 @@ async function handleRequest(
           season: z.string().min(1).max(200),
           role: z.enum(['student', 'mentor', 'coordinator']),
           url: z.url(),
+          inviterName: z.string().trim().min(1).max(200).optional(),
         })
         .safeParse(jsonBody);
       if (!parsed.success) {
@@ -938,6 +980,77 @@ async function handleRequest(
           parsed.data.name,
           parsed.data.season,
           parsed.data.role,
+          parsed.data.url,
+          parsed.data.inviterName,
+        ),
+      );
+      sendJson(response, 202, { queued: true }, id);
+      return;
+    }
+    if (url.pathname === '/internal/auth/role-changes') {
+      if (
+        !hasValidServiceToken(
+          request.headers.authorization ?? null,
+          config.identityService.token,
+        )
+      ) {
+        sendProblem(
+          response,
+          401,
+          'invalid_service_token',
+          'Internal authentication failed',
+          id,
+        );
+        return;
+      }
+      if (request.method !== 'POST') {
+        sendProblem(
+          response,
+          405,
+          'method_not_allowed',
+          'POST is required',
+          id,
+          { allow: 'POST' },
+        );
+        return;
+      }
+      const parsed = z
+        .object({
+          id: z.uuid(),
+          to: z.email(),
+          name: z.string().min(1).max(100),
+          season: z.string().min(1).max(200),
+          role: z.enum(['student', 'mentor', 'coordinator']),
+          previousRole: z.enum(['student', 'mentor', 'coordinator']),
+          url: z.url(),
+        })
+        .safeParse(jsonBody);
+      if (!parsed.success) {
+        sendProblem(
+          response,
+          400,
+          'invalid_request',
+          'Invalid role change',
+          id,
+        );
+        return;
+      }
+      const seasonUrl = new URL(parsed.data.url);
+      if (
+        seasonUrl.origin !== new URL(config.baseUrl).origin ||
+        !/^\/seasons\/[a-z0-9-]+$/.test(seasonUrl.pathname)
+      ) {
+        sendProblem(response, 400, 'invalid_request', 'Invalid season URL', id);
+        return;
+      }
+      await accountLifecycle.queueEmail(
+        parsed.data.id,
+        roleChangeEmail(
+          parsed.data.to,
+          parsed.data.name,
+          parsed.data.season,
+          parsed.data.role,
+          parsed.data.previousRole,
           parsed.data.url,
         ),
       );
@@ -1080,6 +1193,60 @@ async function handleRequest(
       }
     }
 
+    let disconnectedDiscordUserId: string | undefined;
+    if (url.pathname === '/api/auth/unlink-account') {
+      const session = await auth.api.getSession({
+        headers: webRequest.headers,
+      });
+      const freshness = evaluateFreshSession({
+        authenticatedUserId: session?.user.id,
+        sessionCreatedAt: session?.session.createdAt,
+        now: new Date(),
+        freshAgeSeconds: FIVE_MINUTES_SECONDS,
+      });
+      if (!session || !freshness.allowed) {
+        sendProblem(
+          response,
+          session ? 403 : 401,
+          freshness.reason ?? 'reauthentication_required',
+          'Sign in again before disconnecting a sign-in method.',
+          id,
+        );
+        return;
+      }
+      const methods = await pool.query<{
+        id: string;
+        account_id: string;
+        provider_id: string;
+      }>(
+        'SELECT id, account_id, provider_id FROM accounts WHERE user_id = $1',
+        [session.user.id],
+      );
+      const body = jsonBody as { accountId?: string } | undefined;
+      const removed = methods.rows.filter(
+        (account) => account.id === body?.accountId,
+      );
+      if (
+        !methods.rows.some(
+          (account) =>
+            !removed.includes(account) &&
+            (account.provider_id === 'credential' ||
+              account.provider_id === 'google'),
+        )
+      ) {
+        sendProblem(
+          response,
+          400,
+          'primary_sign_in_required',
+          'Keep email or Google connected to your RSP account.',
+          id,
+        );
+        return;
+      }
+      if (removed.some((account) => account.provider_id === 'discord'))
+        disconnectedDiscordUserId = session.user.id;
+    }
+
     const preMfaSession = isMfaVerificationPath(url.pathname)
       ? await auth.api.getSession({ headers: webRequest.headers })
       : null;
@@ -1090,9 +1257,69 @@ async function handleRequest(
       typeof Reflect.get(jsonBody, 'code') === 'string'
         ? (Reflect.get(jsonBody, 'code') as string)
         : undefined;
-    const authResponse = await withBackupCodeCandidate(candidate, () =>
-      auth.handler(webRequest),
+    const oauthState: OAuthRequestState = {};
+    const authResponse = await oauthRequestContext.run(oauthState, () =>
+      withBackupCodeCandidate(candidate, () => auth.handler(webRequest)),
     );
+    const redirectLocation = authResponse.headers.get('location');
+    const callbackSucceeded =
+      authResponse.status >= 200 &&
+      authResponse.status < 400 &&
+      (!redirectLocation ||
+        !new URL(redirectLocation, config.baseUrl).searchParams.has('error'));
+    if (callbackSucceeded && oauthState.link) {
+      const link = oauthState.link;
+      const bound = await pool.query(
+        'SELECT id FROM accounts WHERE user_id=$1 AND provider_id=$2 AND account_id=$3',
+        [link.authUserId, link.providerId, link.accountId],
+      );
+      if (bound.rows.length > 0)
+        await accountLifecycle.revokeSessions(
+          link.authUserId,
+          'provider_linked',
+        );
+    }
+    if ((callbackSucceeded && oauthState.update) || disconnectedDiscordUserId) {
+      // Avatar synchronization is best effort; its durable outbox retries a
+      // failed API delivery without turning a successful login into an error.
+      // Unlinking may have succeeded before a session-revocation delivery failed,
+      // so check the binding even when that request returned an error.
+      try {
+        const update = oauthState.update;
+        const authUserId = update?.authUserId ?? disconnectedDiscordUserId!;
+        const binding = await pool.query<{ account_id: string }>(
+          "SELECT account_id FROM accounts WHERE user_id = $1 AND provider_id = 'discord'",
+          [authUserId],
+        );
+        const validUpdate =
+          callbackSucceeded &&
+          update &&
+          binding.rows.some(
+            (account) => account.account_id === update.discordId,
+          );
+        if (
+          validUpdate ||
+          (disconnectedDiscordUserId && binding.rows.length === 0)
+        ) {
+          const user = await pool.query<{ security_version: number }>(
+            'SELECT security_version FROM users WHERE id = $1',
+            [authUserId],
+          );
+          await accountLifecycle.queueIdentityEvent({
+            type: 'discord_avatar_updated',
+            authUserId,
+            avatarUrl: validUpdate ? update.avatarUrl : null,
+            securityVersion: user.rows[0]!.security_version,
+            occurredAt: update?.occurredAt ?? new Date().toISOString(),
+          });
+        }
+      } catch (error) {
+        log('error', 'Discord avatar synchronization failed', {
+          requestId: id,
+          error,
+        });
+      }
+    }
     if (authResponse.ok && isMfaVerificationPath(url.pathname)) {
       if (preMfaSession?.user.twoFactorEnabled === false) {
         await accountLifecycle.recordMfaState(preMfaSession.user.id, true);

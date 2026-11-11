@@ -1,5 +1,7 @@
 import { useMemo } from 'react';
 
+import { isBlankRichText } from '@/richText';
+
 const allowedElements = new Set([
   'P',
   'BR',
@@ -124,11 +126,11 @@ export function RichTextContent({
     () => sanitizeRichTextForDisplay(html ?? ''),
     [html],
   );
-  if (!sanitized || sanitized === '<p></p>')
+  if (isBlankRichText(sanitized))
     return <p className="text-muted-foreground">{empty}</p>;
   return (
     <div
-      className="break-words [overflow-wrap:anywhere] leading-relaxed [&>:first-child]:mt-0 [&>:last-child]:mb-0 [&_a]:decoration-[0.11em] [&_a]:underline-offset-[0.16em] [&_mark]:bg-muted [&_mark]:text-inherit [&_[data-text-align=center]]:text-center [&_[data-text-align=right]]:text-right [&_[data-text-align=justify]]:text-justify"
+      className="rich-text"
       dangerouslySetInnerHTML={{ __html: sanitized }}
     />
   );

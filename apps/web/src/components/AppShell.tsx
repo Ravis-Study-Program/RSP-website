@@ -1,3 +1,4 @@
+import { useSelectedSeasonSlug } from '@/selectedSeason';
 import { Button, buttonVariants } from '@/components/ui/button';
 import {
   Sheet,
@@ -18,7 +19,11 @@ import { useQueryClient } from '@tanstack/react-query';
 import { Link, Outlet, useNavigate, useLocation } from 'react-router-dom';
 
 import { signOut } from '@/api/authClient';
-import { useCurrentUser, useSeasons } from '@/api/queries';
+import {
+  useCurrentUser,
+  useDiscordAvatarRefresh,
+  useSeasons,
+} from '@/api/queries';
 import { useDisplayTimezone } from '@/auth/useDisplayTimezone';
 import {
   navigationItems,
@@ -68,7 +73,7 @@ function ThemeButton({
     >
       <Icon size={19} aria-hidden="true" />
       {inverse ? (
-        <span>{theme === 'dark' ? 'Light theme' : 'Dark theme'}</span>
+        <span>{theme === 'dark' ? 'Light Theme' : 'Dark Theme'}</span>
       ) : null}
     </Button>
   );
@@ -77,6 +82,7 @@ function ThemeButton({
 export function AppShell() {
   useDisplayTimezone();
   const userQuery = useCurrentUser();
+  useDiscordAvatarRefresh(userQuery.data?.id);
   const seasons = useSeasons(Boolean(userQuery.data?.globalRoles.length));
   const queryClient = useQueryClient();
   const navigate = useNavigate();
@@ -87,9 +93,12 @@ export function AppShell() {
       localStorage.getItem('rsp-theme') ??
       (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'),
   );
+  // The links follow the season last chosen in any table's season filter.
+  const selectedSeason = useSelectedSeasonSlug();
   const navItems = useMemo(
     () => navigationItems(userQuery.data, seasons.data?.items),
-    [userQuery.data, seasons.data?.items],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [userQuery.data, seasons.data?.items, selectedSeason],
   );
   const homePath = navItems[0]?.to ?? '/profile';
   const activeItem = navItems.find((item) =>
@@ -149,7 +158,10 @@ export function AppShell() {
               aria-label={`Your profile, ${userQuery.data?.name ?? 'account'}`}
               className="flex items-center gap-3 rounded-lg px-1.5 py-2 text-sidebar-foreground no-underline outline-none hover:bg-sidebar-accent focus-visible:ring-3 focus-visible:ring-ring/50"
             >
-              <Avatar initials={initials(userQuery.data?.name ?? 'RSP')} />
+              <Avatar
+                initials={initials(userQuery.data?.name ?? 'RSP')}
+                avatarUrl={userQuery.data?.avatarUrl}
+              />
               <span className="grid min-w-0 leading-snug">
                 <strong className="truncate text-sm font-semibold">
                   {userQuery.data?.name ?? 'Loading account…'}
@@ -167,7 +179,7 @@ export function AppShell() {
               type="button"
               onClick={() => void handleSignOut()}
             >
-              <IconLogout size={19} aria-hidden="true" /> Sign out
+              <IconLogout size={19} aria-hidden="true" /> Sign Out
             </Button>
           ) : null}
         </div>

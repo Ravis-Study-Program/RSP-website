@@ -13,12 +13,10 @@ export interface AdminProfileUpdate {
    */
   name: string;
   /**
-   * @minLength 3
+   * @minLength 2
    * @maxLength 50
    */
   slug: string;
-  /** @nullable */
-  avatarUrl: string | null;
   /**
    * @maxLength 100
    * @nullable

@@ -6,7 +6,9 @@ import {
   useCurrentUser,
   useMockInterviewPages,
   useMockInterviewSummary,
+  useSeasonPeople,
   useUserAttempts,
+  useUserParticipation,
 } from '@/api/queries';
 import { AttemptTable } from '@/components/AttemptTable';
 import { PracticeAnalytics } from '@/components/PracticeAnalytics';
@@ -32,9 +34,8 @@ export function ProfileActivity({
   onTabChange: (tab: string) => void;
 }) {
   const user = useCurrentUser();
-  // Someone else's notes and interview details stay private: you see your
-  // own, and the details of interviews you took part in.
   const isSelf = person.id === user.data?.id;
+  const canSeeDetails = useCanSeeActivityDetails(person, isSelf);
   const [urlFilters, setFilters] = useActivityFilters();
   const [view, setView] = useState<MockView>('all');
   // Each tab's data loads only once that tab is shown. Profiles show
@@ -98,7 +99,7 @@ export function ProfileActivity({
           data={(attempts.data?.items ?? []).map(
             (attempt) => reviewedAttempts[attempt.id] ?? attempt,
           )}
-          showNotes={isSelf}
+          showNotes={canSeeDetails}
           canReview={isSelf}
           onReviewed={(attempt) =>
             setReviewedAttempts((items) => ({
@@ -128,6 +129,7 @@ export function ProfileActivity({
           }}
           toolbarLead={activityTabs}
           canViewDetails={(mock) =>
+            canSeeDetails ||
             mock.interviewer.id === user.data?.id ||
             mock.interviewee.id === user.data?.id
           }
@@ -174,4 +176,46 @@ export function ProfileActivity({
       </TabsContent>
     </Tabs>
   );
+}
+
+/**
+ * Whether the viewer may open this person's LeetCode notes and interview
+ * details. Besides the person themselves: Directors and System Admins,
+ * coordinators of a season the person was in, and the person's current or
+ * past mentors. Everyone else sees only interviews they took part in.
+ */
+function useCanSeeActivityDetails(person: Person, isSelf: boolean) {
+  const viewer = useCurrentUser().data;
+  const isAdmin = Boolean(
+    viewer?.globalRoles.some(
+      (role) => role === 'director' || role === 'system_admin',
+    ),
+  );
+  const needsSeasons = !isSelf && !isAdmin && Boolean(viewer);
+  const participation = useUserParticipation(person.id, needsSeasons);
+  const personSeasonIds = new Set(
+    (participation.data?.items ?? []).map((item) => item.seasonId),
+  );
+  const staffIn = (role: 'coordinator' | 'mentor') =>
+    viewer?.seasonRoles.find(
+      (entry) =>
+        entry.role === role &&
+        (entry.state === 'active' || entry.state === 'completed') &&
+        personSeasonIds.has(entry.seasonId),
+    );
+  const coordinates = Boolean(staffIn('coordinator'));
+  // A mentor sees the students they mentor or used to mentor that season.
+  const mentorSeasonId =
+    needsSeasons && !coordinates ? staffIn('mentor')?.seasonId : undefined;
+  const seasonPeople = useSeasonPeople(mentorSeasonId);
+  const entry = mentorSeasonId
+    ? seasonPeople.data?.items.find((item) => item.id === person.id)
+    : undefined;
+  const mentors = Boolean(
+    viewer &&
+    entry &&
+    (entry.mentorshipMentorId === viewer.id ||
+      (entry.previousMentorIds ?? []).includes(viewer.id)),
+  );
+  return isSelf || isAdmin || coordinates || mentors;
 }

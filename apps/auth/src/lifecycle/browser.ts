@@ -40,7 +40,7 @@ export function renderDeletionRecoveredPage(): string {
 export function renderMfaStepUpPage(error?: string): string {
   return page(
     'Two-factor verification',
-    `<h1>Complete two-factor verification</h1><p>Your Google sign-in is waiting for a second factor. Enter an authenticator code or a one-time backup code.</p>${error ? `<p class="error" role="alert">${escapeHtml(error)}</p>` : ''}<form method="post" action="${MFA_STEP_UP_TOTP_PATH}"><label for="totp">Authenticator code</label><input id="totp" name="code" inputmode="numeric" autocomplete="one-time-code" required minlength="6" maxlength="8"><button type="submit">Verify code</button></form><form method="post" action="${MFA_STEP_UP_BACKUP_PATH}"><label for="backup">Backup code</label><input id="backup" name="code" autocomplete="one-time-code" required minlength="8" maxlength="128"><button type="submit">Use backup code</button></form>`,
+    `<h1>Complete two-factor verification</h1><p>Your sign-in is waiting for a second factor. Enter an authenticator code or a one-time backup code.</p>${error ? `<p class="error" role="alert">${escapeHtml(error)}</p>` : ''}<form method="post" action="${MFA_STEP_UP_TOTP_PATH}"><label for="totp">Authenticator code</label><input id="totp" name="code" inputmode="numeric" autocomplete="one-time-code" required minlength="6" maxlength="8"><button type="submit">Verify code</button></form><form method="post" action="${MFA_STEP_UP_BACKUP_PATH}"><label for="backup">Backup code</label><input id="backup" name="code" autocomplete="one-time-code" required minlength="8" maxlength="128"><button type="submit">Use backup code</button></form>`,
   );
 }
 

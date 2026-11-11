@@ -1,4 +1,5 @@
 import { StatusBadge } from '@/components/StatusBadge';
+import { isBlankRichText } from '@/richText';
 import { buttonVariants } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 
@@ -18,6 +19,7 @@ import {
   useSeasonPeople,
   useSeasonWeeks,
   useSeasons,
+  useUserParticipation,
 } from '@/api/queries';
 import { defaultSeason, preferredMembership } from '@/navigation';
 import { ActivityChart } from '@/components/ActivityChart';
@@ -29,7 +31,11 @@ import {
   PersonIdentity,
   usePageTitle,
 } from '@/components/Common';
+import { duplicateNames } from '@/duplicateNames';
+import { LevelProgressSection } from '@/components/LevelProgress';
 import { ErrorState, PageSkeleton } from '@/components/StatusViews';
+import { isProgramLevel, solvedDifficultyCounts } from '@/levelProgress';
+import { studentWeeklyExpected } from '@/studentWeeklyExpected';
 import { recentActivitySeries } from '@/utils';
 
 const listClass = 'm-0 list-none divide-y p-0';
@@ -54,6 +60,9 @@ export function DashboardPage() {
   const enrollments = useSeasonEnrollments(currentSeason?.id);
   const role = user.data?.globalRoles[0] ?? membership?.role ?? 'graduate';
   const userId = user.data?.id;
+  const participation = useUserParticipation(
+    role === 'student' ? userId : undefined,
+  );
   const activeEnrollments =
     enrollments.data?.items.filter((item) => item.state === 'active') ?? [];
   const unassigned =
@@ -78,13 +87,25 @@ export function DashboardPage() {
         currentTime <= new Date(week.endAt).getTime(),
     ) ??
     orderedWeeks.find((week) => new Date(week.startAt).getTime() > currentTime);
-  const missingWeekResources = orderedWeeks.filter(
-    (week) => !week.resourceUrl,
+  const missingWeekResources = orderedWeeks.filter((week) =>
+    isBlankRichText(week.resourcesHtml),
   ).length;
   const activity = recentActivitySeries(
     attempts.data?.items ?? [],
     interviews.data?.days,
   );
+  const recordedLevel = participation.data?.items.find(
+    (item) => item.seasonId === currentSeason?.id,
+  )?.lastStudentLevel;
+  const studentLevel = isProgramLevel(recordedLevel) ? recordedLevel : null;
+  const progressCounts =
+    role === 'student' && studentLevel && attempts.data && interviews.data
+      ? {
+          ...solvedDifficultyCounts(attempts.data.items),
+          received: interviews.data.received,
+          given: interviews.data.given,
+        }
+      : null;
 
   if (user.isLoading || seasons.isLoading)
     return <PageSkeleton label="Loading dashboard" />;
@@ -199,15 +220,32 @@ export function DashboardPage() {
               <MetricCard
                 label="Leetcodes"
                 value={attempts.data?.totalCount ?? '—'}
+                to="/leetcode"
               />
               <MetricCard
                 label="Mock Interviews"
                 value={interviews.data?.total ?? '—'}
-                detail={`${interviews.data?.reviewed ?? 0} reviewed`}
+                to="/mock-interviews"
+                labelAside={
+                  interviews.data ? (
+                    <ReviewNotice
+                      to="/mock-interviews"
+                      pending={Math.max(
+                        0,
+                        interviews.data.total - interviews.data.reviewed,
+                      )}
+                      total={interviews.data.total}
+                    />
+                  ) : null
+                }
               />
             </>
           )}
         </div>
+
+        {role === 'student' && studentLevel ? (
+          <LevelProgressSection level={studentLevel} counts={progressCounts} />
+        ) : null}
 
         <div
           className={`grid items-stretch gap-6 ${role === 'coordinator' || role === 'mentor' ? 'lg:grid-cols-2' : ''}`}
@@ -264,8 +302,8 @@ export function DashboardPage() {
                         <span className="flex items-center gap-2">
                           <IconCalendarEvent size={18} aria-hidden="true" />{' '}
                           {missingWeekResources
-                            ? `${missingWeekResources} ${missingWeekResources === 1 ? 'week has' : 'weeks have'} no resource link`
-                            : 'All scheduled weeks have resource links'}
+                            ? `${missingWeekResources} ${missingWeekResources === 1 ? 'week has' : 'weeks have'} no resources page`
+                            : 'All scheduled weeks have a resources page'}
                         </span>
                         <Link
                           to="/admin/weeks"
@@ -290,6 +328,7 @@ export function DashboardPage() {
                             <PersonIdentity
                               person={person}
                               seasonId={currentSeason?.id}
+                              duplicates={duplicateNames(mentees)}
                             />
                             <StatusBadge>
                               {person.attempts ?? '—'} attempts
@@ -309,14 +348,38 @@ export function DashboardPage() {
           ) : null}
 
           <PageSection titleId="activity-title" title="Your Recent Activity">
-            <Card className="flex-1">
-              <CardContent>
-                <ActivityChart data={activity} />
-              </CardContent>
-            </Card>
+            <ActivityChart
+              data={activity}
+              expected={role === 'student' ? studentWeeklyExpected : undefined}
+            />
           </PageSection>
         </div>
       </div>
     </Page>
+  );
+}
+
+/** Green when nothing is waiting, red when every interview is, otherwise amber. */
+function ReviewNotice({
+  to,
+  pending,
+  total,
+}: {
+  to: string;
+  pending: number;
+  total: number;
+}) {
+  const label =
+    pending === 1 ? '1 review pending' : `${pending} reviews pending`;
+  const tone =
+    pending === 0 ? 'success' : pending === total ? 'danger' : 'warning';
+  return (
+    <Link
+      to={to}
+      aria-label={`${label}. Open mock interviews.`}
+      className="shrink-0 rounded-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+    >
+      <StatusBadge tone={tone}>{label}</StatusBadge>
+    </Link>
   );
 }

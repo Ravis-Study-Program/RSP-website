@@ -8,7 +8,12 @@ import {
 } from '@/components/ui/card';
 
 import { IconArrowUpRight } from '@tabler/icons-react';
-import { useEffect, useSyncExternalStore, type ReactNode } from 'react';
+import {
+  useEffect,
+  useState,
+  useSyncExternalStore,
+  type ReactNode,
+} from 'react';
 import { Link } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 
@@ -52,12 +57,15 @@ export function useCurrentPageTitle() {
 export function PageHeader({
   eyebrow,
   title,
+  titleHint,
   description,
   status,
   actions,
 }: {
   eyebrow?: string;
   title: string;
+  /** Muted, bracketed detail after the title, such as "Admin". */
+  titleHint?: string;
   description?: string;
   status?: ReactNode;
   actions?: ReactNode;
@@ -73,6 +81,12 @@ export function PageHeader({
         <div className="flex flex-wrap items-center gap-3">
           <h1 className="text-2xl font-semibold tracking-tight md:text-3xl">
             {title}
+            {titleHint ? (
+              <>
+                {' '}
+                <LabelHint>{titleHint}</LabelHint>
+              </>
+            ) : null}
           </h1>
           {status}
         </div>
@@ -206,23 +220,37 @@ export function PageSection({
   );
 }
 
-/** A member's initials in an ink circle. Decorative: the name sits beside it. */
+/** Decorative avatar; the member's name is shown beside it. */
 export function Avatar({
   initials,
+  avatarUrl,
   size = 'md',
 }: {
   initials: string;
+  avatarUrl?: string | null;
   size?: 'md' | 'lg';
 }) {
+  const [failedUrl, setFailedUrl] = useState<string | null>(null);
+  const showImage = avatarUrl && avatarUrl !== failedUrl;
   return (
     <span
       aria-hidden="true"
       className={cn(
-        'inline-grid shrink-0 place-items-center rounded-full bg-primary font-semibold text-primary-foreground',
+        'inline-grid shrink-0 place-items-center overflow-hidden rounded-full bg-primary font-semibold text-primary-foreground',
         size === 'lg' ? 'size-18 text-xl' : 'size-9 text-xs',
       )}
     >
-      {initials}
+      {showImage ? (
+        <img
+          src={avatarUrl}
+          alt=""
+          className="size-full object-cover"
+          referrerPolicy="no-referrer"
+          onError={() => setFailedUrl(avatarUrl)}
+        />
+      ) : (
+        initials
+      )}
     </span>
   );
 }
@@ -232,15 +260,19 @@ export function PersonIdentity({
   privateView = false,
   showRoles = true,
   seasonId,
+  duplicates,
 }: {
   person: Person;
   privateView?: boolean;
   showRoles?: boolean;
   seasonId?: string;
+  /** Names shared by several people on the page (`duplicateNames`); such
+   *  people also show their slug, so they can be told apart. */
+  duplicates?: ReadonlySet<string>;
 }) {
   return (
     <span className="flex min-w-0 items-center gap-3">
-      <Avatar initials={person.initials} />
+      <Avatar initials={person.initials} avatarUrl={person.avatarUrl} />
       <span className="grid min-w-0">
         <Link
           className="truncate font-medium text-foreground"
@@ -248,6 +280,11 @@ export function PersonIdentity({
         >
           {person.name}
         </Link>
+        {duplicates?.has(person.name.trim().toLowerCase()) ? (
+          <span className="truncate text-sm text-muted-foreground">
+            {person.slug}
+          </span>
+        ) : null}
         {privateView && person.email ? (
           <span className="truncate text-sm text-muted-foreground">
             {person.email}
@@ -289,15 +326,26 @@ export function MetricCard({
   label,
   value,
   detail,
+  labelAside,
+  to,
 }: {
   label: string;
   value: ReactNode;
   detail?: string;
+  /** Sits on the same row as the label, at the far edge of the card. */
+  labelAside?: ReactNode;
+  /** Makes the card open this page. An aside link stays clickable on top. */
+  to?: string;
 }) {
   return (
-    <Card>
+    <Card className={cn(to && 'relative transition-colors hover:bg-muted/40')}>
       <CardHeader>
-        <CardDescription>{label}</CardDescription>
+        <div className="flex items-center justify-between gap-3">
+          <CardDescription>{label}</CardDescription>
+          {labelAside ? (
+            <div className="relative z-20">{labelAside}</div>
+          ) : null}
+        </div>
       </CardHeader>
       <CardContent>
         <strong className="block text-3xl font-semibold tracking-tight tabular-nums">
@@ -307,6 +355,13 @@ export function MetricCard({
           <p className="mt-1 text-sm text-muted-foreground">{detail}</p>
         ) : null}
       </CardContent>
+      {to ? (
+        <Link
+          to={to}
+          aria-label={`Open ${label}`}
+          className="absolute inset-0 z-10 rounded-xl focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+        />
+      ) : null}
     </Card>
   );
 }

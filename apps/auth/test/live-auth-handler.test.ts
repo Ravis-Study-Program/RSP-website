@@ -838,7 +838,7 @@ live.sequential('live Better Auth handler and PostgreSQL', () => {
     await resetAuthRateLimits();
     expect(auth.options.account?.accountLinking).toMatchObject({
       disableImplicitLinking: true,
-      allowDifferentEmails: false,
+      allowDifferentEmails: true,
       trustedProviders: [],
     });
     const linkingEmail = `auth-link-${suffix}@example.test`;

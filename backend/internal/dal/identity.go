@@ -27,7 +27,7 @@ func (p *Store) ApplyIdentityEvent(ctx context.Context, event accounts.IdentityE
 		return errors.New("identity event id is required")
 	}
 
-	tx, err := p.pool.Begin(ctx)
+	tx, err := p.conn().Begin(ctx)
 	if err != nil {
 		return err
 	}
@@ -74,7 +74,7 @@ func (p *Store) ApplyIdentityEvent(ctx context.Context, event accounts.IdentityE
 	if event.SecurityVersion < 1 {
 		return errors.New("invalid security version")
 	}
-	if event.SecurityVersion < link.SecurityVersion {
+	if event.SecurityVersion < link.SecurityVersion && event.Type != "discord_avatar_updated" {
 		return tx.Commit(ctx)
 	}
 	if _, err := tx.Exec(ctx, `UPDATE app.user_security SET security_version=GREATEST(security_version, $1) WHERE user_id = $2`, event.SecurityVersion, link.UserID); err != nil {
@@ -89,14 +89,26 @@ func (p *Store) ApplyIdentityEvent(ctx context.Context, event accounts.IdentityE
 
 func (p *Store) createIdentityUser(ctx context.Context, tx pgx.Tx, event accounts.IdentityEvent) error {
 	userID := id.New()
-	name := event.Email
-	if at := strings.IndexByte(name, '@'); at > 0 {
-		name = name[:at]
+	// The name given at sign-up; failing that, the email's local part.
+	name := strings.TrimSpace(event.Name)
+	if len([]rune(name)) > 100 {
+		name = string([]rune(name)[:100])
+	}
+	if name == "" {
+		name = event.Email
+		if at := strings.IndexByte(name, '@'); at > 0 {
+			name = name[:at]
+		}
 	}
 	if strings.TrimSpace(name) == "" {
 		name = "New member"
 	}
-	slug := "member-" + strings.ReplaceAll(userID, "-", "")[:12]
+	// The profile's address comes from the name: maddie-frew, then
+	// maddie-frew2 for the next Maddie Frew.
+	slug, err := freeSlug(ctx, tx, NameSlug(name), userID)
+	if err != nil {
+		return err
+	}
 	if _, err := tx.Exec(ctx, `INSERT INTO app.users(id,account_state)
  VALUES($1,$2)`, userID, "active"); err != nil {
 		return err
@@ -129,6 +141,24 @@ func applyIdentityChange(ctx context.Context, tx pgx.Tx, userID string, event ac
 	switch event.Type {
 	case "auth_user_created":
 		return nil
+	case "discord_avatar_updated":
+		// Never resurrect a deleted profile, or let a delayed login event
+		// overwrite a newer disconnect/avatar update. The existing audit log
+		// tracks ordering without adding profile columns.
+		result, err := tx.Exec(ctx, `UPDATE app.user_profiles p
+            SET avatar_url=$1
+            FROM app.users u
+            WHERE p.user_id=$2 AND u.id=p.user_id
+              AND u.account_state='active'
+              AND NOT EXISTS (
+                SELECT 1 FROM app.audit_events a
+                WHERE a.subject_type='user' AND a.subject_id=p.user_id::text
+                  AND a.action='account.discord_avatar_updated' AND a.occurred_at >= $3
+              )`, event.AvatarURL, userID, event.OccurredAt)
+		if err != nil || result.RowsAffected() == 0 {
+			return err
+		}
+		return appendAuditTx(ctx, tx, newAudit(userID, "account.discord_avatar_updated", "user", userID, nil, event.OccurredAt))
 	case "sessions_revoked":
 		return appendAuditTx(ctx, tx, newAudit(userID, "account.sessions_revoked", "user", userID, map[string]any{"reason": event.Reason}, event.OccurredAt))
 	case "email_changed":

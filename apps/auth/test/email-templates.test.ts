@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   deletionRecoveryEmail,
   invitationEmail,
+  roleChangeEmail,
   verificationEmail,
 } from '../src/email/templates.js';
 
@@ -27,7 +28,7 @@ describe('auth email templates', () => {
   });
 });
 
-it('invitation messages escape names and describe verified-email acceptance', () => {
+it('invitation messages escape names and describe accepting with the invited email', () => {
   const message = invitationEmail(
     'member@example.test',
     '<b>Member</b>',
@@ -36,7 +37,43 @@ it('invitation messages escape names and describe verified-email acceptance', ()
     'https://rsp.test/invitations/accept#token=token',
   );
   expect(message.text).toContain('expires in 7 days');
-  expect(message.text).toContain('verify it');
+  expect(message.text).toContain('using this email address, then accept');
   expect(message.html).toContain('&lt;b&gt;Member&lt;/b&gt;');
   expect(message.html).not.toContain('<b>');
+});
+
+it('role change messages name both roles and escape markup', () => {
+  const message = roleChangeEmail(
+    'member@example.test',
+    '<b>Member</b>',
+    'Summer <2026>',
+    'mentor',
+    'student',
+    'https://rsp.test/seasons/summer-2026',
+  );
+  expect(message.subject).toBe('You are now a mentor in Summer <2026>');
+  expect(message.text).toContain('changed from student to mentor');
+  expect(message.text).toContain('https://rsp.test/seasons/summer-2026');
+  expect(message.html).toContain('&lt;b&gt;Member&lt;/b&gt;');
+  expect(message.html).not.toContain('<b>');
+});
+
+it('invitation messages name the inviter in the footer and repeat the link as text', () => {
+  const url = 'https://rsp.test/invitations/accept#token=token';
+  const message = invitationEmail(
+    'member@example.test',
+    'Member',
+    'Summer 2026',
+    'student',
+    url,
+    'Ravi <Admin>',
+  );
+  expect(message.subject).toBe(
+    'Your Invitation to the RSP Website (Summer 2026)',
+  );
+  expect(message.html).toContain('Ravi &lt;Admin&gt;');
+  expect(message.html).toContain('If the button doesn’t work');
+  const html = message.html ?? '';
+  expect(html.indexOf('rsp-logo.png')).toBeLessThan(html.indexOf('Member'));
+  expect(message.text).toContain('Ravi <Admin>, Ravi’s Study Program');
 });
