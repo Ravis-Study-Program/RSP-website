@@ -128,7 +128,9 @@ const authAfterHook = createAuthMiddleware(async (context) => {
       context.context.secret,
       challengeCookie.attributes,
     );
-    throw context.redirect(`${config.baseUrl}/api/auth/mfa/step-up`);
+    // The app's own two-factor page, the same one password sign-in uses. It
+    // verifies with the challenge cookie set above.
+    throw context.redirect(`${config.baseUrl}/two-factor`);
   }
 
   if (

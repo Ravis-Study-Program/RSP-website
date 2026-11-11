@@ -336,7 +336,7 @@ live.sequential('Discord explicit linking and login', () => {
     const returning: Jar = new Map();
     expect(
       (await oauth(returning, false, 'google')).headers.get('location'),
-    ).toContain('/api/auth/mfa/step-up');
+    ).toContain('/two-factor');
     expect(await (await call('/get-session', returning)).json()).toBeNull();
   });
 
@@ -357,7 +357,7 @@ live.sequential('Discord explicit linking and login', () => {
     ]);
     const returning: Jar = new Map();
     const response = await oauth(returning);
-    expect(response.headers.get('location')).toContain('/api/auth/mfa/step-up');
+    expect(response.headers.get('location')).toContain('/two-factor');
     expect(
       (await pool.query('SELECT id FROM sessions WHERE user_id=$1', [userId]))
         .rows,
