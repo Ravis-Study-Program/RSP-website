@@ -174,12 +174,15 @@ func (s *Store) Seed(ctx context.Context, options SeedOptions) error {
 	}
 	local := now.In(adelaide)
 	monday := time.Date(local.Year(), local.Month(), local.Day()-(int(local.Weekday())+6)%7, 0, 0, 0, 0, adelaide)
-	seasonStart, seasonEnd := monday.AddDate(0, 0, -42), monday.AddDate(0, 0, 42).Add(-time.Second)
+	seasonStart, weeksEnd := monday.AddDate(0, 0, -42), monday.AddDate(0, 0, 42).Add(-time.Second)
+	// The season runs a fortnight past its twelfth week, so a thirteenth can be
+	// added to it.
+	seasonEnd := weeksEnd.AddDate(0, 0, 14)
 	var seasonID string
 	if err := tx.QueryRow(ctx, `INSERT INTO app.seasons(slug,name,status,start_at,end_at,location,image_url,resources_url) VALUES('dev-season','Development Season','open',$1,$2,'Adelaide','https://example.invalid/rsp-season','https://example.invalid/rsp-resources') RETURNING id`, seasonStart, seasonEnd).Scan(&seasonID); err != nil {
 		return fmt.Errorf("seed season: %w", err)
 	}
-	if err := seedSeasonWeeks(ctx, tx, seasonID, seasonStart, seasonEnd); err != nil {
+	if err := seedSeasonWeeks(ctx, tx, seasonID, seasonStart, weeksEnd); err != nil {
 		return fmt.Errorf("seed season weeks: %w", err)
 	}
 

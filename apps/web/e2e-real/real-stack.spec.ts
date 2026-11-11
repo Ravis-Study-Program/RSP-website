@@ -366,9 +366,9 @@ test('an invited new member verifies their email and joins the season', async ({
   try {
     const recipient = await recipientContext.newPage();
     await recipient.goto(link);
-    await recipient
-      .getByRole('link', { name: 'Sign in or create an account' })
-      .click();
+    // A signed-out visitor with a good invitation goes straight to sign-up,
+    // prefilled with the invited name and email.
+    await expect(recipient).toHaveURL(/\/sign-in$/);
     await recipient.getByRole('tab', { name: 'Create Account' }).click();
     await recipient
       .getByLabel('Name', { exact: true })
