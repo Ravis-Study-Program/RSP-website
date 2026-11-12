@@ -10,7 +10,7 @@ import (
 	"sort"
 	"strings"
 
-	legacy "github.com/magedmg/RSP-website/scripts/legacy-migration/migration"
+	legacy "github.com/Ravis-Study-Program/RSP-website/scripts/legacy-migration/migration"
 )
 
 func noPositional(set *flag.FlagSet, args []string) error {

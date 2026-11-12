@@ -5,8 +5,8 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/magedmg/RSP-website/backend/internal/dal"
-	"github.com/magedmg/RSP-website/backend/internal/practice"
+	"github.com/Ravis-Study-Program/RSP-website/backend/internal/dal"
+	"github.com/Ravis-Study-Program/RSP-website/backend/internal/practice"
 )
 
 func (a *API) updateStudentLevel(w http.ResponseWriter, r *http.Request) {

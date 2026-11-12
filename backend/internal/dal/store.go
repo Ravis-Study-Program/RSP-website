@@ -8,7 +8,7 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/magedmg/RSP-website/backend/internal/platform/observability"
+	"github.com/Ravis-Study-Program/RSP-website/backend/internal/platform/observability"
 )
 
 // Store uses one connection pool. Call Close after all users of the store stop.

@@ -3,7 +3,7 @@ package main
 import (
 	"testing"
 
-	"github.com/magedmg/RSP-website/backend/internal/platform/ratelimit"
+	"github.com/Ravis-Study-Program/RSP-website/backend/internal/platform/ratelimit"
 )
 
 func TestValidateProductionConfig(t *testing.T) {

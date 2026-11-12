@@ -7,7 +7,7 @@ import (
 
 	"github.com/jackc/pgx/v5/pgtype"
 
-	"github.com/magedmg/RSP-website/backend/internal/authz"
+	"github.com/Ravis-Study-Program/RSP-website/backend/internal/authz"
 )
 
 func activityFilters(r *http.Request, actor authz.Actor) (string, int, error) {

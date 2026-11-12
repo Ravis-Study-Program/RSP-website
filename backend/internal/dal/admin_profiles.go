@@ -2,8 +2,8 @@ package dal
 
 import (
 	"context"
+	"github.com/Ravis-Study-Program/RSP-website/backend/internal/accounts"
 	"github.com/jackc/pgx/v5"
-	"github.com/magedmg/RSP-website/backend/internal/accounts"
 	"time"
 )
 

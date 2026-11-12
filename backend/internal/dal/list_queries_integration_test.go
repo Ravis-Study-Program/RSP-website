@@ -17,9 +17,9 @@ import (
 	postgrescontainer "github.com/testcontainers/testcontainers-go/modules/postgres"
 	"github.com/testcontainers/testcontainers-go/wait"
 
-	"github.com/magedmg/RSP-website/backend/internal/accounts"
-	"github.com/magedmg/RSP-website/backend/internal/practice"
-	"github.com/magedmg/RSP-website/backend/internal/program"
+	"github.com/Ravis-Study-Program/RSP-website/backend/internal/accounts"
+	"github.com/Ravis-Study-Program/RSP-website/backend/internal/practice"
+	"github.com/Ravis-Study-Program/RSP-website/backend/internal/program"
 )
 
 func TestStoreListQueries(t *testing.T) {

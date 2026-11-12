@@ -9,10 +9,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/magedmg/RSP-website/backend/internal/dal"
-	"github.com/magedmg/RSP-website/backend/internal/platform/id"
-	"github.com/magedmg/RSP-website/backend/internal/practice"
-	"github.com/magedmg/RSP-website/backend/internal/program"
+	"github.com/Ravis-Study-Program/RSP-website/backend/internal/dal"
+	"github.com/Ravis-Study-Program/RSP-website/backend/internal/platform/id"
+	"github.com/Ravis-Study-Program/RSP-website/backend/internal/practice"
+	"github.com/Ravis-Study-Program/RSP-website/backend/internal/program"
 )
 
 func TestSeasonSummariesFollowDateChangesAndRetainDepartedMembers(t *testing.T) {

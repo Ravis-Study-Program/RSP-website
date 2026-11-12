@@ -7,7 +7,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/magedmg/RSP-website/backend/internal/platform/id"
+	"github.com/Ravis-Study-Program/RSP-website/backend/internal/platform/id"
 )
 
 // CanarySeasonSlug is the seeded season that canary self-service enrols into.

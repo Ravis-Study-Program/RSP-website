@@ -10,13 +10,13 @@ import (
 	"regexp"
 	"time"
 
-	"github.com/magedmg/RSP-website/backend/internal/authadmin"
-	"github.com/magedmg/RSP-website/backend/internal/dal"
-	"github.com/magedmg/RSP-website/backend/internal/mockinterviews"
-	"github.com/magedmg/RSP-website/backend/internal/platform/id"
-	"github.com/magedmg/RSP-website/backend/internal/platform/observability"
-	"github.com/magedmg/RSP-website/backend/internal/platform/ratelimit"
-	"github.com/magedmg/RSP-website/backend/internal/platform/sanitize"
+	"github.com/Ravis-Study-Program/RSP-website/backend/internal/authadmin"
+	"github.com/Ravis-Study-Program/RSP-website/backend/internal/dal"
+	"github.com/Ravis-Study-Program/RSP-website/backend/internal/mockinterviews"
+	"github.com/Ravis-Study-Program/RSP-website/backend/internal/platform/id"
+	"github.com/Ravis-Study-Program/RSP-website/backend/internal/platform/observability"
+	"github.com/Ravis-Study-Program/RSP-website/backend/internal/platform/ratelimit"
+	"github.com/Ravis-Study-Program/RSP-website/backend/internal/platform/sanitize"
 )
 
 type requestIDKey struct{}

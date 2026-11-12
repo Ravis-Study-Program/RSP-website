@@ -8,7 +8,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/magedmg/RSP-website/backend/internal/accounts"
+	"github.com/Ravis-Study-Program/RSP-website/backend/internal/accounts"
 )
 
 const userColumns = `u.id,p.slug,p.display_name,p.avatar_url,pr.timezone,pr.timezone_configured,

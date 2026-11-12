@@ -7,10 +7,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/magedmg/RSP-website/backend/internal/dal"
-	"github.com/magedmg/RSP-website/backend/internal/platform/cursor"
-	"github.com/magedmg/RSP-website/backend/internal/platform/id"
-	"github.com/magedmg/RSP-website/backend/internal/program"
+	"github.com/Ravis-Study-Program/RSP-website/backend/internal/dal"
+	"github.com/Ravis-Study-Program/RSP-website/backend/internal/platform/cursor"
+	"github.com/Ravis-Study-Program/RSP-website/backend/internal/platform/id"
+	"github.com/Ravis-Study-Program/RSP-website/backend/internal/program"
 )
 
 func (a *API) listSeasons(w http.ResponseWriter, r *http.Request) {

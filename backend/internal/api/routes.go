@@ -3,7 +3,7 @@ package api
 import (
 	"net/http"
 
-	"github.com/magedmg/RSP-website/backend/internal/platform/ratelimit"
+	"github.com/Ravis-Study-Program/RSP-website/backend/internal/platform/ratelimit"
 )
 
 func registerRoutes(mux *http.ServeMux, a *API) {

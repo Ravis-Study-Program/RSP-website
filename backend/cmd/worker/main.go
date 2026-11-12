@@ -12,9 +12,9 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/magedmg/RSP-website/backend/internal/dal"
-	"github.com/magedmg/RSP-website/backend/internal/leetcode"
-	"github.com/magedmg/RSP-website/backend/internal/worker"
+	"github.com/Ravis-Study-Program/RSP-website/backend/internal/dal"
+	"github.com/Ravis-Study-Program/RSP-website/backend/internal/leetcode"
+	"github.com/Ravis-Study-Program/RSP-website/backend/internal/worker"
 )
 
 func main() {

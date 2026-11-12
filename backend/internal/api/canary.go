@@ -6,8 +6,8 @@ import (
 	"slices"
 	"time"
 
-	"github.com/magedmg/RSP-website/backend/internal/dal"
-	"github.com/magedmg/RSP-website/backend/internal/platform/ratelimit"
+	"github.com/Ravis-Study-Program/RSP-website/backend/internal/dal"
+	"github.com/Ravis-Study-Program/RSP-website/backend/internal/platform/ratelimit"
 )
 
 // registerCanaryRoutes exists only in canary deployments, where testers choose

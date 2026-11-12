@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/magedmg/RSP-website/backend/internal/accounts"
+	"github.com/Ravis-Study-Program/RSP-website/backend/internal/accounts"
 )
 
 func score(v int) *int { return &v }
