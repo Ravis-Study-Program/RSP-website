@@ -42,9 +42,9 @@ func TestInvitationLifecycleAndVerifiedEmail(t *testing.T) {
 		emails = append(emails, email)
 		return nil
 	}}).Handler()
-	create := func() program.Invitation {
+	create := func(email string) program.Invitation {
 		t.Helper()
-		res := testRequest(t, handler, http.MethodPost, "/api/v2/seasons/"+newSeason+"/invitations", "admin", `{"name":"New member","email":"PRIVATE@example.com","role":"coordinator"}`)
+		res := testRequest(t, handler, http.MethodPost, "/api/v2/seasons/"+newSeason+"/invitations", "admin", fmt.Sprintf(`{"name":"New member","email":%q,"role":"coordinator"}`, email))
 		var v program.Invitation
 		if err := json.Unmarshal(res.Body.Bytes(), &v); err != nil || res.Code != 201 || v.SentAt == nil {
 			t.Fatalf("create=%d %s %v", res.Code, res.Body, err)
@@ -58,7 +58,8 @@ func TestInvitationLifecycleAndVerifiedEmail(t *testing.T) {
 		}
 		return fmt.Sprintf(`{"token":%q}`, strings.TrimPrefix(u.Fragment, "token="))
 	}
-	v := create()
+	firstEmail := "first-invitee@example.com"
+	v := create(firstEmail)
 	var users, members int
 	if err := f.pool.QueryRow(ctx, `SELECT (SELECT count(*) FROM app.users),(SELECT count(*) FROM app.enrollments WHERE season_id=$1)`, newSeason).Scan(&users, &members); err != nil || users != 2 || members != 0 {
 		t.Fatalf("inviting precreated records: users=%d members=%d %v", users, members, err)
@@ -75,6 +76,9 @@ func TestInvitationLifecycleAndVerifiedEmail(t *testing.T) {
 	if res.Code != 404 {
 		t.Fatalf("old token=%d", res.Code)
 	}
+	if _, err := f.pool.Exec(ctx, `UPDATE app.user_contacts SET email=$2 WHERE user_id=$1`, studentID, firstEmail); err != nil {
+		t.Fatal(err)
+	}
 	res = testRequest(t, handler, http.MethodPost, "/api/v2/invitations/preview", "student", tokenBody(1))
 	if res.Code != 200 {
 		t.Fatalf("preview=%d %s", res.Code, res.Body)
@@ -87,7 +91,11 @@ func TestInvitationLifecycleAndVerifiedEmail(t *testing.T) {
 	if res.Code != 404 {
 		t.Fatalf("cancelled=%d", res.Code)
 	}
-	v = create()
+	secondEmail := "second-invitee@example.com"
+	v = create(secondEmail)
+	if _, err := f.pool.Exec(ctx, `UPDATE app.user_contacts SET email=$2 WHERE user_id=$1`, studentID, secondEmail); err != nil {
+		t.Fatal(err)
+	}
 	if _, err := f.pool.Exec(ctx, `UPDATE app.season_invitations SET expires_at=now()-interval '1 second' WHERE id=$1`, v.ID); err != nil {
 		t.Fatal(err)
 	}
@@ -178,16 +186,8 @@ func TestInvitationWithMentorAssignsMentorOnAcceptance(t *testing.T) {
 	}
 
 	code, v := invite(`{"name":"New student","email":"private@example.com","role":"student","mentorUserId":"` + otherID + `"}`)
-	if code != 201 || v.MentorUserID == nil || *v.MentorUserID != otherID {
+	if code != 201 || v.Status != "accepted" || v.AcceptedBy == nil || *v.AcceptedBy != studentID || v.MentorUserID == nil || *v.MentorUserID != otherID {
 		t.Fatalf("invite with mentor=%d %+v", code, v)
-	}
-	u, err := url.Parse(emails[len(emails)-1].URL)
-	if err != nil {
-		t.Fatal(err)
-	}
-	body := fmt.Sprintf(`{"token":%q}`, strings.TrimPrefix(u.Fragment, "token="))
-	if res := testRequest(t, handler, http.MethodPost, "/api/v2/invitations/accept", "student", body); res.Code != 200 {
-		t.Fatalf("accept=%d %s", res.Code, res.Body)
 	}
 	var mentor string
 	if err := f.pool.QueryRow(ctx, `SELECT mentor.user_id FROM app.mentorships m
@@ -195,6 +195,9 @@ func TestInvitationWithMentorAssignsMentorOnAcceptance(t *testing.T) {
 		JOIN app.enrollments student ON student.id=m.student_enrollment_id
 		WHERE m.season_id=$1 AND student.user_id=$2 AND m.ended_at IS NULL`, season, studentID).Scan(&mentor); err != nil || mentor != otherID {
 		t.Fatalf("mentorship after acceptance=%q %v", mentor, err)
+	}
+	if len(emails) != 0 {
+		t.Fatalf("existing account should not receive an invitation: %d emails", len(emails))
 	}
 	res := testRequest(t, handler, http.MethodGet, "/api/v2/seasons/"+season+"/invitations", "admin", "")
 	if res.Code != 200 || !strings.Contains(res.Body.String(), `"acceptedBy":"`+studentID+`"`) {
@@ -489,7 +492,7 @@ func TestInvitationUsernameAppliesToNewAccounts(t *testing.T) {
 		return nil
 	}}).Handler()
 	res := testRequest(t, handler, http.MethodPost, "/api/v2/seasons/"+season+"/invitations/batch", "admin", `{"invitations":[
-		{"name":"Student","email":"private@example.com","role":"student","slug":"Chosen-Name"},
+		{"name":"Student","email":"new-student@example.com","role":"student","slug":"Chosen-Name"},
 		{"name":"Taken","email":"taken@example.com","role":"student","slug":"other"},
 		{"name":"Bad","email":"bad@example.com","role":"student","slug":"no spaces"}
 	]}`)
@@ -503,7 +506,7 @@ func TestInvitationUsernameAppliesToNewAccounts(t *testing.T) {
 		t.Fatalf("batch=%d %s", res.Code, res.Body)
 	}
 	res = testRequest(t, handler, http.MethodPost, "/api/v2/seasons/"+season+"/invitations/batch", "admin", `{"invitations":[
-		{"name":"Student","email":"private@example.com","role":"student","slug":"Chosen-Name"}
+		{"name":"Student","email":"new-student@example.com","role":"student","slug":"Chosen-Name"}
 	]}`)
 	body.Results = nil
 	_ = json.Unmarshal(res.Body.Bytes(), &body)
@@ -518,6 +521,9 @@ func TestInvitationUsernameAppliesToNewAccounts(t *testing.T) {
 		if res := testRequest(t, handler, http.MethodPost, "/api/v2/invitations/accept", "student", fmt.Sprintf(`{"token":%q}`, strings.TrimPrefix(u.Fragment, "token="))); res.Code != 200 {
 			t.Fatalf("accept=%d %s", res.Code, res.Body)
 		}
+	}
+	if _, err := f.pool.Exec(ctx, `UPDATE app.user_contacts SET email='new-student@example.com' WHERE user_id=$1`, studentID); err != nil {
+		t.Fatal(err)
 	}
 	if _, err := f.pool.Exec(ctx, `UPDATE app.users SET created_at=now()+interval '1 minute' WHERE id=$1`, studentID); err != nil {
 		t.Fatal(err)
@@ -551,8 +557,8 @@ func TestInvitationBatchStudentCanNameMentorInvitedInTheSameBatch(t *testing.T) 
 	}}).Handler()
 	// The student comes first in the sheet, but names the mentor invited below.
 	rows := `{"invitations":[
-		{"name":"Student","email":"private@example.com","role":"student","mentor":"other@example.com"},
-		{"name":"Mentor","email":"other@example.com","role":"mentor"}
+		{"name":"Student","email":"new-student@example.com","role":"student","mentor":"new-mentor@example.com"},
+		{"name":"Mentor","email":"new-mentor@example.com","role":"mentor"}
 	]}`
 	post := func(path string) []invitationBatchResult {
 		t.Helper()
@@ -569,8 +575,8 @@ func TestInvitationBatchStudentCanNameMentorInvitedInTheSameBatch(t *testing.T) 
 	// By full name too, and a name two people share is an error.
 	byName := rows
 	rows = `{"invitations":[
-		{"name":"Student","email":"private@example.com","role":"student","mentor":"The Mentor"},
-		{"name":"The Mentor","email":"other@example.com","role":"mentor"}
+		{"name":"Student","email":"new-student@example.com","role":"student","mentor":"The Mentor"},
+		{"name":"The Mentor","email":"new-mentor@example.com","role":"mentor"}
 	]}`
 	post("/preview")
 	rows = `{"invitations":[
@@ -609,6 +615,9 @@ func TestInvitationBatchStudentCanNameMentorInvitedInTheSameBatch(t *testing.T) 
 	rows = byName
 	post("/preview")
 	post("")
+	if _, err := f.pool.Exec(ctx, `UPDATE app.user_contacts SET email=CASE user_id WHEN $1 THEN 'new-student@example.com' WHEN $2 THEN 'new-mentor@example.com' END WHERE user_id IN ($1,$2)`, studentID, otherID); err != nil {
+		t.Fatal(err)
+	}
 	// Each accepts with the token emailed to them; the student first, so the
 	// mentorship waits for the mentor.
 	accept := func(token, to string) {
@@ -634,11 +643,11 @@ func TestInvitationBatchStudentCanNameMentorInvitedInTheSameBatch(t *testing.T) 
 		}
 		return n
 	}
-	accept("student", "private@example.com")
+	accept("student", "new-student@example.com")
 	if mentorships() != 0 {
 		t.Fatal("mentorship made before the mentor accepted")
 	}
-	accept("admin", "other@example.com")
+	accept("admin", "new-mentor@example.com")
 	if mentorships() != 1 {
 		t.Fatal("mentorship not made once the mentor accepted")
 	}
