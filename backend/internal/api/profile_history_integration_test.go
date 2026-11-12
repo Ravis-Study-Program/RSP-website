@@ -6,11 +6,39 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
+	"reflect"
 	"testing"
 
+	"github.com/magedmg/RSP-website/backend/internal/accounts"
 	"github.com/magedmg/RSP-website/backend/internal/mockinterviews"
 	"github.com/magedmg/RSP-website/backend/internal/program"
 )
+
+func TestProfileSaveReturnsCompleteUser(t *testing.T) {
+	f := newPostgresFixture(t)
+	createMockForWrites(t, f)
+	for _, name := range []string{"Changed Name", "Changed Name"} {
+		res := testRequest(t, f.handler, http.MethodPatch, "/api/v2/me", "student", `{"name":"`+name+`","timezone":"Australia/Adelaide"}`)
+		var saved accounts.User
+		if err := json.Unmarshal(res.Body.Bytes(), &saved); err != nil || res.Code != http.StatusOK {
+			t.Fatalf("save profile: %d %s %v", res.Code, res.Body, err)
+		}
+		if saved.Name != name || saved.Timezone != "Australia/Adelaide" || !saved.TimezoneConfigured {
+			t.Fatalf("profile changes missing: %+v", saved)
+		}
+		if saved.GlobalRoles == nil || saved.SeasonRoles == nil || len(saved.SeasonRoles) != 1 || saved.MockInterviewCount == 0 {
+			t.Fatalf("incomplete saved user: %+v", saved)
+		}
+		res = testRequest(t, f.handler, http.MethodGet, "/api/v2/me", "student", "")
+		var loaded accounts.User
+		if err := json.Unmarshal(res.Body.Bytes(), &loaded); err != nil || res.Code != http.StatusOK {
+			t.Fatalf("reload profile: %d %s %v", res.Code, res.Body, err)
+		}
+		if !reflect.DeepEqual(saved, loaded) {
+			t.Fatalf("save response differs from reload: saved=%+v loaded=%+v", saved, loaded)
+		}
+	}
+}
 
 func TestProfileSlugParticipationAndTargetMockModes(t *testing.T) {
 	f := newPostgresFixture(t)
