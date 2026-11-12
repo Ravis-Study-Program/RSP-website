@@ -36,6 +36,10 @@ func scanUser(row pgx.Row) (accounts.User, error) {
 }
 
 func (p *Store) GetUser(ctx context.Context, userID string) (accounts.User, error) {
+	return getUser(ctx, p.conn(), userID)
+}
+
+func getUser(ctx context.Context, q queryer, userID string) (accounts.User, error) {
 	query := `SELECT ` + userColumns + `
 		FROM app.users u
 		JOIN app.user_profiles p ON p.user_id=u.id
@@ -44,7 +48,7 @@ func (p *Store) GetUser(ctx context.Context, userID string) (accounts.User, erro
 		LEFT JOIN app.global_role_assignments g ON g.user_id=u.id
 		WHERE (u.id::text=$1 OR p.slug=$1) AND u.deleted_at IS NULL
 		GROUP BY u.id,p.slug,p.display_name,p.avatar_url,pr.timezone,pr.timezone_configured,c.email,u.account_state`
-	return scanUser(p.conn().QueryRow(ctx, query, userID))
+	return scanUser(q.QueryRow(ctx, query, userID))
 }
 
 // SuggestUserSlug suggests a profile slug from the user's name, such as
@@ -262,6 +266,10 @@ func (p *Store) UpdateUserProfile(ctx context.Context, input UpdateUserProfileIn
 		return user, err
 	}
 	if err := appendAuditTx(ctx, tx, newAudit(input.ActorID, "user.updated", "user", input.UserID, nil, input.ChangedAt)); err != nil {
+		return user, err
+	}
+	user, err = getUser(ctx, tx, input.UserID)
+	if err != nil {
 		return user, err
 	}
 	if err := tx.Commit(ctx); err != nil {
