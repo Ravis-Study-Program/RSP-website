@@ -156,6 +156,7 @@ describe('shared navigation', () => {
       'Monday Updates',
       'My Students',
       'Seasons',
+      'Jobs',
     ]);
     expect(items.find((item) => item.label === 'My Students')?.to).toBe(
       '/seasons/summer-2024-25/mentees',
@@ -173,6 +174,7 @@ describe('shared navigation', () => {
       'Mock Interviews',
       'People',
       'Seasons',
+      'Jobs',
     ]);
   });
 
@@ -187,6 +189,7 @@ describe('shared navigation', () => {
         '/dashboard',
         '/leetcode',
         '/mock-interviews',
+        '/jobs',
       ]);
     },
   );
@@ -214,9 +217,10 @@ describe('shared navigation', () => {
     ).toBeUndefined();
   });
 
-  it('gives a verified nonmember only their profile', () => {
+  it('gives a verified nonmember their profile and Jobs', () => {
     expect(navigationItems(userWith()).map((item) => item.to)).toEqual([
       '/profile',
+      '/jobs',
     ]);
   });
 

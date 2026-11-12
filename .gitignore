@@ -20,5 +20,6 @@ test-results/
 test-results-real/
 playwright-report/
 playwright-report-real/
+.impeccable/review/
 
 .claude/CLAUDE.md

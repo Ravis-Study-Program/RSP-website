@@ -37,6 +37,7 @@ import {
   type Row,
   type RowData,
   type SortingState,
+  type OnChangeFn,
   type VisibilityState,
   useReactTable,
 } from '@tanstack/react-table';
@@ -103,9 +104,13 @@ export function HighlightText({ text }: { text: string }) {
 export function ExpandRowButton<TData>({
   row,
   subject,
+  className,
+  title,
 }: {
   row: Row<TData>;
   subject: string;
+  className?: string;
+  title?: string;
 }) {
   const expanded = row.getIsExpanded();
   return (
@@ -113,6 +118,8 @@ export function ExpandRowButton<TData>({
       variant="ghost"
       size="icon"
       type="button"
+      className={className}
+      title={title}
       aria-label={`${expanded ? 'Hide' : 'Show'} ${subject}`}
       aria-expanded={expanded}
       onClick={row.getToggleExpandedHandler()}
@@ -147,13 +154,16 @@ export interface DataTableProps<TData> {
   rowHref?: (row: TData) => string | undefined;
   /** What clicking a row does when it has no page to open. */
   onRowClick?: (row: TData) => void;
-  defaultExpanded?: boolean;
+  defaultExpanded?: boolean | Record<string, boolean>;
   getRowId?: (row: TData) => string;
   renderSummary?: (rows: TData[]) => ReactNode;
   /** Filters beyond the column text filters, shown in the Filters popover. */
   extraFilters?: ExtraFilters;
   /** Controls shown beside the search box, such as a view switch. */
   toolbarStart?: ReactNode;
+  /** Optional controlled sorting for a matching toolbar sort selector. */
+  sorting?: SortingState;
+  onSortingChange?: OnChangeFn<SortingState>;
   /**
    * Controls shown before the search box, such as tabs switching between
    * tables. They stay while the table loads or fails.
@@ -211,10 +221,14 @@ export function DataTable<TData>({
   renderSummary,
   extraFilters,
   toolbarStart,
+  sorting: controlledSorting,
+  onSortingChange,
   toolbarLead,
   serverPagination,
 }: DataTableProps<TData>) {
-  const [sorting, setSorting] = useState<SortingState>([]);
+  const [internalSorting, setInternalSorting] = useState<SortingState>([]);
+  const sorting = controlledSorting ?? internalSorting;
+  const setSorting = onSortingChange ?? setInternalSorting;
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
   const [globalFilter, setGlobalFilter] = useState('');
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({});
@@ -267,7 +281,7 @@ export function DataTable<TData>({
     autoResetPageIndex: !serverPagination,
     initialState: {
       pagination: { pageSize: initialPageSize },
-      ...(defaultExpanded ? { expanded: true } : {}),
+      ...(defaultExpanded ? { expanded: defaultExpanded } : {}),
     },
   });
   const navigate = useNavigate();

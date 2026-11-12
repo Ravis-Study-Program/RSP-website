@@ -214,6 +214,13 @@ func applyIdentityChange(ctx context.Context, tx pgx.Tx, userID string, event ac
 		if _, err := tx.Exec(ctx, `UPDATE app.users SET account_state=$1,deleted_at=$2 WHERE id = $3`, "deleted", event.OccurredAt, userID); err != nil {
 			return err
 		}
+		// Shared positions survive account deletion; personal histories do not.
+		if _, err := tx.Exec(ctx, `DELETE FROM app.job_applications WHERE user_id=$1`, userID); err != nil {
+			return err
+		}
+		if _, err := tx.Exec(ctx, `DELETE FROM app.job_referrals WHERE user_id=$1`, userID); err != nil {
+			return err
+		}
 		if _, err := tx.Exec(ctx, `UPDATE app.user_auth_links SET active=$1,revoked_at=$2 WHERE auth_subject = $3`, false, event.OccurredAt, event.AuthUserID); err != nil {
 			return err
 		}

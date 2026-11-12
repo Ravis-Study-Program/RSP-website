@@ -19,6 +19,8 @@ Secondary, all signed-in members (see `docs/role-matrix.md`):
 - **Graduate / alumni**: derived from a completed student enrollment. Read-only directory and shared feedback, and keeps personal practice and mock history.
 - **Former member**: kicked or withdrawn. Keeps personal practice and mock history.
 
+Jobs also serves public visitors browsing positions and verified active accounts without a season enrollment. These accounts can publish positions, keep their own private application history, and browse or offer referrals to other verified active accounts.
+
 ## Product Purpose
 
 Ravi’s Study Program (RSP) is the members-only, second-generation platform for a season-based mentoring program that prepares students for technical interviews. Students build a record of practice, mock interviews, and weekly written updates. Mentors and coordinators use that record to guide and run the season. It replaces a legacy C#/Auth0 system. Success means members record activity reliably and staff can see progress without chasing people.
@@ -50,7 +52,8 @@ A platform built around one program's own mechanics: seasons, program weeks in t
 ## Capabilities and Constraints
 
 - Stack in place: React 19 + Vite, shadcn/ui on Base UI, Tailwind CSS 4, TanStack Query/Table, and Tiptap rich text. The Go API and Better Auth service sit behind Caddy on a single origin.
-- Members only: `/` redirects to `/dashboard`. The only public routes are the auth flows (sign-in, verify email, two-factor, reset password, account unavailable, accept invitation).
+- Program pages are members only: `/` redirects to `/dashboard`. Auth flows and `/jobs` are public. Jobs positions are shared; `/jobs/applications` and its stage notes are owner-only. Publishing and tracking require a verified active account, without season enrollment. Active coordinators, directors and system admins maintain the shared board with recent MFA.
+- `/jobs/referrals` is restricted to verified active accounts, without season enrollment. Members can publish one referral offer per company and edit or remove only their own offers. Names link to existing profiles; contact happens through Discord, with no new messaging or contact field. Referral notes are visible to these accounts; private application histories remain owner-only. The referral conduct notice states the program-removal consequence without automated enforcement.
 - Privileged roles need TOTP MFA. Accounts can be deleted, with a 30-day recoverable grace period.
 - Program calendar logic uses `Australia/Adelaide`. Storage is UTC. The UI renders each member's saved IANA timezone.
 - English only (`en-AU` formatting). No i18n is planned in the repo.
