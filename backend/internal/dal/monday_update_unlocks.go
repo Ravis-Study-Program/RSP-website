@@ -198,6 +198,32 @@ func (p *Store) UnlockMondayUpdate(ctx context.Context, v program.MondayUpdateUn
 	return p.GetMondayUpdateUnlock(ctx, v.SeasonID, unlockID)
 }
 
+// RelockMondayUpdate closes an existing unlock so the late week is locked
+// again. A declined unlock can be requested again later.
+func (p *Store) RelockMondayUpdate(ctx context.Context, seasonID, unlockID, actorID string) (program.MondayUpdateUnlock, error) {
+	tx, err := p.conn().Begin(ctx)
+	if err != nil {
+		return program.MondayUpdateUnlock{}, err
+	}
+	defer tx.Rollback(context.Background())
+	result, err := tx.Exec(ctx, `UPDATE app.monday_update_unlocks
+		SET state='declined',decided_by_user_id=$3,decided_at=now()
+		WHERE id=$1 AND season_id=$2 AND state='approved'`, unlockID, seasonID, actorID)
+	if err != nil {
+		return program.MondayUpdateUnlock{}, mapDatabaseError(err)
+	}
+	if result.RowsAffected() == 0 {
+		return program.MondayUpdateUnlock{}, ErrConflict
+	}
+	if err := appendAuditTx(ctx, tx, newAudit(actorID, "monday_update_unlock.relocked", "monday_update_unlock", unlockID, nil, time.Now())); err != nil {
+		return program.MondayUpdateUnlock{}, err
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return program.MondayUpdateUnlock{}, err
+	}
+	return p.GetMondayUpdateUnlock(ctx, seasonID, unlockID)
+}
+
 // MondayUpdateWeekConfigured reports whether a Monday is the start of one of
 // the season's program weeks.
 func (p *Store) MondayUpdateWeekConfigured(ctx context.Context, seasonID, startDate string) (bool, error) {
