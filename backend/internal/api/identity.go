@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/magedmg/RSP-website/backend/internal/accounts"
+	"github.com/Ravis-Study-Program/RSP-website/backend/internal/accounts"
 )
 
 var discordAvatarPattern = regexp.MustCompile(`^https://cdn\.discordapp\.com/avatars/[0-9]{1,20}/(a_)?[a-f0-9]{32}\.png\?size=256$`)

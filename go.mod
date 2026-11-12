@@ -1,4 +1,4 @@
-module github.com/magedmg/RSP-website
+module github.com/Ravis-Study-Program/RSP-website
 
 go 1.26.0
 

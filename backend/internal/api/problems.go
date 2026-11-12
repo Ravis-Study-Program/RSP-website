@@ -7,10 +7,10 @@ import (
 	"strings"
 	"unicode/utf8"
 
-	"github.com/magedmg/RSP-website/backend/internal/dal"
-	"github.com/magedmg/RSP-website/backend/internal/mockinterviews"
-	"github.com/magedmg/RSP-website/backend/internal/platform/cursor"
-	"github.com/magedmg/RSP-website/backend/internal/practice"
+	"github.com/Ravis-Study-Program/RSP-website/backend/internal/dal"
+	"github.com/Ravis-Study-Program/RSP-website/backend/internal/mockinterviews"
+	"github.com/Ravis-Study-Program/RSP-website/backend/internal/platform/cursor"
+	"github.com/Ravis-Study-Program/RSP-website/backend/internal/practice"
 )
 
 const maxProblemSearchLength = 100

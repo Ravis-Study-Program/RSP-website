@@ -13,8 +13,8 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/magedmg/RSP-website/backend/internal/platform/id"
-	"github.com/magedmg/RSP-website/backend/internal/program"
+	"github.com/Ravis-Study-Program/RSP-website/backend/internal/platform/id"
+	"github.com/Ravis-Study-Program/RSP-website/backend/internal/program"
 )
 
 func mondayFixtureID(number int) string {

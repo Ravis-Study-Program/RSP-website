@@ -8,7 +8,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/magedmg/RSP-website/backend/internal/worker"
+	"github.com/Ravis-Study-Program/RSP-website/backend/internal/worker"
 )
 
 type SeedOptions struct {

@@ -8,9 +8,9 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/magedmg/RSP-website/backend/internal/accounts"
-	"github.com/magedmg/RSP-website/backend/internal/platform/audit"
-	"github.com/magedmg/RSP-website/backend/internal/platform/id"
+	"github.com/Ravis-Study-Program/RSP-website/backend/internal/accounts"
+	"github.com/Ravis-Study-Program/RSP-website/backend/internal/platform/audit"
+	"github.com/Ravis-Study-Program/RSP-website/backend/internal/platform/id"
 )
 
 type identityReceipt struct {

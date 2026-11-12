@@ -13,11 +13,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/magedmg/RSP-website/backend/internal/api"
-	"github.com/magedmg/RSP-website/backend/internal/authadmin"
-	"github.com/magedmg/RSP-website/backend/internal/authn"
-	"github.com/magedmg/RSP-website/backend/internal/dal"
-	"github.com/magedmg/RSP-website/backend/internal/platform/ratelimit"
+	"github.com/Ravis-Study-Program/RSP-website/backend/internal/api"
+	"github.com/Ravis-Study-Program/RSP-website/backend/internal/authadmin"
+	"github.com/Ravis-Study-Program/RSP-website/backend/internal/authn"
+	"github.com/Ravis-Study-Program/RSP-website/backend/internal/dal"
+	"github.com/Ravis-Study-Program/RSP-website/backend/internal/platform/ratelimit"
 )
 
 func main() {

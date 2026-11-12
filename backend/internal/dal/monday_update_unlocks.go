@@ -7,7 +7,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/magedmg/RSP-website/backend/internal/program"
+	"github.com/Ravis-Study-Program/RSP-website/backend/internal/program"
 )
 
 const mondayUpdateUnlockColumns = `k.id,k.season_id,k.student_user_id,s.slug,s.display_name,s.avatar_url,

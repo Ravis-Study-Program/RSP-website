@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/magedmg/RSP-website/backend/internal/platform/id"
+	"github.com/Ravis-Study-Program/RSP-website/backend/internal/platform/id"
 )
 
 func (s *Store) BootstrapAdmin(ctx context.Context, subject, email string) error {

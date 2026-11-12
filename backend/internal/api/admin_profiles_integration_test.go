@@ -4,8 +4,8 @@ package api
 
 import (
 	"context"
-	"github.com/magedmg/RSP-website/backend/internal/authadmin"
-	"github.com/magedmg/RSP-website/backend/internal/authz"
+	"github.com/Ravis-Study-Program/RSP-website/backend/internal/authadmin"
+	"github.com/Ravis-Study-Program/RSP-website/backend/internal/authz"
 	"net/http"
 	"strings"
 	"testing"

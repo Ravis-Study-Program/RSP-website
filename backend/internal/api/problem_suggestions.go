@@ -2,8 +2,8 @@ package api
 
 import (
 	"errors"
-	"github.com/magedmg/RSP-website/backend/internal/dal"
-	"github.com/magedmg/RSP-website/backend/internal/practice"
+	"github.com/Ravis-Study-Program/RSP-website/backend/internal/dal"
+	"github.com/Ravis-Study-Program/RSP-website/backend/internal/practice"
 	"net/http"
 )
 

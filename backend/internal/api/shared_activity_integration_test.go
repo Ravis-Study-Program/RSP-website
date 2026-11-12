@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/magedmg/RSP-website/backend/internal/authz"
+	"github.com/Ravis-Study-Program/RSP-website/backend/internal/authz"
 )
 
 func TestSharedFeedbackRetainsOwnershipAndContactProtection(t *testing.T) {

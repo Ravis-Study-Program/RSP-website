@@ -8,8 +8,8 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/magedmg/RSP-website/backend/internal/platform/id"
-	"github.com/magedmg/RSP-website/backend/internal/practice"
+	"github.com/Ravis-Study-Program/RSP-website/backend/internal/platform/id"
+	"github.com/Ravis-Study-Program/RSP-website/backend/internal/practice"
 )
 
 func TestSuggestionsExcludeLifetimeAttemptsAndRespectSelections(t *testing.T) {

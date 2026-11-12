@@ -3,7 +3,7 @@ package main
 import (
 	"testing"
 
-	"github.com/magedmg/RSP-website/backend/internal/leetcode"
+	"github.com/Ravis-Study-Program/RSP-website/backend/internal/leetcode"
 )
 
 func TestResolvedSyncURL(t *testing.T) {

@@ -7,15 +7,15 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"github.com/magedmg/RSP-website/backend/internal/dal"
+	"github.com/Ravis-Study-Program/RSP-website/backend/internal/dal"
 	"net/http"
 	"strings"
 	"time"
 
-	"github.com/magedmg/RSP-website/backend/internal/authadmin"
-	"github.com/magedmg/RSP-website/backend/internal/authz"
-	"github.com/magedmg/RSP-website/backend/internal/platform/id"
-	"github.com/magedmg/RSP-website/backend/internal/program"
+	"github.com/Ravis-Study-Program/RSP-website/backend/internal/authadmin"
+	"github.com/Ravis-Study-Program/RSP-website/backend/internal/authz"
+	"github.com/Ravis-Study-Program/RSP-website/backend/internal/platform/id"
+	"github.com/Ravis-Study-Program/RSP-website/backend/internal/program"
 )
 
 func invitationToken() (string, string, error) {
