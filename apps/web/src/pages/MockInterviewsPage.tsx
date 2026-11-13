@@ -1792,8 +1792,7 @@ function EditMockDialog({
             <Input
               id={`edit-date-${mock.id}`}
               value={formatDate(mock.occurredAt)}
-              readOnly
-              aria-readonly="true"
+              disabled
               className="text-muted-foreground"
             />
           </Field>
