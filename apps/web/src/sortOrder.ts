@@ -14,6 +14,7 @@ const roleOrder = [
   'former_member',
 ];
 const statusOrder = ['active', 'completed', 'kicked', 'withdrawn'];
+const studentLevelOrder = ['beginner', 'novice', 'intermediate', 'advanced'];
 
 function rank(order: string[], value: string | null | undefined) {
   const index = order.indexOf(value ?? '');
@@ -56,6 +57,19 @@ export function statusSortingFn<TData>(
 ) {
   return compareBy(
     statusOrder,
+    a.getValue<string | null>(columnId),
+    b.getValue<string | null>(columnId),
+  );
+}
+
+/** A table sort for student levels: Beginner, Novice, Intermediate, Advanced. */
+export function studentLevelSortingFn<TData>(
+  a: Row<TData>,
+  b: Row<TData>,
+  columnId: string,
+) {
+  return compareBy(
+    studentLevelOrder,
     a.getValue<string | null>(columnId),
     b.getValue<string | null>(columnId),
   );
