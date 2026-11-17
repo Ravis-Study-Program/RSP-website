@@ -404,6 +404,7 @@ await run('go', [
   '--admin-mentor-email',
   users[4].email,
   '--allow-existing',
+  '--include-jobs',
 ]);
 
 console.log('\nFake local accounts');

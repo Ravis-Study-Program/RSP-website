@@ -21,6 +21,7 @@ type SeedOptions struct {
 	// Admin and a mentor; empty creates a fallback one.
 	AdminMentorEmail string
 	AllowExisting    bool
+	IncludeJobs      bool
 }
 
 type seedUser struct {
@@ -107,7 +108,8 @@ func (s *Store) Seed(ctx context.Context, options SeedOptions) error {
 		if err := tx.Rollback(ctx); err != nil {
 			return err
 		}
-		return s.seedMondayUpdates(ctx, time.Now(), options.AdminMentorEmail)
+		return s.seedExtras(ctx, options)
+
 	}
 
 	studentID, err := resolveSeedUser(ctx, tx, seedUser{
@@ -238,7 +240,8 @@ RETURNING id`, privilegedID, privilegedRole, now).Scan(&privilegedAssignmentID);
 	if err := tx.Commit(ctx); err != nil {
 		return err
 	}
-	return s.seedMondayUpdates(ctx, time.Now(), options.AdminMentorEmail)
+	return s.seedExtras(ctx, options)
+
 }
 
 func seedLeetcodeProblem(ctx context.Context, tx pgx.Tx) error {
@@ -283,4 +286,15 @@ func seedSeasonWeeks(ctx context.Context, tx pgx.Tx, seasonID string, seasonStar
 			return err
 		}
 	}
+}
+
+// Jobs fixtures are opt-in for just fake-data, leaving the ordinary seed unchanged.
+func (s *Store) seedExtras(ctx context.Context, options SeedOptions) error {
+	if err := s.seedMondayUpdates(ctx, time.Now(), options.AdminMentorEmail); err != nil {
+		return err
+	}
+	if options.IncludeJobs {
+		return s.seedJobs(ctx, time.Now())
+	}
+	return nil
 }
