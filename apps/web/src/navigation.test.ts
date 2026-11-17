@@ -28,6 +28,7 @@ describe('shared navigation', () => {
       'LeetCode',
       'Mock Interviews',
       'Monday Updates',
+      'Jobs',
       'People',
       'My Students',
       'Seasons',
@@ -37,6 +38,7 @@ describe('shared navigation', () => {
       'LeetCode',
       'Mock Interviews',
       'Monday Updates',
+      'Jobs',
       'People',
       'Seasons',
       'Season Operations',
@@ -46,6 +48,7 @@ describe('shared navigation', () => {
       'LeetCode',
       'Mock Interviews',
       'Monday Updates',
+      'Jobs',
       'People',
       'Seasons',
       'Administration',
@@ -59,8 +62,9 @@ describe('shared navigation', () => {
       seasonRoles: [membership('mentor')],
     };
     const items = navigationItems(user, seasons);
-    expect(items.map((item) => item.label).slice(3, 7)).toEqual([
+    expect(items.map((item) => item.label).slice(3, 8)).toEqual([
       'Monday Updates',
+      'Jobs',
       'People',
       'My Students',
       'Seasons',
@@ -154,9 +158,9 @@ describe('shared navigation', () => {
       'LeetCode',
       'Mock Interviews',
       'Monday Updates',
+      'Jobs',
       'My Students',
       'Seasons',
-      'Jobs',
     ]);
     expect(items.find((item) => item.label === 'My Students')?.to).toBe(
       '/seasons/summer-2024-25/mentees',
@@ -172,9 +176,9 @@ describe('shared navigation', () => {
       'Dashboard',
       'LeetCode',
       'Mock Interviews',
+      'Jobs',
       'People',
       'Seasons',
-      'Jobs',
     ]);
   });
 

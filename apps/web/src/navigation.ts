@@ -96,7 +96,6 @@ export function navigationItems(
       section: 'mock-interviews',
     },
   ];
-  items.push(jobs);
   const isManager = user.globalRoles.length > 0;
   const membership = preferredMembership(user);
   // Directors, System Admins and coordinators stay in the season they last
@@ -146,6 +145,7 @@ export function navigationItems(
       icon: IconNotebook,
       section: 'monday-updates',
     });
+  items.push(jobs);
   // Coordinators and admins manage students from People, so theirs opens on
   // the season they run.
   const managedSeasonSlug = isManager
