@@ -45,9 +45,9 @@ test('Members can filter, offer, edit and stop referring', async ({
     'true',
   );
   const rules = page.getByRole('region', {
-    name: 'Read before contacting a referrer',
+    name: 'Read Before Contacting a Referrer',
   });
-  await expect(rules).toContainText('every requirement in their notes');
+  await expect(rules).toContainText('every requirement in their details');
   await expect(rules).toContainText('Do not harass');
   await expect(rules).toContainText('unable or unwilling');
   await expect(rules).toContainText('removed from the program');
@@ -110,14 +110,14 @@ test('Members can filter, offer, edit and stop referring', async ({
   ).toHaveCount(0);
   await page.getByRole('combobox', { name: 'Company', exact: true }).click();
   await page
-    .getByRole('option', { name: 'All companies', exact: true })
+    .getByRole('option', { name: 'All Companies', exact: true })
     .click();
 
   await page
-    .getByRole('button', { name: 'Open to referring', exact: true })
+    .getByRole('button', { name: 'Open to Referring', exact: true })
     .click();
   const form = page.getByRole('dialog', {
-    name: 'Open to referring',
+    name: 'Open to Referring',
     exact: true,
   });
   await form.getByLabel('Company', { exact: true }).fill('Local Test Company');
@@ -125,7 +125,7 @@ test('Members can filter, offer, edit and stop referring', async ({
     .getByRole('option', { name: 'Add “Local Test Company”', exact: true })
     .click();
   const help = form.getByRole('button', {
-    name: 'What to include in referral notes',
+    name: 'What to include in referral details',
   });
   await help.click();
   await expect(page.getByRole('tooltip')).toContainText('GPA thresholds');
@@ -143,14 +143,14 @@ test('Members can filter, offer, edit and stop referring', async ({
     });
   await page.keyboard.press('Escape');
   await form
-    .getByLabel('Notes', { exact: true })
+    .getByLabel('Details', { exact: true })
     .fill('Backend roles. GPA 6+. Message me your resume on Discord.');
   await form
-    .getByRole('button', { name: 'Open to referring', exact: true })
+    .getByRole('button', { name: 'Open to Referring', exact: true })
     .click();
   await expect(form).toBeHidden();
 
-  const search = page.getByPlaceholder('Search companies, people or notes…');
+  const search = page.getByPlaceholder('Search companies, people or details…');
   await search.fill('Local Test Company');
   await expect(
     page.getByRole('link', { name: 'Avery Example', exact: true }),
@@ -166,12 +166,12 @@ test('Members can filter, offer, edit and stop referring', async ({
     exact: true,
   });
   await manage.click();
-  await page.getByRole('menuitem', { name: 'Edit listing' }).click();
-  const edit = page.getByRole('dialog', { name: 'Edit referral listing' });
+  await page.getByRole('menuitem', { name: 'Edit Listing' }).click();
+  const edit = page.getByRole('dialog', { name: 'Edit Referral Listing' });
   await edit
-    .getByLabel('Notes', { exact: true })
+    .getByLabel('Details', { exact: true })
     .fill('Graduate roles only. Please send your resume.');
-  await edit.getByRole('button', { name: 'Save changes' }).click();
+  await edit.getByRole('button', { name: 'Save Changes' }).click();
   await expect(edit).toBeHidden();
   await expect(
     page.getByText('Graduate roles only. Please send your resume.', {
@@ -181,25 +181,25 @@ test('Members can filter, offer, edit and stop referring', async ({
 
   // Duplicate offers keep the form open with a useful error and do not create a second row.
   await page
-    .getByRole('button', { name: 'Open to referring', exact: true })
+    .getByRole('button', { name: 'Open to Referring', exact: true })
     .click();
   await form.getByLabel('Company', { exact: true }).fill('local test company');
   await page
     .getByRole('option', { name: 'Local Test Company', exact: true })
     .click();
   await form
-    .getByRole('button', { name: 'Open to referring', exact: true })
+    .getByRole('button', { name: 'Open to Referring', exact: true })
     .click();
   await expect(form).toContainText(
     'You already offer referrals at this company.',
   );
   await form.getByRole('button', { name: 'Cancel' }).click();
   await manage.click();
-  await page.getByRole('menuitem', { name: 'Stop referring' }).click();
+  await page.getByRole('menuitem', { name: 'Stop Referring' }).click();
   const confirm = page.getByRole('alertdialog');
   await confirm.getByRole('textbox').fill('Local Test Company');
   await confirm
-    .getByRole('button', { name: 'Stop referring', exact: true })
+    .getByRole('button', { name: 'Stop Referring', exact: true })
     .click();
   await expect(confirm).toBeHidden();
   await expect(manage).toHaveCount(0);

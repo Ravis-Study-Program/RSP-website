@@ -126,7 +126,7 @@ function PublicJobsShell() {
             className={buttonVariants({ variant: 'outline' })}
             to="/sign-in?returnTo=%2Fjobs"
           >
-            Sign in
+            Sign In
           </Link>
         </div>
       </header>

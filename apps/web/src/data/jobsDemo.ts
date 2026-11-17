@@ -4,6 +4,7 @@ import { jobApplicationStatuses } from '@/jobs';
 import { demoUser, people } from '@/data/demo';
 import type {
   JobApplication,
+  JobApplicationEditInput,
   JobApplicationStatusInput,
   JobCompany,
   JobPosition,
@@ -159,6 +160,31 @@ export function demoJobRequest(
     }
     const application = own.find((a) => a.id === parts[2]);
     if (!application) throw new Error('Application not found.');
+    if (parts.length === 3 && method === 'PUT') {
+      const input = body as JobApplicationEditInput;
+      if (
+        input.stages[0]?.id !== application.stages.find((s) => s.initial)?.id ||
+        input.stages[0]?.title !== 'Applied'
+      )
+        throw new Error('Applied must stay first.');
+      const stages = input.stages.map((stage, index) => ({
+        ...stage,
+        id: stage.id ?? crypto.randomUUID(),
+        initial: index === 0,
+      }));
+      if (application.status !== input.status)
+        stages.push({
+          id: crypto.randomUUID(),
+          title: jobApplicationStatuses.find((s) => s.value === input.status)!
+            .label,
+          date: input.date,
+          notes: '',
+          initial: false,
+        });
+      application.status = input.status;
+      application.stages = stages;
+      return;
+    }
     if (parts.length === 3 && method === 'PATCH') {
       const input = body as JobApplicationStatusInput;
       if (application.status === input.status) return;

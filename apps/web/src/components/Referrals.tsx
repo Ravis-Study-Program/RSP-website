@@ -1,14 +1,13 @@
-import { useState } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
+import { useState, type ReactNode } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import type { ColumnDef } from '@tanstack/react-table';
-import {
-  IconAlertTriangle,
-  IconArrowUpRight,
-  IconDots,
-  IconPlus,
-} from '@tabler/icons-react';
+import { IconAlertTriangle, IconDots, IconPlus } from '@tabler/icons-react';
 import { useJobActions, useJobCompanies, useJobReferrals } from '@/api/jobs';
 import type { JobReferral } from '@/api/generated/models';
+import { StatusBadge } from '@/components/StatusBadge';
+import { PersonIdentity } from '@/components/Common';
+import { initials } from '@/utils';
+import { jobCategories, jobCategoryBadgeClasses } from '@/jobs';
 import { DataTable } from '@/components/DataTable';
 import { NamedConfirmation } from '@/components/Dialogs';
 import { JobSelect, ReferralForm } from '@/components/JobForms';
@@ -32,7 +31,7 @@ export function OpenToReferring() {
         onClick={() => setOpen(true)}
       >
         <IconPlus size={18} aria-hidden="true" />
-        Open to referring
+        Open to Referring
       </Button>
       {open && <ReferralForm onClose={() => setOpen(false)} />}
     </>
@@ -41,13 +40,24 @@ export function OpenToReferring() {
 
 function ReferrerLink({ referral }: { referral: JobReferral }) {
   return (
-    <Link
-      className="inline-flex min-w-0 items-center gap-1.5 rounded-sm font-medium text-foreground hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
-      to={`/people/${encodeURIComponent(referral.referrer.slug)}`}
-    >
-      <IconArrowUpRight size={16} className="shrink-0" aria-hidden="true" />
-      <span>{referral.referrer.name}</span>
-    </Link>
+    <PersonIdentity
+      person={{
+        ...referral.referrer,
+        initials: initials(referral.referrer.name),
+      }}
+      showRoles={false}
+    />
+  );
+}
+
+function CategoryBadge({ referral }: { referral: JobReferral }) {
+  const category = jobCategories.find(
+    (entry) => entry.value === referral.company.category,
+  )?.label;
+  return (
+    <StatusBadge className={jobCategoryBadgeClasses[referral.company.category]}>
+      {category}
+    </StatusBadge>
   );
 }
 
@@ -59,7 +69,7 @@ function Notes({ notes }: { notes: string }) {
   );
 }
 
-export function Referrals() {
+export function Referrals({ toolbarLead }: { toolbarLead?: ReactNode }) {
   const user = useJobsUser();
   const referrals = useJobReferrals(user?.id);
   const companies = useJobCompanies();
@@ -98,16 +108,26 @@ export function Referrals() {
         </DropdownMenuTrigger>
         <DropdownMenuContent>
           <DropdownMenuItem onClick={() => setEdit(referral)}>
-            Edit listing
+            Edit Listing
           </DropdownMenuItem>
           <DropdownMenuItem onClick={() => setRemove(referral)}>
-            Stop referring
+            Stop Referring
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
     );
   }
   const columns: ColumnDef<JobReferral>[] = [
+    {
+      id: 'category',
+      header: 'Category',
+      accessorFn: (r) =>
+        jobCategories.find((category) => category.value === r.company.category)
+          ?.label,
+      cell: ({ row }) => <CategoryBadge referral={row.original} />,
+      enableColumnFilter: false,
+      meta: { width: 9 },
+    },
     {
       id: 'company',
       header: 'Company',
@@ -123,11 +143,11 @@ export function Referrals() {
       meta: { width: 14, wrap: true },
     },
     {
-      id: 'Notes',
+      id: 'Details',
       accessorFn: (r) => r.notes,
       header: () => (
         <span className="inline-flex items-center gap-1">
-          Notes
+          Details
           <ReferralNotesHelp />
         </span>
       ),
@@ -140,7 +160,7 @@ export function Referrals() {
       header: '',
       enableSorting: false,
       enableColumnFilter: false,
-      meta: { width: 3, align: 'end' },
+      meta: { width: 4.5, align: 'end' },
       cell: ({ row }) => actions(row.original),
     },
   ];
@@ -156,13 +176,13 @@ export function Referrals() {
             className="mt-0.5 shrink-0"
             aria-hidden="true"
           />
-          <div className="grid gap-2">
+          <div className="grid min-w-0 flex-1 gap-2">
             <h2 id="referral-rules" className="text-xl font-semibold">
-              Read before contacting a referrer
+              Read Before Contacting a Referrer
             </h2>
-            <p className="max-w-prose">
+            <p>
               Only message a referrer if you meet{' '}
-              <strong>every requirement in their notes</strong>. Do not harass
+              <strong>every requirement in their details</strong>. Do not harass
               them or send repeated requests. Be respectful and understanding if
               they are unable or unwilling to refer you.
             </p>
@@ -175,6 +195,7 @@ export function Referrals() {
       </section>
       <DataTable
         key={companyID}
+        toolbarLead={toolbarLead}
         ariaLabel="Referrals"
         data={shown}
         columns={columns}
@@ -183,23 +204,21 @@ export function Referrals() {
         error={referrals.isError}
         onRetry={() => void referrals.refetch()}
         emptyTitle={
-          companyID === 'all'
-            ? 'No referrals yet'
-            : 'No referrers for this company'
+          companyID === 'all' ? 'No Referrals' : 'No Referrers for This Company'
         }
         emptyMessage={
           companyID === 'all'
             ? 'Members who are open to referring will appear here.'
-            : 'Choose All companies to see other members who are open to referring.'
+            : 'Choose All Companies to see other members who are open to referring.'
         }
-        searchPlaceholder="Search companies, people or notes…"
+        searchPlaceholder="Search companies, people or details…"
         toolbarStart={
           <JobSelect
             label="Company"
             compact
             value={companyID}
             options={[
-              { value: 'all', label: 'All companies' },
+              { value: 'all', label: 'All Companies' },
               ...[...companyOptions]
                 .sort((a, b) => a[1].localeCompare(b[1]))
                 .map(([value, label]) => ({ value, label })),
@@ -215,13 +234,18 @@ export function Referrals() {
         renderCard={({ original }) => (
           <div className="grid gap-3">
             <div className="flex items-center justify-between gap-3">
-              <h3 className="font-semibold">{original.company.name}</h3>
+              <div className="flex min-w-0 items-center gap-4">
+                <CategoryBadge referral={original} />
+                <h3 className="min-w-0 truncate font-semibold">
+                  {original.company.name}
+                </h3>
+              </div>
               {actions(original)}
             </div>
             <ReferrerLink referral={original} />
             <div>
               <div className="mb-1 flex items-center gap-1 text-sm font-medium">
-                Notes
+                Details
                 <ReferralNotesHelp />
               </div>
               <Notes notes={original.notes} />
@@ -236,7 +260,7 @@ export function Referrals() {
         <NamedConfirmation
           open
           name={remove.company.name}
-          actionLabel="Stop referring"
+          actionLabel="Stop Referring"
           description="Your listing will be removed. You can offer referrals again at any time."
           onOpenChange={(open) => {
             if (!open) setRemove(undefined);

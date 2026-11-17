@@ -17,7 +17,7 @@ export const jobApplicationStatuses: {
 ];
 
 export const jobCategories: { value: JobCategory; label: string }[] = [
-  { value: 'faang', label: 'FAANG' },
+  { value: 'faang', label: 'FAAMG' },
   { value: 'big_tech', label: 'Big Tech' },
   { value: 'quant', label: 'HFT/Quant' },
   { value: 'other', label: 'Other Tech' },
@@ -27,14 +27,17 @@ export const jobTypes: { value: JobType; label: string }[] = [
   { value: 'grad', label: 'Grad' },
   { value: 'experienced', label: 'Experienced' },
 ];
+export const jobCategoryBadgeClasses: Record<JobCategory, string> = {
+  faang: 'bg-job-faamg text-job-category-foreground',
+  big_tech: 'bg-job-big-tech text-job-category-foreground',
+  quant: 'bg-job-quant text-job-category-foreground',
+  other: 'bg-job-other text-job-category-foreground',
+};
 export const jobCategoryControlClasses: Record<JobCategory, string> = {
-  faang:
-    'bg-destructive hover:bg-destructive/90 aria-expanded:bg-destructive dark:hover:bg-destructive/90',
-  big_tech:
-    'bg-orange hover:bg-orange/90 aria-expanded:bg-orange dark:hover:bg-orange/90',
-  quant:
-    'bg-warning hover:bg-warning/90 aria-expanded:bg-warning dark:hover:bg-warning/90',
-  other: 'bg-pink hover:bg-pink/90 aria-expanded:bg-pink dark:hover:bg-pink/90',
+  faang: `${jobCategoryBadgeClasses.faang} hover:bg-job-faamg/90 aria-expanded:bg-job-faamg dark:hover:bg-job-faamg/90`,
+  big_tech: `${jobCategoryBadgeClasses.big_tech} hover:bg-job-big-tech/90 aria-expanded:bg-job-big-tech dark:hover:bg-job-big-tech/90`,
+  quant: `${jobCategoryBadgeClasses.quant} hover:bg-job-quant/90 aria-expanded:bg-job-quant dark:hover:bg-job-quant/90`,
+  other: `${jobCategoryBadgeClasses.other} hover:bg-job-other/90 aria-expanded:bg-job-other dark:hover:bg-job-other/90`,
 };
 export function canManageJobs(user?: CurrentUser) {
   return Boolean(

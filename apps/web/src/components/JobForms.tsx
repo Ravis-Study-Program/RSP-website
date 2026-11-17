@@ -5,14 +5,14 @@ import type {
   JobCompany,
   JobPosition,
   JobPositionInput,
-  JobStage,
   JobReferral,
+  JobStage,
 } from '@/api/generated/models';
 import { useJobsUser } from '@/components/JobsShell';
 import { ReferralNotesHelp } from '@/components/ReferralNotesHelp';
 import { JobCompanyField } from '@/components/JobCompanyField';
-import { FormDialog } from '@/components/Dialogs';
 import { AppDatePicker } from '@/components/AppDatePicker';
+import { FormDialog } from '@/components/Dialogs';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -102,7 +102,7 @@ function JobForm({
   children,
   onSave,
   onClose,
-  label = 'Save changes',
+  label = 'Save Changes',
 }: {
   children: ReactNode;
   onSave: () => Promise<unknown>;
@@ -139,7 +139,7 @@ function JobForm({
           to={`/jobs?position=${encodeURIComponent(duplicate)}`}
           onClick={onClose}
         >
-          View existing position
+          View Existing Position
         </Link>
       ) : null}
       <FormActions pending={pending} label={label} onCancel={onClose} />
@@ -161,8 +161,8 @@ export function ReferralForm({
   const [notes, setNotes] = useState(referral?.notes ?? '');
   return (
     <FormDialog
-      title={referral ? 'Edit referral listing' : 'Open to referring'}
-      description="Your name, company and notes will be visible to signed-in members."
+      title={referral ? 'Edit Referral Listing' : 'Open to Referring'}
+      description="Your name, company and details will be visible to signed-in members."
       open
       onOpenChange={(open) => {
         if (!open) onClose();
@@ -170,7 +170,7 @@ export function ReferralForm({
     >
       <JobForm
         onClose={onClose}
-        label={referral ? 'Save changes' : 'Open to referring'}
+        label={referral ? 'Save Changes' : 'Open to Referring'}
         onSave={() =>
           save(
             `/jobs/referrals${referral ? `/${referral.id}` : ''}`,
@@ -182,7 +182,7 @@ export function ReferralForm({
         <JobCompanyField value={companyName} onChange={setCompanyName} />
         <Field>
           <div className="flex items-center gap-1">
-            <FieldLabel htmlFor={`${id}-notes`}>Notes</FieldLabel>
+            <FieldLabel htmlFor={`${id}-notes`}>Details</FieldLabel>
             <ReferralNotesHelp />
           </div>
           <Textarea
@@ -236,7 +236,7 @@ export function PositionForm({
   ) => setInput((v) => ({ ...v, [key]: value }));
   return (
     <FormDialog
-      title={position ? 'Edit position' : 'Add position'}
+      title={position ? 'Edit Position' : 'Add Position'}
       open
       onOpenChange={(open) => {
         if (!open) onClose();
@@ -245,7 +245,7 @@ export function PositionForm({
     >
       <JobForm
         onClose={onClose}
-        label={position ? 'Save changes' : 'Publish position'}
+        label={position ? 'Save Changes' : 'Publish Position'}
         onSave={() =>
           save(
             `/jobs/positions${position ? `/${position.id}` : ''}`,
@@ -267,7 +267,7 @@ export function PositionForm({
             onChange={(name) => set('companyName', name)}
           />
           <JobSelect
-            label="Company category"
+            label="Company Category"
             value={existing?.category ?? input.category}
             options={jobCategories}
             disabled={Boolean(existing)}
@@ -275,7 +275,7 @@ export function PositionForm({
           />
         </div>
         <Field>
-          <FieldLabel htmlFor={`${prefix}-title`}>Job title</FieldLabel>
+          <FieldLabel htmlFor={`${prefix}-title`}>Job Title</FieldLabel>
           <Input
             id={`${prefix}-title`}
             required
@@ -285,13 +285,13 @@ export function PositionForm({
           />
         </Field>
         <JobSelect
-          label="Job type"
+          label="Job Type"
           value={input.jobType}
           options={jobTypes}
           onChange={(v) => set('jobType', v as JobPositionInput['jobType'])}
         />
         <Field>
-          <FieldLabel htmlFor={`${prefix}-url`}>Application link</FieldLabel>
+          <FieldLabel htmlFor={`${prefix}-url`}>Application Link</FieldLabel>
           <Input
             id={`${prefix}-url`}
             type="url"
@@ -304,7 +304,7 @@ export function PositionForm({
         </Field>
         <Field>
           <FieldLabel htmlFor={`${prefix}-locations`}>
-            Locations · one per line
+            Locations (One per Line)
           </FieldLabel>
           <Textarea
             id={`${prefix}-locations`}
@@ -316,7 +316,7 @@ export function PositionForm({
         </Field>
         <Field>
           <FieldLabel htmlFor={`${prefix}-eligibility`}>
-            Eligibility requirements · optional
+            Eligibility Requirements (Optional)
           </FieldLabel>
           <Textarea
             id={`${prefix}-eligibility`}
@@ -328,7 +328,7 @@ export function PositionForm({
         </Field>
         <Field>
           <FieldLabel htmlFor={`${prefix}-notes`}>
-            Notes · public, optional
+            Details (Public, Optional)
           </FieldLabel>
           <Textarea
             id={`${prefix}-notes`}
@@ -357,8 +357,7 @@ export function CompanyForm({
   const [category, setCategory] = useState(company.category);
   return (
     <FormDialog
-      title="Edit company"
-      description="Changes apply to all positions from this company."
+      title="Edit Company"
       open
       onOpenChange={(open) => {
         if (!open) onClose();
@@ -371,7 +370,7 @@ export function CompanyForm({
         }
       >
         <Field>
-          <FieldLabel htmlFor={id}>Company name</FieldLabel>
+          <FieldLabel htmlFor={id}>Company Name</FieldLabel>
           <Input
             id={id}
             required
@@ -408,7 +407,7 @@ export function StageForm({
   const [notes, setNotes] = useState(stage?.notes ?? '');
   return (
     <FormDialog
-      title={stage ? 'Edit stage' : 'Add stage'}
+      title={stage ? 'Edit Stage' : 'Add Stage'}
       open
       onOpenChange={(open) => {
         if (!open) onClose();
@@ -416,7 +415,7 @@ export function StageForm({
     >
       <JobForm
         onClose={onClose}
-        label={stage ? 'Save changes' : 'Add stage'}
+        label={stage ? 'Save Changes' : 'Add Stage'}
         onSave={() =>
           save(
             `/me/job-applications/${applicationId}/stages${stage ? `/${stage.id}` : ''}`,
@@ -426,7 +425,7 @@ export function StageForm({
         }
       >
         <Field>
-          <FieldLabel htmlFor={`${id}-title`}>Stage name</FieldLabel>
+          <FieldLabel htmlFor={`${id}-title`}>Stage Name</FieldLabel>
           <Input
             id={`${id}-title`}
             required
@@ -448,7 +447,7 @@ export function StageForm({
         <AppDatePicker label="Date" value={date} onChange={setDate} />
         <Field>
           <FieldLabel htmlFor={`${id}-notes`}>
-            Notes · private, optional
+            Notes (Private, Optional)
           </FieldLabel>
           <Textarea
             id={`${id}-notes`}
@@ -478,8 +477,8 @@ export function MergePositionForm({
   const targets = positions.filter((p) => p.id !== source.id);
   return (
     <FormDialog
-      title="Merge duplicate position"
-      description={`Merge “${source.company.name} · ${source.title}” into another listing. The selected listing keeps its details; locations and private application histories are combined.`}
+      title="Merge Duplicate Position"
+      description={`Merge “${source.title}” at ${source.company.name} into another job listing.`}
       open
       onOpenChange={(open) => {
         if (!open) onClose();
@@ -487,7 +486,7 @@ export function MergePositionForm({
     >
       <JobForm
         onClose={onClose}
-        label="Merge positions"
+        label="Merge Positions"
         onSave={() => {
           if (!targetId) throw new Error('Choose the position to keep.');
           return save(`/jobs/positions/${source.id}/merge`, 'POST', {
@@ -495,11 +494,25 @@ export function MergePositionForm({
           });
         }}
       >
+        <div className="grid gap-2 text-sm">
+          <h3 className="font-semibold">In the Combined Listing</h3>
+          <ul className="list-disc space-y-2 pl-5">
+            <li>
+              Company name, job title, job type, eligibility requirements,
+              application link, details, and open or closed status use the
+              selected position’s data.
+            </li>
+            <li>
+              Locations and each person’s private application histories are
+              combined. Private notes remain private.
+            </li>
+          </ul>
+        </div>
         <JobSelect
-          label="Position to keep"
+          label="Position to Keep"
           value={targetId}
           options={[
-            { value: '', label: 'Choose a position' },
+            { value: '', label: 'Choose a Position' },
             ...targets.map((p) => ({
               value: p.id,
               label: `${p.company.name} · ${p.title} · ${p.locations.join(' / ')}`,

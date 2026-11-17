@@ -9,7 +9,7 @@ export function ReferralNotesHelp() {
       <Tooltip.Root open={open} onOpenChange={setOpen}>
         <Tooltip.Trigger
           type="button"
-          aria-label="What to include in referral notes"
+          aria-label="What to include in referral details"
           closeOnClick={false}
           onClick={() => setOpen(true)}
           className="inline-flex size-7 shrink-0 items-center justify-center rounded-sm text-muted-foreground hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"

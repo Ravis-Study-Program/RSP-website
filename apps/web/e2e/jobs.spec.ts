@@ -1,9 +1,42 @@
 import AxeBuilder from '@axe-core/playwright';
-import { expect, test } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
 import { mkdir } from 'node:fs/promises';
 import path from 'node:path';
 
 const captureRoot = process.env.RSP_JOBS_CAPTURE_DIR;
+
+async function editApplicationStatus(
+  page: Page,
+  title: string,
+  company: string,
+  status: string,
+) {
+  await expect(
+    page.getByRole('status', {
+      name: `Status for ${title} at ${company}`,
+      exact: true,
+    }),
+  ).toBeVisible();
+  const history = page.getByRole('region', {
+    name: `Application history for ${title}`,
+    exact: true,
+  });
+  if (!(await history.isVisible()))
+    await page
+      .getByRole('button', {
+        name: `Show history for ${title} ·`,
+        exact: false,
+      })
+      .click();
+  await history
+    .getByRole('button', { name: 'Edit Application', exact: true })
+    .click();
+  const dialog = page.getByRole('dialog', { name: 'Edit Application' });
+  await dialog.getByRole('combobox', { name: 'Status', exact: true }).click();
+  await page.getByRole('option', { name: status, exact: true }).click();
+  await dialog.getByRole('button', { name: 'Save Changes' }).click();
+  await expect(dialog).not.toBeVisible();
+}
 
 test('Application statuses keep inactive histories out of the default list', async ({
   page,
@@ -30,18 +63,12 @@ test('Application statuses keep inactive histories out of the default list', asy
       })
       .click();
     await expect(
-      page.getByRole('combobox', { name: 'Application status filter' }),
+      page.getByRole('combobox', { name: 'Application Status Filter' }),
     ).toHaveText('Active');
     if (status !== 'Active') {
-      await page
-        .getByRole('combobox', {
-          name: `Status for ${title} at ${company}`,
-          exact: true,
-        })
-        .click();
-      await page.getByRole('option', { name: status, exact: true }).click();
+      await editApplicationStatus(page, title, company, status);
       await expect(
-        page.getByRole('combobox', {
+        page.getByRole('status', {
           name: `Status for ${title} at ${company}`,
           exact: true,
         }),
@@ -57,14 +84,14 @@ test('Application statuses keep inactive histories out of the default list', asy
   }
   await page.getByRole('tab', { name: 'My Applications' }).click();
   const filter = page.getByRole('combobox', {
-    name: 'Application status filter',
+    name: 'Application Status Filter',
   });
   await expect(filter).toHaveText('Active');
   await expect(
-    page.getByRole('combobox', { name: /Status for .* at Canva/ }),
+    page.getByRole('status', { name: /Status for .* at Canva/ }),
   ).toBeVisible();
   await expect(
-    page.getByRole('combobox', {
+    page.getByRole('status', {
       name: /Status for .* at (Google|Amazon|Microsoft)/,
     }),
   ).toHaveCount(0);
@@ -131,7 +158,7 @@ test('Application statuses keep inactive histories out of the default list', asy
     ).toEqual([]);
     for (const [title, company, status] of titles)
       await expect(
-        page.getByRole('combobox', {
+        page.getByRole('status', {
           name: `Status for ${title} at ${company}`,
           exact: true,
         }),
@@ -149,39 +176,43 @@ test('Application statuses keep inactive histories out of the default list', asy
   await filter.click();
   await page.getByRole('option', { name: 'Rejected', exact: true }).click();
   await expect(
-    page.getByRole('combobox', { name: /Status for .* at Amazon/ }),
+    page.getByRole('status', { name: /Status for .* at Amazon/ }),
   ).toBeVisible();
   await expect(
-    page.getByRole('combobox', { name: /Status for .* at Google/ }),
+    page.getByRole('status', { name: /Status for .* at Google/ }),
   ).toBeVisible();
   await expect(
-    page.getByRole('combobox', { name: /Status for .* at Microsoft/ }),
+    page.getByRole('status', { name: /Status for .* at Microsoft/ }),
   ).toHaveCount(0);
   await filter.click();
   await page.getByRole('option', { name: 'Offer', exact: true }).click();
   await expect(
-    page.getByRole('combobox', { name: /Status for .* at Microsoft/ }),
+    page.getByRole('status', { name: /Status for .* at Microsoft/ }),
   ).toHaveText('Offer');
   await expect(
-    page.getByRole('combobox', {
+    page.getByRole('status', {
       name: /Status for .* at (Google|Amazon|Canva)/,
     }),
   ).toHaveCount(0);
   await filter.click();
   await page.getByRole('option', { name: 'Rejected', exact: true }).click();
-  await page.getByRole('combobox', { name: /Status for .* at Google/ }).click();
-  await page.getByRole('option', { name: 'Active', exact: true }).click();
+  await editApplicationStatus(
+    page,
+    'Software Engineering Intern, Summer 2026',
+    'Google',
+    'Active',
+  );
   await expect(
-    page.getByRole('combobox', { name: /Status for .* at Google/ }),
+    page.getByRole('status', { name: /Status for .* at Google/ }),
   ).toHaveCount(0);
   await filter.click();
   await page.getByRole('option', { name: 'Active', exact: true }).click();
   await expect(
-    page.getByRole('combobox', { name: /Status for .* at Google/ }),
+    page.getByRole('status', { name: /Status for .* at Google/ }),
   ).toHaveText('Active');
   await page
     .getByRole('button', {
-      name: 'Show history for Software Engineering Intern, Summer 2026 · FAANG',
+      name: 'Show history for Software Engineering Intern, Summer 2026 · FAAMG',
       exact: true,
     })
     .click();
@@ -270,13 +301,14 @@ test('Applied opens a private named stage history', async ({
   await expect(applied).toBeEnabled();
   await applied.click();
   await expect(page).toHaveURL(/\/jobs\/applications\?application=/);
-  await page.getByRole('button', { name: 'Add stage', exact: true }).click();
-  const form = page.getByRole('dialog', { name: 'Add stage' });
-  await form.getByLabel('Stage name').fill('Technical interview');
+  await page.getByRole('button', { name: 'Add Stage', exact: true }).click();
+  const form = page.getByRole('dialog', { name: 'Add Stage' });
+  await form.getByLabel('Stage Name').last().fill('Technical interview');
   await form
-    .getByLabel('Notes · private, optional')
+    .getByLabel('Notes (Private, Optional)')
+    .last()
     .fill('Prepare graph traversal examples and questions about the team.');
-  await form.getByRole('button', { name: 'Choose date' }).click();
+  await form.getByRole('button', { name: 'Choose date' }).last().click();
   await expect(page.getByRole('button', { name: 'Next month' })).toBeVisible();
   if (captureRoot)
     await page.screenshot({
@@ -285,7 +317,7 @@ test('Applied opens a private named stage history', async ({
       path: path.join(captureRoot, `${testInfo.project.name}-stage-form.png`),
     });
   await page.keyboard.press('Escape');
-  await form.getByRole('button', { name: 'Add stage', exact: true }).click();
+  await form.getByRole('button', { name: 'Add Stage', exact: true }).click();
   await expect(form).not.toBeVisible();
   await expect(
     page.getByText(
@@ -336,14 +368,14 @@ test('Members can publish a position with the shared form', async ({
     localStorage.setItem('rsp-demo-role', 'student'),
   );
   await page.goto('/jobs');
-  await page.getByRole('button', { name: 'Add position', exact: true }).click();
-  const form = page.getByRole('dialog', { name: 'Add position' });
+  await page.getByRole('button', { name: 'Add Position', exact: true }).click();
+  const form = page.getByRole('dialog', { name: 'Add Position' });
   await form.getByLabel('Company', { exact: true }).fill('Example Robotics');
-  await form.getByLabel('Job title').fill('Graduate Software Engineer');
+  await form.getByLabel('Job Title').fill('Graduate Software Engineer');
   await form
-    .getByLabel('Application link')
+    .getByLabel('Application Link')
     .fill('https://example.com/careers/graduate');
-  await form.getByLabel('Locations · one per line').fill('Adelaide, Australia');
+  await form.getByLabel('Locations (One per Line)').fill('Adelaide, Australia');
   if (captureRoot)
     await page.screenshot({
       fullPage: true,
@@ -354,14 +386,14 @@ test('Members can publish a position with the shared form', async ({
       ),
     });
   await form
-    .getByRole('button', { name: 'Publish position' })
+    .getByRole('button', { name: 'Publish Position' })
     .scrollIntoViewIfNeeded();
   if (captureRoot && testInfo.project.name === 'mobile')
     await page.screenshot({
       scale: 'css',
       path: path.join(captureRoot, 'mobile-position-form-bottom.png'),
     });
-  await form.getByRole('button', { name: 'Publish position' }).click();
+  await form.getByRole('button', { name: 'Publish Position' }).click();
   await expect(form).not.toBeVisible();
   await page.getByPlaceholder('Search positions…').fill('Example Robotics');
   await expect(

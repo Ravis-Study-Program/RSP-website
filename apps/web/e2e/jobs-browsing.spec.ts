@@ -69,11 +69,11 @@ test('Applied filters include rejected and offer applications and combine with o
     await page.getByRole('tab', { name: 'Positions', exact: true }).click();
   }
   const filter = page.getByRole('combobox', {
-    name: 'Application filter',
+    name: 'Application Filter',
     exact: true,
   });
   await filter.click();
-  await page.getByRole('option', { name: 'Not applied', exact: true }).click();
+  await page.getByRole('option', { name: 'Not Applied', exact: true }).click();
   await expect(
     page.getByRole('checkbox', { name: /Applied to .* at (Google|Amazon)$/ }),
   ).toHaveCount(0);
@@ -83,7 +83,7 @@ test('Applied filters include rejected and offer applications and combine with o
   await page.getByRole('button', { name: 'Filters', exact: true }).click();
   await page.getByRole('combobox', { name: 'Job Type', exact: true }).click();
   await page.getByRole('option', { name: 'Grad', exact: true }).click();
-  await page.getByLabel('Location', { exact: true }).fill('Sydney');
+  await page.getByLabel('Locations', { exact: true }).fill('Sydney');
   await page.keyboard.press('Escape');
   await expect(
     page.getByRole('checkbox', { name: /Applied to .* at Microsoft$/ }),
@@ -93,7 +93,7 @@ test('Applied filters include rejected and offer applications and combine with o
   ).toHaveCount(0);
   await page.getByRole('tab', { name: 'My Applications', exact: true }).click();
   await page.getByRole('tab', { name: 'Positions', exact: true }).click();
-  await expect(filter).toHaveText('Not applied');
+  await expect(filter).toHaveText('Not Applied');
   await capture(page, info, 'positions');
   await filter.click();
   await page.getByRole('option', { name: 'Applied', exact: true }).click();
@@ -128,14 +128,14 @@ test('Position referrer links select the shared company and keep the conduct not
     page.getByRole('link', { name: 'Zara Ahmed', exact: true }),
   ).toHaveCount(0);
   await expect(
-    page.getByRole('region', { name: 'Read before contacting a referrer' }),
+    page.getByRole('region', { name: 'Read Before Contacting a Referrer' }),
   ).toBeVisible();
   await page.reload();
   await expect(company).toHaveText('Google');
   await capture(page, info, 'company-referrals');
   await company.click();
   await page
-    .getByRole('option', { name: 'All companies', exact: true })
+    .getByRole('option', { name: 'All Companies', exact: true })
     .click();
   await expect(
     page.getByRole('link', { name: 'Zara Ahmed', exact: true }),
@@ -151,7 +151,7 @@ test('Added dates sort newest first and newly published positions appear first',
   });
   await page.goto('/jobs');
   const sort = page.getByRole('combobox', {
-    name: 'Sort positions',
+    name: 'Sort Positions',
     exact: true,
   });
   await expect(sort).toHaveText('Newest');
@@ -170,23 +170,23 @@ test('Added dates sort newest first and newly published positions appear first',
   await expect.poll(timestamps).toEqual([...newest].sort((a, b) => a - b));
   await sort.click();
   await page.getByRole('option', { name: 'Newest', exact: true }).click();
-  await page.getByRole('button', { name: 'Add position', exact: true }).click();
-  const form = page.getByRole('dialog', { name: 'Add position', exact: true });
+  await page.getByRole('button', { name: 'Add Position', exact: true }).click();
+  const form = page.getByRole('dialog', { name: 'Add Position', exact: true });
   await form
     .getByRole('combobox', { name: 'Company', exact: true })
     .fill('Fresh Company');
   await form
-    .getByLabel('Job title', { exact: true })
+    .getByLabel('Job Title', { exact: true })
     .fill('Newly added engineer');
   await form
-    .getByLabel('Application link', { exact: true })
+    .getByLabel('Application Link', { exact: true })
     .fill('https://example.com/new-engineer');
   await form
-    .getByLabel('Locations · one per line', { exact: true })
+    .getByLabel('Locations (One per Line)', { exact: true })
     .fill('Sydney');
   const before = Date.now();
   await form
-    .getByRole('button', { name: 'Publish position', exact: true })
+    .getByRole('button', { name: 'Publish Position', exact: true })
     .click();
   await expect(form).toBeHidden();
   await expect(dates).toHaveCount(27);
@@ -204,10 +204,10 @@ test('Visitors can sort positions without seeing private application filters or 
   );
   await page.goto('/jobs');
   await expect(
-    page.getByRole('combobox', { name: 'Sort positions', exact: true }),
+    page.getByRole('combobox', { name: 'Sort Positions', exact: true }),
   ).toHaveText('Newest');
   await expect(
-    page.getByRole('combobox', { name: 'Application filter', exact: true }),
+    page.getByRole('combobox', { name: 'Application Filter', exact: true }),
   ).toHaveCount(0);
   await expect(
     page.getByRole('link', { name: /View \d+ referrers? at/ }),
@@ -217,7 +217,7 @@ test('Visitors can sort positions without seeing private application filters or 
   ).toHaveCount(0);
 });
 
-test('Direct position links reveal older applied positions despite Not applied and date sorting', async ({
+test('Direct position links reveal older applied positions despite Not Applied and date sorting', async ({
   page,
 }) => {
   await page.addInitScript(() => {
@@ -237,23 +237,23 @@ test('Direct position links reveal older applied positions despite Not applied a
   await expect(page).toHaveURL(/\/jobs\/applications\?application=/);
   await page.getByRole('tab', { name: 'Positions', exact: true }).click();
   await page
-    .getByRole('combobox', { name: 'Application filter', exact: true })
+    .getByRole('combobox', { name: 'Application Filter', exact: true })
     .click();
-  await page.getByRole('option', { name: 'Not applied', exact: true }).click();
+  await page.getByRole('option', { name: 'Not Applied', exact: true }).click();
   await page.goBack();
   await expect(page).toHaveURL(/\/jobs\/applications\?application=/);
   await page.goBack();
   await expect(page).toHaveURL(/\/jobs\?position=position-26/);
   await expect(
-    page.getByRole('combobox', { name: 'Application filter', exact: true }),
-  ).toHaveText('Not applied');
+    page.getByRole('combobox', { name: 'Application Filter', exact: true }),
+  ).toHaveText('Not Applied');
   await expect(markers.first()).toHaveAccessibleName(
     'Applied to Intern Engineer at Dolby',
   );
   await expect(markers.first()).toBeChecked();
   await expect(details).toHaveAttribute('aria-expanded', 'true');
   await page
-    .getByRole('combobox', { name: 'Sort positions', exact: true })
+    .getByRole('combobox', { name: 'Sort Positions', exact: true })
     .click();
   await page.getByRole('option', { name: 'Oldest', exact: true }).click();
   await expect(markers.first()).toHaveAccessibleName(

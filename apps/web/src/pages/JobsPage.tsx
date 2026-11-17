@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { JobApplicationForm } from '@/components/JobApplicationForm';
+import { useState, type ReactNode } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import type { ColumnDef, Row, SortingState } from '@tanstack/react-table';
 import {
@@ -7,7 +8,16 @@ import {
   useNavigate,
   useSearchParams,
 } from 'react-router-dom';
-import { IconArrowUpRight, IconDots, IconPlus } from '@tabler/icons-react';
+import {
+  IconArchive,
+  IconArchiveOff,
+  IconBuilding,
+  IconDotsVertical,
+  IconEdit,
+  IconGitMerge,
+  IconPlus,
+  IconTrash,
+} from '@tabler/icons-react';
 import {
   jobRequest,
   useJobActions,
@@ -17,13 +27,13 @@ import {
 } from '@/api/jobs';
 import type {
   JobApplication,
-  JobApplicationStatus,
+  JobStage,
   JobCompany,
   JobPosition,
-  JobStage,
 } from '@/api/generated/models';
 import { Page, PageHeader, usePageTitle } from '@/components/Common';
 import { DataTable, ExpandRowButton } from '@/components/DataTable';
+import { ExternalLink } from '@/components/ExternalLink';
 import { NamedConfirmation } from '@/components/Dialogs';
 import {
   CompanyForm,
@@ -67,44 +77,43 @@ export function JobsPage() {
       : location.pathname === '/jobs/applications'
         ? 'applications'
         : 'positions';
+  const pageTabs = (
+    <TabsList
+      aria-label="Jobs"
+      className="group-data-[orientation=horizontal]/tabs:h-9"
+    >
+      <TabsTrigger value="positions">Positions</TabsTrigger>
+      <TabsTrigger value="applications">My Applications</TabsTrigger>
+      {user && <TabsTrigger value="referrals">Referrals</TabsTrigger>}
+    </TabsList>
+  );
   return (
     <Page>
-      {user ? (
-        <h1 className="sr-only">Jobs</h1>
-      ) : (
-        <PageHeader title="Jobs" status={<BetaBadge />} />
-      )}
+      <PageHeader
+        title="Jobs"
+        status={<BetaBadge />}
+        actions={
+          active === 'positions' ? (
+            <AddPosition />
+          ) : active === 'referrals' ? (
+            <OpenToReferring />
+          ) : undefined
+        }
+      />
       <Tabs
         value={active}
-        onValueChange={(v) =>
-          navigate(v === 'positions' ? '/jobs' : `/jobs/${v}`)
+        onValueChange={(value) =>
+          navigate(value === 'positions' ? '/jobs' : `/jobs/${value}`)
         }
       >
-        <div className="mb-4 flex min-h-9 flex-wrap items-center justify-between gap-3">
-          <TabsList aria-label="Jobs">
-            <TabsTrigger value="positions">Positions</TabsTrigger>
-            <TabsTrigger value="applications">My Applications</TabsTrigger>
-            {user && <TabsTrigger value="referrals">Referrals</TabsTrigger>}
-          </TabsList>
-          {active === 'positions' && (
-            <div className="ml-auto">
-              <AddPosition />
-            </div>
-          )}
-          {active === 'referrals' && (
-            <div className="ml-auto">
-              <OpenToReferring />
-            </div>
-          )}
-        </div>
         <TabsContent value="positions">
-          {active === 'positions' && <Positions />}
+          {active === 'positions' && <Positions toolbarLead={pageTabs} />}
         </TabsContent>
         <TabsContent value="applications">
-          {active === 'applications' && <Applications />}
+          {active === 'applications' && <Applications toolbarLead={pageTabs} />}
         </TabsContent>
         <TabsContent value="referrals">
-          {active === 'referrals' && <Referrals />}
+          {active === 'referrals' && <Referrals toolbarLead={pageTabs} />}
         </TabsContent>
       </Tabs>
     </Page>
@@ -120,14 +129,14 @@ function AddPosition() {
         className={buttonVariants({ variant: 'outline' })}
         to="/sign-in?returnTo=%2Fjobs"
       >
-        Sign in to add a position
+        Sign In to Add a Position
       </Link>
     );
   return (
     <>
       <Button onClick={() => setOpen(true)}>
         <IconPlus size={18} aria-hidden="true" />
-        Add position
+        Add Position
       </Button>
       {open && <PositionForm onClose={() => setOpen(false)} />}
     </>
@@ -136,17 +145,14 @@ function AddPosition() {
 
 function CompanyLink({ position }: { position: JobPosition }) {
   return (
-    <a
+    <ExternalLink
       href={position.applicationUrl}
-      target="_blank"
-      rel="noopener noreferrer"
       aria-label={`Apply for ${position.title} at ${position.company.name}`}
       title={`Apply at ${position.company.name} (opens in a new tab)`}
-      className="flex min-h-8 min-w-0 items-center gap-1.5 rounded-sm font-medium text-foreground hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+      className="min-h-8 min-w-0 rounded-sm font-medium text-foreground"
     >
-      <IconArrowUpRight size={16} className="shrink-0" aria-hidden="true" />
       <span className="truncate">{position.company.name}</span>
-    </a>
+    </ExternalLink>
   );
 }
 
@@ -167,23 +173,8 @@ function JobDetailsButton<T>({
       row={row}
       subject={`${history ? 'history' : 'details'} for ${position.title} · ${category}`}
       title={category}
-      className={`rounded-sm text-background hover:text-background aria-expanded:text-background ${jobCategoryControlClasses[position.company.category]}`}
+      className={`rounded-sm hover:text-job-category-foreground aria-expanded:text-job-category-foreground ${jobCategoryControlClasses[position.company.category]}`}
     />
-  );
-}
-
-function ApplyLink({ position }: { position: JobPosition }) {
-  return (
-    <a
-      href={position.applicationUrl}
-      target="_blank"
-      rel="noopener noreferrer"
-      aria-label={`Apply for ${position.title} at ${position.company.name}`}
-      className="inline-flex min-h-8 items-center gap-1 font-medium"
-    >
-      Apply
-      <IconArrowUpRight size={16} aria-hidden="true" />
-    </a>
   );
 }
 
@@ -192,15 +183,9 @@ function JobText({ text }: { text: string }) {
     <p className="whitespace-pre-wrap break-words text-sm leading-relaxed">
       {text.split(/(https:\/\/[^\s]+)/g).map((part, i) =>
         part.startsWith('https://') ? (
-          <a
-            key={i}
-            className="break-all"
-            href={part}
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            {part}
-          </a>
+          <ExternalLink key={i} href={part}>
+            <span className="min-w-0 break-all">{part}</span>
+          </ExternalLink>
         ) : (
           part
         ),
@@ -211,31 +196,14 @@ function JobText({ text }: { text: string }) {
 
 function PositionDetails({ position }: { position: JobPosition }) {
   return (
-    <div className="grid gap-5 p-4 sm:grid-cols-2">
-      <div className="grid content-start gap-2">
-        <h3 className="font-semibold">{position.title}</h3>
-        <p className="text-sm text-muted-foreground">
-          {
-            jobCategories.find((c) => c.value === position.company.category)
-              ?.label
-          }
-        </p>
-        <p className="text-sm text-muted-foreground">
-          {position.locations.join(' · ')}
-        </p>
-        <ApplyLink position={position} />
-        <h4 className="mt-2 text-sm font-semibold">Eligibility requirements</h4>
-        <JobText text={position.eligibility || 'Not provided'} />
-      </div>
-      <div className="grid content-start gap-2">
-        <h4 className="text-sm font-semibold">Notes</h4>
-        <JobText text={position.notes || 'No notes.'} />
-      </div>
+    <div className="grid gap-2">
+      <h3 className="text-sm font-semibold">Details</h3>
+      <JobText text={position.notes || 'No Details.'} />
     </div>
   );
 }
 
-function Positions() {
+function Positions({ toolbarLead }: { toolbarLead: ReactNode }) {
   const user = useJobsUser();
   const positions = useJobPositions();
   const applications = useJobApplications(user?.id);
@@ -265,6 +233,7 @@ function Positions() {
   const [edit, setEdit] = useState<JobPosition>();
   const [company, setCompany] = useState<JobCompany>();
   const [merge, setMerge] = useState<JobPosition>();
+  const [closePosition, setClosePosition] = useState<JobPosition>();
   const [remove, setRemove] = useState<JobApplication>();
   const all = positions.data ?? [];
   const appliedIDs = new Set(applications.data?.map((a) => a.position.id));
@@ -377,24 +346,38 @@ function Positions() {
             />
           }
         >
-          <IconDots size={18} aria-hidden="true" />
+          <IconDotsVertical size={18} aria-hidden="true" />
         </DropdownMenuTrigger>
         <DropdownMenuContent>
           <DropdownMenuItem onClick={() => staffAction(() => setEdit(p))}>
-            Edit position
+            <IconEdit size={17} aria-hidden="true" /> Edit Position
           </DropdownMenuItem>
           <DropdownMenuItem
             onClick={() => staffAction(() => setCompany(p.company))}
           >
-            Edit company
+            <IconBuilding size={17} aria-hidden="true" /> Edit Company
           </DropdownMenuItem>
           <DropdownMenuItem
-            onClick={() => staffAction(() => void toggleStatus(p))}
+            variant={p.status === 'open' ? 'destructive' : 'default'}
+            onClick={() =>
+              staffAction(() => {
+                if (p.status === 'open') setClosePosition(p);
+                else void toggleStatus(p);
+              })
+            }
           >
-            {p.status === 'open' ? 'Close position' : 'Reopen position'}
+            {p.status === 'open' ? (
+              <IconArchive size={17} aria-hidden="true" />
+            ) : (
+              <IconArchiveOff size={17} aria-hidden="true" />
+            )}
+            {p.status === 'open' ? 'Close Position' : 'Reopen Position'}
           </DropdownMenuItem>
-          <DropdownMenuItem onClick={() => staffAction(() => setMerge(p))}>
-            Merge duplicate
+          <DropdownMenuItem
+            variant="destructive"
+            onClick={() => staffAction(() => setMerge(p))}
+          >
+            <IconGitMerge size={17} aria-hidden="true" /> Merge Duplicate
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
@@ -421,7 +404,9 @@ function Positions() {
       header: 'Job Title',
       cell: ({ row }) => (
         <div className="flex items-center gap-2">
-          <span className="truncate">{row.original.title}</span>
+          <span className="truncate" title={row.original.title}>
+            {row.original.title}
+          </span>
           {row.original.status === 'closed' && (
             <StatusBadge>Closed</StatusBadge>
           )}
@@ -438,20 +423,18 @@ function Positions() {
     {
       accessorKey: 'eligibility',
       header: 'Eligibility Requirements',
-      cell: ({ row }) => row.original.eligibility || '—',
+      cell: ({ row }) => (
+        <span title={row.original.eligibility}>
+          {row.original.eligibility || '—'}
+        </span>
+      ),
       meta: { width: 10 },
     },
     {
       id: 'location',
       accessorFn: (p) => p.locations.join(' · '),
-      header: 'Location',
+      header: 'Locations',
       meta: { width: 10 },
-    },
-    {
-      accessorKey: 'notes',
-      header: 'Notes',
-      cell: ({ row }) => row.original.notes || '—',
-      meta: { width: 9 },
     },
     {
       id: 'added',
@@ -496,7 +479,7 @@ function Positions() {
             cell: ({ row }) => staffMenu(row.original),
             enableColumnFilter: false,
             enableSorting: false,
-            meta: { width: 3 },
+            meta: { width: 4.5, align: 'end' },
           } as ColumnDef<JobPosition>,
         ]
       : []),
@@ -528,7 +511,7 @@ function Positions() {
         <p role="alert" className="mb-4 text-sm">
           Could not load your Applied markers.{' '}
           <Button variant="link" onClick={() => void applications.refetch()}>
-            Try again
+            Try Again
           </Button>
         </p>
       )}
@@ -539,6 +522,7 @@ function Positions() {
       )}
       <DataTable
         key={focusID ?? 'positions'}
+        toolbarLead={toolbarLead}
         ariaLabel="Job positions"
         data={filtered}
         columns={columns}
@@ -561,7 +545,7 @@ function Positions() {
           if (user) void applications.refetch();
         }}
         emptyTitle={
-          applicationFilter === 'all' ? 'No Positions' : 'No matching positions'
+          applicationFilter === 'all' ? 'No Positions' : 'No Matching Positions'
         }
         emptyMessage={
           applicationFilter === 'all'
@@ -576,21 +560,21 @@ function Positions() {
               compact
               value={status}
               options={[
-                { value: 'open', label: 'Open positions' },
-                { value: 'all', label: 'All positions' },
-                { value: 'closed', label: 'Closed positions' },
+                { value: 'open', label: 'Open Positions' },
+                { value: 'all', label: 'All Positions' },
+                { value: 'closed', label: 'Closed Positions' },
               ]}
               onChange={setStatus}
             />
             {user && (
               <JobSelect
-                label="Application filter"
+                label="Application Filter"
                 compact
                 value={applicationFilter}
                 disabled={applications.isPending || applications.isError}
                 options={[
                   { value: 'all', label: 'All' },
-                  { value: 'not-applied', label: 'Not applied' },
+                  { value: 'not-applied', label: 'Not Applied' },
                   { value: 'applied', label: 'Applied' },
                 ]}
                 onChange={(value) => {
@@ -603,14 +587,14 @@ function Positions() {
               />
             )}
             <JobSelect
-              label="Sort positions"
+              label="Sort Positions"
               compact
               value={sortOrder}
               options={[
                 { value: 'newest', label: 'Newest' },
                 { value: 'oldest', label: 'Oldest' },
                 ...(sortOrder === 'custom'
-                  ? [{ value: 'custom', label: 'Custom sort' }]
+                  ? [{ value: 'custom', label: 'Custom Sort' }]
                   : []),
               ]}
               onChange={(value) => {
@@ -623,10 +607,10 @@ function Positions() {
         extraFilters={{
           content: (
             <JobSelect
-              label="Company category"
+              label="Company Category"
               value={category}
               options={[
-                { value: 'all', label: 'All categories' },
+                { value: 'all', label: 'All Categories' },
                 ...jobCategories,
               ]}
               onChange={setCategory}
@@ -659,6 +643,14 @@ function Positions() {
                 {formatCalendarDay(new Date(row.original.createdAt))}
               </time>
             </p>
+            {row.original.eligibility && (
+              <div className="grid gap-1 text-sm">
+                <span className="text-muted-foreground">
+                  Eligibility Requirements
+                </span>
+                <JobText text={row.original.eligibility} />
+              </div>
+            )}
             {user && appliedControl(row.original)}
             {row.getIsExpanded() && <PositionDetails position={row.original} />}
           </div>
@@ -669,6 +661,23 @@ function Positions() {
       )}
       {company && (
         <CompanyForm company={company} onClose={() => setCompany(undefined)} />
+      )}
+      {closePosition && (
+        <NamedConfirmation
+          open
+          name={closePosition.title}
+          actionLabel="Close Position"
+          description={`This closes the listing at ${closePosition.company.name} and removes it from Open Positions. Existing applications and private notes are kept. You can reopen it later.`}
+          onOpenChange={(open) => {
+            if (!open) setClosePosition(undefined);
+          }}
+          onConfirm={() =>
+            save(`/jobs/positions/${closePosition.id}`, 'PATCH', {
+              ...positionInput(closePosition),
+              status: 'closed',
+            }).then(() => undefined)
+          }
+        />
       )}
       {merge && (
         <MergePositionForm
@@ -681,7 +690,7 @@ function Positions() {
         <NamedConfirmation
           open
           name={remove.position.title}
-          actionLabel="Remove application"
+          actionLabel="Remove Application"
           description="This removes your application and all its private stage notes. The shared position stays on the board."
           onOpenChange={(open) => {
             if (!open) setRemove(undefined);
@@ -697,57 +706,33 @@ function Positions() {
   );
 }
 
-function Applications() {
+function Applications({ toolbarLead }: { toolbarLead: ReactNode }) {
   const user = useJobsUser();
   const applications = useJobApplications(user?.id);
-  const save = useJobActions(user?.id);
   const [status, setStatus] = useState('active');
-  const [pending, setPending] = useState<string>();
-  const [error, setError] = useState('');
-  const [notice, setNotice] = useState('');
   const [params] = useSearchParams();
   const focus = params.get('application');
   const ordered = (applications.data ?? [])
     .filter((a) => status === 'all' || a.status === status)
     .sort((a, b) => Number(b.id === focus) - Number(a.id === focus));
-  async function updateStatus(
-    application: JobApplication,
-    next: JobApplicationStatus,
-  ) {
-    if (application.status === next) return;
-    setPending(application.id);
-    setError('');
-    setNotice('');
-    try {
-      await save(`/me/job-applications/${application.id}`, 'PATCH', {
-        status: next,
-        date: localJobDate(),
-      });
-      setNotice(
-        `${application.position.company.name} application marked as ${jobApplicationStatuses.find((s) => s.value === next)?.label}.`,
-      );
-    } catch (e) {
-      setError(
-        e instanceof Error
-          ? e.message
-          : 'Unable to update the application status. Try again.',
-      );
-    } finally {
-      setPending(undefined);
-    }
-  }
-  function statusControl(application: JobApplication) {
+  function statusBadge(application: JobApplication) {
     return (
-      <JobSelect
-        compact
-        label={`Status for ${application.position.title} at ${application.position.company.name}`}
-        value={application.status}
-        options={jobApplicationStatuses}
-        disabled={Boolean(pending)}
-        onChange={(next) =>
-          void updateStatus(application, next as JobApplicationStatus)
+      <StatusBadge
+        role="status"
+        aria-label={`Status for ${application.position.title} at ${application.position.company.name}`}
+        tone={
+          application.status === 'offer'
+            ? 'success'
+            : application.status === 'inactive'
+              ? 'danger'
+              : 'info'
         }
-      />
+      >
+        {
+          jobApplicationStatuses.find((s) => s.value === application.status)
+            ?.label
+        }
+      </StatusBadge>
     );
   }
   const columns: ColumnDef<JobApplication>[] = [
@@ -786,7 +771,7 @@ function Applications() {
     {
       accessorKey: 'status',
       header: 'Status',
-      cell: ({ row }) => statusControl(row.original),
+      cell: ({ row }) => statusBadge(row.original),
       enableColumnFilter: false,
       meta: { width: 12 },
     },
@@ -803,18 +788,9 @@ function Applications() {
   ];
   return (
     <>
-      {error && (
-        <p role="alert" className="mb-4 text-sm text-destructive">
-          {error}
-        </p>
-      )}
-      {notice && (
-        <p role="status" className="mb-4 text-sm text-muted-foreground">
-          {notice}
-        </p>
-      )}
       <DataTable
         key={focus ?? 'applications'}
+        toolbarLead={toolbarLead}
         ariaLabel="My applications"
         data={ordered}
         columns={columns}
@@ -836,7 +812,7 @@ function Applications() {
         searchPlaceholder="Search your applications…"
         toolbarStart={
           <JobSelect
-            label="Application status filter"
+            label="Application Status Filter"
             compact
             value={status}
             options={[
@@ -864,7 +840,7 @@ function Applications() {
               <p className="text-sm">
                 {row.original.stages.at(-1)?.title ?? 'Applied'}
               </p>
-              {statusControl(row.original)}
+              {statusBadge(row.original)}
             </div>
             {row.getIsExpanded() && (
               <ApplicationHistory application={row.original} />
@@ -879,15 +855,16 @@ function Applications() {
 function ApplicationHistory({ application }: { application: JobApplication }) {
   const user = useJobsUser();
   const save = useJobActions(user?.id);
+  const [edit, setEdit] = useState(false);
   const [stage, setStage] = useState<JobStage | 'new'>();
   const [remove, setRemove] = useState<JobStage | 'application'>();
   return (
     <section
-      className="grid gap-4 p-4"
+      className="grid gap-4"
       aria-label={`Application history for ${application.position.title}`}
     >
       {application.position.status === 'closed' && (
-        <StatusBadge>Position closed</StatusBadge>
+        <StatusBadge>Position Closed</StatusBadge>
       )}
       <ol className="divide-y">
         {application.stages.map((s) => (
@@ -912,15 +889,18 @@ function ApplicationHistory({ application }: { application: JobApplication }) {
                     />
                   }
                 >
-                  <IconDots size={18} aria-hidden="true" />
+                  <IconDotsVertical size={18} aria-hidden="true" />
                 </DropdownMenuTrigger>
                 <DropdownMenuContent>
                   <DropdownMenuItem onClick={() => setStage(s)}>
-                    Edit stage
+                    <IconEdit size={17} aria-hidden="true" /> Edit Stage
                   </DropdownMenuItem>
                   {!s.initial && (
-                    <DropdownMenuItem onClick={() => setRemove(s)}>
-                      Remove stage
+                    <DropdownMenuItem
+                      variant="destructive"
+                      onClick={() => setRemove(s)}
+                    >
+                      <IconTrash size={17} aria-hidden="true" /> Remove Stage
                     </DropdownMenuItem>
                   )}
                 </DropdownMenuContent>
@@ -932,17 +912,31 @@ function ApplicationHistory({ application }: { application: JobApplication }) {
       </ol>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <Button
-          variant="outline"
+          variant="destructive"
           size="sm"
           onClick={() => setRemove('application')}
         >
-          Remove application
+          Remove Application
         </Button>
-        <Button size="sm" className="ml-auto" onClick={() => setStage('new')}>
+        <Button
+          variant="outline"
+          size="sm"
+          className="ml-auto"
+          onClick={() => setEdit(true)}
+        >
+          <IconEdit size={17} aria-hidden="true" /> Edit Application
+        </Button>
+        <Button size="sm" onClick={() => setStage('new')}>
           <IconPlus size={16} aria-hidden="true" />
-          Add stage
+          Add Stage
         </Button>
       </div>
+      {edit && (
+        <JobApplicationForm
+          application={application}
+          onClose={() => setEdit(false)}
+        />
+      )}
       {stage && (
         <StageForm
           applicationId={application.id}
@@ -957,7 +951,7 @@ function ApplicationHistory({ application }: { application: JobApplication }) {
             remove === 'application' ? application.position.title : remove.title
           }
           actionLabel={
-            remove === 'application' ? 'Remove application' : 'Remove stage'
+            remove === 'application' ? 'Remove Application' : 'Remove Stage'
           }
           description={
             remove === 'application'
