@@ -331,3 +331,45 @@ func TestJobsConcurrentApplyAndDeletionLifecycle(t *testing.T) {
 	}
 	jobCall(t, h, "GET", "/jobs/positions/"+p.ID, "", nil, http.StatusOK)
 }
+
+func TestJobsEditApplicationIsAtomicAndPrivate(t *testing.T) {
+	_, h := jobFixture(t)
+	position := newJob(t, h, "editor", "Sydney")
+	id := applyJob(t, h, "member", position.ID)
+	path := "/me/job-applications/" + id
+	for _, title := range []string{"Phone Screen", "Technical Interview"} {
+		jobCall(t, h, "POST", path+"/stages", "member", jobs.StageInput{Title: title, Date: "2026-11-02", Notes: "Private"}, http.StatusCreated)
+	}
+	before := readApplications(t, h, "member")[0]
+	input := jobs.ApplicationEdit{Status: "offer", Date: "2026-11-03"}
+	for _, i := range []int{0, 2, 1} {
+		stage := before.Stages[i]
+		input.Stages = append(input.Stages, jobs.StageEdit{ID: stage.ID, StageInput: jobs.StageInput{Title: stage.Title, Date: stage.Date, Notes: stage.Notes}})
+	}
+	jobCall(t, h, "PUT", path, "", input, http.StatusUnauthorized)
+	jobCall(t, h, "PUT", path, "mentor", input, http.StatusNotFound)
+	invalid := input
+	invalid.Stages = append([]jobs.StageEdit(nil), input.Stages...)
+	invalid.Stages[1].ID = "11111111-1111-4111-8111-111111111111"
+	jobCall(t, h, "PUT", path, "member", invalid, http.StatusConflict)
+	unchanged := readApplications(t, h, "member")[0]
+	if unchanged.Status != "active" || unchanged.Stages[1].Title != "Phone Screen" {
+		t.Fatal("invalid edit partially saved")
+	}
+	jobCall(t, h, "PUT", path, "member", input, http.StatusNoContent)
+	saved := readApplications(t, h, "member")[0]
+	if saved.Status != "offer" || len(saved.Stages) != 4 || saved.Stages[1].Title != "Technical Interview" || saved.Stages[2].Title != "Phone Screen" || saved.Stages[3].Title != "Offer" {
+		t.Fatalf("order/status not saved: %#v", saved)
+	}
+	// Removing the initial stage is never permitted.
+	invalid = input
+	invalid.Stages = input.Stages[1:]
+	jobCall(t, h, "PUT", path, "member", invalid, http.StatusBadRequest)
+	// Delete one ordinary stage and append a new one in a single save.
+	input.Stages = append(input.Stages[:2], jobs.StageEdit{StageInput: jobs.StageInput{Title: "Team Match", Date: "2026-11-04", Notes: "Still private"}})
+	jobCall(t, h, "PUT", path, "member", input, http.StatusNoContent)
+	saved = readApplications(t, h, "member")[0]
+	if len(saved.Stages) != 3 || saved.Stages[2].Title != "Team Match" || saved.Stages[2].Notes != "Still private" {
+		t.Fatalf("stage replacement failed: %#v", saved)
+	}
+}

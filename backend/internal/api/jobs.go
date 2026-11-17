@@ -14,6 +14,7 @@ import (
 )
 
 func registerJobRoutes(mux *http.ServeMux, a *API) {
+	mux.HandleFunc("PUT /api/v2/me/job-applications/{id}", a.protected(ratelimit.Write, jobIDs(a.editJobApplication)))
 	mux.HandleFunc("GET /api/v2/jobs/companies", a.listJobCompanies)
 	mux.HandleFunc("GET /api/v2/jobs/positions", a.listJobPositions)
 	mux.HandleFunc("GET /api/v2/jobs/positions/{id}", jobIDs(a.getJobPosition))
@@ -295,6 +296,29 @@ func (a *API) saveJobStage(w http.ResponseWriter, r *http.Request) {
 
 func (a *API) deleteJobStage(w http.ResponseWriter, r *http.Request) {
 	if err := a.db.DeleteJobStage(r.Context(), actorFrom(r.Context()).UserID, r.PathValue("id"), r.PathValue("stageId")); err != nil {
+		a.writeStoreErrorResponse(w, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func (a *API) editJobApplication(w http.ResponseWriter, r *http.Request) {
+	var input jobs.ApplicationEdit
+	if err := decodeJSON(r.Body, &input); err != nil {
+		writeErrorResponse(w, http.StatusBadRequest, "Enter valid application details.")
+		return
+	}
+	if err := input.Validate(); err != nil {
+		writeErrorResponse(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	for _, stage := range input.Stages {
+		if stage.ID != "" && !uuidSelection(stage.ID) {
+			writeErrorResponse(w, http.StatusBadRequest, "Enter a valid stage ID.")
+			return
+		}
+	}
+	if err := a.db.EditJobApplication(r.Context(), actorFrom(r.Context()).UserID, r.PathValue("id"), input); err != nil {
 		a.writeStoreErrorResponse(w, err)
 		return
 	}

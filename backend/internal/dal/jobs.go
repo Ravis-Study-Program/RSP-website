@@ -205,7 +205,7 @@ func (p *Store) ListJobApplications(ctx context.Context, userID, boundary string
 	}
 	rows, err = p.pool.Query(ctx, `SELECT s.application_id,s.id,s.title,s.happened_on::text,s.notes,s.initial
  FROM app.job_application_stages s JOIN app.job_applications a ON a.id=s.application_id
- WHERE a.user_id=$1 AND a.id=ANY($2::uuid[]) ORDER BY s.initial DESC,s.happened_on,s.created_at,s.id`, userID, ids)
+ WHERE a.user_id=$1 AND a.id=ANY($2::uuid[]) ORDER BY s.initial DESC,s.sort_order NULLS LAST,s.happened_on,s.created_at,s.id`, userID, ids)
 	if err != nil {
 		return nil, false, 0, err
 	}
@@ -460,4 +460,69 @@ func (p *Store) JobPositionForURL(ctx context.Context, normalizedURL string) (st
 		return "", err
 	}
 	return jobCanonicalID(ctx, p.pool, positionID)
+}
+
+// EditJobApplication saves the whole editor atomically. Stage IDs are checked
+// against the owner before any update; the initial Applied record is retained.
+func (p *Store) EditJobApplication(ctx context.Context, userID, applicationID string, input jobs.ApplicationEdit) error {
+	tx, err := p.beginJobs(ctx, userID)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(context.Background())
+	var current string
+	if err = tx.QueryRow(ctx, `SELECT status FROM app.job_applications WHERE id=$1 AND user_id=$2 FOR UPDATE`, applicationID, userID).Scan(&current); err != nil {
+		return noRows(err)
+	}
+	rows, err := tx.Query(ctx, `SELECT id,initial FROM app.job_application_stages WHERE application_id=$1`, applicationID)
+	if err != nil {
+		return err
+	}
+	existing := map[string]bool{}
+	for rows.Next() {
+		var id string
+		var initial bool
+		if err = rows.Scan(&id, &initial); err != nil {
+			rows.Close()
+			return err
+		}
+		existing[id] = initial
+	}
+	err = rows.Err()
+	rows.Close()
+	if err != nil {
+		return err
+	}
+	if len(input.Stages) == 0 || !existing[input.Stages[0].ID] {
+		return ErrConflict
+	}
+	kept := []string{}
+	for i, stage := range input.Stages {
+		if stage.ID != "" {
+			initial, ok := existing[stage.ID]
+			if !ok || (initial && (i != 0 || stage.Title != "Applied")) {
+				return ErrConflict
+			}
+			_, err = tx.Exec(ctx, `UPDATE app.job_application_stages SET title=$1,happened_on=$2,notes=$3,sort_order=$4 WHERE id=$5 AND application_id=$6`, stage.Title, stage.Date, stage.Notes, i, stage.ID, applicationID)
+		} else {
+			err = tx.QueryRow(ctx, `INSERT INTO app.job_application_stages(application_id,title,happened_on,notes,sort_order) VALUES($1,$2,$3,$4,$5) RETURNING id`, applicationID, stage.Title, stage.Date, stage.Notes, i).Scan(&stage.ID)
+		}
+		if err != nil {
+			return err
+		}
+		kept = append(kept, stage.ID)
+	}
+	if _, err = tx.Exec(ctx, `DELETE FROM app.job_application_stages WHERE application_id=$1 AND NOT (id=ANY($2::uuid[])) AND NOT initial`, applicationID, kept); err != nil {
+		return err
+	}
+	if current != input.Status {
+		if _, err = tx.Exec(ctx, `UPDATE app.job_applications SET status=$1 WHERE id=$2`, input.Status, applicationID); err != nil {
+			return err
+		}
+		title := map[string]string{"active": "Active", "inactive": "Rejected", "offer": "Offer"}[input.Status]
+		if _, err = tx.Exec(ctx, `INSERT INTO app.job_application_stages(application_id,title,happened_on) VALUES($1,$2,$3)`, applicationID, title, input.Date); err != nil {
+			return err
+		}
+	}
+	return tx.Commit(ctx)
 }

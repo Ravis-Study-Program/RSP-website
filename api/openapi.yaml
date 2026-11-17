@@ -3086,6 +3086,40 @@ paths:
     }
   /me/job-applications/{id}:
     {
+      'put':
+        {
+          'operationId': 'editJobApplication',
+          'tags': ['Jobs'],
+          'security': [{ 'bearerAuth': [] }],
+          'parameters':
+            [
+              {
+                'in': 'path',
+                'name': 'id',
+                'required': true,
+                'schema': { 'type': 'string', 'format': 'uuid' },
+              },
+            ],
+          'requestBody':
+            {
+              'required': true,
+              'content':
+                {
+                  'application/json':
+                    {
+                      'schema':
+                        {
+                          '$ref': '#/components/schemas/JobApplicationEditInput',
+                        },
+                    },
+                },
+            },
+          'responses':
+            {
+              '204': { 'description': 'Saved' },
+              'default': { '$ref': '#/components/responses/Error' },
+            },
+        },
       'patch':
         {
           'operationId': 'updateJobApplicationStatus',
@@ -3395,6 +3429,29 @@ components:
             'status': { '$ref': '#/components/schemas/JobListingStatus' },
           },
       }
+    JobApplicationEditInput:
+      type: object
+      required: [status, date, stages]
+      properties:
+        status:
+          $ref: '#/components/schemas/JobApplicationStatus'
+        date:
+          type: string
+          format: date
+        stages:
+          type: array
+          minItems: 1
+          maxItems: 200
+          items:
+            $ref: '#/components/schemas/JobStageEditInput'
+    JobStageEditInput:
+      allOf:
+        - $ref: '#/components/schemas/JobStageInput'
+        - type: object
+          properties:
+            id:
+              type: string
+              format: uuid
     JobStage:
       {
         'type': 'object',

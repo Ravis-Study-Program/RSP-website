@@ -160,3 +160,43 @@ func NormalizeURL(raw string) (string, error) {
 	u.RawQuery = q.Encode()
 	return u.String(), nil
 }
+
+// ApplicationEdit replaces a private application's stages in the supplied order.
+type ApplicationEdit struct {
+	Status string      `json:"status"`
+	Date   string      `json:"date"`
+	Stages []StageEdit `json:"stages"`
+}
+type StageEdit struct {
+	ID string `json:"id,omitempty"`
+	StageInput
+}
+
+func (v *ApplicationEdit) Validate() error {
+	if !ValidApplicationStatus(v.Status) {
+		return errors.New("choose Active, Rejected or Offer")
+	}
+	if _, err := time.Parse("2006-01-02", v.Date); err != nil {
+		return errors.New("enter a valid status date")
+	}
+	if len(v.Stages) < 1 || len(v.Stages) > 200 {
+		return errors.New("an application must have 1–200 stages")
+	}
+	seen := map[string]bool{}
+	for i := range v.Stages {
+		stage := &v.Stages[i]
+		if err := stage.Validate(); err != nil {
+			return err
+		}
+		if stage.ID != "" {
+			if seen[stage.ID] {
+				return errors.New("a stage cannot appear twice")
+			}
+			seen[stage.ID] = true
+		}
+	}
+	if v.Stages[0].ID == "" || v.Stages[0].Title != "Applied" {
+		return errors.New("Applied must stay first")
+	}
+	return nil
+}
