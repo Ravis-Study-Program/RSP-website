@@ -196,17 +196,101 @@ function JobText({ text }: { text: string }) {
   );
 }
 
-function PositionDetails({ position }: { position: JobPosition }) {
+function PositionOverview({
+  position,
+  showTitle = true,
+}: {
+  position: JobPosition;
+  showTitle?: boolean;
+}) {
+  const type = jobTypes.find(
+    (entry) => entry.value === position.jobType,
+  )?.label;
+  const category = jobCategories.find(
+    (entry) => entry.value === position.company.category,
+  )?.label;
   return (
-    <div className="grid min-w-0 max-w-[calc(100cqw-2rem)] gap-4">
-      {position.notes && (
-        <div className="grid gap-2">
-          <h3 className="text-sm font-semibold">Details</h3>
-          <JobText text={position.notes} />
+    <div className="grid min-w-0 gap-2">
+      {showTitle && (
+        <h3 className="text-base font-semibold [overflow-wrap:anywhere]">
+          {position.title}
+        </h3>
+      )}
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
+        {showTitle && (
+          <span className="font-medium text-foreground [overflow-wrap:anywhere]">
+            {position.company.name}
+          </span>
+        )}
+        <span className="[overflow-wrap:anywhere]">
+          {[type, category, ...position.locations].filter(Boolean).join(' · ')}
+        </span>
+        <span className="whitespace-nowrap">
+          Added{' '}
+          <time dateTime={position.createdAt}>
+            {formatCalendarDay(new Date(position.createdAt))}
+          </time>
+        </span>
+        {position.status === 'closed' && (
+          <StatusBadge>Position Closed</StatusBadge>
+        )}
+      </div>
+      {position.eligibility && (
+        <div className="grid gap-1">
+          <h4 className="text-sm font-semibold">Eligibility Requirements</h4>
+          <JobText text={position.eligibility} />
         </div>
       )}
+    </div>
+  );
+}
+
+function PositionNotes({ notes }: { notes: string }) {
+  if (!notes) return null;
+  return (
+    <div className="grid gap-1">
+      <h4 className="text-sm font-semibold">Position Notes</h4>
+      <JobText text={notes} />
+    </div>
+  );
+}
+
+function PositionDetails({
+  position,
+  showOverview = true,
+}: {
+  position: JobPosition;
+  showOverview?: boolean;
+}) {
+  return (
+    <div className="grid min-w-0 max-w-[calc(100cqw-2rem)] gap-4 min-[56rem]:sticky min-[56rem]:left-4">
+      {showOverview && <PositionOverview position={position} />}
+      <PositionNotes notes={position.notes} />
       <JobProgressChart positionId={position.id} />
     </div>
+  );
+}
+
+function PositionAddedDate({
+  position,
+  showLabel = false,
+}: {
+  position: JobPosition;
+  showLabel?: boolean;
+}) {
+  const addedAt = new Date(position.createdAt);
+  const age = Date.now() - addedAt.getTime();
+  const isNew =
+    position.status === 'open' && age >= 0 && age < 48 * 60 * 60 * 1000;
+
+  return (
+    <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
+      <span className="whitespace-nowrap">
+        {showLabel && 'Added '}
+        <time dateTime={position.createdAt}>{formatCalendarDay(addedAt)}</time>
+      </span>
+      {isNew && <StatusBadge tone="info">New</StatusBadge>}
+    </span>
   );
 }
 
@@ -236,7 +320,9 @@ function Positions({ toolbarLead }: { toolbarLead: ReactNode }) {
     { id: 'added', desc: true },
   ]);
   const [error, setError] = useState('');
-  const [pending, setPending] = useState<string>();
+  const [pendingPositions, setPendingPositions] = useState<Set<string>>(
+    () => new Set(),
+  );
   const [edit, setEdit] = useState<JobPosition>();
   const [company, setCompany] = useState<JobCompany>();
   const [merge, setMerge] = useState<JobPosition>();
@@ -257,6 +343,14 @@ function Positions({ toolbarLead }: { toolbarLead: ReactNode }) {
   );
   const appFor = (p: JobPosition) =>
     applications.data?.find((a) => a.position.id === p.id);
+  function setPositionPending(id: string, pending: boolean) {
+    setPendingPositions((previous) => {
+      const next = new Set(previous);
+      if (pending) next.add(id);
+      else next.delete(id);
+      return next;
+    });
+  }
   function companyCell(position: JobPosition) {
     const count = user ? (referrerCounts.get(position.company.id) ?? 0) : 0;
     return (
@@ -277,28 +371,24 @@ function Positions({ toolbarLead }: { toolbarLead: ReactNode }) {
   async function applied(p: JobPosition, checked: boolean) {
     if (!user) return;
     const existing = appFor(p);
-    if (!checked && existing) {
+    if (!checked) {
       setRemove(existing);
       return;
     }
+    if (existing) return;
     setError('');
-    setPending(p.id);
+    setPositionPending(p.id, true);
     try {
-      const result =
-        existing ??
-        (await save<{ id: string }>('/me/job-applications', 'POST', {
-          positionId: p.id,
-          date: localJobDate(),
-        }));
-      navigate(
-        `/jobs/applications?application=${encodeURIComponent(result.id)}`,
-      );
+      await save('/me/job-applications', 'POST', {
+        positionId: p.id,
+        date: localJobDate(),
+      });
     } catch (e) {
       setError(
         e instanceof Error ? e.message : 'Unable to track this application.',
       );
     } finally {
-      setPending(undefined);
+      setPositionPending(p.id, false);
     }
   }
   function appliedControl(p: JobPosition) {
@@ -308,7 +398,9 @@ function Positions({ toolbarLead }: { toolbarLead: ReactNode }) {
           aria-label={`Applied to ${p.title} at ${p.company.name}`}
           checked={Boolean(appFor(p))}
           disabled={
-            pending === p.id || applications.isLoading || applications.isError
+            pendingPositions.has(p.id) ||
+            applications.isLoading ||
+            applications.isError
           }
           onCheckedChange={(checked) => void applied(p, checked === true)}
         />
@@ -325,7 +417,7 @@ function Positions({ toolbarLead }: { toolbarLead: ReactNode }) {
     action();
   }
   async function toggleStatus(p: JobPosition) {
-    setPending(p.id);
+    setPositionPending(p.id, true);
     setError('');
     try {
       await save(`/jobs/positions/${p.id}`, 'PATCH', {
@@ -337,7 +429,7 @@ function Positions({ toolbarLead }: { toolbarLead: ReactNode }) {
         e instanceof Error ? e.message : 'Unable to update the position.',
       );
     } finally {
-      setPending(undefined);
+      setPositionPending(p.id, false);
     }
   }
   function staffMenu(p: JobPosition) {
@@ -348,7 +440,7 @@ function Positions({ toolbarLead }: { toolbarLead: ReactNode }) {
             <Button
               variant="ghost"
               size="icon"
-              disabled={pending === p.id}
+              disabled={pendingPositions.has(p.id)}
               aria-label={`Manage ${p.title} at ${p.company.name}`}
             />
           }
@@ -458,11 +550,7 @@ function Positions({ toolbarLead }: { toolbarLead: ReactNode }) {
         return a.getValue<number>('added') - b.getValue<number>('added');
       },
       header: 'Added',
-      cell: ({ row }) => (
-        <time dateTime={row.original.createdAt}>
-          {formatCalendarDay(new Date(row.original.createdAt))}
-        </time>
-      ),
+      cell: ({ row }) => <PositionAddedDate position={row.original} />,
       enableColumnFilter: false,
       meta: { width: 7 },
     },
@@ -645,10 +733,7 @@ function Positions({ toolbarLead }: { toolbarLead: ReactNode }) {
               {row.original.status === 'closed' ? ' · Closed' : ''}
             </p>
             <p className="text-sm text-muted-foreground">
-              Added{' '}
-              <time dateTime={row.original.createdAt}>
-                {formatCalendarDay(new Date(row.original.createdAt))}
-              </time>
+              <PositionAddedDate position={row.original} showLabel />
             </p>
             {row.original.eligibility && (
               <div className="grid gap-1 text-sm">
@@ -659,7 +744,9 @@ function Positions({ toolbarLead }: { toolbarLead: ReactNode }) {
               </div>
             )}
             {user && appliedControl(row.original)}
-            {row.getIsExpanded() && <PositionDetails position={row.original} />}
+            {row.getIsExpanded() && (
+              <PositionDetails position={row.original} showOverview={false} />
+            )}
           </div>
         )}
       />
@@ -717,11 +804,28 @@ function Applications({ toolbarLead }: { toolbarLead: ReactNode }) {
   const user = useJobsUser();
   const applications = useJobApplications(user?.id);
   const [status, setStatus] = useState('active');
+  const [editingId, setEditingId] = useState<string>();
+  const editing = applications.data?.find((a) => a.id === editingId);
   const [params] = useSearchParams();
   const focus = params.get('application');
   const ordered = (applications.data ?? [])
     .filter((a) => status === 'all' || a.status === status)
     .sort((a, b) => Number(b.id === focus) - Number(a.id === focus));
+  function editButton(application: JobApplication) {
+    return (
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon"
+        title="Edit"
+        aria-label={`Edit application for ${application.position.title} at ${application.position.company.name}`}
+        onClick={() => setEditingId(application.id)}
+      >
+        <IconEdit size={17} aria-hidden="true" />
+      </Button>
+    );
+  }
+
   function statusBadge(application: JobApplication) {
     return (
       <StatusBadge
@@ -772,7 +876,7 @@ function Applications({ toolbarLead }: { toolbarLead: ReactNode }) {
       header: 'Job Type',
       cell: ({ row }) =>
         jobTypes.find((t) => t.value === row.original.position.jobType)?.label,
-      meta: { width: 8, filterOptions: jobTypes },
+      meta: { width: 7, filterOptions: jobTypes },
     },
     {
       id: 'stage',
@@ -785,7 +889,7 @@ function Applications({ toolbarLead }: { toolbarLead: ReactNode }) {
       header: 'Status',
       cell: ({ row }) => statusBadge(row.original),
       enableColumnFilter: false,
-      meta: { width: 12 },
+      meta: { width: 6.5 },
     },
     {
       id: 'date',
@@ -795,7 +899,16 @@ function Applications({ toolbarLead }: { toolbarLead: ReactNode }) {
         row.original.stages[0]
           ? formatCalendarDay(new Date(row.original.stages[0].date))
           : '—',
-      meta: { width: 8 },
+      meta: { width: 7 },
+    },
+    {
+      id: 'edit',
+      header: 'Edit',
+      cell: ({ row }) => !row.getIsExpanded() && editButton(row.original),
+      enableSorting: false,
+      enableColumnFilter: false,
+      enableHiding: false,
+      meta: { width: 4.5, align: 'end' },
     },
   ];
   return (
@@ -835,17 +948,23 @@ function Applications({ toolbarLead }: { toolbarLead: ReactNode }) {
           />
         }
         renderExpanded={({ original }) => (
-          <ApplicationHistory application={original} />
+          <ApplicationHistory
+            application={original}
+            onEdit={() => setEditingId(original.id)}
+          />
         )}
         renderCard={(row) => (
           <div className="grid gap-3">
-            <div className="flex min-w-0 items-center gap-3">
-              <JobDetailsButton
-                row={row}
-                position={row.original.position}
-                history
-              />
-              <CompanyLink position={row.original.position} />
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex min-w-0 items-center gap-3">
+                <JobDetailsButton
+                  row={row}
+                  position={row.original.position}
+                  history
+                />
+                <CompanyLink position={row.original.position} />
+              </div>
+              {!row.getIsExpanded() && editButton(row.original)}
             </div>
             <h3 className="font-semibold">{row.original.position.title}</h3>
             <div className="flex flex-wrap items-center justify-between gap-2">
@@ -853,35 +972,57 @@ function Applications({ toolbarLead }: { toolbarLead: ReactNode }) {
               {statusBadge(row.original)}
             </div>
             {row.getIsExpanded() && (
-              <ApplicationHistory application={row.original} />
+              <ApplicationHistory
+                application={row.original}
+                onEdit={() => setEditingId(row.original.id)}
+                showPositionTitle={false}
+              />
             )}
           </div>
         )}
       />
+      {editing && (
+        <JobApplicationForm
+          application={editing}
+          onClose={() => setEditingId(undefined)}
+        />
+      )}
     </>
   );
 }
 
-function ApplicationHistory({ application }: { application: JobApplication }) {
+function ApplicationHistory({
+  application,
+  onEdit,
+  showPositionTitle = true,
+}: {
+  application: JobApplication;
+  onEdit: () => void;
+  showPositionTitle?: boolean;
+}) {
   const user = useJobsUser();
   const save = useJobActions(user?.id);
-  const [edit, setEdit] = useState(false);
   const [stage, setStage] = useState<JobStage | 'new'>();
   const [remove, setRemove] = useState<JobStage | 'application'>();
   return (
     <section
-      className="grid gap-4"
+      className="grid min-w-0 max-w-[calc(100cqw-2rem)] gap-4 min-[56rem]:sticky min-[56rem]:left-4"
       aria-label={`Application history for ${application.position.title}`}
     >
-      {application.position.status === 'closed' && (
-        <StatusBadge>Position Closed</StatusBadge>
-      )}
-      <ol className="divide-y">
+      <PositionOverview
+        position={application.position}
+        showTitle={showPositionTitle}
+      />
+      <PositionNotes notes={application.position.notes} />
+      <ol
+        className="divide-y border-t border-border"
+        aria-label="Application stages"
+      >
         {application.stages.map((s) => (
           <li key={s.id} className="grid gap-2 py-4">
             <div className="flex flex-wrap items-start justify-between gap-2">
               <div className="grid gap-1">
-                <h3 className="font-semibold break-words">{s.title}</h3>
+                <h4 className="font-semibold break-words">{s.title}</h4>
                 {s.date && (
                   <time
                     className="text-sm text-muted-foreground"
@@ -936,7 +1077,7 @@ function ApplicationHistory({ application }: { application: JobApplication }) {
           variant="outline"
           size="sm"
           className="ml-auto"
-          onClick={() => setEdit(true)}
+          onClick={onEdit}
         >
           <IconEdit size={17} aria-hidden="true" /> Edit Application
         </Button>
@@ -945,12 +1086,6 @@ function ApplicationHistory({ application }: { application: JobApplication }) {
           Add Stage
         </Button>
       </div>
-      {edit && (
-        <JobApplicationForm
-          application={application}
-          onClose={() => setEdit(false)}
-        />
-      )}
       {stage && (
         <StageForm
           application={application}

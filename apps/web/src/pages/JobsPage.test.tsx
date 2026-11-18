@@ -57,9 +57,19 @@ describe('Jobs', () => {
     });
     await waitFor(() => expect(checkbox).toBeEnabled());
     await userEvent.click(checkbox);
+    await waitFor(() => expect(checkbox).toBeChecked());
+    expect(router.state.location.pathname).toBe('/jobs');
+    await userEvent.click(screen.getByRole('tab', { name: 'My Applications' }));
     await waitFor(() =>
       expect(router.state.location.pathname).toBe('/jobs/applications'),
     );
+    const showHistory = async () =>
+      userEvent.click(
+        await screen.findByRole('button', {
+          name: /^Show history for Software Engineering Intern, Summer 2026/,
+        }),
+      );
+    await showHistory();
     const openEditor = async () => {
       await userEvent.click(
         await screen.findByRole('button', { name: 'Edit Application' }),
@@ -107,7 +117,7 @@ describe('Jobs', () => {
       name: `Application history for ${title}`,
     });
     expect(
-      within(history)
+      within(within(history).getByRole('list', { name: 'Application stages' }))
         .getAllByRole('heading')
         .map((h) => h.textContent),
     ).toEqual(['Applied', 'Technical Interview', 'Phone Screen']);
@@ -162,6 +172,12 @@ describe('Jobs', () => {
     expect(
       screen.queryByRole('combobox', { name: /^Status for/ }),
     ).not.toBeInTheDocument();
+    if (
+      !screen.queryByRole('region', {
+        name: `Application history for ${title}`,
+      })
+    )
+      await showHistory();
     expect(
       screen.getByRole('region', { name: `Application history for ${title}` }),
     ).toHaveTextContent('Rejected');

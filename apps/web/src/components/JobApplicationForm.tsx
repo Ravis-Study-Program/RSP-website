@@ -125,82 +125,101 @@ export function JobApplicationForm({
               counts. Your name, dates and notes stay private.
             </p>
           </div>
-          <div className="grid gap-4">
-            {stages.map((stage, index) => (
-              <fieldset
-                key={stage.key}
-                className="grid min-w-0 gap-4 border-t border-border pt-4"
-              >
-                <legend className="px-1 text-sm font-semibold">
-                  {stage.initial ? 'Applied' : `Stage ${index}`}
-                </legend>
-                {!stage.initial && (
-                  <div className="flex justify-end gap-2">
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      aria-label={`Move Stage ${index} Up`}
-                      disabled={index <= 1}
-                      onClick={() => move(index, -1)}
-                    >
-                      <IconArrowUp size={17} aria-hidden="true" />
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      aria-label={`Move Stage ${index} Down`}
-                      disabled={index === stages.length - 1}
-                      onClick={() => move(index, 1)}
-                    >
-                      <IconArrowDown size={17} aria-hidden="true" />
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="destructive"
-                      size="icon"
-                      aria-label={`Remove Stage ${index}`}
-                      onClick={() =>
-                        setStages((previous) =>
-                          previous.filter((s) => s.key !== stage.key),
-                        )
-                      }
-                    >
-                      <IconTrash size={17} aria-hidden="true" />
-                    </Button>
+          <section className="grid gap-3" aria-labelledby={`${prefix}-stages`}>
+            <h3 id={`${prefix}-stages`} className="text-sm font-semibold">
+              Stages
+            </h3>
+            <div className="divide-y divide-border rounded-lg border border-border">
+              {stages.map((stage, index) =>
+                stage.initial ? (
+                  <div key={stage.key} className="p-3 sm:px-4">
+                    <div className="max-w-42">
+                      <AppDatePicker
+                        label="Applied Date"
+                        value={stage.date}
+                        onChange={(date) => update(stage.key, { date })}
+                      />
+                    </div>
                   </div>
-                )}
-                {!stage.initial && (
-                  <JobStageNameField
-                    value={stage.title}
-                    onChange={(title) => update(stage.key, { title })}
-                    reported={progress.data?.suggestions ?? []}
-                  />
-                )}
-                <AppDatePicker
-                  label={stage.initial ? 'Applied Date' : 'Date'}
-                  value={stage.date}
-                  onChange={(date) => update(stage.key, { date })}
-                />
-                {!stage.initial && (
-                  <Field>
-                    <FieldLabel htmlFor={`${prefix}-${stage.key}-notes`}>
-                      Notes (Private, Optional)
-                    </FieldLabel>
-                    <Textarea
-                      id={`${prefix}-${stage.key}-notes`}
-                      rows={3}
-                      maxLength={10000}
-                      value={stage.notes}
-                      onChange={(event) =>
-                        update(stage.key, { notes: event.target.value })
-                      }
-                    />
-                  </Field>
-                )}
-              </fieldset>
-            ))}
+                ) : (
+                  <fieldset
+                    key={stage.key}
+                    aria-labelledby={`${prefix}-${stage.key}-heading`}
+                    className="grid min-w-0 gap-3 p-3 sm:px-4"
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <h4
+                        id={`${prefix}-${stage.key}-heading`}
+                        className="text-sm font-semibold"
+                      >
+                        Stage {index}
+                      </h4>
+                      <div className="flex gap-1">
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          aria-label={`Move Stage ${index} Up`}
+                          disabled={index <= 1}
+                          onClick={() => move(index, -1)}
+                        >
+                          <IconArrowUp size={17} aria-hidden="true" />
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          aria-label={`Move Stage ${index} Down`}
+                          disabled={index === stages.length - 1}
+                          onClick={() => move(index, 1)}
+                        >
+                          <IconArrowDown size={17} aria-hidden="true" />
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="destructive"
+                          size="icon"
+                          aria-label={`Remove Stage ${index}`}
+                          onClick={() =>
+                            setStages((previous) =>
+                              previous.filter((s) => s.key !== stage.key),
+                            )
+                          }
+                        >
+                          <IconTrash size={17} aria-hidden="true" />
+                        </Button>
+                      </div>
+                    </div>
+                    <div className="grid min-w-0 items-end gap-3 sm:grid-cols-[minmax(0,1fr)_10.5rem]">
+                      <JobStageNameField
+                        value={stage.title}
+                        onChange={(title) => update(stage.key, { title })}
+                        reported={progress.data?.suggestions ?? []}
+                      />
+                      <AppDatePicker
+                        label="Date"
+                        value={stage.date}
+                        onChange={(date) => update(stage.key, { date })}
+                      />
+                    </div>
+                    <Field>
+                      <FieldLabel htmlFor={`${prefix}-${stage.key}-notes`}>
+                        Notes (Private, Optional)
+                      </FieldLabel>
+                      <Textarea
+                        id={`${prefix}-${stage.key}-notes`}
+                        rows={2}
+                        maxLength={10000}
+                        value={stage.notes}
+                        onChange={(event) =>
+                          update(stage.key, { notes: event.target.value })
+                        }
+                      />
+                    </Field>
+                  </fieldset>
+                ),
+              )}
+            </div>
             <Button
               type="button"
               variant="outline"
@@ -221,7 +240,7 @@ export function JobApplicationForm({
               <IconPlus size={17} aria-hidden="true" />
               Add Stage
             </Button>
-          </div>
+          </section>
         </fieldset>
         {error && <FieldError>{error}</FieldError>}
         <div className="flex flex-wrap justify-end gap-2">

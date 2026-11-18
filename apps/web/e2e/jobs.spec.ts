@@ -58,11 +58,14 @@ test('Application statuses keep inactive histories out of the default list', asy
     ['Software Engineer Intern Frontend/Backend 2026/27', 'Canva', 'Active'],
   ];
   for (const [title, company, status] of titles) {
+    const applied = page.getByRole('checkbox', {
+      name: `Applied to ${title} at ${company}`,
+      exact: true,
+    });
+    await applied.click();
+    await expect(applied).toBeChecked();
     await page
-      .getByRole('checkbox', {
-        name: `Applied to ${title} at ${company}`,
-        exact: true,
-      })
+      .getByRole('tab', { name: 'My Applications', exact: true })
       .click();
     await expect(
       page.getByRole('combobox', { name: 'Application Status Filter' }),
@@ -216,11 +219,11 @@ test('Application statuses keep inactive histories out of the default list', asy
     page,
     'Software Engineering Intern, Summer 2026',
   );
-  await expect(history.getByRole('heading')).toHaveText([
-    'Applied',
-    'Rejected',
-    'Active',
-  ]);
+  await expect(
+    history
+      .getByRole('list', { name: 'Application stages' })
+      .getByRole('heading'),
+  ).toHaveText(['Applied', 'Rejected', 'Active']);
   if (captureRoot)
     await page.screenshot({
       fullPage: true,
@@ -285,19 +288,34 @@ test('Jobs is public and readable in both themes', async ({
   await expect(page).toHaveURL(/\/sign-in\?returnTo=/);
 });
 
-test('Applied opens a private named stage history', async ({
+test('Marking Applied keeps the board open and saves a private history', async ({
   page,
 }, testInfo) => {
   await page.addInitScript(() =>
     localStorage.setItem('rsp-demo-role', 'student'),
   );
   await page.goto('/jobs');
+  const search = page.getByPlaceholder('Search positions…');
+  await search.fill('Google');
   const applied = page.getByRole('checkbox', {
     name: 'Applied to Software Engineering Intern, Summer 2026 at Google',
   });
   await expect(applied).toBeEnabled();
   await applied.click();
-  await expect(page).toHaveURL(/\/jobs\/applications\?application=/);
+  await expect(applied).toBeChecked();
+  await expect(page).toHaveURL(/\/jobs$/);
+  await expect(search).toHaveValue('Google');
+  await page.getByRole('tab', { name: 'My Applications', exact: true }).click();
+  await openApplicationHistory(
+    page,
+    'Software Engineering Intern, Summer 2026',
+  );
+  await expect(
+    page.getByRole('heading', {
+      name: 'Software Engineering Intern, Summer 2026',
+      exact: true,
+    }),
+  ).toBeVisible();
   await page
     .getByRole('button', { name: 'Actions for Applied', exact: true })
     .click();
@@ -385,6 +403,12 @@ test('Stage suggestions and sharing by default update the application flow', asy
   });
   await expect(flow.getByRole('img', { name: /Sankey diagram/ })).toBeVisible();
   await expect(
+    page.getByRole('heading', {
+      name: 'Software Engineering Intern, Summer 2026',
+      exact: true,
+    }),
+  ).toBeVisible();
+  await expect(
     flow.getByText('32 applicants sharing (demo data)'),
   ).toBeVisible();
   expect(
@@ -403,15 +427,19 @@ test('Stage suggestions and sharing by default update the application flow', asy
       ),
     });
   }
-  await page
-    .getByRole('checkbox', {
-      name: 'Applied to Software Engineering Intern, Summer 2026 at Google',
-    })
-    .click();
+  const applied = page.getByRole('checkbox', {
+    name: 'Applied to Software Engineering Intern, Summer 2026 at Google',
+  });
+  await applied.click();
+  await expect(applied).toBeChecked();
+  await page.getByRole('tab', { name: 'My Applications', exact: true }).click();
   const editor = page.getByRole('dialog', { name: 'Edit Application' });
-  await page
-    .getByRole('button', { name: 'Edit Application', exact: true })
-    .click();
+  const quickEdit = page.getByRole('button', {
+    name: 'Edit application for Software Engineering Intern, Summer 2026 at Google',
+    exact: true,
+  });
+  await expect(quickEdit).toHaveAttribute('title', 'Edit');
+  await quickEdit.click();
   await expect(
     editor.getByRole('checkbox', { name: 'Share Progress' }),
   ).toBeChecked();
@@ -461,6 +489,7 @@ test('Stage suggestions and sharing by default update the application flow', asy
   ).toHaveCount(0);
   await editor.getByRole('button', { name: 'Save Changes' }).click();
   await expect(editor).not.toBeVisible();
+  await expect(quickEdit).toBeVisible();
   await page.getByRole('tab', { name: 'Positions', exact: true }).click();
   await page
     .getByRole('button', {

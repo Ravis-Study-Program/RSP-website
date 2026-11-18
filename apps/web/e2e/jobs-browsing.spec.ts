@@ -54,14 +54,18 @@ test('Applied filters include rejected and offer applications and combine with o
     ['Google', 'Rejected'],
     ['Amazon', 'Offer'],
   ]) {
+    const applied = page.getByRole('checkbox', {
+      name: new RegExp(`Applied to .* at ${company}$`),
+    });
+    await applied.click();
+    await expect(applied).toBeChecked();
     await page
-      .getByRole('checkbox', {
-        name: new RegExp(`Applied to .* at ${company}$`),
-      })
+      .getByRole('tab', { name: 'My Applications', exact: true })
       .click();
-    await expect(page).toHaveURL(/\/jobs\/applications\?application=/);
     await page
-      .getByRole('button', { name: 'Edit Application', exact: true })
+      .getByRole('button', {
+        name: new RegExp(`^Edit application for .* at ${company}$`),
+      })
       .click();
     const editor = page.getByRole('dialog', {
       name: 'Edit Application',
@@ -203,6 +207,51 @@ test('Added dates sort newest first and newly published positions appear first',
   ).toHaveAccessibleName('Applied to Newly added engineer at Fresh Company');
 });
 
+test('New badges show only on open positions added less than 48 hours ago', async ({
+  page,
+}) => {
+  await page.addInitScript(() =>
+    localStorage.setItem('rsp-demo-role', 'coordinator'),
+  );
+  // The demo Google and Amazon jobs were added at midnight UTC on 8 and 7 November.
+  await page.clock.setFixedTime(new Date('2026-11-09T00:00:00Z'));
+  await page.goto('/jobs');
+  const googleTitle = 'Software Engineering Intern, Summer 2026';
+  const google = page.locator('tr, article').filter({
+    has: page.getByRole('link', {
+      name: `Apply for ${googleTitle} at Google`,
+      exact: true,
+    }),
+  });
+  const amazon = page.locator('tr, article').filter({
+    has: page.getByRole('link', { name: /^Apply for .* at Amazon$/ }),
+  });
+
+  await expect(google.getByText('New', { exact: true })).toBeVisible();
+  await expect(amazon).toBeVisible();
+  await expect(amazon.getByText('New', { exact: true })).toHaveCount(0);
+
+  await google
+    .getByRole('button', { name: `Manage ${googleTitle} at Google` })
+    .click();
+  await page
+    .getByRole('menuitem', { name: 'Close Position', exact: true })
+    .click();
+  const close = page.getByRole('alertdialog');
+  await close.getByRole('textbox').fill(googleTitle);
+  await close
+    .getByRole('button', { name: 'Close Position', exact: true })
+    .click();
+  await expect(close).toBeHidden();
+
+  await page.getByRole('combobox', { name: 'Listings', exact: true }).click();
+  await page
+    .getByRole('option', { name: 'Closed Positions', exact: true })
+    .click();
+  await expect(google).toBeVisible();
+  await expect(google.getByText('New', { exact: true })).toHaveCount(0);
+});
+
 test('Visitors can sort positions without seeing private application filters or referrer counts', async ({
   page,
 }) => {
@@ -241,14 +290,14 @@ test('Direct position links reveal older applied positions despite Not Applied a
   });
   await expect(details).toHaveAttribute('aria-expanded', 'true');
   await markers.first().click();
-  await expect(page).toHaveURL(/\/jobs\/applications\?application=/);
-  await page.getByRole('tab', { name: 'Positions', exact: true }).click();
+  await expect(markers.first()).toBeChecked();
+  await expect(page).toHaveURL(/\/jobs\?position=position-26/);
   await page
     .getByRole('combobox', { name: 'Application Filter', exact: true })
     .click();
   await page.getByRole('option', { name: 'Not Applied', exact: true }).click();
-  await page.goBack();
-  await expect(page).toHaveURL(/\/jobs\/applications\?application=/);
+  await page.getByRole('tab', { name: 'My Applications', exact: true }).click();
+  await expect(page).toHaveURL(/\/jobs\/applications$/);
   await page.goBack();
   await expect(page).toHaveURL(/\/jobs\?position=position-26/);
   await expect(
