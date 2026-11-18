@@ -95,6 +95,53 @@ func (p *Store) GetJobPosition(ctx context.Context, positionID string) (jobs.Pos
 	return v, noRows(err)
 }
 
+func (p *Store) JobPositionProgress(ctx context.Context, positionID string) (jobs.PositionProgress, error) {
+	rows, err := p.pool.Query(ctx, `WITH RECURSIVE chain AS (
+ SELECT id,merged_into_id FROM app.job_positions WHERE id=$1
+ UNION ALL SELECT p.id,p.merged_into_id FROM app.job_positions p JOIN chain c ON p.id=c.merged_into_id
+ )
+ SELECT a.id,a.status,s.title
+ FROM chain c
+ LEFT JOIN (
+   app.job_applications a JOIN app.users u ON a.user_id=u.id AND u.account_state='active'
+ ) ON a.position_id=c.id AND a.share_progress
+ LEFT JOIN app.job_application_stages s ON s.application_id=a.id
+ WHERE c.merged_into_id IS NULL
+ ORDER BY a.id,s.initial DESC,s.sort_order NULLS LAST,s.happened_on,s.created_at,s.id`, positionID)
+	if err != nil {
+		return jobs.PositionProgress{}, err
+	}
+	defer rows.Close()
+	reports := []jobs.ProgressReport{}
+	var found bool
+	var lastID string
+	for rows.Next() {
+		found = true
+		var id, status, title *string
+		if err := rows.Scan(&id, &status, &title); err != nil {
+			return jobs.PositionProgress{}, err
+		}
+		if id == nil {
+			continue
+		}
+		if *id != lastID {
+			lastID = *id
+			reports = append(reports, jobs.ProgressReport{Status: *status})
+		}
+		if title != nil {
+			report := &reports[len(reports)-1]
+			report.Stages = append(report.Stages, *title)
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return jobs.PositionProgress{}, err
+	}
+	if !found {
+		return jobs.PositionProgress{}, ErrNotFound
+	}
+	return jobs.SummarizeProgress(reports), nil
+}
+
 func jobCompanyID(ctx context.Context, tx pgx.Tx, name, category string) (string, error) {
 	var companyID string
 	err := tx.QueryRow(ctx, `INSERT INTO app.job_companies(name,category) VALUES($1,$2)
@@ -174,7 +221,7 @@ func (p *Store) ListJobApplications(ctx context.Context, userID, boundary string
 	if err := p.pool.QueryRow(ctx, `SELECT count(*) FROM app.job_applications WHERE user_id=$1`, userID).Scan(&total); err != nil {
 		return nil, false, 0, err
 	}
-	rows, err := p.pool.Query(ctx, `SELECT a.id,a.status,`+jobPositionColumns+` FROM app.job_applications a JOIN app.job_positions p ON a.position_id=p.id JOIN app.job_companies c ON c.id=p.company_id
+	rows, err := p.pool.Query(ctx, `SELECT a.id,a.status,a.share_progress,`+jobPositionColumns+` FROM app.job_applications a JOIN app.job_positions p ON a.position_id=p.id JOIN app.job_companies c ON c.id=p.company_id
  WHERE a.user_id=$1 AND ($2='' OR a.id>NULLIF($2,'')::uuid) ORDER BY a.id LIMIT $3`, userID, boundary, limit+1)
 	if err != nil {
 		return nil, false, 0, err
@@ -182,7 +229,7 @@ func (p *Store) ListJobApplications(ctx context.Context, userID, boundary string
 	out := []jobs.Application{}
 	for rows.Next() {
 		v := jobs.Application{Stages: []jobs.Stage{}}
-		if err = rows.Scan(append([]any{&v.ID, &v.Status}, positionTargets(&v.Position)...)...); err != nil {
+		if err = rows.Scan(append([]any{&v.ID, &v.Status, &v.ShareProgress}, positionTargets(&v.Position)...)...); err != nil {
 			rows.Close()
 			return nil, false, 0, err
 		}
@@ -308,7 +355,9 @@ func (p *Store) SaveJobStage(ctx context.Context, userID, applicationID, stageID
 		if v.Initial && input.Title != "Applied" {
 			return v, ErrConflict
 		}
-		_, err = tx.Exec(ctx, `UPDATE app.job_application_stages SET title=$1,happened_on=$2,notes=$3 WHERE id=$4 AND application_id=$5`, input.Title, input.Date, input.Notes, stageID, applicationID)
+		err = tx.QueryRow(ctx, `UPDATE app.job_application_stages SET title=$1,happened_on=$2,
+ notes=CASE WHEN initial THEN notes ELSE $3 END WHERE id=$4 AND application_id=$5
+ RETURNING notes`, input.Title, input.Date, input.Notes, stageID, applicationID).Scan(&v.Notes)
 	}
 	if err != nil {
 		return v, mapDatabaseError(err)
@@ -404,6 +453,12 @@ func (p *Store) MergeJobPositions(ctx context.Context, actorID, sourceID, target
 		if v.target == nil {
 			_, err = tx.Exec(ctx, `UPDATE app.job_applications SET position_id=$1 WHERE id=$2`, target, v.source)
 		} else {
+			// A merged history is shareable only if both histories were shared.
+			_, err = tx.Exec(ctx, `UPDATE app.job_applications dst SET share_progress=dst.share_progress AND src.share_progress
+ FROM app.job_applications src WHERE dst.id=$1 AND src.id=$2`, *v.target, v.source)
+			if err != nil {
+				return jobs.Position{}, err
+			}
 			// Keep both notes without the normal input length cap: accumulated
 			// private notes are stored as another historical stage when necessary.
 			var sourceInitial jobs.Stage
@@ -503,7 +558,9 @@ func (p *Store) EditJobApplication(ctx context.Context, userID, applicationID st
 			if !ok || (initial && (i != 0 || stage.Title != "Applied")) {
 				return ErrConflict
 			}
-			_, err = tx.Exec(ctx, `UPDATE app.job_application_stages SET title=$1,happened_on=$2,notes=$3,sort_order=$4 WHERE id=$5 AND application_id=$6`, stage.Title, stage.Date, stage.Notes, i, stage.ID, applicationID)
+			_, err = tx.Exec(ctx, `UPDATE app.job_application_stages SET title=$1,happened_on=$2,
+ notes=CASE WHEN initial THEN notes ELSE $3 END,sort_order=$4
+ WHERE id=$5 AND application_id=$6`, stage.Title, stage.Date, stage.Notes, i, stage.ID, applicationID)
 		} else {
 			err = tx.QueryRow(ctx, `INSERT INTO app.job_application_stages(application_id,title,happened_on,notes,sort_order) VALUES($1,$2,$3,$4,$5) RETURNING id`, applicationID, stage.Title, stage.Date, stage.Notes, i).Scan(&stage.ID)
 		}
@@ -515,10 +572,12 @@ func (p *Store) EditJobApplication(ctx context.Context, userID, applicationID st
 	if _, err = tx.Exec(ctx, `DELETE FROM app.job_application_stages WHERE application_id=$1 AND NOT (id=ANY($2::uuid[])) AND NOT initial`, applicationID, kept); err != nil {
 		return err
 	}
-	if current != input.Status {
-		if _, err = tx.Exec(ctx, `UPDATE app.job_applications SET status=$1 WHERE id=$2`, input.Status, applicationID); err != nil {
+	if current != input.Status || input.ShareProgress != nil {
+		if _, err = tx.Exec(ctx, `UPDATE app.job_applications SET status=$1,share_progress=COALESCE($2,share_progress) WHERE id=$3`, input.Status, input.ShareProgress, applicationID); err != nil {
 			return err
 		}
+	}
+	if current != input.Status {
 		title := map[string]string{"active": "Active", "inactive": "Rejected", "offer": "Offer"}[input.Status]
 		if _, err = tx.Exec(ctx, `INSERT INTO app.job_application_stages(application_id,title,happened_on) VALUES($1,$2,$3)`, applicationID, title, input.Date); err != nil {
 			return err

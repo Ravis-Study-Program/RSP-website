@@ -18,6 +18,7 @@ func registerJobRoutes(mux *http.ServeMux, a *API) {
 	mux.HandleFunc("GET /api/v2/jobs/companies", a.listJobCompanies)
 	mux.HandleFunc("GET /api/v2/jobs/positions", a.listJobPositions)
 	mux.HandleFunc("GET /api/v2/jobs/positions/{id}", jobIDs(a.getJobPosition))
+	mux.HandleFunc("GET /api/v2/jobs/positions/{id}/progress", jobIDs(a.getJobPositionProgress))
 	mux.HandleFunc("POST /api/v2/jobs/positions", a.protected(ratelimit.Write, a.saveJobPosition))
 	mux.HandleFunc("PATCH /api/v2/jobs/positions/{id}", a.protected(ratelimit.Write, jobIDs(a.saveJobPosition)))
 	mux.HandleFunc("PATCH /api/v2/jobs/companies/{id}", a.protected(ratelimit.Write, jobIDs(a.updateJobCompany)))
@@ -101,6 +102,16 @@ func (a *API) getJobPosition(w http.ResponseWriter, r *http.Request) {
 		a.writeStoreErrorResponse(w, err)
 		return
 	}
+	writeJSONResponse(w, http.StatusOK, v)
+}
+
+func (a *API) getJobPositionProgress(w http.ResponseWriter, r *http.Request) {
+	v, err := a.db.JobPositionProgress(r.Context(), r.PathValue("id"))
+	if err != nil {
+		a.writeStoreErrorResponse(w, err)
+		return
+	}
+	w.Header().Set("Cache-Control", "no-store")
 	writeJSONResponse(w, http.StatusOK, v)
 }
 

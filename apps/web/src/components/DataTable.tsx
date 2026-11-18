@@ -596,7 +596,7 @@ export function DataTable<TData>({
           ) : (
             <>
               {compact ? null : (
-                <div className="overflow-x-auto">
+                <div className="@container overflow-x-auto">
                   <Table
                     className="table-fixed"
                     style={{ minWidth: `${tableMinWidth}rem` }}
@@ -785,7 +785,7 @@ export function DataTable<TData>({
 
 /** Clicks on these act on their own; the row only takes the rest. */
 const interactiveSelector =
-  'a,button,input,select,textarea,label,[role=button],[role=checkbox],[role=menuitem],[role=combobox]';
+  'a,button,input,select,textarea,label,details,[role=button],[role=checkbox],[role=menuitem],[role=combobox],[role=region][tabindex]';
 
 /**
  * A row click handler that ignores clicks on the row's own controls, clicks

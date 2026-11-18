@@ -10,16 +10,17 @@ import type {
   JobApplicationStatus,
   JobStageEditInput,
 } from '@/api/generated/models';
-import { useJobActions } from '@/api/jobs';
+import { useJobActions, useJobPositionProgress } from '@/api/jobs';
 import { useJobsUser } from '@/components/JobsShell';
 import { FormDialog, NamedConfirmation } from '@/components/Dialogs';
 import { JobSelect } from '@/components/JobForms';
 import { AppDatePicker } from '@/components/AppDatePicker';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Textarea } from '@/components/ui/textarea';
 import { Field, FieldLabel, FieldError } from '@/components/ui/field';
 import { jobApplicationStatuses, localJobDate } from '@/jobs';
+import { JobStageNameField } from '@/components/JobStageFields';
 
 type DraftStage = JobStageEditInput & { key: string; initial: boolean };
 
@@ -32,14 +33,17 @@ export function JobApplicationForm({
 }) {
   const user = useJobsUser();
   const save = useJobActions(user?.id);
+  const progress = useJobPositionProgress(application.position.id);
   const prefix = useId();
   const [status, setStatus] = useState(application.status);
+  const [shareProgress, setShareProgress] = useState(application.shareProgress);
   const [stages, setStages] = useState<DraftStage[]>(() =>
     application.stages.map((s) => ({ ...s, key: s.id })),
   );
   const [pending, setPending] = useState(false);
   const [error, setError] = useState('');
   const [remove, setRemove] = useState(false);
+
   function update(key: string, changes: Partial<DraftStage>) {
     setStages((previous) =>
       previous.map((stage) =>
@@ -63,6 +67,7 @@ export function JobApplicationForm({
     try {
       await save(`/me/job-applications/${application.id}`, 'PUT', {
         status,
+        shareProgress,
         date: localJobDate(),
         stages: stages.map(({ id, title, date, notes }) => ({
           ...(id ? { id } : {}),
@@ -100,6 +105,26 @@ export function JobApplicationForm({
             options={jobApplicationStatuses}
             onChange={(value) => setStatus(value as JobApplicationStatus)}
           />
+          <div className="grid gap-2">
+            <Field orientation="horizontal" className="items-center gap-2">
+              <Checkbox
+                id={`${prefix}-share`}
+                checked={shareProgress}
+                onCheckedChange={setShareProgress}
+                aria-describedby={`${prefix}-share-hint`}
+              />
+              <FieldLabel htmlFor={`${prefix}-share`}>
+                Share Progress
+              </FieldLabel>
+            </Field>
+            <p
+              id={`${prefix}-share-hint`}
+              className="text-sm text-muted-foreground"
+            >
+              Anyone browsing this position can see shared stage names and
+              counts. Your name, dates and notes stay private.
+            </p>
+          </div>
           <div className="grid gap-4">
             {stages.map((stage, index) => (
               <fieldset
@@ -146,40 +171,34 @@ export function JobApplicationForm({
                     </Button>
                   </div>
                 )}
-                <Field>
-                  <FieldLabel htmlFor={`${prefix}-${stage.key}-title`}>
-                    Stage Name
-                  </FieldLabel>
-                  <Input
-                    id={`${prefix}-${stage.key}-title`}
-                    required
-                    maxLength={120}
-                    readOnly={stage.initial}
+                {!stage.initial && (
+                  <JobStageNameField
                     value={stage.title}
-                    onChange={(event) =>
-                      update(stage.key, { title: event.target.value })
-                    }
+                    onChange={(title) => update(stage.key, { title })}
+                    reported={progress.data?.suggestions ?? []}
                   />
-                </Field>
+                )}
                 <AppDatePicker
-                  label="Date"
+                  label={stage.initial ? 'Applied Date' : 'Date'}
                   value={stage.date}
                   onChange={(date) => update(stage.key, { date })}
                 />
-                <Field>
-                  <FieldLabel htmlFor={`${prefix}-${stage.key}-notes`}>
-                    Notes (Private, Optional)
-                  </FieldLabel>
-                  <Textarea
-                    id={`${prefix}-${stage.key}-notes`}
-                    rows={3}
-                    maxLength={10000}
-                    value={stage.notes}
-                    onChange={(event) =>
-                      update(stage.key, { notes: event.target.value })
-                    }
-                  />
-                </Field>
+                {!stage.initial && (
+                  <Field>
+                    <FieldLabel htmlFor={`${prefix}-${stage.key}-notes`}>
+                      Notes (Private, Optional)
+                    </FieldLabel>
+                    <Textarea
+                      id={`${prefix}-${stage.key}-notes`}
+                      rows={3}
+                      maxLength={10000}
+                      value={stage.notes}
+                      onChange={(event) =>
+                        update(stage.key, { notes: event.target.value })
+                      }
+                    />
+                  </Field>
+                )}
               </fieldset>
             ))}
             <Button

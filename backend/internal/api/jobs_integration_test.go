@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"slices"
 	"strings"
 	"sync"
 	"testing"
@@ -95,6 +96,71 @@ func applyJob(t *testing.T, h http.Handler, token, positionID string) string {
 	return v.ID
 }
 
+func TestJobsSharedProgressUpdatesWithoutExposingPrivateNotes(t *testing.T) {
+	_, h := jobFixture(t)
+	position := newJob(t, h, "shared-progress", "Sydney")
+	positionPath := "/jobs/positions/" + position.ID + "/progress"
+	application := applyJob(t, h, "member", position.ID)
+	privateApp := applyJob(t, h, "mentor", position.ID)
+	appPath := "/me/job-applications/" + application
+	date := "2026-11-02"
+	privateInitial := readApplications(t, h, "mentor")[0].Stages[0]
+	private := false
+	jobCall(t, h, "PUT", "/me/job-applications/"+privateApp, "mentor", jobs.ApplicationEdit{
+		Status: "active", Date: date, ShareProgress: &private,
+		Stages: []jobs.StageEdit{
+			{ID: privateInitial.ID, StageInput: jobs.StageInput{Title: privateInitial.Title, Date: privateInitial.Date}},
+		},
+	}, http.StatusNoContent)
+	jobCall(t, h, "POST", "/me/job-applications/"+privateApp+"/stages", "mentor", jobs.StageInput{
+		Title: "Unshared round", Date: date, Notes: "Unshared notes",
+	}, http.StatusCreated)
+	readProgress := func() jobs.PositionProgress {
+		t.Helper()
+		response := jobCall(t, h, "GET", positionPath, "", nil, http.StatusOK)
+		for _, secret := range []string{application, privateApp, studentID, otherID, date, "Private prep", "Unshared round"} {
+			if strings.Contains(response.Body.String(), secret) {
+				t.Fatalf("unexpected private value in shared progress: %s", response.Body)
+			}
+		}
+		var progress jobs.PositionProgress
+		if err := json.Unmarshal(response.Body.Bytes(), &progress); err != nil {
+			t.Fatal(err)
+		}
+		return progress
+	}
+	if got := readProgress(); got.Total != 1 || len(got.Stages) != 1 || got.Stages[0].Current != 1 {
+		t.Fatalf("a new application should share its Applied count by default: %+v", got)
+	}
+	initial := readApplications(t, h, "member")[0].Stages[0]
+	input := jobs.ApplicationEdit{
+		Status: "active", Date: date,
+		Stages: []jobs.StageEdit{
+			{ID: initial.ID, StageInput: jobs.StageInput{Title: initial.Title, Date: initial.Date}},
+			{StageInput: jobs.StageInput{Title: "Recruiter screen", Date: date, Notes: "Private prep"}},
+		},
+	}
+	jobCall(t, h, "PUT", appPath, "member", input, http.StatusNoContent)
+	if got := readProgress(); got.Total != 1 || len(got.Stages) != 2 || got.Stages[1].Title != "Recruiter screen" ||
+		got.Stages[1].Current != 1 || !slices.Contains(got.Suggestions, "Recruiter screen") {
+		t.Fatalf("unexpected progress after adding the recruiter screen: %+v", got)
+	}
+	technical := jobs.StageInput{Title: "Technical (LeetCode style)", Date: date}
+	jobCall(t, h, "POST", appPath+"/stages", "member", technical, http.StatusCreated)
+	if got := readProgress(); len(got.Stages) != 3 || len(got.Transitions) != 2 ||
+		got.Stages[1].Current != 0 || got.Stages[2].Current != 1 {
+		t.Fatalf("reached round did not update progress: %+v", got)
+	}
+	stages := readApplications(t, h, "member")[0].Stages
+	input.Stages[1].ID = stages[1].ID
+	input.Stages = append(input.Stages, jobs.StageEdit{ID: stages[2].ID, StageInput: technical})
+	input.ShareProgress = &private
+	jobCall(t, h, "PUT", appPath, "member", input, http.StatusNoContent)
+	if got := readProgress(); got.Total != 0 || len(got.Suggestions) != 0 {
+		t.Fatalf("unsharing left progress visible: %+v", got)
+	}
+}
+
 func readApplications(t *testing.T, h http.Handler, token string) []jobs.Application {
 	t.Helper()
 	res := jobCall(t, h, "GET", "/me/job-applications", token, nil, http.StatusOK)
@@ -106,7 +172,7 @@ func readApplications(t *testing.T, h http.Handler, token string) []jobs.Applica
 }
 
 func TestJobsPublicBoardAndPrivateOwnership(t *testing.T) {
-	_, h := jobFixture(t)
+	f, h := jobFixture(t)
 	p := newJob(t, h, "one", "Sydney")
 	if p.CreatedAt.IsZero() {
 		t.Fatal("position must expose its added date")
@@ -142,8 +208,19 @@ func TestJobsPublicBoardAndPrivateOwnership(t *testing.T) {
 		t.Fatal("application must retain the position's added date")
 	}
 	initial := apps[0].Stages[0]
-	note := jobs.StageInput{Title: "Applied", Date: "2026-11-01", Notes: "private application note"}
-	jobCall(t, h, "PATCH", "/me/job-applications/"+appID+"/stages/"+initial.ID, "member", note, http.StatusOK)
+	const legacyNote = "private application note"
+	if _, err := f.pool.Exec(context.Background(), `UPDATE app.job_application_stages SET notes=$1 WHERE id=$2`, legacyNote, initial.ID); err != nil {
+		t.Fatal(err)
+	}
+	note := jobs.StageInput{Title: "Applied", Date: "2026-11-03", Notes: "attempted note change"}
+	updated := jobCall(t, h, "PATCH", "/me/job-applications/"+appID+"/stages/"+initial.ID, "member", note, http.StatusOK)
+	var updatedStage jobs.Stage
+	if err := json.Unmarshal(updated.Body.Bytes(), &updatedStage); err != nil {
+		t.Fatal(err)
+	}
+	if updatedStage.Date != note.Date || updatedStage.Notes != legacyNote {
+		t.Fatalf("Applied must only change date: %+v", updatedStage)
+	}
 	custom := jobs.StageInput{Title: "System design with team", Date: "2026-11-05", Notes: "private interview note"}
 	jobCall(t, h, "POST", "/me/job-applications/"+appID+"/stages", "member", custom, http.StatusCreated)
 	for _, token := range []string{"mentor", "coordinator", "director", "system_admin"} {
@@ -180,7 +257,9 @@ func TestJobsMergePreservesBothHistoriesAndAliases(t *testing.T) {
 	jobCall(t, h, "PATCH", "/me/job-applications/"+a, "member", map[string]string{"status": "inactive", "date": "2026-11-03"}, http.StatusNoContent)
 	jobCall(t, h, "PATCH", "/me/job-applications/"+other, "mentor", map[string]string{"status": "inactive", "date": "2026-11-03"}, http.StatusNoContent)
 	for _, app := range readApplications(t, h, "member") {
-		jobCall(t, h, "PATCH", "/me/job-applications/"+app.ID+"/stages/"+app.Stages[0].ID, "member", jobs.StageInput{Title: "Applied", Date: "2026-11-01", Notes: strings.Repeat(app.ID[:1], 10000)}, http.StatusOK)
+		if _, err := f.pool.Exec(context.Background(), `UPDATE app.job_application_stages SET notes=$1 WHERE id=$2`, strings.Repeat(app.ID[:1], 10000), app.Stages[0].ID); err != nil {
+			t.Fatal(err)
+		}
 	}
 	jobCall(t, h, "POST", "/me/job-applications/"+a+"/stages", "member", jobs.StageInput{Title: "Assessment", Date: "2026-11-02", Notes: "target note"}, http.StatusCreated)
 	jobCall(t, h, "POST", "/me/job-applications/"+b+"/stages", "member", jobs.StageInput{Title: "Final panel", Date: "2026-11-06", Notes: "source note"}, http.StatusCreated)
@@ -346,6 +425,8 @@ func TestJobsEditApplicationIsAtomicAndPrivate(t *testing.T) {
 		stage := before.Stages[i]
 		input.Stages = append(input.Stages, jobs.StageEdit{ID: stage.ID, StageInput: jobs.StageInput{Title: stage.Title, Date: stage.Date, Notes: stage.Notes}})
 	}
+	input.Stages[0].Date = "2026-11-02"
+	input.Stages[0].Notes = "attempted note change"
 	jobCall(t, h, "PUT", path, "", input, http.StatusUnauthorized)
 	jobCall(t, h, "PUT", path, "mentor", input, http.StatusNotFound)
 	invalid := input
@@ -358,6 +439,9 @@ func TestJobsEditApplicationIsAtomicAndPrivate(t *testing.T) {
 	}
 	jobCall(t, h, "PUT", path, "member", input, http.StatusNoContent)
 	saved := readApplications(t, h, "member")[0]
+	if saved.Stages[0].Date != input.Stages[0].Date || saved.Stages[0].Notes != before.Stages[0].Notes {
+		t.Fatalf("bulk edit must only change the Applied date: %+v", saved.Stages[0])
+	}
 	if saved.Status != "offer" || len(saved.Stages) != 4 || saved.Stages[1].Title != "Technical Interview" || saved.Stages[2].Title != "Phone Screen" || saved.Stages[3].Title != "Offer" {
 		t.Fatalf("order/status not saved: %#v", saved)
 	}

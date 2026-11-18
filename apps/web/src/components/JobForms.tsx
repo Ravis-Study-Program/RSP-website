@@ -1,7 +1,13 @@
 import { useId, useState, type FormEvent, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
-import { JobRequestError, useJobActions, useJobCompanies } from '@/api/jobs';
+import {
+  JobRequestError,
+  useJobActions,
+  useJobCompanies,
+  useJobPositionProgress,
+} from '@/api/jobs';
 import type {
+  JobApplication,
   JobCompany,
   JobPosition,
   JobPositionInput,
@@ -11,6 +17,7 @@ import type {
 import { useJobsUser } from '@/components/JobsShell';
 import { ReferralNotesHelp } from '@/components/ReferralNotesHelp';
 import { JobCompanyField } from '@/components/JobCompanyField';
+import { JobStageNameField } from '@/components/JobStageFields';
 import { AppDatePicker } from '@/components/AppDatePicker';
 import { FormDialog } from '@/components/Dialogs';
 import { Button } from '@/components/ui/button';
@@ -391,23 +398,33 @@ export function CompanyForm({
 }
 
 export function StageForm({
-  applicationId,
+  application,
   stage,
   onClose,
 }: {
-  applicationId: string;
+  application: JobApplication;
   stage?: JobStage;
   onClose: () => void;
 }) {
   const user = useJobsUser();
   const save = useJobActions(user?.id);
+  const progress = useJobPositionProgress(
+    application.position.id,
+    !stage?.initial,
+  );
   const id = useId();
   const [title, setTitle] = useState(stage?.title ?? '');
   const [date, setDate] = useState(stage?.date ?? localJobDate());
   const [notes, setNotes] = useState(stage?.notes ?? '');
   return (
     <FormDialog
-      title={stage ? 'Edit Stage' : 'Add Stage'}
+      title={
+        stage?.initial
+          ? 'Edit Applied Date'
+          : stage
+            ? 'Edit Stage'
+            : 'Add Stage'
+      }
       open
       onOpenChange={(open) => {
         if (!open) onClose();
@@ -418,45 +435,45 @@ export function StageForm({
         label={stage ? 'Save Changes' : 'Add Stage'}
         onSave={() =>
           save(
-            `/me/job-applications/${applicationId}/stages${stage ? `/${stage.id}` : ''}`,
+            `/me/job-applications/${application.id}/stages${stage ? `/${stage.id}` : ''}`,
             stage ? 'PATCH' : 'POST',
             { title, date, notes },
           )
         }
       >
-        <Field>
-          <FieldLabel htmlFor={`${id}-title`}>Stage Name</FieldLabel>
-          <Input
-            id={`${id}-title`}
-            required
-            maxLength={120}
-            readOnly={stage?.initial}
-            value={title}
-            placeholder="e.g. Technical interview"
-            list={`${id}-suggestions`}
-            onChange={(e) => setTitle(e.target.value)}
-          />
-          <datalist id={`${id}-suggestions`}>
-            {['Assessment', 'Interview', 'Offer', 'Rejected', 'Withdrawn'].map(
-              (v) => (
-                <option key={v} value={v} />
-              ),
+        {!stage?.initial && (
+          <>
+            <JobStageNameField
+              value={title}
+              onChange={setTitle}
+              reported={progress.data?.suggestions ?? []}
+            />
+            {application.shareProgress && (
+              <p className="text-sm text-muted-foreground">
+                This stage name is public while sharing is on.
+              </p>
             )}
-          </datalist>
-        </Field>
-        <AppDatePicker label="Date" value={date} onChange={setDate} />
-        <Field>
-          <FieldLabel htmlFor={`${id}-notes`}>
-            Notes (Private, Optional)
-          </FieldLabel>
-          <Textarea
-            id={`${id}-notes`}
-            maxLength={10000}
-            rows={5}
-            value={notes}
-            onChange={(e) => setNotes(e.target.value)}
-          />
-        </Field>
+          </>
+        )}
+        <AppDatePicker
+          label={stage?.initial ? 'Applied Date' : 'Date'}
+          value={date}
+          onChange={setDate}
+        />
+        {!stage?.initial && (
+          <Field>
+            <FieldLabel htmlFor={`${id}-notes`}>
+              Notes (Private, Optional)
+            </FieldLabel>
+            <Textarea
+              id={`${id}-notes`}
+              maxLength={10000}
+              rows={5}
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+            />
+          </Field>
+        )}
       </JobForm>
     </FormDialog>
   );

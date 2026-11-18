@@ -57,10 +57,11 @@ type StageInput struct {
 }
 
 type Application struct {
-	ID       string   `json:"id"`
-	Status   string   `json:"status"`
-	Position Position `json:"position"`
-	Stages   []Stage  `json:"stages"`
+	ID            string   `json:"id"`
+	Status        string   `json:"status"`
+	Position      Position `json:"position"`
+	Stages        []Stage  `json:"stages"`
+	ShareProgress bool     `json:"shareProgress"`
 }
 
 func ValidApplicationStatus(v string) bool {
@@ -163,9 +164,10 @@ func NormalizeURL(raw string) (string, error) {
 
 // ApplicationEdit replaces a private application's stages in the supplied order.
 type ApplicationEdit struct {
-	Status string      `json:"status"`
-	Date   string      `json:"date"`
-	Stages []StageEdit `json:"stages"`
+	Status        string      `json:"status"`
+	Date          string      `json:"date"`
+	Stages        []StageEdit `json:"stages"`
+	ShareProgress *bool       `json:"shareProgress,omitempty"`
 }
 type StageEdit struct {
 	ID string `json:"id,omitempty"`

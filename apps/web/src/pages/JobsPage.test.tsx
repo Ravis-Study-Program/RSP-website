@@ -67,22 +67,31 @@ describe('Jobs', () => {
       return screen.findByRole('dialog', { name: 'Edit Application' });
     };
     let dialog = await openEditor();
+    expect(
+      within(dialog).getByRole('button', { name: /choose applied date/i }),
+    ).toBeVisible();
+    expect(
+      within(dialog).queryByLabelText('Stage Name'),
+    ).not.toBeInTheDocument();
+    expect(
+      within(dialog).queryByLabelText('Notes (Private, Optional)'),
+    ).not.toBeInTheDocument();
     await userEvent.click(
       within(dialog).getByRole('button', { name: 'Add Stage' }),
     );
     await userEvent.type(
-      within(dialog).getAllByLabelText('Stage Name')[1],
+      within(dialog).getByLabelText('Stage Name'),
       'Phone Screen',
     );
     await userEvent.type(
-      within(dialog).getAllByLabelText('Notes (Private, Optional)')[1],
+      within(dialog).getByLabelText('Notes (Private, Optional)'),
       'Private preparation',
     );
     await userEvent.click(
       within(dialog).getByRole('button', { name: 'Add Stage' }),
     );
     await userEvent.type(
-      within(dialog).getAllByLabelText('Stage Name')[2],
+      within(dialog).getAllByLabelText('Stage Name')[1],
       'Technical Interview',
     );
     await userEvent.click(
@@ -110,9 +119,9 @@ describe('Jobs', () => {
       within(dialog)
         .getAllByLabelText('Stage Name')
         .map((input) => (input as HTMLInputElement).value),
-    ).toEqual(['Applied', 'Technical Interview', 'Phone Screen']);
+    ).toEqual(['Technical Interview', 'Phone Screen']);
     await userEvent.type(
-      within(dialog).getAllByLabelText('Stage Name')[1],
+      within(dialog).getAllByLabelText('Stage Name')[0],
       ' Unsaved',
     );
     await userEvent.click(

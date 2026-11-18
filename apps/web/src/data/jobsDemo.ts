@@ -2,6 +2,7 @@
 import seed from '@/data/jobPositions.json';
 import { jobApplicationStatuses } from '@/jobs';
 import { demoUser, people } from '@/data/demo';
+import { demoPositionProgress } from '@/data/jobProgressDemo';
 import type {
   JobApplication,
   JobApplicationEditInput,
@@ -82,7 +83,10 @@ export function demoJobRequest(
   if (method === 'GET' && parts[0] === 'jobs' && parts[1] !== 'referrals') {
     if (parts[1] === 'companies') return { items: structuredClone(companies) };
     if (parts.length === 2) return page(positions);
-    return structuredClone(positions.find((p) => p.id === canonical(parts[2])));
+    const id = canonical(parts[2]);
+    if (parts[3] === 'progress')
+      return demoPositionProgress(id, applications.values());
+    return structuredClone(positions.find((p) => p.id === id));
   }
   if (!userId) throw new Error('Sign in to continue.');
   if (parts[0] === 'jobs' && parts[1] === 'referrals') {
@@ -143,6 +147,7 @@ export function demoJobRequest(
         app = {
           id: crypto.randomUUID(),
           status: 'active',
+          shareProgress: true,
           position,
           stages: [
             {
@@ -162,8 +167,10 @@ export function demoJobRequest(
     if (!application) throw new Error('Application not found.');
     if (parts.length === 3 && method === 'PUT') {
       const input = body as JobApplicationEditInput;
+      const initial = application.stages.find((s) => s.initial);
       if (
-        input.stages[0]?.id !== application.stages.find((s) => s.initial)?.id ||
+        !initial ||
+        input.stages[0]?.id !== initial.id ||
         input.stages[0]?.title !== 'Applied'
       )
         throw new Error('Applied must stay first.');
@@ -171,6 +178,7 @@ export function demoJobRequest(
         ...stage,
         id: stage.id ?? crypto.randomUUID(),
         initial: index === 0,
+        notes: index === 0 ? initial.notes : stage.notes,
       }));
       if (application.status !== input.status)
         stages.push({
@@ -182,6 +190,8 @@ export function demoJobRequest(
           initial: false,
         });
       application.status = input.status;
+      application.shareProgress =
+        input.shareProgress ?? application.shareProgress;
       application.stages = stages;
       return;
     }
@@ -197,10 +207,6 @@ export function demoJobRequest(
         notes: '',
         initial: false,
       });
-      application.stages.sort(
-        (a, b) =>
-          Number(b.initial) - Number(a.initial) || a.date.localeCompare(b.date),
-      );
       return;
     }
     if (parts.length === 3 && method === 'DELETE') {
@@ -218,17 +224,16 @@ export function demoJobRequest(
         return;
       }
       const input = body as JobStageInput;
+      if (stage?.initial && input.title !== 'Applied')
+        throw new Error('Applied must stay first.');
       const saved: JobStage = {
         ...input,
         id: stage?.id ?? crypto.randomUUID(),
         initial: stage?.initial ?? false,
+        notes: stage?.initial ? stage.notes : input.notes,
       };
       if (stage) application.stages[application.stages.indexOf(stage)] = saved;
       else application.stages.push(saved);
-      application.stages.sort(
-        (a, b) =>
-          Number(b.initial) - Number(a.initial) || a.date.localeCompare(b.date),
-      );
       return structuredClone(saved);
     }
   }
@@ -252,6 +257,7 @@ export function demoJobRequest(
       const from = records.find((a) => a.position.id === source.id);
       const to = records.find((a) => a.position.id === target.id);
       if (from && to) {
+        to.shareProgress = to.shareProgress && from.shareProgress;
         to.stages.push(
           ...from.stages.map((s) =>
             s.initial

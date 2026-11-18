@@ -12,6 +12,7 @@ import type { JobStage } from './jobStage';
 export interface JobApplication {
   id: string;
   status: JobApplicationStatus;
+  shareProgress: boolean;
   position: JobPosition;
   stages: JobStage[];
 }

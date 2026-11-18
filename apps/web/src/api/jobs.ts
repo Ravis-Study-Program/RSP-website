@@ -6,6 +6,7 @@ import type {
   JobCompany,
   JobCompanyList,
   JobPosition,
+  JobPositionProgress,
   JobReferral,
 } from '@/api/generated/models';
 
@@ -98,6 +99,18 @@ export function useJobCompanies() {
       (await jobRequest<JobCompanyList>('/jobs/companies')).items,
   });
 }
+
+export function useJobPositionProgress(positionId: string, enabled = true) {
+  return useQuery({
+    queryKey: ['jobs', 'position-progress', positionId],
+    queryFn: () =>
+      jobRequest<JobPositionProgress>(
+        `/jobs/positions/${encodeURIComponent(positionId)}/progress`,
+      ),
+    enabled,
+  });
+}
+
 export function useJobApplications(userId?: string) {
   return useQuery({
     queryKey: ['jobs', 'applications', userId],

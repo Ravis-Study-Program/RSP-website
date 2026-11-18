@@ -61,11 +61,18 @@ test('Applied filters include rejected and offer applications and combine with o
       .click();
     await expect(page).toHaveURL(/\/jobs\/applications\?application=/);
     await page
-      .getByRole('combobox', {
-        name: new RegExp(`Status for .* at ${company}$`),
-      })
+      .getByRole('button', { name: 'Edit Application', exact: true })
       .click();
+    const editor = page.getByRole('dialog', {
+      name: 'Edit Application',
+      exact: true,
+    });
+    await editor.getByRole('combobox', { name: 'Status', exact: true }).click();
     await page.getByRole('option', { name: status, exact: true }).click();
+    await editor
+      .getByRole('button', { name: 'Save Changes', exact: true })
+      .click();
+    await expect(editor).not.toBeVisible();
     await page.getByRole('tab', { name: 'Positions', exact: true }).click();
   }
   const filter = page.getByRole('combobox', {

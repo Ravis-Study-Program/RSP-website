@@ -1,4 +1,6 @@
 import { JobApplicationForm } from '@/components/JobApplicationForm';
+import { JobProgressChart } from '@/components/JobProgressChart';
+import { currentJobStage } from '@/jobStages';
 import { useState, type ReactNode } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import type { ColumnDef, Row, SortingState } from '@tanstack/react-table';
@@ -196,9 +198,14 @@ function JobText({ text }: { text: string }) {
 
 function PositionDetails({ position }: { position: JobPosition }) {
   return (
-    <div className="grid gap-2">
-      <h3 className="text-sm font-semibold">Details</h3>
-      <JobText text={position.notes || 'No Details.'} />
+    <div className="grid min-w-0 max-w-[calc(100cqw-2rem)] gap-4">
+      {position.notes && (
+        <div className="grid gap-2">
+          <h3 className="text-sm font-semibold">Details</h3>
+          <JobText text={position.notes} />
+        </div>
+      )}
+      <JobProgressChart positionId={position.id} />
     </div>
   );
 }
@@ -720,6 +727,11 @@ function Applications({ toolbarLead }: { toolbarLead: ReactNode }) {
       <StatusBadge
         role="status"
         aria-label={`Status for ${application.position.title} at ${application.position.company.name}`}
+        className={
+          application.status === 'inactive'
+            ? 'text-[color-mix(in_srgb,var(--destructive)_78%,var(--foreground))]'
+            : undefined
+        }
         tone={
           application.status === 'offer'
             ? 'success'
@@ -764,8 +776,8 @@ function Applications({ toolbarLead }: { toolbarLead: ReactNode }) {
     },
     {
       id: 'stage',
-      accessorFn: (a) => a.stages.at(-1)?.title ?? 'Applied',
-      header: 'Latest Stage',
+      accessorFn: currentJobStage,
+      header: 'Current Stage',
       meta: { width: 10 },
     },
     {
@@ -837,9 +849,7 @@ function Applications({ toolbarLead }: { toolbarLead: ReactNode }) {
             </div>
             <h3 className="font-semibold">{row.original.position.title}</h3>
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <p className="text-sm">
-                {row.original.stages.at(-1)?.title ?? 'Applied'}
-              </p>
+              <p className="text-sm">{currentJobStage(row.original)}</p>
               {statusBadge(row.original)}
             </div>
             {row.getIsExpanded() && (
@@ -871,13 +881,15 @@ function ApplicationHistory({ application }: { application: JobApplication }) {
           <li key={s.id} className="grid gap-2 py-4">
             <div className="flex flex-wrap items-start justify-between gap-2">
               <div className="grid gap-1">
-                <h3 className="font-semibold">{s.title}</h3>
-                <time
-                  className="text-sm text-muted-foreground"
-                  dateTime={s.date}
-                >
-                  {formatCalendarDay(new Date(s.date))}
-                </time>
+                <h3 className="font-semibold break-words">{s.title}</h3>
+                {s.date && (
+                  <time
+                    className="text-sm text-muted-foreground"
+                    dateTime={s.date}
+                  >
+                    {formatCalendarDay(new Date(s.date))}
+                  </time>
+                )}
               </div>
               <DropdownMenu>
                 <DropdownMenuTrigger
@@ -893,7 +905,8 @@ function ApplicationHistory({ application }: { application: JobApplication }) {
                 </DropdownMenuTrigger>
                 <DropdownMenuContent>
                   <DropdownMenuItem onClick={() => setStage(s)}>
-                    <IconEdit size={17} aria-hidden="true" /> Edit Stage
+                    <IconEdit size={17} aria-hidden="true" />
+                    {s.initial ? 'Edit Applied Date' : 'Edit Stage'}
                   </DropdownMenuItem>
                   {!s.initial && (
                     <DropdownMenuItem
@@ -914,6 +927,7 @@ function ApplicationHistory({ application }: { application: JobApplication }) {
         <Button
           variant="destructive"
           size="sm"
+          className="text-[color-mix(in_srgb,var(--destructive)_78%,var(--foreground))]"
           onClick={() => setRemove('application')}
         >
           Remove Application
@@ -939,7 +953,7 @@ function ApplicationHistory({ application }: { application: JobApplication }) {
       )}
       {stage && (
         <StageForm
-          applicationId={application.id}
+          application={application}
           stage={stage === 'new' ? undefined : stage}
           onClose={() => setStage(undefined)}
         />

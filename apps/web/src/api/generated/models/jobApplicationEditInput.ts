@@ -11,6 +11,8 @@ import type { JobStageEditInput } from './jobStageEditInput';
 export interface JobApplicationEditInput {
   status: JobApplicationStatus;
   date: string;
+  /** Share stage names and progress counts for this position. */
+  shareProgress?: boolean;
   /**
    * @minItems 1
    * @maxItems 200

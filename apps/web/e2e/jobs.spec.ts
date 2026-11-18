@@ -5,6 +5,18 @@ import path from 'node:path';
 
 const captureRoot = process.env.RSP_JOBS_CAPTURE_DIR;
 
+async function openApplicationHistory(page: Page, title: string) {
+  const history = page.getByRole('region', {
+    name: `Application history for ${title}`,
+    exact: true,
+  });
+  if (!(await history.isVisible()))
+    await page
+      .getByRole('button', { name: `Show history for ${title} ·` })
+      .click();
+  return history;
+}
+
 async function editApplicationStatus(
   page: Page,
   title: string,
@@ -17,17 +29,7 @@ async function editApplicationStatus(
       exact: true,
     }),
   ).toBeVisible();
-  const history = page.getByRole('region', {
-    name: `Application history for ${title}`,
-    exact: true,
-  });
-  if (!(await history.isVisible()))
-    await page
-      .getByRole('button', {
-        name: `Show history for ${title} ·`,
-        exact: false,
-      })
-      .click();
+  const history = await openApplicationHistory(page, title);
   await history
     .getByRole('button', { name: 'Edit Application', exact: true })
     .click();
@@ -210,15 +212,10 @@ test('Application statuses keep inactive histories out of the default list', asy
   await expect(
     page.getByRole('status', { name: /Status for .* at Google/ }),
   ).toHaveText('Active');
-  await page
-    .getByRole('button', {
-      name: 'Show history for Software Engineering Intern, Summer 2026 · FAAMG',
-      exact: true,
-    })
-    .click();
-  const history = page.getByRole('region', {
-    name: 'Application history for Software Engineering Intern, Summer 2026',
-  });
+  const history = await openApplicationHistory(
+    page,
+    'Software Engineering Intern, Summer 2026',
+  );
   await expect(history.getByRole('heading')).toHaveText([
     'Applied',
     'Rejected',
@@ -301,6 +298,20 @@ test('Applied opens a private named stage history', async ({
   await expect(applied).toBeEnabled();
   await applied.click();
   await expect(page).toHaveURL(/\/jobs\/applications\?application=/);
+  await page
+    .getByRole('button', { name: 'Actions for Applied', exact: true })
+    .click();
+  await page.getByRole('menuitem', { name: 'Edit Applied Date' }).click();
+  const appliedForm = page.getByRole('dialog', { name: 'Edit Applied Date' });
+  await expect(
+    appliedForm.getByRole('button', { name: 'Choose applied date' }),
+  ).toBeVisible();
+  await expect(appliedForm.getByLabel('Stage Name')).toHaveCount(0);
+  await expect(appliedForm.getByLabel('Notes (Private, Optional)')).toHaveCount(
+    0,
+  );
+  await appliedForm.getByRole('button', { name: 'Save Changes' }).click();
+  await expect(appliedForm).not.toBeVisible();
   await page.getByRole('button', { name: 'Add Stage', exact: true }).click();
   const form = page.getByRole('dialog', { name: 'Add Stage' });
   await form.getByLabel('Stage Name').last().fill('Technical interview');
@@ -359,6 +370,112 @@ test('Applied opens a private named stage history', async ({
       'Prepare graph traversal examples and questions about the team.',
     ),
   ).toHaveCount(0);
+});
+
+test('Stage suggestions and sharing by default update the application flow', async ({
+  page,
+}, testInfo) => {
+  await page.addInitScript(() =>
+    localStorage.setItem('rsp-demo-role', 'student'),
+  );
+  await page.goto('/jobs?position=position-1');
+  const flow = page.getByRole('region', {
+    name: 'Application Flow',
+    exact: true,
+  });
+  await expect(flow.getByRole('img', { name: /Sankey diagram/ })).toBeVisible();
+  await expect(
+    flow.getByText('32 applicants sharing (demo data)'),
+  ).toBeVisible();
+  expect(
+    await page.evaluate(
+      () =>
+        document.documentElement.scrollWidth <=
+        document.documentElement.clientWidth + 1,
+    ),
+  ).toBe(true);
+  if (captureRoot) {
+    await flow.screenshot({
+      scale: 'css',
+      path: path.join(
+        captureRoot,
+        `${testInfo.project.name}-application-flow.png`,
+      ),
+    });
+  }
+  await page
+    .getByRole('checkbox', {
+      name: 'Applied to Software Engineering Intern, Summer 2026 at Google',
+    })
+    .click();
+  const editor = page.getByRole('dialog', { name: 'Edit Application' });
+  await page
+    .getByRole('button', { name: 'Edit Application', exact: true })
+    .click();
+  await expect(
+    editor.getByRole('checkbox', { name: 'Share Progress' }),
+  ).toBeChecked();
+  const addStage = editor.getByRole('button', {
+    name: 'Add Stage',
+    exact: true,
+  });
+  await addStage.click();
+  const firstStage = editor
+    .getByRole('combobox', { name: 'Stage Name' })
+    .first();
+  await firstStage.press('ArrowDown');
+  await expect(
+    page.getByRole('option', { name: 'Recruiter screen (confirm info)' }),
+  ).toBeVisible();
+  for (const name of [
+    'Application review',
+    'Background check',
+    'Reference check',
+  ]) {
+    await expect(page.getByRole('option', { name, exact: true })).toHaveCount(
+      0,
+    );
+  }
+  await firstStage.fill('Recruiter screen');
+  await expect(
+    page.getByRole('option', { name: 'Recruiter screen (behavioural)' }),
+  ).toBeVisible();
+  if (captureRoot) {
+    await page.screenshot({
+      scale: 'css',
+      animations: 'disabled',
+      path: path.join(
+        captureRoot,
+        `${testInfo.project.name}-stage-suggestions.png`,
+      ),
+    });
+  }
+  await page
+    .getByRole('option', { name: 'Recruiter screen (confirm info)' })
+    .click();
+  await editor
+    .getByLabel('Notes (Private, Optional)')
+    .fill('Private demo preparation note');
+  await expect(
+    editor.getByRole('checkbox', { name: 'Upcoming Stage' }),
+  ).toHaveCount(0);
+  await editor.getByRole('button', { name: 'Save Changes' }).click();
+  await expect(editor).not.toBeVisible();
+  await page.getByRole('tab', { name: 'Positions', exact: true }).click();
+  await page
+    .getByRole('button', {
+      name: /^Show details for Software Engineering Intern, Summer 2026/,
+    })
+    .click();
+  await expect(
+    flow.getByText('33 applicants sharing (demo data)'),
+  ).toBeVisible();
+  await flow.getByText('Stage Counts', { exact: true }).click();
+  const screen = flow.getByRole('row', {
+    name: /^Recruiter screen \(confirm info\)/,
+  });
+  await expect(screen.getByRole('cell').nth(1)).toHaveText('8');
+  await expect(flow.getByText('Private demo preparation note')).toHaveCount(0);
 });
 
 test('Members can publish a position with the shared form', async ({
