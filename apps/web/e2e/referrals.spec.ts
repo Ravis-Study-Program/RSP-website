@@ -33,6 +33,58 @@ test('Referrals require sign-in and preserve the return path', async ({
   ).toHaveCount(0);
 });
 
+test('Referrals remember the guidelines acknowledgement for the current account', async ({
+  page,
+}) => {
+  await page.addInitScript(() => {
+    localStorage.setItem('rsp-demo-role', 'student');
+    localStorage.setItem('rsp-referral-guidelines-ack:v1:other-account', '1');
+  });
+  await page.goto('/jobs/referrals');
+  const rules = page.getByRole('region', {
+    name: 'Read Before Contacting a Referrer',
+  });
+  await expect(rules).toBeVisible();
+  const acknowledgement = rules.getByRole('checkbox', {
+    name: 'I acknowledge the referral guidelines',
+  });
+  await acknowledgement.press('Space');
+  await expect(rules).toBeHidden();
+
+  const headingRow = page
+    .getByRole('heading', { name: 'Jobs', exact: true })
+    .locator('..');
+  const guidelines = headingRow.getByRole('button', {
+    name: 'Referral Guidelines',
+    exact: true,
+  });
+  await expect(guidelines).toBeFocused();
+  await page.reload();
+  await expect(guidelines).toHaveAttribute('aria-expanded', 'false');
+  await expect(rules).toBeHidden();
+  const linkBounds = (await guidelines.boundingBox())!;
+  const betaBounds = (await headingRow
+    .getByText('Beta', { exact: true })
+    .boundingBox())!;
+  expect(linkBounds.x).toBeGreaterThanOrEqual(betaBounds.x + betaBounds.width);
+  expect(linkBounds.y).toBeLessThan(betaBounds.y + betaBounds.height);
+  expect(linkBounds.y + linkBounds.height).toBeGreaterThan(betaBounds.y);
+
+  const tabs = page.getByRole('tablist', { name: 'Jobs' });
+  const tabsPosition = await tabs.boundingBox();
+  await guidelines.click();
+  const popover = page.getByRole('dialog', {
+    name: 'Read Before Contacting a Referrer',
+  });
+  await expect(popover).toBeVisible();
+  await expect(popover).toContainText('every requirement in their details');
+  await expect(popover.getByRole('checkbox')).toHaveCount(0);
+  expect(await tabs.boundingBox()).toEqual(tabsPosition);
+  await page.keyboard.press('Escape');
+  await expect(popover).toBeHidden();
+  await expect(guidelines).toBeFocused();
+});
+
 test('Members can filter, offer, edit and stop referring', async ({
   page,
 }, testInfo) => {

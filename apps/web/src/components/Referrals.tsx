@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react';
+import { useId, useRef, useState, type ReactNode } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import type { ColumnDef } from '@tanstack/react-table';
 import { IconAlertTriangle, IconDots, IconPlus } from '@tabler/icons-react';
@@ -14,12 +14,20 @@ import { JobSelect, ReferralForm } from '@/components/JobForms';
 import { useJobsUser } from '@/components/JobsShell';
 import { ReferralNotesHelp } from '@/components/ReferralNotesHelp';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { Field, FieldLabel } from '@/components/ui/field';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTitle,
+  PopoverTrigger,
+} from '@/components/ui/popover';
 
 export function OpenToReferring() {
   const [open, setOpen] = useState(false);
@@ -66,6 +74,126 @@ function Notes({ notes }: { notes: string }) {
     <p className="whitespace-pre-wrap break-words text-sm leading-relaxed">
       {notes || '—'}
     </p>
+  );
+}
+
+export function ReferralGuidelines({
+  userId,
+  active,
+  children,
+}: {
+  userId?: string;
+  active: boolean;
+  children: (link: ReactNode, notice: ReactNode) => ReactNode;
+}) {
+  const id = useId();
+  const storageKey = userId && `rsp-referral-guidelines-ack:v1:${userId}`;
+  const [acknowledged, setAcknowledged] = useState(() => {
+    try {
+      return !!storageKey && localStorage.getItem(storageKey) === '1';
+    } catch {
+      return false;
+    }
+  });
+  const restoreFocus = useRef(false);
+
+  if (!active || !storageKey) return children(null, null);
+
+  function acknowledge() {
+    try {
+      if (storageKey) localStorage.setItem(storageKey, '1');
+    } catch {
+      // The notice can still be dismissed when browser storage is unavailable.
+    }
+    restoreFocus.current = true;
+    setAcknowledged(true);
+  }
+
+  const title = 'Read Before Contacting a Referrer';
+  const rules = (
+    <>
+      <p>
+        Only message a referrer if you meet{' '}
+        <strong>every requirement in their details</strong>. Do not harass them
+        or send repeated requests. Be respectful and understanding if they are
+        unable or unwilling to refer you.
+      </p>
+      <p className="font-semibold">
+        Individuals who do not follow these rules will be removed from the
+        program.
+      </p>
+    </>
+  );
+
+  if (acknowledged)
+    return children(
+      <Popover>
+        <PopoverTrigger
+          ref={(button) => {
+            if (button && restoreFocus.current) {
+              button.focus();
+              restoreFocus.current = false;
+            }
+          }}
+          render={
+            <Button
+              variant="link"
+              size="sm"
+              className="px-0 text-muted-foreground underline hover:text-foreground"
+            />
+          }
+        >
+          Referral Guidelines
+        </PopoverTrigger>
+        <PopoverContent
+          align="start"
+          className="w-96 max-w-[calc(100vw-2rem)] gap-2 p-4"
+        >
+          <PopoverTitle className="text-base font-semibold">
+            {title}
+          </PopoverTitle>
+          {rules}
+        </PopoverContent>
+      </Popover>,
+      null,
+    );
+
+  return children(
+    null,
+    <section
+      aria-labelledby={`${id}-heading`}
+      className="rounded-xl border border-warning bg-warning-soft p-5 text-warning sm:p-6"
+    >
+      <div className="flex items-start gap-3">
+        <IconAlertTriangle
+          size={24}
+          className="mt-0.5 shrink-0"
+          aria-hidden="true"
+        />
+        <div className="grid min-w-0 flex-1 gap-2">
+          <h2 id={`${id}-heading`} className="text-xl font-semibold">
+            {title}
+          </h2>
+          {rules}
+          <Field orientation="horizontal" className="mt-2 items-center gap-2">
+            <Checkbox
+              id={`${id}-acknowledge`}
+              checked={false}
+              className="border-current"
+              onCheckedChange={(checked) => {
+                if (checked) acknowledge();
+              }}
+            />
+            <FieldLabel
+              htmlFor={`${id}-acknowledge`}
+              className="cursor-pointer"
+            >
+              I acknowledge the referral guidelines
+            </FieldLabel>
+          </Field>
+        </div>
+      </div>
+    </section>,
   );
 }
 
@@ -166,33 +294,6 @@ export function Referrals({ toolbarLead }: { toolbarLead?: ReactNode }) {
   ];
   return (
     <div className="grid gap-6">
-      <section
-        aria-labelledby="referral-rules"
-        className="rounded-xl border border-warning bg-warning-soft p-5 text-warning sm:p-6"
-      >
-        <div className="flex items-start gap-3">
-          <IconAlertTriangle
-            size={24}
-            className="mt-0.5 shrink-0"
-            aria-hidden="true"
-          />
-          <div className="grid min-w-0 flex-1 gap-2">
-            <h2 id="referral-rules" className="text-xl font-semibold">
-              Read Before Contacting a Referrer
-            </h2>
-            <p>
-              Only message a referrer if you meet{' '}
-              <strong>every requirement in their details</strong>. Do not harass
-              them or send repeated requests. Be respectful and understanding if
-              they are unable or unwilling to refer you.
-            </p>
-            <p className="font-semibold">
-              Individuals who do not follow these rules will be removed from the
-              program.
-            </p>
-          </div>
-        </div>
-      </section>
       <DataTable
         key={companyID}
         toolbarLead={toolbarLead}

@@ -45,7 +45,11 @@ import {
   StageForm,
 } from '@/components/JobForms';
 import { useJobsUser } from '@/components/JobsShell';
-import { OpenToReferring, Referrals } from '@/components/Referrals';
+import {
+  OpenToReferring,
+  ReferralGuidelines,
+  Referrals,
+} from '@/components/Referrals';
 import { StatusBadge } from '@/components/StatusBadge';
 import { BetaBadge } from '@/components/BetaBadge';
 import { Button, buttonVariants } from '@/components/ui/button';
@@ -89,11 +93,19 @@ export function JobsPage() {
       {user && <TabsTrigger value="referrals">Referrals</TabsTrigger>}
     </TabsList>
   );
-  return (
+  const renderPage = (
+    guidelinesLink: ReactNode,
+    guidelinesNotice: ReactNode,
+  ) => (
     <Page>
       <PageHeader
         title="Jobs"
-        status={<BetaBadge />}
+        status={
+          <>
+            <BetaBadge />
+            {guidelinesLink}
+          </>
+        }
         actions={
           active === 'positions' ? (
             <AddPosition />
@@ -114,11 +126,25 @@ export function JobsPage() {
         <TabsContent value="applications">
           {active === 'applications' && <Applications toolbarLead={pageTabs} />}
         </TabsContent>
-        <TabsContent value="referrals">
-          {active === 'referrals' && <Referrals toolbarLead={pageTabs} />}
+        <TabsContent value="referrals" className="space-y-6">
+          {active === 'referrals' && (
+            <>
+              {guidelinesNotice}
+              <Referrals toolbarLead={pageTabs} />
+            </>
+          )}
         </TabsContent>
       </Tabs>
     </Page>
+  );
+  return (
+    <ReferralGuidelines
+      key={user?.id}
+      userId={user?.id}
+      active={active === 'referrals'}
+    >
+      {renderPage}
+    </ReferralGuidelines>
   );
 }
 
