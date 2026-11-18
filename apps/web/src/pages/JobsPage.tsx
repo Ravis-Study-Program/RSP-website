@@ -810,8 +810,11 @@ function Positions({ toolbarLead }: { toolbarLead: ReactNode }) {
         <NamedConfirmation
           open
           name={remove.position.title}
+          title={`Remove application for ${remove.position.company.name} (${remove.position.title})?`}
           actionLabel="Remove Application"
-          description="This removes your application and all its private stage notes. The shared position stays on the board."
+          confirmLabel="Confirm"
+          requireTyping={false}
+          description="This removes your application and all its private stage notes."
           onOpenChange={(open) => {
             if (!open) setRemove(undefined);
           }}
@@ -1130,7 +1133,7 @@ function ApplicationHistory({
           }
           description={
             remove === 'application'
-              ? 'This removes your application and all its private stage notes. The shared position stays on the board.'
+              ? 'This removes your application and all its private stage notes.'
               : 'This removes the stage and its private notes.'
           }
           onOpenChange={(open) => {

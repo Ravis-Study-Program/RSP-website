@@ -390,6 +390,51 @@ test('Marking Applied keeps the board open and saves a private history', async (
   ).toHaveCount(0);
 });
 
+test('Applications can be removed with a single confirmation from Positions or the editor', async ({
+  page,
+}) => {
+  await page.goto('/jobs');
+  const title = 'Software Engineering Intern, Summer 2026';
+  const applied = page.getByRole('checkbox', {
+    name: `Applied to ${title} at Google`,
+    exact: true,
+  });
+  const confirmation = page.getByRole('alertdialog', {
+    name: `Remove application for Google (${title})?`,
+    exact: true,
+  });
+  const confirmRemoval = async () => {
+    await expect(confirmation.getByRole('textbox')).toHaveCount(0);
+    await confirmation
+      .getByRole('button', { name: 'Confirm', exact: true })
+      .click();
+    await expect(confirmation).toBeHidden();
+  };
+
+  await applied.click();
+  await expect(applied).toBeChecked();
+  await applied.click();
+  await confirmation.getByRole('button', { name: 'Cancel' }).click();
+  await expect(applied).toBeChecked();
+  await applied.click();
+  await confirmRemoval();
+  await expect(applied).not.toBeChecked();
+
+  await applied.click();
+  await expect(applied).toBeChecked();
+  await page.getByRole('tab', { name: 'My Applications' }).click();
+  await page
+    .getByRole('button', { name: `Edit application for ${title} at Google` })
+    .click();
+  const editor = page.getByRole('dialog', { name: 'Edit Application' });
+  await editor.getByRole('button', { name: 'Remove Application' }).click();
+  await confirmRemoval();
+  await expect(editor).toBeHidden();
+  await expect(page.getByText('No Active Applications')).toBeVisible();
+  await page.getByRole('tab', { name: 'Positions' }).click();
+  await expect(applied).not.toBeChecked();
+});
+
 test('Stage suggestions and sharing by default update the application flow', async ({
   page,
 }, testInfo) => {

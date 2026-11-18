@@ -281,8 +281,11 @@ export function JobApplicationForm({
         <NamedConfirmation
           open
           name={application.position.title}
+          title={`Remove application for ${application.position.company.name} (${application.position.title})?`}
           actionLabel="Remove Application"
-          description="This removes your application and all its private stage notes. The shared position stays on the board."
+          confirmLabel="Confirm"
+          requireTyping={false}
+          description="This removes your application and all its private stage notes."
           onOpenChange={setRemove}
           onConfirm={async () => {
             await save(`/me/job-applications/${application.id}`, 'DELETE');
