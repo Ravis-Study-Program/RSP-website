@@ -6,10 +6,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/magedmg/RSP-website/backend/internal/authz"
-	"github.com/magedmg/RSP-website/backend/internal/dal"
-	"github.com/magedmg/RSP-website/backend/internal/platform/id"
-	"github.com/magedmg/RSP-website/backend/internal/program"
+	"github.com/Ravis-Study-Program/RSP-website/backend/internal/authz"
+	"github.com/Ravis-Study-Program/RSP-website/backend/internal/dal"
+	"github.com/Ravis-Study-Program/RSP-website/backend/internal/platform/id"
+	"github.com/Ravis-Study-Program/RSP-website/backend/internal/program"
 )
 
 // mondayUpdateRange reads the startDate and endDate parameters Monday update
@@ -503,6 +503,35 @@ func (a *API) decideMondayUpdateUnlock(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSONResponse(w, http.StatusOK, decided)
+}
+
+// relockMondayUpdate lets the student's mentor, or a coordinator, lock an
+// approved late week again.
+func (a *API) relockMondayUpdate(w http.ResponseWriter, r *http.Request) {
+	actor := actorFrom(r.Context())
+	seasonID, unlockID := r.PathValue("id"), r.PathValue("unlockId")
+	unlock, err := a.db.GetMondayUpdateUnlock(r.Context(), seasonID, unlockID)
+	if err != nil {
+		a.writeStoreErrorResponse(w, err)
+		return
+	}
+	if !actor.IsSeasonAdmin(seasonID) {
+		assigned, err := a.db.IsMentorAssigned(r.Context(), seasonID, actor.UserID, unlock.Student.ID)
+		if err != nil {
+			a.writeStoreErrorResponse(w, err)
+			return
+		}
+		if !assigned {
+			writeErrorResponse(w, http.StatusForbidden, "Only a mentor of this student can relock this update.")
+			return
+		}
+	}
+	relocked, err := a.db.RelockMondayUpdate(r.Context(), seasonID, unlockID, actor.UserID)
+	if err != nil {
+		a.writeStoreErrorResponse(w, err)
+		return
+	}
+	writeJSONResponse(w, http.StatusOK, relocked)
 }
 
 // unlockMondayUpdateForStudent is a mentor or coordinator unlocking a

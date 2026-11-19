@@ -5,8 +5,9 @@ import { PracticePreferencesPanel } from '@/pages/SettingsPage';
 const goals = { Easy: 10, Medium: 25, Hard: 40 };
 
 describe('practice goals', () => {
-  it('shows the program goals read-only to members', () => {
+  it('shows the program goals as non-editable to members', async () => {
     render(<PracticePreferencesPanel goals={goals} />);
+    const user = userEvent.setup();
     for (const [label, minutes] of [
       ['Easy (minutes)', '10'],
       ['Medium (minutes)', '25'],
@@ -14,7 +15,11 @@ describe('practice goals', () => {
     ]) {
       const field = screen.getByLabelText(label);
       expect(field).toHaveValue(minutes);
-      expect(field).toHaveAttribute('readonly');
+      expect(field).toBeDisabled();
+      expect(field).toHaveClass('disabled:cursor-not-allowed');
+      expect(field).toHaveClass('disabled:select-none');
+      await user.type(field, '5');
+      expect(field).toHaveValue(minutes);
     }
   });
 

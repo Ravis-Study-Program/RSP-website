@@ -634,8 +634,7 @@ export function PracticePreferencesPanel({
                   <Input
                     id={id}
                     value={goals[difficulty]}
-                    readOnly
-                    aria-readonly="true"
+                    disabled
                     className="text-muted-foreground"
                   />
                 )}
@@ -712,8 +711,7 @@ function WeeklyRequirementsPanel({
                 <Input
                   id={id}
                   value={targets[key]}
-                  readOnly
-                  aria-readonly="true"
+                  disabled
                   className="text-muted-foreground"
                 />
               )}

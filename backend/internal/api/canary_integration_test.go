@@ -9,8 +9,8 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/magedmg/RSP-website/backend/internal/authz"
-	"github.com/magedmg/RSP-website/backend/internal/dal"
+	"github.com/Ravis-Study-Program/RSP-website/backend/internal/authz"
+	"github.com/Ravis-Study-Program/RSP-website/backend/internal/dal"
 )
 
 func newCanaryHandler(t *testing.T, fixture postgresFixture, canary bool) http.Handler {

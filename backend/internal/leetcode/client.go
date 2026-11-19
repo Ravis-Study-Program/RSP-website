@@ -12,7 +12,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/magedmg/RSP-website/backend/internal/worker"
+	"github.com/Ravis-Study-Program/RSP-website/backend/internal/worker"
 )
 
 type Problem struct {

@@ -3,7 +3,7 @@ package api
 import (
 	"net/http"
 
-	"github.com/magedmg/RSP-website/backend/internal/platform/ratelimit"
+	"github.com/Ravis-Study-Program/RSP-website/backend/internal/platform/ratelimit"
 )
 
 func registerRoutes(mux *http.ServeMux, a *API) {
@@ -87,6 +87,7 @@ func registerProgramRoutes(mux *http.ServeMux, a *API) {
 	mux.HandleFunc("GET /api/v2/seasons/{id}/monday-update-unlocks", a.protected(ratelimit.Read, a.listMondayUpdateUnlocks))
 	mux.HandleFunc("POST /api/v2/seasons/{id}/monday-update-unlocks", a.protected(ratelimit.Write, a.createMondayUpdateUnlock))
 	mux.HandleFunc("POST /api/v2/seasons/{id}/monday-update-unlocks/{unlockId}/decision", a.protected(ratelimit.Write, a.decideMondayUpdateUnlock))
+	mux.HandleFunc("POST /api/v2/seasons/{id}/monday-update-unlocks/{unlockId}/relock", a.protected(ratelimit.Write, a.relockMondayUpdate))
 	mux.HandleFunc("PUT /api/v2/seasons/{id}/monday-updates/{updateId}/mark", a.protected(ratelimit.Write, a.putMondayUpdateMark))
 	mux.HandleFunc("PUT /api/v2/seasons/{id}/monday-week-marks", a.protected(ratelimit.Write, a.putMondayWeekMark))
 	mux.HandleFunc("GET /api/v2/seasons/{id}/monday-mentor-reports", a.protected(ratelimit.Read, a.listMondayMentorReports))

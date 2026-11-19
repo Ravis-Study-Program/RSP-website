@@ -558,6 +558,22 @@ describe('mentor Monday Updates', () => {
         items: [first, second],
       }),
     );
+    vi.mocked(useMondayUpdateUnlocks).mockReturnValue(
+      queryResult<ReturnType<typeof useMondayUpdateUnlocks>>([
+        {
+          id: 'unlock-1',
+          seasonId: 'season-1',
+          student: { ...studentIdentity, avatarUrl: null },
+          startDate: range.startDate,
+          endDate: range.endDate,
+          reason: 'I was sick.',
+          state: 'approved',
+          requestedAt: '2026-11-09T02:00:00Z',
+          decidedAt: '2026-11-09T03:00:00Z',
+          decidedBy: null,
+        },
+      ]),
+    );
 
     const user = userEvent.setup();
     renderPage();
@@ -593,6 +609,21 @@ describe('mentor Monday Updates', () => {
     expect(within(firstRow).getByText('On track')).toBeInTheDocument();
     expect(within(secondRow).getByText('Not marked')).toBeInTheDocument();
     expect(screen.queryByText('Two Sum')).not.toBeInTheDocument();
+
+    // An approved late week can be locked again from the same row menu.
+    await user.click(
+      within(firstRow).getByRole('button', { name: /^More actions for/ }),
+    );
+    expect(
+      await screen.findByRole('menuitem', { name: 'Lock Update' }),
+    ).toBeInTheDocument();
+    await user.click(screen.getByRole('menuitem', { name: 'Lock Update' }));
+    await waitFor(() => expect(apiRequest).toHaveBeenCalledTimes(1));
+    expect(apiRequest).toHaveBeenCalledWith(
+      '/seasons/season-1/monday-update-unlocks/unlock-1/relock',
+      { method: 'POST' },
+    );
+    vi.mocked(apiRequest).mockClear();
 
     // Expanding a row shows what the student wrote and the mentor's notes;
     // hours and activity are already in the row.
@@ -842,6 +873,31 @@ describe('fixed weekly submissions', () => {
         body: JSON.stringify({ contentHtml: '<p>Rewritten</p>', hours: 30 }),
       },
     );
+  });
+  it('shows the lock icon beside a submitted update after the week locks', () => {
+    vi.setSystemTime(new Date('2026-11-10T02:00:00Z'));
+    vi.mocked(useMondayUpdates).mockReturnValue(
+      queryResult<ReturnType<typeof useMondayUpdates>>({
+        items: [
+          mondayUpdate('submitted', {
+            createdAt: '2026-11-03T02:00:00Z',
+          }),
+        ],
+      }),
+    );
+
+    try {
+      renderPage();
+      const row = within(screen.getByRole('table')).getAllByRole('row')[1];
+      expect(within(row).getByText('Submitted')).toBeInTheDocument();
+      expect(
+        within(row).getByLabelText(
+          'Locked. Request an unlock from this row’s menu.',
+        ),
+      ).toBeInTheDocument();
+    } finally {
+      vi.setSystemTime(new Date('2026-11-09T02:00:00Z'));
+    }
   });
   it('warns that editing an unlocked late update marks it late', async () => {
     approvedUnlock();

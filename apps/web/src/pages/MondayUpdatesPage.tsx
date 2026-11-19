@@ -1453,9 +1453,7 @@ function UpdateStatus({
       </StatusBadge>
       {row.unlock?.state === 'pending' ? (
         <StatusBadge tone="info">Unlock requested</StatusBadge>
-      ) : row.unlock?.state === 'approved' && !row.update ? (
-        <StatusBadge tone="info">Unlocked</StatusBadge>
-      ) : row.locked && !row.update && row.status !== 'Kicked' ? (
+      ) : row.locked && row.status !== 'Kicked' ? (
         <Tooltip content="This Monday update is locked. Request an unlock from this row’s menu.">
           <button
             type="button"
@@ -1943,17 +1941,24 @@ function MentorUpdateRowActions({
 }) {
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
-  const { update, locked, student, range } = row.original;
+  const { update, locked, unlock, student, range } = row.original;
   // A late week, posted or not, can be unlocked for the student.
   const canUnlock = locked && Boolean(row.original.weekNumber);
+  const canRelock = unlock?.state === 'approved';
   if (!update && !canUnlock && !row.original.weekNumber) return null;
   const ownMark = update
     ? update.marks.find((record) => record.mentor.id === mentorId)
     : row.original.weekMark;
-  const unlock = () =>
+  const unlockWeek = () =>
     void unlockMondayUpdate(seasonId, student, range, row.original.unlock).then(
       () => invalidateMondayUpdates(queryClient),
     );
+  const relock = () => {
+    if (!unlock) return;
+    void relockMondayUpdate(seasonId, unlock).then(() =>
+      invalidateMondayUpdates(queryClient),
+    );
+  };
   return (
     <>
       <DropdownMenu>
@@ -1976,8 +1981,13 @@ function MentorUpdateRowActions({
             </DropdownMenuItem>
           ) : null}
           {canUnlock ? (
-            <DropdownMenuItem onClick={unlock}>
+            <DropdownMenuItem onClick={unlockWeek}>
               <IconLockOpen size={17} aria-hidden="true" /> Unlock Update
+            </DropdownMenuItem>
+          ) : null}
+          {canRelock ? (
+            <DropdownMenuItem onClick={relock}>
+              <IconLock size={17} aria-hidden="true" /> Lock Update
             </DropdownMenuItem>
           ) : null}
         </DropdownMenuContent>
@@ -2038,6 +2048,26 @@ async function unlockMondayUpdate(
         studentId: student.id,
       } satisfies MondayUpdateUnlockMutation),
     },
+  );
+}
+
+/** Relocks a student's late week as their mentor. */
+async function relockMondayUpdate(
+  seasonId: string,
+  unlock: MondayUpdateUnlock,
+) {
+  if (import.meta.env.MODE !== 'production' && demoMode) {
+    const { saveDemoMondayUpdateUnlock } = await import('@/data/demo');
+    saveDemoMondayUpdateUnlock({
+      ...unlock,
+      state: 'declined',
+      decidedAt: new Date().toISOString(),
+    });
+    return;
+  }
+  await apiRequest<MondayUpdateUnlock>(
+    `/seasons/${encodeURIComponent(seasonId)}/monday-update-unlocks/${encodeURIComponent(unlock.id)}/relock`,
+    { method: 'POST' },
   );
 }
 

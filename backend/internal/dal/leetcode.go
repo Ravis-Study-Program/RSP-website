@@ -8,8 +8,8 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/magedmg/RSP-website/backend/internal/leetcode"
-	"github.com/magedmg/RSP-website/backend/internal/platform/id"
+	"github.com/Ravis-Study-Program/RSP-website/backend/internal/leetcode"
+	"github.com/Ravis-Study-Program/RSP-website/backend/internal/platform/id"
 )
 
 // UpsertProblem keeps each catalogue item and its category membership in one transaction.

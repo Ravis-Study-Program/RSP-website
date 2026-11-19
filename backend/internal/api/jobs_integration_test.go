@@ -14,10 +14,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/magedmg/RSP-website/backend/internal/accounts"
-	"github.com/magedmg/RSP-website/backend/internal/authz"
-	"github.com/magedmg/RSP-website/backend/internal/jobs"
-	"github.com/magedmg/RSP-website/backend/internal/platform/ratelimit"
+	"github.com/Ravis-Study-Program/RSP-website/backend/internal/accounts"
+	"github.com/Ravis-Study-Program/RSP-website/backend/internal/authz"
+	"github.com/Ravis-Study-Program/RSP-website/backend/internal/jobs"
+	"github.com/Ravis-Study-Program/RSP-website/backend/internal/platform/ratelimit"
 )
 
 func jobFixture(t *testing.T) (postgresFixture, http.Handler) {

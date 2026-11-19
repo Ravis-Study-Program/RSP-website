@@ -11,9 +11,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/magedmg/RSP-website/backend/internal/authz"
-	"github.com/magedmg/RSP-website/backend/internal/dal"
-	"github.com/magedmg/RSP-website/backend/internal/program"
+	"github.com/Ravis-Study-Program/RSP-website/backend/internal/authz"
+	"github.com/Ravis-Study-Program/RSP-website/backend/internal/dal"
+	"github.com/Ravis-Study-Program/RSP-website/backend/internal/program"
 )
 
 const (
@@ -645,6 +645,23 @@ func TestMondayUpdateLateUnlock(t *testing.T) {
 	}
 	if response = testRequest(t, fixture.handler, http.MethodPost, unlocksPath, "mentor", `{`+week+`,"studentId":"`+mondayCohortID+`"}`); response.Code != http.StatusCreated {
 		t.Fatalf("direct unlock status=%d body=%s", response.Code, response.Body)
+	}
+	var direct program.MondayUpdateUnlock
+	if err := json.Unmarshal(response.Body.Bytes(), &direct); err != nil {
+		t.Fatal(err)
+	}
+	if response = testRequest(t, fixture.handler, http.MethodPost, unlocksPath+"/"+direct.ID+"/relock", "cohort", ""); response.Code != http.StatusForbidden {
+		t.Fatalf("student relock status=%d body=%s", response.Code, response.Body)
+	}
+	if response = testRequest(t, fixture.handler, http.MethodPost, unlocksPath+"/"+direct.ID+"/relock", "mentor", ""); response.Code != http.StatusOK {
+		t.Fatalf("mentor relock status=%d body=%s", response.Code, response.Body)
+	}
+	var relocked program.MondayUpdateUnlock
+	if err := json.Unmarshal(response.Body.Bytes(), &relocked); err != nil || relocked.State != "declined" {
+		t.Fatalf("relocked=%+v err=%v", relocked, err)
+	}
+	if response = testRequest(t, fixture.handler, http.MethodPost, mondayUpdatesPath(), "cohort", `{`+week+`,"contentHtml":"","hours":10}`); response.Code != http.StatusConflict {
+		t.Fatalf("relocked week status=%d body=%s", response.Code, response.Body)
 	}
 	if response = testRequest(t, fixture.handler, http.MethodPost, unlocksPath, "mentor", `{`+week+`,"studentId":"`+studentID+`"}`); response.Code != http.StatusForbidden {
 		t.Fatalf("unassigned unlock status=%d body=%s", response.Code, response.Body)

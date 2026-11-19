@@ -11,7 +11,7 @@ import (
 	"os"
 	"time"
 
-	legacy "github.com/magedmg/RSP-website/scripts/legacy-migration/migration"
+	legacy "github.com/Ravis-Study-Program/RSP-website/scripts/legacy-migration/migration"
 )
 
 func main() {

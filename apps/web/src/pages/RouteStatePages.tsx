@@ -80,7 +80,7 @@ export function SignInPage() {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  
+
   const returnTo =
     safeJobsReturnTo(searchParams.get('returnTo')) ?? authReturnTo();
   useEffect(() => {
@@ -88,7 +88,6 @@ export function SignInPage() {
       sessionStorage.setItem('rsp-auth-return-to', returnTo);
   }, [returnTo]);
 
-  
   // An invitation link arrives here to sign up, with who it was sent to.
   const invitee = (useLocation().state ?? null) as {
     signUp?: boolean;

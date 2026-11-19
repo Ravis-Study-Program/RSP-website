@@ -198,7 +198,7 @@ func (v *ApplicationEdit) Validate() error {
 		}
 	}
 	if v.Stages[0].ID == "" || v.Stages[0].Title != "Applied" {
-		return errors.New("Applied must stay first")
+		return errors.New("the Applied stage must stay first")
 	}
 	return nil
 }

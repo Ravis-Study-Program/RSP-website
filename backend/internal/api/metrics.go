@@ -8,7 +8,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/magedmg/RSP-website/backend/internal/platform/observability"
+	"github.com/Ravis-Study-Program/RSP-website/backend/internal/platform/observability"
 )
 
 var (

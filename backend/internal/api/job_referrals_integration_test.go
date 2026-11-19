@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/magedmg/RSP-website/backend/internal/jobs"
+	"github.com/Ravis-Study-Program/RSP-website/backend/internal/jobs"
 )
 
 func readReferrals(t *testing.T, h http.Handler, path, token string) Page[jobs.Referral] {

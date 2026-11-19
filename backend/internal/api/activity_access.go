@@ -4,7 +4,7 @@ import (
 	"errors"
 	"net/http"
 
-	"github.com/magedmg/RSP-website/backend/internal/dal"
+	"github.com/Ravis-Study-Program/RSP-website/backend/internal/dal"
 )
 
 // authorizeActivityRead checks the target, independently of contact-data access.

@@ -72,3 +72,20 @@ it('searches questions by title and number and requires selecting a real questio
   await user.click(await screen.findByRole('option', { name: /15\. 3Sum/ }));
   expect(screen.getByTestId('selection')).toHaveTextContent('three-sum');
 });
+
+it('shows a disabled field as unavailable', () => {
+  render(
+    <ProblemSelect
+      id="problem"
+      value={null}
+      onChange={() => undefined}
+      disabled
+    />,
+  );
+  const input = screen.getByRole('combobox');
+  expect(input).toBeDisabled();
+  expect(input).toHaveClass(
+    'disabled:cursor-not-allowed',
+    'disabled:select-none',
+  );
+});

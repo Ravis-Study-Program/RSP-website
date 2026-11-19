@@ -4,11 +4,11 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/magedmg/RSP-website/backend/internal/accounts"
-	"github.com/magedmg/RSP-website/backend/internal/authz"
-	"github.com/magedmg/RSP-website/backend/internal/dal"
-	"github.com/magedmg/RSP-website/backend/internal/platform/cursor"
-	"github.com/magedmg/RSP-website/backend/internal/program"
+	"github.com/Ravis-Study-Program/RSP-website/backend/internal/accounts"
+	"github.com/Ravis-Study-Program/RSP-website/backend/internal/authz"
+	"github.com/Ravis-Study-Program/RSP-website/backend/internal/dal"
+	"github.com/Ravis-Study-Program/RSP-website/backend/internal/platform/cursor"
+	"github.com/Ravis-Study-Program/RSP-website/backend/internal/program"
 )
 
 func (a *API) listUsers(w http.ResponseWriter, r *http.Request) {

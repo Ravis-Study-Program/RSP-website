@@ -65,9 +65,7 @@ test('former students can record mocks on past days and filter their personal hi
   await page.getByRole('menuitem', { name: 'Edit Notes and Scores' }).click();
   const edit = page.getByRole('dialog', { name: 'Edit Notes and Scores' });
   // The date is shown but cannot be changed.
-  await expect(edit.getByLabel('Date', { exact: true })).toHaveAttribute(
-    'readonly',
-  );
+  await expect(edit.getByLabel('Date', { exact: true })).toBeDisabled();
   await expect(
     edit.locator('input[type="date"], input[type="time"]'),
   ).toHaveCount(0);

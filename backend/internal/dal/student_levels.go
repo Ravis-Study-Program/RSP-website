@@ -4,9 +4,9 @@ import (
 	"context"
 	"time"
 
-	"github.com/magedmg/RSP-website/backend/internal/platform/audit"
-	"github.com/magedmg/RSP-website/backend/internal/platform/id"
-	"github.com/magedmg/RSP-website/backend/internal/program"
+	"github.com/Ravis-Study-Program/RSP-website/backend/internal/platform/audit"
+	"github.com/Ravis-Study-Program/RSP-website/backend/internal/platform/id"
+	"github.com/Ravis-Study-Program/RSP-website/backend/internal/program"
 )
 
 type UpdateStudentLevelInput struct {

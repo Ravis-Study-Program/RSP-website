@@ -6,8 +6,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Ravis-Study-Program/RSP-website/backend/internal/jobs"
 	"github.com/jackc/pgx/v5"
-	"github.com/magedmg/RSP-website/backend/internal/jobs"
 )
 
 const jobPositionColumns = `p.id,c.id,c.name,c.category,p.title,p.job_type,p.eligibility,p.application_url,p.locations,p.notes,p.status,p.created_at`

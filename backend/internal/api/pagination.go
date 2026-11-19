@@ -4,7 +4,7 @@ import (
 	"errors"
 	"strconv"
 
-	"github.com/magedmg/RSP-website/backend/internal/platform/cursor"
+	"github.com/Ravis-Study-Program/RSP-website/backend/internal/platform/cursor"
 )
 
 // PageInfo is the cursor metadata returned by collection endpoints.

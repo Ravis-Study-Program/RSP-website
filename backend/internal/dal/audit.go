@@ -5,8 +5,8 @@ import (
 	"encoding/json"
 	"time"
 
-	"github.com/magedmg/RSP-website/backend/internal/platform/audit"
-	"github.com/magedmg/RSP-website/backend/internal/platform/id"
+	"github.com/Ravis-Study-Program/RSP-website/backend/internal/platform/audit"
+	"github.com/Ravis-Study-Program/RSP-website/backend/internal/platform/id"
 )
 
 func (p *Store) AppendAudit(ctx context.Context, event audit.Event) error {

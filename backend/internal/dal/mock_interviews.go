@@ -7,8 +7,8 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/magedmg/RSP-website/backend/internal/mockinterviews"
-	"github.com/magedmg/RSP-website/backend/internal/platform/id"
+	"github.com/Ravis-Study-Program/RSP-website/backend/internal/mockinterviews"
+	"github.com/Ravis-Study-Program/RSP-website/backend/internal/platform/id"
 )
 
 const mockInterviewColumns = `mi.id,mi.interviewer_user_id,mi.interviewee_user_id,mi.activity_season_id,mi.activity_week_id,

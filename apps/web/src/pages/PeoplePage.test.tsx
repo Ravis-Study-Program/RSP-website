@@ -1,5 +1,6 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render, screen, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 
 import {
@@ -116,6 +117,41 @@ describe('season people directory', () => {
     expect(
       screen.queryByRole('button', { name: 'Edit Details' }),
     ).not.toBeInTheDocument();
+  });
+
+  it('sorts student levels in program order', async () => {
+    const user = userEvent.setup();
+    const levels = ['advanced', 'beginner', 'novice', 'intermediate'] as const;
+    vi.mocked(useSeasonPeople).mockReturnValue({
+      data: {
+        items: levels.map((level) => ({
+          ...member('student'),
+          id: `student-${level}`,
+          name: `${level} Student`,
+          slug: `${level}-student`,
+          initials: level.slice(0, 2).toUpperCase(),
+          studentLevel: level,
+        })),
+      },
+      isLoading: false,
+      isError: false,
+      refetch: vi.fn(),
+    } as unknown as ReturnType<typeof useSeasonPeople>);
+
+    renderDirectory();
+    await user.click(screen.getByRole('button', { name: 'Level' }));
+
+    const directory = screen.getByRole('region', { name: 'People directory' });
+    const names = within(directory)
+      .getAllByRole('row')
+      .slice(1)
+      .map((row) => within(row).getByRole('link').textContent);
+    expect(names).toEqual([
+      'beginner Student',
+      'novice Student',
+      'intermediate Student',
+      'advanced Student',
+    ]);
   });
 
   function setMentor(seasonId = 'season-1') {

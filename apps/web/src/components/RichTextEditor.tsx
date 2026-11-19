@@ -96,6 +96,7 @@ export function RichTextEditor({
   /** Drawn after the label, such as an info button explaining the field. */
   labelHint?: ReactNode;
 }) {
+  const lastEditorValue = useRef(value);
   const editor = useEditor({
     immediatelyRender: false,
     extensions: [
@@ -117,7 +118,11 @@ export function RichTextEditor({
         ...(error ? { 'aria-describedby': `${id}-error` } : {}),
       },
     },
-    onUpdate: ({ editor: activeEditor }) => onChange(activeEditor.getHTML()),
+    onUpdate: ({ editor: activeEditor }) => {
+      const html = activeEditor.getHTML();
+      lastEditorValue.current = html;
+      onChange(html);
+    },
   });
 
   // Which formats apply at the cursor, kept live (including a format turned
@@ -154,8 +159,16 @@ export function RichTextEditor({
   });
 
   useEffect(() => {
-    if (editor && editor.getHTML() !== value)
-      editor.commands.setContent(value, { emitUpdate: false });
+    if (!editor || editor.isFocused) return;
+    if (editor.getHTML() === value) {
+      lastEditorValue.current = value;
+      return;
+    }
+    // onUpdate emits the new HTML before React renders the parent's state.
+    // Do not replace that live edit with the previous prop during that gap.
+    if (lastEditorValue.current === value) return;
+    editor.commands.setContent(value, { emitUpdate: false });
+    lastEditorValue.current = value;
   }, [editor, value]);
 
   const [linkOpen, setLinkOpen] = useState(false);
@@ -194,7 +207,6 @@ export function RichTextEditor({
         return true;
       })
       .run();
-
   return (
     <div className="grid gap-1.5">
       <span className={hideLabel ? 'sr-only' : 'flex items-center gap-1.5'}>

@@ -3,7 +3,7 @@ package dal
 import (
 	"context"
 
-	"github.com/magedmg/RSP-website/backend/internal/jobs"
+	"github.com/Ravis-Study-Program/RSP-website/backend/internal/jobs"
 )
 
 const jobReferralColumns = `r.id,c.id,c.name,c.category,u.id,p.slug,p.display_name,r.notes`

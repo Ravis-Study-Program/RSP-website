@@ -77,9 +77,13 @@ export function ProblemSelect({
       <Combobox.Input
         id={id}
         ref={inputRef}
-        className="h-9 w-full min-w-0 rounded-lg border border-input bg-transparent px-2.5 py-1 text-sm outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 aria-invalid:border-destructive disabled:opacity-50"
+        disabled={disabled}
+        className="h-9 w-full min-w-0 rounded-lg border border-input bg-transparent px-2.5 py-1 text-sm outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 aria-invalid:border-destructive disabled:cursor-not-allowed disabled:select-none disabled:opacity-50"
         placeholder="Search by question number or title…"
         onBlur={onBlur}
+        onPointerDown={(event) => {
+          if (disabled) event.preventDefault();
+        }}
         aria-invalid={invalid}
         aria-describedby={describedBy}
       />

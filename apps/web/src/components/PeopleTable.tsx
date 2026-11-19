@@ -23,8 +23,12 @@ import { StatusBadge } from '@/components/StatusBadge';
 import { StudentDetailsDialog } from '@/components/StudentDetailsDialog';
 import { latestMarkRank, type LatestMark } from '@/mondayMarks';
 import { updateStatusTones, type StudentUpdateStatus } from '@/mondayStatus';
-import { roleSortingFn, sortRoles, statusSortingFn } from '@/sortOrder';
-import { studentLevelLabel } from '@/studentLevels';
+import {
+  roleSortingFn,
+  sortRoles,
+  statusSortingFn,
+  studentLevelSortingFn,
+} from '@/sortOrder';
 import type { Person, Season } from '@/types';
 import { formatDateTime } from '@/utils';
 
@@ -159,7 +163,8 @@ export function PeopleTable({
             header: 'Level',
             meta: { width: 7.5 },
             accessorFn: (person: Person) =>
-              studentLevelLabel(person.studentLevel),
+              person.studentLevel ?? 'not_applicable',
+            sortingFn: studentLevelSortingFn,
             cell: ({ row }: { row: { original: Person } }) =>
               row.original.studentLevel &&
               row.original.studentLevel !== 'not_applicable' ? (

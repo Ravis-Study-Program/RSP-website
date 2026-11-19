@@ -4,8 +4,8 @@ import (
 	"errors"
 	"net/http"
 
-	"github.com/magedmg/RSP-website/backend/internal/dal"
-	"github.com/magedmg/RSP-website/backend/internal/jobs"
+	"github.com/Ravis-Study-Program/RSP-website/backend/internal/dal"
+	"github.com/Ravis-Study-Program/RSP-website/backend/internal/jobs"
 )
 
 func (a *API) listJobReferrals(w http.ResponseWriter, r *http.Request) {

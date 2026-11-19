@@ -46,9 +46,10 @@ async function startWith(page: Page, text: string) {
   await page.keyboard.press('ControlOrMeta+A');
   await page.keyboard.press('Delete');
   await page.keyboard.type(text);
-  await page.keyboard.press('Shift+Home');
+  await expect(editor(page)).toHaveText(text);
+  await editor(page).locator('p').selectText();
   // Wait for the browser to report the selection before a toolbar click acts
-  // on it; on a busy runner the two can otherwise race.
+  // on it; selecting the paragraph avoids a timing-sensitive Shift+Home.
   await expect
     .poll(() => page.evaluate(() => window.getSelection()?.toString()))
     .toBe(text);

@@ -62,7 +62,9 @@ test('mentors see the practice goals read-only', async ({ page }, testInfo) => {
   ]) {
     const field = goals.getByLabel(`${difficulty} (minutes)`);
     await expect(field).toHaveValue(minutes);
-    await expect(field).toHaveAttribute('readonly');
+    await expect(field).toBeDisabled();
+    await expect(field).toHaveClass(/disabled:cursor-not-allowed/);
+    await expect(field).toHaveClass(/disabled:select-none/);
   }
   await page.screenshot({
     path: testInfo.outputPath('practice-goals.png'),

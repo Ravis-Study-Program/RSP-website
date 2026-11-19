@@ -5,7 +5,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/magedmg/RSP-website/backend/internal/accounts"
+	"github.com/Ravis-Study-Program/RSP-website/backend/internal/accounts"
 )
 
 func (p *Store) GetMemberStatus(ctx context.Context, userID string) (accounts.MemberStatus, error) {
