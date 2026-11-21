@@ -241,10 +241,8 @@ test('New badges show only on open positions added less than 48 hours ago', asyn
     .getByRole('menuitem', { name: 'Close Position', exact: true })
     .click();
   const close = page.getByRole('alertdialog');
-  await close.getByRole('textbox').fill(googleTitle);
-  await close
-    .getByRole('button', { name: 'Close Position', exact: true })
-    .click();
+  await expect(close.getByRole('textbox')).toHaveCount(0);
+  await close.getByRole('button', { name: 'Confirm', exact: true }).click();
   await expect(close).toBeHidden();
 
   await page.getByRole('combobox', { name: 'Listings', exact: true }).click();

@@ -183,7 +183,7 @@ describe('Jobs', () => {
     ).toHaveTextContent('Rejected');
   });
 
-  it('requires the exact position title before closing and lets staff cancel', async () => {
+  it('lets staff cancel or confirm closing a position without typing', async () => {
     localStorage.setItem('rsp-demo-role', 'coordinator');
     renderJobs();
     const title = 'Software Engineering Intern, Summer 2026';
@@ -195,9 +195,11 @@ describe('Jobs', () => {
       await screen.findByRole('menuitem', { name: 'Close Position' }),
     );
     let dialog = await screen.findByRole('alertdialog');
+    expect(dialog).toHaveAccessibleName(`Close position at Google (${title})?`);
+    expect(within(dialog).queryByRole('textbox')).not.toBeInTheDocument();
     expect(
-      within(dialog).getByRole('button', { name: 'Close Position' }),
-    ).toBeDisabled();
+      within(dialog).getByRole('button', { name: 'Confirm' }),
+    ).toBeEnabled();
     await userEvent.click(
       within(dialog).getByRole('button', { name: 'Cancel' }),
     );
@@ -208,16 +210,9 @@ describe('Jobs', () => {
       await screen.findByRole('menuitem', { name: 'Close Position' }),
     );
     dialog = await screen.findByRole('alertdialog');
-    const input = within(dialog).getByRole('textbox');
-    const confirm = within(dialog).getByRole('button', {
-      name: 'Close Position',
-    });
-    await userEvent.type(input, 'Google');
-    expect(confirm).toBeDisabled();
-    await userEvent.clear(input);
-    await userEvent.type(input, title);
-    expect(confirm).toBeEnabled();
-    await userEvent.click(confirm);
+    await userEvent.click(
+      within(dialog).getByRole('button', { name: 'Confirm' }),
+    );
     await waitFor(() =>
       expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument(),
     );

@@ -874,7 +874,10 @@ function Positions({ toolbarLead }: { toolbarLead: ReactNode }) {
         <NamedConfirmation
           open
           name={closePosition.title}
+          title={`Close position at ${closePosition.company.name} (${closePosition.title})?`}
           actionLabel="Close Position"
+          confirmLabel="Confirm"
+          requireTyping={false}
           description={`This closes the listing at ${closePosition.company.name} and removes it from Open Positions. Existing applications and private notes are kept. You can reopen it later.`}
           onOpenChange={(open) => {
             if (!open) setClosePosition(undefined);
