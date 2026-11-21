@@ -25,7 +25,7 @@ import {
   useJobActions,
   useJobApplications,
   useJobPositions,
-  useJobReferrals,
+  useJobReferralCounts,
 } from '@/api/jobs';
 import type {
   JobApplication,
@@ -45,11 +45,7 @@ import {
   StageForm,
 } from '@/components/JobForms';
 import { useJobsUser } from '@/components/JobsShell';
-import {
-  OpenToReferring,
-  ReferralGuidelines,
-  Referrals,
-} from '@/components/Referrals';
+import { ReferralGuidelines, Referrals } from '@/components/Referrals';
 import { StatusBadge } from '@/components/StatusBadge';
 import { BetaBadge } from '@/components/BetaBadge';
 import { Button, buttonVariants } from '@/components/ui/button';
@@ -61,9 +57,12 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { cn } from '@/lib/utils';
 import { formatCalendarDay } from '@/utils';
 import {
+  canAccessJobReferrals,
   canManageJobs,
+  canRequestJobReferral,
   jobApplicationStatuses,
   jobCategories,
   jobCategoryControlClasses,
@@ -75,73 +74,104 @@ import {
 export function JobsPage() {
   usePageTitle('Jobs');
   const user = useJobsUser();
+  const referralsEnabled = canAccessJobReferrals(user);
+  const requestEnabled = Boolean(
+    user && referralsEnabled && canRequestJobReferral(user),
+  );
   const location = useLocation();
   const navigate = useNavigate();
-  const active =
-    location.pathname === '/jobs/referrals'
-      ? 'referrals'
-      : location.pathname === '/jobs/applications'
-        ? 'applications'
-        : 'positions';
+  const active = location.pathname.split('/')[2] || 'positions';
   const pageTabs = (
     <TabsList
       aria-label="Jobs"
-      className="group-data-[orientation=horizontal]/tabs:h-9"
+      className={cn(
+        'group-data-[orientation=horizontal]/tabs:h-9',
+        referralsEnabled &&
+          'max-[30rem]:w-full max-[30rem]:flex-wrap max-[30rem]:group-data-[orientation=horizontal]/tabs:h-auto max-[30rem]:[&>[role=tab]]:h-8',
+        requestEnabled && 'max-[30rem]:grid max-[30rem]:grid-cols-2',
+      )}
     >
       <TabsTrigger value="positions">Positions</TabsTrigger>
       <TabsTrigger value="applications">My Applications</TabsTrigger>
-      {user && <TabsTrigger value="referrals">Referrals</TabsTrigger>}
+      {requestEnabled && (
+        <TabsTrigger value="referrals">Request Referrals</TabsTrigger>
+      )}
+      {referralsEnabled && (
+        <TabsTrigger value="refer-candidates">Refer Candidates</TabsTrigger>
+      )}
     </TabsList>
   );
   const renderPage = (
     guidelinesLink: ReactNode,
     guidelinesNotice: ReactNode,
-  ) => (
-    <Page>
-      <PageHeader
-        title="Jobs"
-        status={
-          <>
-            <BetaBadge />
-            {guidelinesLink}
-          </>
-        }
-        actions={
-          active === 'positions' ? (
-            <AddPosition />
-          ) : active === 'referrals' ? (
-            <OpenToReferring />
-          ) : undefined
-        }
-      />
-      <Tabs
-        value={active}
-        onValueChange={(value) =>
-          navigate(value === 'positions' ? '/jobs' : `/jobs/${value}`)
-        }
-      >
-        <TabsContent value="positions">
-          {active === 'positions' && <Positions toolbarLead={pageTabs} />}
-        </TabsContent>
-        <TabsContent value="applications">
-          {active === 'applications' && <Applications toolbarLead={pageTabs} />}
-        </TabsContent>
-        <TabsContent value="referrals" className="space-y-6">
-          {active === 'referrals' && (
+  ) => {
+    const referralTab = active === 'referrals' || active === 'refer-candidates';
+    const layout = (actions: ReactNode, referralContent?: ReactNode) => (
+      <>
+        <PageHeader
+          title="Jobs"
+          status={
             <>
-              {guidelinesNotice}
-              <Referrals toolbarLead={pageTabs} />
+              <BetaBadge />
+              {guidelinesLink}
             </>
-          )}
-        </TabsContent>
-      </Tabs>
-    </Page>
-  );
+          }
+          actions={actions}
+        />
+        <Tabs
+          value={active}
+          onValueChange={(value) =>
+            navigate(value === 'positions' ? '/jobs' : `/jobs/${value}`)
+          }
+        >
+          <TabsContent value="positions">
+            {active === 'positions' && <Positions toolbarLead={pageTabs} />}
+          </TabsContent>
+          <TabsContent value="applications">
+            {active === 'applications' && (
+              <Applications toolbarLead={pageTabs} />
+            )}
+          </TabsContent>
+          {(['referrals', 'refer-candidates'] as const).map((tab) => (
+            <TabsContent key={tab} value={tab} className="space-y-6">
+              {active === tab && (
+                <>
+                  {guidelinesNotice}
+                  {referralContent}
+                </>
+              )}
+            </TabsContent>
+          ))}
+        </Tabs>
+      </>
+    );
+    return (
+      <Page>
+        {referralTab &&
+        user &&
+        (active === 'referrals' ? requestEnabled : referralsEnabled) ? (
+          <Referrals
+            toolbarLead={pageTabs}
+            userId={user.id}
+            refer={active === 'refer-candidates'}
+            canRefer={user.alumni}
+            layout={layout}
+          />
+        ) : (
+          layout(active === 'positions' ? <AddPosition /> : undefined)
+        )}
+      </Page>
+    );
+  };
   return (
     <ReferralGuidelines
       key={user?.id}
       userId={user?.id}
-      active={active === 'referrals'}
+      page={
+        active === 'referrals' || active === 'refer-candidates'
+          ? active
+          : undefined
+      }
     >
       {renderPage}
     </ReferralGuidelines>
@@ -324,7 +354,9 @@ function Positions({ toolbarLead }: { toolbarLead: ReactNode }) {
   const user = useJobsUser();
   const positions = useJobPositions();
   const applications = useJobApplications(user?.id);
-  const referrals = useJobReferrals(user?.id);
+  const referralCounts = useJobReferralCounts(
+    canAccessJobReferrals(user) ? user?.id : undefined,
+  );
   const save = useJobActions(user?.id);
   const navigate = useNavigate();
   const [params] = useSearchParams();
@@ -356,11 +388,9 @@ function Positions({ toolbarLead }: { toolbarLead: ReactNode }) {
   const [remove, setRemove] = useState<JobApplication>();
   const all = positions.data ?? [];
   const appliedIDs = new Set(applications.data?.map((a) => a.position.id));
-  const referrerCounts = new Map<string, number>();
-  for (const referral of referrals.data ?? []) {
-    const id = referral.company.id;
-    referrerCounts.set(id, (referrerCounts.get(id) ?? 0) + 1);
-  }
+  const referrerCounts = new Map(
+    referralCounts.data?.map(({ companyId, count }) => [companyId, count]),
+  );
   const shown = all.filter(
     (p) => status === 'all' || p.status === status || p.id === focusID,
   );
@@ -378,19 +408,27 @@ function Positions({ toolbarLead }: { toolbarLead: ReactNode }) {
     });
   }
   function companyCell(position: JobPosition) {
-    const count = user ? (referrerCounts.get(position.company.id) ?? 0) : 0;
+    const count =
+      position.status === 'open'
+        ? (referrerCounts.get(position.company.id) ?? 0)
+        : 0;
     return (
       <div className="grid min-w-0 gap-1">
         <CompanyLink position={position} />
-        {count > 0 && (
-          <Link
-            to={`/jobs/referrals?company=${encodeURIComponent(position.company.id)}`}
-            aria-label={`View ${count} ${count === 1 ? 'referrer' : 'referrers'} at ${position.company.name}`}
-            className="w-fit rounded-sm text-xs text-muted-foreground hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
-          >
-            View {count} {count === 1 ? 'referrer' : 'referrers'}
-          </Link>
-        )}
+        {count > 0 &&
+          (user && canRequestJobReferral(user) ? (
+            <Link
+              to={`/jobs/referrals?company=${encodeURIComponent(position.company.id)}`}
+              aria-label={`${count} ${count === 1 ? 'referrer' : 'referrers'} at ${position.company.name}. Browse referral positions.`}
+              className="w-fit rounded-sm text-xs text-muted-foreground hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+            >
+              {count} {count === 1 ? 'referrer' : 'referrers'}
+            </Link>
+          ) : (
+            <span className="text-xs text-muted-foreground">
+              {count} {count === 1 ? 'referrer' : 'referrers'}
+            </span>
+          ))}
       </div>
     );
   }

@@ -7,7 +7,9 @@ import type {
   JobCompanyList,
   JobPosition,
   JobPositionProgress,
-  JobReferral,
+  JobReferralBoard,
+  JobReferralCandidate,
+  JobReferralCounts,
 } from '@/api/generated/models';
 
 export class JobRequestError extends Error {
@@ -60,7 +62,8 @@ export async function jobRequest<T>(
     }
     throw await errorFromResponse(response);
   }
-  return (response.status === 204 ? undefined : await response.json()) as T;
+  if (response.status === 204) return undefined as T;
+  return (await response.json()) as T;
 }
 
 async function allJobsPages<T>(path: string, userId?: string) {
@@ -119,11 +122,40 @@ export function useJobApplications(userId?: string) {
   });
 }
 
-export function useJobReferrals(userId?: string) {
+export function useJobReferralBoard(userId?: string) {
   return useQuery({
     queryKey: ['jobs', 'referrals', userId],
-    queryFn: () => allJobsPages<JobReferral>('/jobs/referrals', userId),
+    queryFn: () =>
+      jobRequest<JobReferralBoard>('/jobs/referrals', 'GET', undefined, userId),
     enabled: Boolean(userId),
+  });
+}
+
+export function useJobReferralCounts(userId?: string) {
+  return useQuery({
+    queryKey: ['jobs', 'referral-counts', userId],
+    queryFn: async () =>
+      (
+        await jobRequest<JobReferralCounts>(
+          '/jobs/referrals/counts',
+          'GET',
+          undefined,
+          userId,
+        )
+      ).items,
+    enabled: Boolean(userId),
+  });
+}
+
+export function useJobReferralCandidates(userId: string, companyId?: string) {
+  return useQuery({
+    queryKey: ['jobs', 'referral-candidates', userId, companyId],
+    queryFn: () =>
+      allJobsPages<JobReferralCandidate>(
+        `/jobs/referrals/companies/${companyId}/candidates`,
+        userId,
+      ),
+    enabled: Boolean(companyId),
   });
 }
 

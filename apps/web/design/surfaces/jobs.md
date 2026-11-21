@@ -1,6 +1,6 @@
 # Jobs
 
-Mode: Operate. Public visitors browse shared positions; verified, active accounts publish positions, offer referrals to other verified, active accounts and maintain private application histories. Staff edit and merge shared positions. No season enrollment is required.
+Mode: Operate. Public visitors browse shared positions. Verified active accounts can publish and maintain private application histories. Referrals requires an active or completed RSP enrollment. Staff edit and merge shared positions.
 
 ## Direction contract
 
@@ -12,11 +12,11 @@ STORY: Browse a position, apply externally, mark Applied, then add named stages 
 
 POSITIONS BROWSING: The existing toolbar adds a neutral All, Not applied or Applied selector for signed-in accounts, remembered per account in this browser and combined with search, listing status, category and column filters. Applied means any tracked application, including Rejected and Offer. Added is the immutable date the position entered RSP, not the employer's posting date; use the existing date presentation in a desktop column and a labelled line on mobile cards. The adjacent sort selector defaults to Newest, offers Oldest, and shows Custom sort when another column is primary. Direct position links still reveal and expand their target under either date order even if the personal filter would exclude it.
 
-REFERRAL DISCOVERY: On Positions, a small neutral View N referrer(s) link sits beneath a company with available offers, for signed-in accounts only. It opens `/jobs/referrals?company=ID` using the shared company ID. Referrals exposes the Company selector beside search, with All companies as the clear option; its selection is encoded in the URL and survives reload. The same link and filter remain available on mobile.
+REFERRAL DISCOVERY: Open Positions shows an anonymous referrer count when a company has opted-in referrers. Eligible RSP members can follow it to the open roles filtered by that company. The Referrals board shows the count beside each role.
 
 APPLICATION STATUS: My Applications opens on Active applications. A status filter beside search offers Active, Rejected, Offer and All. Each row has a Status selector; mobile cards pair it with the latest stage. Rejected covers both rejected and ghosted applications. Each change saves immediately and adds a stage named for the new status, dated today in the browser's local timezone with empty notes. Existing history remains intact; repeating the current status adds nothing. A short status announcement confirms the update when a row leaves the current filter. These neutral text controls preserve category colours for company groups.
 
-FIRST VIEWPORT: Signed-in accounts see Positions, My Applications and Referrals at the top of the content, with Add position aligned right on Positions or Open to referring on Referrals. Referrals places its conduct notice above the searchable table until the member acknowledges it. The Referral Guidelines link then appears beside the Jobs Beta heading and opens the rules in a popover. The app header already names Jobs with its Beta badge, so the content heading is screen-reader-only. Public visitors retain a visible Jobs heading and Beta badge below their compact RSP header; their two tabs share a row with Sign in to add a position. Mobile wraps the action when needed and uses the table's existing cards. No metrics or promotional content.
+FIRST VIEWPORT: Jobs shows Positions and My Applications. Students and alumni also see Request Referrals for their requests, and eligible RSP members see Refer Candidates for their company queue. Each referral page has its own guidelines and remembers acknowledgement for that account in the browser. The guidelines link then sits beside the Jobs Beta heading.
 
 FORM: A three-tab table extension of the existing system for signed-in accounts. No new visual world or concept seed. Application details expand inside their table row; editing uses existing form dialogs. Below the stage list, one footer row places Remove application on the left and Add stage on the right.
 
@@ -24,9 +24,9 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 
 ## Boundaries
 
-REFERRALS: A third tab at `/jobs/referrals`, visible only to verified, active accounts. Reuse the table with Company, Name and fully readable Notes, search, column filters and the visible Company selector. Names link to existing profiles, with an up-right arrow immediately before each name; members message through Discord, with no new contact field. A white Open to referring action sits at the top right. The form asks for company and optional notes; a keyboard- and touch-accessible notes tooltip suggests roles, GPA thresholds and sending a resume. A prominent yellow warning notice above the table requires individuals to meet every condition, forbids harassment, asks them to respect a declined referral, and states that breaking the rules means removal from the program. This is a conduct notice, not automatic enforcement. Owners can edit or remove their listings, one per company. Referral data lives in its own Jobs table and is never returned anonymously.
+REFERRALS: Students and alumni choose up to five open roles from the shared positions board. They use one referral profile with a Google Drive résumé link shared with anyone who has the link and a freeform reason. Their selection stays active until withdrawn or the role closes. RSP graduates self-declare a company and review matching candidates grouped by person. They can see only the candidate’s requested roles at that company, profile reason and résumé link. Referrers initiate contact on Discord. Students see anonymous counts without a referrer directory.
 
-Five separate Jobs tables; no changes to the existing program tables. Position notes are public, referral notes are visible to verified, active accounts, and stage notes are owner-only. Preserve all private notes during merges. No uploads, notifications, scraping or mentor viewing of private applications in this beta. The supplied positions are imported once, without claiming their availability was checked.
+Position notes are public and application stage notes are owner-only. Referral profiles are visible only to their owners and eligible matches. Preserve private stage notes during merges. The supplied positions are imported once without verifying availability.
 
 ## Shared patterns
 

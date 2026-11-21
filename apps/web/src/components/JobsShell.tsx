@@ -8,6 +8,7 @@ import { AppShell } from '@/components/AppShell';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { PageSkeleton, ErrorState } from '@/components/StatusViews';
 import type { CurrentUser } from '@/types';
+import { canAccessJobReferrals, canRequestJobReferral } from '@/jobs';
 
 const JobsUserContext = createContext<CurrentUser | undefined>(undefined);
 // eslint-disable-next-line react-refresh/only-export-components
@@ -15,9 +16,11 @@ export const useJobsUser = () => useContext(JobsUserContext);
 
 export function JobsShell() {
   const location = useLocation();
-  const membersOnly = ['/jobs/applications', '/jobs/referrals'].includes(
-    location.pathname,
-  );
+  const pathname = location.pathname.replace(/\/$/, '');
+  const requestingReferrals = pathname === '/jobs/referrals';
+  const referralPage =
+    requestingReferrals || pathname === '/jobs/refer-candidates';
+  const membersOnly = pathname === '/jobs/applications' || referralPage;
   const session = useQuery({
     queryKey: ['auth-session'],
     queryFn: getBrowserAuthSession,
@@ -48,6 +51,16 @@ export function JobsShell() {
     ((demoMode || session.data?.user?.emailVerified) && user.isLoading)
   )
     return <PageSkeleton label="Loading Jobs" />;
+  if (signedIn && referralPage) {
+    if (!canAccessJobReferrals(signedIn))
+      return <Navigate to="/jobs" replace />;
+    if (
+      requestingReferrals &&
+      (!canRequestJobReferral(signedIn) ||
+        new URLSearchParams(location.search).get('view') === 'refer')
+    )
+      return <Navigate to="/jobs/refer-candidates" replace />;
+  }
   // Auth outages must not turn a private application screen into an empty
   // signed-out state, while the public board remains browsable.
   if (membersOnly && !signedIn) {

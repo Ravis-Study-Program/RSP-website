@@ -96,7 +96,7 @@ func (s *Store) seedJobs(ctx context.Context, now time.Time) error {
 			positions = append(positions, positionID)
 		}
 		for n := 0; n < 3; n++ {
-			if _, err = tx.Exec(ctx, `INSERT INTO app.job_referrals(user_id,company_id,notes) VALUES($1,$2,$3) ON CONFLICT(user_id,company_id) DO NOTHING`, users[(c*3+n)%len(users)], companyID, referralNotes[(c+n)%len(referralNotes)]); err != nil {
+			if _, err = tx.Exec(ctx, `INSERT INTO app.job_referrals(user_id,company_id,notes,matching_enabled) VALUES($1,$2,$3,true) ON CONFLICT(user_id,company_id) DO NOTHING`, users[(c*3+n)%len(users)], companyID, referralNotes[(c+n)%len(referralNotes)]); err != nil {
 				return err
 			}
 		}

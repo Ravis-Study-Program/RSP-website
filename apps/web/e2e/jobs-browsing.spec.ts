@@ -119,7 +119,7 @@ test('Applied filters include rejected and offer applications and combine with o
   ).toHaveCount(0);
 });
 
-test('Position referrer links select the shared company and keep the conduct notice visible', async ({
+test('Anonymous referrer counts link to open referral positions for the right company', async ({
   page,
 }, info) => {
   await page.addInitScript(() =>
@@ -127,19 +127,22 @@ test('Position referrer links select the shared company and keep the conduct not
   );
   await page.goto('/jobs');
   await page
-    .getByRole('link', { name: 'View 1 referrer at Google', exact: true })
+    .getByRole('link', {
+      name: '1 referrer at Google. Browse referral positions.',
+      exact: true,
+    })
     .click();
   await expect(page).toHaveURL(/\/jobs\/referrals\?company=company-Google/);
   const company = page.getByRole('combobox', { name: 'Company', exact: true });
   await expect(company).toHaveText('Google');
   await expect(
-    page.getByRole('link', { name: 'Noah Williams', exact: true }),
+    page.getByRole('checkbox', { name: /Request referral for .* at Google$/ }),
   ).toBeVisible();
   await expect(
-    page.getByRole('link', { name: 'Zara Ahmed', exact: true }),
+    page.getByRole('checkbox', { name: /Request referral for .* at Canva$/ }),
   ).toHaveCount(0);
   await expect(
-    page.getByRole('region', { name: 'Read Before Contacting a Referrer' }),
+    page.getByRole('region', { name: 'Request Referral Guidelines' }),
   ).toBeVisible();
   await page.reload();
   await expect(company).toHaveText('Google');
@@ -149,7 +152,7 @@ test('Position referrer links select the shared company and keep the conduct not
     .getByRole('option', { name: 'All Companies', exact: true })
     .click();
   await expect(
-    page.getByRole('link', { name: 'Zara Ahmed', exact: true }),
+    page.getByRole('checkbox', { name: /Request referral for .* at Canva$/ }),
   ).toBeVisible();
 });
 
@@ -266,10 +269,10 @@ test('Visitors can sort positions without seeing private application filters or 
     page.getByRole('combobox', { name: 'Application Filter', exact: true }),
   ).toHaveCount(0);
   await expect(
-    page.getByRole('link', { name: /View \d+ referrers? at/ }),
+    page.getByRole('link', { name: /Browse referral positions/ }),
   ).toHaveCount(0);
   await expect(
-    page.getByRole('tab', { name: 'Referrals', exact: true }),
+    page.getByRole('tab', { name: 'Request Referrals', exact: true }),
   ).toHaveCount(0);
 });
 

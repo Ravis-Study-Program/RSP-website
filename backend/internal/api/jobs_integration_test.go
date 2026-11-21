@@ -48,6 +48,12 @@ func jobFixture(t *testing.T) (postgresFixture, http.Handler) {
 			actor.GlobalRoles = map[authz.GlobalRole]bool{authz.GlobalRole(token): true}
 			actor.MFAAt = &now
 		case "member": // Deliberately no enrollment: verified accounts can contribute.
+		case "student", "alumnus":
+			actor.Enrollments = []authz.Enrollment{{SeasonID: seasonID, Role: authz.Student, State: authz.Active}}
+			if token == "alumnus" {
+				actor.UserID = otherID
+				actor.Enrollments[0].State = authz.Completed
+			}
 		default:
 			return actor, fmt.Errorf("unknown actor")
 		}
@@ -363,8 +369,12 @@ func TestJobsApplicationStatusIsPrivateAndPreservesHistory(t *testing.T) {
 func TestJobsConcurrentApplyAndDeletionLifecycle(t *testing.T) {
 	f, h := jobFixture(t)
 	p := newJob(t, h, "concurrent", "Sydney")
-	jobCall(t, h, "POST", "/jobs/referrals", "member", jobs.ReferralInput{CompanyName: p.Company.Name, Notes: "Referral requirements"}, http.StatusCreated)
 	ctx := context.Background()
+	if _, err := f.pool.Exec(ctx, `INSERT INTO app.job_referrals(user_id,company_id,matching_enabled) VALUES($1,$2,true)`, studentID, p.Company.ID); err != nil {
+		t.Fatal(err)
+	}
+	saveTestReferralProfile(t, h, "student", "Test candidate profile", testReferralResumeURL, http.StatusNoContent)
+	jobCall(t, h, "PUT", "/jobs/referrals/requests/"+p.ID, "student", nil, http.StatusNoContent)
 	var wg sync.WaitGroup
 	results := make(chan string, 8)
 	failures := make(chan error, 8)
@@ -400,7 +410,7 @@ func TestJobsConcurrentApplyAndDeletionLifecycle(t *testing.T) {
 		t.Fatal(err)
 	}
 	var count int
-	for _, table := range []string{"job_applications", "job_application_stages", "job_referrals"} {
+	for _, table := range []string{"job_applications", "job_application_stages", "job_referrals", "job_referral_profiles", "job_referral_requests"} {
 		if err := f.pool.QueryRow(ctx, `SELECT count(*) FROM app.`+table).Scan(&count); err != nil {
 			t.Fatal(err)
 		}

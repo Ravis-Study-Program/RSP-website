@@ -200,7 +200,8 @@ export function navigationItemActive(item: NavItem, pathname: string) {
     return (
       pathname === '/jobs' ||
       pathname === '/jobs/applications' ||
-      pathname === '/jobs/referrals'
+      pathname === '/jobs/referrals' ||
+      pathname === '/jobs/refer-candidates'
     );
   if (item.section)
     return (

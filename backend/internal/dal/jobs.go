@@ -156,9 +156,10 @@ func (p *Store) SaveJobPosition(ctx context.Context, positionID, actorID, normal
 	}
 	defer tx.Rollback(context.Background())
 	creating := positionID == ""
+	var previousCompany string
 	if !creating {
 		var merged *string
-		if err := tx.QueryRow(ctx, `SELECT merged_into_id FROM app.job_positions WHERE id=$1`, positionID).Scan(&merged); err != nil {
+		if err := tx.QueryRow(ctx, `SELECT company_id,merged_into_id FROM app.job_positions WHERE id=$1`, positionID).Scan(&previousCompany, &merged); err != nil {
 			return jobs.Position{}, noRows(err)
 		}
 		if merged != nil {
@@ -186,6 +187,11 @@ func (p *Store) SaveJobPosition(ctx context.Context, positionID, actorID, normal
 	}
 	if err != nil {
 		return jobs.Position{}, mapDatabaseError(err)
+	}
+	if !creating && (input.Status != "open" || companyID != previousCompany) {
+		if _, err := tx.Exec(ctx, `DELETE FROM app.job_referral_requests WHERE position_id=$1`, positionID); err != nil {
+			return jobs.Position{}, err
+		}
 	}
 	action := "job_position.updated"
 	if creating {
@@ -492,6 +498,16 @@ func (p *Store) MergeJobPositions(ctx context.Context, actorID, sourceID, target
 		return jobs.Position{}, err
 	}
 	if _, err = tx.Exec(ctx, `UPDATE app.job_positions SET merged_into_id=$1,updated_at=now() WHERE id=$2`, target, source); err != nil {
+		return jobs.Position{}, err
+	}
+	// A merged request may only keep sharing with the same company.
+	if _, err = tx.Exec(ctx, `INSERT INTO app.job_referral_requests(user_id,position_id)
+ SELECT r.user_id,dst.id FROM app.job_referral_requests r JOIN app.job_positions src ON src.id=r.position_id
+ JOIN app.job_positions dst ON dst.id=$2 AND dst.company_id=src.company_id AND dst.status='open'
+ WHERE r.position_id=$1 ON CONFLICT DO NOTHING`, source, target); err != nil {
+		return jobs.Position{}, err
+	}
+	if _, err = tx.Exec(ctx, `DELETE FROM app.job_referral_requests WHERE position_id=$1`, source); err != nil {
 		return jobs.Position{}, err
 	}
 	if err = appendAuditTx(ctx, tx, newAudit(actorID, "job_position.merged", "job_position", source, map[string]any{"targetId": target}, time.Now().UTC())); err != nil {

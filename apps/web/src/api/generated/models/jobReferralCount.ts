@@ -6,12 +6,7 @@
  * OpenAPI spec version: 2.0.0
  */
 
-export interface JobReferralInput {
-  /**
-   * @minLength 1
-   * @maxLength 120
-   */
-  companyName: string;
-  /** @maxLength 10000 */
-  notes: string;
+export interface JobReferralCount {
+  companyId: string;
+  count: number;
 }

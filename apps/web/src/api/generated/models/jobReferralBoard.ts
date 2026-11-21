@@ -6,11 +6,10 @@
  * OpenAPI spec version: 2.0.0
  */
 import type { JobCompany } from './jobCompany';
-import type { PersonSummary } from './personSummary';
+import type { JobReferralProfile } from './jobReferralProfile';
 
-export interface JobReferral {
-  id: string;
-  company: JobCompany;
-  referrer: PersonSummary;
-  notes: string;
+export interface JobReferralBoard {
+  profile: JobReferralProfile;
+  requests: string[];
+  companies: JobCompany[];
 }

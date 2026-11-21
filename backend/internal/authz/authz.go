@@ -109,6 +109,18 @@ func (a Actor) CanAccessProgram() bool {
 	return false
 }
 
+func (a Actor) CanRequestJobReferral() bool {
+	if !a.authenticated() {
+		return false
+	}
+	for _, e := range a.Enrollments {
+		if e.Role == Student && (e.State == Active || e.State == Completed) {
+			return true
+		}
+	}
+	return false
+}
+
 // CanRecordActivity preserves personal recording after a member leaves a season.
 func (a Actor) CanRecordActivity() bool {
 	return a.authenticated() && (len(a.Enrollments) > 0 || a.IsDirectorOrSystemAdmin())

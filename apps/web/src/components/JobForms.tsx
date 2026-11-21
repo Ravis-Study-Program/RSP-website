@@ -11,11 +11,9 @@ import type {
   JobCompany,
   JobPosition,
   JobPositionInput,
-  JobReferral,
   JobStage,
 } from '@/api/generated/models';
 import { useJobsUser } from '@/components/JobsShell';
-import { ReferralNotesHelp } from '@/components/ReferralNotesHelp';
 import { JobCompanyField } from '@/components/JobCompanyField';
 import { JobStageNameField } from '@/components/JobStageFields';
 import { AppDatePicker } from '@/components/AppDatePicker';
@@ -105,7 +103,7 @@ function FormActions({
   );
 }
 
-function JobForm({
+export function JobForm({
   children,
   onSave,
   onClose,
@@ -151,57 +149,6 @@ function JobForm({
       ) : null}
       <FormActions pending={pending} label={label} onCancel={onClose} />
     </form>
-  );
-}
-
-export function ReferralForm({
-  referral,
-  onClose,
-}: {
-  referral?: JobReferral;
-  onClose: () => void;
-}) {
-  const user = useJobsUser();
-  const save = useJobActions(user?.id);
-  const id = useId();
-  const [companyName, setCompanyName] = useState(referral?.company.name ?? '');
-  const [notes, setNotes] = useState(referral?.notes ?? '');
-  return (
-    <FormDialog
-      title={referral ? 'Edit Referral Listing' : 'Open to Referring'}
-      description="Your name, company and details will be visible to signed-in members."
-      open
-      onOpenChange={(open) => {
-        if (!open) onClose();
-      }}
-    >
-      <JobForm
-        onClose={onClose}
-        label={referral ? 'Save Changes' : 'Open to Referring'}
-        onSave={() =>
-          save(
-            `/jobs/referrals${referral ? `/${referral.id}` : ''}`,
-            referral ? 'PATCH' : 'POST',
-            { companyName, notes },
-          )
-        }
-      >
-        <JobCompanyField value={companyName} onChange={setCompanyName} />
-        <Field>
-          <div className="flex items-center gap-1">
-            <FieldLabel htmlFor={`${id}-notes`}>Details</FieldLabel>
-            <ReferralNotesHelp />
-          </div>
-          <Textarea
-            id={`${id}-notes`}
-            maxLength={10000}
-            rows={5}
-            value={notes}
-            onChange={(event) => setNotes(event.target.value)}
-          />
-        </Field>
-      </JobForm>
-    </FormDialog>
   );
 }
 

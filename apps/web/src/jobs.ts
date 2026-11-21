@@ -7,6 +7,39 @@ import type {
 } from '@/api/generated/models';
 import type { CurrentUser } from '@/types';
 
+export const maxReferralRequests = 5;
+
+export function isDriveFileURL(value: string) {
+  const url = value.trim();
+  return (
+    url.length <= 2048 &&
+    /^https:\/\/drive\.google\.com\/(file\/d\/[A-Za-z0-9_-]+(\/(view|preview))?\/?(\?[^#\s\p{Cc}]*)?|open\?id=[A-Za-z0-9_-]+(&[^#\s\p{Cc}]*)?)$/u.test(
+      url,
+    )
+  );
+}
+
+export function canAccessJobReferrals(user?: CurrentUser) {
+  return Boolean(
+    user?.emailVerified &&
+    user.accountState === 'active' &&
+    (user.alumni ||
+      user.seasonRoles.some(
+        ({ state }) => state === 'active' || state === 'completed',
+      )),
+  );
+}
+
+export function canRequestJobReferral(user: CurrentUser) {
+  return (
+    user.alumni ||
+    user.seasonRoles.some(
+      ({ role, state }) =>
+        role === 'student' && (state === 'active' || state === 'completed'),
+    )
+  );
+}
+
 export const jobApplicationStatuses: {
   value: JobApplicationStatus;
   label: string;

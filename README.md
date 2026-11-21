@@ -63,7 +63,7 @@ Caddy is the browser application origin.
 | `just e2e-real`   | Rebuild an isolated test stack and run authenticated Student, Coordinator and Director browser mutations. |
 
 `just fake-data` also adds 24 clearly labelled local sample job listings across
-all four company categories, 24 referral offers with varied requirements, and
+all four company categories, 24 opt-ins to refer, and
 12 private applications per fake account and cohort member. Histories include
 assessments, interviews, rejections and offers, alongside open and closed jobs,
 multiple locations and empty details. Sample application links use

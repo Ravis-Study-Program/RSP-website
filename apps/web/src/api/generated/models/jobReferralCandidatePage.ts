@@ -5,11 +5,11 @@
  * Same-origin API for the Ravi's Study Program application.
  * OpenAPI spec version: 2.0.0
  */
-import type { JobReferral } from './jobReferral';
+import type { JobReferralCandidate } from './jobReferralCandidate';
 import type { PageInfo } from './pageInfo';
 
-export interface JobReferralPage {
-  items: JobReferral[];
+export interface JobReferralCandidatePage {
+  items: JobReferralCandidate[];
   pageInfo: PageInfo;
   totalCount: number;
 }

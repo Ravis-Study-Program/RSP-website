@@ -2757,56 +2757,99 @@ paths:
     }
   /jobs/referrals:
     get:
-      operationId: listJobReferrals
-      description: Referral offers shared with verified active accounts only.
+      operationId: getJobReferralBoard
+      tags: [Jobs]
+      description: The RSP member's own referral profile, open requests and company opt-ins.
+      responses:
+        '200':
+          description: Referral board settings
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/JobReferralBoard' }
+        default: { $ref: '#/components/responses/Error' }
+  /jobs/referrals/counts:
+    get:
+      operationId: listJobReferralCounts
+      tags: [Jobs]
+      description: Anonymous counts of participating referrers by company for RSP members.
+      responses:
+        '200':
+          description: Company counts
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/JobReferralCounts' }
+        default: { $ref: '#/components/responses/Error' }
+  /jobs/referrals/profile:
+    put:
+      operationId: saveJobReferralProfile
+      tags: [Jobs]
+      description: Save the student's or alumnus's reason and publicly shared Google Drive résumé link.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [reason, resumeUrl]
+              properties:
+                reason: { type: string, minLength: 1, maxLength: 4000 }
+                resumeUrl: { type: string, format: uri, maxLength: 2048 }
+      responses:
+        '204': { description: Referral profile saved }
+        default: { $ref: '#/components/responses/Error' }
+    delete:
+      operationId: deleteJobReferralProfile
+      tags: [Jobs]
+      responses:
+        '204': { description: Referral profile and active requests removed }
+        default: { $ref: '#/components/responses/Error' }
+  /jobs/referrals/requests/{id}:
+    parameters:
+      - { $ref: '#/components/parameters/ID' }
+    put:
+      operationId: requestJobReferral
+      tags: [Jobs]
+      description: Select an open position. Up to five active requests are allowed per candidate.
+      responses:
+        '204': { description: Referral requested }
+        default: { $ref: '#/components/responses/Error' }
+    delete:
+      operationId: withdrawJobReferralRequest
+      tags: [Jobs]
+      responses:
+        '204': { description: Referral request withdrawn }
+        default: { $ref: '#/components/responses/Error' }
+  /jobs/referrals/offers/{id}:
+    parameters:
+      - { $ref: '#/components/parameters/ID' }
+    put:
+      operationId: offerJobReferrals
+      tags: [Jobs]
+      description: RSP graduates can opt in to referring at a company they work for.
+      responses:
+        '204': { description: Matching enabled for the company }
+        default: { $ref: '#/components/responses/Error' }
+    delete:
+      operationId: stopOfferingJobReferrals
+      tags: [Jobs]
+      responses:
+        '204': { description: Matching disabled for the company }
+        default: { $ref: '#/components/responses/Error' }
+  /jobs/referrals/companies/{id}/candidates:
+    get:
+      operationId: listJobReferralCandidates
+      tags: [Jobs]
+      description: RSP graduates can view candidates with active requests at their opted-in company.
       parameters:
+        - { $ref: '#/components/parameters/ID' }
         - { $ref: '#/components/parameters/Limit' }
         - { $ref: '#/components/parameters/Cursor' }
       responses:
         '200':
-          description: Referral offers
+          description: Matching candidates and their requests at this company
           content:
             application/json:
-              schema: { $ref: '#/components/schemas/JobReferralPage' }
-        default: { $ref: '#/components/responses/Error' }
-    post:
-      operationId: createJobReferral
-      description: Offer referrals as the signed-in account, once per company.
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema: { $ref: '#/components/schemas/JobReferralInput' }
-      responses:
-        '201':
-          description: Referral offer created
-          content:
-            application/json:
-              schema: { $ref: '#/components/schemas/JobReferral' }
-        default: { $ref: '#/components/responses/Error' }
-  /jobs/referrals/{id}:
-    parameters:
-      - { $ref: '#/components/parameters/ID' }
-    patch:
-      operationId: updateJobReferral
-      description: Edit your own referral offer.
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema: { $ref: '#/components/schemas/JobReferralInput' }
-      responses:
-        '200':
-          description: Referral offer updated
-          content:
-            application/json:
-              schema: { $ref: '#/components/schemas/JobReferral' }
-        default: { $ref: '#/components/responses/Error' }
-    delete:
-      operationId: deleteJobReferral
-      description: Stop offering referrals at this company by removing your listing.
-      responses:
-        '204': { description: Referral offer removed }
+              schema: { $ref: '#/components/schemas/JobReferralCandidatePage' }
         default: { $ref: '#/components/responses/Error' }
   /jobs/positions:
     {
@@ -3635,27 +3678,60 @@ components:
             'existingPositionId': { 'type': 'string', 'format': 'uuid' },
           },
       }
-    JobReferral:
+    JobReferralBoard:
       type: object
-      required: [id, company, referrer, notes]
+      required: [profile, requests, companies]
+      properties:
+        profile: { $ref: '#/components/schemas/JobReferralProfile' }
+        requests:
+          type: array
+          items: { type: string, format: uuid }
+        companies:
+          type: array
+          items: { $ref: '#/components/schemas/JobCompany' }
+    JobReferralProfile:
+      type: object
+      required: [reason, resumeUrl]
+      properties:
+        reason: { type: string }
+        resumeUrl: { type: string }
+    JobReferralCounts:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/JobReferralCount' }
+    JobReferralCount:
+      type: object
+      required: [companyId, count]
+      properties:
+        companyId: { type: string, format: uuid }
+        count: { type: integer }
+    JobReferralCandidate:
+      type: object
+      required: [id, name, reason, resumeUrl, positions]
       properties:
         id: { type: string, format: uuid }
-        company: { $ref: '#/components/schemas/JobCompany' }
-        referrer: { $ref: '#/components/schemas/PersonSummary' }
-        notes: { type: string }
-    JobReferralInput:
+        name: { type: string }
+        reason: { type: string }
+        resumeUrl: { type: string, format: uri }
+        positions:
+          type: array
+          items: { $ref: '#/components/schemas/JobReferralPosition' }
+    JobReferralPosition:
       type: object
-      required: [companyName, notes]
+      required: [id, title]
       properties:
-        companyName: { type: string, minLength: 1, maxLength: 120 }
-        notes: { type: string, maxLength: 10000 }
-    JobReferralPage:
+        id: { type: string, format: uuid }
+        title: { type: string }
+    JobReferralCandidatePage:
       type: object
       required: [items, pageInfo, totalCount]
       properties:
         items:
           type: array
-          items: { $ref: '#/components/schemas/JobReferral' }
+          items: { $ref: '#/components/schemas/JobReferralCandidate' }
         pageInfo: { $ref: '#/components/schemas/PageInfo' }
         totalCount: { type: integer, format: int64 }
     JobPositionPage:

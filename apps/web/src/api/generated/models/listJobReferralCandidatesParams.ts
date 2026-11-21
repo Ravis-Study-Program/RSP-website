@@ -8,7 +8,7 @@
 import type { CursorParameter } from './cursorParameter';
 import type { LimitParameter } from './limitParameter';
 
-export type ListJobReferralsParams = {
+export type ListJobReferralCandidatesParams = {
   /**
    * @minimum 1
    * @maximum 100
