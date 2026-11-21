@@ -1,5 +1,11 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { render, screen, waitFor, within } from '@testing-library/react';
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { RouterProvider } from 'react-router-dom';
 import { createTestRouter } from '@/App';
@@ -91,28 +97,26 @@ describe('Jobs', () => {
         'textbox',
         { name: 'Notes' },
       );
-    await userEvent.type(getAppliedNotes(), appliedNotes);
+    fireEvent.change(getAppliedNotes(), { target: { value: appliedNotes } });
     await userEvent.click(
       within(dialog).getByRole('button', { name: 'Add Stage' }),
     );
-    await userEvent.type(
-      within(dialog).getByLabelText('Stage Name'),
-      'Phone Screen',
-    );
-    await userEvent.type(
+    fireEvent.change(within(dialog).getByLabelText('Stage Name'), {
+      target: { value: 'Phone Screen' },
+    });
+    fireEvent.change(
       within(within(dialog).getByRole('group', { name: 'Stage 1' })).getByRole(
         'textbox',
         { name: 'Notes' },
       ),
-      'Private preparation',
+      { target: { value: 'Private preparation' } },
     );
     await userEvent.click(
       within(dialog).getByRole('button', { name: 'Add Stage' }),
     );
-    await userEvent.type(
-      within(dialog).getAllByLabelText('Stage Name')[1],
-      'Technical Interview',
-    );
+    fireEvent.change(within(dialog).getAllByLabelText('Stage Name')[1], {
+      target: { value: 'Technical Interview' },
+    });
     await userEvent.click(
       within(dialog).getByRole('button', { name: 'Move Stage 2 Up' }),
     );
@@ -148,10 +152,9 @@ describe('Jobs', () => {
         .getAllByLabelText('Stage Name')
         .map((input) => (input as HTMLInputElement).value),
     ).toEqual(['Technical Interview', 'Phone Screen']);
-    await userEvent.type(
-      within(dialog).getAllByLabelText('Stage Name')[0],
-      ' Unsaved',
-    );
+    fireEvent.change(within(dialog).getAllByLabelText('Stage Name')[0], {
+      target: { value: 'Technical Interview Unsaved' },
+    });
     await userEvent.click(
       within(dialog).getByRole('button', { name: 'Cancel' }),
     );
