@@ -20,6 +20,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Textarea } from '@/components/ui/textarea';
 import { Field, FieldLabel, FieldError } from '@/components/ui/field';
 import { jobApplicationStatuses, localJobDate } from '@/jobs';
+import { compareJobStageDates, isMergedAppliedNote } from '@/jobStages';
 import { JobStageNameField } from '@/components/JobStageFields';
 
 type DraftStage = JobStageEditInput & { key: string; initial: boolean };
@@ -38,11 +39,17 @@ export function JobApplicationForm({
   const [status, setStatus] = useState(application.status);
   const [shareProgress, setShareProgress] = useState(application.shareProgress);
   const [stages, setStages] = useState<DraftStage[]>(() =>
-    application.stages.map((s) => ({ ...s, key: s.id })),
+    application.stages
+      .filter((stage) => !isMergedAppliedNote(stage) || stage.notes.trim())
+      .map((stage) => ({ ...stage, key: stage.id })),
   );
   const [pending, setPending] = useState(false);
   const [error, setError] = useState('');
   const [remove, setRemove] = useState(false);
+  const visibleStages = stages.filter((stage) => !isMergedAppliedNote(stage));
+  const appliedNotes = stages
+    .filter((stage) => stage.initial || isMergedAppliedNote(stage))
+    .sort(compareJobStageDates);
 
   function update(key: string, changes: Partial<DraftStage>) {
     setStages((previous) =>
@@ -53,10 +60,15 @@ export function JobApplicationForm({
   }
   function move(index: number, delta: number) {
     setStages((previous) => {
-      const next = [...previous];
+      const indexes = previous.flatMap((stage, i) =>
+        isMergedAppliedNote(stage) ? [] : [i],
+      );
       const target = index + delta;
-      if (index < 1 || target < 1 || target >= next.length) return previous;
-      [next[index], next[target]] = [next[target], next[index]];
+      if (index < 1 || target < 1 || target >= indexes.length) return previous;
+      const next = [...previous];
+      const from = indexes[index];
+      const to = indexes[target];
+      [next[from], next[to]] = [next[to], next[from]];
       return next;
     });
   }
@@ -69,12 +81,14 @@ export function JobApplicationForm({
         status,
         shareProgress,
         date: localJobDate(),
-        stages: stages.map(({ id, title, date, notes }) => ({
-          ...(id ? { id } : {}),
-          title,
-          date,
-          notes,
-        })),
+        stages: stages
+          .filter((stage) => !isMergedAppliedNote(stage) || stage.notes.trim())
+          .map(({ id, title, date, notes }) => ({
+            ...(id ? { id } : {}),
+            title,
+            date,
+            notes,
+          })),
       });
       onClose();
     } catch (e) {
@@ -137,9 +151,13 @@ export function JobApplicationForm({
                 Stages
               </h3>
               <div className="divide-y divide-border rounded-lg border border-border">
-                {stages.map((stage, index) =>
+                {visibleStages.map((stage, index) =>
                   stage.initial ? (
-                    <div key={stage.key} className="p-3 sm:px-4">
+                    <fieldset
+                      key={stage.key}
+                      aria-label="Applied"
+                      className="grid min-w-0 gap-3 p-3 sm:px-4"
+                    >
                       <div className="max-w-42">
                         <AppDatePicker
                           label="Applied Date"
@@ -147,7 +165,29 @@ export function JobApplicationForm({
                           onChange={(date) => update(stage.key, { date })}
                         />
                       </div>
-                    </div>
+                      <Field>
+                        <FieldLabel
+                          htmlFor={`${prefix}-${appliedNotes[0].key}-notes`}
+                        >
+                          Notes
+                        </FieldLabel>
+                        {appliedNotes.map((note, noteIndex) => (
+                          <Textarea
+                            key={note.key}
+                            id={`${prefix}-${note.key}-notes`}
+                            aria-label={
+                              noteIndex ? `Notes ${noteIndex + 1}` : undefined
+                            }
+                            rows={2}
+                            maxLength={10000}
+                            value={note.notes}
+                            onChange={(event) =>
+                              update(note.key, { notes: event.target.value })
+                            }
+                          />
+                        ))}
+                      </Field>
+                    </fieldset>
                   ) : (
                     <fieldset
                       key={stage.key}
@@ -177,7 +217,7 @@ export function JobApplicationForm({
                             variant="ghost"
                             size="icon"
                             aria-label={`Move Stage ${index} Down`}
-                            disabled={index === stages.length - 1}
+                            disabled={index === visibleStages.length - 1}
                             onClick={() => move(index, 1)}
                           >
                             <IconArrowDown size={17} aria-hidden="true" />
@@ -211,7 +251,7 @@ export function JobApplicationForm({
                       </div>
                       <Field>
                         <FieldLabel htmlFor={`${prefix}-${stage.key}-notes`}>
-                          Notes (Private, Optional)
+                          Notes
                         </FieldLabel>
                         <Textarea
                           id={`${prefix}-${stage.key}-notes`}

@@ -72,7 +72,9 @@ describe('Jobs', () => {
     await showHistory();
     const openEditor = async () => {
       await userEvent.click(
-        await screen.findByRole('button', { name: 'Edit Application' }),
+        await screen.findByRole('button', {
+          name: `Edit application for ${title} at Google`,
+        }),
       );
       return screen.findByRole('dialog', { name: 'Edit Application' });
     };
@@ -83,9 +85,13 @@ describe('Jobs', () => {
     expect(
       within(dialog).queryByLabelText('Stage Name'),
     ).not.toBeInTheDocument();
-    expect(
-      within(dialog).queryByLabelText('Notes (Private, Optional)'),
-    ).not.toBeInTheDocument();
+    const appliedNotes = 'Listed Sydney as my first preference.';
+    const getAppliedNotes = () =>
+      within(within(dialog).getByRole('group', { name: 'Applied' })).getByRole(
+        'textbox',
+        { name: 'Notes' },
+      );
+    await userEvent.type(getAppliedNotes(), appliedNotes);
     await userEvent.click(
       within(dialog).getByRole('button', { name: 'Add Stage' }),
     );
@@ -94,7 +100,10 @@ describe('Jobs', () => {
       'Phone Screen',
     );
     await userEvent.type(
-      within(dialog).getByLabelText('Notes (Private, Optional)'),
+      within(within(dialog).getByRole('group', { name: 'Stage 1' })).getByRole(
+        'textbox',
+        { name: 'Notes' },
+      ),
       'Private preparation',
     );
     await userEvent.click(
@@ -113,9 +122,17 @@ describe('Jobs', () => {
     await waitFor(() =>
       expect(screen.queryByRole('dialog')).not.toBeInTheDocument(),
     );
+    const stage = screen.getByRole('status', {
+      name: `Current stage for ${title} at Google`,
+    });
+    expect(stage).toHaveTextContent('Phone Screen');
+    expect(
+      screen.queryByRole('columnheader', { name: 'Status' }),
+    ).not.toBeInTheDocument();
     const history = screen.getByRole('region', {
       name: `Application history for ${title}`,
     });
+    expect(within(history).getByText(appliedNotes)).toBeVisible();
     expect(
       within(within(history).getByRole('list', { name: 'Application stages' }))
         .getAllByRole('heading')
@@ -125,6 +142,7 @@ describe('Jobs', () => {
       within(history).getByRole('button', { name: 'Add Stage' }),
     ).toBeVisible();
     dialog = await openEditor();
+    expect(getAppliedNotes()).toHaveValue(appliedNotes);
     expect(
       within(dialog)
         .getAllByLabelText('Stage Name')
@@ -155,7 +173,7 @@ describe('Jobs', () => {
     );
     expect(
       screen.queryByRole('status', {
-        name: `Status for ${title} at Google`,
+        name: `Current stage for ${title} at Google`,
       }),
     ).not.toBeInTheDocument();
     await userEvent.click(
@@ -166,9 +184,9 @@ describe('Jobs', () => {
     );
     expect(
       await screen.findByRole('status', {
-        name: `Status for ${title} at Google`,
+        name: `Current stage for ${title} at Google`,
       }),
-    ).toBeVisible();
+    ).toHaveTextContent('Rejected');
     expect(
       screen.queryByRole('combobox', { name: /^Status for/ }),
     ).not.toBeInTheDocument();

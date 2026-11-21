@@ -366,11 +366,7 @@ export function StageForm({
   return (
     <FormDialog
       title={
-        stage?.initial
-          ? 'Edit Applied Date'
-          : stage
-            ? 'Edit Stage'
-            : 'Add Stage'
+        stage?.initial ? 'Edit Applied' : stage ? 'Edit Stage' : 'Add Stage'
       }
       open
       onOpenChange={(open) => {
@@ -407,20 +403,16 @@ export function StageForm({
           value={date}
           onChange={setDate}
         />
-        {!stage?.initial && (
-          <Field>
-            <FieldLabel htmlFor={`${id}-notes`}>
-              Notes (Private, Optional)
-            </FieldLabel>
-            <Textarea
-              id={`${id}-notes`}
-              maxLength={10000}
-              rows={5}
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-            />
-          </Field>
-        )}
+        <Field>
+          <FieldLabel htmlFor={`${id}-notes`}>Notes</FieldLabel>
+          <Textarea
+            id={`${id}-notes`}
+            maxLength={10000}
+            rows={5}
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+          />
+        </Field>
       </JobForm>
     </FormDialog>
   );

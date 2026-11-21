@@ -361,9 +361,8 @@ func (p *Store) SaveJobStage(ctx context.Context, userID, applicationID, stageID
 		if v.Initial && input.Title != "Applied" {
 			return v, ErrConflict
 		}
-		err = tx.QueryRow(ctx, `UPDATE app.job_application_stages SET title=$1,happened_on=$2,
- notes=CASE WHEN initial THEN notes ELSE $3 END WHERE id=$4 AND application_id=$5
- RETURNING notes`, input.Title, input.Date, input.Notes, stageID, applicationID).Scan(&v.Notes)
+		err = tx.QueryRow(ctx, `UPDATE app.job_application_stages SET title=$1,happened_on=$2,notes=$3
+ WHERE id=$4 AND application_id=$5 RETURNING notes`, input.Title, input.Date, input.Notes, stageID, applicationID).Scan(&v.Notes)
 	}
 	if err != nil {
 		return v, mapDatabaseError(err)
@@ -465,26 +464,30 @@ func (p *Store) MergeJobPositions(ctx context.Context, actorID, sourceID, target
 			if err != nil {
 				return jobs.Position{}, err
 			}
-			// Keep both notes without the normal input length cap: accumulated
-			// private notes are stored as another historical stage when necessary.
-			var sourceInitial jobs.Stage
-			err = tx.QueryRow(ctx, `SELECT id,title,happened_on::text,notes,initial FROM app.job_application_stages WHERE application_id=$1 AND initial`, v.source).Scan(&sourceInitial.ID, &sourceInitial.Title, &sourceInitial.Date, &sourceInitial.Notes, &sourceInitial.Initial)
+			// Store each Applied note separately so it keeps its own length limit.
+			var sourceInitialID, sourceNotes string
+			err = tx.QueryRow(ctx, `SELECT id,notes FROM app.job_application_stages WHERE application_id=$1 AND initial`, v.source).Scan(&sourceInitialID, &sourceNotes)
 			if err != nil {
 				return jobs.Position{}, err
 			}
-			_, err = tx.Exec(ctx, `UPDATE app.job_application_stages SET happened_on=LEAST(happened_on,$2::date) WHERE application_id=$1 AND initial`, *v.target, sourceInitial.Date)
-			if err != nil {
-				return jobs.Position{}, err
-			}
-			if strings.TrimSpace(sourceInitial.Notes) != "" {
-				_, err = tx.Exec(ctx, `UPDATE app.job_application_stages SET initial=false,title='Applied (merged listing)' WHERE id=$1`, sourceInitial.ID)
+			if strings.TrimSpace(sourceNotes) != "" {
+				_, err = tx.Exec(ctx, `UPDATE app.job_application_stages SET initial=false,title='Applied (merged listing)' WHERE id=$1`, sourceInitialID)
 			} else {
-				_, err = tx.Exec(ctx, `DELETE FROM app.job_application_stages WHERE id=$1`, sourceInitial.ID)
+				_, err = tx.Exec(ctx, `DELETE FROM app.job_application_stages WHERE id=$1`, sourceInitialID)
 			}
 			if err != nil {
 				return jobs.Position{}, err
 			}
 			_, err = tx.Exec(ctx, `UPDATE app.job_application_stages SET application_id=$1 WHERE application_id=$2`, *v.target, v.source)
+			if err != nil {
+				return jobs.Position{}, err
+			}
+			_, err = tx.Exec(ctx, `WITH ordered AS (
+ SELECT id, ROW_NUMBER() OVER (ORDER BY happened_on,id) AS stage_order
+ FROM app.job_application_stages WHERE application_id=$1 AND NOT initial
+ )
+ UPDATE app.job_application_stages s SET sort_order=ordered.stage_order
+ FROM ordered WHERE s.id=ordered.id`, *v.target)
 			if err != nil {
 				return jobs.Position{}, err
 			}
@@ -574,8 +577,7 @@ func (p *Store) EditJobApplication(ctx context.Context, userID, applicationID st
 			if !ok || (initial && (i != 0 || stage.Title != "Applied")) {
 				return ErrConflict
 			}
-			_, err = tx.Exec(ctx, `UPDATE app.job_application_stages SET title=$1,happened_on=$2,
- notes=CASE WHEN initial THEN notes ELSE $3 END,sort_order=$4
+			_, err = tx.Exec(ctx, `UPDATE app.job_application_stages SET title=$1,happened_on=$2,notes=$3,sort_order=$4
  WHERE id=$5 AND application_id=$6`, stage.Title, stage.Date, stage.Notes, i, stage.ID, applicationID)
 		} else {
 			err = tx.QueryRow(ctx, `INSERT INTO app.job_application_stages(application_id,title,happened_on,notes,sort_order) VALUES($1,$2,$3,$4,$5) RETURNING id`, applicationID, stage.Title, stage.Date, stage.Notes, i).Scan(&stage.ID)

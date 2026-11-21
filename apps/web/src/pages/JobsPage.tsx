@@ -1,6 +1,10 @@
 import { JobApplicationForm } from '@/components/JobApplicationForm';
 import { JobProgressChart } from '@/components/JobProgressChart';
-import { currentJobStage } from '@/jobStages';
+import {
+  compareJobStageDates,
+  currentJobStage,
+  isMergedAppliedNote,
+} from '@/jobStages';
 import { useState, type ReactNode } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import type { ColumnDef, Row, SortingState } from '@tanstack/react-table';
@@ -946,29 +950,28 @@ function Applications({ toolbarLead }: { toolbarLead: ReactNode }) {
     );
   }
 
-  function statusBadge(application: JobApplication) {
+  function stageDisplay(application: JobApplication) {
+    const stage = currentJobStage(application);
     return (
-      <StatusBadge
+      <span
         role="status"
-        aria-label={`Status for ${application.position.title} at ${application.position.company.name}`}
-        className={
-          application.status === 'inactive'
-            ? 'text-[color-mix(in_srgb,var(--destructive)_78%,var(--foreground))]'
-            : undefined
-        }
-        tone={
-          application.status === 'offer'
-            ? 'success'
-            : application.status === 'inactive'
-              ? 'danger'
-              : 'info'
-        }
+        aria-label={`Current stage for ${application.position.title} at ${application.position.company.name}`}
       >
-        {
-          jobApplicationStatuses.find((s) => s.value === application.status)
-            ?.label
-        }
-      </StatusBadge>
+        {application.status === 'active' ? (
+          stage
+        ) : (
+          <StatusBadge
+            tone={application.status === 'offer' ? 'success' : 'danger'}
+            className={
+              application.status === 'inactive'
+                ? 'text-[color-mix(in_srgb,var(--destructive)_78%,var(--foreground))]'
+                : undefined
+            }
+          >
+            {stage}
+          </StatusBadge>
+        )}
+      </span>
     );
   }
   const columns: ColumnDef<JobApplication>[] = [
@@ -1002,14 +1005,8 @@ function Applications({ toolbarLead }: { toolbarLead: ReactNode }) {
       id: 'stage',
       accessorFn: currentJobStage,
       header: 'Current Stage',
-      meta: { width: 10 },
-    },
-    {
-      accessorKey: 'status',
-      header: 'Status',
-      cell: ({ row }) => statusBadge(row.original),
-      enableColumnFilter: false,
-      meta: { width: 6.5 },
+      cell: ({ row }) => stageDisplay(row.original),
+      meta: { width: 14, wrap: true },
     },
     {
       id: 'date',
@@ -1024,7 +1021,7 @@ function Applications({ toolbarLead }: { toolbarLead: ReactNode }) {
     {
       id: 'edit',
       header: 'Edit',
-      cell: ({ row }) => !row.getIsExpanded() && editButton(row.original),
+      cell: ({ row }) => editButton(row.original),
       enableSorting: false,
       enableColumnFilter: false,
       enableHiding: false,
@@ -1068,10 +1065,7 @@ function Applications({ toolbarLead }: { toolbarLead: ReactNode }) {
           />
         }
         renderExpanded={({ original }) => (
-          <ApplicationHistory
-            application={original}
-            onEdit={() => setEditingId(original.id)}
-          />
+          <ApplicationHistory application={original} />
         )}
         renderCard={(row) => (
           <div className="grid gap-3">
@@ -1084,17 +1078,13 @@ function Applications({ toolbarLead }: { toolbarLead: ReactNode }) {
                 />
                 <CompanyLink position={row.original.position} />
               </div>
-              {!row.getIsExpanded() && editButton(row.original)}
+              {editButton(row.original)}
             </div>
             <h3 className="font-semibold">{row.original.position.title}</h3>
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <p className="text-sm">{currentJobStage(row.original)}</p>
-              {statusBadge(row.original)}
-            </div>
+            <p className="text-sm">{stageDisplay(row.original)}</p>
             {row.getIsExpanded() && (
               <ApplicationHistory
                 application={row.original}
-                onEdit={() => setEditingId(row.original.id)}
                 showPositionTitle={false}
               />
             )}
@@ -1113,17 +1103,18 @@ function Applications({ toolbarLead }: { toolbarLead: ReactNode }) {
 
 function ApplicationHistory({
   application,
-  onEdit,
   showPositionTitle = true,
 }: {
   application: JobApplication;
-  onEdit: () => void;
   showPositionTitle?: boolean;
 }) {
   const user = useJobsUser();
   const save = useJobActions(user?.id);
   const [stage, setStage] = useState<JobStage | 'new'>();
   const [remove, setRemove] = useState<JobStage | 'application'>();
+  const appliedNotes = application.stages
+    .filter((s) => (s.initial || isMergedAppliedNote(s)) && s.notes.trim())
+    .sort(compareJobStageDates);
   return (
     <section
       className="grid min-w-0 max-w-[calc(100cqw-2rem)] gap-4 min-[56rem]:sticky min-[56rem]:left-4"
@@ -1138,51 +1129,62 @@ function ApplicationHistory({
         className="divide-y border-t border-border"
         aria-label="Application stages"
       >
-        {application.stages.map((s) => (
-          <li key={s.id} className="grid gap-2 py-4">
-            <div className="flex flex-wrap items-start justify-between gap-2">
-              <div className="grid gap-1">
-                <h4 className="font-semibold break-words">{s.title}</h4>
-                {s.date && (
-                  <time
-                    className="text-sm text-muted-foreground"
-                    dateTime={s.date}
-                  >
-                    {formatCalendarDay(new Date(s.date))}
-                  </time>
-                )}
-              </div>
-              <DropdownMenu>
-                <DropdownMenuTrigger
-                  render={
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      aria-label={`Actions for ${s.title}`}
-                    />
-                  }
-                >
-                  <IconDotsVertical size={18} aria-hidden="true" />
-                </DropdownMenuTrigger>
-                <DropdownMenuContent>
-                  <DropdownMenuItem onClick={() => setStage(s)}>
-                    <IconEdit size={17} aria-hidden="true" />
-                    {s.initial ? 'Edit Applied Date' : 'Edit Stage'}
-                  </DropdownMenuItem>
-                  {!s.initial && (
-                    <DropdownMenuItem
-                      variant="destructive"
-                      onClick={() => setRemove(s)}
+        {application.stages
+          .filter((s) => !isMergedAppliedNote(s))
+          .map((s) => (
+            <li key={s.id} className="grid gap-2 py-4">
+              <div className="flex flex-wrap items-start justify-between gap-2">
+                <div className="grid gap-1">
+                  <h4 className="font-semibold break-words">{s.title}</h4>
+                  {s.date && (
+                    <time
+                      className="text-sm text-muted-foreground"
+                      dateTime={s.date}
                     >
-                      <IconTrash size={17} aria-hidden="true" /> Remove Stage
-                    </DropdownMenuItem>
+                      {formatCalendarDay(new Date(s.date))}
+                    </time>
                   )}
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </div>
-            {s.notes && <JobText text={s.notes} />}
-          </li>
-        ))}
+                </div>
+                <DropdownMenu>
+                  <DropdownMenuTrigger
+                    render={
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        aria-label={`Actions for ${s.title}`}
+                      />
+                    }
+                  >
+                    <IconDotsVertical size={18} aria-hidden="true" />
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent>
+                    <DropdownMenuItem onClick={() => setStage(s)}>
+                      <IconEdit size={17} aria-hidden="true" />
+                      {s.initial ? 'Edit Applied' : 'Edit Stage'}
+                    </DropdownMenuItem>
+                    {!s.initial && (
+                      <DropdownMenuItem
+                        variant="destructive"
+                        onClick={() => setRemove(s)}
+                      >
+                        <IconTrash size={17} aria-hidden="true" /> Remove Stage
+                      </DropdownMenuItem>
+                    )}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
+              {s.initial
+                ? appliedNotes.length > 0 && (
+                    <div className="grid gap-1.5">
+                      <p className="text-sm font-medium">Notes</p>
+                      {appliedNotes.map((note) => (
+                        <JobText key={note.id} text={note.notes} />
+                      ))}
+                    </div>
+                  )
+                : s.notes && <JobText text={s.notes} />}
+            </li>
+          ))}
       </ol>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <Button
@@ -1192,14 +1194,6 @@ function ApplicationHistory({
           onClick={() => setRemove('application')}
         >
           Remove Application
-        </Button>
-        <Button
-          variant="outline"
-          size="sm"
-          className="ml-auto"
-          onClick={onEdit}
-        >
-          <IconEdit size={17} aria-hidden="true" /> Edit Application
         </Button>
         <Button size="sm" onClick={() => setStage('new')}>
           <IconPlus size={16} aria-hidden="true" />

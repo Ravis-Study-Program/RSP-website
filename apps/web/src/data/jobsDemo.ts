@@ -1,6 +1,7 @@
 // Development/demo only: production uses the Go API and isolated Jobs tables.
 import seed from '@/data/jobPositions.json';
 import { jobApplicationStatuses } from '@/jobs';
+import { compareJobStageDates, mergedAppliedStageTitle } from '@/jobStages';
 import {
   demoJobReferralRequest,
   moveDemoReferralRequests,
@@ -121,7 +122,6 @@ export function demoJobRequest(
         ...stage,
         id: stage.id ?? crypto.randomUUID(),
         initial: index === 0,
-        notes: index === 0 ? initial.notes : stage.notes,
       }));
       if (application.status !== input.status)
         stages.push({
@@ -173,7 +173,6 @@ export function demoJobRequest(
         ...input,
         id: stage?.id ?? crypto.randomUUID(),
         initial: stage?.initial ?? false,
-        notes: stage?.initial ? stage.notes : input.notes,
       };
       if (stage) application.stages[application.stages.indexOf(stage)] = saved;
       else application.stages.push(saved);
@@ -202,16 +201,17 @@ export function demoJobRequest(
       if (from && to) {
         to.shareProgress = to.shareProgress && from.shareProgress;
         to.stages.push(
-          ...from.stages.map((s) =>
-            s.initial
-              ? { ...s, initial: false, title: 'Applied (merged listing)' }
-              : s,
-          ),
+          ...from.stages
+            .filter((stage) => !stage.initial || stage.notes.trim())
+            .map((stage) =>
+              stage.initial
+                ? { ...stage, initial: false, title: mergedAppliedStageTitle }
+                : stage,
+            ),
         );
         to.stages.sort(
           (a, b) =>
-            Number(b.initial) - Number(a.initial) ||
-            a.date.localeCompare(b.date),
+            Number(b.initial) - Number(a.initial) || compareJobStageDates(a, b),
         );
         applications.set(
           owner,

@@ -25,13 +25,16 @@ async function editApplicationStatus(
 ) {
   await expect(
     page.getByRole('status', {
-      name: `Status for ${title} at ${company}`,
+      name: `Current stage for ${title} at ${company}`,
       exact: true,
     }),
   ).toBeVisible();
-  const history = await openApplicationHistory(page, title);
-  await history
-    .getByRole('button', { name: 'Edit Application', exact: true })
+  await openApplicationHistory(page, title);
+  await page
+    .getByRole('button', {
+      name: `Edit application for ${title} at ${company}`,
+      exact: true,
+    })
     .click();
   const dialog = page.getByRole('dialog', { name: 'Edit Application' });
   await dialog.getByRole('combobox', { name: 'Status', exact: true }).click();
@@ -74,7 +77,7 @@ test('Application statuses keep inactive histories out of the default list', asy
       await editApplicationStatus(page, title, company, status);
       await expect(
         page.getByRole('status', {
-          name: `Status for ${title} at ${company}`,
+          name: `Current stage for ${title} at ${company}`,
           exact: true,
         }),
       ).toHaveCount(0);
@@ -93,11 +96,11 @@ test('Application statuses keep inactive histories out of the default list', asy
   });
   await expect(filter).toHaveText('Active');
   await expect(
-    page.getByRole('status', { name: /Status for .* at Canva/ }),
+    page.getByRole('status', { name: /Current stage for .* at Canva/ }),
   ).toBeVisible();
   await expect(
     page.getByRole('status', {
-      name: /Status for .* at (Google|Amazon|Microsoft)/,
+      name: /Current stage for .* at (Google|Amazon|Microsoft)/,
     }),
   ).toHaveCount(0);
   if (captureRoot) {
@@ -164,10 +167,10 @@ test('Application statuses keep inactive histories out of the default list', asy
     for (const [title, company, status] of titles)
       await expect(
         page.getByRole('status', {
-          name: `Status for ${title} at ${company}`,
+          name: `Current stage for ${title} at ${company}`,
           exact: true,
         }),
-      ).toHaveText(status);
+      ).toHaveText(status === 'Active' ? 'Applied' : status);
     if (captureRoot)
       await page.screenshot({
         fullPage: true,
@@ -181,22 +184,22 @@ test('Application statuses keep inactive histories out of the default list', asy
   await filter.click();
   await page.getByRole('option', { name: 'Rejected', exact: true }).click();
   await expect(
-    page.getByRole('status', { name: /Status for .* at Amazon/ }),
+    page.getByRole('status', { name: /Current stage for .* at Amazon/ }),
   ).toBeVisible();
   await expect(
-    page.getByRole('status', { name: /Status for .* at Google/ }),
+    page.getByRole('status', { name: /Current stage for .* at Google/ }),
   ).toBeVisible();
   await expect(
-    page.getByRole('status', { name: /Status for .* at Microsoft/ }),
+    page.getByRole('status', { name: /Current stage for .* at Microsoft/ }),
   ).toHaveCount(0);
   await filter.click();
   await page.getByRole('option', { name: 'Offer', exact: true }).click();
   await expect(
-    page.getByRole('status', { name: /Status for .* at Microsoft/ }),
+    page.getByRole('status', { name: /Current stage for .* at Microsoft/ }),
   ).toHaveText('Offer');
   await expect(
     page.getByRole('status', {
-      name: /Status for .* at (Google|Amazon|Canva)/,
+      name: /Current stage for .* at (Google|Amazon|Canva)/,
     }),
   ).toHaveCount(0);
   await filter.click();
@@ -208,13 +211,13 @@ test('Application statuses keep inactive histories out of the default list', asy
     'Active',
   );
   await expect(
-    page.getByRole('status', { name: /Status for .* at Google/ }),
+    page.getByRole('status', { name: /Current stage for .* at Google/ }),
   ).toHaveCount(0);
   await filter.click();
   await page.getByRole('option', { name: 'Active', exact: true }).click();
   await expect(
-    page.getByRole('status', { name: /Status for .* at Google/ }),
-  ).toHaveText('Active');
+    page.getByRole('status', { name: /Current stage for .* at Google/ }),
+  ).toHaveText('Applied');
   const history = await openApplicationHistory(
     page,
     'Software Engineering Intern, Summer 2026',
@@ -306,7 +309,7 @@ test('Marking Applied keeps the board open and saves a private history', async (
   await expect(page).toHaveURL(/\/jobs$/);
   await expect(search).toHaveValue('Google');
   await page.getByRole('tab', { name: 'My Applications', exact: true }).click();
-  await openApplicationHistory(
+  const history = await openApplicationHistory(
     page,
     'Software Engineering Intern, Summer 2026',
   );
@@ -319,23 +322,22 @@ test('Marking Applied keeps the board open and saves a private history', async (
   await page
     .getByRole('button', { name: 'Actions for Applied', exact: true })
     .click();
-  await page.getByRole('menuitem', { name: 'Edit Applied Date' }).click();
-  const appliedForm = page.getByRole('dialog', { name: 'Edit Applied Date' });
+  await page.getByRole('menuitem', { name: 'Edit Applied' }).click();
+  const appliedForm = page.getByRole('dialog', { name: 'Edit Applied' });
   await expect(
     appliedForm.getByRole('button', { name: 'Choose applied date' }),
   ).toBeVisible();
   await expect(appliedForm.getByLabel('Stage Name')).toHaveCount(0);
-  await expect(appliedForm.getByLabel('Notes (Private, Optional)')).toHaveCount(
-    0,
-  );
+  const applicationNote = 'Listed Sydney first and Melbourne second.';
+  await appliedForm.getByLabel('Notes', { exact: true }).fill(applicationNote);
   await appliedForm.getByRole('button', { name: 'Save Changes' }).click();
   await expect(appliedForm).not.toBeVisible();
+  await expect(history.getByText(applicationNote)).toBeVisible();
   await page.getByRole('button', { name: 'Add Stage', exact: true }).click();
   const form = page.getByRole('dialog', { name: 'Add Stage' });
   await form.getByLabel('Stage Name').last().fill('Technical interview');
   await form
-    .getByLabel('Notes (Private, Optional)')
-    .last()
+    .getByLabel('Notes', { exact: true })
     .fill('Prepare graph traversal examples and questions about the team.');
   await form.getByRole('button', { name: 'Choose date' }).last().click();
   await expect(page.getByRole('button', { name: 'Next month' })).toBeVisible();
@@ -527,7 +529,8 @@ test('Stage suggestions and sharing by default update the application flow', asy
     .getByRole('option', { name: 'Recruiter screen (confirm info)' })
     .click();
   await editor
-    .getByLabel('Notes (Private, Optional)')
+    .getByRole('group', { name: 'Stage 1', exact: true })
+    .getByLabel('Notes', { exact: true })
     .fill('Private demo preparation note');
   await expect(
     editor.getByRole('checkbox', { name: 'Upcoming Stage' }),

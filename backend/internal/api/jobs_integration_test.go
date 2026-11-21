@@ -218,14 +218,14 @@ func TestJobsPublicBoardAndPrivateOwnership(t *testing.T) {
 	if _, err := f.pool.Exec(context.Background(), `UPDATE app.job_application_stages SET notes=$1 WHERE id=$2`, legacyNote, initial.ID); err != nil {
 		t.Fatal(err)
 	}
-	note := jobs.StageInput{Title: "Applied", Date: "2026-11-03", Notes: "attempted note change"}
+	note := jobs.StageInput{Title: "Applied", Date: "2026-11-03", Notes: "private application preferences"}
 	updated := jobCall(t, h, "PATCH", "/me/job-applications/"+appID+"/stages/"+initial.ID, "member", note, http.StatusOK)
 	var updatedStage jobs.Stage
 	if err := json.Unmarshal(updated.Body.Bytes(), &updatedStage); err != nil {
 		t.Fatal(err)
 	}
-	if updatedStage.Date != note.Date || updatedStage.Notes != legacyNote {
-		t.Fatalf("Applied must only change date: %+v", updatedStage)
+	if updatedStage.Title != "Applied" || updatedStage.Date != note.Date || updatedStage.Notes != note.Notes || !updatedStage.Initial {
+		t.Fatalf("Applied date and notes were not updated without changing the stage: %+v", updatedStage)
 	}
 	custom := jobs.StageInput{Title: "System design with team", Date: "2026-11-05", Notes: "private interview note"}
 	jobCall(t, h, "POST", "/me/job-applications/"+appID+"/stages", "member", custom, http.StatusCreated)
@@ -262,13 +262,19 @@ func TestJobsMergePreservesBothHistoriesAndAliases(t *testing.T) {
 	other := applyJob(t, h, "mentor", source.ID)
 	jobCall(t, h, "PATCH", "/me/job-applications/"+a, "member", map[string]string{"status": "inactive", "date": "2026-11-03"}, http.StatusNoContent)
 	jobCall(t, h, "PATCH", "/me/job-applications/"+other, "mentor", map[string]string{"status": "inactive", "date": "2026-11-03"}, http.StatusNoContent)
+	keptNotes, mergedNotes := strings.Repeat("A", 10000), strings.Repeat("B", 10000)
 	for _, app := range readApplications(t, h, "member") {
-		if _, err := f.pool.Exec(context.Background(), `UPDATE app.job_application_stages SET notes=$1 WHERE id=$2`, strings.Repeat(app.ID[:1], 10000), app.Stages[0].ID); err != nil {
-			t.Fatal(err)
+		date, notes := "2026-11-01", mergedNotes
+		if app.ID == a {
+			date, notes = "2026-11-02", keptNotes
 		}
+		jobCall(t, h, "PATCH", "/me/job-applications/"+app.ID+"/stages/"+app.Stages[0].ID, "member", jobs.StageInput{Title: "Applied", Date: date, Notes: notes}, http.StatusOK)
 	}
-	jobCall(t, h, "POST", "/me/job-applications/"+a+"/stages", "member", jobs.StageInput{Title: "Assessment", Date: "2026-11-02", Notes: "target note"}, http.StatusCreated)
+	jobCall(t, h, "POST", "/me/job-applications/"+a+"/stages", "member", jobs.StageInput{Title: "Assessment", Date: "2026-11-06", Notes: "target note"}, http.StatusCreated)
 	jobCall(t, h, "POST", "/me/job-applications/"+b+"/stages", "member", jobs.StageInput{Title: "Final panel", Date: "2026-11-06", Notes: "source note"}, http.StatusCreated)
+	if _, err := f.pool.Exec(context.Background(), `UPDATE app.job_application_stages SET sort_order=1 WHERE application_id=$1 AND title='Assessment'`, a); err != nil {
+		t.Fatal(err)
+	}
 	merge := map[string]string{"targetId": target.ID}
 	jobCall(t, h, "POST", "/jobs/positions/"+source.ID+"/merge", "mentor", merge, http.StatusForbidden)
 	jobCall(t, h, "POST", "/jobs/positions/"+source.ID+"/merge", "coordinator", map[string]string{"targetId": "00000000-0000-7000-8000-000000009999"}, http.StatusNotFound)
@@ -281,11 +287,19 @@ func TestJobsMergePreservesBothHistoriesAndAliases(t *testing.T) {
 	if len(merged) != 1 || merged[0].ID != a || merged[0].Status != "inactive" || len(merged[0].Stages) != 5 {
 		t.Fatalf("lost history: %#v", merged)
 	}
-	if len(merged[0].Position.Locations) != 2 || merged[0].Stages[0].Title != "Applied" || merged[0].Stages[3].Title != "Rejected" || merged[0].Stages[4].Title != "Final panel" {
+	stages := merged[0].Stages
+	if len(merged[0].Position.Locations) != 2 || stages[0].Title != "Applied" || stages[0].Date != "2026-11-02" || stages[2].Title != "Rejected" ||
+		stages[3].Date != "2026-11-06" || stages[4].Date != "2026-11-06" || stages[3].ID >= stages[4].ID {
 		t.Fatalf("bad merged application: %#v", merged[0])
 	}
-	if len(merged[0].Stages[0].Notes)+len(merged[0].Stages[1].Notes) != 20000 {
-		t.Fatal("merge truncated initial notes")
+	if stages[0].Notes != keptNotes || stages[1].Title != "Applied (merged listing)" || stages[1].Notes != mergedNotes {
+		t.Fatal("merge lost Applied notes")
+	}
+	progress := jobCall(t, h, "GET", "/jobs/positions/"+target.ID+"/progress", "", nil, http.StatusOK)
+	for _, text := range []string{keptNotes, mergedNotes, "target note", "source note", "Applied (merged listing)"} {
+		if strings.Contains(progress.Body.String(), text) {
+			t.Fatal("shared progress exposed private history")
+		}
 	}
 	moved := readApplications(t, h, "mentor")
 	if len(moved) != 1 || moved[0].ID != other || moved[0].Status != "inactive" || moved[0].Position.ID != target.ID || len(moved[0].Stages) != 2 || moved[0].Stages[1].Title != "Rejected" {
@@ -436,7 +450,7 @@ func TestJobsEditApplicationIsAtomicAndPrivate(t *testing.T) {
 		input.Stages = append(input.Stages, jobs.StageEdit{ID: stage.ID, StageInput: jobs.StageInput{Title: stage.Title, Date: stage.Date, Notes: stage.Notes}})
 	}
 	input.Stages[0].Date = "2026-11-02"
-	input.Stages[0].Notes = "attempted note change"
+	input.Stages[0].Notes = "Preferred the Sydney office"
 	jobCall(t, h, "PUT", path, "", input, http.StatusUnauthorized)
 	jobCall(t, h, "PUT", path, "mentor", input, http.StatusNotFound)
 	invalid := input
@@ -444,13 +458,13 @@ func TestJobsEditApplicationIsAtomicAndPrivate(t *testing.T) {
 	invalid.Stages[1].ID = "11111111-1111-4111-8111-111111111111"
 	jobCall(t, h, "PUT", path, "member", invalid, http.StatusConflict)
 	unchanged := readApplications(t, h, "member")[0]
-	if unchanged.Status != "active" || unchanged.Stages[1].Title != "Phone Screen" {
+	if unchanged.Status != "active" || unchanged.Stages[0].Notes != before.Stages[0].Notes || unchanged.Stages[1].Title != "Phone Screen" {
 		t.Fatal("invalid edit partially saved")
 	}
 	jobCall(t, h, "PUT", path, "member", input, http.StatusNoContent)
 	saved := readApplications(t, h, "member")[0]
-	if saved.Stages[0].Date != input.Stages[0].Date || saved.Stages[0].Notes != before.Stages[0].Notes {
-		t.Fatalf("bulk edit must only change the Applied date: %+v", saved.Stages[0])
+	if saved.Stages[0].Title != "Applied" || saved.Stages[0].Date != input.Stages[0].Date || saved.Stages[0].Notes != input.Stages[0].Notes {
+		t.Fatalf("bulk edit lost the Applied date or notes: %+v", saved.Stages[0])
 	}
 	if saved.Status != "offer" || len(saved.Stages) != 4 || saved.Stages[1].Title != "Technical Interview" || saved.Stages[2].Title != "Phone Screen" || saved.Stages[3].Title != "Offer" {
 		t.Fatalf("order/status not saved: %#v", saved)
@@ -461,9 +475,10 @@ func TestJobsEditApplicationIsAtomicAndPrivate(t *testing.T) {
 	jobCall(t, h, "PUT", path, "member", invalid, http.StatusBadRequest)
 	// Delete one ordinary stage and append a new one in a single save.
 	input.Stages = append(input.Stages[:2], jobs.StageEdit{StageInput: jobs.StageInput{Title: "Team Match", Date: "2026-11-04", Notes: "Still private"}})
+	input.Stages[0].Notes = ""
 	jobCall(t, h, "PUT", path, "member", input, http.StatusNoContent)
 	saved = readApplications(t, h, "member")[0]
-	if len(saved.Stages) != 3 || saved.Stages[2].Title != "Team Match" || saved.Stages[2].Notes != "Still private" {
+	if len(saved.Stages) != 3 || saved.Stages[0].Notes != "" || saved.Stages[2].Title != "Team Match" || saved.Stages[2].Notes != "Still private" {
 		t.Fatalf("stage replacement failed: %#v", saved)
 	}
 }

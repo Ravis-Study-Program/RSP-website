@@ -21,10 +21,26 @@ export const recommendedJobStages = [
 export const jobStageKey = (title: string) =>
   title.trim().replace(/\s+/g, ' ').toLowerCase();
 
+export const mergedAppliedStageTitle = 'Applied (merged listing)';
+
+export function isMergedAppliedNote(stage: {
+  title: string;
+  initial: boolean;
+}) {
+  return !stage.initial && stage.title === mergedAppliedStageTitle;
+}
+
+export function compareJobStageDates(
+  a: { date: string; id?: string },
+  b: { date: string; id?: string },
+) {
+  return a.date.localeCompare(b.date) || (a.id ?? '').localeCompare(b.id ?? '');
+}
+
 const reservedStageNames = new Set([
   '',
   'applied',
-  'applied (merged listing)',
+  jobStageKey(mergedAppliedStageTitle),
   'active',
   'rejected',
   'offer',
