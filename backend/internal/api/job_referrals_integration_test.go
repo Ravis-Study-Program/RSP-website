@@ -12,7 +12,7 @@ import (
 	"github.com/Ravis-Study-Program/RSP-website/backend/internal/jobs"
 )
 
-const testReferralResumeURL = "https://drive.google.com/file/d/sample-resume/view?resourcekey=sample-key"
+const testReferralResumeURL = "https://portfolio.example.org/taylor/resume.pdf?download=1#page=2"
 
 func saveTestReferralProfile(t *testing.T, h http.Handler, token, reason, resumeURL string, want int) {
 	t.Helper()
@@ -44,9 +44,10 @@ func TestJobsReferralMatchingScopesProfilesAndResumeLinks(t *testing.T) {
 		jobCall(t, h, "DELETE", offer, token, nil, http.StatusForbidden)
 		jobCall(t, h, "GET", queue, token, nil, http.StatusForbidden)
 	}
-	for _, badLink := range []string{"", "http://drive.google.com/file/d/sample/view", "https://drive.google.com.example.org/file/d/sample/view", "https://drive.google.com/drive/folders/sample"} {
+	for _, badLink := range []string{"", "javascript:alert(1)", "https://localhost/resume.pdf", "https://user@example.org/resume.pdf"} {
 		saveTestReferralProfile(t, h, "student", "A reusable reason", badLink, http.StatusBadRequest)
 	}
+	saveTestReferralProfile(t, h, "student", "A reusable reason", "https://drive.google.com/file/d/sample-resume/view?resourcekey=sample-key", http.StatusNoContent)
 	saveTestReferralProfile(t, h, "student", "A reusable reason", " "+testReferralResumeURL+" ", http.StatusNoContent)
 	assertReferralProfile := func(token, resumeURL string) {
 		t.Helper()

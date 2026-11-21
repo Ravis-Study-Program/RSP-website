@@ -24,7 +24,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 
 ## Boundaries
 
-REFERRALS: Students and alumni choose up to five open roles from the shared positions board. They use one referral profile with a Google Drive résumé link shared with anyone who has the link and a freeform reason. Their selection stays active until withdrawn or the role closes. RSP graduates self-declare a company and review matching candidates grouped by person. They can see only the candidate’s requested roles at that company, profile reason and résumé link. Referrers initiate contact on Discord. Students see anonymous counts without a referrer directory.
+REFERRALS: Students and alumni choose up to five open roles from the shared positions board. They use one referral profile with a public résumé link and a freeform reason. Their selection stays active until withdrawn or the role closes. RSP graduates self-declare a company and review matching candidates grouped by person. They can see only the candidate’s requested roles at that company, profile reason and résumé link. Referrers initiate contact on Discord. Students see anonymous counts without a referrer directory.
 
 Position notes are public and application stage notes are owner-only. Referral profiles are visible only to their owners and eligible matches. Preserve private stage notes during merges. The supplied positions are imported once without verifying availability.
 

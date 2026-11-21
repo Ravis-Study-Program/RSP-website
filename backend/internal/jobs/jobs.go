@@ -141,10 +141,7 @@ func NormalizeURL(raw string) (string, error) {
 		return "", invalid
 	}
 	host := strings.ToLower(strings.TrimSuffix(u.Hostname(), "."))
-	if !strings.Contains(host, ".") || strings.HasSuffix(host, ".localhost") || strings.HasSuffix(host, ".local") || strings.HasSuffix(host, ".internal") {
-		return "", invalid
-	}
-	if ip := net.ParseIP(host); ip != nil {
+	if !isPublicLinkHost(host) {
 		return "", invalid
 	}
 	u.Host, u.Fragment = host, ""
@@ -160,6 +157,12 @@ func NormalizeURL(raw string) (string, error) {
 	}
 	u.RawQuery = q.Encode()
 	return u.String(), nil
+}
+
+func isPublicLinkHost(host string) bool {
+	return strings.Contains(host, ".") && net.ParseIP(host) == nil &&
+		!strings.HasSuffix(host, ".localhost") && !strings.HasSuffix(host, ".local") &&
+		!strings.HasSuffix(host, ".internal")
 }
 
 // ApplicationEdit replaces a private application's stages in the supplied order.

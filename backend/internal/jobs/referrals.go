@@ -2,13 +2,12 @@ package jobs
 
 import (
 	"errors"
-	"regexp"
+	"net/url"
 	"strings"
+	"unicode"
 )
 
 const MaxReferralRequests = 5
-
-var driveFileURL = regexp.MustCompile(`^https://drive\.google\.com/(file/d/[A-Za-z0-9_-]+(/(view|preview))?/?(\?[^#[:space:][:cntrl:]]*)?|open\?id=[A-Za-z0-9_-]+(&[^#[:space:][:cntrl:]]*)?)$`)
 
 var (
 	ErrReferralProfileRequired = errors.New("complete your referral profile before requesting a referral")
@@ -51,8 +50,13 @@ func (v *ReferralProfile) Validate() error {
 	if !textLength(v.Reason, 1, 4000) {
 		return errors.New("enter why you would be a good referral, up to 4,000 characters")
 	}
-	if len(v.ResumeURL) > 2048 || !driveFileURL.MatchString(v.ResumeURL) {
-		return errors.New("enter a Google Drive link to your résumé file")
+	link, err := url.Parse(v.ResumeURL)
+	if err != nil || len(v.ResumeURL) > 2048 ||
+		strings.ContainsRune(v.ResumeURL, '\\') ||
+		strings.ContainsFunc(v.ResumeURL, func(r rune) bool { return unicode.IsSpace(r) || unicode.IsControl(r) }) ||
+		(link.Scheme != "https" && link.Scheme != "http") || link.User != nil ||
+		!isPublicLinkHost(strings.ToLower(strings.TrimSuffix(link.Hostname(), "."))) {
+		return errors.New("enter a public link to your résumé")
 	}
 	return nil
 }

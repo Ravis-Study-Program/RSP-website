@@ -6,7 +6,7 @@ import type {
 } from '@/api/generated/models';
 import { selectedDemoUser } from '@/api/queries';
 import { people } from '@/data/demo';
-import { isDriveFileURL, maxReferralRequests } from '@/jobs';
+import { isPublicResumeURL, maxReferralRequests } from '@/jobs';
 
 const profiles = new Map<string, JobReferralProfile>([
   [
@@ -95,8 +95,8 @@ export function demoJobReferralRequest(
         throw new Error(
           'Enter why you would be a good referral, up to 4,000 characters.',
         );
-      if (!isDriveFileURL(resumeUrl))
-        throw new Error('Enter a Google Drive link to your résumé file.');
+      if (!isPublicResumeURL(resumeUrl))
+        throw new Error('Enter a public link to your résumé.');
       profiles.set(userId, { reason, resumeUrl });
       return;
     }

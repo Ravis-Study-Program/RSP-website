@@ -212,10 +212,9 @@ function JobsHelp() {
         <div>
           <dt className="font-semibold text-foreground">Request Referrals</dt>
           <dd>
-            Create a profile with a Google Drive résumé link set to “Anyone with
-            the link” and a short note about why you’d be a good referral. Use
-            that profile to request up to five open roles at a time. A referrer
-            may reach out on Discord.
+            Create a profile with a public résumé link and a short note about
+            why you’d be a good referral. Use that profile to request up to five
+            open roles at a time. A referrer may reach out on Discord.
           </dd>
         </div>
         <div>

@@ -53,7 +53,7 @@ A platform built around one program's own mechanics: seasons, program weeks in t
 
 - Stack in place: React 19 + Vite, shadcn/ui on Base UI, Tailwind CSS 4, TanStack Query/Table, and Tiptap rich text. The Go API and Better Auth service sit behind Caddy on a single origin.
 - Program pages are members only: `/` redirects to `/dashboard`. Auth flows and `/jobs` are public. Jobs positions are shared; `/jobs/applications` and its stage notes are owner-only. Publishing and tracking require a verified active account, without season enrollment. Active coordinators, directors and system admins maintain the shared board with recent MFA.
-- RSP students and alumni can request up to five open roles with one referral profile, including a Google Drive résumé link shared with anyone who has the link and a freeform reason. RSP graduates can opt in at a company they work for. They see candidates and requested roles at that company and contact candidates on Discord. Students see anonymous company counts.
+- RSP students and alumni can request up to five open roles with one referral profile, including a public résumé link and a freeform reason. RSP graduates can opt in at a company they work for. They see candidates and requested roles at that company and contact candidates on Discord. Students see anonymous company counts.
 - Privileged roles need TOTP MFA. Accounts can be deleted, with a 30-day recoverable grace period.
 - Program calendar logic uses `Australia/Adelaide`. Storage is UTC. The UI renders each member's saved IANA timezone.
 - English only (`en-AU` formatting). No i18n is planned in the repo.

@@ -173,18 +173,20 @@ test('Students reuse a profile, request up to five open roles and withdraw reque
   await profile
     .getByRole('textbox', { name: /Why I’d Be a Good Referral/ })
     .fill('I build and maintain software for my university club.');
-  const resume = profile.getByLabel('Google Drive Résumé Link');
-  await expect(resume).toHaveAccessibleDescription(/Anyone with the link/);
-  await resume.fill('https://example.org/resume.pdf');
+  const resume = profile.getByLabel('Résumé Link');
+  await expect(resume).toHaveAccessibleDescription(
+    /Provide a public link to your résumé \(e.g. Google Drive\)/,
+  );
+  await resume.fill('http://localhost/resume.pdf');
   await profile.getByRole('button', { name: 'Save Profile' }).click();
   await expect(
-    profile.getByText('Enter a Google Drive link to your résumé file.'),
+    profile.getByText('Enter a public link to your résumé.'),
   ).toBeVisible();
   const resumeUrl =
-    'https://drive.google.com/file/d/sample-resume/view?usp=sharing';
+    'https://portfolio.example.org/resume.pdf?download=1#page=2';
   await resume.fill(resumeUrl);
   await expect(
-    profile.getByRole('link', { name: 'Open Résumé in Google Drive' }),
+    profile.getByRole('link', { name: 'View Résumé' }),
   ).toHaveAttribute('href', resumeUrl);
   await profile.getByRole('button', { name: 'Save Profile' }).click();
   await expect(profile).toBeHidden();
@@ -192,9 +194,7 @@ test('Students reuse a profile, request up to five open roles and withdraw reque
   const editProfile = page.getByRole('dialog', {
     name: 'Edit Referral Profile',
   });
-  await expect(editProfile.getByLabel('Google Drive Résumé Link')).toHaveValue(
-    resumeUrl,
-  );
+  await expect(editProfile.getByLabel('Résumé Link')).toHaveValue(resumeUrl);
   await editProfile.getByRole('button', { name: 'Close dialog' }).click();
   await google.click();
   await expect(google).toBeChecked();
@@ -318,7 +318,7 @@ test('Referrers opt in, review matching candidate profiles and stop referring', 
   await expect(profile).not.toContainText('Frontend/Backend');
   await expect(profile).toContainText('Search for Zara Ahmed on Discord');
   const resume = profile.getByRole('link', {
-    name: 'Open Résumé in Google Drive',
+    name: 'View Résumé',
   });
   const resumeUrl = 'https://drive.google.com/file/d/rsp-demo-zara-ahmed/view';
   await expect(resume).toHaveAttribute('href', resumeUrl);

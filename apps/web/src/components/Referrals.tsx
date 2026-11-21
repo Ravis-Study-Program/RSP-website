@@ -44,7 +44,7 @@ import {
   PopoverTrigger,
 } from '@/components/ui/popover';
 import { Textarea } from '@/components/ui/textarea';
-import { isDriveFileURL, jobTypes, maxReferralRequests } from '@/jobs';
+import { isPublicResumeURL, jobTypes, maxReferralRequests } from '@/jobs';
 
 const referralGuidelineCopy = {
   referrals: {
@@ -555,7 +555,7 @@ function ReferralProfileForm({
   const [reason, setReason] = useState(profile.reason);
   const [resumeUrl, setResumeUrl] = useState(profile.resumeUrl);
   const [remove, setRemove] = useState(false);
-  const validResumeUrl = isDriveFileURL(resumeUrl);
+  const validResumeUrl = isPublicResumeURL(resumeUrl);
   const save = useJobActions(userId);
   return (
     <FormDialog
@@ -573,7 +573,7 @@ function ReferralProfileForm({
         label="Save Profile"
         onSave={async () => {
           if (!validResumeUrl)
-            throw new Error('Enter a Google Drive link to your résumé file.');
+            throw new Error('Enter a public link to your résumé.');
           await save('/jobs/referrals/profile', 'PUT', {
             reason,
             resumeUrl: resumeUrl.trim(),
@@ -594,9 +594,7 @@ function ReferralProfileForm({
           />
         </Field>
         <Field>
-          <FieldLabel htmlFor={`${id}-resume`}>
-            Google Drive Résumé Link
-          </FieldLabel>
+          <FieldLabel htmlFor={`${id}-resume`}>Résumé Link</FieldLabel>
           <Input
             id={`${id}-resume`}
             type="url"
@@ -607,14 +605,12 @@ function ReferralProfileForm({
             aria-describedby={`${id}-resume-help`}
           />
           <FieldDescription id={`${id}-resume-help`}>
-            In Google Drive, set General access to{' '}
-            <strong>Anyone with the link</strong> and choose{' '}
-            <strong>Viewer</strong>. Test the link in a private window before
-            saving.
+            Provide a public link to your résumé (e.g. Google Drive). Make sure
+            it opens without signing in.
           </FieldDescription>
           {validResumeUrl && (
             <ExternalLink href={resumeUrl.trim()} className="self-start">
-              Open Résumé in Google Drive
+              View Résumé
             </ExternalLink>
           )}
         </Field>
@@ -922,7 +918,7 @@ function CandidateProfile({
       </p>
       <div className="grid min-w-0 gap-1">
         <ExternalLink href={candidate.resumeUrl} className="justify-self-start">
-          Open Résumé in Google Drive
+          View Résumé
         </ExternalLink>
         <p className="text-sm break-all text-muted-foreground select-all">
           {candidate.resumeUrl}
