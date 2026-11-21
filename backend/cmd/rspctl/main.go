@@ -69,6 +69,8 @@ func parseSeedOptions(args []string) (dal.SeedOptions, error) {
 	set.StringVar(&options.DirectorEmail, "director-email", "", "existing verified Better Auth user to grant the development Director role")
 	set.StringVar(&options.SiteAdminEmail, "site-admin-email", "", "existing verified Better Auth user to grant the development Site Admin role")
 	set.StringVar(&options.AdminMentorEmail, "admin-mentor-email", "", "existing verified Better Auth user to make both a System Admin and a development mentor")
+	set.BoolVar(&options.IncludeJobs, "include-jobs", false, "add rich local Jobs and referrals fixtures")
+
 	set.BoolVar(&options.AllowExisting, "allow-existing", false, "succeed when the development season already exists")
 	if err := set.Parse(args); err != nil {
 		return dal.SeedOptions{}, err

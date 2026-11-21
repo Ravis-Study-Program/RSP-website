@@ -1,3 +1,4 @@
+import { ExternalLink } from '@/components/ExternalLink';
 import { StatusBadge } from '@/components/StatusBadge';
 import { isBlankRichText } from '@/richText';
 import { Card, CardContent } from '@/components/ui/card';
@@ -5,7 +6,6 @@ import {
   IconArrowRight,
   IconCode,
   IconCircleCheckFilled,
-  IconExternalLink,
   IconLock,
   IconMessage2,
   IconNotebook,
@@ -363,29 +363,23 @@ export function SeasonPage() {
                   ) : null}
                   {season.resourcesUrl ? (
                     <li>
-                      <a
+                      <ExternalLink
                         className={resourceLinkClass}
                         href={season.resourcesUrl}
-                        target="_blank"
-                        rel="noreferrer"
                       >
                         <span className={inlineClass}>Season Resources</span>
-                        <IconExternalLink size={17} aria-hidden="true" />
-                      </a>
+                      </ExternalLink>
                     </li>
                   ) : null}
                   <li>
-                    <a
+                    <ExternalLink
                       className={resourceLinkClass}
                       href="https://leetcode.com/problemset/"
-                      target="_blank"
-                      rel="noreferrer"
                     >
                       <span className={inlineClass}>
                         LeetCode Problem Catalogue
                       </span>
-                      <IconExternalLink size={17} aria-hidden="true" />
-                    </a>
+                    </ExternalLink>
                   </li>
                 </ul>
               </CardContent>

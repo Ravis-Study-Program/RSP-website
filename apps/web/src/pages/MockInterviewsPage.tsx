@@ -284,14 +284,11 @@ function RoundReference({ round }: { round: MockRound }) {
     <dl className="mt-1.5 grid grid-cols-[minmax(0,9rem)_1fr] items-center gap-x-3 text-xs">
       <dt className="truncate text-muted-foreground">Reference Link</dt>
       <dd className="min-w-0 truncate">
-        <a
-          href={round.link}
-          target="_blank"
-          rel="noreferrer"
-          className="font-semibold underline decoration-[0.08em] underline-offset-[0.2em] hover:decoration-[0.14em]"
-        >
-          {round.link.replace(/^https?:\/\//, '')}
-        </a>
+        <ExternalLink href={round.link} className="font-semibold">
+          <span className="truncate">
+            {round.link.replace(/^https?:\/\//, '')}
+          </span>
+        </ExternalLink>
       </dd>
     </dl>
   );

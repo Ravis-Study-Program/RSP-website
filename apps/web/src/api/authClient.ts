@@ -90,13 +90,17 @@ export function isEmailVerificationError(error: unknown) {
   );
 }
 
-export function signInWithEmail(email: string, password: string) {
+export function signInWithEmail(
+  email: string,
+  password: string,
+  callbackURL = '/dashboard',
+) {
   return authRequest<SignInResult>('/sign-in/email', {
     method: 'POST',
     body: JSON.stringify({
       email,
       password,
-      callbackURL: '/dashboard',
+      callbackURL,
       rememberMe: true,
     }),
   });
@@ -250,10 +254,13 @@ export function socialAuthError(params: URLSearchParams): string {
   return `${discord ? 'Discord' : 'Google'} sign-in could not be completed. Please try again.`;
 }
 
-export function sendVerificationEmail(email: string) {
+export function sendVerificationEmail(
+  email: string,
+  callbackURL = '/sign-in?verified=true',
+) {
   return authRequest<{ status: boolean }>('/send-verification-email', {
     method: 'POST',
-    body: JSON.stringify({ email, callbackURL: '/sign-in?verified=true' }),
+    body: JSON.stringify({ email, callbackURL }),
   });
 }
 

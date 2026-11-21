@@ -12,6 +12,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 
 import type { NavItem } from '@/navigation';
+import { BetaBadge } from '@/components/BetaBadge';
 
 const accountCommands = [
   {
@@ -124,7 +125,12 @@ export function CommandPalette({ items }: { items: NavItem[] }) {
                   onClick={() => setOpen(false)}
                 >
                   <span>
-                    <strong>{command.label}</strong>
+                    <span className="inline-flex items-center gap-1.5">
+                      <strong>{command.label}</strong>
+                      {'beta' in command && command.beta === true && (
+                        <BetaBadge />
+                      )}
+                    </span>
                     <span className="mt-0.5 block text-sm font-normal text-muted-foreground">
                       {command.description}
                     </span>

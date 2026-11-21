@@ -14,6 +14,7 @@ func registerRoutes(mux *http.ServeMux, a *API) {
 	registerMockInterviewRoutes(mux, a)
 	registerAdminRoutes(mux, a)
 	registerCanaryRoutes(mux, a)
+	registerJobRoutes(mux, a)
 }
 
 func registerSystemRoutes(mux *http.ServeMux, a *API) {
