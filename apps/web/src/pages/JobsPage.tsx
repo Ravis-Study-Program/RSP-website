@@ -37,6 +37,7 @@ import { Page, PageHeader, usePageTitle } from '@/components/Common';
 import { DataTable, ExpandRowButton } from '@/components/DataTable';
 import { ExternalLink } from '@/components/ExternalLink';
 import { NamedConfirmation } from '@/components/Dialogs';
+import { InfoTip } from '@/components/InfoTip';
 import {
   CompanyForm,
   JobSelect,
@@ -56,6 +57,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { PopoverTitle } from '@/components/ui/popover';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { cn } from '@/lib/utils';
 import { formatCalendarDay } from '@/utils';
@@ -113,6 +115,7 @@ export function JobsPage() {
           status={
             <>
               <BetaBadge />
+              <JobsHelp />
               {guidelinesLink}
             </>
           }
@@ -175,6 +178,53 @@ export function JobsPage() {
     >
       {renderPage}
     </ReferralGuidelines>
+  );
+}
+
+function JobsHelp() {
+  return (
+    <InfoTip
+      label="What each Jobs tab does"
+      size={18}
+      contentClassName="max-h-(--available-height) w-96 max-w-[calc(100vw-1.5rem)] overflow-y-auto overscroll-contain p-4"
+    >
+      <PopoverTitle className="sr-only">What each Jobs tab does</PopoverTitle>
+      <dl className="grid gap-2.5">
+        <div>
+          <dt className="font-semibold text-foreground">Positions</dt>
+          <dd>
+            Start here to find roles. Apply on the employer’s site, then tick{' '}
+            <strong>Applied</strong> in RSP to add the role to My Applications.
+          </dd>
+        </div>
+        <div>
+          <dt className="font-semibold text-foreground">My Applications</dt>
+          <dd>
+            Open an application to update its status or log interview stages,
+            dates, and private notes. Share Progress adds your stages to the
+            position’s shared counts. Your name, dates, and notes stay private.
+          </dd>
+        </div>
+        <div>
+          <dt className="font-semibold text-foreground">Request Referrals</dt>
+          <dd>
+            Create a profile with a Google Drive résumé link set to “Anyone with
+            the link” and a short note about why you’d be a good referral. Use
+            that profile to request up to five open roles at a time. A referrer
+            may reach out on Discord.
+          </dd>
+        </div>
+        <div>
+          <dt className="font-semibold text-foreground">Refer Candidates</dt>
+          <dd>
+            If you’ve graduated from RSP, choose Open to Referring and pick a
+            company you work for. You’ll see who’s requested a referral there,
+            which roles they want, and their résumé links. Reach out on Discord
+            if you can help.
+          </dd>
+        </div>
+      </dl>
+    </InfoTip>
   );
 }
 
