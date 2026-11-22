@@ -10,20 +10,16 @@ import type { MondayUpdate } from '@/api/generated/models';
 import {
   useCurrentUser,
   useMondayUpdates,
+  useSeasonEnrollments,
   useSeasons,
   useSeasonPeople,
   useSeasonWeeks,
 } from '@/api/queries';
 import { Page, PageHeader, usePageTitle } from '@/components/Common';
-import {
-  PeopleTable,
-  StudentRowActions,
-  type PersonLatestMark,
-} from '@/components/PeopleTable';
+import { PeopleTable, type PersonLatestMark } from '@/components/PeopleTable';
+import { PersonRowActions } from '@/components/PersonRowActions';
 import { pickLatestMark } from '@/mondayMarks';
 import { weekStatus } from '@/mondayStatus';
-import { canSetStudentLevel } from '@/studentLevels';
-import { RemovalDialog } from '@/components/RemovalDialog';
 import type { Person } from '@/types';
 import { calendarDateKey } from '@/utils';
 import { useSeasonSwitcher } from '@/components/useSeasonSwitcher';
@@ -72,7 +68,21 @@ export function MenteesPage({ scope }: { scope?: 'mine' } = {}) {
       mentoredSeasonIds.has(item.id),
     ),
   );
-  const canChangeLevel = canSetStudentLevel(currentUser.data, season);
+  // The row menu is the People one, with the same rules; correcting an
+  // enrollment needs the enrollment itself.
+  const viewer = currentUser.data;
+  const correctsEnrollments = Boolean(
+    viewer?.globalRoles.length ||
+    viewer?.seasonRoles.some(
+      (membership) =>
+        membership.seasonId === season?.id &&
+        membership.role === 'coordinator' &&
+        membership.state === 'active',
+    ),
+  );
+  const enrollments = useSeasonEnrollments(
+    season && correctsEnrollments ? season.id : undefined,
+  );
   const mentees = useMemo(
     () =>
       (query.data?.items ?? []).filter((person) => {
@@ -206,29 +216,17 @@ export function MenteesPage({ scope }: { scope?: 'mine' } = {}) {
         latestMark={showLatestMark ? latestMarkState : undefined}
         showThisWeek={showLatestMark && Boolean(dueWeek)}
         renderActions={(person) => (
-          <StudentRowActions
+          <PersonRowActions
+            viewer={viewer}
             person={person}
-            seasonId={season?.id}
-            canSetLevel={
-              canChangeLevel &&
-              Boolean(season) &&
-              person.enrollmentState === 'active'
-            }
-            canRemove={
-              canChangeLevel &&
-              person.enrollmentState === 'active' &&
-              (canManageEveryStudent ||
-                person.mentorshipMentorId === currentUser.data?.id)
-            }
-            onLevelChanged={() => void query.refetch()}
-            renderRemoveDialog={(dialog) => (
-              <RemovalDialog
-                {...dialog}
-                seasonId={season?.id}
-                person={person}
-                onRemoved={() => void query.refetch()}
-              />
+            season={season}
+            seasons={seasons.data?.items ?? []}
+            enrollment={enrollments.data?.items.find(
+              (item) => item.id === person.enrollmentId,
             )}
+            onChanged={() =>
+              void Promise.all([query.refetch(), enrollments.refetch()])
+            }
           />
         )}
         loading={query.isLoading || seasons.isLoading || currentUser.isLoading}

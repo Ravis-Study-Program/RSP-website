@@ -9,4 +9,6 @@
 export interface InvitationInvitee {
   name: string;
   email: string;
+  /** A username to start sign-up with. It is the one the invitation names, or else one made from the name. */
+  username: string;
 }

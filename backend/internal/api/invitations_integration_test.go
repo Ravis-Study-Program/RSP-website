@@ -60,6 +60,18 @@ func TestInvitationLifecycleAndVerifiedEmail(t *testing.T) {
 	}
 	firstEmail := "first-invitee@example.com"
 	v := create(firstEmail)
+	// An invitation can be accepted for 14 days, and a resent one for 14 more.
+	expiresIn := func() time.Duration {
+		t.Helper()
+		var expires time.Time
+		if err := f.pool.QueryRow(ctx, `SELECT expires_at FROM app.season_invitations WHERE id=$1`, v.ID).Scan(&expires); err != nil {
+			t.Fatal(err)
+		}
+		return time.Until(expires)
+	}
+	if left := expiresIn(); left < 14*24*time.Hour-time.Minute || left > 14*24*time.Hour {
+		t.Fatalf("new invitation expires in %s", left)
+	}
 	var users, members int
 	if err := f.pool.QueryRow(ctx, `SELECT (SELECT count(*) FROM app.users),(SELECT count(*) FROM app.enrollments WHERE season_id=$1)`, newSeason).Scan(&users, &members); err != nil || users != 2 || members != 0 {
 		t.Fatalf("inviting precreated records: users=%d members=%d %v", users, members, err)
@@ -71,6 +83,9 @@ func TestInvitationLifecycleAndVerifiedEmail(t *testing.T) {
 	res = testRequest(t, handler, http.MethodPost, "/api/v2/seasons/"+newSeason+"/invitations/"+v.ID+"/resend", "admin", "")
 	if res.Code != 200 || len(emails) != 2 {
 		t.Fatalf("resend=%d %s", res.Code, res.Body)
+	}
+	if left := expiresIn(); left < 14*24*time.Hour-time.Minute || left > 14*24*time.Hour {
+		t.Fatalf("resent invitation expires in %s", left)
 	}
 	res = testRequest(t, handler, http.MethodPost, "/api/v2/invitations/accept", "student", tokenBody(0))
 	if res.Code != 404 {
@@ -535,6 +550,127 @@ func TestInvitationUsernameAppliesToNewAccounts(t *testing.T) {
 	}
 }
 
+func TestInvitationBatchRenamesExistingAccounts(t *testing.T) {
+	f := newPostgresFixture(t)
+	ctx := context.Background()
+	season, later, direct := id.New(), id.New(), id.New()
+	now := time.Now()
+	if _, err := f.pool.Exec(ctx, `INSERT INTO app.seasons(id,slug,name,start_at,end_at) VALUES
+		($1,'rename-season','Rename season',now(),now()+interval '1 year'),
+		($2,'later-season','Later season',now(),now()+interval '1 year'),
+		($3,'direct-season','Direct season',now(),now()+interval '1 year')`, season, later, direct); err != nil {
+		t.Fatal(err)
+	}
+	var emails []authadmin.InvitationEmailInput
+	var added []authadmin.SeasonAddedEmailInput
+	admin := authz.Actor{UserID: otherID, EmailVerified: true, AccountState: authz.AccountActive, GlobalRoles: map[authz.GlobalRole]bool{authz.SystemAdmin: true}, MFAAt: &now}
+	handler := New(Config{DB: f.db, PublicOrigin: "https://rsp.test", Authenticator: AuthenticatorFunc(func(_ context.Context, token string) (authz.Actor, error) {
+		v := admin
+		if token == "director" {
+			v.GlobalRoles = map[authz.GlobalRole]bool{authz.Director: true}
+		}
+		return v, nil
+	}), SendInvitation: func(_ context.Context, email authadmin.InvitationEmailInput) error {
+		emails = append(emails, email)
+		return nil
+	}, SendSeasonAdded: func(_ context.Context, email authadmin.SeasonAddedEmailInput) error {
+		added = append(added, email)
+		return nil
+	}}).Handler()
+	send := func(seasonID, path, token, rows string) invitationBatchResult {
+		t.Helper()
+		res := testRequest(t, handler, http.MethodPost, "/api/v2/seasons/"+seasonID+"/invitations/batch"+path, token, rows)
+		var body struct {
+			Results []invitationBatchResult `json:"results"`
+		}
+		if err := json.Unmarshal(res.Body.Bytes(), &body); err != nil || res.Code != 200 || len(body.Results) != 1 {
+			t.Fatalf("batch%s=%d %s", path, res.Code, res.Body)
+		}
+		return body.Results[0]
+	}
+	profile := func() (name, slug string) {
+		t.Helper()
+		if err := f.pool.QueryRow(ctx, `SELECT display_name, slug FROM app.user_profiles WHERE user_id=$1`, studentID).Scan(&name, &slug); err != nil {
+			t.Fatal(err)
+		}
+		return name, slug
+	}
+	// The fixture's student (Student, @student) has an account but is not in
+	// the season. With no username in the row, one is made from the name.
+	row := `{"invitations":[{"name":"Maddie Frew","email":"private@example.com","role":"student"}]}`
+	want := []importChange{{"name", "Student", "Maddie Frew"}, {"slug", "student", "maddie-frew"}}
+	preview := send(season, "/preview", "admin", row)
+	if preview.Outcome != "invite" || preview.Person != "account" || preview.Slug != "maddie-frew" ||
+		fmt.Sprint(preview.Changes) != fmt.Sprint(want) || len(preview.Skipped) != 0 {
+		t.Fatalf("System Admin preview = %+v", preview)
+	}
+	// Anyone else is told the name and username are not theirs to change.
+	skipped := send(season, "/preview", "director", row)
+	if skipped.Outcome != "invite" || skipped.Slug != "student" || len(skipped.Changes) != 0 ||
+		fmt.Sprint(skipped.Skipped) != fmt.Sprint(want) {
+		t.Fatalf("director preview = %+v", skipped)
+	}
+	if name, slug := profile(); name != "Student" || slug != "student" {
+		t.Fatalf("a preview changed the profile: %q @%s", name, slug)
+	}
+	if len(added) != 0 {
+		t.Fatalf("a preview sent email: %+v", added)
+	}
+	if sent := send(season, "", "admin", row); sent.Outcome != "invited" || sent.Invitation == nil || sent.Invitation.Status != "accepted" {
+		t.Fatalf("sent = %+v", sent)
+	}
+	if name, slug := profile(); name != "Maddie Frew" || slug != "maddie-frew" {
+		t.Fatalf("profile after import = %q @%s", name, slug)
+	}
+	// They join straight away: instead of an invitation, they are told they
+	// were added, with nothing to do.
+	if len(emails) != 0 {
+		t.Fatalf("an existing account was sent an invitation: %+v", emails)
+	}
+	if len(added) != 1 || added[0].To != "private@example.com" || added[0].Name != "Maddie Frew" ||
+		added[0].Season != "Rename season" || added[0].Role != "student" ||
+		added[0].URL != "https://rsp.test/seasons/rename-season" || added[0].InviterName != "Other" {
+		t.Fatalf("season added emails = %+v", added)
+	}
+	var role string
+	if err := f.pool.QueryRow(ctx, `SELECT role::text FROM app.enrollments WHERE season_id=$1 AND user_id=$2 AND state='active'`, season, studentID).Scan(&role); err != nil || role != "student" {
+		t.Fatalf("enrollment = %q %v", role, err)
+	}
+
+	// A username already made from their name, numbered because someone else
+	// had it, is kept; a username written in the row replaces it.
+	if _, err := f.pool.Exec(ctx, `UPDATE app.user_profiles SET slug='maddie-frew2' WHERE user_id=$1`, studentID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := f.pool.Exec(ctx, `UPDATE app.user_profiles SET slug='maddie-frew' WHERE user_id=$1`, otherID); err != nil {
+		t.Fatal(err)
+	}
+	if kept := send(later, "/preview", "admin", row); kept.Slug != "maddie-frew2" || len(kept.Changes) != 0 {
+		t.Fatalf("numbered username should be kept: %+v", kept)
+	}
+	chosen := send(later, "", "admin", `{"invitations":[{"name":"Maddie Frew","email":"private@example.com","role":"student","slug":"maddie"}]}`)
+	if chosen.Outcome != "invited" || chosen.Slug != "maddie" || fmt.Sprint(chosen.Changes) != fmt.Sprint([]importChange{{"slug", "maddie-frew2", "maddie"}}) {
+		t.Fatalf("chosen username = %+v", chosen)
+	}
+	if _, slug := profile(); slug != "maddie" {
+		t.Fatalf("slug after import = %s", slug)
+	}
+
+	// Added to a season directly, without an invitation, they are told too.
+	added = nil
+	res := testRequest(t, handler, http.MethodPost, "/api/v2/seasons/"+direct+"/members", "admin", fmt.Sprintf(`{"userId":%q,"role":"mentor"}`, studentID))
+	if res.Code != http.StatusCreated {
+		t.Fatalf("add member=%d %s", res.Code, res.Body)
+	}
+	if len(added) != 1 || added[0].To != "private@example.com" || added[0].Season != "Direct season" ||
+		added[0].Role != "mentor" || added[0].URL != "https://rsp.test/seasons/direct-season" {
+		t.Fatalf("season added emails = %+v", added)
+	}
+	if len(emails) != 0 {
+		t.Fatalf("invitation emails = %+v", emails)
+	}
+}
+
 func TestInvitationBatchStudentCanNameMentorInvitedInTheSameBatch(t *testing.T) {
 	f := newPostgresFixture(t)
 	ctx := context.Background()
@@ -704,5 +840,99 @@ func TestInvitationBatchIsAllOrNothing(t *testing.T) {
 	]}`)
 	if !applied || count() != 2 || len(emails) != 2 {
 		t.Fatalf("import applied=%v invitations=%d emails=%d", applied, count(), len(emails))
+	}
+}
+
+func TestSignUpNeedsAnInvitationAndKeepsTheChosenUsername(t *testing.T) {
+	f := newPostgresFixture(t)
+	ctx := context.Background()
+	const serviceToken = "sign-up-test-service-token-0000000000"
+	t.Setenv("IDENTITY_SERVICE_TOKEN", serviceToken)
+	season := id.New()
+	now := time.Now()
+	if _, err := f.pool.Exec(ctx, `INSERT INTO app.seasons(id,slug,name,start_at,end_at) VALUES($1,'sign-up-season','Sign-up season',now(),now()+interval '1 year')`, season); err != nil {
+		t.Fatal(err)
+	}
+	var emails []authadmin.InvitationEmailInput
+	admin := authz.Actor{UserID: otherID, EmailVerified: true, AccountState: authz.AccountActive, GlobalRoles: map[authz.GlobalRole]bool{authz.SystemAdmin: true}, MFAAt: &now}
+	handler := New(Config{DB: f.db, PublicOrigin: "https://rsp.test", Authenticator: AuthenticatorFunc(func(context.Context, string) (authz.Actor, error) {
+		return admin, nil
+	}), SendInvitation: func(_ context.Context, email authadmin.InvitationEmailInput) error {
+		emails = append(emails, email)
+		return nil
+	}}).Handler()
+	if res := testRequest(t, handler, http.MethodPost, "/api/v2/seasons/"+season+"/invitations", "admin", `{"name":"Riley Signup","email":"riley@example.test","role":"student"}`); res.Code != 201 {
+		t.Fatalf("invite=%d %s", res.Code, res.Body)
+	}
+	u, _ := url.Parse(emails[0].URL)
+	token := strings.TrimPrefix(u.Fragment, "token=")
+
+	// The invitee endpoint suggests a username made from the invited name.
+	res := testRequest(t, handler, http.MethodPost, "/api/v2/invitations/invitee", "", fmt.Sprintf(`{"token":%q}`, token))
+	var invitee map[string]string
+	if err := json.Unmarshal(res.Body.Bytes(), &invitee); err != nil || res.Code != 200 || invitee["name"] != "Riley Signup" || invitee["email"] != "riley@example.test" || invitee["username"] != "riley-signup" {
+		t.Fatalf("invitee=%d %s", res.Code, res.Body)
+	}
+
+	type check struct {
+		Matches bool   `json:"matches"`
+		Name    string `json:"name"`
+		Problem string `json:"problem"`
+	}
+	ask := func(body string) check {
+		t.Helper()
+		res := testRequest(t, handler, http.MethodPost, "/internal/auth/invitation-email", serviceToken, body)
+		var v check
+		if err := json.Unmarshal(res.Body.Bytes(), &v); err != nil || res.Code != 200 {
+			t.Fatalf("check=%d %s", res.Code, res.Body)
+		}
+		return v
+	}
+	// Only the auth service may ask.
+	if res := testRequest(t, handler, http.MethodPost, "/internal/auth/invitation-email", "", `{"email":"riley@example.test"}`); res.Code != http.StatusUnauthorized && res.Code != http.StatusForbidden {
+		t.Fatalf("unauthenticated check=%d", res.Code)
+	}
+	// The token must be for this email; Google sign-up (no token) needs a
+	// live invitation to the email; anyone else is refused.
+	if v := ask(fmt.Sprintf(`{"token":%q,"email":"someone-else@example.test"}`, token)); v.Matches {
+		t.Fatalf("other email matched: %+v", v)
+	}
+	if v := ask(`{"email":"Riley@Example.test"}`); !v.Matches || v.Name != "Riley Signup" {
+		t.Fatalf("google check=%+v", v)
+	}
+	if v := ask(`{"email":"uninvited@example.test"}`); v.Matches {
+		t.Fatalf("uninvited matched: %+v", v)
+	}
+	// A taken or malformed username is a problem and is not saved.
+	for _, bad := range []string{"other", "no spaces"} {
+		if v := ask(fmt.Sprintf(`{"token":%q,"email":"riley@example.test","username":%q}`, token, bad)); !v.Matches || v.Problem == "" {
+			t.Fatalf("username %q check=%+v", bad, v)
+		}
+	}
+	// A free one is saved to the invitation, so accepting keeps it.
+	if v := ask(fmt.Sprintf(`{"token":%q,"email":"riley@example.test","username":"Riley-R"}`, token)); !v.Matches || v.Name != "Riley Signup" || v.Problem != "" {
+		t.Fatalf("username check=%+v", v)
+	}
+	var saved string
+	if err := f.pool.QueryRow(ctx, `SELECT profile_slug FROM app.season_invitations WHERE email='riley@example.test'`).Scan(&saved); err != nil || saved != "riley-r" {
+		t.Fatalf("saved slug=%q %v", saved, err)
+	}
+
+	// The account created for them starts with that username.
+	event := fmt.Sprintf(`{"eventId":%q,"type":"auth_user_created","authUserId":"auth-riley","email":"riley@example.test","name":"Riley Signup","username":"riley-r","emailVerified":true,"securityVersion":1,"occurredAt":%q}`, id.New(), now.UTC().Format(time.RFC3339Nano))
+	if res := testRequest(t, handler, http.MethodPost, "/internal/auth/lifecycle-events", serviceToken, event); res.Code != http.StatusNoContent {
+		t.Fatalf("created=%d %s", res.Code, res.Body)
+	}
+	var slug string
+	if err := f.pool.QueryRow(ctx, `SELECT p.slug FROM app.user_profiles p JOIN app.user_auth_links l ON l.user_id=p.user_id WHERE l.auth_subject='auth-riley'`).Scan(&slug); err != nil || slug != "riley-r" {
+		t.Fatalf("profile slug=%q %v", slug, err)
+	}
+	// A username taken meanwhile falls back to one made from the name.
+	event = fmt.Sprintf(`{"eventId":%q,"type":"auth_user_created","authUserId":"auth-late","email":"late@example.test","name":"Late Comer","username":"riley-r","emailVerified":true,"securityVersion":1,"occurredAt":%q}`, id.New(), now.UTC().Format(time.RFC3339Nano))
+	if res := testRequest(t, handler, http.MethodPost, "/internal/auth/lifecycle-events", serviceToken, event); res.Code != http.StatusNoContent {
+		t.Fatalf("created=%d %s", res.Code, res.Body)
+	}
+	if err := f.pool.QueryRow(ctx, `SELECT p.slug FROM app.user_profiles p JOIN app.user_auth_links l ON l.user_id=p.user_id WHERE l.auth_subject='auth-late'`).Scan(&slug); err != nil || slug != "late-comer" {
+		t.Fatalf("fallback slug=%q %v", slug, err)
 	}
 }

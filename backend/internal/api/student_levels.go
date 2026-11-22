@@ -9,11 +9,44 @@ import (
 	"github.com/Ravis-Study-Program/RSP-website/backend/internal/practice"
 )
 
-func (a *API) updateStudentLevel(w http.ResponseWriter, r *http.Request) {
+// authorizeStudentDetails allows a student's details (level, goals, weekly
+// hours) to a season administrator or the student's current mentor, not
+// another mentor or a past one. It writes the refusal when it returns false.
+func (a *API) authorizeStudentDetails(w http.ResponseWriter, r *http.Request) bool {
 	actor := actorFrom(r.Context())
 	seasonID := r.PathValue("id")
 	if !actor.CanSetStudentLevel(seasonID) {
 		writeErrorResponse(w, http.StatusForbidden, "An active mentor or administrator for this season is required.")
+		return false
+	}
+	if actor.IsSeasonAdmin(seasonID) {
+		return true
+	}
+	member, err := a.db.GetEnrollment(r.Context(), r.PathValue("memberId"))
+	if err != nil {
+		a.writeStoreErrorResponse(w, err)
+		return false
+	}
+	if member.SeasonID != seasonID {
+		writeErrorResponse(w, http.StatusNotFound, "The enrollment does not exist.")
+		return false
+	}
+	assigned, err := a.db.IsMentorAssigned(r.Context(), seasonID, actor.UserID, member.UserID)
+	if err != nil {
+		a.writeStoreErrorResponse(w, err)
+		return false
+	}
+	if !assigned {
+		writeErrorResponse(w, http.StatusForbidden, "Only the student's current mentor or a season administrator can change their details.")
+		return false
+	}
+	return true
+}
+
+func (a *API) updateStudentLevel(w http.ResponseWriter, r *http.Request) {
+	actor := actorFrom(r.Context())
+	seasonID := r.PathValue("id")
+	if !a.authorizeStudentDetails(w, r) {
 		return
 	}
 	var request struct {
@@ -41,10 +74,8 @@ func (a *API) updateStudentLevel(w http.ResponseWriter, r *http.Request) {
 // getStudentRequirements returns a student's own goals and weekly hours, for
 // the mentors and coordinators who can change them.
 func (a *API) getStudentRequirements(w http.ResponseWriter, r *http.Request) {
-	actor := actorFrom(r.Context())
 	seasonID := r.PathValue("id")
-	if !actor.CanSetStudentLevel(seasonID) {
-		writeErrorResponse(w, http.StatusForbidden, "An active mentor or administrator for this season is required.")
+	if !a.authorizeStudentDetails(w, r) {
 		return
 	}
 	own, err := a.db.GetStudentRequirements(r.Context(), seasonID, r.PathValue("memberId"))
@@ -60,8 +91,7 @@ func (a *API) getStudentRequirements(w http.ResponseWriter, r *http.Request) {
 func (a *API) putStudentRequirements(w http.ResponseWriter, r *http.Request) {
 	actor := actorFrom(r.Context())
 	seasonID := r.PathValue("id")
-	if !actor.CanSetStudentLevel(seasonID) {
-		writeErrorResponse(w, http.StatusForbidden, "An active mentor or administrator for this season is required.")
+	if !a.authorizeStudentDetails(w, r) {
 		return
 	}
 	var request practice.StudentRequirements

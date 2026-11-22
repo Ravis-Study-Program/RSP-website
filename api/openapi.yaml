@@ -2774,7 +2774,7 @@ components:
           description: "A student's mentor, by email, username or full name."
         slug:
           type: string
-          description: The person's username, if their account is new.
+          description: "The person's username. Blank gives one made from their name. For an existing account, a System Admin's import changes it (and their name) to match the row."
     InvitationBatchResults:
       type: object
       required: [results]
@@ -2825,10 +2825,13 @@ components:
         reason: { type: string, minLength: 1, maxLength: 500 }
     InvitationInvitee:
       type: object
-      required: [name, email]
+      required: [name, email, username]
       properties:
         name: { type: string }
         email: { type: string, format: email }
+        username:
+          type: string
+          description: A username to start sign-up with. It is the one the invitation names, or else one made from the name.
     InvitationCreate:
       type: object
       required: [name, email, role]

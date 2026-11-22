@@ -15,11 +15,6 @@ test('Discord is for returning members and explains unlinked accounts', async ({
   await expect(
     page.getByRole('button', { name: 'Continue with Discord' }),
   ).toBeVisible();
-  await page.getByRole('tab', { name: 'Create Account' }).click();
-  await expect(
-    page.getByRole('button', { name: 'Continue with Discord' }),
-  ).toHaveCount(0);
-  await page.getByRole('tab', { name: 'Sign In', exact: true }).click();
   let body: Record<string, unknown> | undefined;
   await page.route('**/api/auth/sign-in/social', async (route) => {
     body = route.request().postDataJSON();

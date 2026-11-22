@@ -15,11 +15,27 @@ import (
 	"github.com/Ravis-Study-Program/RSP-website/backend/internal/program"
 )
 
-func TestAnySeasonMentorCanSetStudentLevel(t *testing.T) {
+// assignMentor makes the fixture's mentor (other) the student's mentor.
+func assignMentor(t *testing.T, fixture postgresFixture) {
+	t.Helper()
+	if _, err := fixture.db.CreateMentorship(context.Background(), program.MentorshipRecord{
+		ID: id.New(), SeasonID: seasonID, MentorUserID: otherID, StudentUserID: studentID,
+	}, otherID, time.Now()); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestOnlyTheCurrentMentorSetsStudentLevel(t *testing.T) {
 	fixture := newPostgresFixture(t)
 	ctx := context.Background()
 	path := "/api/v2/seasons/" + seasonID + "/members/" + studentMemberID + "/student-level"
-	// No mentorship exists: the season mentor can still set all four levels.
+	// A season mentor who is not the student's mentor cannot.
+	if response := testRequest(t, fixture.handler, http.MethodPatch, path, "other", `{"studentLevel":"advanced"}`); response.Code != http.StatusForbidden {
+		t.Fatalf("unassigned mentor status=%d body=%s", response.Code, response.Body)
+	}
+	// Their current mentor can set all four levels, and the mentorship
+	// survives each change.
+	assignMentor(t, fixture)
 	for _, level := range []string{"novice", "beginner", "intermediate", "advanced"} {
 		response := testRequest(t, fixture.handler, http.MethodPatch, path, "other", `{"studentLevel":"`+level+`"}`)
 		if response.Code != http.StatusOK {
@@ -32,12 +48,6 @@ func TestAnySeasonMentorCanSetStudentLevel(t *testing.T) {
 		if member.Role != "student" || member.State != "active" || member.StudentLevel != level {
 			t.Fatalf("member=%+v", member)
 		}
-	}
-	// An existing mentor assignment must survive a level change too.
-	if _, err := fixture.db.CreateMentorship(ctx, program.MentorshipRecord{
-		ID: id.New(), SeasonID: seasonID, MentorUserID: otherID, StudentUserID: studentID,
-	}, otherID, time.Now()); err != nil {
-		t.Fatal(err)
 	}
 	response := testRequest(t, fixture.handler, http.MethodPatch, path, "other", `{"studentLevel":"intermediate"}`)
 	if response.Code != http.StatusOK {
@@ -57,6 +67,13 @@ func TestAnySeasonMentorCanSetStudentLevel(t *testing.T) {
 	if err != nil || stored.StudentLevel != "intermediate" || stored.Role != "student" {
 		t.Fatalf("stored=%+v err=%v", stored, err)
 	}
+	// Once the mentorship ends, their past mentor cannot.
+	if _, err := fixture.pool.Exec(ctx, `UPDATE app.mentorships SET ended_at=now()`); err != nil {
+		t.Fatal(err)
+	}
+	if response := testRequest(t, fixture.handler, http.MethodPatch, path, "other", `{"studentLevel":"advanced"}`); response.Code != http.StatusForbidden {
+		t.Fatalf("past mentor status=%d body=%s", response.Code, response.Body)
+	}
 }
 
 func TestStudentLevelRestrictions(t *testing.T) {
@@ -67,13 +84,14 @@ func TestStudentLevelRestrictions(t *testing.T) {
 		{"student cannot promote", "student", studentMemberID, `{"studentLevel":"advanced"}`, "", http.StatusForbidden},
 		{"invalid level", "other", studentMemberID, `{"studentLevel":"expert"}`, "", http.StatusBadRequest},
 		{"role cannot be injected", "other", studentMemberID, `{"studentLevel":"advanced","role":"mentor"}`, "", http.StatusBadRequest},
-		{"mentor target", "other", otherMemberID, `{"studentLevel":"advanced"}`, "", http.StatusConflict},
+		{"not their student", "other", otherMemberID, `{"studentLevel":"advanced"}`, "", http.StatusForbidden},
 		{"inactive student", "other", studentMemberID, `{"studentLevel":"advanced"}`, `UPDATE app.enrollments SET state='withdrawn',assignment_state='revoked',activated_at=NULL WHERE id='` + studentMemberID + `'`, http.StatusConflict},
 		{"closed season", "other", studentMemberID, `{"studentLevel":"advanced"}`, `UPDATE app.seasons SET status='closed',closed_at=now() WHERE id='` + seasonID + `'`, http.StatusConflict},
 		{"member in another season", "other", studentMemberID, `{"studentLevel":"advanced"}`, `INSERT INTO app.seasons(id,slug,name,status,start_at,end_at,location) SELECT '00000000-0000-7000-8000-000000000999','different','Different',status,start_at,end_at,location FROM app.seasons; UPDATE app.enrollments SET season_id='00000000-0000-7000-8000-000000000999' WHERE id='` + studentMemberID + `'`, http.StatusNotFound},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			fixture := newPostgresFixture(t)
+			assignMentor(t, fixture)
 			if test.setup != "" {
 				if _, err := fixture.pool.Exec(context.Background(), test.setup); err != nil {
 					t.Fatal(err)
@@ -134,10 +152,18 @@ func TestMentorSetsStudentRequirements(t *testing.T) {
 	if response := testRequest(t, fixture.handler, http.MethodPut, path, "student", `{"easyMinutes":15}`); response.Code != http.StatusForbidden {
 		t.Fatalf("student status=%d body=%s", response.Code, response.Body)
 	}
+	// Only the student's current mentor sets them, not any season mentor.
+	if response := testRequest(t, fixture.handler, http.MethodGet, path, "other", ""); response.Code != http.StatusForbidden {
+		t.Fatalf("unassigned get status=%d body=%s", response.Code, response.Body)
+	}
+	if response := testRequest(t, fixture.handler, http.MethodPut, path, "other", `{"easyMinutes":15}`); response.Code != http.StatusForbidden {
+		t.Fatalf("unassigned put status=%d body=%s", response.Code, response.Body)
+	}
+	assignMentor(t, fixture)
 	if response := testRequest(t, fixture.handler, http.MethodPut, path, "other", `{"weeklyHours":200}`); response.Code != http.StatusBadRequest {
 		t.Fatalf("invalid status=%d body=%s", response.Code, response.Body)
 	}
-	// A season mentor sets an easy goal and weekly hours; the rest follow the
+	// Their mentor sets an easy goal and weekly hours; the rest follow the
 	// program's defaults.
 	response := testRequest(t, fixture.handler, http.MethodPut, path, "other", `{"easyMinutes":15,"weeklyHours":20}`)
 	if response.Code != http.StatusOK {

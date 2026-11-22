@@ -44,7 +44,7 @@ verifies that same email address, then explicitly accepts. Enrollment is created
 only on acceptance. Inviting someone does not create an account or move any
 existing account's activity. Coordinator access waits for MFA setup.
 
-An invitation lasts seven days and can be accepted once. Resending gives it a new
+An invitation lasts 14 days and can be accepted once. Resending gives it a new
 link and expiry and invalidates the old link. Cancellation invalidates the link.
 The administration screen displays pending, accepted, expired, cancelled and
 unsent invitations. Existing members cannot receive a duplicate enrollment in

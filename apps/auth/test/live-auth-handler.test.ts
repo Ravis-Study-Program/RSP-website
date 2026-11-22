@@ -3,7 +3,13 @@ import { createServer, type Server } from 'node:http';
 
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
-import { accountLifecycle, auth, pool } from '../src/auth.js';
+import {
+  accountLifecycle,
+  auth,
+  pool,
+  serviceSignUpHeader,
+} from '../src/auth.js';
+import { config } from '../src/config.js';
 import type { EmailProvider } from '../src/email/provider.js';
 import type { IdentityLifecycleGateway } from '../src/identity/gateway.js';
 import {
@@ -60,9 +66,15 @@ async function call(
     body?: unknown;
     cookies?: CookieJar;
     backupCodeCandidate?: string;
+    /** Sign up as a visitor would, without the operators' service token. */
+    uninvited?: boolean;
   } = {},
 ): Promise<Response> {
   const headers = new Headers({ origin });
+  // Accounts are by invitation only; the suite's own accounts are made the
+  // way the operators' scripts make them.
+  if (path === '/sign-up/email' && !options.uninvited)
+    headers.set(serviceSignUpHeader, `Bearer ${config.identityService.token}`);
   if (options.body !== undefined)
     headers.set('content-type', 'application/json');
   if (options.cookies && options.cookies.values.size > 0) {
@@ -212,6 +224,8 @@ live.sequential('live Better Auth handler and PostgreSQL', () => {
   let resetRateLimiter: (() => void) | undefined;
   let identityServer: Server | undefined;
   let failNextIdentityCallback = false;
+  const invitationToken = 'i'.repeat(43);
+  const invitedEmail = `auth-invited-${suffix}@example.test`;
 
   async function resetAuthRateLimits(): Promise<void> {
     // The suite intentionally performs more than five sign-ins while
@@ -223,6 +237,34 @@ live.sequential('live Better Auth handler and PostgreSQL', () => {
 
   beforeAll(async () => {
     identityServer = createServer((request, response) => {
+      if (
+        request.method === 'POST' &&
+        request.url === '/internal/auth/invitation-email'
+      ) {
+        let body = '';
+        request.on('data', (chunk) => {
+          body += String(chunk);
+        });
+        request.on('end', () => {
+          const check = JSON.parse(body) as {
+            token?: string;
+            email: string;
+            username?: string;
+          };
+          const matches =
+            check.token === invitationToken && check.email === invitedEmail;
+          response.writeHead(200, { 'content-type': 'application/json' }).end(
+            JSON.stringify({
+              matches,
+              ...(matches ? { name: 'Invited Name' } : {}),
+              ...(matches && check.username === 'taken-name'
+                ? { problem: 'The username "taken-name" is taken.' }
+                : {}),
+            }),
+          );
+        });
+        return;
+      }
       if (
         request.method === 'POST' &&
         request.url === '/internal/auth/lifecycle-events'
@@ -358,6 +400,107 @@ live.sequential('live Better Auth handler and PostgreSQL', () => {
     } finally {
       await pool.query('DELETE FROM auth.users WHERE id=$1', [targetId]);
     }
+  });
+
+  it('creates accounts only from an invitation, with its name and the chosen username', async () => {
+    await resetAuthRateLimits();
+    const signUp = (body: Record<string, unknown>) =>
+      call('/sign-up/email', {
+        uninvited: true,
+        body: { name: 'Typed Name', password, ...body },
+      });
+    const refused = await signUp({
+      email: `auth-uninvited-${suffix}@example.test`,
+    });
+    expect(refused.status).toBe(400);
+    expect(await refused.json()).toMatchObject({ code: 'INVITATION_REQUIRED' });
+    // A token for another address is no invitation either.
+    const otherAddress = await signUp({
+      email: `auth-uninvited-${suffix}@example.test`,
+      invitationToken,
+    });
+    expect(otherAddress.status).toBe(400);
+    const taken = await signUp({
+      email: invitedEmail,
+      invitationToken,
+      username: 'taken-name',
+    });
+    expect(taken.status).toBe(400);
+    expect(await taken.json()).toMatchObject({
+      code: 'USERNAME_UNAVAILABLE',
+      detail: 'The username "taken-name" is taken.',
+    });
+    const invited = await signUp({
+      email: invitedEmail,
+      invitationToken,
+      username: 'Chosen-Name',
+    });
+    expect(invited.status).toBe(200);
+    const created = await pool.query<{
+      name: string;
+      email_verified: boolean;
+    }>('SELECT name, email_verified FROM auth.users WHERE email = $1', [
+      invitedEmail,
+    ]);
+    expect(created.rows[0]).toEqual({
+      name: 'Invited Name',
+      email_verified: true,
+    });
+    const event = await pool.query<{
+      payload: { name?: string; username?: string };
+    }>(
+      "SELECT payload FROM auth.lifecycle_outbox WHERE payload->>'type' = 'auth_user_created' AND payload->>'email' = $1",
+      [invitedEmail],
+    );
+    expect(event.rows[0]?.payload).toMatchObject({
+      name: 'Invited Name',
+      username: 'chosen-name',
+    });
+    const uninvitedUsers = await pool.query(
+      'SELECT 1 FROM auth.users WHERE email = $1',
+      [`auth-uninvited-${suffix}@example.test`],
+    );
+    expect(uninvitedUsers.rowCount).toBe(0);
+  });
+
+  it('queues a season added email for the API, and only for a season link', async () => {
+    const deliveryId = randomUUID();
+    const body = {
+      id: deliveryId,
+      to: `season-added-${randomUUID()}@example.test`,
+      name: 'Added Member',
+      season: 'Summer 2026',
+      role: 'mentor',
+      url: `${new URL(config.baseUrl).origin}/seasons/summer-2026`,
+      inviterName: 'Coordinator',
+    };
+    const send = (headers: Record<string, string>, payload: unknown) =>
+      fetch(`${origin}/internal/auth/season-additions`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', ...headers },
+        body: JSON.stringify(payload),
+      });
+    const authorization = `Bearer ${internalToken}`;
+    expect((await send({}, body)).status).toBe(401);
+    expect(
+      (
+        await send(
+          { authorization },
+          { ...body, url: 'https://elsewhere.test/seasons/summer-2026' },
+        )
+      ).status,
+    ).toBe(400);
+    expect((await send({ authorization }, body)).status).toBe(202);
+    const outbox = await pool.query<{
+      payload: { to: string; subject: string; text: string };
+    }>('SELECT payload FROM auth.lifecycle_outbox WHERE id=$1', [deliveryId]);
+    expect(outbox.rows[0]!.payload.to).toBe(body.to);
+    expect(outbox.rows[0]!.payload.subject).toBe(
+      "You've Been Added to the RSP Website (Summer 2026)",
+    );
+    expect(outbox.rows[0]!.payload.text).toContain(
+      'no further action is required',
+    );
   });
 
   it('enables TOTP, stores only backup hashes, revokes setup sessions and records the transition', async () => {

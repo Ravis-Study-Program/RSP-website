@@ -20,6 +20,7 @@ import {
   verificationEmail,
   invitationEmail,
   roleChangeEmail,
+  seasonAddedEmail,
 } from './email/templates.js';
 import {
   ACCOUNT_DELETION_RECOVERY_PATH,
@@ -1052,6 +1053,76 @@ async function handleRequest(
           parsed.data.role,
           parsed.data.previousRole,
           parsed.data.url,
+        ),
+      );
+      sendJson(response, 202, { queued: true }, id);
+      return;
+    }
+    if (url.pathname === '/internal/auth/season-additions') {
+      if (
+        !hasValidServiceToken(
+          request.headers.authorization ?? null,
+          config.identityService.token,
+        )
+      ) {
+        sendProblem(
+          response,
+          401,
+          'invalid_service_token',
+          'Internal authentication failed',
+          id,
+        );
+        return;
+      }
+      if (request.method !== 'POST') {
+        sendProblem(
+          response,
+          405,
+          'method_not_allowed',
+          'POST is required',
+          id,
+          { allow: 'POST' },
+        );
+        return;
+      }
+      const parsed = z
+        .object({
+          id: z.uuid(),
+          to: z.email(),
+          name: z.string().min(1).max(100),
+          season: z.string().min(1).max(200),
+          role: z.enum(['student', 'mentor', 'coordinator']),
+          url: z.url(),
+          inviterName: z.string().trim().min(1).max(200).optional(),
+        })
+        .safeParse(jsonBody);
+      if (!parsed.success) {
+        sendProblem(
+          response,
+          400,
+          'invalid_request',
+          'Invalid season addition',
+          id,
+        );
+        return;
+      }
+      const seasonUrl = new URL(parsed.data.url);
+      if (
+        seasonUrl.origin !== new URL(config.baseUrl).origin ||
+        !/^\/seasons\/[a-z0-9-]+$/.test(seasonUrl.pathname)
+      ) {
+        sendProblem(response, 400, 'invalid_request', 'Invalid season URL', id);
+        return;
+      }
+      await accountLifecycle.queueEmail(
+        parsed.data.id,
+        seasonAddedEmail(
+          parsed.data.to,
+          parsed.data.name,
+          parsed.data.season,
+          parsed.data.role,
+          parsed.data.url,
+          parsed.data.inviterName,
         ),
       );
       sendJson(response, 202, { queued: true }, id);

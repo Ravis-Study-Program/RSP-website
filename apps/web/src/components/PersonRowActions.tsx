@@ -23,8 +23,9 @@ import { canSetStudentLevel } from '@/studentLevels';
 import type { CurrentUser, Person, Season } from '@/types';
 
 /**
- * What the viewer may do to one person in the People table. Season actions
- * need a season in view: a mentor manages their current and past students,
+ * What the viewer may do to one person in the People table or My Students
+ * (one menu, so both offer the same actions). Season actions
+ * need a season in view: a mentor manages their current students only,
  * coordinators and administrators manage everyone. System Admins can also
  * manage the account itself, in any view.
  */
@@ -40,9 +41,7 @@ function personActions(
   );
   const isCoordinator = membership?.role === 'coordinator';
   const ownStudent =
-    membership?.role === 'mentor' &&
-    (person.mentorshipMentorId === viewer?.id ||
-      (person.previousMentorIds ?? []).includes(viewer?.id ?? ''));
+    membership?.role === 'mentor' && person.mentorshipMentorId === viewer?.id;
   const inSeason = Boolean(season && person.enrollmentId);
   const open = season?.status === 'open';
   const active = person.enrollmentState === 'active';
@@ -60,7 +59,10 @@ function personActions(
   };
 }
 
-/** The People table's row menu; draws nothing when no action is allowed. */
+/**
+ * The row menu of People and My Students; draws nothing when no action is
+ * allowed.
+ */
 export function PersonRowActions({
   viewer,
   person,

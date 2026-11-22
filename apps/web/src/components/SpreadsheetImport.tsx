@@ -129,7 +129,7 @@ const fieldLabels: Record<string, string> = {
   role: 'Role',
   mentor: 'Mentor',
   name: 'Name',
-  slug: 'Slug',
+  slug: 'Username',
 };
 
 const changeText = (change: ImportChange) =>
@@ -993,7 +993,7 @@ function RowResult({
     return <ProblemOutcome problem={shown.error ?? 'Not imported.'} />;
   const details = [
     ...(shown.person === 'account' && shown.outcome === 'invite'
-      ? ['Has an account; joins on accepting.']
+      ? ['Has an account; joins straight away and gets an email saying so.']
       : []),
     ...(shown.changes ?? []).map(changeText),
     ...(shown.skipped ?? []).map(
