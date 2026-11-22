@@ -10,7 +10,8 @@ import {
   it,
   vi,
 } from 'vitest';
-import { auth, pool } from '../src/auth.js';
+import { auth, pool, serviceSignUpHeader } from '../src/auth.js';
+import { config } from '../src/config.js';
 
 // Real PostgreSQL, cookies, OAuth state, callbacks, and HTTP middleware. Only
 // Discord's token/userinfo responses are substituted; no credentials are needed.
@@ -52,6 +53,13 @@ live.sequential('Discord explicit linking and login', () => {
       headers: {
         origin,
         cookie: [...jar].map(([key, value]) => `${key}=${value}`).join('; '),
+        // Accounts are by invitation only; this suite's are made the way
+        // the operators' scripts make them.
+        ...(path === '/sign-up/email'
+          ? {
+              [serviceSignUpHeader]: `Bearer ${config.identityService.token}`,
+            }
+          : {}),
         ...(body === undefined ? {} : { 'content-type': 'application/json' }),
       },
       ...(body === undefined ? {} : { body: JSON.stringify(body) }),

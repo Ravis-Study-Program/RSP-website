@@ -123,6 +123,31 @@ export function roleChangeEmail(
   });
 }
 
+/**
+ * Tells someone who already has an account that an administrator added them
+ * to a season. Unlike an invitation, there is nothing to accept.
+ */
+export function seasonAddedEmail(
+  to: string,
+  name: string,
+  season: string,
+  role: string,
+  url: string,
+  inviterName?: string,
+): EmailMessage {
+  return linkEmail({
+    to,
+    subject: `You've Been Added to the RSP Website (${season})`,
+    senderName: inviterName,
+    greeting: `Hi ${name},`,
+    introduction: `You've been added to the ${season} season of RSP as a ${role}.`,
+    note: 'You already have an account, so no further action is required. Sign in as usual to get started.',
+    action: `Open ${season}`,
+    url,
+    expiry: 'If you were not expecting this, contact your season coordinator.',
+  });
+}
+
 export function invitationEmail(
   to: string,
   name: string,
@@ -140,6 +165,6 @@ export function invitationEmail(
     note: 'Sign in or create an account using this email address, then accept your invitation.',
     action: 'Accept Invitation',
     url,
-    expiry: 'This invitation expires in 7 days and can only be used once.',
+    expiry: 'This invitation expires in 14 days and can only be used once.',
   });
 }

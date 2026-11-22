@@ -103,14 +103,16 @@ export function signInWithEmail(email: string, password: string) {
 }
 
 /**
- * Signs up. With the token of an invitation sent to this email, the account
- * starts verified: opening the invitation already proved the inbox.
+ * Signs up. Accounts are by invitation only, so this needs the token of an
+ * invitation sent to this email; the account starts verified, since opening
+ * the invitation already proved the inbox, and takes the chosen username.
  */
 export function signUpWithEmail(
   name: string,
   email: string,
   password: string,
   invitationToken?: string,
+  username?: string,
 ) {
   return authRequest<{
     token: string | null;
@@ -123,6 +125,7 @@ export function signUpWithEmail(
       password,
       callbackURL: '/dashboard',
       ...(invitationToken ? { invitationToken } : {}),
+      ...(username ? { username } : {}),
     }),
   });
 }
@@ -227,6 +230,10 @@ export function socialAuthError(params: URLSearchParams): string {
   ) {
     return 'Sign in with email or Google, then connect Discord in Settings.';
   }
+  if (error === 'INVITATION_REQUIRED')
+    return 'RSP accounts are by invitation only. Open the invitation link from your email to create one.';
+  if (error === 'SIGN_UP_UNAVAILABLE')
+    return 'Accounts cannot be created right now. Try again shortly.';
   if (error === 'reauthentication_required')
     return 'Sign in again with email or Google, then reconnect from Settings.';
   if (error === 'email_does_not_match')

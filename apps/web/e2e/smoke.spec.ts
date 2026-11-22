@@ -278,12 +278,14 @@ test('signed-out, unverified, unavailable, nonmember, forbidden and not-found st
   await expect(
     signedOutPage.getByRole('heading', { name: 'Welcome to RSP' }),
   ).toBeVisible();
+  // Accounts are by invitation only, so there is only sign-in here.
   await expect(
-    signedOutPage.getByRole('tab', { name: 'Sign In' }),
-  ).toHaveAttribute('aria-selected', 'true');
+    signedOutPage.getByRole('button', { name: 'Sign In with Email' }),
+  ).toBeVisible();
+  await expect(signedOutPage.getByRole('tab')).toHaveCount(0);
   await expect(
-    signedOutPage.getByRole('tab', { name: 'Create Account' }),
-  ).toHaveAttribute('aria-selected', 'false');
+    signedOutPage.getByText(/Accounts are by invitation only/),
+  ).toBeVisible();
   await signedOutContext.close();
 
   const unverifiedContext = await browser.newContext();

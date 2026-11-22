@@ -2,7 +2,12 @@ import { Button, buttonVariants } from '@/components/ui/button';
 import { useEffect, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate } from 'react-router-dom';
-import { apiRequest, clearAccessToken, errorFromResponse } from '@/api/client';
+import {
+  ApiError,
+  apiRequest,
+  clearAccessToken,
+  errorFromResponse,
+} from '@/api/client';
 import { useCurrentUser } from '@/api/queries';
 import { getBrowserAuthSession } from '@/api/authClient';
 import type {
@@ -72,6 +77,13 @@ export function InvitationAcceptPage() {
         state: { signUp: true, ...invitee.data },
       });
   }, [signedOut, invitee.data, navigate]);
+  // Signed out with an invitation that can no longer be used: there is no
+  // signing up from it (accounts are by invitation only), so forget it.
+  const deadInvitation =
+    invitee.error instanceof ApiError && invitee.error.status === 404;
+  useEffect(() => {
+    if (deadInvitation) clearPendingInvitation();
+  }, [deadInvitation]);
   const verified = Boolean(
     session.data?.user?.emailVerified && user.data?.emailVerified,
   );
@@ -148,13 +160,15 @@ export function InvitationAcceptPage() {
         {invitee.error?.message}
       </p>
       {message(
-        'Sign in or create an account with the invited email address. Your invitation will be waiting when you return.',
+        deadInvitation
+          ? 'If you already have an account, sign in. Otherwise, ask your season coordinator to send you a new invitation.'
+          : 'If you already have an account, sign in with the invited email address. Your invitation will be waiting when you return.',
       )}
       <Link
         to="/sign-in"
         className={buttonVariants({ variant: 'default', className: fullWidth })}
       >
-        Sign in or create an account
+        Sign In
       </Link>
     </>
   ) : !verified ? (
@@ -198,17 +212,19 @@ export function InvitationAcceptPage() {
     <AuthFrame title="Accept Your Invitation">
       <div className="flex flex-col gap-4">
         {body}
-        <Button
-          variant="ghost"
-          type="button"
-          className={fullWidth}
-          onClick={() => {
-            clearPendingInvitation();
-            navigate('/profile');
-          }}
-        >
-          Dismiss Invitation
-        </Button>
+        {deadInvitation ? null : (
+          <Button
+            variant="ghost"
+            type="button"
+            className={fullWidth}
+            onClick={() => {
+              clearPendingInvitation();
+              navigate('/profile');
+            }}
+          >
+            Dismiss Invitation
+          </Button>
+        )}
       </div>
     </AuthFrame>
   );

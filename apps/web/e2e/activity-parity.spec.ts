@@ -177,7 +177,7 @@ test('administrators invite a student with their mentor, then resend and cancel'
   await dialog.getByRole('button', { name: 'Send Invitation' }).click();
   await expect(
     page.getByText(
-      /^Invitation email queued for .+\. The recipient has 7 days to accept\.$/,
+      /^Invitation email queued for .+\. The recipient has 14 days to accept\.$/,
     ),
   ).toBeVisible();
   // The invitation is a row of the enrollments table, with its mentor.

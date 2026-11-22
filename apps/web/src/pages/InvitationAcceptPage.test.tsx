@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
@@ -8,7 +8,8 @@ import { getBrowserAuthSession } from '@/api/authClient';
 import { useCurrentUser } from '@/api/queries';
 import { pendingInvitation, savePendingInvitation } from '@/pendingInvitation';
 
-vi.mock('@/api/client', () => ({
+vi.mock('@/api/client', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/api/client')>()),
   apiRequest: vi.fn(),
   clearAccessToken: vi.fn(),
 }));
@@ -63,13 +64,55 @@ afterEach(() => {
   vi.clearAllMocks();
 });
 
-it('keeps the invitation while a new or existing member signs in', async () => {
+it('keeps an invitation it could not check while a member signs in', async () => {
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(async () => {
+      throw new TypeError('Failed to fetch');
+    }),
+  );
   setup(false, false);
+  expect(await screen.findByRole('link', { name: 'Sign In' })).toHaveAttribute(
+    'href',
+    '/sign-in',
+  );
   expect(
-    await screen.findByRole('link', { name: 'Sign in or create an account' }),
-  ).toHaveAttribute('href', '/sign-in');
+    screen.getByText(/Your invitation will be waiting when you return/),
+  ).toBeInTheDocument();
   expect(pendingInvitation()).toBe(token);
   expect(apiRequest).not.toHaveBeenCalled();
+  vi.unstubAllGlobals();
+});
+it('forgets a used invitation and offers only sign-in, since sign-up needs a live one', async () => {
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(async () =>
+      Response.json(
+        { message: 'This invitation is expired, cancelled or already used.' },
+        { status: 404 },
+      ),
+    ),
+  );
+  setup(false, false);
+  expect(
+    await screen.findByText(
+      'This invitation is expired, cancelled or already used.',
+    ),
+  ).toBeInTheDocument();
+  expect(
+    screen.getByText(
+      /ask your season coordinator to send you a new invitation/,
+    ),
+  ).toBeInTheDocument();
+  expect(screen.getByRole('link', { name: 'Sign In' })).toHaveAttribute(
+    'href',
+    '/sign-in',
+  );
+  expect(
+    screen.queryByRole('button', { name: 'Dismiss Invitation' }),
+  ).toBeNull();
+  await waitFor(() => expect(pendingInvitation()).toBe(''));
+  vi.unstubAllGlobals();
 });
 it('requires email verification before revealing or accepting the invitation', async () => {
   setup(false);
@@ -104,9 +147,15 @@ it('accepts after review and directs a pending coordinator to MFA settings', asy
   expect(pendingInvitation()).toBe('');
 });
 it('forgets a saved invitation once invitations would have expired', () => {
+  // Invitations last 14 days.
   localStorage.setItem(
     'rsp-pending-invitation',
-    JSON.stringify({ token, savedAt: Date.now() - 8 * 86400000 }),
+    JSON.stringify({ token, savedAt: Date.now() - 13 * 86400000 }),
+  );
+  expect(pendingInvitation()).toBe(token);
+  localStorage.setItem(
+    'rsp-pending-invitation',
+    JSON.stringify({ token, savedAt: Date.now() - 15 * 86400000 }),
   );
   expect(pendingInvitation()).toBe('');
   expect(localStorage.getItem('rsp-pending-invitation')).toBeNull();

@@ -12,6 +12,6 @@ export interface InvitationBatchRow {
   role: string;
   /** A student's mentor, by email, username or full name. */
   mentor?: string;
-  /** The person's username, if their account is new. */
+  /** The person's username. Blank gives one made from their name. For an existing account, a System Admin's import changes it (and their name) to match the row. */
   slug?: string;
 }

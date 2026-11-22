@@ -94,6 +94,7 @@ func main() {
 		SetAccountState:    authClient.SetAccountState,
 		SendInvitation:     authClient.SendInvitation,
 		SendRoleChange:     authClient.SendRoleChange,
+		SendSeasonAdded:    authClient.SendSeasonAdded,
 		EraseAccount:       authClient.EraseAccount,
 		RequestEmailChange: authClient.RequestEmailChange,
 		GetMFAConfigured:   authClient.GetMFAConfigured,

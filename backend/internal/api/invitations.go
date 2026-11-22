@@ -96,6 +96,29 @@ func (a *API) sendInvitationEmail(r *http.Request, v *program.Invitation, token 
 	v.SentAt = &at
 }
 
+// sendSeasonAddedEmail tells someone who already has an account that they
+// were added to a season and need do nothing. Inside an import's transaction
+// it is sent only once that has been committed.
+func (a *API) sendSeasonAddedEmail(r *http.Request, to, name string, season program.SeasonRecord, role string) {
+	if a.sendSeasonAdded == nil || to == "" {
+		return
+	}
+	if a.afterCommit != nil {
+		*a.afterCommit = append(*a.afterCommit, func(root *API) { root.sendSeasonAddedEmail(r, to, name, season, role) })
+		return
+	}
+	inviterName := ""
+	if inviter, err := a.db.GetUser(r.Context(), actorFrom(r.Context()).UserID); err == nil {
+		inviterName = inviter.Name
+	}
+	if err := a.sendSeasonAdded(r.Context(), authadmin.SeasonAddedEmailInput{
+		ID: id.New(), To: to, Name: name, Season: season.Name, Role: role, InviterName: inviterName,
+		URL: strings.TrimRight(a.publicOrigin, "/") + "/seasons/" + season.Slug,
+	}); err != nil {
+		a.logger.Error("season addition email enqueue failed", "seasonId", season.ID)
+	}
+}
+
 // invitationInput is one invitation to create, from the form or an import.
 type invitationInput struct {
 	Name         string `json:"name"`
@@ -150,11 +173,12 @@ func (a *API) inviteOne(r *http.Request, seasonID string, in invitationInput) (p
 		return program.Invitation{}, 0, "", err
 	}
 	at := time.Now().UTC()
-	v, err := a.db.CreateInvitation(r.Context(), program.Invitation{ID: id.New(), SeasonID: seasonID, Name: in.Name, Email: in.Email, Role: in.Role, MentorUserID: mentorUserID, ProfileSlug: profileSlug, MentorInvitationID: mentorInvitationID, DeliveryID: id.New(), ExpiresAt: at.Add(7 * 24 * time.Hour)}, hash, actorFrom(r.Context()).UserID, at)
+	v, err := a.db.CreateInvitation(r.Context(), program.Invitation{ID: id.New(), SeasonID: seasonID, Name: in.Name, Email: in.Email, Role: in.Role, MentorUserID: mentorUserID, ProfileSlug: profileSlug, MentorInvitationID: mentorInvitationID, DeliveryID: id.New(), ExpiresAt: at.Add(program.InvitationLifetime)}, hash, actorFrom(r.Context()).UserID, at)
 	if err != nil {
 		return program.Invitation{}, 0, "", err
 	}
-	// Someone who already has an account joins straight away, without an email.
+	// Someone who already has an account joins straight away, with an email
+	// saying so instead of an invitation.
 	userID, err := a.db.ActiveAccountIDByEmail(r.Context(), in.Email)
 	if err != nil {
 		return program.Invitation{}, 0, "", err
@@ -164,6 +188,7 @@ func (a *API) inviteOne(r *http.Request, seasonID string, in invitationInput) (p
 			return program.Invitation{}, 0, "", err
 		}
 		v.Status, v.AcceptedBy = "accepted", &userID
+		a.sendSeasonAddedEmail(r, in.Email, in.Name, program.SeasonRecord{ID: v.SeasonID, Name: v.SeasonName, Slug: v.SeasonSlug}, in.Role)
 		return v, 0, "", nil
 	}
 	a.sendInvitationEmail(r, &v, token)
@@ -233,7 +258,8 @@ type invitationBatchResult struct {
 	Error   string         `json:"error,omitempty"`
 }
 
-// memberPlan is what an import does to someone already in the season.
+// memberPlan is what an import does to someone already in the season, or
+// (only the name and username) to an account it adds to the season.
 type memberPlan struct {
 	member    dal.SeasonMemberByEmail
 	email     string
@@ -261,8 +287,10 @@ func (a *API) createInvitationBatch(w http.ResponseWriter, r *http.Request) {
 
 // runInvitationBatch invites many people to one season, as from a
 // spreadsheet, matching each row to a person by email. Someone already in
-// the season is updated instead: their role and mentor, and (for a System
-// Admin) their name and username. A dry run changes nothing and says what
+// the season is updated instead: their role and mentor. Anyone who already
+// has an account, in the season or not, also takes the row's name and
+// username (one made from the name when the row gives none), if a System
+// Admin runs the import. A dry run changes nothing and says what
 // would happen to each row. Each row succeeds or fails on its own, so one bad
 // row does not stop the rest.
 func (a *API) runInvitationBatch(w http.ResponseWriter, r *http.Request, dryRun bool) {
@@ -469,8 +497,11 @@ func (a *API) importRow(r *http.Request, season program.SeasonRecord, mentors []
 			result.Error = "Their mentor has not joined yet; set the mentor once they have."
 			return result
 		}
-		plan, problem := a.planMemberUpdate(r, season, mentors, member, input)
+		plan, problem := a.planMemberUpdate(r, season, mentors, slugs, member, input)
 		result.Changes, result.Skipped = plan.changes, plan.skipped
+		if plan.setSlug {
+			result.Slug = plan.slug
+		}
 		switch {
 		case problem != "":
 			result.Error = problem
@@ -487,29 +518,35 @@ func (a *API) importRow(r *http.Request, season program.SeasonRecord, mentors []
 		}
 		return result
 	}
-	exists, err := a.db.AccountExistsByEmail(r.Context(), input.Email)
+	account, exists, err := a.db.FindAccountByEmail(r.Context(), input.Email)
 	if err != nil {
 		result.Error = invitationStoreProblem(a, err)
 		return result
 	}
 	result.Person = "new"
+	var plan memberPlan
 	if exists {
+		// Someone with an account joins with the row's name and username, as
+		// a member already in the season is updated to them.
 		result.Person = "account"
+		plan = memberPlan{member: dal.SeasonMemberByEmail{UserID: account.UserID, Name: account.Name, Slug: account.Slug}, email: input.Email, name: input.Name}
+		if problem := a.planProfileUpdate(r, slugs, &plan, input); problem != "" {
+			result.Error = problem
+			return result
+		}
+		result.Changes, result.Skipped = plan.changes, plan.skipped
+		result.Slug = account.Slug
+		if plan.setSlug {
+			result.Slug = plan.slug
+		}
+		// The invitation's own username is only for an account made for it.
+		input.Slug = ""
 	}
 	// Someone new always gets a username: the one given, or one made from
 	// their name that no one else in this import or on the site has.
-	if exists {
-		// An existing account keeps its own username.
-		slug, err := a.db.AccountSlugByEmail(r.Context(), input.Email)
-		if err != nil {
-			result.Error = invitationStoreProblem(a, err)
-			return result
-		}
-		result.Slug = slug
-	}
 	if !exists && slugs != nil {
 		if input.Slug == "" {
-			generated, err := slugs.next(r, a, input.Name, input.Email)
+			generated, err := slugs.next(r, a, input.Name, input.Email, "")
 			if err != nil {
 				result.Error = invitationStoreProblem(a, err)
 				return result
@@ -533,6 +570,10 @@ func (a *API) importRow(r *http.Request, season program.SeasonRecord, mentors []
 	case message != "":
 		result.Error = message
 	default:
+		if problem := a.applyProfileUpdate(r, plan); problem != "" {
+			result.Error = problem
+			return result
+		}
 		result.Outcome = "invited"
 		result.Invitation = &v
 	}
@@ -579,8 +620,8 @@ func (a *API) slugProblem(r *http.Request, slug, ownerID string) string {
 }
 
 // planMemberUpdate works out what an import changes for someone already in
-// the season. Blank mentor and username cells leave those as they are.
-func (a *API) planMemberUpdate(r *http.Request, season program.SeasonRecord, mentors []dal.SeasonMentor, member dal.SeasonMemberByEmail, in invitationInput) (memberPlan, string) {
+// the season. A blank mentor cell leaves the mentor as it is.
+func (a *API) planMemberUpdate(r *http.Request, season program.SeasonRecord, mentors []dal.SeasonMentor, slugs *slugAllocator, member dal.SeasonMemberByEmail, in invitationInput) (memberPlan, string) {
 	plan := memberPlan{member: member, email: in.Email, role: in.Role, mentorID: in.MentorUserID, name: in.Name, slug: in.Slug}
 	actor := actorFrom(r.Context())
 	if in.Role != member.Role {
@@ -598,7 +639,17 @@ func (a *API) planMemberUpdate(r *http.Request, season program.SeasonRecord, men
 		plan.setMentor = true
 		plan.changes = append(plan.changes, importChange{"mentor", member.MentorName, mentorName(mentors, in.MentorUserID)})
 	}
-	profileAdmin := actor.HasGlobalRole(authz.SystemAdmin)
+	return plan, a.planProfileUpdate(r, slugs, &plan, in)
+}
+
+// planProfileUpdate adds to a plan the name and username an import gives
+// someone who already has an account: the row's name, and its username or,
+// when it gives none, one made from that name as for someone new. A username
+// already made from the name the same way (maddie-frew2) is kept. Only a
+// System Admin changes these; for anyone else they are reported as skipped.
+func (a *API) planProfileUpdate(r *http.Request, slugs *slugAllocator, plan *memberPlan, in invitationInput) string {
+	member := plan.member
+	profileAdmin := actorFrom(r.Context()).HasGlobalRole(authz.SystemAdmin)
 	if in.Name != "" && in.Name != member.Name {
 		change := importChange{"name", member.Name, in.Name}
 		if profileAdmin {
@@ -608,18 +659,50 @@ func (a *API) planMemberUpdate(r *http.Request, season program.SeasonRecord, men
 			plan.skipped = append(plan.skipped, change)
 		}
 	}
-	if in.Slug != "" && in.Slug != member.Slug {
-		change := importChange{"slug", member.Slug, in.Slug}
-		if !profileAdmin {
-			plan.skipped = append(plan.skipped, change)
-		} else if problem := a.slugProblem(r, in.Slug, member.UserID); problem != "" {
-			return plan, problem
-		} else {
-			plan.setSlug = true
-			plan.changes = append(plan.changes, change)
+	current := strings.ToLower(member.Slug)
+	slug, made := in.Slug, false
+	if slug == "" && in.Name != "" && slugs != nil && !madeFromName(current, in.Name) {
+		var err error
+		if slug, err = slugs.next(r, a, in.Name, in.Email, member.UserID); err != nil {
+			return invitationStoreProblem(a, err)
+		}
+		made = true
+	}
+	if slug == "" || slug == current {
+		return ""
+	}
+	change := importChange{"slug", member.Slug, slug}
+	if !profileAdmin {
+		plan.skipped = append(plan.skipped, change)
+		return ""
+	}
+	if !made {
+		if problem := a.slugProblem(r, slug, member.UserID); problem != "" {
+			return problem
 		}
 	}
-	return plan, ""
+	plan.slug, plan.setSlug = slug, true
+	plan.changes = append(plan.changes, change)
+	return ""
+}
+
+// madeFromName reports whether a username is one an import would make from
+// this name: its slug, perhaps numbered (maddie-frew, maddie-frew2).
+func madeFromName(slug, name string) bool {
+	base := dal.NameSlug(name)
+	if slug == base {
+		return true
+	}
+	number, ok := strings.CutPrefix(slug, base)
+	if !ok || len(number) == 0 || number[0] == '0' {
+		return false
+	}
+	for _, digit := range number {
+		if digit < '0' || digit > '9' {
+			return false
+		}
+	}
+	return true
 }
 
 func mentorName(mentors []dal.SeasonMentor, userID string) string {
@@ -663,20 +746,8 @@ func (a *API) applyMemberUpdate(r *http.Request, season program.SeasonRecord, pl
 			return invitationStoreProblem(a, err)
 		}
 	}
-	if plan.setName || plan.setSlug {
-		profile, err := a.db.GetAdminProfile(r.Context(), member.UserID)
-		if err != nil {
-			return invitationStoreProblem(a, err)
-		}
-		if plan.setName {
-			profile.Name = plan.name
-		}
-		if plan.setSlug {
-			profile.Slug = plan.slug
-		}
-		if _, err := a.db.UpdateAdminProfile(r.Context(), profile, actorID, now); err != nil {
-			return invitationStoreProblem(a, err)
-		}
+	if problem := a.applyProfileUpdate(r, plan); problem != "" {
+		return problem
 	}
 	// A student becoming a mentor is not emailed; other role changes are.
 	promotedToMentor := member.Role == "student" && plan.role == "mentor"
@@ -710,6 +781,27 @@ func (a *API) applyMemberUpdate(r *http.Request, season program.SeasonRecord, pl
 		}); err != nil {
 			a.logger.Error("role change email enqueue failed", "enrollmentId", member.EnrollmentID)
 		}
+	}
+	return ""
+}
+
+// applyProfileUpdate gives someone the name and username their plan sets.
+func (a *API) applyProfileUpdate(r *http.Request, plan memberPlan) string {
+	if !plan.setName && !plan.setSlug {
+		return ""
+	}
+	profile, err := a.db.GetAdminProfile(r.Context(), plan.member.UserID)
+	if err != nil {
+		return invitationStoreProblem(a, err)
+	}
+	if plan.setName {
+		profile.Name = plan.name
+	}
+	if plan.setSlug {
+		profile.Slug = plan.slug
+	}
+	if _, err := a.db.UpdateAdminProfile(r.Context(), profile, actorFrom(r.Context()).UserID, time.Now().UTC()); err != nil {
+		return invitationStoreProblem(a, err)
 	}
 	return ""
 }
@@ -859,8 +951,9 @@ func invitationRequest(w http.ResponseWriter, r *http.Request) (string, bool) {
 }
 
 // getInvitationInvitee tells a signed-out visitor holding an invitation link
-// who it was sent to, so sign-up can start with that name and email. The token
-// is a 256-bit secret delivered only to that inbox.
+// who it was sent to, so sign-up can start with that name and email, and a
+// username to start from: the one the invitation names, or one made from the
+// name. The token is a 256-bit secret delivered only to that inbox.
 func (a *API) getInvitationInvitee(w http.ResponseWriter, r *http.Request) {
 	if !a.validOrigin(r) {
 		writeErrorResponse(w, http.StatusForbidden, "Requests must come from the configured application origin.")
@@ -870,7 +963,7 @@ func (a *API) getInvitationInvitee(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	name, email, err := a.db.InvitationInvitee(r.Context(), hash, time.Now().UTC())
+	invitee, err := a.db.InvitationInvitee(r.Context(), hash, time.Now().UTC())
 	if errors.Is(err, dal.ErrNotFound) {
 		writeErrorResponse(w, http.StatusNotFound, "This invitation is expired, cancelled or already used.")
 		return
@@ -879,7 +972,14 @@ func (a *API) getInvitationInvitee(w http.ResponseWriter, r *http.Request) {
 		a.writeStoreErrorResponse(w, err)
 		return
 	}
-	writeJSONResponse(w, http.StatusOK, map[string]string{"name": name, "email": email})
+	username := invitee.Slug
+	if username == "" || a.slugProblem(r, username, "") != "" {
+		if username, err = newSlugAllocator(nil).next(r, a, invitee.Name, invitee.Email, ""); err != nil {
+			a.writeStoreErrorResponse(w, err)
+			return
+		}
+	}
+	writeJSONResponse(w, http.StatusOK, map[string]string{"name": invitee.Name, "email": invitee.Email, "username": username})
 }
 
 func (a *API) previewInvitation(w http.ResponseWriter, r *http.Request) {
@@ -917,11 +1017,11 @@ func sameName(a, b string) bool {
 	return strings.EqualFold(strings.Join(strings.Fields(a), " "), strings.Join(strings.Fields(b), " "))
 }
 
-// slugAllocator hands out the usernames of people an import invites. A name
+// slugAllocator hands out the usernames an import gives people. A name
 // written in a row is theirs (and an error if taken); otherwise one is made
 // from their name, numbered (maddie-frew2, maddie-frew3…) when taken, whether
-// by someone already on the site or by another row of the same import. The
-// same person listed again keeps the same one.
+// by someone else on the site or by another row of the same import. The same
+// person listed again keeps the same one.
 type slugAllocator struct {
 	owner map[string]string // slug → email of the row that has it
 	made  map[string]string // email → the slug made for them
@@ -939,7 +1039,9 @@ func newSlugAllocator(rows []invitationBatchRow) *slugAllocator {
 	return a
 }
 
-func (al *slugAllocator) next(r *http.Request, a *API, name, email string) (string, error) {
+// next makes a username from a name for the row with this email. ownerID is
+// the account it is for, if one exists, whose own username counts as free.
+func (al *slugAllocator) next(r *http.Request, a *API, name, email, ownerID string) (string, error) {
 	key := strings.ToLower(strings.TrimSpace(email))
 	if slug, ok := al.made[key]; ok {
 		return slug, nil
@@ -950,14 +1052,14 @@ func (al *slugAllocator) next(r *http.Request, a *API, name, email string) (stri
 		if n > 1 {
 			candidate = fmt.Sprintf("%s%d", base, n)
 		}
-		if _, taken := al.owner[candidate]; taken {
+		if row, taken := al.owner[candidate]; taken && row != key {
 			continue
 		}
 		owner, err := a.db.ProfileSlugOwner(r.Context(), candidate)
 		if err != nil {
 			return "", err
 		}
-		if owner != "" {
+		if owner != "" && owner != ownerID {
 			continue
 		}
 		al.owner[candidate], al.made[key] = strings.ToLower(strings.TrimSpace(email)), candidate

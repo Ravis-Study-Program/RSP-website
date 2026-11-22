@@ -17,6 +17,10 @@ const mailpit = requiredUrl(
 );
 
 if (process.env.APP_ENV !== 'development') fail('APP_ENV must be development');
+// The auth service's token, which lets these accounts skip the invitation.
+const serviceToken =
+  process.env.IDENTITY_SERVICE_TOKEN ??
+  'rsp-local-identity-service-token-change-me';
 if (!isLoopback(origin.hostname) || !isLoopback(mailpit.hostname))
   fail('fake data can only target loopback services');
 
@@ -126,6 +130,9 @@ async function requestOnce(path, { body, jar }) {
   });
   if (body !== undefined) headers.set('content-type', 'application/json');
   if (jar?.values.size) headers.set('cookie', jar.header());
+  // Accounts are by invitation only; the service token lets these through.
+  if (path === '/sign-up/email')
+    headers.set('x-rsp-service-authorization', `Bearer ${serviceToken}`);
   const response = await fetch(`${origin.origin}/api/auth${path}`, {
     method: body === undefined ? 'GET' : 'POST',
     headers,

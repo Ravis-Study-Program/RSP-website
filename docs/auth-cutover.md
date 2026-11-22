@@ -198,8 +198,19 @@ Neither substitutes for a rehearsal on the real export.
    reset endpoint is rate limited.
 
 4. Bootstrap the first System Admin once from the packaged operations image.
-   `rspctl` must use the runtime app role and `app` search path, never the
-   migration-owner DSN:
+   Accounts are by invitation only, so create the admin's account first with
+   the service token, which is the only way to sign up without an invitation,
+   then verify its email from the message that arrives:
+
+   ```sh
+   curl --fail-with-body "$PUBLIC_ORIGIN/api/auth/sign-up/email" \
+     -H "origin: $PUBLIC_ORIGIN" -H 'content-type: application/json' \
+     -H "x-rsp-service-authorization: Bearer $IDENTITY_SERVICE_TOKEN" \
+     --data '{"name":"Admin Name","email":"verified-admin@example.org","password":"…","callbackURL":"/sign-in?verified=true"}'
+   ```
+
+   Then grant the role with `rspctl`, which must use the runtime app role and
+   `app` search path, never the migration-owner DSN:
 
    ```sh
    # /secure/rspctl.env is mode 0600 and populated by the secret store:

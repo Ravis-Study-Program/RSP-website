@@ -38,6 +38,7 @@ if (!/^rsp-real-e2e(?:-|$)/.test(composeProject)) {
 
 const baseUrl = required('RSP_E2E_BASE_URL').replace(/\/$/, '');
 const mailpitUrl = required('RSP_E2E_MAILPIT_URL').replace(/\/$/, '');
+const serviceToken = required('IDENTITY_SERVICE_TOKEN');
 requireLoopbackUrl('RSP_E2E_BASE_URL', baseUrl);
 requireLoopbackUrl('RSP_E2E_MAILPIT_URL', mailpitUrl);
 
@@ -106,6 +107,9 @@ async function request(path, { body, jar, expected = [200] } = {}) {
   });
   if (body !== undefined) headers.set('content-type', 'application/json');
   if (jar?.values.size) headers.set('cookie', jar.header());
+  // Accounts are by invitation only; the service token lets these through.
+  if (path === '/sign-up/email')
+    headers.set('x-rsp-service-authorization', `Bearer ${serviceToken}`);
   const response = await fetch(`${baseUrl}/api/auth${path}`, {
     method: body === undefined ? 'GET' : 'POST',
     headers,

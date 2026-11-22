@@ -18,6 +18,7 @@ import { AccountLifecycleService } from './lifecycle/service.js';
 import { log as writeLog } from './logging.js';
 import { buildAccessClaims } from './security/access-policy.js';
 import { hashedBackupCodeCodec } from './security/backup-code-store.js';
+import { hasValidServiceToken } from './security/internal-auth.js';
 
 const SEVEN_DAYS_SECONDS = 7 * 24 * 60 * 60;
 const ONE_DAY_SECONDS = 24 * 60 * 60;
@@ -154,6 +155,20 @@ const authAfterHook = createAuthMiddleware(async (context) => {
     await accountLifecycle.revokeSessions(authUserId, reason);
   }
 });
+
+/**
+ * The header the operators' scripts send, as `Bearer <IDENTITY_SERVICE_TOKEN>`,
+ * to create an account without an invitation.
+ */
+export const serviceSignUpHeader = 'x-rsp-service-authorization';
+
+function invitationRequired() {
+  return new APIError('BAD_REQUEST', {
+    code: 'INVITATION_REQUIRED',
+    message:
+      'RSP accounts are by invitation only. Open the invitation link from your email to create one.',
+  });
+}
 
 const socialProviders = {
   ...(config.google
@@ -584,29 +599,76 @@ export const auth = betterAuth({
   databaseHooks: {
     user: {
       create: {
-        // Signing up from an invitation link proves the person reads the
-        // invited inbox, so an account for that address starts verified.
+        // Accounts are by invitation only. Email sign-up must carry a live
+        // invitation's token for this address; opening its link proves the
+        // person reads that inbox, so the account starts verified. Google
+        // proves the address itself, so it needs a live invitation to it.
+        // Either way the account takes the name the invitation was sent to.
+        // The operators' scripts (fake data, end-to-end provisioning, the
+        // first System Admin) sign up with the service token instead.
         async before(user, context) {
-          const invitationToken = (
-            context?.body as { invitationToken?: unknown } | undefined
-          )?.invitationToken;
           if (
-            context?.path !== '/sign-up/email' ||
-            typeof invitationToken !== 'string' ||
-            invitationToken.length !== 43
+            hasValidServiceToken(
+              context?.headers?.get(serviceSignUpHeader) ?? null,
+              config.identityService.token,
+            )
           )
             return;
-          if (
-            await identityGateway.invitationSentTo(invitationToken, user.email)
-          )
-            return { data: { ...user, emailVerified: true } };
+          const body = context?.body as
+            { invitationToken?: unknown; username?: unknown } | undefined;
+          const emailSignUp = context?.path === '/sign-up/email';
+          const token =
+            emailSignUp &&
+            typeof body?.invitationToken === 'string' &&
+            body.invitationToken.length === 43
+              ? body.invitationToken
+              : undefined;
+          if (emailSignUp ? !token : !user.emailVerified)
+            throw invitationRequired();
+          const username =
+            token && typeof body?.username === 'string'
+              ? body.username.trim().toLowerCase()
+              : '';
+          const invitation = await identityGateway.checkInvitation({
+            email: user.email,
+            ...(token ? { token } : {}),
+            ...(username ? { username } : {}),
+          });
+          if (!invitation)
+            throw new APIError('SERVICE_UNAVAILABLE', {
+              code: 'SIGN_UP_UNAVAILABLE',
+              message:
+                'Accounts cannot be created right now. Try again shortly.',
+            });
+          if (!invitation.matches) throw invitationRequired();
+          if (invitation.problem)
+            throw new APIError('BAD_REQUEST', {
+              code: 'USERNAME_UNAVAILABLE',
+              message: invitation.problem,
+            });
+          return {
+            data: {
+              ...user,
+              name: invitation.name || user.name,
+              emailVerified: true,
+            },
+          };
         },
-        async after(user) {
+        async after(user, context) {
+          // The username chosen when signing up from an invitation, which the
+          // check above has already accepted.
+          const username = (context?.body as { username?: unknown } | undefined)
+            ?.username;
           await accountLifecycle.queueIdentityEvent({
             type: 'auth_user_created',
             authUserId: user.id,
             email: user.email,
             name: user.name,
+            ...(context?.path === '/sign-up/email' &&
+            typeof username === 'string' &&
+            username.trim()
+              ? { username: username.trim().toLowerCase() }
+              : {}),
             emailVerified: user.emailVerified,
             securityVersion: await currentSecurityVersion(user.id),
             occurredAt: new Date().toISOString(),

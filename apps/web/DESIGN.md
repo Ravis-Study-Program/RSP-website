@@ -343,7 +343,7 @@ Reuse these before writing new markup. If a page needs something close to one of
 - `AttemptTable`: LeetCode attempts, on the LeetCode page and profiles. Supply actions to make it editable; `showNotes` and `canReview` follow the viewer.
 - `MockInterviewTable` and `MockTypeField` (`src/pages/MockInterviewsPage.tsx`): mock interviews, on the Mock Interviews page and profiles. `canViewDetails` limits whose details open.
 - `PracticeAnalytics`: the difficulty breakdown and time-by-difficulty charts for a set of attempts.
-- `PeopleTable` and `StudentRowActions` (`src/components/PeopleTable.tsx`): the People directory and the student lists, with the student row menu.
+- `PeopleTable` (`src/components/PeopleTable.tsx`): the People directory and the student lists. Both use one row menu, `PersonRowActions` (`src/components/PersonRowActions.tsx`), so People and My Students always offer the same actions under the same rules.
 - `LatestUpdateRange` and `LatestMarkBadge` (`MondayMark.tsx`): a student's latest Monday update, as a date range and a mark badge in separate cells.
 - `MockFilters`, `SeasonWeekChoices`, `ActivityPeriodFilter`: filter controls for the Filters popover.
 - `ExpandRowButton` (`DataTable.tsx`): the chevron that opens a row's details, labelled "Show/Hide …" with the row's subject.
@@ -370,7 +370,7 @@ Reuse these before writing new markup. If a page needs something close to one of
 Places that still bypass the inventory or the rules. Fix them when touching the code, and add new findings here rather than copying them.
 
 - Section spacing: the dashboard, season page and Monday updates still space sections with top margins (`mt-6`, and `mt-4` on the season page's grid) rather than one `gap-6` stack, so the gap above their first section is larger than 1.5rem. Move them into the page's stack.
-- The kebab row menus (`AttemptRowMenu` in the LeetCode page, `MockRowActions` in Mock Interviews, `StudentRowActions` in `PeopleTable`, `StudentUpdateRowActions` in Monday updates) share no base. Extract a row-menu component (trigger, Show/Hide details item, dialog state) when touching them next.
+- The kebab row menus (`AttemptRowMenu` in the LeetCode page, `MockRowActions` in Mock Interviews, `PersonRowActions` in People and My Students, `StudentUpdateRowActions` in Monday updates) share no base. Extract a row-menu component (trigger, Show/Hide details item, dialog state) when touching them next.
 - Monday updates keeps its own card and subsection title classes (`cardTitleClass`, `subTitleClass`) for the per-student blocks inside a section.
 - `PageSkeleton` draws the page column itself (it needs ARIA attributes `Page` does not take).
 

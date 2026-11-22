@@ -119,6 +119,74 @@ describe('season people directory', () => {
     ).not.toBeInTheDocument();
   });
 
+  it('offers a mentor actions on their current students only, not past ones', async () => {
+    const user = userEvent.setup();
+    vi.mocked(useCurrentUser).mockReturnValue({
+      data: {
+        id: 'mentor-1',
+        name: 'Mentor One',
+        slug: 'mentor-one',
+        avatarUrl: null,
+        email: 'mentor@example.test',
+        timezone: 'Australia/Adelaide',
+        timezoneConfigured: true,
+        emailVerified: true,
+        mfaVerified: false,
+        accountState: 'active',
+        globalRoles: [],
+        seasonRoles: [
+          {
+            seasonId: 'season-1',
+            seasonSlug: 'season-one',
+            role: 'mentor',
+            state: 'active',
+          },
+        ],
+        alumni: false,
+        attemptCount: 0,
+        mockInterviewCount: 0,
+      } as CurrentUser,
+    } as ReturnType<typeof useCurrentUser>);
+    vi.mocked(useSeasonPeople).mockReturnValue({
+      data: {
+        items: [
+          {
+            ...member('student'),
+            id: 'current',
+            name: 'Current Student',
+            mentorshipMentorId: 'mentor-1',
+          },
+          {
+            ...member('student'),
+            id: 'past',
+            name: 'Past Student',
+            mentorshipMentorId: 'mentor-2',
+            previousMentorIds: ['mentor-1', 'mentor-2'],
+          },
+        ],
+      },
+      isLoading: false,
+      isError: false,
+      refetch: vi.fn(),
+    } as unknown as ReturnType<typeof useSeasonPeople>);
+    renderDirectory();
+    expect(
+      screen.queryAllByRole('button', {
+        name: 'More actions for Past Student',
+      }),
+    ).toHaveLength(0);
+    await user.click(
+      screen.getAllByRole('button', {
+        name: 'More actions for Current Student',
+      })[0],
+    );
+    expect(
+      (await screen.findAllByRole('menuitem')).map((item) =>
+        item.textContent?.trim(),
+      ),
+    ).toEqual(['Edit Details', 'Remove From Season']);
+  });
+
   it('sorts student levels in program order', async () => {
     const user = userEvent.setup();
     const levels = ['advanced', 'beginner', 'novice', 'intermediate'] as const;

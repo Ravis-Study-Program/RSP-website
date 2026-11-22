@@ -352,7 +352,7 @@ test('an invited new member verifies their email and joins the season', async ({
   await invite.getByRole('button', { name: 'Send Invitation' }).click();
   await expect(
     page.getByText(
-      /^Invitation email queued for .+\. The recipient has 7 days to accept\.$/,
+      /^Invitation email queued for .+\. The recipient has 14 days to accept\.$/,
     ),
   ).toBeVisible();
   const link = await emailLink(
@@ -367,13 +367,22 @@ test('an invited new member verifies their email and joins the season', async ({
     const recipient = await recipientContext.newPage();
     await recipient.goto(link);
     // A signed-out visitor with a good invitation goes straight to sign-up,
-    // prefilled with the invited name and email.
+    // with the invited name and email fixed and a username to change.
     await expect(recipient).toHaveURL(/\/sign-in$/);
-    await recipient.getByRole('tab', { name: 'Create Account' }).click();
-    await recipient
-      .getByLabel('Name', { exact: true })
-      .fill('Invited E2E Member');
-    await recipient.getByLabel('Email', { exact: true }).fill(email);
+    await expect(
+      recipient.getByRole('tab', { name: 'Create Account' }),
+    ).toHaveAttribute('aria-selected', 'true');
+    await expect(recipient.getByLabel('Name', { exact: true })).toHaveValue(
+      'Invited E2E Member',
+    );
+    await expect(
+      recipient.getByLabel('Name', { exact: true }),
+    ).not.toBeEditable();
+    await expect(recipient.getByLabel('Email', { exact: true })).toHaveValue(
+      email,
+    );
+    const username = `invited-e2e-${Date.now()}`;
+    await recipient.getByLabel('Username', { exact: true }).fill(username);
     await recipient.getByLabel('Password', { exact: true }).fill(password);
     await recipient.waitForTimeout(13_000);
     await recipient
@@ -403,6 +412,11 @@ test('an invited new member verifies their email and joins the season', async ({
     await expect(memberRow.first()).toBeVisible();
     // The accepted invitation shows on the new member's enrollment row.
     await expect(memberRow.first()).toContainText('Accepted');
+    // The new member's profile has the username they chose.
+    await page.goto(`/people/${username}`);
+    await expect(
+      page.getByRole('heading', { name: 'Invited E2E Member', exact: true }),
+    ).toBeVisible();
   } finally {
     await recipientContext.close();
   }
