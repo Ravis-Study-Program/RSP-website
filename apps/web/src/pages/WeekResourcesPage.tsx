@@ -25,7 +25,7 @@ import {
   PageSkeleton,
 } from '@/components/StatusViews';
 import { seasonAccess } from '@/seasonAccess';
-import { formatDate } from '@/utils';
+import { formatProgramRange } from '@/activityDates';
 
 /**
  * One week's resources page. Members read it; coordinators, Directors and
@@ -88,7 +88,7 @@ export function WeekResourcesPage() {
     <Page>
       <PageHeader
         title={`Week ${week.number} Resources`}
-        description={`${season.name} · ${formatDate(week.startAt)} – ${formatDate(week.endAt)}`}
+        description={`${season.name} · ${formatProgramRange(week.startAt, week.endAt)}`}
         actions={
           <div className="button-group !ms-0">
             <Link

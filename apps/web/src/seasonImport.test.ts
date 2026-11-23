@@ -4,7 +4,9 @@ import {
   resourcesToHtml,
   seasonDates,
   seasonSlug,
+  weekTimes,
 } from './seasonImport';
+import { configureDisplayTimezone } from '@/utils';
 
 it('reads ISO and day-first dates and rejects impossible ones', () => {
   expect(parseSheetDate('2027-02-01')).toBe('2027-02-01');
@@ -217,4 +219,18 @@ it('reads Markdown in resources', () => {
       '<blockquote><p>quoted</p></blockquote><hr>' +
       '<pre><code>&lt;b&gt;raw&lt;/b&gt;</code></pre>',
   );
+});
+
+describe('weekTimes', () => {
+  afterEach(() => configureDisplayTimezone('Australia/Adelaide'));
+
+  it('starts and ends weeks on Adelaide days, whatever the importer’s timezone', () => {
+    configureDisplayTimezone('Australia/Sydney');
+    expect(
+      weekTimes({ startDate: '2026-11-30', endDate: '2026-12-06' } as never),
+    ).toEqual({
+      startAt: '2026-11-29T13:30:00.000Z',
+      endAt: '2026-12-06T13:29:59.000Z',
+    });
+  });
 });

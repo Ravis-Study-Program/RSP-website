@@ -108,12 +108,13 @@ import {
   DialogCancel,
 } from '@/components/Dialogs';
 import type { Page as ViewPage, Person, Season, SeasonRole } from '@/types';
+import { formatDate, initials } from '@/utils';
 import {
-  formatDate,
-  formatDateTimeInput,
-  initials,
-  zonedDateTimeToUtc,
-} from '@/utils';
+  formatProgramRange,
+  programDateKey,
+  programDayEnd,
+  programDayStart,
+} from '@/activityDates';
 import { mentorTeamsSeason as rememberedMentorTeamsSeason } from '@/navigation';
 import { statusSortingFn } from '@/sortOrder';
 
@@ -569,7 +570,7 @@ export function AdminResourcePage({
               : new Date(week.startAt).getTime() > Date.now()
                 ? 'scheduled'
                 : 'active',
-          detail: `${formatDate(week.startAt)} – ${formatDate(week.endAt)}`,
+          detail: formatProgramRange(week.startAt, week.endAt),
           actions: selectedSeason ? (
             <WeekRowMenu season={selectedSeason} week={week} />
           ) : undefined,
@@ -1198,9 +1199,9 @@ function roleLabel(role: GlobalRole) {
   return role === 'system_admin' ? 'System Admin' : 'Director';
 }
 
-/** A stored time as the local calendar date (YYYY-MM-DD) it falls on. */
+/** A stored time as the Adelaide calendar date (YYYY-MM-DD) it falls on. */
 function localDate(value: string) {
-  return formatDateTimeInput(new Date(value)).slice(0, 10);
+  return programDateKey(value);
 }
 
 /**
@@ -1299,11 +1300,12 @@ function WeekDialog({
       return setError('Enter a positive week number and valid dates.');
     setPending(true);
     setError('');
-    // Weeks are whole days: from the start of the first to the end of the last.
+    // Weeks are whole Adelaide days: from the start of the first to the end of
+    // the last.
     const mutation: WeekMutation = {
       number,
-      startAt: zonedDateTimeToUtc(`${startAt}T00:00`),
-      endAt: zonedDateTimeToUtc(`${endAt}T23:59:59`),
+      startAt: programDayStart(startAt),
+      endAt: programDayEnd(endAt),
     };
     try {
       const saved = demoMode

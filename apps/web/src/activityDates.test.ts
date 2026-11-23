@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 
 import {
   defaultMondayUpdateRange,
@@ -6,8 +6,12 @@ import {
   mondayUpdateWeeks,
   completedMondayUpdateWeeks,
   mondayReminderWeek,
+  formatProgramRange,
+  programDateKey,
+  programDayEnd,
+  programDayStart,
 } from '@/activityDates';
-import { calendarDateKey } from '@/utils';
+import { calendarDateKey, configureDisplayTimezone } from '@/utils';
 
 /** Midday-ish Adelaide instants, so each case lands on the calendar date named. */
 const adelaideInstant = (dateKey: string) => new Date(`${dateKey}T04:00:00Z`);
@@ -128,4 +132,34 @@ describe('numbered program reporting weeks', () => {
       mondayReminderWeek(weeks, new Date('2026-10-04T13:30:00Z')),
     ).toBeUndefined();
   });
+});
+
+describe('program dates are Adelaide days, whoever edits or views them', () => {
+  afterEach(() => configureDisplayTimezone('Australia/Adelaide'));
+
+  it.each(['Australia/Sydney', 'Australia/Perth', 'Pacific/Auckland'])(
+    'a week saved as 30/11–06/12 from %s reports and displays as that week',
+    (timezone) => {
+      configureDisplayTimezone(timezone);
+      const week = {
+        id: 'w1',
+        seasonId: 's',
+        number: 1,
+        startAt: programDayStart('2026-11-30'),
+        endAt: programDayEnd('2026-12-06'),
+        resourcesHtml: '',
+      };
+      // Midnight in Adelaide (ACDT, +10:30), not in the editor's timezone.
+      expect(week.startAt).toBe('2026-11-29T13:30:00.000Z');
+      expect(week.endAt).toBe('2026-12-06T13:29:59.000Z');
+      expect(mondayUpdateWeeks([week])[0]).toMatchObject({
+        startDate: '2026-11-30',
+        endDate: '2026-12-06',
+      });
+      expect(formatProgramRange(week.startAt, week.endAt)).toBe(
+        '30/11/26 – 06/12/26',
+      );
+      expect(programDateKey(week.endAt)).toBe('2026-12-06');
+    },
+  );
 });
