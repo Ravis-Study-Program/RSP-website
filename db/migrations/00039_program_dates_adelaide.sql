@@ -8,7 +8,7 @@
 -- bounds further away were set on purpose and stay as they are.
 
 -- +goose StatementBegin
-CREATE FUNCTION pg_temp.adelaide_day_start(value timestamptz) RETURNS timestamptz
+CREATE OR REPLACE FUNCTION pg_temp.adelaide_day_start(value timestamptz) RETURNS timestamptz
 LANGUAGE sql IMMUTABLE AS $$
   SELECT CASE
     WHEN abs(extract(epoch FROM (value AT TIME ZONE 'Australia/Adelaide')
@@ -22,7 +22,7 @@ $$;
 
 -- An end is the second before a day boundary.
 -- +goose StatementBegin
-CREATE FUNCTION pg_temp.adelaide_day_end(value timestamptz) RETURNS timestamptz
+CREATE OR REPLACE FUNCTION pg_temp.adelaide_day_end(value timestamptz) RETURNS timestamptz
 LANGUAGE sql IMMUTABLE AS $$
   SELECT pg_temp.adelaide_day_start(value + interval '1 second') - interval '1 second'
 $$;
@@ -48,6 +48,11 @@ SET start_at = pg_temp.adelaide_day_start(start_at),
     end_at = pg_temp.adelaide_day_end(end_at)
 WHERE start_at <> pg_temp.adelaide_day_start(start_at)
    OR end_at <> pg_temp.adelaide_day_end(end_at);
+
+-- Temporary functions last as long as the connection, which a migration
+-- runner may reuse (for example to migrate down and up again).
+DROP FUNCTION pg_temp.adelaide_day_end(timestamptz);
+DROP FUNCTION pg_temp.adelaide_day_start(timestamptz);
 
 -- +goose Down
 -- The editors' original timezones were not recorded, so there is nothing to
