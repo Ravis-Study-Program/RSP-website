@@ -42,7 +42,11 @@ import { AppDatePicker } from '@/components/AppDatePicker';
 import { DeleteEmptySeason } from '@/components/DeleteEmptySeason';
 import { FormDialog, DialogCancel } from '@/components/Dialogs';
 import type { Page, Season } from '@/types';
-import { formatDateTimeInput, zonedDateTimeToUtc } from '@/utils';
+import {
+  programDateKey,
+  programDayEnd,
+  programDayStart,
+} from '@/activityDates';
 
 const formStack = 'grid gap-4';
 const dialogActions = 'mt-5 button-group';
@@ -74,11 +78,11 @@ const seasonSchema = z
 
 type SeasonFormValues = z.infer<typeof seasonSchema>;
 
-/** A stored time as the local calendar date (YYYY-MM-DD) it falls on. */
+/** A stored time as the Adelaide calendar date (YYYY-MM-DD) it falls on. */
 function localInputValue(value: string) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return '';
-  return formatDateTimeInput(date).slice(0, 10);
+  return programDateKey(date);
 }
 
 function defaultValues(season?: Season): SeasonFormValues {
@@ -155,9 +159,10 @@ export function SeasonEditorDialog({
     const mutation: SeasonMutation = {
       name: values.name.trim(),
       slug: values.slug.trim(),
-      // Seasons are whole days: the start of the first to the end of the last.
-      startAt: zonedDateTimeToUtc(`${values.startAt}T00:00`),
-      endAt: zonedDateTimeToUtc(`${values.endAt}T23:59:59`),
+      // Seasons are whole Adelaide days: the start of the first to the end of
+      // the last.
+      startAt: programDayStart(values.startAt),
+      endAt: programDayEnd(values.endAt),
       // Not edited in the app; an edit keeps whatever is stored.
       location: season?.location ?? '',
       imageUrl: season?.imageUrl ?? '',

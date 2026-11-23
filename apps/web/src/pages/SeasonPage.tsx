@@ -35,7 +35,7 @@ import {
   PageSkeleton,
 } from '@/components/StatusViews';
 import { seasonAccess } from '@/seasonAccess';
-import { formatDate } from '@/utils';
+import { formatProgramRange } from '@/activityDates';
 
 const inlineClass = 'flex flex-wrap items-center gap-2.5';
 const helperClass = 'text-sm text-muted-foreground';
@@ -231,8 +231,7 @@ export function SeasonPage() {
                               </h3>
                             </div>
                             <p className="text-sm">
-                              {formatDate(week.startAt)} –{' '}
-                              {formatDate(week.endAt)}
+                              {formatProgramRange(week.startAt, week.endAt)}
                             </p>
                             {!isBlankRichText(week.resourcesHtml) ? (
                               <Link

@@ -1,7 +1,40 @@
 import type { Week } from '@/api/generated/models';
-import { calendarDateKey } from '@/utils';
+import { calendarDateKey, zonedDateTimeToUtc } from '@/utils';
 
 export const programTimezone = 'Australia/Adelaide';
+
+/*
+ * Season and week dates are whole Adelaide days, whoever edits or views them:
+ * a week entered as 30/11 starts at 00:00 on 30/11 in Adelaide, not at
+ * midnight in the editor's own timezone (which is 23:30 on 29/11 in Adelaide
+ * from Sydney, and puts the week's Monday update a week early).
+ */
+
+/** The first instant of an Adelaide calendar day (YYYY-MM-DD). */
+export function programDayStart(dateKey: string) {
+  return zonedDateTimeToUtc(`${dateKey}T00:00`, programTimezone);
+}
+
+/** The last second of an Adelaide calendar day (YYYY-MM-DD). */
+export function programDayEnd(dateKey: string) {
+  return zonedDateTimeToUtc(`${dateKey}T23:59:59`, programTimezone);
+}
+
+/** The Adelaide calendar day (YYYY-MM-DD) a season or week bound falls on. */
+export function programDateKey(value: string | Date) {
+  return calendarDateKey(value, programTimezone);
+}
+
+/** A season or week bound as "dd/mm/yy", on its Adelaide calendar day. */
+export function formatProgramDate(value: string | Date) {
+  const [year, month, day] = programDateKey(value).split('-');
+  return `${day}/${month}/${year.slice(2)}`;
+}
+
+/** A season or week as "dd/mm/yy – dd/mm/yy" in Adelaide days. */
+export function formatProgramRange(startAt: string, endAt: string) {
+  return `${formatProgramDate(startAt)} – ${formatProgramDate(endAt)}`;
+}
 
 export interface MondayUpdateRange {
   startDate: string; // YYYY-MM-DD

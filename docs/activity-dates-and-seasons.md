@@ -20,6 +20,17 @@ December 2025 to February 2026; the name does not mean two full calendar years.
 - Stored timestamps are absolute instants. Personal display-timezone preferences
   still control history display; recording eligibility always uses Adelaide time.
 
+## Season and week dates
+
+Season and week dates are whole days in `Australia/Adelaide`: a week entered
+as 30/11–06/12 runs from 00:00 on 30/11 to 23:59:59 on 06/12 Adelaide time.
+The season form, the week dialog and the season import save them that way
+whatever the editor's own timezone, and every page shows them as Adelaide
+dates. (Saving midnight in the editor's timezone puts a Sydney-entered week
+at 23:30 the day before in Adelaide, and its Monday update a week early;
+migration `00039_program_dates_adelaide.sql` moved such dates onto Adelaide
+days.)
+
 ## Monday updates
 
 Reporting weeks share the configured program week numbers. Each covers the
