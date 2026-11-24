@@ -449,7 +449,19 @@ export const auth = betterAuth({
     sendOnSignUp: true,
     autoSignInAfterVerification: false,
     expiresIn: 60 * 60,
-    async sendVerificationEmail({ user, url }) {
+    async sendVerificationEmail({ user, url, token }) {
+      // An email change, once confirmed from the old address, is verified
+      // here at the new one. Better Auth passes the already-verified user
+      // with the new email, so it must not be skipped like the case below.
+      if (
+        decodeJwtPayload(token)?.requestType === 'change-email-verification'
+      ) {
+        await emailProvider.send({
+          ...verificationEmail(user.email, url),
+          subject: 'Verify your new RSP email address',
+        });
+        return;
+      }
       // Signed up from an invitation to this address: already verified.
       if (user.emailVerified) return;
       await emailProvider.send(verificationEmail(user.email, url));
