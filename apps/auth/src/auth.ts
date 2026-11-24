@@ -1,4 +1,4 @@
-import { randomBytes } from 'node:crypto';
+import { randomBytes, randomUUID } from 'node:crypto';
 
 import { APIError, betterAuth } from 'better-auth';
 import { createAuthMiddleware, getSessionFromCtx } from 'better-auth/api';
@@ -13,7 +13,7 @@ import {
 } from './identity/discord-profile.js';
 import { createEmailProvider } from './email/provider.js';
 import {
-  emailChangeConfirmationEmail,
+  emailChangedNoticeEmail,
   newEmailVerificationEmail,
   passwordResetEmail,
   verificationEmail,
@@ -69,6 +69,7 @@ function isMfaCompletionPath(path: string | undefined): boolean {
 }
 
 interface VerificationTokenPayload {
+  readonly email?: string;
   readonly requestType?: string;
   readonly updateTo?: string;
 }
@@ -81,9 +82,11 @@ function decodeJwtPayload(token: string): VerificationTokenPayload | undefined {
       Buffer.from(encodedPayload, 'base64url').toString('utf8'),
     );
     if (!payload || typeof payload !== 'object') return undefined;
+    const email = Reflect.get(payload, 'email');
     const requestType = Reflect.get(payload, 'requestType');
     const updateTo = Reflect.get(payload, 'updateTo');
     return {
+      ...(typeof email === 'string' ? { email } : {}),
       ...(typeof requestType === 'string' ? { requestType } : {}),
       ...(typeof updateTo === 'string' ? { updateTo } : {}),
     };
@@ -362,14 +365,12 @@ export const auth = betterAuth({
         returned: false,
       },
     },
+    // One link, to the new address. There is no approval step from the
+    // old address (people often change email because they lost it); it is
+    // told once the change is made instead.
     changeEmail: {
       enabled: true,
       updateEmailWithoutVerification: false,
-      async sendChangeEmailConfirmation({ user, newEmail, url }) {
-        await emailProvider.send(
-          emailChangeConfirmationEmail(user.email, newEmail, url),
-        );
-      },
     },
     deleteUser: { enabled: false },
   },
@@ -454,9 +455,9 @@ export const auth = betterAuth({
     autoSignInAfterVerification: false,
     expiresIn: 60 * 60,
     async sendVerificationEmail({ user, url, token }) {
-      // An email change, once confirmed from the old address, is verified
-      // here at the new one. Better Auth passes the already-verified user
-      // with the new email, so it must not be skipped like the case below.
+      // An email change is verified at the new address. Better Auth passes
+      // the already-verified user with the new email, so it must not be
+      // skipped like the case below.
       if (
         decodeJwtPayload(token)?.requestType === 'change-email-verification'
       ) {
@@ -483,6 +484,16 @@ export const auth = betterAuth({
         tokenPayload.updateTo === user.email;
       if (emailChangeCompleted) {
         await accountLifecycle.revokeSessions(user.id, 'email_changed');
+        // Tell the old address, without naming the new one: after a
+        // coordinator's correction the old address may be someone else's.
+        if (tokenPayload.email && tokenPayload.email !== user.email)
+          await accountLifecycle.queueEmail(
+            randomUUID(),
+            emailChangedNoticeEmail(
+              tokenPayload.email,
+              new URL('/sign-in', config.baseUrl).toString(),
+            ),
+          );
         await accountLifecycle.queueIdentityEvent(
           {
             type: 'email_changed',

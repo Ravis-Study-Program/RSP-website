@@ -299,9 +299,8 @@ export async function changeEmail(newEmail: string) {
     method: 'POST',
     body: JSON.stringify({
       newEmail,
-      // The old address's confirmation link lands here; the new address's
-      // link goes to /sign-in?emailChanged=true (set by the auth service).
-      callbackURL: '/sign-in?emailChangeConfirmed=true',
+      // Verifying signs the member out everywhere; sign-in says it worked.
+      callbackURL: '/sign-in?emailChanged=true',
     }),
   });
   // Nothing changes until both links are opened, so the session stays.

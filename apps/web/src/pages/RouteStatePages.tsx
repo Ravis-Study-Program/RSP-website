@@ -228,12 +228,6 @@ export function SignInPage() {
             so you were signed out on all devices. Sign in with your new email
             address.
           </InlineNotice>
-        ) : searchParams.get('emailChangeConfirmed') === 'true' ? (
-          <InlineNotice>
-            <IconMailCheck size={19} aria-hidden="true" /> Email change
-            confirmed. Open the link we sent to your new email address to
-            finish. Until then, sign in with your current email.
-          </InlineNotice>
         ) : signedOut ? (
           <InlineNotice tone="warning">
             <IconAlertTriangle size={19} aria-hidden="true" /> {signedOut}

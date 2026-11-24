@@ -436,12 +436,17 @@ live.sequential('live Better Auth handler and PostgreSQL', () => {
       );
       expect(events.rows).toHaveLength(1);
       expect(events.rows[0].payload.email).toBe(newEmail);
+      const notice = await pool.query(
+        "SELECT payload->>'subject' AS subject FROM auth.lifecycle_outbox WHERE target='email' AND payload->>'to'=$1",
+        [oldEmail],
+      );
+      expect(notice.rows).toEqual([{ subject: 'Your RSP email was changed' }]);
     } finally {
       await pool.query('DELETE FROM auth.users WHERE id=$1', [targetId]);
     }
   });
 
-  it('changes a verified member’s own email after confirming from the old address and verifying the new one', async () => {
+  it('changes a verified member’s own email with one link to the new address and tells the old one', async () => {
     await resetAuthRateLimits();
     const oldEmail = `self-change-${randomUUID()}@example.test`;
     const newEmail = `self-changed-${randomUUID()}@example.test`;
@@ -462,22 +467,10 @@ live.sequential('live Better Auth handler and PostgreSQL', () => {
       const cookies = jar();
       expect((await signIn(oldEmail, cookies)).status).toBe(200);
       const requested = await call('/change-email', {
-        body: { newEmail, callbackURL: '/sign-in?emailChangeConfirmed=true' },
+        body: { newEmail, callbackURL: '/sign-in?emailChanged=true' },
         cookies,
       });
       expect(requested.status).toBe(200);
-      // The old address approves the change first.
-      const confirmation = await fetch(
-        await verifyLinkFromCapturedEmail(
-          oldEmail,
-          'Confirm your RSP email change',
-        ),
-        { redirect: 'manual' },
-      );
-      expect(confirmation.status).toBe(302);
-      expect(confirmation.headers.get('location')).toBe(
-        '/sign-in?emailChangeConfirmed=true',
-      );
       expect(
         (
           await pool.query('SELECT email FROM auth.users WHERE id=$1', [
@@ -485,7 +478,13 @@ live.sequential('live Better Auth handler and PostgreSQL', () => {
           ])
         ).rows[0].email,
       ).toBe(oldEmail);
-      // Then the new address is verified, which makes the change.
+      // Nothing goes to the old address until the change is made.
+      const early = await pool.query(
+        "SELECT 1 FROM auth.lifecycle_outbox WHERE target='email' AND payload->>'to'=$1",
+        [oldEmail],
+      );
+      expect(early.rows).toHaveLength(0);
+      // Verifying the new address makes the change.
       const verification = await fetch(
         await verifyLinkFromCapturedEmail(
           newEmail,
@@ -511,6 +510,17 @@ live.sequential('live Better Auth handler and PostgreSQL', () => {
       );
       expect(events.rows).toHaveLength(1);
       expect(events.rows[0].payload.email).toBe(newEmail);
+      const notice = await pool.query<{
+        payload: { subject: string; text: string };
+      }>(
+        "SELECT payload FROM auth.lifecycle_outbox WHERE target='email' AND payload->>'to'=$1",
+        [oldEmail],
+      );
+      expect(notice.rows).toHaveLength(1);
+      expect(notice.rows[0]!.payload.subject).toBe(
+        'Your RSP email was changed',
+      );
+      expect(notice.rows[0]!.payload.text).not.toContain(newEmail);
     } finally {
       await pool.query('DELETE FROM auth.users WHERE id=$1', [targetId]);
     }

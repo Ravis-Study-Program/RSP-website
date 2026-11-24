@@ -117,11 +117,3 @@ it('says the email change is done, in green, after the new address is verified',
   expect(notice).toHaveTextContent('Sign in with your new email address.');
   expect(notice.closest('[role="status"]')).toHaveClass('bg-success-soft');
 });
-
-it('asks for the new address’s link after the old address confirms the change', () => {
-  renderSignInAt('?emailChangeConfirmed=true');
-  expect(screen.getByText(/Email change confirmed/)).toHaveTextContent(
-    'Open the link we sent to your new email address to finish.',
-  );
-  expect(screen.queryByText(/Your email was changed/)).toBeNull();
-});

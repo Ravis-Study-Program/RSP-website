@@ -307,9 +307,8 @@ export function SettingsPage() {
         ) : null}
         {emailChangeTo ? (
           <InlineNotice>
-            <IconMailCheck size={19} aria-hidden="true" /> To change your email
-            to {emailChangeTo}, open the link we sent to {user.data.email}, then
-            the one we send to {emailChangeTo}.
+            <IconMailCheck size={19} aria-hidden="true" /> We sent a link to{' '}
+            {emailChangeTo}. Open it to finish changing your email.
           </InlineNotice>
         ) : null}
         {securityMessage ? (

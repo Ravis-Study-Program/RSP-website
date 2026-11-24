@@ -77,23 +77,18 @@ export function verificationEmail(to: string, url: string): EmailMessage {
 }
 
 /**
- * The first step of changing your own email, sent to the current address:
- * approving it sends a second link to the new address.
+ * Tells the old address that the account's email changed. It does not name
+ * the new address, since after a correction the old one may be a stranger's.
  */
-export function emailChangeConfirmationEmail(
-  to: string,
-  newEmail: string,
-  url: string,
-): EmailMessage {
+export function emailChangedNoticeEmail(to: string, url: string): EmailMessage {
   return linkEmail({
     to,
-    subject: 'Confirm your RSP email change',
-    introduction: `Someone asked to change the email on your RSP account to ${newEmail}.`,
-    note: `Confirm below, then open the link we send to ${newEmail} to finish. Your email stays the same until you do.`,
-    action: 'Confirm email change',
+    subject: 'Your RSP email was changed',
+    introduction:
+      'The email on your RSP account was changed, so this address no longer signs in to it.',
+    action: 'Open RSP',
     url,
-    expiry:
-      'This link expires in one hour. If you did not ask for this, ignore this email and your account stays as it is.',
+    expiry: 'If you did not make this change, contact your season coordinator.',
   });
 }
 
