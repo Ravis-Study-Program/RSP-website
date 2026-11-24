@@ -37,6 +37,7 @@ export function FormDialog({
   triggerVariant,
   triggerSize,
   triggerClassName,
+  triggerDisabled,
   contentClassName,
   children,
   open,
@@ -48,6 +49,7 @@ export function FormDialog({
   triggerVariant?: ButtonProps['variant'];
   triggerSize?: ButtonProps['size'];
   triggerClassName?: string;
+  triggerDisabled?: boolean;
   contentClassName?: string;
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
@@ -61,6 +63,7 @@ export function FormDialog({
               variant={triggerVariant}
               size={triggerSize}
               className={triggerClassName}
+              disabled={triggerDisabled}
             />
           }
         >

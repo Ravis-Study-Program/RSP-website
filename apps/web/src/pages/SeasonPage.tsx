@@ -190,7 +190,7 @@ export function SeasonPage() {
                   kinds={['seasons']}
                   title="Import Weeks"
                   trigger="Import Weeks"
-                  seasons={query.data?.items ?? []}
+                  seasons={query.data?.items}
                   scope={season}
                 />
               ) : undefined
