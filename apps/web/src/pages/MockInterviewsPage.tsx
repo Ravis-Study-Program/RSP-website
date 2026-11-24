@@ -443,7 +443,7 @@ function RoundEditor({
           </Button>
           {total > 1 ? (
             <Button
-              variant="ghost"
+              variant="destructive"
               size="icon"
               type="button"
               aria-label={`Remove round ${index + 1}`}

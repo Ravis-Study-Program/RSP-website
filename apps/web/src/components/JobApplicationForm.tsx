@@ -194,14 +194,14 @@ export function JobApplicationForm({
                       aria-labelledby={`${prefix}-${stage.key}-heading`}
                       className="grid min-w-0 gap-3 p-3 sm:px-4"
                     >
-                      <div className="flex items-center justify-between gap-2">
+                      <div className="flex flex-wrap items-center justify-between gap-2.5">
                         <h4
                           id={`${prefix}-${stage.key}-heading`}
                           className="text-sm font-semibold"
                         >
                           Stage {index}
                         </h4>
-                        <div className="flex gap-1">
+                        <div className="flex flex-wrap items-center gap-2.5">
                           <Button
                             type="button"
                             variant="ghost"
@@ -210,7 +210,7 @@ export function JobApplicationForm({
                             disabled={index <= 1}
                             onClick={() => move(index, -1)}
                           >
-                            <IconArrowUp size={17} aria-hidden="true" />
+                            <IconArrowUp size={16} aria-hidden="true" />
                           </Button>
                           <Button
                             type="button"
@@ -220,7 +220,7 @@ export function JobApplicationForm({
                             disabled={index === visibleStages.length - 1}
                             onClick={() => move(index, 1)}
                           >
-                            <IconArrowDown size={17} aria-hidden="true" />
+                            <IconArrowDown size={16} aria-hidden="true" />
                           </Button>
                           <Button
                             type="button"
@@ -233,7 +233,7 @@ export function JobApplicationForm({
                               )
                             }
                           >
-                            <IconTrash size={17} aria-hidden="true" />
+                            <IconTrash size={16} aria-hidden="true" />
                           </Button>
                         </div>
                       </div>
