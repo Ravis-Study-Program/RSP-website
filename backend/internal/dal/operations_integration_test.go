@@ -67,6 +67,33 @@ func TestStoreOperations(t *testing.T) {
 	if err := db.Seed(ctx, SeedOptions{AllowExisting: true}); err != nil {
 		t.Fatal(err)
 	}
+	var referrals int
+	if err := db.pool.QueryRow(ctx, `SELECT count(*) FROM app.job_referrals`).Scan(&referrals); err != nil || referrals != 0 {
+		t.Fatalf("ordinary seed should not add referrals: %d, %v", referrals, err)
+	}
+	if err := db.Seed(ctx, SeedOptions{AllowExisting: true, IncludeJobs: true}); err != nil {
+		t.Fatal(err)
+	}
+	if err := db.pool.QueryRow(ctx, `SELECT count(*) FROM app.job_referrals`).Scan(&referrals); err != nil || referrals != 24 {
+		t.Fatalf("fake referrals=%d error=%v", referrals, err)
+	}
+	var positions, applications, statuses, initialStages int
+	if err := db.pool.QueryRow(ctx, `SELECT count(*) FROM app.job_positions WHERE application_url LIKE 'https://example.invalid/rsp-fake-jobs/%'`).Scan(&positions); err != nil || positions != 24 {
+		t.Fatalf("fake positions=%d error=%v", positions, err)
+	}
+	if err := db.pool.QueryRow(ctx, `SELECT count(*),count(DISTINCT a.status),count(s.id) FROM app.job_applications a JOIN app.user_profiles p ON p.user_id=a.user_id LEFT JOIN app.job_application_stages s ON s.application_id=a.id AND s.initial WHERE p.slug='dev-student'`).Scan(&applications, &statuses, &initialStages); err != nil || applications != 12 || statuses != 3 || initialStages != 12 {
+		t.Fatalf("applications=%d statuses=%d initial stages=%d error=%v", applications, statuses, initialStages, err)
+	}
+	// Re-running preserves manual edits and deletions rather than resetting them.
+	if _, err := db.pool.Exec(ctx, `UPDATE app.job_referrals SET notes='Edited locally'; DELETE FROM app.job_referrals WHERE id=(SELECT id FROM app.job_referrals LIMIT 1)`); err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Seed(ctx, SeedOptions{AllowExisting: true, IncludeJobs: true}); err != nil {
+		t.Fatal(err)
+	}
+	if err := db.pool.QueryRow(ctx, `SELECT count(*) FROM app.job_referrals WHERE notes='Edited locally'`).Scan(&referrals); err != nil || referrals != 23 {
+		t.Fatalf("rerun changed local referrals=%d error=%v", referrals, err)
+	}
 	var seasons int
 	if err := db.pool.QueryRow(ctx, `SELECT count(*) FROM app.seasons WHERE slug='dev-season'`).Scan(&seasons); err != nil || seasons != 1 {
 		t.Fatalf("seed seasons=%d error=%v", seasons, err)

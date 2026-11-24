@@ -126,7 +126,7 @@ export function SeasonsPage() {
                 kinds={['seasons']}
                 title="Import Seasons"
                 trigger="Import Seasons"
-                seasons={query.data?.items ?? []}
+                seasons={query.data?.items}
               />
               <SeasonEditorDialog />
             </div>

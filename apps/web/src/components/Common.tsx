@@ -7,7 +7,7 @@ import {
   CardDescription,
 } from '@/components/ui/card';
 
-import { IconArrowUpRight } from '@tabler/icons-react';
+import { ExternalLink } from '@/components/ExternalLink';
 import {
   useEffect,
   useState,
@@ -262,7 +262,8 @@ export function PersonIdentity({
   seasonId,
   duplicates,
 }: {
-  person: Person;
+  person: Pick<Person, 'name' | 'slug' | 'initials'> &
+    Partial<Pick<Person, 'email' | 'roles' | 'avatarUrl'>>;
   privateView?: boolean;
   showRoles?: boolean;
   seasonId?: string;
@@ -291,7 +292,7 @@ export function PersonIdentity({
           </span>
         ) : showRoles ? (
           <span className="truncate text-sm text-muted-foreground">
-            {sortRoles(person.roles)
+            {sortRoles(person.roles ?? [])
               .map((role) => role.replace('_', ' '))
               .join(' · ')}
           </span>
@@ -310,15 +311,12 @@ export function ResourceLink({
   children: ReactNode;
 }) {
   return (
-    <a
-      className="flex min-h-12 items-center justify-between gap-3 rounded-lg border border-border bg-muted/50 px-3.5 py-3 font-semibold text-foreground no-underline outline-none hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/50"
+    <ExternalLink
+      className="flex min-h-12 items-center justify-between gap-3 rounded-lg border border-border bg-muted/50 px-3.5 py-3 font-semibold text-foreground outline-none hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/50"
       href={href}
-      target="_blank"
-      rel="noreferrer"
     >
       {children}
-      <IconArrowUpRight size={17} aria-hidden="true" />
-    </a>
+    </ExternalLink>
   );
 }
 

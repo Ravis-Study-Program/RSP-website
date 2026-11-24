@@ -2685,6 +2685,705 @@ paths:
         '404': { $ref: '#/components/responses/Error' }
         '409': { $ref: '#/components/responses/Error' }
         '429': { $ref: '#/components/responses/RateLimited' }
+  /jobs/companies:
+    {
+      'get':
+        {
+          'operationId': 'listJobCompanies',
+          'tags': ['Jobs'],
+          'responses':
+            {
+              'default': { '$ref': '#/components/responses/Error' },
+              '200':
+                {
+                  'description': 'Success',
+                  'content':
+                    {
+                      'application/json':
+                        {
+                          'schema':
+                            { '$ref': '#/components/schemas/JobCompanyList' },
+                        },
+                    },
+                },
+            },
+          'security': [],
+        },
+    }
+  /jobs/companies/{id}:
+    {
+      'patch':
+        {
+          'operationId': 'updateJobCompany',
+          'tags': ['Jobs'],
+          'responses':
+            {
+              'default': { '$ref': '#/components/responses/Error' },
+              '200':
+                {
+                  'description': 'Success',
+                  'content':
+                    {
+                      'application/json':
+                        {
+                          'schema':
+                            { '$ref': '#/components/schemas/JobCompany' },
+                        },
+                    },
+                },
+            },
+          'parameters':
+            [
+              {
+                'name': 'id',
+                'in': 'path',
+                'required': true,
+                'schema': { 'type': 'string', 'format': 'uuid' },
+              },
+            ],
+          'requestBody':
+            {
+              'required': true,
+              'content':
+                {
+                  'application/json':
+                    {
+                      'schema':
+                        { '$ref': '#/components/schemas/JobCompanyInput' },
+                    },
+                },
+            },
+        },
+    }
+  /jobs/referrals:
+    get:
+      operationId: getJobReferralBoard
+      tags: [Jobs]
+      description: The RSP member's own referral profile, open requests and company opt-ins.
+      responses:
+        '200':
+          description: Referral board settings
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/JobReferralBoard' }
+        default: { $ref: '#/components/responses/Error' }
+  /jobs/referrals/counts:
+    get:
+      operationId: listJobReferralCounts
+      tags: [Jobs]
+      description: Anonymous counts of participating referrers by company for RSP members.
+      responses:
+        '200':
+          description: Company counts
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/JobReferralCounts' }
+        default: { $ref: '#/components/responses/Error' }
+  /jobs/referrals/profile:
+    put:
+      operationId: saveJobReferralProfile
+      tags: [Jobs]
+      description: Save the student's or alumnus's reason and public resume link.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [reason, resumeUrl]
+              properties:
+                reason: { type: string, minLength: 1, maxLength: 4000 }
+                resumeUrl: { type: string, format: uri, maxLength: 2048 }
+      responses:
+        '204': { description: Referral profile saved }
+        default: { $ref: '#/components/responses/Error' }
+    delete:
+      operationId: deleteJobReferralProfile
+      tags: [Jobs]
+      responses:
+        '204': { description: Referral profile and active requests removed }
+        default: { $ref: '#/components/responses/Error' }
+  /jobs/referrals/requests/{id}:
+    parameters:
+      - { $ref: '#/components/parameters/ID' }
+    put:
+      operationId: requestJobReferral
+      tags: [Jobs]
+      description: Select an open position. Up to five active requests are allowed per candidate.
+      responses:
+        '204': { description: Referral requested }
+        default: { $ref: '#/components/responses/Error' }
+    delete:
+      operationId: withdrawJobReferralRequest
+      tags: [Jobs]
+      responses:
+        '204': { description: Referral request withdrawn }
+        default: { $ref: '#/components/responses/Error' }
+  /jobs/referrals/offers/{id}:
+    parameters:
+      - { $ref: '#/components/parameters/ID' }
+    put:
+      operationId: offerJobReferrals
+      tags: [Jobs]
+      description: RSP graduates can opt in to referring at a company they work for.
+      responses:
+        '204': { description: Matching enabled for the company }
+        default: { $ref: '#/components/responses/Error' }
+    delete:
+      operationId: stopOfferingJobReferrals
+      tags: [Jobs]
+      responses:
+        '204': { description: Matching disabled for the company }
+        default: { $ref: '#/components/responses/Error' }
+  /jobs/referrals/companies/{id}/candidates:
+    get:
+      operationId: listJobReferralCandidates
+      tags: [Jobs]
+      description: RSP graduates can view candidates with active requests at their opted-in company.
+      parameters:
+        - { $ref: '#/components/parameters/ID' }
+        - { $ref: '#/components/parameters/Limit' }
+        - { $ref: '#/components/parameters/Cursor' }
+      responses:
+        '200':
+          description: Matching candidates and their requests at this company
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/JobReferralCandidatePage' }
+        default: { $ref: '#/components/responses/Error' }
+  /jobs/positions:
+    {
+      'get':
+        {
+          'operationId': 'listJobPositions',
+          'tags': ['Jobs'],
+          'responses':
+            {
+              'default': { '$ref': '#/components/responses/Error' },
+              '200':
+                {
+                  'description': 'Success',
+                  'content':
+                    {
+                      'application/json':
+                        {
+                          'schema':
+                            { '$ref': '#/components/schemas/JobPositionPage' },
+                        },
+                    },
+                },
+            },
+          'security': [],
+          'parameters':
+            [
+              {
+                'name': 'cursor',
+                'in': 'query',
+                'schema': { 'type': 'string' },
+              },
+              {
+                'name': 'limit',
+                'in': 'query',
+                'schema':
+                  {
+                    'type': 'integer',
+                    'minimum': 1,
+                    'maximum': 100,
+                    'default': 25,
+                  },
+              },
+            ],
+        },
+      'post':
+        {
+          'operationId': 'createJobPosition',
+          'tags': ['Jobs'],
+          'responses':
+            {
+              'default': { '$ref': '#/components/responses/Error' },
+              '201':
+                {
+                  'description': 'Success',
+                  'content':
+                    {
+                      'application/json':
+                        {
+                          'schema':
+                            { '$ref': '#/components/schemas/JobPosition' },
+                        },
+                    },
+                },
+              '409':
+                {
+                  'description': 'An existing position uses this link.',
+                  'content':
+                    {
+                      'application/json':
+                        {
+                          'schema':
+                            {
+                              '$ref': '#/components/schemas/JobDuplicateError',
+                            },
+                        },
+                    },
+                },
+            },
+          'requestBody':
+            {
+              'required': true,
+              'content':
+                {
+                  'application/json':
+                    {
+                      'schema':
+                        { '$ref': '#/components/schemas/JobPositionInput' },
+                    },
+                },
+            },
+        },
+    }
+  /jobs/positions/{id}:
+    {
+      'get':
+        {
+          'operationId': 'getJobPosition',
+          'tags': ['Jobs'],
+          'responses':
+            {
+              'default': { '$ref': '#/components/responses/Error' },
+              '200':
+                {
+                  'description': 'Success',
+                  'content':
+                    {
+                      'application/json':
+                        {
+                          'schema':
+                            { '$ref': '#/components/schemas/JobPosition' },
+                        },
+                    },
+                },
+            },
+          'security': [],
+          'parameters':
+            [
+              {
+                'name': 'id',
+                'in': 'path',
+                'required': true,
+                'schema': { 'type': 'string', 'format': 'uuid' },
+              },
+            ],
+        },
+      'patch':
+        {
+          'operationId': 'updateJobPosition',
+          'tags': ['Jobs'],
+          'responses':
+            {
+              'default': { '$ref': '#/components/responses/Error' },
+              '200':
+                {
+                  'description': 'Success',
+                  'content':
+                    {
+                      'application/json':
+                        {
+                          'schema':
+                            { '$ref': '#/components/schemas/JobPosition' },
+                        },
+                    },
+                },
+              '409':
+                {
+                  'description': 'An existing position uses this link.',
+                  'content':
+                    {
+                      'application/json':
+                        {
+                          'schema':
+                            {
+                              '$ref': '#/components/schemas/JobDuplicateError',
+                            },
+                        },
+                    },
+                },
+            },
+          'parameters':
+            [
+              {
+                'name': 'id',
+                'in': 'path',
+                'required': true,
+                'schema': { 'type': 'string', 'format': 'uuid' },
+              },
+            ],
+          'requestBody':
+            {
+              'required': true,
+              'content':
+                {
+                  'application/json':
+                    {
+                      'schema':
+                        { '$ref': '#/components/schemas/JobPositionInput' },
+                    },
+                },
+            },
+        },
+    }
+  /jobs/positions/{id}/progress:
+    get:
+      operationId: getJobPositionProgress
+      tags: [Jobs]
+      security: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        default:
+          $ref: '#/components/responses/Error'
+        '200':
+          description: Stage counts and suggested rounds from applicants who share progress.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JobPositionProgress'
+  /jobs/positions/{id}/merge:
+    {
+      'post':
+        {
+          'operationId': 'mergeJobPositions',
+          'tags': ['Jobs'],
+          'responses':
+            {
+              'default': { '$ref': '#/components/responses/Error' },
+              '200':
+                {
+                  'description': 'Success',
+                  'content':
+                    {
+                      'application/json':
+                        {
+                          'schema':
+                            { '$ref': '#/components/schemas/JobPosition' },
+                        },
+                    },
+                },
+            },
+          'parameters':
+            [
+              {
+                'name': 'id',
+                'in': 'path',
+                'required': true,
+                'schema': { 'type': 'string', 'format': 'uuid' },
+              },
+            ],
+          'requestBody':
+            {
+              'required': true,
+              'content':
+                {
+                  'application/json':
+                    {
+                      'schema':
+                        { '$ref': '#/components/schemas/JobMergeInput' },
+                    },
+                },
+            },
+        },
+    }
+  /me/job-applications:
+    {
+      'get':
+        {
+          'operationId': 'listJobApplications',
+          'tags': ['Jobs'],
+          'responses':
+            {
+              'default': { '$ref': '#/components/responses/Error' },
+              '200':
+                {
+                  'description': 'Success',
+                  'content':
+                    {
+                      'application/json':
+                        {
+                          'schema':
+                            {
+                              '$ref': '#/components/schemas/JobApplicationPage',
+                            },
+                        },
+                    },
+                },
+            },
+          'parameters':
+            [
+              {
+                'name': 'cursor',
+                'in': 'query',
+                'schema': { 'type': 'string' },
+              },
+              {
+                'name': 'limit',
+                'in': 'query',
+                'schema':
+                  {
+                    'type': 'integer',
+                    'minimum': 1,
+                    'maximum': 100,
+                    'default': 25,
+                  },
+              },
+            ],
+        },
+      'post':
+        {
+          'operationId': 'createJobApplication',
+          'tags': ['Jobs'],
+          'responses':
+            {
+              'default': { '$ref': '#/components/responses/Error' },
+              '200':
+                {
+                  'description': 'Success',
+                  'content':
+                    {
+                      'application/json':
+                        {
+                          'schema':
+                            {
+                              '$ref': '#/components/schemas/JobApplicationCreated',
+                            },
+                        },
+                    },
+                },
+            },
+          'requestBody':
+            {
+              'required': true,
+              'content':
+                {
+                  'application/json':
+                    {
+                      'schema':
+                        { '$ref': '#/components/schemas/JobApplicationInput' },
+                    },
+                },
+            },
+        },
+    }
+  /me/job-applications/{id}:
+    {
+      'put':
+        {
+          'operationId': 'editJobApplication',
+          'tags': ['Jobs'],
+          'security': [{ 'bearerAuth': [] }],
+          'parameters':
+            [
+              {
+                'in': 'path',
+                'name': 'id',
+                'required': true,
+                'schema': { 'type': 'string', 'format': 'uuid' },
+              },
+            ],
+          'requestBody':
+            {
+              'required': true,
+              'content':
+                {
+                  'application/json':
+                    {
+                      'schema':
+                        {
+                          '$ref': '#/components/schemas/JobApplicationEditInput',
+                        },
+                    },
+                },
+            },
+          'responses':
+            {
+              '204': { 'description': 'Saved' },
+              'default': { '$ref': '#/components/responses/Error' },
+            },
+        },
+      'patch':
+        {
+          'operationId': 'updateJobApplicationStatus',
+          'tags': ['Jobs'],
+          'responses':
+            {
+              'default': { '$ref': '#/components/responses/Error' },
+              '204': { 'description': 'Success' },
+            },
+          'parameters':
+            [
+              {
+                'name': 'id',
+                'in': 'path',
+                'required': true,
+                'schema': { 'type': 'string', 'format': 'uuid' },
+              },
+            ],
+          'requestBody':
+            {
+              'required': true,
+              'content':
+                {
+                  'application/json':
+                    {
+                      'schema':
+                        {
+                          '$ref': '#/components/schemas/JobApplicationStatusInput',
+                        },
+                    },
+                },
+            },
+        },
+      'delete':
+        {
+          'operationId': 'deleteJobApplication',
+          'tags': ['Jobs'],
+          'responses':
+            {
+              'default': { '$ref': '#/components/responses/Error' },
+              '204': { 'description': 'Success' },
+            },
+          'parameters':
+            [
+              {
+                'name': 'id',
+                'in': 'path',
+                'required': true,
+                'schema': { 'type': 'string', 'format': 'uuid' },
+              },
+            ],
+        },
+    }
+  /me/job-applications/{id}/stages:
+    {
+      'post':
+        {
+          'operationId': 'createJobStage',
+          'tags': ['Jobs'],
+          'responses':
+            {
+              'default': { '$ref': '#/components/responses/Error' },
+              '201':
+                {
+                  'description': 'Success',
+                  'content':
+                    {
+                      'application/json':
+                        {
+                          'schema': { '$ref': '#/components/schemas/JobStage' },
+                        },
+                    },
+                },
+            },
+          'parameters':
+            [
+              {
+                'name': 'id',
+                'in': 'path',
+                'required': true,
+                'schema': { 'type': 'string', 'format': 'uuid' },
+              },
+            ],
+          'requestBody':
+            {
+              'required': true,
+              'content':
+                {
+                  'application/json':
+                    {
+                      'schema':
+                        { '$ref': '#/components/schemas/JobStageInput' },
+                    },
+                },
+            },
+        },
+    }
+  /me/job-applications/{id}/stages/{stageId}:
+    {
+      'patch':
+        {
+          'operationId': 'updateJobStage',
+          'tags': ['Jobs'],
+          'responses':
+            {
+              'default': { '$ref': '#/components/responses/Error' },
+              '200':
+                {
+                  'description': 'Success',
+                  'content':
+                    {
+                      'application/json':
+                        {
+                          'schema': { '$ref': '#/components/schemas/JobStage' },
+                        },
+                    },
+                },
+            },
+          'parameters':
+            [
+              {
+                'name': 'id',
+                'in': 'path',
+                'required': true,
+                'schema': { 'type': 'string', 'format': 'uuid' },
+              },
+              {
+                'name': 'stageId',
+                'in': 'path',
+                'required': true,
+                'schema': { 'type': 'string', 'format': 'uuid' },
+              },
+            ],
+          'requestBody':
+            {
+              'required': true,
+              'content':
+                {
+                  'application/json':
+                    {
+                      'schema':
+                        { '$ref': '#/components/schemas/JobStageInput' },
+                    },
+                },
+            },
+        },
+      'delete':
+        {
+          'operationId': 'deleteJobStage',
+          'tags': ['Jobs'],
+          'responses':
+            {
+              'default': { '$ref': '#/components/responses/Error' },
+              '204': { 'description': 'Success' },
+            },
+          'parameters':
+            [
+              {
+                'name': 'id',
+                'in': 'path',
+                'required': true,
+                'schema': { 'type': 'string', 'format': 'uuid' },
+              },
+              {
+                'name': 'stageId',
+                'in': 'path',
+                'required': true,
+                'schema': { 'type': 'string', 'format': 'uuid' },
+              },
+            ],
+        },
+    }
 components:
   securitySchemes:
     bearerAuth: { type: http, scheme: bearer, bearerFormat: JWT }
@@ -2731,6 +3430,340 @@ components:
             { schema: { $ref: '#/components/schemas/ErrorResponse' } },
         }
   schemas:
+    JobCategory:
+      { 'type': 'string', 'enum': ['faang', 'big_tech', 'quant', 'other'] }
+    JobType: { 'type': 'string', 'enum': ['intern', 'grad', 'experienced'] }
+    JobListingStatus: { 'type': 'string', 'enum': ['open', 'closed'] }
+    JobCompany:
+      {
+        'type': 'object',
+        'required': ['id', 'name', 'category'],
+        'properties':
+          {
+            'id': { 'type': 'string', 'format': 'uuid' },
+            'name': { 'type': 'string', 'maxLength': 120 },
+            'category': { '$ref': '#/components/schemas/JobCategory' },
+          },
+      }
+    JobCompanyInput:
+      {
+        'type': 'object',
+        'required': ['name', 'category'],
+        'properties':
+          {
+            'name': { 'type': 'string', 'minLength': 1, 'maxLength': 120 },
+            'category': { '$ref': '#/components/schemas/JobCategory' },
+          },
+      }
+    JobPosition:
+      {
+        'type': 'object',
+        'required':
+          [
+            'id',
+            'company',
+            'title',
+            'jobType',
+            'eligibility',
+            'applicationUrl',
+            'locations',
+            'notes',
+            'status',
+            'createdAt',
+          ],
+        'properties':
+          {
+            'id': { 'type': 'string', 'format': 'uuid' },
+            'company': { '$ref': '#/components/schemas/JobCompany' },
+            'title': { 'type': 'string' },
+            'jobType': { '$ref': '#/components/schemas/JobType' },
+            'eligibility': { 'type': 'string' },
+            'applicationUrl': { 'type': 'string', 'format': 'uri' },
+            'locations': { 'type': 'array', 'items': { 'type': 'string' } },
+            'notes': { 'type': 'string' },
+            'status': { '$ref': '#/components/schemas/JobListingStatus' },
+            'createdAt': { 'type': 'string', 'format': 'date-time' },
+          },
+      }
+    JobPositionInput:
+      {
+        'type': 'object',
+        'required':
+          [
+            'companyName',
+            'category',
+            'title',
+            'jobType',
+            'eligibility',
+            'applicationUrl',
+            'locations',
+            'notes',
+            'status',
+          ],
+        'properties':
+          {
+            'companyName':
+              { 'type': 'string', 'minLength': 1, 'maxLength': 120 },
+            'category': { '$ref': '#/components/schemas/JobCategory' },
+            'title': { 'type': 'string', 'minLength': 1, 'maxLength': 300 },
+            'jobType': { '$ref': '#/components/schemas/JobType' },
+            'eligibility': { 'type': 'string', 'maxLength': 4000 },
+            'applicationUrl':
+              { 'type': 'string', 'format': 'uri', 'maxLength': 2048 },
+            'locations':
+              {
+                'type': 'array',
+                'minItems': 1,
+                'maxItems': 20,
+                'items': { 'type': 'string', 'maxLength': 200 },
+              },
+            'notes': { 'type': 'string', 'maxLength': 10000 },
+            'status': { '$ref': '#/components/schemas/JobListingStatus' },
+          },
+      }
+    JobPositionProgress:
+      type: object
+      required: [total, stages, transitions, suggestions]
+      properties:
+        total: { type: integer }
+        stages:
+          type: array
+          items:
+            $ref: '#/components/schemas/JobProgressNode'
+        transitions:
+          type: array
+          items:
+            $ref: '#/components/schemas/JobProgressLink'
+        suggestions:
+          type: array
+          items: { type: string }
+    JobProgressNode:
+      type: object
+      required: [id, round, title, reached, current]
+      properties:
+        id: { type: integer }
+        round: { type: integer }
+        title: { type: string }
+        reached: { type: integer }
+        current: { type: integer }
+    JobProgressLink:
+      type: object
+      required: [source, target, count]
+      properties:
+        source: { type: integer }
+        target: { type: integer }
+        count: { type: integer }
+    JobApplicationEditInput:
+      type: object
+      required: [status, date, stages]
+      properties:
+        status:
+          $ref: '#/components/schemas/JobApplicationStatus'
+        date:
+          type: string
+          format: date
+        shareProgress:
+          type: boolean
+          description: Share stage names and progress counts for this position.
+        stages:
+          type: array
+          minItems: 1
+          maxItems: 200
+          items:
+            $ref: '#/components/schemas/JobStageEditInput'
+    JobStageEditInput:
+      allOf:
+        - $ref: '#/components/schemas/JobStageInput'
+        - type: object
+          properties:
+            id:
+              type: string
+              format: uuid
+    JobStage:
+      {
+        'type': 'object',
+        'required': ['id', 'title', 'date', 'notes', 'initial'],
+        'properties':
+          {
+            'id': { 'type': 'string', 'format': 'uuid' },
+            'title': { 'type': 'string' },
+            'date': { 'type': 'string', 'format': 'date' },
+            'notes': { 'type': 'string' },
+            'initial': { 'type': 'boolean' },
+          },
+      }
+    JobStageInput:
+      {
+        'type': 'object',
+        'required': ['title', 'date', 'notes'],
+        'properties':
+          {
+            'title': { 'type': 'string', 'minLength': 1, 'maxLength': 120 },
+            'date': { 'type': 'string', 'format': 'date' },
+            'notes': { 'type': 'string', 'maxLength': 10000 },
+          },
+      }
+    JobApplication:
+      {
+        'type': 'object',
+        'required': ['id', 'status', 'position', 'stages', 'shareProgress'],
+        'properties':
+          {
+            'id': { 'type': 'string', 'format': 'uuid' },
+            'status': { '$ref': '#/components/schemas/JobApplicationStatus' },
+            'shareProgress': { 'type': 'boolean' },
+            'position': { '$ref': '#/components/schemas/JobPosition' },
+            'stages':
+              {
+                'type': 'array',
+                'items': { '$ref': '#/components/schemas/JobStage' },
+              },
+          },
+      }
+    JobApplicationStatus:
+      { 'type': 'string', 'enum': ['active', 'inactive', 'offer'] }
+    JobApplicationStatusInput:
+      {
+        'type': 'object',
+        'required': ['status', 'date'],
+        'properties':
+          {
+            'status': { '$ref': '#/components/schemas/JobApplicationStatus' },
+            'date': { 'type': 'string', 'format': 'date' },
+          },
+      }
+    JobApplicationInput:
+      {
+        'type': 'object',
+        'required': ['positionId', 'date'],
+        'properties':
+          {
+            'positionId': { 'type': 'string', 'format': 'uuid' },
+            'date': { 'type': 'string', 'format': 'date' },
+          },
+      }
+    JobApplicationCreated:
+      {
+        'type': 'object',
+        'required': ['id'],
+        'properties': { 'id': { 'type': 'string', 'format': 'uuid' } },
+      }
+    JobMergeInput:
+      {
+        'type': 'object',
+        'required': ['targetId'],
+        'properties': { 'targetId': { 'type': 'string', 'format': 'uuid' } },
+      }
+    JobCompanyList:
+      {
+        'type': 'object',
+        'required': ['items'],
+        'properties':
+          {
+            'items':
+              {
+                'type': 'array',
+                'items': { '$ref': '#/components/schemas/JobCompany' },
+              },
+          },
+      }
+    JobDuplicateError:
+      {
+        'type': 'object',
+        'required': ['message', 'requestId', 'existingPositionId'],
+        'properties':
+          {
+            'message': { 'type': 'string' },
+            'requestId': { 'type': 'string' },
+            'existingPositionId': { 'type': 'string', 'format': 'uuid' },
+          },
+      }
+    JobReferralBoard:
+      type: object
+      required: [profile, requests, companies]
+      properties:
+        profile: { $ref: '#/components/schemas/JobReferralProfile' }
+        requests:
+          type: array
+          items: { type: string, format: uuid }
+        companies:
+          type: array
+          items: { $ref: '#/components/schemas/JobCompany' }
+    JobReferralProfile:
+      type: object
+      required: [reason, resumeUrl]
+      properties:
+        reason: { type: string }
+        resumeUrl: { type: string }
+    JobReferralCounts:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/JobReferralCount' }
+    JobReferralCount:
+      type: object
+      required: [companyId, count]
+      properties:
+        companyId: { type: string, format: uuid }
+        count: { type: integer }
+    JobReferralCandidate:
+      type: object
+      required: [id, name, reason, resumeUrl, positions]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        reason: { type: string }
+        resumeUrl: { type: string, format: uri }
+        positions:
+          type: array
+          items: { $ref: '#/components/schemas/JobReferralPosition' }
+    JobReferralPosition:
+      type: object
+      required: [id, title]
+      properties:
+        id: { type: string, format: uuid }
+        title: { type: string }
+    JobReferralCandidatePage:
+      type: object
+      required: [items, pageInfo, totalCount]
+      properties:
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/JobReferralCandidate' }
+        pageInfo: { $ref: '#/components/schemas/PageInfo' }
+        totalCount: { type: integer, format: int64 }
+    JobPositionPage:
+      {
+        'type': 'object',
+        'required': ['items', 'pageInfo', 'totalCount'],
+        'properties':
+          {
+            'items':
+              {
+                'type': 'array',
+                'items': { '$ref': '#/components/schemas/JobPosition' },
+              },
+            'pageInfo': { '$ref': '#/components/schemas/PageInfo' },
+            'totalCount': { 'type': 'integer', 'format': 'int64' },
+          },
+      }
+    JobApplicationPage:
+      {
+        'type': 'object',
+        'required': ['items', 'pageInfo', 'totalCount'],
+        'properties':
+          {
+            'items':
+              {
+                'type': 'array',
+                'items': { '$ref': '#/components/schemas/JobApplication' },
+              },
+            'pageInfo': { '$ref': '#/components/schemas/PageInfo' },
+            'totalCount': { 'type': 'integer', 'format': 'int64' },
+          },
+      }
     AdminProfileUpdate:
       type: object
       required: [name, slug, discordId]

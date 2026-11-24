@@ -1,4 +1,6 @@
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render, screen } from '@testing-library/react';
+import type { ReactNode } from 'react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { SignInPage } from './RouteStatePages';
@@ -25,14 +27,29 @@ vi.mock('@/api/authClient', () => ({
 
 const token = 'a'.repeat(43);
 
+/** The sign-in page clears cached account queries after signing in. */
+function withQueryClient(children: ReactNode) {
+  return (
+    <QueryClientProvider
+      client={
+        new QueryClient({ defaultOptions: { queries: { retry: false } } })
+      }
+    >
+      {children}
+    </QueryClientProvider>
+  );
+}
+
 function renderSignIn(state?: unknown) {
   render(
-    <MemoryRouter initialEntries={[{ pathname: '/sign-in', state }]}>
-      <Routes>
-        <Route path="/sign-in" element={<SignInPage />} />
-        <Route path="/verify-email" element={<p>Check your email</p>} />
-      </Routes>
-    </MemoryRouter>,
+    withQueryClient(
+      <MemoryRouter initialEntries={[{ pathname: '/sign-in', state }]}>
+        <Routes>
+          <Route path="/sign-in" element={<SignInPage />} />
+          <Route path="/verify-email" element={<p>Check your email</p>} />
+        </Routes>
+      </MemoryRouter>,
+    ),
   );
 }
 
@@ -103,11 +120,13 @@ it('keeps the invited name and email and lets the invitee choose a username', as
 
 function renderSignInAt(search: string) {
   render(
-    <MemoryRouter initialEntries={[`/sign-in${search}`]}>
-      <Routes>
-        <Route path="/sign-in" element={<SignInPage />} />
-      </Routes>
-    </MemoryRouter>,
+    withQueryClient(
+      <MemoryRouter initialEntries={[`/sign-in${search}`]}>
+        <Routes>
+          <Route path="/sign-in" element={<SignInPage />} />
+        </Routes>
+      </MemoryRouter>,
+    ),
   );
 }
 

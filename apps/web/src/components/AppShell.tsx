@@ -32,6 +32,7 @@ import {
 } from '@/navigation';
 import { CanaryRoleSwitcher } from '@/components/CanaryBar';
 import { CommandPalette } from '@/components/CommandPalette';
+import { BetaBadge } from '@/components/BetaBadge';
 import { Avatar, useCurrentPageTitle } from '@/components/Common';
 import { cn } from '@/lib/utils';
 import { initials } from '@/utils';
@@ -100,6 +101,9 @@ export function AppShell() {
     [userQuery.data, seasons.data?.items, selectedSeason],
   );
   const homePath = navItems[0]?.to ?? '/profile';
+  const activeItem = navItems.find((item) =>
+    navigationItemActive(item, location.pathname),
+  );
   const handleSignOut = async () => {
     try {
       await signOut();
@@ -220,6 +224,7 @@ export function AppShell() {
               {pageTitle ||
                 navItems.find((item) => location.pathname === item.to)?.label}
             </span>
+            {activeItem?.beta && <BetaBadge />}
           </div>
           <div className="flex shrink-0 items-center gap-2">
             <CanaryRoleSwitcher />
@@ -284,15 +289,23 @@ function NavLinks({
         to={item.to}
         aria-current={isActive ? 'page' : undefined}
         onClick={onNavigate}
-        aria-label={mobileBar ? item.label : undefined}
+        aria-label={
+          mobileBar ? `${item.label}${item.beta ? ' (Beta)' : ''}` : undefined
+        }
         title={mobileBar ? item.label : undefined}
         className={cn(baseClass, isActive && activeClass)}
       >
         <Icon size={19} aria-hidden={true} />
-        <span className={labelClass}>
+        <span
+          className={cn(
+            labelClass,
+            item.beta && 'inline-flex items-center gap-1.5',
+          )}
+        >
           {mobileBar
             ? (mobileNavShortLabels[item.label] ?? item.label)
             : item.label}
+          {item.beta && <BetaBadge compact={mobileBar} />}
         </span>
       </Link>
     );

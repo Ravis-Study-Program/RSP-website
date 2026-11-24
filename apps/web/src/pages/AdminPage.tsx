@@ -287,7 +287,7 @@ export function AdminPage() {
                   kinds={['seasons', 'invitations']}
                   title="Mass Import"
                   trigger="Mass Import"
-                  seasons={seasons.data?.items ?? []}
+                  seasons={seasons.data?.items}
                 />
               </div>
             ) : null}
@@ -685,7 +685,7 @@ export function AdminResourcePage({
                   kinds={['invitations']}
                   title="Import Invitations"
                   trigger="Import Spreadsheet"
-                  seasons={manageableSeasons}
+                  seasons={seasons.data ? manageableSeasons : undefined}
                 />
               ) : null}
               {parts?.invite}

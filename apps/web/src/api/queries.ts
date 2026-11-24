@@ -149,7 +149,7 @@ export let demoPracticeSettings: PracticeSettings = {
   weeklyHours: defaultWeeklyHours,
 };
 
-function selectedDemoUser(): CurrentUser {
+export function selectedDemoUser(): CurrentUser {
   const role = window.localStorage.getItem('rsp-demo-role');
   if (role === 'unverified')
     return {

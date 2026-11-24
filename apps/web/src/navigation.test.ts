@@ -28,6 +28,7 @@ describe('shared navigation', () => {
       'LeetCode',
       'Mock Interviews',
       'Monday Updates',
+      'Jobs',
       'People',
       'My Students',
       'Seasons',
@@ -37,6 +38,7 @@ describe('shared navigation', () => {
       'LeetCode',
       'Mock Interviews',
       'Monday Updates',
+      'Jobs',
       'People',
       'Seasons',
       'Season Operations',
@@ -46,6 +48,7 @@ describe('shared navigation', () => {
       'LeetCode',
       'Mock Interviews',
       'Monday Updates',
+      'Jobs',
       'People',
       'Seasons',
       'Administration',
@@ -59,8 +62,9 @@ describe('shared navigation', () => {
       seasonRoles: [membership('mentor')],
     };
     const items = navigationItems(user, seasons);
-    expect(items.map((item) => item.label).slice(3, 7)).toEqual([
+    expect(items.map((item) => item.label).slice(3, 8)).toEqual([
       'Monday Updates',
+      'Jobs',
       'People',
       'My Students',
       'Seasons',
@@ -154,6 +158,7 @@ describe('shared navigation', () => {
       'LeetCode',
       'Mock Interviews',
       'Monday Updates',
+      'Jobs',
       'My Students',
       'Seasons',
     ]);
@@ -171,6 +176,7 @@ describe('shared navigation', () => {
       'Dashboard',
       'LeetCode',
       'Mock Interviews',
+      'Jobs',
       'People',
       'Seasons',
     ]);
@@ -187,6 +193,7 @@ describe('shared navigation', () => {
         '/dashboard',
         '/leetcode',
         '/mock-interviews',
+        '/jobs',
       ]);
     },
   );
@@ -214,9 +221,10 @@ describe('shared navigation', () => {
     ).toBeUndefined();
   });
 
-  it('gives a verified nonmember only their profile', () => {
+  it('gives a verified nonmember their profile and Jobs', () => {
     expect(navigationItems(userWith()).map((item) => item.to)).toEqual([
       '/profile',
+      '/jobs',
     ]);
   });
 

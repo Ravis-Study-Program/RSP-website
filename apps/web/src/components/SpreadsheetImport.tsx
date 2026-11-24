@@ -192,8 +192,12 @@ export function SpreadsheetImport({
   kinds: ImportKind[];
   title: string;
   trigger: ReactNode;
-  /** Every season, to recognise names and slugs; invitations go to open ones. */
-  seasons: Season[];
+  /**
+   * Every season, to recognise names and slugs; invitations go to open ones.
+   * Undefined while they load: the import stays closed until then, or a file
+   * read too early would find no season it names.
+   */
+  seasons: Season[] | undefined;
   /** Limits a season sheet to this season's weeks, as on its own page. */
   scope?: Season;
 }) {
@@ -305,7 +309,7 @@ export function SpreadsheetImport({
       if (!kinds.includes('seasons')) continue;
       const parsed = parseSeasonSheet(
         file.text,
-        [...seasons, ...created],
+        [...(seasons ?? []), ...created],
         scope,
       );
       if (typeof parsed === 'string')
@@ -322,7 +326,7 @@ export function SpreadsheetImport({
       }
     }
     const openSeasons = [
-      ...seasons.filter((season) => season.status === 'open'),
+      ...(seasons ?? []).filter((season) => season.status === 'open'),
       ...created,
     ];
     for (const file of read) {
@@ -529,6 +533,7 @@ export function SpreadsheetImport({
       title={title}
       contentClassName="sm:max-w-7xl"
       triggerVariant="outline"
+      triggerDisabled={!seasons}
       trigger={
         <>
           <IconFileSpreadsheet size={17} aria-hidden="true" /> {trigger}

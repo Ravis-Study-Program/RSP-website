@@ -1,4 +1,10 @@
 :root {
+  /* Classic spreadsheet job categories, sampled from the supplied palette. */
+  --job-faamg: #df3939;
+  --job-big-tech: #ff6d01;
+  --job-quant: #fabd05;
+  --job-other: #ffb3c6;
+  --job-category-foreground: #000000;
   color-scheme: light;
   --font-sans: 'Source Sans 3', sans-serif;
   --font-mono: ui-monospace, monospace;

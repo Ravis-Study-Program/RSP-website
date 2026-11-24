@@ -37,6 +37,7 @@ export function FormDialog({
   triggerVariant,
   triggerSize,
   triggerClassName,
+  triggerDisabled,
   contentClassName,
   children,
   open,
@@ -48,6 +49,7 @@ export function FormDialog({
   triggerVariant?: ButtonProps['variant'];
   triggerSize?: ButtonProps['size'];
   triggerClassName?: string;
+  triggerDisabled?: boolean;
   contentClassName?: string;
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
@@ -61,6 +63,7 @@ export function FormDialog({
               variant={triggerVariant}
               size={triggerSize}
               className={triggerClassName}
+              disabled={triggerDisabled}
             />
           }
         >
@@ -109,7 +112,9 @@ export function NamedConfirmation({
   name,
   title,
   actionLabel,
+  confirmLabel = actionLabel,
   description,
+  requireTyping = true,
   onConfirm,
   triggerSize,
   open: controlledOpen,
@@ -119,7 +124,9 @@ export function NamedConfirmation({
   /** The dialog's title; by default the action and the name. */
   title?: string;
   actionLabel: string;
+  confirmLabel?: string;
   description: string;
+  requireTyping?: boolean;
   onConfirm: () => void | Promise<void>;
   triggerSize?: ButtonProps['size'];
   /** When provided, the dialog is opened externally and renders no trigger. */
@@ -185,27 +192,34 @@ export function NamedConfirmation({
           {title ?? `${actionLabel} ${name}?`}
         </AlertDialogTitle>
         <AlertDialogDescription>{description}</AlertDialogDescription>
-        <Field className="mt-4">
-          <FieldLabel htmlFor={confirmationId}>
-            Type <strong>{name}</strong> to confirm
-          </FieldLabel>
-          <Input
-            id={confirmationId}
-            value={value}
-            autoComplete="off"
-            onChange={(event) => setValue(event.target.value)}
-          />
-        </Field>
+        {requireTyping && (
+          <Field className="mt-4">
+            <FieldLabel htmlFor={confirmationId}>
+              Type <strong>{name}</strong> to confirm
+            </FieldLabel>
+            <Input
+              id={confirmationId}
+              value={value}
+              autoComplete="off"
+              onChange={(event) => setValue(event.target.value)}
+            />
+          </Field>
+        )}
         {error ? <FieldError>{error}</FieldError> : null}
-        <div className="mt-5 button-group">
+        <div
+          className={cn(
+            'mt-5',
+            requireTyping ? 'button-group' : 'flex flex-wrap justify-end gap-2',
+          )}
+        >
           <AlertDialogCancel disabled={pending}>Cancel</AlertDialogCancel>
           <Button
             variant="destructive"
             type="button"
-            disabled={value !== name || pending}
+            disabled={pending || (requireTyping && value !== name)}
             onClick={() => void confirm()}
           >
-            {pending ? 'Working…' : actionLabel}
+            {pending ? 'Working…' : confirmLabel}
           </Button>
         </div>
       </AlertDialogContent>

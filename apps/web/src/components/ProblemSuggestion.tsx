@@ -1,6 +1,6 @@
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { IconExternalLink } from '@tabler/icons-react';
+import { ExternalLink } from '@/components/ExternalLink';
 import { useState } from 'react';
 import { ApiError, apiRequest } from '@/api/client';
 import {
@@ -106,15 +106,9 @@ export function ProblemSuggestion() {
             </p>
           ) : suggestion ? (
             <p className="mt-4 text-base">
-              <a
-                className="inline-flex items-center gap-1.5 font-medium underline decoration-[0.08em] underline-offset-[0.2em] hover:decoration-[0.14em]"
-                href={suggestion.link}
-                target="_blank"
-                rel="noreferrer"
-              >
+              <ExternalLink className="font-medium" href={suggestion.link}>
                 {problemName(suggestion)}
-                <IconExternalLink size={16} aria-hidden="true" />
-              </a>
+              </ExternalLink>
               {suggestion.premium ? ' · LeetCode Premium' : ''}
             </p>
           ) : null}

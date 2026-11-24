@@ -382,6 +382,7 @@ Places that still bypass the inventory or the rules. Fix them when touching the 
 - **Do** take emphasis from ink fill, weight (500–700) and size before reaching for colour.
 - **Do** style with Tailwind utilities on shadcn/ui components (`src/components/ui`), using the theme tokens mapped in `src/styles/global.css` (`bg-primary`, `bg-muted`, `border-border`, `text-success` / `bg-success-soft`, `bg-sidebar` and so on; values live in `src/styles/tokens.css`) so both themes stay in sync. No CSS modules or literal colours.
 - **Do** keep one solid (`default`) button per header or dialog; row and secondary actions are `outline`, destructive actions `destructive`, and links styled as buttons use `buttonVariants` on `Link`.
+- **Do** give reorderable items (mock interview rounds, application stages) icon buttons in the order up, down, remove: the arrows `ghost`, the bin `destructive`.
 - **Do** pair every status colour with its soft wash, and keep `forced-colors` and `prefers-reduced-motion` behaviour intact.
 - **Do** keep focus visible: 3px ring or outline, offset 3px.
 - **Do** keep controls compact (36px default) while nav targets stay at 44px or more.
