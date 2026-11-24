@@ -5,6 +5,7 @@ import { Button, buttonVariants } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
   IconAlertTriangle,
+  IconCheck,
   IconLock,
   IconMailCheck,
   IconMoodSad,
@@ -221,7 +222,19 @@ export function SignInPage() {
     <AuthFrame
       title={mode === 'sign-in' ? 'Welcome to RSP' : 'Create your account'}
       notice={
-        signedOut ? (
+        searchParams.get('emailChanged') === 'true' ? (
+          <InlineNotice tone="success">
+            <IconCheck size={19} aria-hidden="true" /> Your email was changed,
+            so you were signed out on all devices. Sign in with your new email
+            address.
+          </InlineNotice>
+        ) : searchParams.get('emailChangeConfirmed') === 'true' ? (
+          <InlineNotice>
+            <IconMailCheck size={19} aria-hidden="true" /> Email change
+            confirmed. Open the link we sent to your new email address to
+            finish. Until then, sign in with your current email.
+          </InlineNotice>
+        ) : signedOut ? (
           <InlineNotice tone="warning">
             <IconAlertTriangle size={19} aria-hidden="true" /> {signedOut}
           </InlineNotice>

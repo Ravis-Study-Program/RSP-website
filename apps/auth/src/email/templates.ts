@@ -76,6 +76,44 @@ export function verificationEmail(to: string, url: string): EmailMessage {
   });
 }
 
+/**
+ * The first step of changing your own email, sent to the current address:
+ * approving it sends a second link to the new address.
+ */
+export function emailChangeConfirmationEmail(
+  to: string,
+  newEmail: string,
+  url: string,
+): EmailMessage {
+  return linkEmail({
+    to,
+    subject: 'Confirm your RSP email change',
+    introduction: `Someone asked to change the email on your RSP account to ${newEmail}.`,
+    note: `Confirm below, then open the link we send to ${newEmail} to finish. Your email stays the same until you do.`,
+    action: 'Confirm email change',
+    url,
+    expiry:
+      'This link expires in one hour. If you did not ask for this, ignore this email and your account stays as it is.',
+  });
+}
+
+/** The last step of an email change, sent to the new address. */
+export function newEmailVerificationEmail(
+  to: string,
+  url: string,
+): EmailMessage {
+  return linkEmail({
+    to,
+    subject: 'Verify your new RSP email address',
+    introduction: 'Verify this address to finish changing your RSP email.',
+    note: 'You will be signed out on all devices, then sign in with this address.',
+    action: 'Verify new email',
+    url,
+    expiry:
+      'This link expires in one hour. If you did not ask for this, ignore this email.',
+  });
+}
+
 export function passwordResetEmail(to: string, url: string): EmailMessage {
   return linkEmail({
     to,

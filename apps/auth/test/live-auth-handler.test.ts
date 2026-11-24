@@ -462,7 +462,7 @@ live.sequential('live Better Auth handler and PostgreSQL', () => {
       const cookies = jar();
       expect((await signIn(oldEmail, cookies)).status).toBe(200);
       const requested = await call('/change-email', {
-        body: { newEmail, callbackURL: '/settings?emailChanged=true' },
+        body: { newEmail, callbackURL: '/sign-in?emailChangeConfirmed=true' },
         cookies,
       });
       expect(requested.status).toBe(200);
@@ -475,6 +475,9 @@ live.sequential('live Better Auth handler and PostgreSQL', () => {
         { redirect: 'manual' },
       );
       expect(confirmation.status).toBe(302);
+      expect(confirmation.headers.get('location')).toBe(
+        '/sign-in?emailChangeConfirmed=true',
+      );
       expect(
         (
           await pool.query('SELECT email FROM auth.users WHERE id=$1', [
@@ -491,6 +494,9 @@ live.sequential('live Better Auth handler and PostgreSQL', () => {
         { redirect: 'manual' },
       );
       expect(verification.status).toBe(302);
+      expect(verification.headers.get('location')).toBe(
+        '/sign-in?emailChanged=true',
+      );
       const after = await pool.query(
         'SELECT email,email_verified FROM auth.users WHERE id=$1',
         [targetId],

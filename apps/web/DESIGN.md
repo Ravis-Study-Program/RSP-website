@@ -288,6 +288,7 @@ Exact and unassuming.
 - Group rows into separate titled sections rather than subheadings inside one card. Settings uses Sign-In (email, password, Google, Discord), Two-Factor (two-factor, then backup codes, disabled until two-factor is on) and Sessions.
 - Sign-in method rows open with the same sentence, "Sign in with your Google account." or "Sign in with your Discord account.", then add what else connecting does and that connecting or disconnecting signs you out on all devices.
 - A change that signs the member out everywhere (connecting a sign-in method, disconnecting Discord, other security changes) explains itself with a warning `InlineNotice` across the top of the sign-in page, like the warnings at the top of Settings, not inside the sign-in card.
+- Changing your email takes two links, so each step says what comes next: Settings names both addresses after the request (info `InlineNotice`), the old address's link lands on sign-in with an info notice to open the new address's link, and the new address's link lands on sign-in with a success (green) notice that the change is done and you were signed out everywhere.
 - Read-only values use the same labelled field as editable ones, greyed (`text-muted-foreground`) and `readOnly`, rather than plain text.
 
 ### Tables

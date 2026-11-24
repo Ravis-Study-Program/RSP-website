@@ -9,7 +9,11 @@ import {
 } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { IconAlertTriangle, IconCheck } from '@tabler/icons-react';
+import {
+  IconAlertTriangle,
+  IconCheck,
+  IconMailCheck,
+} from '@tabler/icons-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import {
@@ -97,6 +101,8 @@ export function SettingsPage() {
   const [saved, setSaved] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState('');
+  // The new address an email change was requested for, until it is confirmed.
+  const [emailChangeTo, setEmailChangeTo] = useState('');
   const [searchParams] = useSearchParams();
   const [securityMessage, setSecurityMessage] = useState(
     socialAuthError(searchParams),
@@ -299,6 +305,13 @@ export function SettingsPage() {
         {saveError ? (
           <InlineNotice tone="warning">{saveError}</InlineNotice>
         ) : null}
+        {emailChangeTo ? (
+          <InlineNotice>
+            <IconMailCheck size={19} aria-hidden="true" /> To change your email
+            to {emailChangeTo}, open the link we sent to {user.data.email}, then
+            the one we send to {emailChangeTo}.
+          </InlineNotice>
+        ) : null}
         {securityMessage ? (
           <InlineNotice tone="warning">{securityMessage}</InlineNotice>
         ) : null}
@@ -376,7 +389,7 @@ export function SettingsPage() {
               <strong className="font-semibold">Account Email</strong>
               <span className={rowTextClass}>{user.data.email}</span>
             </span>
-            <ChangeEmailDialog onRequested={() => finishSecurityChange()} />
+            <ChangeEmailDialog onRequested={setEmailChangeTo} />
           </div>
           <div className={rowClass}>
             <span>
@@ -931,7 +944,11 @@ function BackupCodesDialog({ onComplete }: { onComplete: () => void }) {
   );
 }
 
-function ChangeEmailDialog({ onRequested }: { onRequested: () => void }) {
+function ChangeEmailDialog({
+  onRequested,
+}: {
+  onRequested: (newEmail: string) => void;
+}) {
   const [open, setOpen] = useState(false);
   const [email, setEmail] = useState('');
   const [error, setError] = useState('');
@@ -943,7 +960,7 @@ function ChangeEmailDialog({ onRequested }: { onRequested: () => void }) {
     setError('');
     try {
       if (!demoMode) await changeEmail(email.trim());
-      onRequested();
+      onRequested(email.trim());
       setOpen(false);
       setEmail('');
     } catch (requestError) {

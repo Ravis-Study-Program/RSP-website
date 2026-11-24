@@ -12,7 +12,12 @@ import {
   oauthRequestContext,
 } from './identity/discord-profile.js';
 import { createEmailProvider } from './email/provider.js';
-import { passwordResetEmail, verificationEmail } from './email/templates.js';
+import {
+  emailChangeConfirmationEmail,
+  newEmailVerificationEmail,
+  passwordResetEmail,
+  verificationEmail,
+} from './email/templates.js';
 import { HttpIdentityLifecycleGateway } from './identity/gateway.js';
 import { AccountLifecycleService } from './lifecycle/service.js';
 import { log as writeLog } from './logging.js';
@@ -360,11 +365,10 @@ export const auth = betterAuth({
     changeEmail: {
       enabled: true,
       updateEmailWithoutVerification: false,
-      async sendChangeEmailConfirmation({ user, url }) {
-        await emailProvider.send({
-          ...verificationEmail(user.email, url),
-          subject: 'Confirm your RSP email change',
-        });
+      async sendChangeEmailConfirmation({ user, newEmail, url }) {
+        await emailProvider.send(
+          emailChangeConfirmationEmail(user.email, newEmail, url),
+        );
       },
     },
     deleteUser: { enabled: false },
@@ -456,10 +460,13 @@ export const auth = betterAuth({
       if (
         decodeJwtPayload(token)?.requestType === 'change-email-verification'
       ) {
-        await emailProvider.send({
-          ...verificationEmail(user.email, url),
-          subject: 'Verify your new RSP email address',
-        });
+        // Verifying signs the member out everywhere, so it lands on sign-in,
+        // which says the change is done.
+        const link = new URL(url);
+        link.searchParams.set('callbackURL', '/sign-in?emailChanged=true');
+        await emailProvider.send(
+          newEmailVerificationEmail(user.email, link.toString()),
+        );
         return;
       }
       // Signed up from an invitation to this address: already verified.
