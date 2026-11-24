@@ -4,8 +4,8 @@
  * new tab, and the invitation has to be waiting there after sign-in.
  */
 const pendingInvitationKey = 'rsp-pending-invitation';
-// Invitations last 7 days; a saved token is no use after that.
-const pendingInvitationTtl = 7 * 86400000;
+// Invitations last 14 days; a saved token is no use after that.
+const pendingInvitationTtl = 14 * 86400000;
 
 export function pendingInvitation(): string {
   try {

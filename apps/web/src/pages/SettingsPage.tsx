@@ -9,7 +9,11 @@ import {
 } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { IconAlertTriangle, IconCheck } from '@tabler/icons-react';
+import {
+  IconAlertTriangle,
+  IconCheck,
+  IconMailCheck,
+} from '@tabler/icons-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import {
@@ -27,7 +31,7 @@ import {
   enableTwoFactor,
   linkGoogleAccount,
   linkDiscordAccount,
-  unlinkDiscordAccount,
+  unlinkAccount,
   socialAuthError,
   regenerateBackupCodes,
   requestAccountDeletion,
@@ -97,6 +101,8 @@ export function SettingsPage() {
   const [saved, setSaved] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState('');
+  // The new address an email change was requested for, until it is confirmed.
+  const [emailChangeTo, setEmailChangeTo] = useState('');
   const [searchParams] = useSearchParams();
   const [securityMessage, setSecurityMessage] = useState(
     socialAuthError(searchParams),
@@ -255,7 +261,10 @@ export function SettingsPage() {
   };
   /** Signs out after a change that revoked every session, saying which. */
   const finishSecurityChange = (
-    change: 'securityChanged' | 'discordDisconnected' = 'securityChanged',
+    change:
+      | 'securityChanged'
+      | 'discordDisconnected'
+      | 'googleDisconnected' = 'securityChanged',
   ) => {
     clearAccessToken();
     queryClient.clear();
@@ -298,6 +307,12 @@ export function SettingsPage() {
         ) : null}
         {saveError ? (
           <InlineNotice tone="warning">{saveError}</InlineNotice>
+        ) : null}
+        {emailChangeTo ? (
+          <InlineNotice>
+            <IconMailCheck size={19} aria-hidden="true" /> We sent a link to{' '}
+            {emailChangeTo}. Open it to finish changing your email.
+          </InlineNotice>
         ) : null}
         {securityMessage ? (
           <InlineNotice tone="warning">{securityMessage}</InlineNotice>
@@ -376,7 +391,7 @@ export function SettingsPage() {
               <strong className="font-semibold">Account Email</strong>
               <span className={rowTextClass}>{user.data.email}</span>
             </span>
-            <ChangeEmailDialog onRequested={() => finishSecurityChange()} />
+            <ChangeEmailDialog onRequested={setEmailChangeTo} />
           </div>
           <div className={rowClass}>
             <span>
@@ -400,37 +415,11 @@ export function SettingsPage() {
               <ChangePasswordDialog onChanged={() => finishSecurityChange()} />
             )}
           </div>
-          <div className={rowClass}>
-            <span>
-              <strong className="font-semibold">Google Sign-In</strong>
-              <span className={rowTextClass}>
-                {signInMethods.data?.google
-                  ? 'Sign in with your Google account.'
-                  : 'Sign in with your Google account. Connecting signs you out on all devices.'}
-              </span>
-            </span>
-            {signInMethods.data?.google ? (
-              <Button type="button" disabled>
-                <IconCheck size={17} aria-hidden="true" /> Google Connected
-              </Button>
-            ) : (
-              <Button
-                type="button"
-                disabled={!signInMethods.data}
-                onClick={() =>
-                  void linkGoogleAccount().catch((error: unknown) =>
-                    setSecurityMessage(
-                      error instanceof Error
-                        ? error.message
-                        : 'Unable to connect Google.',
-                    ),
-                  )
-                }
-              >
-                Connect Google
-              </Button>
-            )}
-          </div>
+          <GoogleSignInRow
+            methods={signInMethods.data}
+            onDisconnected={() => finishSecurityChange('googleDisconnected')}
+            onError={setSecurityMessage}
+          />
           {providers.data?.discord || signInMethods.data?.discordAccountId ? (
             <div className={rowClass}>
               <span>
@@ -449,7 +438,7 @@ export function SettingsPage() {
                   setSecurityMessage('');
                   const accountId = signInMethods.data?.discordAccountId;
                   const action = accountId
-                    ? unlinkDiscordAccount(accountId).then(() =>
+                    ? unlinkAccount(accountId).then(() =>
                         finishSecurityChange('discordDisconnected'),
                       )
                     : linkDiscordAccount();
@@ -931,7 +920,72 @@ function BackupCodesDialog({ onComplete }: { onComplete: () => void }) {
   );
 }
 
-function ChangeEmailDialog({ onRequested }: { onRequested: () => void }) {
+/**
+ * Connect or disconnect Google. Disconnecting needs a password to stay
+ * connected, so the member can still sign in.
+ */
+export function GoogleSignInRow({
+  methods,
+  onDisconnected,
+  onError,
+}: {
+  methods?: { googleAccountId: string | null; password: boolean };
+  onDisconnected: () => void;
+  onError: (message: string) => void;
+}) {
+  const [pending, setPending] = useState(false);
+  const accountId = methods?.googleAccountId;
+  const run = (action: Promise<unknown>, fallback: string) => {
+    setPending(true);
+    onError('');
+    void action.catch((error: unknown) => {
+      onError(error instanceof Error ? error.message : fallback);
+      setPending(false);
+    });
+  };
+  return (
+    <div className={rowClass}>
+      <span>
+        <strong className="font-semibold">Google Sign-In</strong>
+        <span className={rowTextClass}>
+          {!accountId
+            ? 'Sign in with your Google account. Connecting signs you out on all devices.'
+            : methods?.password
+              ? 'Sign in with your Google account. Disconnecting signs you out on all devices.'
+              : 'Sign in with your Google account. Add a password before disconnecting Google, so you can still sign in.'}
+        </span>
+      </span>
+      {accountId ? (
+        <Button
+          type="button"
+          disabled={pending || !methods?.password}
+          onClick={() =>
+            run(
+              unlinkAccount(accountId).then(onDisconnected),
+              'Unable to disconnect Google.',
+            )
+          }
+        >
+          {pending ? 'Please Wait…' : 'Disconnect Google'}
+        </Button>
+      ) : (
+        <Button
+          type="button"
+          disabled={!methods || pending}
+          onClick={() => run(linkGoogleAccount(), 'Unable to connect Google.')}
+        >
+          {pending ? 'Please Wait…' : 'Connect Google'}
+        </Button>
+      )}
+    </div>
+  );
+}
+
+function ChangeEmailDialog({
+  onRequested,
+}: {
+  onRequested: (newEmail: string) => void;
+}) {
   const [open, setOpen] = useState(false);
   const [email, setEmail] = useState('');
   const [error, setError] = useState('');
@@ -943,7 +997,7 @@ function ChangeEmailDialog({ onRequested }: { onRequested: () => void }) {
     setError('');
     try {
       if (!demoMode) await changeEmail(email.trim());
-      onRequested();
+      onRequested(email.trim());
       setOpen(false);
       setEmail('');
     } catch (requestError) {

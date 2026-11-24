@@ -1,3 +1,12 @@
+/** What the API says about someone signing up from an invitation. */
+export interface InvitationCheck {
+  readonly matches: boolean;
+  /** The name the invitation was sent to. */
+  readonly name: string;
+  /** Why the chosen username cannot be used; empty when it can. */
+  readonly problem: string;
+}
+
 export type SessionRevocationReason =
   | 'suspension'
   | 'deletion_requested'
@@ -18,6 +27,8 @@ export type IdentityLifecycleEvent = LifecycleEventIdentity &
         readonly email: string;
         /** The name given at sign-up (or by Google or Discord). */
         readonly name?: string;
+        /** The username chosen when signing up from an invitation. */
+        readonly username?: string;
         readonly emailVerified: boolean;
         readonly securityVersion: number;
         readonly occurredAt: string;
@@ -123,10 +134,18 @@ export class HttpIdentityLifecycleGateway implements IdentityLifecycleGateway {
   }
 
   /**
-   * Whether a live invitation with this token was sent to this email. Any
-   * failure counts as no match, so sign-up falls back to email verification.
+   * Whether someone signing up has a live invitation, and the name it was sent
+   * to. With a token, it must be that invitation and sent to this email;
+   * without one (Google sign-up), any live invitation to the email counts. A
+   * username chosen at sign-up is checked and, when free, saved to the
+   * invitation; `problem` says why one cannot be used. Null when the API
+   * cannot be reached.
    */
-  async invitationSentTo(token: string, email: string): Promise<boolean> {
+  async checkInvitation(input: {
+    readonly email: string;
+    readonly token?: string;
+    readonly username?: string;
+  }): Promise<InvitationCheck | null> {
     const fetchImplementation = this.options.fetchImplementation ?? fetch;
     try {
       const response = await fetchImplementation(
@@ -137,15 +156,23 @@ export class HttpIdentityLifecycleGateway implements IdentityLifecycleGateway {
             authorization: `Bearer ${this.options.token}`,
             'content-type': 'application/json',
           },
-          body: JSON.stringify({ token, email }),
+          body: JSON.stringify(input),
           signal: AbortSignal.timeout(this.options.timeoutMs),
         },
       );
-      if (!response.ok) return false;
-      const result = (await response.json()) as { matches?: unknown };
-      return result.matches === true;
+      if (!response.ok) return null;
+      const result = (await response.json()) as {
+        matches?: unknown;
+        name?: unknown;
+        problem?: unknown;
+      };
+      return {
+        matches: result.matches === true,
+        name: typeof result.name === 'string' ? result.name : '',
+        problem: typeof result.problem === 'string' ? result.problem : '',
+      };
     } catch {
-      return false;
+      return null;
     }
   }
 }

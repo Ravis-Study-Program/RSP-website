@@ -12,7 +12,7 @@ import {
   SeasonRowMenu,
 } from '@/components/SeasonManagement';
 import type { Season } from '@/types';
-import { formatDate } from '@/utils';
+import { formatProgramRange } from '@/activityDates';
 
 const inlineClass = 'flex flex-wrap items-center gap-2.5';
 const helperClass = 'text-sm text-muted-foreground';
@@ -90,7 +90,7 @@ export function SeasonsPage() {
       header: 'Dates',
       meta: { width: 13 },
       cell: ({ row }) =>
-        `${formatDate(row.original.startsAt)} – ${formatDate(row.original.endsAt)}`,
+        formatProgramRange(row.original.startsAt, row.original.endsAt),
     },
     {
       accessorKey: 'memberCount',
@@ -156,8 +156,7 @@ export function SeasonsPage() {
               <HighlightText text={row.original.name} />
             </h2>
             <p className={helperClass}>
-              {formatDate(row.original.startsAt)} –{' '}
-              {formatDate(row.original.endsAt)}
+              {formatProgramRange(row.original.startsAt, row.original.endsAt)}
             </p>
             <div className="flex justify-end">
               <SeasonRowMenu

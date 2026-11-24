@@ -6,6 +6,7 @@ import (
 	"github.com/Ravis-Study-Program/RSP-website/backend/internal/platform/id"
 	"github.com/Ravis-Study-Program/RSP-website/backend/internal/program"
 	"github.com/jackc/pgx/v5"
+	"strings"
 	"time"
 )
 
@@ -124,7 +125,7 @@ func (p *Store) ChangeInvitation(ctx context.Context, seasonID, inviteID, hash, 
 		v.Status = "cancelled"
 	} else {
 		v.DeliveryID = deliveryID
-		v.ExpiresAt = at.Add(7 * 24 * time.Hour)
+		v.ExpiresAt = at.Add(program.InvitationLifetime)
 		v.SentAt = nil
 		v.Status = "pending"
 		_, err = tx.Exec(ctx, `UPDATE app.season_invitations SET token_hash=$2,delivery_id=$3,expires_at=$4,sent_at=NULL WHERE id=$1`, inviteID, hash, deliveryID, v.ExpiresAt)
@@ -174,12 +175,25 @@ func (p *Store) FindSeasonMemberByEmail(ctx context.Context, seasonID, email str
 	return m, err == nil, err
 }
 
-// AccountExistsByEmail reports whether an active account uses this email.
-func (p *Store) AccountExistsByEmail(ctx context.Context, email string) (bool, error) {
-	var exists bool
-	err := p.conn().QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM app.user_contacts c JOIN app.users u ON u.id=c.user_id
- WHERE lower(c.email)=lower($1) AND u.deleted_at IS NULL)`, email).Scan(&exists)
-	return exists, err
+// AccountByEmail is an account found by email, with the name and username
+// an import may change.
+type AccountByEmail struct {
+	UserID string
+	Name   string
+	Slug   string
+}
+
+// FindAccountByEmail finds the account (not deleted) with this email; found
+// is false when there is none.
+func (p *Store) FindAccountByEmail(ctx context.Context, email string) (AccountByEmail, bool, error) {
+	var v AccountByEmail
+	err := p.conn().QueryRow(ctx, `SELECT u.id::text, coalesce(pr.display_name,''), coalesce(lower(pr.slug),'')
+ FROM app.user_contacts c JOIN app.users u ON u.id=c.user_id LEFT JOIN app.user_profiles pr ON pr.user_id=u.id
+ WHERE lower(c.email)=lower($1) AND u.deleted_at IS NULL LIMIT 1`, email).Scan(&v.UserID, &v.Name, &v.Slug)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return v, false, nil
+	}
+	return v, err == nil, err
 }
 
 // ActiveAccountIDByEmail is the id of the active account with this email, or
@@ -192,17 +206,6 @@ func (p *Store) ActiveAccountIDByEmail(ctx context.Context, email string) (strin
 		return "", nil
 	}
 	return userID, err
-}
-
-// AccountSlugByEmail is the username of the account with this email, or "".
-func (p *Store) AccountSlugByEmail(ctx context.Context, email string) (string, error) {
-	var slug string
-	err := p.conn().QueryRow(ctx, `SELECT lower(pr.slug) FROM app.user_contacts c JOIN app.users u ON u.id=c.user_id
- JOIN app.user_profiles pr ON pr.user_id=u.id WHERE lower(c.email)=lower($1) AND u.deleted_at IS NULL LIMIT 1`, email).Scan(&slug)
-	if errors.Is(err, pgx.ErrNoRows) {
-		return "", nil
-	}
-	return slug, err
 }
 
 // SeasonMentor is someone who can mentor in a season: an active mentor or
@@ -253,24 +256,43 @@ func (p *Store) PendingInvitationExists(ctx context.Context, seasonID, email str
 	return exists, err
 }
 
-// InvitationInvitee is the name and email a live invitation was sent to.
-func (p *Store) InvitationInvitee(ctx context.Context, hash string, at time.Time) (string, string, error) {
-	var name, email string
-	err := p.conn().QueryRow(ctx, `SELECT i.name, i.email FROM app.season_invitations i JOIN app.seasons s ON s.id=i.season_id
- WHERE i.token_hash=$1 AND i.expires_at>$2 AND i.accepted_at IS NULL AND i.cancelled_at IS NULL AND s.deleted_at IS NULL`, hash, at).Scan(&name, &email)
-	if errors.Is(err, pgx.ErrNoRows) {
-		return "", "", ErrNotFound
-	}
-	return name, email, err
+// Invitee is who a live invitation was sent to, and the username it names
+// for them ("" when it names none).
+type Invitee struct {
+	InvitationID, Name, Email, Slug string
 }
 
-// InvitationSentTo reports whether a live invitation with this token was sent
-// to this email address.
-func (p *Store) InvitationSentTo(ctx context.Context, hash, email string, at time.Time) (bool, error) {
-	var matches bool
-	err := p.conn().QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM app.season_invitations i JOIN app.seasons s ON s.id=i.season_id
- WHERE i.token_hash=$1 AND i.email=lower($2) AND i.expires_at>$3 AND i.accepted_at IS NULL AND i.cancelled_at IS NULL AND s.deleted_at IS NULL)`, hash, email, at).Scan(&matches)
-	return matches, err
+const liveInvitation = `i.expires_at>$2 AND i.accepted_at IS NULL AND i.cancelled_at IS NULL AND s.deleted_at IS NULL`
+
+func scanInvitee(row pgx.Row) (Invitee, error) {
+	var v Invitee
+	err := row.Scan(&v.InvitationID, &v.Name, &v.Email, &v.Slug)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return v, ErrNotFound
+	}
+	return v, err
+}
+
+// InvitationInvitee is who the live invitation with this token was sent to.
+func (p *Store) InvitationInvitee(ctx context.Context, hash string, at time.Time) (Invitee, error) {
+	return scanInvitee(p.conn().QueryRow(ctx, `SELECT i.id::text, i.name, i.email, coalesce(lower(i.profile_slug),'')
+ FROM app.season_invitations i JOIN app.seasons s ON s.id=i.season_id
+ WHERE i.token_hash=$1 AND `+liveInvitation, hash, at))
+}
+
+// InvitationForEmail is the newest live invitation sent to this email, for
+// sign-up through Google, which proves the address but carries no token.
+func (p *Store) InvitationForEmail(ctx context.Context, email string, at time.Time) (Invitee, error) {
+	return scanInvitee(p.conn().QueryRow(ctx, `SELECT i.id::text, i.name, i.email, coalesce(lower(i.profile_slug),'')
+ FROM app.season_invitations i JOIN app.seasons s ON s.id=i.season_id
+ WHERE i.email=lower($1) AND `+liveInvitation+` ORDER BY i.created_at DESC LIMIT 1`, strings.TrimSpace(email), at))
+}
+
+// SetInvitationSlug records the username someone chose when signing up from
+// an invitation, so accepting it gives them that one.
+func (p *Store) SetInvitationSlug(ctx context.Context, invitationID, slug string) error {
+	_, err := p.conn().Exec(ctx, `UPDATE app.season_invitations SET profile_slug=$2 WHERE id=$1 AND accepted_at IS NULL`, invitationID, slug)
+	return err
 }
 
 func (p *Store) InvitationForUser(ctx context.Context, hash, userID string) (program.Invitation, error) {

@@ -19,7 +19,7 @@ import { cn } from '@/lib/utils';
 
 import { studentLevelLabel, studentLevelTone } from '@/studentLevels';
 import type { Person, Role } from '@/types';
-import { formatDate } from '@/utils';
+import { formatProgramDate } from '@/activityDates';
 import { sortRoles } from '@/sortOrder';
 
 let currentPageTitle = '';
@@ -142,7 +142,7 @@ export function SeasonBadge({
   startsAt: string;
 }) {
   if (Number.isNaN(Date.parse(startsAt))) return name;
-  const start = Number(formatDate(startsAt).slice(-2));
+  const start = Number(formatProgramDate(startsAt).slice(-2));
   const label = `${String(start).padStart(2, '0')}/${String((start + 1) % 100).padStart(2, '0')}`;
   return (
     <StatusBadge

@@ -15,11 +15,6 @@ test('Discord is for returning members and explains unlinked accounts', async ({
   await expect(
     page.getByRole('button', { name: 'Continue with Discord' }),
   ).toBeVisible();
-  await page.getByRole('tab', { name: 'Create Account' }).click();
-  await expect(
-    page.getByRole('button', { name: 'Continue with Discord' }),
-  ).toHaveCount(0);
-  await page.getByRole('tab', { name: 'Sign In', exact: true }).click();
   let body: Record<string, unknown> | undefined;
   await page.route('**/api/auth/sign-in/social', async (route) => {
     body = route.request().postDataJSON();
@@ -77,13 +72,15 @@ test('Settings connects Discord and displays a recoverable stale-session error',
   ).toBe(true);
 });
 
-test('signing out after a Discord change explains why across the top', async ({
+test('signing out after a Google or Discord change explains why across the top', async ({
   page,
 }) => {
   await page.addInitScript(() =>
     localStorage.setItem('rsp-demo-auth-state', 'signed-out'),
   );
   for (const [param, change] of [
+    ['googleConnected', 'Google was connected'],
+    ['googleDisconnected', 'Google was disconnected'],
     ['discordConnected', 'Discord was connected'],
     ['discordDisconnected', 'Discord was disconnected'],
   ]) {

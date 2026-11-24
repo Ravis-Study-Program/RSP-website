@@ -180,7 +180,7 @@ export function Invitations({
         saved.status === 'cancelled'
           ? 'Invitation cancelled.'
           : saved.sentAt
-            ? `Invitation email queued for ${target.name}. The recipient has 7 days to accept.`
+            ? `Invitation email queued for ${target.name}. The recipient has 14 days to accept.`
             : 'Invitation saved, but the email could not be queued. Use Resend to try again.',
       );
       setOpen(false);

@@ -219,6 +219,13 @@ func (a *API) createSeasonMember(w http.ResponseWriter, r *http.Request) {
 		a.writeStoreErrorResponse(w, err)
 		return
 	}
+	// They already have an account, so are told they were added; there is
+	// nothing for them to accept.
+	if profile, err := a.db.GetAdminProfile(r.Context(), created.UserID); err != nil {
+		a.logger.Error("season addition email lookup failed", "enrollmentId", created.ID)
+	} else {
+		a.sendSeasonAddedEmail(r, profile.Email, profile.Name, managedSeason, created.Role)
+	}
 
 	writeJSONResponse(w, http.StatusCreated, created)
 }

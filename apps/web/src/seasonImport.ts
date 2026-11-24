@@ -1,5 +1,5 @@
 import { parseDelimited } from '@/csv';
-import { zonedDateTimeToUtc } from '@/utils';
+import { programDayEnd, programDayStart } from '@/activityDates';
 
 /** One week from a season spreadsheet, checked, unless it has a problem. */
 export interface SeasonImportRow {
@@ -203,11 +203,14 @@ export function resourcesToHtml(text: string): string {
   return blocks.join('');
 }
 
-/** A week's start (00:00 on its first day) and end (23:59:59 on its last). */
+/**
+ * A week's start (00:00 on its first day) and end (23:59:59 on its last), in
+ * Adelaide whatever the importer's own timezone.
+ */
 export function weekTimes(row: SeasonImportRow) {
   return {
-    startAt: zonedDateTimeToUtc(`${row.startDate}T00:00`),
-    endAt: zonedDateTimeToUtc(`${row.endDate}T23:59:59`),
+    startAt: programDayStart(row.startDate),
+    endAt: programDayEnd(row.endDate),
   };
 }
 

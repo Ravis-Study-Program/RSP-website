@@ -5,6 +5,7 @@ import { Button, buttonVariants } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
   IconAlertTriangle,
+  IconCheck,
   IconLock,
   IconMailCheck,
   IconMoodSad,
@@ -89,13 +90,16 @@ export function SignInPage() {
   }, [returnTo]);
 
   // An invitation link arrives here to sign up, with who it was sent to.
+  // Accounts are by invitation only, so nobody else is offered sign-up.
   const invitee = (useLocation().state ?? null) as {
     signUp?: boolean;
     name?: string;
     email?: string;
+    username?: string;
   } | null;
+  const invited = Boolean(invitee?.signUp && invitee.name && invitee.email);
   const [mode, setMode] = useState<'sign-in' | 'sign-up'>(
-    invitee?.signUp ? 'sign-up' : 'sign-in',
+    invited ? 'sign-up' : 'sign-in',
   );
   const [requestError, setRequestError] = useState(
     socialAuthError(searchParams),
@@ -108,6 +112,7 @@ export function SignInPage() {
   const [resetMessage, setResetMessage] = useState('');
   const schema = z.object({
     name: z.string(),
+    username: z.string(),
     email: z.string().email('Enter a valid email address.'),
     password: z.string().min(1, 'Enter your password.'),
   });
@@ -122,14 +127,23 @@ export function SignInPage() {
     resolver: zodResolver(schema as never) as Resolver<Values>,
     defaultValues: {
       name: invitee?.name ?? '',
+      username: invitee?.username ?? '',
       email: invitee?.email ?? '',
       password: '',
     },
   });
   const submit = handleSubmit(async (values) => {
     setRequestError('');
-    if (mode === 'sign-up' && values.name.trim().length < 2) {
-      setError('name', { message: 'Enter your name.' });
+    const username = values.username.trim().replace(/^@/, '').toLowerCase();
+    if (
+      mode === 'sign-up' &&
+      (username.length < 2 ||
+        username.length > 50 ||
+        !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(username))
+    ) {
+      setError('username', {
+        message: 'Use 2–50 lowercase letters, numbers and single hyphens.',
+      });
       return;
     }
     if (mode === 'sign-up' && values.password.length < 12) {
@@ -138,11 +152,14 @@ export function SignInPage() {
     }
     try {
       if (mode === 'sign-up') {
+        // The name and email are the invitation's; the auth service
+        // checks both against it.
         const signedUp = await signUpWithEmail(
           values.name.trim(),
           values.email,
           values.password,
           pendingInvitation() || undefined,
+          username,
         );
         // Invited to this address: verified already, so sign straight in
         // and on to the invitation.
@@ -222,7 +239,13 @@ export function SignInPage() {
     <AuthFrame
       title={mode === 'sign-in' ? 'Welcome to RSP' : 'Create your account'}
       notice={
-        signedOut ? (
+        searchParams.get('emailChanged') === 'true' ? (
+          <InlineNotice tone="success">
+            <IconCheck size={19} aria-hidden="true" /> Your email was changed,
+            so you were signed out on all devices. Sign in with your new email
+            address.
+          </InlineNotice>
+        ) : signedOut ? (
           <InlineNotice tone="warning">
             <IconAlertTriangle size={19} aria-hidden="true" /> {signedOut}
           </InlineNotice>
@@ -239,20 +262,22 @@ export function SignInPage() {
         }}
         className="gap-6"
       >
-        <TabsList aria-label="Email account action" className="w-full">
-          <TabsTrigger
-            value="sign-in"
-            disabled={isSubmitting || Boolean(socialPending)}
-          >
-            Sign In
-          </TabsTrigger>
-          <TabsTrigger
-            value="sign-up"
-            disabled={isSubmitting || Boolean(socialPending)}
-          >
-            Create Account
-          </TabsTrigger>
-        </TabsList>
+        {invited ? (
+          <TabsList aria-label="Email account action" className="w-full">
+            <TabsTrigger
+              value="sign-in"
+              disabled={isSubmitting || Boolean(socialPending)}
+            >
+              Sign In
+            </TabsTrigger>
+            <TabsTrigger
+              value="sign-up"
+              disabled={isSubmitting || Boolean(socialPending)}
+            >
+              Create Account
+            </TabsTrigger>
+          </TabsList>
+        ) : null}
         <TabsContent value={mode} className="space-y-5">
           {searchParams.get('verified') === 'true' ? (
             <InlineNotice>Email verified. Sign in to continue.</InlineNotice>
@@ -307,18 +332,56 @@ export function SignInPage() {
             onSubmit={submit}
           >
             {mode === 'sign-up' ? (
-              <div className="grid gap-2">
-                <FieldLabel htmlFor="auth-name">Name</FieldLabel>
-                <Input
-                  id="auth-name"
-                  autoComplete="name"
-                  aria-invalid={Boolean(errors.name)}
-                  {...register('name')}
-                />
-                {errors.name ? (
-                  <FieldError>{errors.name.message}</FieldError>
-                ) : null}
-              </div>
+              <>
+                {/* The invitation's name; a coordinator can correct it. */}
+                <div className="grid gap-2">
+                  <FieldLabel htmlFor="auth-name">Name</FieldLabel>
+                  <Input
+                    id="auth-name"
+                    autoComplete="name"
+                    readOnly
+                    className="text-muted-foreground"
+                    aria-describedby="auth-name-hint"
+                    {...register('name')}
+                  />
+                  <p
+                    id="auth-name-hint"
+                    className="text-xs text-muted-foreground"
+                  >
+                    From your invitation. Ask your coordinator if it needs
+                    correcting.
+                  </p>
+                </div>
+                <div className="grid gap-2">
+                  <FieldLabel htmlFor="auth-username">Username</FieldLabel>
+                  <Input
+                    id="auth-username"
+                    autoCapitalize="none"
+                    autoComplete="username"
+                    spellCheck={false}
+                    aria-invalid={Boolean(errors.username)}
+                    aria-describedby={
+                      errors.username
+                        ? 'auth-username-error'
+                        : 'auth-username-hint'
+                    }
+                    {...register('username')}
+                  />
+                  {errors.username ? (
+                    <FieldError id="auth-username-error">
+                      {errors.username.message}
+                    </FieldError>
+                  ) : (
+                    <p
+                      id="auth-username-hint"
+                      className="text-xs text-muted-foreground"
+                    >
+                      Your profile address. 2–50 lowercase letters, numbers and
+                      hyphens.
+                    </p>
+                  )}
+                </div>
+              </>
             ) : null}
             <div className="grid gap-2">
               <FieldLabel htmlFor="auth-email">Email</FieldLabel>
@@ -326,6 +389,10 @@ export function SignInPage() {
                 id="auth-email"
                 type="email"
                 autoComplete="email"
+                readOnly={mode === 'sign-up'}
+                className={
+                  mode === 'sign-up' ? 'text-muted-foreground' : undefined
+                }
                 aria-invalid={Boolean(errors.email)}
                 {...register('email')}
               />
@@ -389,6 +456,12 @@ export function SignInPage() {
               </Button>
             ) : null}
           </form>
+          {invited ? null : (
+            <p className="text-center text-sm text-muted-foreground">
+              New to RSP? Accounts are by invitation only. Open the invitation
+              link from your email to create yours.
+            </p>
+          )}
         </TabsContent>
       </Tabs>
     </AuthFrame>
@@ -401,15 +474,19 @@ export function SignInPage() {
  */
 function signedOutNotice(params: URLSearchParams) {
   const change =
-    params.get('discordConnected') === 'true'
-      ? 'Discord was connected'
-      : params.get('discordDisconnected') === 'true'
-        ? 'Discord was disconnected'
-        : params.get('passwordConnected') === 'true'
-          ? 'Password sign-in was connected'
-          : params.get('securityChanged') === 'true'
-            ? 'Your security settings were updated'
-            : '';
+    params.get('googleConnected') === 'true'
+      ? 'Google was connected'
+      : params.get('googleDisconnected') === 'true'
+        ? 'Google was disconnected'
+        : params.get('discordConnected') === 'true'
+          ? 'Discord was connected'
+          : params.get('discordDisconnected') === 'true'
+            ? 'Discord was disconnected'
+            : params.get('passwordConnected') === 'true'
+              ? 'Password sign-in was connected'
+              : params.get('securityChanged') === 'true'
+                ? 'Your security settings were updated'
+                : '';
   return change
     ? `${change}, so you were signed out on all devices. Sign in again to continue.`
     : '';

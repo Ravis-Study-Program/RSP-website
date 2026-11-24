@@ -47,6 +47,20 @@ func NameSlug(name string) string {
 	return slug
 }
 
+// ValidSlug reports whether slug is a usable username: 2–50 lowercase
+// letters and digits joined by single hyphens.
+func ValidSlug(slug string) bool {
+	if len(slug) < 2 || len(slug) > 50 || slug[0] == '-' || slug[len(slug)-1] == '-' || strings.Contains(slug, "--") {
+		return false
+	}
+	for _, ch := range slug {
+		if (ch < 'a' || ch > 'z') && (ch < '0' || ch > '9') && ch != '-' {
+			return false
+		}
+	}
+	return true
+}
+
 type rowQuerier interface {
 	Query(ctx context.Context, sql string, args ...any) (pgx.Rows, error)
 }

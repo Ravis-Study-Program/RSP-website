@@ -1,4 +1,5 @@
 import { render, screen, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import type { UseQueryResult } from '@tanstack/react-query';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 
@@ -180,6 +181,63 @@ describe('mentor mentee filtering', () => {
     expect(
       screen.queryByRole('checkbox', { name: 'Include previous students' }),
     ).not.toBeInTheDocument();
+  });
+});
+
+describe('row menu', () => {
+  it('offers a mentor the same actions on their student as People does', async () => {
+    vi.useRealTimers();
+    const user = userEvent.setup();
+    vi.mocked(useCurrentUser).mockReturnValue({
+      data: mentor,
+      isLoading: false,
+      isError: false,
+      refetch: vi.fn(),
+    } as unknown as ReturnType<typeof useCurrentUser>);
+    vi.mocked(useSeasons).mockReturnValue({
+      data: { items: [season] },
+      isLoading: false,
+      isError: false,
+      refetch: vi.fn(),
+    } as unknown as ReturnType<typeof useSeasons>);
+    vi.mocked(useSeasonPeople).mockReturnValue({
+      data: {
+        items: [
+          student('assigned', 'Assigned Student', {
+            seasonRole: 'student',
+            mentorshipMentorId: mentor.id,
+          }),
+        ],
+      },
+      isLoading: false,
+      isError: false,
+      refetch: vi.fn(),
+    } as unknown as ReturnType<typeof useSeasonPeople>);
+
+    render(
+      <MemoryRouter initialEntries={['/seasons/season-one/my-students']}>
+        <Routes>
+          <Route
+            path="/seasons/:slug/my-students"
+            element={<MenteesPage scope="mine" />}
+          />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    const table = screen.getByRole('region', { name: 'Assigned students' });
+    await user.click(
+      within(table).getAllByRole('button', {
+        name: 'More actions for Assigned Student',
+      })[0],
+    );
+    expect(
+      (await screen.findAllByRole('menuitem')).map((item) =>
+        item.textContent?.trim(),
+      ),
+    ).toEqual(['Edit Details', 'Remove From Season']);
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-11-06T02:00:00Z'));
   });
 });
 

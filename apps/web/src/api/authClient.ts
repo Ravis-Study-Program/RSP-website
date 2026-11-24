@@ -107,14 +107,16 @@ export function signInWithEmail(
 }
 
 /**
- * Signs up. With the token of an invitation sent to this email, the account
- * starts verified: opening the invitation already proved the inbox.
+ * Signs up. Accounts are by invitation only, so this needs the token of an
+ * invitation sent to this email; the account starts verified, since opening
+ * the invitation already proved the inbox, and takes the chosen username.
  */
 export function signUpWithEmail(
   name: string,
   email: string,
   password: string,
   invitationToken?: string,
+  username?: string,
 ) {
   return authRequest<{
     token: string | null;
@@ -127,6 +129,7 @@ export function signUpWithEmail(
       password,
       callbackURL: '/dashboard',
       ...(invitationToken ? { invitationToken } : {}),
+      ...(username ? { username } : {}),
     }),
   });
 }
@@ -167,6 +170,8 @@ export async function listSignInMethods() {
   return {
     discordAccountId:
       accounts.find((account) => account.providerId === 'discord')?.id ?? null,
+    googleAccountId:
+      accounts.find((account) => account.providerId === 'google')?.id ?? null,
     google: accounts.some((account) => account.providerId === 'google'),
     password: accounts.some((account) => account.providerId === 'credential'),
     twoFactor: Boolean(session?.user.twoFactorEnabled),
@@ -178,7 +183,7 @@ export function linkGoogleAccount() {
   return followAuthRedirect(
     '/link-social',
     'google',
-    '/sign-in?securityChanged=true',
+    '/sign-in?googleConnected=true',
   );
 }
 
@@ -209,7 +214,12 @@ export function linkDiscordAccount() {
   );
 }
 
-export async function unlinkDiscordAccount(accountId: string) {
+/**
+ * Disconnects a Google or Discord sign-in. The auth service refuses unless a
+ * password or Google stays connected and the session is under five minutes
+ * old, and it signs the member out everywhere.
+ */
+export async function unlinkAccount(accountId: string) {
   await authRequest('/unlink-account', {
     method: 'POST',
     body: JSON.stringify({ accountId }),
@@ -231,6 +241,10 @@ export function socialAuthError(params: URLSearchParams): string {
   ) {
     return 'Sign in with email or Google, then connect Discord in Settings.';
   }
+  if (error === 'INVITATION_REQUIRED')
+    return 'RSP accounts are by invitation only. Open the invitation link from your email to create one.';
+  if (error === 'SIGN_UP_UNAVAILABLE')
+    return 'Accounts cannot be created right now. Try again shortly.';
   if (error === 'reauthentication_required')
     return 'Sign in again with email or Google, then reconnect from Settings.';
   if (error === 'email_does_not_match')
@@ -299,10 +313,11 @@ export async function changeEmail(newEmail: string) {
     method: 'POST',
     body: JSON.stringify({
       newEmail,
-      callbackURL: '/settings?emailChanged=true',
+      // Verifying signs the member out everywhere; sign-in says it worked.
+      callbackURL: '/sign-in?emailChanged=true',
     }),
   });
-  clearAccessToken();
+  // Nothing changes until both links are opened, so the session stays.
   return result;
 }
 

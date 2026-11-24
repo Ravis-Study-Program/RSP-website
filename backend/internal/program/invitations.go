@@ -26,3 +26,7 @@ type Invitation struct {
 	MentorInvitationID *string `json:"-"`
 	DeliveryID         string  `json:"-"`
 }
+
+// InvitationLifetime is how long an invitation (or a resent one) can be
+// accepted.
+const InvitationLifetime = 14 * 24 * time.Hour

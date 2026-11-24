@@ -4,6 +4,9 @@ import {
   deletionRecoveryEmail,
   invitationEmail,
   roleChangeEmail,
+  seasonAddedEmail,
+  emailChangedNoticeEmail,
+  newEmailVerificationEmail,
   verificationEmail,
 } from '../src/email/templates.js';
 
@@ -36,7 +39,7 @@ it('invitation messages escape names and describe accepting with the invited ema
     'student',
     'https://rsp.test/invitations/accept#token=token',
   );
-  expect(message.text).toContain('expires in 7 days');
+  expect(message.text).toContain('expires in 14 days');
   expect(message.text).toContain('using this email address, then accept');
   expect(message.html).toContain('&lt;b&gt;Member&lt;/b&gt;');
   expect(message.html).not.toContain('<b>');
@@ -76,4 +79,45 @@ it('invitation messages name the inviter in the footer and repeat the link as te
   const html = message.html ?? '';
   expect(html.indexOf('rsp-logo.png')).toBeLessThan(html.indexOf('Member'));
   expect(message.text).toContain('Ravi <Admin>, Ravi’s Study Program');
+});
+
+it('season added messages say no action is needed and link to the season', () => {
+  const message = seasonAddedEmail(
+    'member@example.test',
+    '<b>Member</b>',
+    'Summer <2026>',
+    'mentor',
+    'https://rsp.test/seasons/summer-2026',
+    'Ravi',
+  );
+  expect(message.subject).toBe(
+    "You've Been Added to the RSP Website (Summer <2026>)",
+  );
+  expect(message.text).toContain(
+    "You've been added to the Summer <2026> season of RSP as a mentor.",
+  );
+  expect(message.text).toContain('no further action is required');
+  expect(message.text).toContain(
+    'Open Summer <2026>: https://rsp.test/seasons/summer-2026',
+  );
+  expect(message.text).toContain('Ravi, Ravi’s Study Program');
+  expect(message.html).toContain('&lt;b&gt;Member&lt;/b&gt;');
+  expect(message.html).not.toContain('<b>');
+});
+
+it('email change messages verify the new address and tell the old one without naming the new', () => {
+  const verify = newEmailVerificationEmail(
+    'new@example.test',
+    'https://rsp.example/api/auth/verify-email?token=b',
+  );
+  expect(verify.subject).toBe('Verify your new RSP email address');
+  expect(verify.text).toContain('finish changing your RSP email');
+  const notice = emailChangedNoticeEmail(
+    'old@example.test',
+    'https://rsp.example/sign-in',
+  );
+  expect(notice.to).toBe('old@example.test');
+  expect(notice.subject).toBe('Your RSP email was changed');
+  expect(notice.text).toContain('contact your season coordinator');
+  expect(notice.text).not.toContain('new@example.test');
 });

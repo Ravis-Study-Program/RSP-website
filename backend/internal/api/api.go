@@ -30,6 +30,7 @@ type Config struct {
 	RequestEmailChange func(context.Context, authadmin.EmailChangeInput) error
 	SendInvitation     func(context.Context, authadmin.InvitationEmailInput) error
 	SendRoleChange     func(context.Context, authadmin.RoleChangeEmailInput) error
+	SendSeasonAdded    func(context.Context, authadmin.SeasonAddedEmailInput) error
 	EraseAccount       func(context.Context, string) error
 	DB                 *dal.Store
 	Authenticator      Authenticator
@@ -51,6 +52,7 @@ type API struct {
 	requestEmailChange   func(context.Context, authadmin.EmailChangeInput) error
 	sendInvitation       func(context.Context, authadmin.InvitationEmailInput) error
 	sendRoleChange       func(context.Context, authadmin.RoleChangeEmailInput) error
+	sendSeasonAdded      func(context.Context, authadmin.SeasonAddedEmailInput) error
 	eraseAccount         func(context.Context, string) error
 	db                   *dal.Store
 	auth                 Authenticator
@@ -86,6 +88,7 @@ func New(c Config) *API {
 		requestEmailChange:   c.RequestEmailChange,
 		sendInvitation:       c.SendInvitation,
 		sendRoleChange:       c.SendRoleChange,
+		sendSeasonAdded:      c.SendSeasonAdded,
 		eraseAccount:         c.EraseAccount,
 		db:                   c.DB,
 		auth:                 c.Authenticator,

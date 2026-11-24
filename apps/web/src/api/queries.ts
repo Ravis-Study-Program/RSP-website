@@ -402,6 +402,7 @@ export function useSignInMethods() {
       demoMode
         ? wait({
             google: false,
+            googleAccountId: null as string | null,
             password: true,
             twoFactor: true,
             discordAccountId: null as string | null,

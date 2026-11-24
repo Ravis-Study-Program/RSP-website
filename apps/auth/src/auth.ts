@@ -1,4 +1,4 @@
-import { randomBytes } from 'node:crypto';
+import { randomBytes, randomUUID } from 'node:crypto';
 
 import { APIError, betterAuth } from 'better-auth';
 import { createAuthMiddleware, getSessionFromCtx } from 'better-auth/api';
@@ -12,12 +12,18 @@ import {
   oauthRequestContext,
 } from './identity/discord-profile.js';
 import { createEmailProvider } from './email/provider.js';
-import { passwordResetEmail, verificationEmail } from './email/templates.js';
+import {
+  emailChangedNoticeEmail,
+  newEmailVerificationEmail,
+  passwordResetEmail,
+  verificationEmail,
+} from './email/templates.js';
 import { HttpIdentityLifecycleGateway } from './identity/gateway.js';
 import { AccountLifecycleService } from './lifecycle/service.js';
 import { log as writeLog } from './logging.js';
 import { buildAccessClaims } from './security/access-policy.js';
 import { hashedBackupCodeCodec } from './security/backup-code-store.js';
+import { hasValidServiceToken } from './security/internal-auth.js';
 
 const SEVEN_DAYS_SECONDS = 7 * 24 * 60 * 60;
 const ONE_DAY_SECONDS = 24 * 60 * 60;
@@ -63,6 +69,7 @@ function isMfaCompletionPath(path: string | undefined): boolean {
 }
 
 interface VerificationTokenPayload {
+  readonly email?: string;
   readonly requestType?: string;
   readonly updateTo?: string;
 }
@@ -75,9 +82,11 @@ function decodeJwtPayload(token: string): VerificationTokenPayload | undefined {
       Buffer.from(encodedPayload, 'base64url').toString('utf8'),
     );
     if (!payload || typeof payload !== 'object') return undefined;
+    const email = Reflect.get(payload, 'email');
     const requestType = Reflect.get(payload, 'requestType');
     const updateTo = Reflect.get(payload, 'updateTo');
     return {
+      ...(typeof email === 'string' ? { email } : {}),
       ...(typeof requestType === 'string' ? { requestType } : {}),
       ...(typeof updateTo === 'string' ? { updateTo } : {}),
     };
@@ -154,6 +163,20 @@ const authAfterHook = createAuthMiddleware(async (context) => {
     await accountLifecycle.revokeSessions(authUserId, reason);
   }
 });
+
+/**
+ * The header the operators' scripts send, as `Bearer <IDENTITY_SERVICE_TOKEN>`,
+ * to create an account without an invitation.
+ */
+export const serviceSignUpHeader = 'x-rsp-service-authorization';
+
+function invitationRequired() {
+  return new APIError('BAD_REQUEST', {
+    code: 'INVITATION_REQUIRED',
+    message:
+      'RSP accounts are by invitation only. Open the invitation link from your email to create one.',
+  });
+}
 
 const socialProviders = {
   ...(config.google
@@ -342,15 +365,12 @@ export const auth = betterAuth({
         returned: false,
       },
     },
+    // One link, to the new address. There is no approval step from the
+    // old address (people often change email because they lost it); it is
+    // told once the change is made instead.
     changeEmail: {
       enabled: true,
       updateEmailWithoutVerification: false,
-      async sendChangeEmailConfirmation({ user, url }) {
-        await emailProvider.send({
-          ...verificationEmail(user.email, url),
-          subject: 'Confirm your RSP email change',
-        });
-      },
     },
     deleteUser: { enabled: false },
   },
@@ -434,7 +454,22 @@ export const auth = betterAuth({
     sendOnSignUp: true,
     autoSignInAfterVerification: false,
     expiresIn: 60 * 60,
-    async sendVerificationEmail({ user, url }) {
+    async sendVerificationEmail({ user, url, token }) {
+      // An email change is verified at the new address. Better Auth passes
+      // the already-verified user with the new email, so it must not be
+      // skipped like the case below.
+      if (
+        decodeJwtPayload(token)?.requestType === 'change-email-verification'
+      ) {
+        // Verifying signs the member out everywhere, so it lands on sign-in,
+        // which says the change is done.
+        const link = new URL(url);
+        link.searchParams.set('callbackURL', '/sign-in?emailChanged=true');
+        await emailProvider.send(
+          newEmailVerificationEmail(user.email, link.toString()),
+        );
+        return;
+      }
       // Signed up from an invitation to this address: already verified.
       if (user.emailVerified) return;
       await emailProvider.send(verificationEmail(user.email, url));
@@ -449,6 +484,16 @@ export const auth = betterAuth({
         tokenPayload.updateTo === user.email;
       if (emailChangeCompleted) {
         await accountLifecycle.revokeSessions(user.id, 'email_changed');
+        // Tell the old address, without naming the new one: after a
+        // coordinator's correction the old address may be someone else's.
+        if (tokenPayload.email && tokenPayload.email !== user.email)
+          await accountLifecycle.queueEmail(
+            randomUUID(),
+            emailChangedNoticeEmail(
+              tokenPayload.email,
+              new URL('/sign-in', config.baseUrl).toString(),
+            ),
+          );
         await accountLifecycle.queueIdentityEvent(
           {
             type: 'email_changed',
@@ -584,29 +629,76 @@ export const auth = betterAuth({
   databaseHooks: {
     user: {
       create: {
-        // Signing up from an invitation link proves the person reads the
-        // invited inbox, so an account for that address starts verified.
+        // Accounts are by invitation only. Email sign-up must carry a live
+        // invitation's token for this address; opening its link proves the
+        // person reads that inbox, so the account starts verified. Google
+        // proves the address itself, so it needs a live invitation to it.
+        // Either way the account takes the name the invitation was sent to.
+        // The operators' scripts (fake data, end-to-end provisioning, the
+        // first System Admin) sign up with the service token instead.
         async before(user, context) {
-          const invitationToken = (
-            context?.body as { invitationToken?: unknown } | undefined
-          )?.invitationToken;
           if (
-            context?.path !== '/sign-up/email' ||
-            typeof invitationToken !== 'string' ||
-            invitationToken.length !== 43
+            hasValidServiceToken(
+              context?.headers?.get(serviceSignUpHeader) ?? null,
+              config.identityService.token,
+            )
           )
             return;
-          if (
-            await identityGateway.invitationSentTo(invitationToken, user.email)
-          )
-            return { data: { ...user, emailVerified: true } };
+          const body = context?.body as
+            { invitationToken?: unknown; username?: unknown } | undefined;
+          const emailSignUp = context?.path === '/sign-up/email';
+          const token =
+            emailSignUp &&
+            typeof body?.invitationToken === 'string' &&
+            body.invitationToken.length === 43
+              ? body.invitationToken
+              : undefined;
+          if (emailSignUp ? !token : !user.emailVerified)
+            throw invitationRequired();
+          const username =
+            token && typeof body?.username === 'string'
+              ? body.username.trim().toLowerCase()
+              : '';
+          const invitation = await identityGateway.checkInvitation({
+            email: user.email,
+            ...(token ? { token } : {}),
+            ...(username ? { username } : {}),
+          });
+          if (!invitation)
+            throw new APIError('SERVICE_UNAVAILABLE', {
+              code: 'SIGN_UP_UNAVAILABLE',
+              message:
+                'Accounts cannot be created right now. Try again shortly.',
+            });
+          if (!invitation.matches) throw invitationRequired();
+          if (invitation.problem)
+            throw new APIError('BAD_REQUEST', {
+              code: 'USERNAME_UNAVAILABLE',
+              message: invitation.problem,
+            });
+          return {
+            data: {
+              ...user,
+              name: invitation.name || user.name,
+              emailVerified: true,
+            },
+          };
         },
-        async after(user) {
+        async after(user, context) {
+          // The username chosen when signing up from an invitation, which the
+          // check above has already accepted.
+          const username = (context?.body as { username?: unknown } | undefined)
+            ?.username;
           await accountLifecycle.queueIdentityEvent({
             type: 'auth_user_created',
             authUserId: user.id,
             email: user.email,
             name: user.name,
+            ...(context?.path === '/sign-up/email' &&
+            typeof username === 'string' &&
+            username.trim()
+              ? { username: username.trim().toLowerCase() }
+              : {}),
             emailVerified: user.emailVerified,
             securityVersion: await currentSecurityVersion(user.id),
             occurredAt: new Date().toISOString(),

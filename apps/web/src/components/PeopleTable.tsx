@@ -1,13 +1,5 @@
-import { Button } from '@/components/ui/button';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import { IconDotsVertical, IconEdit, IconUserMinus } from '@tabler/icons-react';
 import type { ColumnDef } from '@tanstack/react-table';
-import { useState, type ReactNode } from 'react';
+import type { ReactNode } from 'react';
 
 import { statusTone } from '@/badgeTones';
 import {
@@ -20,7 +12,6 @@ import { duplicateNames } from '@/duplicateNames';
 import { type ExtraFilters, DataTable } from '@/components/DataTable';
 import { LatestMarkBadge } from '@/components/MondayMark';
 import { StatusBadge } from '@/components/StatusBadge';
-import { StudentDetailsDialog } from '@/components/StudentDetailsDialog';
 import { latestMarkRank, type LatestMark } from '@/mondayMarks';
 import { updateStatusTones, type StudentUpdateStatus } from '@/mondayStatus';
 import {
@@ -60,8 +51,9 @@ function Dash() {
 
 /**
  * The people and student lists: one table, one line per cell. The People
- * directory shows roles and seasons and takes no actions; the student lists
- * (All Students, My Students) add the latest Monday update and a row menu.
+ * directory shows roles and seasons; the student lists (All Students, My
+ * Students) add the latest Monday update. Both take the same row menu,
+ * `PersonRowActions`.
  */
 export function PeopleTable({
   variant,
@@ -334,75 +326,5 @@ export function PeopleTable({
         );
       }}
     />
-  );
-}
-
-/**
- * A student row's menu: edit their details (level, goals, weekly hours)
- * and, for their mentor or a
- * coordinator, remove them. Draws nothing when neither is allowed.
- */
-export function StudentRowActions({
-  person,
-  seasonId,
-  canSetLevel,
-  canRemove,
-  onLevelChanged,
-  renderRemoveDialog,
-}: {
-  person: Person;
-  seasonId?: string;
-  canSetLevel: boolean;
-  canRemove: boolean;
-  onLevelChanged: () => void;
-  /** The removal dialog, opened from the menu. */
-  renderRemoveDialog: (props: {
-    open: boolean;
-    onOpenChange: (open: boolean) => void;
-  }) => ReactNode;
-}) {
-  const [open, setOpen] = useState<'level' | 'remove' | null>(null);
-  if (!canSetLevel && !canRemove) return null;
-  const close = (next: boolean) => {
-    if (!next) setOpen(null);
-  };
-  return (
-    <>
-      <DropdownMenu>
-        <DropdownMenuTrigger
-          render={<Button variant="ghost" size="icon" />}
-          aria-label={`More actions for ${person.name}`}
-        >
-          <IconDotsVertical size={18} aria-hidden="true" />
-        </DropdownMenuTrigger>
-        <DropdownMenuContent>
-          {canSetLevel ? (
-            <DropdownMenuItem onClick={() => setOpen('level')}>
-              <IconEdit size={17} aria-hidden="true" /> Edit Details
-            </DropdownMenuItem>
-          ) : null}
-          {canRemove ? (
-            <DropdownMenuItem
-              variant="destructive"
-              onClick={() => setOpen('remove')}
-            >
-              <IconUserMinus size={17} aria-hidden="true" /> Remove Student
-            </DropdownMenuItem>
-          ) : null}
-        </DropdownMenuContent>
-      </DropdownMenu>
-      {canSetLevel && seasonId && open === 'level' ? (
-        <StudentDetailsDialog
-          seasonId={seasonId}
-          person={person}
-          onChanged={onLevelChanged}
-          open
-          onOpenChange={close}
-        />
-      ) : null}
-      {canRemove && open === 'remove'
-        ? renderRemoveDialog({ open: true, onOpenChange: close })
-        : null}
-    </>
   );
 }

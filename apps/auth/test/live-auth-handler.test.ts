@@ -3,7 +3,13 @@ import { createServer, type Server } from 'node:http';
 
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
-import { accountLifecycle, auth, pool } from '../src/auth.js';
+import {
+  accountLifecycle,
+  auth,
+  pool,
+  serviceSignUpHeader,
+} from '../src/auth.js';
+import { config } from '../src/config.js';
 import type { EmailProvider } from '../src/email/provider.js';
 import type { IdentityLifecycleGateway } from '../src/identity/gateway.js';
 import {
@@ -60,9 +66,15 @@ async function call(
     body?: unknown;
     cookies?: CookieJar;
     backupCodeCandidate?: string;
+    /** Sign up as a visitor would, without the operators' service token. */
+    uninvited?: boolean;
   } = {},
 ): Promise<Response> {
   const headers = new Headers({ origin });
+  // Accounts are by invitation only; the suite's own accounts are made the
+  // way the operators' scripts make them.
+  if (path === '/sign-up/email' && !options.uninvited)
+    headers.set(serviceSignUpHeader, `Bearer ${config.identityService.token}`);
   if (options.body !== undefined)
     headers.set('content-type', 'application/json');
   if (options.cookies && options.cookies.values.size > 0) {
@@ -165,6 +177,45 @@ async function verifyThroughCapturedEmail(targetEmail: string): Promise<void> {
     expect(verification.headers.get('location')).toBe('/');
 }
 
+/** The verify-email link in the captured email with this subject. */
+async function verifyLinkFromCapturedEmail(
+  targetEmail: string,
+  subject: string,
+): Promise<string> {
+  if (!mailpitUrl)
+    throw new Error('AUTH_LIVE_MAILPIT_URL is required for live email tests');
+  for (let attempt = 0; attempt < 20; attempt += 1) {
+    const list = await fetch(`${mailpitUrl}/api/v1/messages`);
+    const body = (await list.json()) as {
+      messages?: Array<{
+        ID: string;
+        Subject?: string;
+        To?: Array<{ Address?: string }>;
+      }>;
+    };
+    const messageId = body.messages?.find(
+      (message) =>
+        message.Subject === subject &&
+        message.To?.some(
+          (recipient) =>
+            recipient.Address?.toLowerCase() === targetEmail.toLowerCase(),
+        ),
+    )?.ID;
+    if (messageId) {
+      const message = (await (
+        await fetch(`${mailpitUrl}/api/v1/message/${messageId}`)
+      ).json()) as { Text?: string };
+      const link = message.Text?.match(
+        /https?:\/\/[^\s]+\/api\/auth\/verify-email\?[^\s]+/,
+      )?.[0];
+      if (!link) throw new Error('verify-email URL was absent from the email');
+      return link;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  }
+  throw new Error(`"${subject}" email for ${targetEmail} was not captured`);
+}
+
 async function resetTokenFromCapturedEmail(
   targetEmail: string,
 ): Promise<string> {
@@ -212,6 +263,8 @@ live.sequential('live Better Auth handler and PostgreSQL', () => {
   let resetRateLimiter: (() => void) | undefined;
   let identityServer: Server | undefined;
   let failNextIdentityCallback = false;
+  const invitationToken = 'i'.repeat(43);
+  const invitedEmail = `auth-invited-${suffix}@example.test`;
 
   async function resetAuthRateLimits(): Promise<void> {
     // The suite intentionally performs more than five sign-ins while
@@ -223,6 +276,34 @@ live.sequential('live Better Auth handler and PostgreSQL', () => {
 
   beforeAll(async () => {
     identityServer = createServer((request, response) => {
+      if (
+        request.method === 'POST' &&
+        request.url === '/internal/auth/invitation-email'
+      ) {
+        let body = '';
+        request.on('data', (chunk) => {
+          body += String(chunk);
+        });
+        request.on('end', () => {
+          const check = JSON.parse(body) as {
+            token?: string;
+            email: string;
+            username?: string;
+          };
+          const matches =
+            check.token === invitationToken && check.email === invitedEmail;
+          response.writeHead(200, { 'content-type': 'application/json' }).end(
+            JSON.stringify({
+              matches,
+              ...(matches ? { name: 'Invited Name' } : {}),
+              ...(matches && check.username === 'taken-name'
+                ? { problem: 'The username "taken-name" is taken.' }
+                : {}),
+            }),
+          );
+        });
+        return;
+      }
       if (
         request.method === 'POST' &&
         request.url === '/internal/auth/lifecycle-events'
@@ -355,9 +436,195 @@ live.sequential('live Better Auth handler and PostgreSQL', () => {
       );
       expect(events.rows).toHaveLength(1);
       expect(events.rows[0].payload.email).toBe(newEmail);
+      const notice = await pool.query(
+        "SELECT payload->>'subject' AS subject FROM auth.lifecycle_outbox WHERE target='email' AND payload->>'to'=$1",
+        [oldEmail],
+      );
+      expect(notice.rows).toEqual([{ subject: 'Your RSP email was changed' }]);
     } finally {
       await pool.query('DELETE FROM auth.users WHERE id=$1', [targetId]);
     }
+  });
+
+  it('changes a verified member’s own email with one link to the new address and tells the old one', async () => {
+    await resetAuthRateLimits();
+    const oldEmail = `self-change-${randomUUID()}@example.test`;
+    const newEmail = `self-changed-${randomUUID()}@example.test`;
+    expect(
+      (
+        await call('/sign-up/email', {
+          body: { name: 'Self email change', email: oldEmail, password },
+        })
+      ).status,
+    ).toBe(200);
+    await verifyThroughCapturedEmail(oldEmail);
+    const current = await pool.query<{ id: string }>(
+      'SELECT id FROM auth.users WHERE email=$1',
+      [oldEmail],
+    );
+    const targetId = current.rows[0]!.id;
+    try {
+      const cookies = jar();
+      expect((await signIn(oldEmail, cookies)).status).toBe(200);
+      const requested = await call('/change-email', {
+        body: { newEmail, callbackURL: '/sign-in?emailChanged=true' },
+        cookies,
+      });
+      expect(requested.status).toBe(200);
+      expect(
+        (
+          await pool.query('SELECT email FROM auth.users WHERE id=$1', [
+            targetId,
+          ])
+        ).rows[0].email,
+      ).toBe(oldEmail);
+      // Nothing goes to the old address until the change is made.
+      const early = await pool.query(
+        "SELECT 1 FROM auth.lifecycle_outbox WHERE target='email' AND payload->>'to'=$1",
+        [oldEmail],
+      );
+      expect(early.rows).toHaveLength(0);
+      // Verifying the new address makes the change.
+      const verification = await fetch(
+        await verifyLinkFromCapturedEmail(
+          newEmail,
+          'Verify your new RSP email address',
+        ),
+        { redirect: 'manual' },
+      );
+      expect(verification.status).toBe(302);
+      expect(verification.headers.get('location')).toBe(
+        '/sign-in?emailChanged=true',
+      );
+      const after = await pool.query(
+        'SELECT email,email_verified FROM auth.users WHERE id=$1',
+        [targetId],
+      );
+      expect(after.rows[0]).toMatchObject({
+        email: newEmail,
+        email_verified: true,
+      });
+      const events = await pool.query(
+        "SELECT payload FROM auth.lifecycle_outbox WHERE payload->>'type'='email_changed' AND payload->>'authUserId'=$1",
+        [targetId],
+      );
+      expect(events.rows).toHaveLength(1);
+      expect(events.rows[0].payload.email).toBe(newEmail);
+      const notice = await pool.query<{
+        payload: { subject: string; text: string };
+      }>(
+        "SELECT payload FROM auth.lifecycle_outbox WHERE target='email' AND payload->>'to'=$1",
+        [oldEmail],
+      );
+      expect(notice.rows).toHaveLength(1);
+      expect(notice.rows[0]!.payload.subject).toBe(
+        'Your RSP email was changed',
+      );
+      expect(notice.rows[0]!.payload.text).not.toContain(newEmail);
+    } finally {
+      await pool.query('DELETE FROM auth.users WHERE id=$1', [targetId]);
+    }
+  });
+
+  it('creates accounts only from an invitation, with its name and the chosen username', async () => {
+    await resetAuthRateLimits();
+    const signUp = (body: Record<string, unknown>) =>
+      call('/sign-up/email', {
+        uninvited: true,
+        body: { name: 'Typed Name', password, ...body },
+      });
+    const refused = await signUp({
+      email: `auth-uninvited-${suffix}@example.test`,
+    });
+    expect(refused.status).toBe(400);
+    expect(await refused.json()).toMatchObject({ code: 'INVITATION_REQUIRED' });
+    // A token for another address is no invitation either.
+    const otherAddress = await signUp({
+      email: `auth-uninvited-${suffix}@example.test`,
+      invitationToken,
+    });
+    expect(otherAddress.status).toBe(400);
+    const taken = await signUp({
+      email: invitedEmail,
+      invitationToken,
+      username: 'taken-name',
+    });
+    expect(taken.status).toBe(400);
+    expect(await taken.json()).toMatchObject({
+      code: 'USERNAME_UNAVAILABLE',
+      detail: 'The username "taken-name" is taken.',
+    });
+    const invited = await signUp({
+      email: invitedEmail,
+      invitationToken,
+      username: 'Chosen-Name',
+    });
+    expect(invited.status).toBe(200);
+    const created = await pool.query<{
+      name: string;
+      email_verified: boolean;
+    }>('SELECT name, email_verified FROM auth.users WHERE email = $1', [
+      invitedEmail,
+    ]);
+    expect(created.rows[0]).toEqual({
+      name: 'Invited Name',
+      email_verified: true,
+    });
+    const event = await pool.query<{
+      payload: { name?: string; username?: string };
+    }>(
+      "SELECT payload FROM auth.lifecycle_outbox WHERE payload->>'type' = 'auth_user_created' AND payload->>'email' = $1",
+      [invitedEmail],
+    );
+    expect(event.rows[0]?.payload).toMatchObject({
+      name: 'Invited Name',
+      username: 'chosen-name',
+    });
+    const uninvitedUsers = await pool.query(
+      'SELECT 1 FROM auth.users WHERE email = $1',
+      [`auth-uninvited-${suffix}@example.test`],
+    );
+    expect(uninvitedUsers.rowCount).toBe(0);
+  });
+
+  it('queues a season added email for the API, and only for a season link', async () => {
+    const deliveryId = randomUUID();
+    const body = {
+      id: deliveryId,
+      to: `season-added-${randomUUID()}@example.test`,
+      name: 'Added Member',
+      season: 'Summer 2026',
+      role: 'mentor',
+      url: `${new URL(config.baseUrl).origin}/seasons/summer-2026`,
+      inviterName: 'Coordinator',
+    };
+    const send = (headers: Record<string, string>, payload: unknown) =>
+      fetch(`${origin}/internal/auth/season-additions`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', ...headers },
+        body: JSON.stringify(payload),
+      });
+    const authorization = `Bearer ${internalToken}`;
+    expect((await send({}, body)).status).toBe(401);
+    expect(
+      (
+        await send(
+          { authorization },
+          { ...body, url: 'https://elsewhere.test/seasons/summer-2026' },
+        )
+      ).status,
+    ).toBe(400);
+    expect((await send({ authorization }, body)).status).toBe(202);
+    const outbox = await pool.query<{
+      payload: { to: string; subject: string; text: string };
+    }>('SELECT payload FROM auth.lifecycle_outbox WHERE id=$1', [deliveryId]);
+    expect(outbox.rows[0]!.payload.to).toBe(body.to);
+    expect(outbox.rows[0]!.payload.subject).toBe(
+      "You've Been Added to the RSP Website (Summer 2026)",
+    );
+    expect(outbox.rows[0]!.payload.text).toContain(
+      'no further action is required',
+    );
   });
 
   it('enables TOTP, stores only backup hashes, revokes setup sessions and records the transition', async () => {

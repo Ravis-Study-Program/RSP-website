@@ -103,11 +103,26 @@ func (p *Store) createIdentityUser(ctx context.Context, tx pgx.Tx, event account
 	if strings.TrimSpace(name) == "" {
 		name = "New member"
 	}
-	// The profile's address comes from the name: maddie-frew, then
-	// maddie-frew2 for the next Maddie Frew.
-	slug, err := freeSlug(ctx, tx, NameSlug(name), userID)
-	if err != nil {
-		return err
+	// The profile's address is the username chosen at sign-up, if still
+	// free; otherwise it comes from the name: maddie-frew, then maddie-frew2
+	// for the next Maddie Frew.
+	slug := strings.ToLower(strings.TrimSpace(event.Username))
+	if slug != "" {
+		free := false
+		if ValidSlug(slug) {
+			if err := tx.QueryRow(ctx, `SELECT NOT EXISTS(SELECT 1 FROM app.user_profiles WHERE lower(slug)=$1)`, slug).Scan(&free); err != nil {
+				return err
+			}
+		}
+		if !free {
+			slug = ""
+		}
+	}
+	if slug == "" {
+		var err error
+		if slug, err = freeSlug(ctx, tx, NameSlug(name), userID); err != nil {
+			return err
+		}
 	}
 	if _, err := tx.Exec(ctx, `INSERT INTO app.users(id,account_state)
  VALUES($1,$2)`, userID, "active"); err != nil {
