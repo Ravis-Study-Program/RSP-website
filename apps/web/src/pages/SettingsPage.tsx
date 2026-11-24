@@ -31,7 +31,7 @@ import {
   enableTwoFactor,
   linkGoogleAccount,
   linkDiscordAccount,
-  unlinkDiscordAccount,
+  unlinkAccount,
   socialAuthError,
   regenerateBackupCodes,
   requestAccountDeletion,
@@ -261,7 +261,10 @@ export function SettingsPage() {
   };
   /** Signs out after a change that revoked every session, saying which. */
   const finishSecurityChange = (
-    change: 'securityChanged' | 'discordDisconnected' = 'securityChanged',
+    change:
+      | 'securityChanged'
+      | 'discordDisconnected'
+      | 'googleDisconnected' = 'securityChanged',
   ) => {
     clearAccessToken();
     queryClient.clear();
@@ -412,37 +415,11 @@ export function SettingsPage() {
               <ChangePasswordDialog onChanged={() => finishSecurityChange()} />
             )}
           </div>
-          <div className={rowClass}>
-            <span>
-              <strong className="font-semibold">Google Sign-In</strong>
-              <span className={rowTextClass}>
-                {signInMethods.data?.google
-                  ? 'Sign in with your Google account.'
-                  : 'Sign in with your Google account. Connecting signs you out on all devices.'}
-              </span>
-            </span>
-            {signInMethods.data?.google ? (
-              <Button type="button" disabled>
-                <IconCheck size={17} aria-hidden="true" /> Google Connected
-              </Button>
-            ) : (
-              <Button
-                type="button"
-                disabled={!signInMethods.data}
-                onClick={() =>
-                  void linkGoogleAccount().catch((error: unknown) =>
-                    setSecurityMessage(
-                      error instanceof Error
-                        ? error.message
-                        : 'Unable to connect Google.',
-                    ),
-                  )
-                }
-              >
-                Connect Google
-              </Button>
-            )}
-          </div>
+          <GoogleSignInRow
+            methods={signInMethods.data}
+            onDisconnected={() => finishSecurityChange('googleDisconnected')}
+            onError={setSecurityMessage}
+          />
           {providers.data?.discord || signInMethods.data?.discordAccountId ? (
             <div className={rowClass}>
               <span>
@@ -461,7 +438,7 @@ export function SettingsPage() {
                   setSecurityMessage('');
                   const accountId = signInMethods.data?.discordAccountId;
                   const action = accountId
-                    ? unlinkDiscordAccount(accountId).then(() =>
+                    ? unlinkAccount(accountId).then(() =>
                         finishSecurityChange('discordDisconnected'),
                       )
                     : linkDiscordAccount();
@@ -940,6 +917,67 @@ function BackupCodesDialog({ onComplete }: { onComplete: () => void }) {
         )}
       </div>
     </FormDialog>
+  );
+}
+
+/**
+ * Connect or disconnect Google. Disconnecting needs a password to stay
+ * connected, so the member can still sign in.
+ */
+export function GoogleSignInRow({
+  methods,
+  onDisconnected,
+  onError,
+}: {
+  methods?: { googleAccountId: string | null; password: boolean };
+  onDisconnected: () => void;
+  onError: (message: string) => void;
+}) {
+  const [pending, setPending] = useState(false);
+  const accountId = methods?.googleAccountId;
+  const run = (action: Promise<unknown>, fallback: string) => {
+    setPending(true);
+    onError('');
+    void action.catch((error: unknown) => {
+      onError(error instanceof Error ? error.message : fallback);
+      setPending(false);
+    });
+  };
+  return (
+    <div className={rowClass}>
+      <span>
+        <strong className="font-semibold">Google Sign-In</strong>
+        <span className={rowTextClass}>
+          {!accountId
+            ? 'Sign in with your Google account. Connecting signs you out on all devices.'
+            : methods?.password
+              ? 'Sign in with your Google account. Disconnecting signs you out on all devices.'
+              : 'Sign in with your Google account. Add a password before disconnecting Google, so you can still sign in.'}
+        </span>
+      </span>
+      {accountId ? (
+        <Button
+          type="button"
+          disabled={pending || !methods?.password}
+          onClick={() =>
+            run(
+              unlinkAccount(accountId).then(onDisconnected),
+              'Unable to disconnect Google.',
+            )
+          }
+        >
+          {pending ? 'Please Wait…' : 'Disconnect Google'}
+        </Button>
+      ) : (
+        <Button
+          type="button"
+          disabled={!methods || pending}
+          onClick={() => run(linkGoogleAccount(), 'Unable to connect Google.')}
+        >
+          {pending ? 'Please Wait…' : 'Connect Google'}
+        </Button>
+      )}
+    </div>
   );
 }
 

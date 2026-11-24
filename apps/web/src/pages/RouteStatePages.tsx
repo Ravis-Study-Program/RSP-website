@@ -457,15 +457,19 @@ export function SignInPage() {
  */
 function signedOutNotice(params: URLSearchParams) {
   const change =
-    params.get('discordConnected') === 'true'
-      ? 'Discord was connected'
-      : params.get('discordDisconnected') === 'true'
-        ? 'Discord was disconnected'
-        : params.get('passwordConnected') === 'true'
-          ? 'Password sign-in was connected'
-          : params.get('securityChanged') === 'true'
-            ? 'Your security settings were updated'
-            : '';
+    params.get('googleConnected') === 'true'
+      ? 'Google was connected'
+      : params.get('googleDisconnected') === 'true'
+        ? 'Google was disconnected'
+        : params.get('discordConnected') === 'true'
+          ? 'Discord was connected'
+          : params.get('discordDisconnected') === 'true'
+            ? 'Discord was disconnected'
+            : params.get('passwordConnected') === 'true'
+              ? 'Password sign-in was connected'
+              : params.get('securityChanged') === 'true'
+                ? 'Your security settings were updated'
+                : '';
   return change
     ? `${change}, so you were signed out on all devices. Sign in again to continue.`
     : '';

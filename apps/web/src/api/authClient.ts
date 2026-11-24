@@ -166,6 +166,8 @@ export async function listSignInMethods() {
   return {
     discordAccountId:
       accounts.find((account) => account.providerId === 'discord')?.id ?? null,
+    googleAccountId:
+      accounts.find((account) => account.providerId === 'google')?.id ?? null,
     google: accounts.some((account) => account.providerId === 'google'),
     password: accounts.some((account) => account.providerId === 'credential'),
     twoFactor: Boolean(session?.user.twoFactorEnabled),
@@ -177,7 +179,7 @@ export function linkGoogleAccount() {
   return followAuthRedirect(
     '/link-social',
     'google',
-    '/sign-in?securityChanged=true',
+    '/sign-in?googleConnected=true',
   );
 }
 
@@ -208,7 +210,12 @@ export function linkDiscordAccount() {
   );
 }
 
-export async function unlinkDiscordAccount(accountId: string) {
+/**
+ * Disconnects a Google or Discord sign-in. The auth service refuses unless a
+ * password or Google stays connected and the session is under five minutes
+ * old, and it signs the member out everywhere.
+ */
+export async function unlinkAccount(accountId: string) {
   await authRequest('/unlink-account', {
     method: 'POST',
     body: JSON.stringify({ accountId }),
