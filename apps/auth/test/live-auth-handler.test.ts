@@ -177,6 +177,45 @@ async function verifyThroughCapturedEmail(targetEmail: string): Promise<void> {
     expect(verification.headers.get('location')).toBe('/');
 }
 
+/** The verify-email link in the captured email with this subject. */
+async function verifyLinkFromCapturedEmail(
+  targetEmail: string,
+  subject: string,
+): Promise<string> {
+  if (!mailpitUrl)
+    throw new Error('AUTH_LIVE_MAILPIT_URL is required for live email tests');
+  for (let attempt = 0; attempt < 20; attempt += 1) {
+    const list = await fetch(`${mailpitUrl}/api/v1/messages`);
+    const body = (await list.json()) as {
+      messages?: Array<{
+        ID: string;
+        Subject?: string;
+        To?: Array<{ Address?: string }>;
+      }>;
+    };
+    const messageId = body.messages?.find(
+      (message) =>
+        message.Subject === subject &&
+        message.To?.some(
+          (recipient) =>
+            recipient.Address?.toLowerCase() === targetEmail.toLowerCase(),
+        ),
+    )?.ID;
+    if (messageId) {
+      const message = (await (
+        await fetch(`${mailpitUrl}/api/v1/message/${messageId}`)
+      ).json()) as { Text?: string };
+      const link = message.Text?.match(
+        /https?:\/\/[^\s]+\/api\/auth\/verify-email\?[^\s]+/,
+      )?.[0];
+      if (!link) throw new Error('verify-email URL was absent from the email');
+      return link;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  }
+  throw new Error(`"${subject}" email for ${targetEmail} was not captured`);
+}
+
 async function resetTokenFromCapturedEmail(
   targetEmail: string,
 ): Promise<string> {
@@ -397,6 +436,91 @@ live.sequential('live Better Auth handler and PostgreSQL', () => {
       );
       expect(events.rows).toHaveLength(1);
       expect(events.rows[0].payload.email).toBe(newEmail);
+      const notice = await pool.query(
+        "SELECT payload->>'subject' AS subject FROM auth.lifecycle_outbox WHERE target='email' AND payload->>'to'=$1",
+        [oldEmail],
+      );
+      expect(notice.rows).toEqual([{ subject: 'Your RSP email was changed' }]);
+    } finally {
+      await pool.query('DELETE FROM auth.users WHERE id=$1', [targetId]);
+    }
+  });
+
+  it('changes a verified member’s own email with one link to the new address and tells the old one', async () => {
+    await resetAuthRateLimits();
+    const oldEmail = `self-change-${randomUUID()}@example.test`;
+    const newEmail = `self-changed-${randomUUID()}@example.test`;
+    expect(
+      (
+        await call('/sign-up/email', {
+          body: { name: 'Self email change', email: oldEmail, password },
+        })
+      ).status,
+    ).toBe(200);
+    await verifyThroughCapturedEmail(oldEmail);
+    const current = await pool.query<{ id: string }>(
+      'SELECT id FROM auth.users WHERE email=$1',
+      [oldEmail],
+    );
+    const targetId = current.rows[0]!.id;
+    try {
+      const cookies = jar();
+      expect((await signIn(oldEmail, cookies)).status).toBe(200);
+      const requested = await call('/change-email', {
+        body: { newEmail, callbackURL: '/sign-in?emailChanged=true' },
+        cookies,
+      });
+      expect(requested.status).toBe(200);
+      expect(
+        (
+          await pool.query('SELECT email FROM auth.users WHERE id=$1', [
+            targetId,
+          ])
+        ).rows[0].email,
+      ).toBe(oldEmail);
+      // Nothing goes to the old address until the change is made.
+      const early = await pool.query(
+        "SELECT 1 FROM auth.lifecycle_outbox WHERE target='email' AND payload->>'to'=$1",
+        [oldEmail],
+      );
+      expect(early.rows).toHaveLength(0);
+      // Verifying the new address makes the change.
+      const verification = await fetch(
+        await verifyLinkFromCapturedEmail(
+          newEmail,
+          'Verify your new RSP email address',
+        ),
+        { redirect: 'manual' },
+      );
+      expect(verification.status).toBe(302);
+      expect(verification.headers.get('location')).toBe(
+        '/sign-in?emailChanged=true',
+      );
+      const after = await pool.query(
+        'SELECT email,email_verified FROM auth.users WHERE id=$1',
+        [targetId],
+      );
+      expect(after.rows[0]).toMatchObject({
+        email: newEmail,
+        email_verified: true,
+      });
+      const events = await pool.query(
+        "SELECT payload FROM auth.lifecycle_outbox WHERE payload->>'type'='email_changed' AND payload->>'authUserId'=$1",
+        [targetId],
+      );
+      expect(events.rows).toHaveLength(1);
+      expect(events.rows[0].payload.email).toBe(newEmail);
+      const notice = await pool.query<{
+        payload: { subject: string; text: string };
+      }>(
+        "SELECT payload FROM auth.lifecycle_outbox WHERE target='email' AND payload->>'to'=$1",
+        [oldEmail],
+      );
+      expect(notice.rows).toHaveLength(1);
+      expect(notice.rows[0]!.payload.subject).toBe(
+        'Your RSP email was changed',
+      );
+      expect(notice.rows[0]!.payload.text).not.toContain(newEmail);
     } finally {
       await pool.query('DELETE FROM auth.users WHERE id=$1', [targetId]);
     }

@@ -1,4 +1,4 @@
-import { randomBytes } from 'node:crypto';
+import { randomBytes, randomUUID } from 'node:crypto';
 
 import { APIError, betterAuth } from 'better-auth';
 import { createAuthMiddleware, getSessionFromCtx } from 'better-auth/api';
@@ -12,7 +12,12 @@ import {
   oauthRequestContext,
 } from './identity/discord-profile.js';
 import { createEmailProvider } from './email/provider.js';
-import { passwordResetEmail, verificationEmail } from './email/templates.js';
+import {
+  emailChangedNoticeEmail,
+  newEmailVerificationEmail,
+  passwordResetEmail,
+  verificationEmail,
+} from './email/templates.js';
 import { HttpIdentityLifecycleGateway } from './identity/gateway.js';
 import { AccountLifecycleService } from './lifecycle/service.js';
 import { log as writeLog } from './logging.js';
@@ -64,6 +69,7 @@ function isMfaCompletionPath(path: string | undefined): boolean {
 }
 
 interface VerificationTokenPayload {
+  readonly email?: string;
   readonly requestType?: string;
   readonly updateTo?: string;
 }
@@ -76,9 +82,11 @@ function decodeJwtPayload(token: string): VerificationTokenPayload | undefined {
       Buffer.from(encodedPayload, 'base64url').toString('utf8'),
     );
     if (!payload || typeof payload !== 'object') return undefined;
+    const email = Reflect.get(payload, 'email');
     const requestType = Reflect.get(payload, 'requestType');
     const updateTo = Reflect.get(payload, 'updateTo');
     return {
+      ...(typeof email === 'string' ? { email } : {}),
       ...(typeof requestType === 'string' ? { requestType } : {}),
       ...(typeof updateTo === 'string' ? { updateTo } : {}),
     };
@@ -357,15 +365,12 @@ export const auth = betterAuth({
         returned: false,
       },
     },
+    // One link, to the new address. There is no approval step from the
+    // old address (people often change email because they lost it); it is
+    // told once the change is made instead.
     changeEmail: {
       enabled: true,
       updateEmailWithoutVerification: false,
-      async sendChangeEmailConfirmation({ user, url }) {
-        await emailProvider.send({
-          ...verificationEmail(user.email, url),
-          subject: 'Confirm your RSP email change',
-        });
-      },
     },
     deleteUser: { enabled: false },
   },
@@ -449,7 +454,22 @@ export const auth = betterAuth({
     sendOnSignUp: true,
     autoSignInAfterVerification: false,
     expiresIn: 60 * 60,
-    async sendVerificationEmail({ user, url }) {
+    async sendVerificationEmail({ user, url, token }) {
+      // An email change is verified at the new address. Better Auth passes
+      // the already-verified user with the new email, so it must not be
+      // skipped like the case below.
+      if (
+        decodeJwtPayload(token)?.requestType === 'change-email-verification'
+      ) {
+        // Verifying signs the member out everywhere, so it lands on sign-in,
+        // which says the change is done.
+        const link = new URL(url);
+        link.searchParams.set('callbackURL', '/sign-in?emailChanged=true');
+        await emailProvider.send(
+          newEmailVerificationEmail(user.email, link.toString()),
+        );
+        return;
+      }
       // Signed up from an invitation to this address: already verified.
       if (user.emailVerified) return;
       await emailProvider.send(verificationEmail(user.email, url));
@@ -464,6 +484,16 @@ export const auth = betterAuth({
         tokenPayload.updateTo === user.email;
       if (emailChangeCompleted) {
         await accountLifecycle.revokeSessions(user.id, 'email_changed');
+        // Tell the old address, without naming the new one: after a
+        // coordinator's correction the old address may be someone else's.
+        if (tokenPayload.email && tokenPayload.email !== user.email)
+          await accountLifecycle.queueEmail(
+            randomUUID(),
+            emailChangedNoticeEmail(
+              tokenPayload.email,
+              new URL('/sign-in', config.baseUrl).toString(),
+            ),
+          );
         await accountLifecycle.queueIdentityEvent(
           {
             type: 'email_changed',

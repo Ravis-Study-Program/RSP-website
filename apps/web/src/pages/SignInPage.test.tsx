@@ -100,3 +100,20 @@ it('keeps the invited name and email and lets the invitee choose a username', as
     'chosen-name',
   );
 });
+
+function renderSignInAt(search: string) {
+  render(
+    <MemoryRouter initialEntries={[`/sign-in${search}`]}>
+      <Routes>
+        <Route path="/sign-in" element={<SignInPage />} />
+      </Routes>
+    </MemoryRouter>,
+  );
+}
+
+it('says the email change is done, in green, after the new address is verified', () => {
+  renderSignInAt('?emailChanged=true');
+  const notice = screen.getByText(/Your email was changed/);
+  expect(notice).toHaveTextContent('Sign in with your new email address.');
+  expect(notice.closest('[role="status"]')).toHaveClass('bg-success-soft');
+});

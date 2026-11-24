@@ -72,13 +72,15 @@ test('Settings connects Discord and displays a recoverable stale-session error',
   ).toBe(true);
 });
 
-test('signing out after a Discord change explains why across the top', async ({
+test('signing out after a Google or Discord change explains why across the top', async ({
   page,
 }) => {
   await page.addInitScript(() =>
     localStorage.setItem('rsp-demo-auth-state', 'signed-out'),
   );
   for (const [param, change] of [
+    ['googleConnected', 'Google was connected'],
+    ['googleDisconnected', 'Google was disconnected'],
     ['discordConnected', 'Discord was connected'],
     ['discordDisconnected', 'Discord was disconnected'],
   ]) {

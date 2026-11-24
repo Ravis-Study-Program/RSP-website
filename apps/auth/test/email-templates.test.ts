@@ -5,6 +5,8 @@ import {
   invitationEmail,
   roleChangeEmail,
   seasonAddedEmail,
+  emailChangedNoticeEmail,
+  newEmailVerificationEmail,
   verificationEmail,
 } from '../src/email/templates.js';
 
@@ -101,4 +103,21 @@ it('season added messages say no action is needed and link to the season', () =>
   expect(message.text).toContain('Ravi, Ravi’s Study Program');
   expect(message.html).toContain('&lt;b&gt;Member&lt;/b&gt;');
   expect(message.html).not.toContain('<b>');
+});
+
+it('email change messages verify the new address and tell the old one without naming the new', () => {
+  const verify = newEmailVerificationEmail(
+    'new@example.test',
+    'https://rsp.example/api/auth/verify-email?token=b',
+  );
+  expect(verify.subject).toBe('Verify your new RSP email address');
+  expect(verify.text).toContain('finish changing your RSP email');
+  const notice = emailChangedNoticeEmail(
+    'old@example.test',
+    'https://rsp.example/sign-in',
+  );
+  expect(notice.to).toBe('old@example.test');
+  expect(notice.subject).toBe('Your RSP email was changed');
+  expect(notice.text).toContain('contact your season coordinator');
+  expect(notice.text).not.toContain('new@example.test');
 });

@@ -5,6 +5,7 @@ import { Button, buttonVariants } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
   IconAlertTriangle,
+  IconCheck,
   IconLock,
   IconMailCheck,
   IconMoodSad,
@@ -221,7 +222,13 @@ export function SignInPage() {
     <AuthFrame
       title={mode === 'sign-in' ? 'Welcome to RSP' : 'Create your account'}
       notice={
-        signedOut ? (
+        searchParams.get('emailChanged') === 'true' ? (
+          <InlineNotice tone="success">
+            <IconCheck size={19} aria-hidden="true" /> Your email was changed,
+            so you were signed out on all devices. Sign in with your new email
+            address.
+          </InlineNotice>
+        ) : signedOut ? (
           <InlineNotice tone="warning">
             <IconAlertTriangle size={19} aria-hidden="true" /> {signedOut}
           </InlineNotice>
@@ -450,15 +457,19 @@ export function SignInPage() {
  */
 function signedOutNotice(params: URLSearchParams) {
   const change =
-    params.get('discordConnected') === 'true'
-      ? 'Discord was connected'
-      : params.get('discordDisconnected') === 'true'
-        ? 'Discord was disconnected'
-        : params.get('passwordConnected') === 'true'
-          ? 'Password sign-in was connected'
-          : params.get('securityChanged') === 'true'
-            ? 'Your security settings were updated'
-            : '';
+    params.get('googleConnected') === 'true'
+      ? 'Google was connected'
+      : params.get('googleDisconnected') === 'true'
+        ? 'Google was disconnected'
+        : params.get('discordConnected') === 'true'
+          ? 'Discord was connected'
+          : params.get('discordDisconnected') === 'true'
+            ? 'Discord was disconnected'
+            : params.get('passwordConnected') === 'true'
+              ? 'Password sign-in was connected'
+              : params.get('securityChanged') === 'true'
+                ? 'Your security settings were updated'
+                : '';
   return change
     ? `${change}, so you were signed out on all devices. Sign in again to continue.`
     : '';

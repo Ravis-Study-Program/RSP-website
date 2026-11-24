@@ -76,6 +76,39 @@ export function verificationEmail(to: string, url: string): EmailMessage {
   });
 }
 
+/**
+ * Tells the old address that the account's email changed. It does not name
+ * the new address, since after a correction the old one may be a stranger's.
+ */
+export function emailChangedNoticeEmail(to: string, url: string): EmailMessage {
+  return linkEmail({
+    to,
+    subject: 'Your RSP email was changed',
+    introduction:
+      'The email on your RSP account was changed, so this address no longer signs in to it.',
+    action: 'Open RSP',
+    url,
+    expiry: 'If you did not make this change, contact your season coordinator.',
+  });
+}
+
+/** The last step of an email change, sent to the new address. */
+export function newEmailVerificationEmail(
+  to: string,
+  url: string,
+): EmailMessage {
+  return linkEmail({
+    to,
+    subject: 'Verify your new RSP email address',
+    introduction: 'Verify this address to finish changing your RSP email.',
+    note: 'You will be signed out on all devices, then sign in with this address.',
+    action: 'Verify new email',
+    url,
+    expiry:
+      'This link expires in one hour. If you did not ask for this, ignore this email.',
+  });
+}
+
 export function passwordResetEmail(to: string, url: string): EmailMessage {
   return linkEmail({
     to,

@@ -260,7 +260,7 @@ Exact and unassuming.
 - **Hover / Focus:** hover drops the fill to 80% opacity. Focus shows a 3px pencil ring at 50%. Press nudges the button down 1px. Disabled is 50% opacity.
 - **Outline / Secondary / Ghost:** outline is paper with a hairline border and washes on hover. Secondary is a wash fill. Ghost is transparent and washes on hover.
 - **Destructive:** ledger red on a 10% red tint with a light red (40%) border, deepening to 20% on hover.
-- **Row actions:** an action at the end of a settings-style row is a default (solid) button, so it reads as a button. A method that is already connected shows a disabled default button with a check ("Google connected") instead of a second row. Table row actions live in a kebab menu instead.
+- **Row actions:** an action at the end of a settings-style row is a default (solid) button, so it reads as a button. A connected Google or Discord shows its Disconnect button ("Disconnect Google") in the same row. When disconnecting is not allowed (Google with no password), the button is disabled and the row's description says what to do first. Table row actions live in a kebab menu instead.
 - **Link:** ink text, underlined on hover.
 
 ### Chips / Badges
@@ -287,7 +287,8 @@ Exact and unassuming.
 - A titled section (its own `h2`, like every other section) holds one card of rows divided by hairlines. Each row has a bold title, a muted one-line description and an action on the right.
 - Group rows into separate titled sections rather than subheadings inside one card. Settings uses Sign-In (email, password, Google, Discord), Two-Factor (two-factor, then backup codes, disabled until two-factor is on) and Sessions.
 - Sign-in method rows open with the same sentence, "Sign in with your Google account." or "Sign in with your Discord account.", then add what else connecting does and that connecting or disconnecting signs you out on all devices.
-- A change that signs the member out everywhere (connecting a sign-in method, disconnecting Discord, other security changes) explains itself with a warning `InlineNotice` across the top of the sign-in page, like the warnings at the top of Settings, not inside the sign-in card.
+- A change that signs the member out everywhere (connecting or disconnecting a sign-in method, other security changes) explains itself with a warning `InlineNotice` across the top of the sign-in page, like the warnings at the top of Settings, not inside the sign-in card.
+- Changing your email takes one link, to the new address: after the request Settings says where it went (info `InlineNotice`), and the link lands on sign-in with a success (green) notice that the change is done and you were signed out everywhere. The old address gets an email saying the account's email changed.
 - Read-only values use the same labelled field as editable ones, greyed (`text-muted-foreground`) and `readOnly`, rather than plain text.
 
 ### Tables

@@ -17,8 +17,8 @@ import {
 } from './identity/discord-profile.js';
 import { refreshDiscordAvatar } from './identity/discord-avatar-refresh.js';
 import {
-  verificationEmail,
   invitationEmail,
+  newEmailVerificationEmail,
   roleChangeEmail,
   seasonAddedEmail,
 } from './email/templates.js';
@@ -749,10 +749,10 @@ async function handleInternal(
       const link = new URL('/api/auth/verify-email', config.baseUrl);
       link.searchParams.set('token', token);
       link.searchParams.set('callbackURL', '/sign-in?emailChanged=true');
-      await accountLifecycle.queueEmail(parsed.data.deliveryId, {
-        ...verificationEmail(newEmail, link.toString()),
-        subject: 'Verify your new RSP email address',
-      });
+      await accountLifecycle.queueEmail(
+        parsed.data.deliveryId,
+        newEmailVerificationEmail(newEmail, link.toString()),
+      );
       sendJson(response, 202, { queued: true }, id);
       return;
     }
