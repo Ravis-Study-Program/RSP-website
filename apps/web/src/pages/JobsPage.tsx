@@ -212,7 +212,7 @@ function JobsHelp() {
         <div>
           <dt className="font-semibold text-foreground">Request Referrals</dt>
           <dd>
-            Create a profile with a public résumé link and a short note about
+            Create a profile with a public resume link and a short note about
             why you’d be a good referral. Use that profile to request up to five
             open roles at a time. A referrer may reach out on Discord.
           </dd>
@@ -222,7 +222,7 @@ function JobsHelp() {
           <dd>
             If you’ve graduated from RSP, choose Open to Referring and pick a
             company you work for. You’ll see who’s requested a referral there,
-            which roles they want, and their résumé links. Reach out on Discord
+            which roles they want, and their resume links. Reach out on Discord
             if you can help.
           </dd>
         </div>
@@ -264,6 +264,13 @@ function CompanyLink({ position }: { position: JobPosition }) {
     >
       <span className="truncate">{position.company.name}</span>
     </ExternalLink>
+  );
+}
+
+/** Where a position's company category (its Details colour) sorts. */
+function categoryRank(position: JobPosition) {
+  return jobCategories.findIndex(
+    (category) => category.value === position.company.category,
   );
 }
 
@@ -602,9 +609,11 @@ function Positions({ toolbarLead }: { toolbarLead: ReactNode }) {
   const columns: ColumnDef<JobPosition>[] = [
     {
       id: 'details',
+      accessorFn: categoryRank,
+      // In the category filter's order: FAAMG first.
+      sortDescFirst: false,
       header: 'Details',
       cell: ({ row }) => <JobDetailsButton row={row} position={row.original} />,
-      enableSorting: false,
       enableColumnFilter: false,
       meta: { width: 4.5 },
     },
@@ -675,10 +684,11 @@ function Positions({ toolbarLead }: { toolbarLead: ReactNode }) {
       ? [
           {
             id: 'applied',
+            accessorFn: (p) => (appFor(p) ? 1 : 0),
             header: 'Applied',
             cell: ({ row }) => appliedControl(row.original),
             enableColumnFilter: false,
-            enableSorting: false,
+            sortDescFirst: true,
             meta: { width: 5 },
           } as ColumnDef<JobPosition>,
         ]
@@ -976,11 +986,13 @@ function Applications({ toolbarLead }: { toolbarLead: ReactNode }) {
   const columns: ColumnDef<JobApplication>[] = [
     {
       id: 'details',
+      accessorFn: (a) => categoryRank(a.position),
+      // In the category filter's order: FAAMG first.
+      sortDescFirst: false,
       header: 'Details',
       cell: ({ row }) => (
         <JobDetailsButton row={row} position={row.original.position} history />
       ),
-      enableSorting: false,
       enableColumnFilter: false,
       meta: { width: 4.5 },
     },

@@ -96,7 +96,7 @@ export function demoJobReferralRequest(
           'Enter why you would be a good referral, up to 4,000 characters.',
         );
       if (!isPublicResumeURL(resumeUrl))
-        throw new Error('Enter a public link to your résumé.');
+        throw new Error('Enter a public link to your resume.');
       profiles.set(userId, { reason, resumeUrl });
       return;
     }

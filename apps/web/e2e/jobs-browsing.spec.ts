@@ -317,3 +317,51 @@ test('Direct position links reveal older applied positions despite Not Applied a
     'Applied to Intern Engineer at Dolby',
   );
 });
+
+test('Positions sort by company category and by whether you applied', async ({
+  page,
+}, testInfo) => {
+  test.skip(
+    !testInfo.project.name.startsWith('desktop'),
+    'Column sorting is on the desktop table.',
+  );
+  await page.addInitScript(() => {
+    localStorage.setItem('rsp-demo-role', 'student');
+    localStorage.setItem('rsp-table-page-size', '50');
+  });
+  await page.goto('/jobs');
+  const sortBy = (column: string) =>
+    page
+      .getByRole('columnheader', { name: column })
+      .getByRole('button')
+      .click();
+  const categories = ['FAAMG', 'Big Tech', 'HFT/Quant', 'Other Tech'];
+  const shownCategories = async () =>
+    (
+      await page
+        .getByRole('button', { name: /^(Show|Hide) details for / })
+        .evaluateAll((buttons) =>
+          buttons.map((button) => button.getAttribute('aria-label') ?? ''),
+        )
+    ).map((label) => categories.indexOf(label.split(' · ').at(-1) ?? ''));
+
+  // Details sorts by its colour, the company category.
+  await sortBy('Details');
+  const ranks = await shownCategories();
+  expect(ranks.length).toBeGreaterThan(1);
+  expect(ranks).not.toContain(-1);
+  expect(ranks).toEqual([...ranks].sort((a, b) => a - b));
+  expect(new Set(ranks).size).toBeGreaterThan(1);
+
+  // Applied sorts the positions you applied to first.
+  const markers = page.getByRole('checkbox', { name: /^Applied to / });
+  await markers.last().click();
+  await expect(markers.last()).toBeChecked();
+  await sortBy('Applied');
+  await expect(markers.first()).toBeChecked();
+  const checked = await markers.evaluateAll((boxes) =>
+    boxes.map((box) => box.getAttribute('aria-checked') === 'true'),
+  );
+  expect(checked.indexOf(false)).toBeGreaterThan(0);
+  expect(checked.slice(checked.indexOf(false))).not.toContain(true);
+});

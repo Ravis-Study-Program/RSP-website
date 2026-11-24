@@ -2783,7 +2783,7 @@ paths:
     put:
       operationId: saveJobReferralProfile
       tags: [Jobs]
-      description: Save the student's or alumnus's reason and public résumé link.
+      description: Save the student's or alumnus's reason and public resume link.
       requestBody:
         required: true
         content:

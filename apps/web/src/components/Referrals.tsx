@@ -52,7 +52,7 @@ const referralGuidelineCopy = {
     instructions:
       'Request referrals for open roles you’re interested in. Withdraw requests you no longer need.',
     privacy:
-      'Your résumé link and reason are shared with members who opt in to refer at the companies you select. Referrers may contact you on Discord.',
+      'Your resume link and reason are shared with members who opt in to refer at the companies you select. Referrers may contact you on Discord.',
   },
   'refer-candidates': {
     title: 'Referrer Guidelines',
@@ -244,7 +244,6 @@ function ReferralRequests({
   layout: ReferralLayout;
 }) {
   const [params, setParams] = useSearchParams();
-  const [requestedOnly, setRequestedOnly] = useState(false);
   const [editing, setEditing] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -263,9 +262,7 @@ function ReferralRequests({
   );
   const filtered = open
     .filter(
-      (position) =>
-        (companyId === 'all' || position.company.id === companyId) &&
-        (!requestedOnly || requested.has(position.id)),
+      (position) => companyId === 'all' || position.company.id === companyId,
     )
     .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
   const countByCompany = new Map(
@@ -281,7 +278,7 @@ function ReferralRequests({
     if (wanted && !board.profile.resumeUrl) {
       showRequestError(
         'Create a referral profile first',
-        'Choose Create Referral Profile to add your résumé and reason.',
+        'Choose Create Referral Profile to add your resume and reason.',
       );
       return;
     }
@@ -360,42 +357,24 @@ function ReferralRequests({
     },
     {
       id: 'requested',
-      header: 'Request',
-      cell: ({ row }) => (
-        <div className="flex justify-end">{requestControl(row.original)}</div>
-      ),
-      enableSorting: false,
+      accessorFn: (p) => (requested.has(p.id) ? 1 : 0),
+      header: 'Applied',
+      cell: ({ row }) => requestControl(row.original),
+      sortDescFirst: true,
       enableColumnFilter: false,
       enableHiding: false,
-      meta: { width: 5.5, align: 'end' },
+      meta: { width: 5.5 },
     },
   ];
 
   return layout(
     <>
-      <div className="flex items-center gap-2">
-        <Button
-          type="button"
-          variant={requestedOnly ? 'secondary' : 'outline'}
-          aria-pressed={requestedOnly}
-          onClick={() => {
-            if (!requestedOnly && companyId !== 'all') {
-              const next = new URLSearchParams(params);
-              next.delete('company');
-              setParams(next, { replace: true });
-            }
-            setRequestedOnly(!requestedOnly);
-          }}
-        >
-          My Requests
-        </Button>
-        <span
-          role="status"
-          className="text-sm text-muted-foreground tabular-nums"
-        >
-          {requested.size} of {maxReferralRequests} requested
-        </span>
-      </div>
+      <span
+        role="status"
+        className="text-sm text-muted-foreground tabular-nums"
+      >
+        {requested.size} of {maxReferralRequests} requested
+      </span>
       <Button
         type="button"
         variant="outline"
@@ -422,12 +401,8 @@ function ReferralRequests({
           void positions.refetch();
           void counts.refetch();
         }}
-        emptyTitle={requestedOnly ? 'No Requests Here' : 'No Open Positions'}
-        emptyMessage={
-          requestedOnly
-            ? 'Turn off My Requests to browse open positions.'
-            : 'Try another company.'
-        }
+        emptyTitle="No Open Positions"
+        emptyMessage="Try another company."
         searchPlaceholder="Search positions…"
         toolbarStart={
           <>
@@ -573,7 +548,7 @@ function ReferralProfileForm({
         label="Save Profile"
         onSave={async () => {
           if (!validResumeUrl)
-            throw new Error('Enter a public link to your résumé.');
+            throw new Error('Enter a public link to your resume.');
           await save('/jobs/referrals/profile', 'PUT', {
             reason,
             resumeUrl: resumeUrl.trim(),
@@ -594,7 +569,7 @@ function ReferralProfileForm({
           />
         </Field>
         <Field>
-          <FieldLabel htmlFor={`${id}-resume`}>Résumé Link</FieldLabel>
+          <FieldLabel htmlFor={`${id}-resume`}>Resume Link</FieldLabel>
           <Input
             id={`${id}-resume`}
             type="url"
@@ -605,12 +580,12 @@ function ReferralProfileForm({
             aria-describedby={`${id}-resume-help`}
           />
           <FieldDescription id={`${id}-resume-help`}>
-            Provide a public link to your résumé (e.g. Google Drive). Make sure
+            Provide a public link to your resume (e.g. Google Drive). Make sure
             it opens without signing in.
           </FieldDescription>
           {validResumeUrl && (
             <ExternalLink href={resumeUrl.trim()} className="self-start">
-              View Résumé
+              View Resume
             </ExternalLink>
           )}
         </Field>
@@ -632,7 +607,7 @@ function ReferralProfileForm({
           title="Delete your referral profile?"
           actionLabel="Delete Profile"
           requireTyping={false}
-          description="Your saved résumé link and reason will be removed from RSP, and all your referral requests withdrawn."
+          description="Your saved resume link and reason will be removed from RSP, and all your referral requests withdrawn."
           onOpenChange={setRemove}
           onConfirm={async () => {
             await save('/jobs/referrals/profile', 'DELETE');
@@ -918,7 +893,7 @@ function CandidateProfile({
       </p>
       <div className="grid min-w-0 gap-1">
         <ExternalLink href={candidate.resumeUrl} className="justify-self-start">
-          View Résumé
+          View Resume
         </ExternalLink>
         <p className="text-sm break-all text-muted-foreground select-all">
           {candidate.resumeUrl}

@@ -71,7 +71,7 @@ func (a *API) getJobReferralCounts(w http.ResponseWriter, r *http.Request) {
 func (a *API) saveJobReferralProfile(w http.ResponseWriter, r *http.Request) {
 	var profile jobs.ReferralProfile
 	if err := decodeJSON(r.Body, &profile); err != nil {
-		writeErrorResponse(w, http.StatusBadRequest, "Enter your reason and a public link to your résumé.")
+		writeErrorResponse(w, http.StatusBadRequest, "Enter your reason and a public link to your resume.")
 		return
 	}
 	if err := profile.Validate(); err != nil {

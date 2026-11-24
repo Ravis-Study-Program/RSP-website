@@ -97,7 +97,7 @@ test('Referral pages show and remember their own guidelines for the current acco
     name: 'Request Referral Guidelines',
   });
   await expect(popover).toContainText(
-    'Your résumé link and reason are shared with members who opt in to refer',
+    'Your resume link and reason are shared with members who opt in to refer',
   );
   expect(await tabs.boundingBox()).toEqual(tabsPosition);
   await page.keyboard.press('Escape');
@@ -164,29 +164,29 @@ test('Students reuse a profile, request up to five open roles and withdraw reque
   const header = page.locator('header').filter({
     has: page.getByRole('heading', { name: 'Jobs', exact: true }),
   });
-  await expect(
-    header.getByRole('button', { name: 'My Requests' }),
-  ).toBeVisible();
+  await expect(header.getByRole('button', { name: 'My Requests' })).toHaveCount(
+    0,
+  );
   await header.getByRole('button', { name: 'Create Referral Profile' }).click();
   await expect(profile).toBeVisible();
   await expect(missingProfileNotice).toBeHidden();
   await profile
     .getByRole('textbox', { name: /Why I’d Be a Good Referral/ })
     .fill('I build and maintain software for my university club.');
-  const resume = profile.getByLabel('Résumé Link');
+  const resume = profile.getByLabel('Resume Link');
   await expect(resume).toHaveAccessibleDescription(
-    /Provide a public link to your résumé \(e.g. Google Drive\)/,
+    /Provide a public link to your resume \(e.g. Google Drive\)/,
   );
   await resume.fill('http://localhost/resume.pdf');
   await profile.getByRole('button', { name: 'Save Profile' }).click();
   await expect(
-    profile.getByText('Enter a public link to your résumé.'),
+    profile.getByText('Enter a public link to your resume.'),
   ).toBeVisible();
   const resumeUrl =
     'https://portfolio.example.org/resume.pdf?download=1#page=2';
   await resume.fill(resumeUrl);
   await expect(
-    profile.getByRole('link', { name: 'View Résumé' }),
+    profile.getByRole('link', { name: 'View Resume' }),
   ).toHaveAttribute('href', resumeUrl);
   await profile.getByRole('button', { name: 'Save Profile' }).click();
   await expect(profile).toBeHidden();
@@ -194,7 +194,7 @@ test('Students reuse a profile, request up to five open roles and withdraw reque
   const editProfile = page.getByRole('dialog', {
     name: 'Edit Referral Profile',
   });
-  await expect(editProfile.getByLabel('Résumé Link')).toHaveValue(resumeUrl);
+  await expect(editProfile.getByLabel('Resume Link')).toHaveValue(resumeUrl);
   await editProfile.getByRole('button', { name: 'Close dialog' }).click();
   await google.click();
   await expect(google).toBeChecked();
@@ -230,12 +230,18 @@ test('Students reuse a profile, request up to five open roles and withdraw reque
     });
   }
   await expect(limitNotice).toBeHidden({ timeout: 6500 });
-  const myRequests = page.getByRole('button', { name: 'My Requests' });
-  await myRequests.click();
-  await expect(controls).toHaveCount(5);
+  if (testInfo.project.name.startsWith('desktop')) {
+    // Sorting by Applied puts the requested roles first.
+    await page
+      .getByRole('columnheader', { name: 'Applied' })
+      .getByRole('button')
+      .click();
+    for (let i = 0; i < 5; ++i) await expect(controls.nth(i)).toBeChecked();
+    await expect(controls.nth(5)).not.toBeChecked();
+  }
   await google.click();
+  await expect(google).not.toBeChecked();
   await expect(page.getByText('4 of 5 requested')).toBeVisible();
-  await expect(controls).toHaveCount(4);
   await page.getByRole('button', { name: 'Edit Referral Profile' }).click();
   const edit = page.getByRole('dialog', { name: 'Edit Referral Profile' });
   await expect(
@@ -318,7 +324,7 @@ test('Referrers opt in, review matching candidate profiles and stop referring', 
   await expect(profile).not.toContainText('Frontend/Backend');
   await expect(profile).toContainText('Search for Zara Ahmed on Discord');
   const resume = profile.getByRole('link', {
-    name: 'View Résumé',
+    name: 'View Resume',
   });
   const resumeUrl = 'https://drive.google.com/file/d/rsp-demo-zara-ahmed/view';
   await expect(resume).toHaveAttribute('href', resumeUrl);
@@ -326,7 +332,7 @@ test('Referrers opt in, review matching candidate profiles and stop referring', 
   await page
     .context()
     .route(resumeUrl, (route) =>
-      route.fulfill({ contentType: 'text/plain', body: 'Demo résumé link' }),
+      route.fulfill({ contentType: 'text/plain', body: 'Demo resume link' }),
     );
   const [resumeTab] = await Promise.all([
     page.waitForEvent('popup'),

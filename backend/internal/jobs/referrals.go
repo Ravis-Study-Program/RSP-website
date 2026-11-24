@@ -56,7 +56,7 @@ func (v *ReferralProfile) Validate() error {
 		strings.ContainsFunc(v.ResumeURL, func(r rune) bool { return unicode.IsSpace(r) || unicode.IsControl(r) }) ||
 		(link.Scheme != "https" && link.Scheme != "http") || link.User != nil ||
 		!isPublicLinkHost(strings.ToLower(strings.TrimSuffix(link.Hostname(), "."))) {
-		return errors.New("enter a public link to your résumé")
+		return errors.New("enter a public link to your resume")
 	}
 	return nil
 }
