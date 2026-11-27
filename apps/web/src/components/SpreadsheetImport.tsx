@@ -998,7 +998,9 @@ function RowResult({
     return <ProblemOutcome problem={shown.error ?? 'Not imported.'} />;
   const details = [
     ...(shown.person === 'account' && shown.outcome === 'invite'
-      ? ['Has an account; joins straight away and gets an email saying so.']
+      ? [
+          'Has an account; joins straight away and gets an email saying so (with a link to set a password if they have never signed in).',
+        ]
       : []),
     ...(shown.changes ?? []).map(changeText),
     ...(shown.skipped ?? []).map(

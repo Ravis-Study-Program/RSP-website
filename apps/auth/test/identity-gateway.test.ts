@@ -108,3 +108,56 @@ describe('identity lifecycle callback', () => {
     );
   });
 });
+
+describe('unclaimed member lookup', () => {
+  const gatewayReturning = (response: Response) => {
+    const fetchImplementation = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(response);
+    return {
+      fetchImplementation,
+      gateway: new HttpIdentityLifecycleGateway({
+        baseUrl: 'http://api:8081',
+        token: 'internal-secret',
+        timeoutMs: 1_000,
+        fetchImplementation,
+      }),
+    };
+  };
+
+  it('asks the API with the service token and returns the member', async () => {
+    const { gateway, fetchImplementation } = gatewayReturning(
+      Response.json({ found: true, name: 'Devi Member', securityVersion: 3 }),
+    );
+    await expect(
+      gateway.findUnclaimedMember('devi@example.org'),
+    ).resolves.toEqual({ name: 'Devi Member', securityVersion: 3 });
+    const [url, init] = fetchImplementation.mock.calls[0] ?? [];
+    expect(url).toBe('http://api:8081/internal/auth/unclaimed-member');
+    expect(new Headers(init?.headers).get('authorization')).toBe(
+      'Bearer internal-secret',
+    );
+    expect(init?.body).toBe('{"email":"devi@example.org"}');
+  });
+
+  it('returns null when there is no such member or the reply is malformed', async () => {
+    for (const body of [
+      { found: false },
+      { found: true, name: '', securityVersion: 1 },
+      { found: true, name: 'Devi', securityVersion: 0 },
+      { found: true, name: 'Devi' },
+    ]) {
+      const { gateway } = gatewayReturning(Response.json(body));
+      await expect(
+        gateway.findUnclaimedMember('devi@example.org'),
+      ).resolves.toBeNull();
+    }
+  });
+
+  it('throws when the API cannot answer, so no sign-in is made', async () => {
+    const { gateway } = gatewayReturning(new Response(null, { status: 503 }));
+    await expect(
+      gateway.findUnclaimedMember('devi@example.org'),
+    ).rejects.toThrow('status 503');
+  });
+});

@@ -285,7 +285,20 @@ test('signed-out, unverified, unavailable, nonmember, forbidden and not-found st
   await expect(signedOutPage.getByRole('tab')).toHaveCount(0);
   await expect(
     signedOutPage.getByText(/Accounts are by invitation only/),
+  ).toBeHidden();
+  await signedOutPage.getByText('New to RSP?').click();
+  await expect(
+    signedOutPage.getByText(/Accounts are by invitation only/),
   ).toBeVisible();
+  // Former students set a password through Forgot password; one answer
+  // shows at a time.
+  await signedOutPage.getByText('Former student without an account?').click();
+  await expect(
+    signedOutPage.getByText(/choose “Forgot password\?” to set your password/),
+  ).toBeVisible();
+  await expect(
+    signedOutPage.getByText(/Accounts are by invitation only/),
+  ).toBeHidden();
   await signedOutContext.close();
 
   const unverifiedContext = await browser.newContext();

@@ -9,7 +9,13 @@ import { APIError } from 'better-auth';
 import { createEmailVerificationToken } from 'better-auth/api';
 import { z } from 'zod';
 
-import { accountLifecycle, auth, pool } from './auth.js';
+import {
+  accountLifecycle,
+  accountSetupLink,
+  auth,
+  pool,
+  signInForMember,
+} from './auth.js';
 import { config } from './config.js';
 import {
   oauthRequestContext,
@@ -17,6 +23,7 @@ import {
 } from './identity/discord-profile.js';
 import { refreshDiscordAvatar } from './identity/discord-avatar-refresh.js';
 import {
+  accountSetupEmail,
   invitationEmail,
   newEmailVerificationEmail,
   roleChangeEmail,
@@ -1114,16 +1121,42 @@ async function handleRequest(
         sendProblem(response, 400, 'invalid_request', 'Invalid season URL', id);
         return;
       }
+      // Someone who has never signed in (no password, Google or Discord) is
+      // invited to set up their account instead, with a link that sets their
+      // password. Failing that, the email tells them to use Forgot password.
+      let canSignIn = true;
+      let setupUrl: string | undefined;
+      try {
+        const signIn = await signInForMember(parsed.data.to);
+        canSignIn = signIn?.canSignIn ?? false;
+        if (signIn && !signIn.canSignIn && signIn.accountState === 'active')
+          setupUrl = await accountSetupLink(signIn.id);
+      } catch (error) {
+        canSignIn = false;
+        log('error', 'account setup link could not be made', {
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
       await accountLifecycle.queueEmail(
         parsed.data.id,
-        seasonAddedEmail(
-          parsed.data.to,
-          parsed.data.name,
-          parsed.data.season,
-          parsed.data.role,
-          parsed.data.url,
-          parsed.data.inviterName,
-        ),
+        setupUrl
+          ? accountSetupEmail(
+              parsed.data.to,
+              parsed.data.name,
+              parsed.data.season,
+              parsed.data.role,
+              setupUrl,
+              parsed.data.inviterName,
+            )
+          : seasonAddedEmail(
+              parsed.data.to,
+              parsed.data.name,
+              parsed.data.season,
+              parsed.data.role,
+              parsed.data.url,
+              parsed.data.inviterName,
+              !canSignIn,
+            ),
       );
       sendJson(response, 202, { queued: true }, id);
       return;

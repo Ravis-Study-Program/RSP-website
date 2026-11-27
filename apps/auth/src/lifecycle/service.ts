@@ -195,6 +195,55 @@ export class AccountLifecycleService {
     else await this.deliverBestEffort([entry]);
   }
 
+  /**
+   * Makes a verified sign-in with no password for a member who has never
+   * had one, so a password reset can be sent to them and its link sets the
+   * password. The API attaches it to their existing member. False when the
+   * email already has a sign-in.
+   */
+  async createUnclaimedMemberSignIn(input: {
+    readonly authUserId: string;
+    readonly email: string;
+    readonly name: string;
+    readonly securityVersion: number;
+  }): Promise<boolean> {
+    const occurredAt = this.now();
+    const entry = await inTransaction(this.pool, async (client) => {
+      const created = await client.query(
+        `INSERT INTO users
+           (id, name, email, email_verified, created_at, updated_at,
+            two_factor_enabled, account_state, security_version)
+         VALUES ($1, $2, $3, true, $4, $4, false, 'active', $5)
+         ON CONFLICT (email) DO NOTHING`,
+        [
+          input.authUserId,
+          input.name,
+          input.email,
+          occurredAt,
+          input.securityVersion,
+        ],
+      );
+      if (created.rowCount !== 1) return null;
+      return enqueueOutbox(
+        client,
+        'identity',
+        {
+          type: 'auth_user_created',
+          authUserId: input.authUserId,
+          email: input.email,
+          name: input.name,
+          emailVerified: true,
+          securityVersion: input.securityVersion,
+          occurredAt: occurredAt.toISOString(),
+        },
+        occurredAt,
+      );
+    });
+    if (!entry) return false;
+    await this.deliverBestEffort([entry]);
+    return true;
+  }
+
   async flushOutbox(limit = 50): Promise<number> {
     if (!Number.isInteger(limit) || limit < 1 || limit > 100) {
       throw new RangeError('outbox batch limit must be between 1 and 100');

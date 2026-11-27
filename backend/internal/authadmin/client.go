@@ -164,7 +164,7 @@ func (c Client) SendRoleChange(ctx context.Context, input RoleChangeEmailInput) 
 }
 
 // SeasonAddedEmailInput tells someone who already has an account that they
-// were added to a season, with nothing for them to do.
+// were added to a season, with nothing to accept.
 type SeasonAddedEmailInput struct {
 	ID     string `json:"id"`
 	To     string `json:"to"`

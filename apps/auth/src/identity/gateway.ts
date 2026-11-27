@@ -7,6 +7,13 @@ export interface InvitationCheck {
   readonly problem: string;
 }
 
+/** A member who has never had a sign-in, as the API describes them. */
+export interface UnclaimedMember {
+  readonly name: string;
+  /** The version their access tokens must carry. */
+  readonly securityVersion: number;
+}
+
 export type SessionRevocationReason =
   | 'suspension'
   | 'deletion_requested'
@@ -174,5 +181,45 @@ export class HttpIdentityLifecycleGateway implements IdentityLifecycleGateway {
     } catch {
       return null;
     }
+  }
+
+  /**
+   * The member with this contact email who has never had a sign-in, with
+   * the name and security version their sign-in takes. Null when there is
+   * none; throws when the API cannot be reached.
+   */
+  async findUnclaimedMember(email: string): Promise<UnclaimedMember | null> {
+    const fetchImplementation = this.options.fetchImplementation ?? fetch;
+    const response = await fetchImplementation(
+      `${this.options.baseUrl}/internal/auth/unclaimed-member`,
+      {
+        method: 'POST',
+        headers: {
+          authorization: `Bearer ${this.options.token}`,
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify({ email }),
+        signal: AbortSignal.timeout(this.options.timeoutMs),
+      },
+    );
+    if (!response.ok)
+      throw new Error(
+        `unclaimed member lookup failed with status ${response.status}`,
+      );
+    const result = (await response.json()) as {
+      found?: unknown;
+      name?: unknown;
+      securityVersion?: unknown;
+    };
+    if (
+      result.found !== true ||
+      typeof result.name !== 'string' ||
+      !result.name ||
+      typeof result.securityVersion !== 'number' ||
+      !Number.isInteger(result.securityVersion) ||
+      result.securityVersion < 1
+    )
+      return null;
+    return { name: result.name, securityVersion: result.securityVersion };
   }
 }

@@ -64,6 +64,13 @@ it('offers sign-up only to someone arriving from an invitation', () => {
   expect(
     screen.getByText(/Accounts are by invitation only/),
   ).toBeInTheDocument();
+  // Someone from before sets a password with Forgot password instead.
+  expect(
+    screen.getByText('Former student without an account?'),
+  ).toBeInTheDocument();
+  expect(
+    screen.getByText(/choose “Forgot password\?” to set your password/),
+  ).toBeInTheDocument();
   expect(screen.queryByLabelText('Name')).toBeNull();
 });
 
