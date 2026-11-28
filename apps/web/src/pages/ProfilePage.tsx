@@ -49,6 +49,7 @@ import { TimezoneSelect } from '@/components/TimezoneSelect';
 import { ErrorState, PageSkeleton } from '@/components/StatusViews';
 import { sortRoles } from '@/sortOrder';
 import { studentWeeklyExpected } from '@/studentWeeklyExpected';
+import { canRenameSelf } from '@/seasonAccess';
 import {
   formatDateTime,
   initials,
@@ -285,6 +286,9 @@ export function ProfilePage() {
   );
 }
 
+const renameHint =
+  'Ask your mentor if you want to change your name or username.';
+
 function EditProfileDialog({
   user,
   showProgramDetails,
@@ -294,6 +298,8 @@ function EditProfileDialog({
   showProgramDetails: boolean;
   onSaved: (values: ProfileValues) => void;
 }) {
+  // Students' names and usernames are changed by their mentor.
+  const renamable = canRenameSelf(user);
   const [open, setOpen] = useState(false);
   const [requestError, setRequestError] = useState('');
   const [suggestionError, setSuggestionError] = useState('');
@@ -405,14 +411,50 @@ function EditProfileDialog({
         ) : null}
         <Field>
           <FieldLabel htmlFor="profile-name">Name</FieldLabel>
-          <Input
-            id="profile-name"
-            aria-invalid={Boolean(errors.name)}
-            {...register('name')}
-          />
-          {errors.name ? <FieldError>{errors.name.message}</FieldError> : null}
+          {renamable ? (
+            <>
+              <Input
+                id="profile-name"
+                aria-invalid={Boolean(errors.name)}
+                {...register('name')}
+              />
+              {errors.name ? (
+                <FieldError>{errors.name.message}</FieldError>
+              ) : null}
+            </>
+          ) : (
+            <>
+              <Input
+                id="profile-name"
+                readOnly
+                className="text-muted-foreground"
+                aria-describedby="profile-rename-hint"
+                {...register('name')}
+              />
+              {showProgramDetails ? null : (
+                <FieldDescription id="profile-rename-hint">
+                  {renameHint}
+                </FieldDescription>
+              )}
+            </>
+          )}
         </Field>
-        {showProgramDetails ? (
+        {showProgramDetails && !renamable ? (
+          <Field>
+            <FieldLabel htmlFor="profile-slug">Username</FieldLabel>
+            <Input
+              id="profile-slug"
+              readOnly
+              className="text-muted-foreground"
+              aria-describedby="profile-rename-hint"
+              {...register('slug')}
+            />
+            <FieldDescription id="profile-rename-hint">
+              {renameHint}
+            </FieldDescription>
+          </Field>
+        ) : null}
+        {showProgramDetails && renamable ? (
           <Field>
             <FieldLabel htmlFor="profile-slug">Username</FieldLabel>
             <div className={inlineClass}>

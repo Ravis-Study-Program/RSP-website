@@ -111,6 +111,54 @@ describe('student details dialog', () => {
     });
   });
 
+  it("changes a student's name and username, which they can't themselves", async () => {
+    vi.mocked(apiRequest).mockImplementation(async (path, options) =>
+      path === `${memberPath}/profile`
+        ? (JSON.parse(String(options?.body)) as object)
+        : {},
+    );
+    const user = userEvent.setup();
+    const { client, onOpenChange } = renderDialog();
+    const name = screen.getByLabelText('Name');
+    const username = screen.getByLabelText('Username');
+    expect(name).toHaveValue('Student Member');
+    expect(username).toHaveValue('student-member');
+    expect(
+      screen.getByText('Students can’t change their own name or username.'),
+    ).toBeInTheDocument();
+
+    await user.clear(username);
+    await user.type(username, 'not valid');
+    expect(
+      screen.getByText(
+        'Use 2–50 lowercase letters, numbers and single hyphens.',
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Save Details' })).toBeDisabled();
+
+    await user.clear(name);
+    await user.type(name, 'Renamed Student');
+    await user.clear(username);
+    await user.type(username, 'Renamed-Student');
+    await user.click(screen.getByRole('button', { name: 'Save Details' }));
+    await waitFor(() => expect(onOpenChange).toHaveBeenCalledWith(false));
+    expect(apiRequest).toHaveBeenCalledWith(`${memberPath}/profile`, {
+      method: 'PATCH',
+      body: JSON.stringify({
+        name: 'Renamed Student',
+        slug: 'renamed-student',
+      }),
+    });
+    // Nothing else changed, so nothing else is saved.
+    expect(apiRequest).not.toHaveBeenCalledWith(
+      `${memberPath}/student-level`,
+      expect.anything(),
+    );
+    expect(client.getQueryData(['season-people', 'season-1'])).toEqual({
+      items: [{ ...student, name: 'Renamed Student', slug: 'renamed-student' }],
+    });
+  });
+
   it('refuses out-of-range values and shows an API error', async () => {
     vi.mocked(apiRequest).mockImplementation(async (_path, options) => {
       if (options?.method === 'PUT') throw new Error('The season has closed.');

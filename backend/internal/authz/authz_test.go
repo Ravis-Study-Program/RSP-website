@@ -81,6 +81,34 @@ func TestAlumniIsDerivedOnlyFromCompletedStudent(t *testing.T) {
 	}
 }
 
+func TestStudentsCannotEditTheirOwnName(t *testing.T) {
+	for _, tc := range []struct {
+		name        string
+		enrollments []Enrollment
+		global      GlobalRole
+		want        bool
+	}{
+		{"no enrollments", nil, "", true},
+		{"active student", []Enrollment{{"s", Student, Active}}, "", false},
+		{"student alumnus", []Enrollment{{"s", Student, Completed}}, "", false},
+		{"withdrawn student", []Enrollment{{"s", Student, Withdrawn}}, "", false},
+		{"mentor", []Enrollment{{"s", Mentor, Active}}, "", true},
+		{"student turned mentor", []Enrollment{{"a", Student, Completed}, {"b", Mentor, Active}}, "", true},
+		{"student and coordinator", []Enrollment{{"a", Student, Active}, {"b", Coordinator, Active}}, "", true},
+		{"student and director", []Enrollment{{"s", Student, Active}}, Director, true},
+		{"student and system admin", []Enrollment{{"s", Student, Active}}, SystemAdmin, true},
+	} {
+		a := activeActor("u")
+		a.Enrollments = tc.enrollments
+		if tc.global != "" {
+			a.GlobalRoles[tc.global] = true
+		}
+		if got := a.CanRenameSelf(); got != tc.want {
+			t.Errorf("%s: CanRenameSelf()=%v, want %v", tc.name, got, tc.want)
+		}
+	}
+}
+
 func TestSeasonAdminIsSeasonSpecificAndIndependentOfMFA(t *testing.T) {
 	actor := activeActor("coordinator")
 	actor.Enrollments = []Enrollment{{

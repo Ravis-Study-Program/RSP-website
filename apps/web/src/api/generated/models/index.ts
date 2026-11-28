@@ -205,6 +205,7 @@ export * from './slugSuggestion';
 export * from './sortParameter';
 export * from './studentLevelUpdate';
 export * from './studentLevelUpdateStudentLevel';
+export * from './studentProfileUpdate';
 export * from './studentRequirements';
 export * from './suggestProblem200';
 export * from './suggestProblemDifficultyItem';

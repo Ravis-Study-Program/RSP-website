@@ -39,13 +39,13 @@ func TestDiscordAvatarSyncAndWriteProtection(t *testing.T) {
 	}
 	check(&avatar)
 	// An ordinary profile edit preserves the synchronized avatar.
-	res := testRequest(t, f.handler, http.MethodPatch, "/api/v2/me", "student", `{"name":"Changed Name","timezone":"Australia/Adelaide"}`)
+	res := testRequest(t, f.handler, http.MethodPatch, "/api/v2/me", "student", `{"name":"Student","timezone":"Australia/Adelaide"}`)
 	if res.Code != 200 {
 		t.Fatalf("profile edit=%d %s", res.Code, res.Body)
 	}
 	check(&avatar)
 	// Even a Discord CDN URL cannot be supplied by a browser.
-	res = testRequest(t, f.handler, http.MethodPatch, "/api/v2/me", "student", fmt.Sprintf(`{"name":"Changed Name","timezone":"Australia/Adelaide","avatarUrl":%q}`, avatar))
+	res = testRequest(t, f.handler, http.MethodPatch, "/api/v2/me", "student", fmt.Sprintf(`{"name":"Student","timezone":"Australia/Adelaide","avatarUrl":%q}`, avatar))
 	if res.Code != 400 {
 		t.Fatalf("arbitrary avatar write=%d", res.Code)
 	}

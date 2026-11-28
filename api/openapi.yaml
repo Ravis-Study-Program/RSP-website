@@ -1136,6 +1136,46 @@ paths:
         '409': { $ref: '#/components/responses/Error' }
         '401': { $ref: '#/components/responses/Error' }
         '429': { $ref: '#/components/responses/RateLimited' }
+  /seasons/{id}/members/{memberId}/profile:
+    parameters:
+      [
+        { $ref: '#/components/parameters/ID' },
+        { name: memberId, in: path, required: true, schema: { type: string } },
+      ]
+    patch:
+      operationId: updateStudentProfile
+      description: The student's current mentor or a season administrator sets the name and username of a student who cannot change their own (someone who has never mentored, coordinated or held a global role).
+      requestBody:
+        {
+          required: true,
+          content:
+            {
+              application/json:
+                {
+                  schema: { $ref: '#/components/schemas/StudentProfileUpdate' },
+                },
+            },
+        }
+      responses:
+        default: { $ref: '#/components/responses/Error' }
+        '200':
+          {
+            description: The saved name and username,
+            content:
+              {
+                application/json:
+                  {
+                    schema:
+                      { $ref: '#/components/schemas/StudentProfileUpdate' },
+                  },
+              },
+          }
+        '400': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+        '401': { $ref: '#/components/responses/Error' }
+        '429': { $ref: '#/components/responses/RateLimited' }
   /seasons/{id}/members/{memberId}:
     parameters:
       [
@@ -4518,6 +4558,17 @@ components:
           type: string
           description: The advanced value is displayed as Advanced.
           enum: [novice, beginner, intermediate, advanced]
+    StudentProfileUpdate:
+      type: object
+      additionalProperties: false
+      required: [name, slug]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 100 }
+        slug:
+          type: string
+          minLength: 2
+          maxLength: 50
+          description: The username, in lowercase letters, numbers and single hyphens.
     EnrollmentUpdate:
       type: object
       additionalProperties: false

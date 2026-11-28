@@ -1,10 +1,14 @@
 package api
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
+	"github.com/Ravis-Study-Program/RSP-website/backend/internal/accounts"
+	"github.com/Ravis-Study-Program/RSP-website/backend/internal/authz"
 	"github.com/Ravis-Study-Program/RSP-website/backend/internal/dal"
 	"github.com/Ravis-Study-Program/RSP-website/backend/internal/practice"
 )
@@ -109,4 +113,58 @@ func (a *API) putStudentRequirements(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSONResponse(w, http.StatusOK, saved)
+}
+
+// updateStudentProfile lets a student's current mentor or a coordinator
+// change the student's name and username, which students cannot change
+// themselves. Someone who can rename themselves (a mentor elsewhere, say) is
+// left to do so.
+func (a *API) updateStudentProfile(w http.ResponseWriter, r *http.Request) {
+	actor := actorFrom(r.Context())
+	seasonID := r.PathValue("id")
+	if !a.authorizeStudentDetails(w, r) {
+		return
+	}
+	var request struct {
+		Name string `json:"name"`
+		Slug string `json:"slug"`
+	}
+	if err := decodeJSON(r.Body, &request); err != nil {
+		writeErrorResponse(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	request.Name = strings.TrimSpace(request.Name)
+	request.Slug = strings.ToLower(strings.TrimSpace(request.Slug))
+	if len(request.Name) < 1 || len(request.Name) > 100 || len(request.Slug) < 2 || len(request.Slug) > 50 || !validSlug(request.Slug) {
+		writeErrorResponse(w, http.StatusBadRequest, "Enter a name and a 2–50 character username using lowercase letters, numbers and hyphens.")
+		return
+	}
+	member, err := a.db.GetEnrollment(r.Context(), r.PathValue("memberId"))
+	if err != nil {
+		a.writeStoreErrorResponse(w, err)
+		return
+	}
+	if member.SeasonID != seasonID || member.Role != string(authz.Student) {
+		writeErrorResponse(w, http.StatusNotFound, "The student does not exist in this season.")
+		return
+	}
+	student, err := a.db.ActorForUser(r.Context(), member.UserID)
+	if err != nil {
+		a.writeStoreErrorResponse(w, err)
+		return
+	}
+	if student.CanRenameSelf() {
+		writeErrorResponse(w, http.StatusForbidden, "They can change their own name and username from their profile.")
+		return
+	}
+	saved, err := a.db.UpdateAdminProfile(r.Context(), accounts.AdminProfile{ID: member.UserID, Name: request.Name, Slug: request.Slug}, actor.UserID, time.Now().UTC())
+	if errors.Is(err, dal.ErrDuplicate) {
+		writeErrorResponse(w, http.StatusConflict, "That username is taken. Choose another.")
+		return
+	}
+	if err != nil {
+		a.writeStoreErrorResponse(w, err)
+		return
+	}
+	writeJSONResponse(w, http.StatusOK, map[string]string{"name": saved.Name, "slug": saved.Slug})
 }

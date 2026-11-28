@@ -116,9 +116,9 @@ export function PersonRowActions({
               <IconShieldLock size={17} aria-hidden="true" /> Manage Account
             </DropdownMenuItem>
           ) : null}
-          {/* Without corrections (a mentor and their student), removal is
-              here; otherwise it is "(No Season)" in Manage Account. */}
-          {allowed.remove && !canCorrect ? (
+          {/* Coordinators and administrators can also remove someone with
+              "(No Season)" in Manage Account. */}
+          {allowed.remove ? (
             <DropdownMenuItem
               variant="destructive"
               onClick={() => setOpen('remove')}

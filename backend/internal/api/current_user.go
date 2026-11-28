@@ -84,6 +84,10 @@ func (a *API) suggestCurrentUserSlug(w http.ResponseWriter, r *http.Request) {
 	writeJSONResponse(w, http.StatusOK, map[string]string{"slug": slug})
 }
 
+// studentRenameRefusal answers a student who tries to change their own name
+// or username.
+const studentRenameRefusal = "Ask your mentor to change your name or username."
+
 type updateCurrentUserRequest struct {
 	Name     string  `json:"name"`
 	Slug     *string `json:"slug"`
@@ -104,6 +108,21 @@ func (a *API) updateCurrentUser(w http.ResponseWriter, r *http.Request) {
 	if _, err := time.LoadLocation(request.Timezone); err != nil {
 		writeErrorResponse(w, http.StatusBadRequest, "timezone must be an IANA timezone")
 		return
+	}
+	if !actor.CanRenameSelf() {
+		current, err := a.db.GetUser(r.Context(), actor.UserID)
+		if err != nil {
+			a.writeStoreErrorResponse(w, err)
+			return
+		}
+		renamed := strings.TrimSpace(current.Name) != strings.TrimSpace(request.Name)
+		if request.Slug != nil && strings.ToLower(strings.TrimSpace(*request.Slug)) != current.Slug {
+			renamed = true
+		}
+		if renamed {
+			writeErrorResponse(w, http.StatusForbidden, studentRenameRefusal)
+			return
+		}
 	}
 
 	if request.Slug != nil {

@@ -17,7 +17,7 @@ import (
 func TestProfileSaveReturnsCompleteUser(t *testing.T) {
 	f := newPostgresFixture(t)
 	createMockForWrites(t, f)
-	for _, name := range []string{"Changed Name", "Changed Name"} {
+	for _, name := range []string{"Student", "Student"} {
 		res := testRequest(t, f.handler, http.MethodPatch, "/api/v2/me", "student", `{"name":"`+name+`","timezone":"Australia/Adelaide"}`)
 		var saved accounts.User
 		if err := json.Unmarshal(res.Body.Bytes(), &saved); err != nil || res.Code != http.StatusOK {
@@ -37,6 +37,47 @@ func TestProfileSaveReturnsCompleteUser(t *testing.T) {
 		if !reflect.DeepEqual(saved, loaded) {
 			t.Fatalf("save response differs from reload: saved=%+v loaded=%+v", saved, loaded)
 		}
+	}
+}
+
+func TestStudentsCannotRenameThemselves(t *testing.T) {
+	f := newPostgresFixture(t)
+	storedName := func(userID string) string {
+		t.Helper()
+		var name string
+		if err := f.pool.QueryRow(context.Background(), `SELECT display_name FROM app.user_profiles WHERE user_id=$1`, userID).Scan(&name); err != nil {
+			t.Fatal(err)
+		}
+		return name
+	}
+
+	res := testRequest(t, f.handler, http.MethodPatch, "/api/v2/me", "student", `{"name":"Changed Name","timezone":"Australia/Adelaide"}`)
+	if res.Code != http.StatusForbidden {
+		t.Fatalf("student rename=%d %s", res.Code, res.Body)
+	}
+	if got := storedName(studentID); got != "Student" {
+		t.Fatalf("student name changed to %q", got)
+	}
+	// Saving other settings with the same name still works, and stray
+	// spaces around an unchanged name don't count as a rename.
+	if _, err := f.pool.Exec(context.Background(), `UPDATE app.user_profiles SET display_name='Student ' WHERE user_id=$1`, studentID); err != nil {
+		t.Fatal(err)
+	}
+	res = testRequest(t, f.handler, http.MethodPatch, "/api/v2/me", "student", `{"name":"Student","timezone":"Australia/Perth"}`)
+	if res.Code != http.StatusOK {
+		t.Fatalf("student settings save=%d %s", res.Code, res.Body)
+	}
+	if got := storedName(studentID); got != "Student" {
+		t.Fatalf("student name=%q, want trimmed", got)
+	}
+
+	// A mentor still names themselves.
+	res = testRequest(t, f.handler, http.MethodPatch, "/api/v2/me", "other", `{"name":"Changed Name","timezone":"Australia/Adelaide"}`)
+	if res.Code != http.StatusOK {
+		t.Fatalf("mentor rename=%d %s", res.Code, res.Body)
+	}
+	if got := storedName(otherID); got != "Changed Name" {
+		t.Fatalf("mentor name=%q", got)
 	}
 }
 
