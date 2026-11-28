@@ -66,6 +66,13 @@ func (p *Store) ApplyIdentityEvent(ctx context.Context, event accounts.IdentityE
 		return err
 	}
 	if link.UserID == "" && event.Type == "auth_user_created" {
+		member, err := unclaimedMember(ctx, tx, event.Email, true)
+		if err == nil {
+			return attachIdentityUser(ctx, tx, member, event)
+		}
+		if !errors.Is(err, ErrNotFound) {
+			return err
+		}
 		return p.createIdentityUser(ctx, tx, event)
 	}
 	if link.UserID == "" {
@@ -82,6 +89,71 @@ func (p *Store) ApplyIdentityEvent(ctx context.Context, event accounts.IdentityE
 	}
 
 	if err := applyIdentityChange(ctx, tx, link.UserID, event); err != nil {
+		return err
+	}
+	return tx.Commit(ctx)
+}
+
+// UnclaimedMember is an active member who has never had a sign-in: brought
+// over from the old site, or added to a season before signing up. Asking
+// for a password reset to their contact email gives them one.
+type UnclaimedMember struct {
+	UserID          string
+	Name            string
+	SecurityVersion int64
+}
+
+// UnclaimedMemberByEmail finds the unclaimed member with this contact email,
+// or ErrNotFound.
+func (p *Store) UnclaimedMemberByEmail(ctx context.Context, email string) (UnclaimedMember, error) {
+	return unclaimedMember(ctx, p.conn(), email, false)
+}
+
+func unclaimedMember(ctx context.Context, db queryer, email string, lock bool) (UnclaimedMember, error) {
+	email = strings.TrimSpace(email)
+	if email == "" {
+		return UnclaimedMember{}, ErrNotFound
+	}
+	query := `SELECT u.id::text,p.display_name,s.security_version
+ FROM app.user_contacts c
+ JOIN app.users u ON u.id=c.user_id
+ JOIN app.user_profiles p ON p.user_id=u.id
+ JOIN app.user_security s ON s.user_id=u.id
+ WHERE lower(c.email)=lower($1) AND u.account_state='active' AND u.deleted_at IS NULL
+   AND NOT EXISTS (SELECT 1 FROM app.user_auth_links l WHERE l.user_id=u.id)`
+	if lock {
+		query += ` FOR UPDATE OF u`
+	}
+	var member UnclaimedMember
+	err := db.QueryRow(ctx, query, email).Scan(&member.UserID, &member.Name, &member.SecurityVersion)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return UnclaimedMember{}, ErrNotFound
+	}
+	return member, err
+}
+
+// attachIdentityUser gives an unclaimed member the sign-in just made for
+// their contact email, instead of a second member with the same address.
+// Their history, seasons and mentees stay theirs. The auth service makes
+// one when they ask for a password reset, which they can only use from that
+// inbox. An unverified sign-in is linked but inactive until verified, as in
+// createIdentityUser.
+func attachIdentityUser(ctx context.Context, tx pgx.Tx, member UnclaimedMember, event accounts.IdentityEvent) error {
+	var revokedAt *time.Time
+	if !event.EmailVerified {
+		value := event.OccurredAt.UTC()
+		revokedAt = &value
+	}
+	if _, err := tx.Exec(ctx, `INSERT INTO app.user_auth_links(auth_subject,user_id,provider,provider_account_id,active,revoked_at)
+ VALUES($1,$2,$3,$4,$5,$6)`, event.AuthUserID, member.UserID, "better_auth", event.AuthUserID, event.EmailVerified, revokedAt); err != nil {
+		return err
+	}
+	// Access tokens must carry the member's security version. They have never
+	// signed in, so no token holds an older one to keep out.
+	if _, err := tx.Exec(ctx, `UPDATE app.user_security SET security_version=$1 WHERE user_id=$2`, event.SecurityVersion, member.UserID); err != nil {
+		return err
+	}
+	if err := appendAuditTx(ctx, tx, newAudit(member.UserID, "account.sign_in_attached", "user", member.UserID, nil, event.OccurredAt)); err != nil {
 		return err
 	}
 	return tx.Commit(ctx)

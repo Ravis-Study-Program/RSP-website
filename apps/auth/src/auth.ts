@@ -5,6 +5,7 @@ import { createAuthMiddleware, getSessionFromCtx } from 'better-auth/api';
 import { deleteSessionCookie } from 'better-auth/cookies';
 import { jwt, twoFactor } from 'better-auth/plugins';
 import { Pool } from 'pg';
+import { z } from 'zod';
 
 import { config } from './config.js';
 import {
@@ -100,6 +101,91 @@ const securitySensitiveReasonByPath = {
   '/two-factor/generate-backup-codes': 'mfa_changed',
   '/unlink-account': 'provider_linked',
 } as const;
+
+/**
+ * The sign-in for this email, if there is one. A member who has never had
+ * one (brought over from the old site, or added to a season before signing
+ * up) is given one first: verified, with no password, so nobody can use it
+ * until a password is set from a link sent to this address. The API
+ * attaches it to their existing member. Null for anyone else.
+ */
+export async function signInForMember(
+  email: string,
+): Promise<{ id: string; accountState: string; canSignIn: boolean } | null> {
+  const address = email.trim().toLowerCase();
+  const find = () =>
+    pool.query<{ id: string; account_state: string; can_sign_in: boolean }>(
+      `SELECT id, account_state,
+              EXISTS (SELECT 1 FROM accounts WHERE accounts.user_id = users.id) AS can_sign_in
+         FROM users WHERE lower(email) = $1`,
+      [address],
+    );
+  let found = (await find()).rows[0];
+  if (!found) {
+    const member = await identityGateway.findUnclaimedMember(address);
+    if (!member) return null;
+    const context = await auth.$context;
+    const created = await accountLifecycle.createUnclaimedMemberSignIn({
+      authUserId: context.generateId({ model: 'user' }) || randomUUID(),
+      email: address,
+      name: member.name,
+      securityVersion: member.securityVersion,
+    });
+    if (created)
+      writeLog('info', 'created a sign-in for an unclaimed member', {});
+    // Made by this call, or by another one at the same moment.
+    found = (await find()).rows[0];
+    if (!found) return null;
+  }
+  return {
+    id: found.id,
+    accountState: found.account_state,
+    canSignIn: found.can_sign_in,
+  };
+}
+
+/** How long an account setup link lasts: as long as an invitation. */
+const ACCOUNT_SETUP_SECONDS = 14 * ONE_DAY_SECONDS;
+
+/**
+ * A single-use link that sets this sign-in's password, for someone added to a
+ * season who has never signed in. It is a password reset link that lasts as
+ * long as an invitation, and opens the reset page worded for a first sign-in.
+ */
+export async function accountSetupLink(authUserId: string): Promise<string> {
+  const context = await auth.$context;
+  const token =
+    context.generateId({ model: 'verification', size: 24 }) ||
+    randomBytes(18).toString('base64url');
+  await context.internalAdapter.createVerificationValue({
+    value: authUserId,
+    identifier: `reset-password:${token}`,
+    expiresAt: new Date(Date.now() + ACCOUNT_SETUP_SECONDS * 1_000),
+  });
+  const callbackURL = encodeURIComponent('/reset-password?setup=true');
+  return `${context.baseURL}/reset-password/${token}?callbackURL=${callbackURL}`;
+}
+
+/**
+ * Asking for a password reset gives a member who has never signed in a
+ * sign-in first (see signInForMember), so the reset email reaches them.
+ * Failures are logged, not shown: the reply must not say whether the email
+ * is known.
+ */
+const authBeforeHook = createAuthMiddleware(async (context) => {
+  if (context.path !== '/request-password-reset') return;
+  const parsed = z
+    .object({ email: z.email().max(254) })
+    .safeParse(context.body);
+  if (!parsed.success) return;
+  try {
+    await signInForMember(parsed.data.email);
+  } catch (error) {
+    writeLog('error', 'unclaimed member sign-in could not be created', {
+      error: error instanceof Error ? error.message : String(error),
+    });
+  }
+});
 
 const authAfterHook = createAuthMiddleware(async (context) => {
   const callbackProvider = context.path?.startsWith('/callback/')
@@ -731,6 +817,7 @@ export const auth = betterAuth({
     },
   },
   hooks: {
+    before: authBeforeHook,
     after: authAfterHook,
   },
   logger: {

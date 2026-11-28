@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  accountSetupEmail,
   deletionRecoveryEmail,
   invitationEmail,
   roleChangeEmail,
@@ -102,6 +103,44 @@ it('season added messages say no action is needed and link to the season', () =>
   );
   expect(message.text).toContain('Ravi, Ravi’s Study Program');
   expect(message.html).toContain('&lt;b&gt;Member&lt;/b&gt;');
+  expect(message.html).not.toContain('<b>');
+});
+
+it('season added messages tell someone who has never signed in how to set a password', () => {
+  const message = seasonAddedEmail(
+    'member@example.test',
+    'Member',
+    'Summer 2026',
+    'mentor',
+    'https://rsp.test/seasons/summer-2026',
+    'Ravi',
+    true,
+  );
+  expect(message.text).toContain('To sign in for the first time');
+  expect(message.text).toContain('"Forgot password?"');
+  expect(message.text).not.toContain('Sign in as usual');
+});
+
+it('account setup invitations say they are in the season and link to set a password', () => {
+  const url =
+    'https://rsp.test/api/auth/reset-password/token?callbackURL=%2Freset-password%3Fsetup%3Dtrue';
+  const message = accountSetupEmail(
+    'member@example.test',
+    '<b>Member</b>',
+    'Summer 2026',
+    'mentor',
+    url,
+    'Ravi',
+  );
+  expect(message.subject).toBe(
+    'Your Invitation to the RSP Website (Summer 2026)',
+  );
+  expect(message.text).toContain(
+    "You've been invited to join the Summer 2026 season of RSP as a mentor.",
+  );
+  expect(message.text).toContain('have been added to the season');
+  expect(message.text).toContain(`Set Up Your Account: ${url}`);
+  expect(message.text).toContain('expires in 14 days');
   expect(message.html).not.toContain('<b>');
 });
 

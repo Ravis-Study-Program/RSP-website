@@ -287,6 +287,11 @@ export function SignInPage() {
               Password reset complete. Sign in with your new password.
             </InlineNotice>
           ) : null}
+          {searchParams.get('passwordSet') === 'true' ? (
+            <InlineNotice>
+              Your password is set. Sign in with your email and password.
+            </InlineNotice>
+          ) : null}
           {requestError ? <FieldError>{requestError}</FieldError> : null}
           {resetMessage ? (
             <p className="text-sm text-muted-foreground" role="status">
@@ -456,12 +461,7 @@ export function SignInPage() {
               </Button>
             ) : null}
           </form>
-          {invited ? null : (
-            <p className="text-center text-sm text-muted-foreground">
-              New to RSP? Accounts are by invitation only. Open the invitation
-              link from your email to create yours.
-            </p>
-          )}
+          {invited ? null : <SignInHelp />}
         </TabsContent>
       </Tabs>
     </AuthFrame>
@@ -492,10 +492,44 @@ function signedOutNotice(params: URLSearchParams) {
     : '';
 }
 
+/**
+ * Help below the sign-in form for someone without a password: a newcomer
+ * needs an invitation, while a former student has an account from before
+ * and sets a password with "Forgot password?". One opens at a time.
+ */
+function SignInHelp() {
+  const questions = [
+    {
+      question: 'New to RSP?',
+      answer:
+        'Accounts are by invitation only. Open the invitation link from your email to create yours.',
+    },
+    {
+      question: 'Former student without an account?',
+      answer:
+        'You already have one from before. Enter the email address RSP knows you by above, then choose “Forgot password?” to set your password.',
+    },
+  ];
+  return (
+    <div className="grid gap-2 text-center text-sm text-muted-foreground">
+      {questions.map(({ question, answer }) => (
+        <details key={question} name="sign-in-help" className="group">
+          <summary className="mx-auto w-fit cursor-pointer rounded-sm font-medium group-open:text-foreground hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring">
+            {question}
+          </summary>
+          <p className="mt-1">{answer}</p>
+        </details>
+      ))}
+    </div>
+  );
+}
+
 export function ResetPasswordPage() {
-  usePageTitle('Reset Password');
-  const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  // The link in an account setup invitation, for a first sign-in.
+  const setup = searchParams.get('setup') === 'true';
+  usePageTitle(setup ? 'Set Up Your Account' : 'Reset Password');
+  const navigate = useNavigate();
   const token = searchParams.get('token') ?? '';
   const [password, setPassword] = useState('');
   const [confirmation, setConfirmation] = useState('');
@@ -514,7 +548,9 @@ export function ResetPasswordPage() {
     setError('');
     try {
       await resetPassword(token, password);
-      navigate('/sign-in?reset=true', { replace: true });
+      navigate(setup ? '/sign-in?passwordSet=true' : '/sign-in?reset=true', {
+        replace: true,
+      });
     } catch (requestError) {
       setError(
         requestError instanceof Error
@@ -527,8 +563,12 @@ export function ResetPasswordPage() {
   return (
     <StateLayout
       icon={<IconLock size={48} aria-hidden="true" />}
-      title="Choose a New Password"
-      message="This link can only be used once. Resetting your password signs you out on all devices."
+      title={setup ? 'Set Up Your Account' : 'Choose a New Password'}
+      message={
+        setup
+          ? 'Choose a password for your RSP account. This link can only be used once.'
+          : 'This link can only be used once. Resetting your password signs you out on all devices.'
+      }
     >
       <form
         className="grid w-full gap-4 text-left"
@@ -536,7 +576,9 @@ export function ResetPasswordPage() {
       >
         {error ? <FieldError>{error}</FieldError> : null}
         <div className="grid gap-2">
-          <FieldLabel htmlFor="reset-password">New Password</FieldLabel>
+          <FieldLabel htmlFor="reset-password">
+            {setup ? 'Password' : 'New Password'}
+          </FieldLabel>
           <Input
             id="reset-password"
             type="password"
@@ -547,7 +589,7 @@ export function ResetPasswordPage() {
         </div>
         <div className="grid gap-2">
           <FieldLabel htmlFor="reset-password-confirmation">
-            Confirm New Password
+            {setup ? 'Confirm Password' : 'Confirm New Password'}
           </FieldLabel>
           <Input
             id="reset-password-confirmation"
@@ -558,7 +600,13 @@ export function ResetPasswordPage() {
           />
         </div>
         <Button type="submit" disabled={pending}>
-          {pending ? 'Resetting…' : 'Reset Password'}
+          {pending
+            ? setup
+              ? 'Saving…'
+              : 'Resetting…'
+            : setup
+              ? 'Set Password'
+              : 'Reset Password'}
         </Button>
         <Link to="/sign-in" className={buttonVariants({ variant: 'outline' })}>
           Back to sign in

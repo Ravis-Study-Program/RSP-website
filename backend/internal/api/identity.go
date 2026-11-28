@@ -101,6 +101,39 @@ func (a *API) checkInvitationEmail(w http.ResponseWriter, r *http.Request) {
 	writeJSONResponse(w, http.StatusOK, response)
 }
 
+// findUnclaimedMember tells the auth service whether an email belongs to a
+// member who has never had a sign-in, so a password reset requested for it
+// can make one: with the member's name, and the security version their
+// access tokens must carry. The reset link still has to be opened from that
+// inbox before anyone can sign in.
+func (a *API) findUnclaimedMember(w http.ResponseWriter, r *http.Request) {
+	if !authorizeIdentityService(w, r) {
+		return
+	}
+	var request struct {
+		Email string `json:"email"`
+	}
+	if err := decodeJSON(r.Body, &request); err != nil || strings.TrimSpace(request.Email) == "" {
+		writeErrorResponse(w, http.StatusBadRequest, "An email is required.")
+		return
+	}
+	var response struct {
+		Found           bool   `json:"found"`
+		Name            string `json:"name,omitempty"`
+		SecurityVersion int64  `json:"securityVersion,omitempty"`
+	}
+	member, err := a.db.UnclaimedMemberByEmail(r.Context(), request.Email)
+	switch {
+	case errors.Is(err, dal.ErrNotFound):
+	case err != nil:
+		a.writeStoreErrorResponse(w, err)
+		return
+	default:
+		response.Found, response.Name, response.SecurityVersion = true, member.Name, member.SecurityVersion
+	}
+	writeJSONResponse(w, http.StatusOK, response)
+}
+
 func (a *API) receiveIdentityLifecycleEvent(w http.ResponseWriter, r *http.Request) {
 	if !authorizeIdentityService(w, r) {
 		return

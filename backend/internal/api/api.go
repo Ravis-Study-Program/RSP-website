@@ -116,6 +116,7 @@ func (a *API) Handler() http.Handler {
 	registerRoutes(routes, a)
 	routes.HandleFunc("POST /internal/auth/lifecycle-events", a.receiveIdentityLifecycleEvent)
 	routes.HandleFunc("POST /internal/auth/invitation-email", a.checkInvitationEmail)
+	routes.HandleFunc("POST /internal/auth/unclaimed-member", a.findUnclaimedMember)
 
 	handler := a.limitRequestBody(routes)
 	return requestContext(a.logger, a.telemetry.observeHTTP, handler)

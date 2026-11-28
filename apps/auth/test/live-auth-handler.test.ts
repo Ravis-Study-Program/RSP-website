@@ -265,6 +265,10 @@ live.sequential('live Better Auth handler and PostgreSQL', () => {
   let failNextIdentityCallback = false;
   const invitationToken = 'i'.repeat(43);
   const invitedEmail = `auth-invited-${suffix}@example.test`;
+  // A member the fake API knows who has never had a sign-in.
+  const unclaimedEmail = `auth-unclaimed-${suffix}@example.test`;
+  // Another, added to a season before ever signing in.
+  const setupEmail = `auth-setup-${suffix}@example.test`;
 
   async function resetAuthRateLimits(): Promise<void> {
     // The suite intentionally performs more than five sign-ins while
@@ -300,6 +304,30 @@ live.sequential('live Better Auth handler and PostgreSQL', () => {
                 ? { problem: 'The username "taken-name" is taken.' }
                 : {}),
             }),
+          );
+        });
+        return;
+      }
+      if (
+        request.method === 'POST' &&
+        request.url === '/internal/auth/unclaimed-member'
+      ) {
+        let body = '';
+        request.on('data', (chunk) => {
+          body += String(chunk);
+        });
+        request.on('end', () => {
+          const { email: asked } = JSON.parse(body) as { email: string };
+          response.writeHead(200, { 'content-type': 'application/json' }).end(
+            JSON.stringify(
+              asked === unclaimedEmail || asked === setupEmail
+                ? {
+                    found: true,
+                    name: 'Unclaimed Member',
+                    securityVersion: 4,
+                  }
+                : { found: false },
+            ),
           );
         });
         return;
@@ -622,9 +650,87 @@ live.sequential('live Better Auth handler and PostgreSQL', () => {
     expect(outbox.rows[0]!.payload.subject).toBe(
       "You've Been Added to the RSP Website (Summer 2026)",
     );
+    // This address has never signed in, so it is told how to set a password.
     expect(outbox.rows[0]!.payload.text).toContain(
+      'To sign in for the first time',
+    );
+    // Someone with a password needs do nothing.
+    const memberDelivery = { ...body, id: randomUUID(), to: email };
+    expect((await send({ authorization }, memberDelivery)).status).toBe(202);
+    const memberOutbox = await pool.query<{ payload: { text: string } }>(
+      'SELECT payload FROM auth.lifecycle_outbox WHERE id=$1',
+      [memberDelivery.id],
+    );
+    expect(memberOutbox.rows[0]!.payload.text).toContain(
       'no further action is required',
     );
+  });
+
+  it('invites a member who has never signed in to set up their account when added to a season', async () => {
+    await resetAuthRateLimits();
+    const deliveryId = randomUUID();
+    const setupPassword = 'SetupMemberPassword-2026';
+    try {
+      const queued = await fetch(`${origin}/internal/auth/season-additions`, {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          authorization: `Bearer ${internalToken}`,
+        },
+        body: JSON.stringify({
+          id: deliveryId,
+          to: setupEmail,
+          name: 'Setup Member',
+          season: 'Summer 2026',
+          role: 'mentor',
+          url: `${new URL(config.baseUrl).origin}/seasons/summer-2026`,
+        }),
+      });
+      expect(queued.status).toBe(202);
+      const outbox = await pool.query<{
+        payload: { subject: string; text: string };
+      }>('SELECT payload FROM auth.lifecycle_outbox WHERE id=$1', [deliveryId]);
+      const message = outbox.rows[0]!.payload;
+      expect(message.subject).toBe(
+        'Your Invitation to the RSP Website (Summer 2026)',
+      );
+      expect(message.text).toContain('Set Up Your Account');
+      expect(message.text).toContain('expires in 14 days');
+      // A sign-in with no password was made for their existing member.
+      const created = await pool.query<{ email_verified: boolean }>(
+        'SELECT email_verified FROM auth.users WHERE email = $1',
+        [setupEmail],
+      );
+      expect(created.rows[0]?.email_verified).toBe(true);
+
+      // The link opens the reset page worded for setting up, and sets the
+      // password they then sign in with.
+      const link = message.text.match(
+        /https?:\/\/[^\s]+\/api\/auth\/reset-password\/([A-Za-z0-9_-]+)\?callbackURL=[^\s]+/,
+      );
+      expect(link).not.toBeNull();
+      const opened = await fetch(link![0], { redirect: 'manual' });
+      expect(opened.status).toBe(302);
+      expect(opened.headers.get('location')).toContain(
+        '/reset-password?setup=true&token=',
+      );
+      const reset = await call('/reset-password', {
+        body: { token: link![1], newPassword: setupPassword },
+      });
+      expect(reset.status).toBe(200);
+      const signedIn = await call('/sign-in/email', {
+        body: { email: setupEmail, password: setupPassword },
+        cookies: jar(),
+      });
+      expect(signedIn.status).toBe(200);
+      // The link works once.
+      const again = await call('/reset-password', {
+        body: { token: link![1], newPassword: setupPassword },
+      });
+      expect(again.status).toBe(400);
+    } finally {
+      await pool.query('DELETE FROM auth.users WHERE email = $1', [setupEmail]);
+    }
   });
 
   it('enables TOTP, stores only backup hashes, revokes setup sessions and records the transition', async () => {
@@ -1242,6 +1348,83 @@ live.sequential('live Better Auth handler and PostgreSQL', () => {
     } finally {
       await pool.query('DELETE FROM auth.users WHERE id = $1', [
         importedUserId,
+      ]);
+    }
+  });
+
+  it('gives a member who has never signed in a sign-in when they ask for a password reset', async () => {
+    await resetAuthRateLimits();
+    const unclaimedPassword = 'UnclaimedMemberPassword-2026';
+    const requestReset = (address: string) =>
+      call('/request-password-reset', {
+        body: { email: address, redirectTo: '/reset-password' },
+      });
+    const stranger = `auth-stranger-${suffix}@example.test`;
+    try {
+      // Someone the API does not know gets no sign-in, and the same reply.
+      const unknown = await requestReset(stranger);
+      expect(unknown.status).toBe(200);
+      const unknownBody: unknown = await unknown.json();
+      const strangers = await pool.query(
+        'SELECT 1 FROM auth.users WHERE email = $1',
+        [stranger],
+      );
+      expect(strangers.rowCount).toBe(0);
+
+      const requested = await requestReset(unclaimedEmail.toUpperCase());
+      expect(requested.status).toBe(200);
+      expect(await requested.json()).toEqual(unknownBody);
+      const created = await pool.query<{
+        id: string;
+        name: string;
+        email_verified: boolean;
+        security_version: number;
+      }>(
+        'SELECT id, name, email_verified, security_version FROM auth.users WHERE email = $1',
+        [unclaimedEmail],
+      );
+      expect(created.rows[0]).toMatchObject({
+        name: 'Unclaimed Member',
+        email_verified: true,
+        security_version: 4,
+      });
+      const event = await pool.query<{ payload: Record<string, unknown> }>(
+        "SELECT payload FROM auth.lifecycle_outbox WHERE payload->>'type' = 'auth_user_created' AND payload->>'authUserId' = $1",
+        [created.rows[0]!.id],
+      );
+      expect(event.rows[0]?.payload).toMatchObject({
+        email: unclaimedEmail,
+        name: 'Unclaimed Member',
+        emailVerified: true,
+        securityVersion: 4,
+      });
+
+      // It has no password, so nobody gets in until the emailed link is used.
+      const before = await call('/sign-in/email', {
+        body: { email: unclaimedEmail, password: unclaimedPassword },
+      });
+      expect(before.status).toBe(401);
+      const token = await resetTokenFromCapturedEmail(unclaimedEmail);
+      const reset = await call('/reset-password', {
+        body: { token, newPassword: unclaimedPassword },
+      });
+      expect(reset.status).toBe(200);
+      const after = await call('/sign-in/email', {
+        body: { email: unclaimedEmail, password: unclaimedPassword },
+        cookies: jar(),
+      });
+      expect(after.status).toBe(200);
+
+      // Asking again resets the same sign-in rather than making another.
+      expect((await requestReset(unclaimedEmail)).status).toBe(200);
+      const signIns = await pool.query(
+        'SELECT 1 FROM auth.users WHERE lower(email) = $1',
+        [unclaimedEmail],
+      );
+      expect(signIns.rowCount).toBe(1);
+    } finally {
+      await pool.query('DELETE FROM auth.users WHERE email = $1', [
+        unclaimedEmail,
       ]);
     }
   });

@@ -16,6 +16,12 @@ Auth0 sessions cannot migrate; every member signs in again.
   JWT `sub` through one active `app.user_auth_links` record.
 - Matching email is never enough to merge accounts. Adding another provider is
   an explicit, freshly reauthenticated “Connect sign-in method” operation.
+  The one case where an email decides which member a sign-in belongs to is a
+  member who has never had any sign-in (no `app.user_auth_links` row at all):
+  a password reset requested for their contact email creates a verified
+  Better Auth user with no password, and the API attaches it to that member
+  instead of creating a second one. Nobody can sign in with it until the reset
+  link, sent only to that address, sets a password.
 - Coordinator, Director and System Admin access requires recent application MFA
   even after OAuth. Privileged assignments remain pending until TOTP is ready.
 
@@ -99,7 +105,8 @@ checksum. Plan statuses:
 original timestamp and exits with code 3 unless the checksum matches, so an
 edited plan or changed input cannot be applied. Unresolved identities also exit
 with code 3 unless `--allow-unresolved` is passed; they are then recorded and
-left unimported, and those members can sign up again as new users.
+left unimported, and those members get a sign-in on their existing member by
+asking for a password reset.
 
 For each app user, `apply` writes one Better Auth user with the member's
 display name, email, account state and security version; one `google` account
@@ -126,6 +133,9 @@ change verification state and security versions.
 - Password hashes are not imported. Members with a database identity reset
   their password through the existing `/reset-password` flow, which proves
   control of the email before a credential exists.
+- Members left unimported (`requires_resolution`, or no Auth0 account at all)
+  use the same flow: asking for a reset gives them a sign-in on their existing
+  member, as described under the identity contract above.
 - Preserve distinct Google/password provider records linked to the resolved app
   identity. Do not silently join records because emails match.
 - TOTP seeds are not imported. Legacy admins arrive as pending Directors and

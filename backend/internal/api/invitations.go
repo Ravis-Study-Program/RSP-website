@@ -97,8 +97,9 @@ func (a *API) sendInvitationEmail(r *http.Request, v *program.Invitation, token 
 }
 
 // sendSeasonAddedEmail tells someone who already has an account that they
-// were added to a season and need do nothing. Inside an import's transaction
-// it is sent only once that has been committed.
+// were added to a season, so there is nothing to accept. The auth service
+// adds how to set a password for anyone who has never signed in. Inside an
+// import's transaction it is sent only once that has been committed.
 func (a *API) sendSeasonAddedEmail(r *http.Request, to, name string, season program.SeasonRecord, role string) {
 	if a.sendSeasonAdded == nil || to == "" {
 		return

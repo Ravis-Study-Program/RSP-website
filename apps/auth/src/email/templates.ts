@@ -167,6 +167,8 @@ export function seasonAddedEmail(
   role: string,
   url: string,
   inviterName?: string,
+  /** They have never signed in, so have no password yet. */
+  firstSignIn = false,
 ): EmailMessage {
   return linkEmail({
     to,
@@ -174,10 +176,39 @@ export function seasonAddedEmail(
     senderName: inviterName,
     greeting: `Hi ${name},`,
     introduction: `You've been added to the ${season} season of RSP as a ${role}.`,
-    note: 'You already have an account, so no further action is required. Sign in as usual to get started.',
+    note: firstSignIn
+      ? 'You already have an account. To sign in for the first time, enter this email address on the sign-in page and choose "Forgot password?" to set your password.'
+      : 'You already have an account, so no further action is required. Sign in as usual to get started.',
     action: `Open ${season}`,
     url,
     expiry: 'If you were not expecting this, contact your season coordinator.',
+  });
+}
+
+/**
+ * The invitation for someone added to a season who has an account but has
+ * never signed in: they are already in the season, and the link sets their
+ * password.
+ */
+export function accountSetupEmail(
+  to: string,
+  name: string,
+  season: string,
+  role: string,
+  url: string,
+  inviterName?: string,
+): EmailMessage {
+  return linkEmail({
+    to,
+    subject: `Your Invitation to the RSP Website (${season})`,
+    senderName: inviterName,
+    greeting: `Hi ${name},`,
+    introduction: `You've been invited to join the ${season} season of RSP as a ${role}.`,
+    note: 'You already have an account with this email address and have been added to the season. Set your password to sign in.',
+    action: 'Set Up Your Account',
+    url,
+    expiry:
+      'This link expires in 14 days and can only be used once. After that, enter this email address on the sign-in page and choose "Forgot password?".',
   });
 }
 
