@@ -184,3 +184,63 @@ func TestMentorSetsStudentRequirements(t *testing.T) {
 		t.Fatalf("student settings=%+v", settings)
 	}
 }
+
+func TestMentorChangesTheirStudentsNameAndUsername(t *testing.T) {
+	fixture := newPostgresFixture(t)
+	ctx := context.Background()
+	path := "/api/v2/seasons/" + seasonID + "/members/" + studentMemberID + "/profile"
+	stored := func(userID string) (name, slug string) {
+		t.Helper()
+		if err := fixture.pool.QueryRow(ctx, `SELECT display_name,slug FROM app.user_profiles WHERE user_id=$1`, userID).Scan(&name, &slug); err != nil {
+			t.Fatal(err)
+		}
+		return name, slug
+	}
+	_, studentSlug := stored(studentID)
+	_, mentorSlug := stored(otherID)
+
+	// The student can change neither themselves, here or from their profile.
+	if response := testRequest(t, fixture.handler, http.MethodPatch, path, "student", `{"name":"Self Named","slug":"self-named"}`); response.Code != http.StatusForbidden {
+		t.Fatalf("student status=%d body=%s", response.Code, response.Body)
+	}
+	if response := testRequest(t, fixture.handler, http.MethodPatch, "/api/v2/me", "student", `{"name":"Student","slug":"self-named","timezone":"Australia/Adelaide"}`); response.Code != http.StatusForbidden {
+		t.Fatalf("own username status=%d body=%s", response.Code, response.Body)
+	}
+	// Only their current mentor, not any mentor in the season.
+	if response := testRequest(t, fixture.handler, http.MethodPatch, path, "other", `{"name":"Renamed Student","slug":"renamed-student"}`); response.Code != http.StatusForbidden {
+		t.Fatalf("unassigned status=%d body=%s", response.Code, response.Body)
+	}
+	assignMentor(t, fixture)
+	for body, want := range map[string]int{
+		`{"name":"","slug":"renamed-student"}`:                   http.StatusBadRequest,
+		`{"name":"Renamed Student","slug":"Not A Username"}`:     http.StatusBadRequest,
+		`{"name":"Renamed Student","slug":"` + mentorSlug + `"}`: http.StatusConflict,
+	} {
+		if response := testRequest(t, fixture.handler, http.MethodPatch, path, "other", body); response.Code != want {
+			t.Fatalf("%s status=%d want %d body=%s", body, response.Code, want, response.Body)
+		}
+	}
+	if name, slug := stored(studentID); name != "Student" || slug != studentSlug {
+		t.Fatalf("refused changes saved: %q %q", name, slug)
+	}
+
+	response := testRequest(t, fixture.handler, http.MethodPatch, path, "other", `{"name":" Renamed Student ","slug":"Renamed-Student"}`)
+	if response.Code != http.StatusOK {
+		t.Fatalf("mentor status=%d body=%s", response.Code, response.Body)
+	}
+	var saved struct{ Name, Slug string }
+	if err := json.Unmarshal(response.Body.Bytes(), &saved); err != nil || saved.Name != "Renamed Student" || saved.Slug != "renamed-student" {
+		t.Fatalf("saved=%+v err=%v", saved, err)
+	}
+	if name, slug := stored(studentID); name != "Renamed Student" || slug != "renamed-student" {
+		t.Fatalf("stored %q %q", name, slug)
+	}
+	var audits int
+	if err := fixture.pool.QueryRow(ctx, `SELECT count(*) FROM app.audit_events WHERE action='user.profile_corrected' AND subject_id=$1 AND actor_user_id=$2`, studentID, otherID).Scan(&audits); err != nil || audits != 1 {
+		t.Fatalf("audits=%d err=%v", audits, err)
+	}
+	// A mentor cannot use it on themselves.
+	if response := testRequest(t, fixture.handler, http.MethodPatch, "/api/v2/seasons/"+seasonID+"/members/"+otherMemberID+"/profile", "other", `{"name":"Other","slug":"other-renamed"}`); response.Code != http.StatusForbidden {
+		t.Fatalf("mentor enrollment status=%d body=%s", response.Code, response.Body)
+	}
+}

@@ -7,7 +7,12 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
-import { Field, FieldError, FieldLabel } from '@/components/ui/field';
+import {
+  Field,
+  FieldDescription,
+  FieldError,
+  FieldLabel,
+} from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useId, useState } from 'react';
@@ -16,6 +21,7 @@ import { apiRequest } from '@/api/client';
 import type {
   Enrollment,
   StudentLevelUpdate,
+  StudentProfileUpdate,
   StudentRequirements,
 } from '@/api/generated/models';
 import { demoMode, usePracticeSettings } from '@/api/queries';
@@ -54,8 +60,18 @@ function invalid(value: string, max: number, min = 1) {
   return !/^\d+$/.test(value) || Number(value) < min || Number(value) > max;
 }
 
+/** The username rule students meet when they sign up. */
+function invalidUsername(value: string) {
+  return (
+    value.length < 2 ||
+    value.length > 50 ||
+    !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(value)
+  );
+}
+
 /**
- * A student's details for their mentor or a coordinator: their level, their
+ * A student's details for their mentor or a coordinator: their name and
+ * username (which students cannot change themselves), their level, their
  * own LeetCode time goals and their weekly hours. A blank goal or hours
  * follows the program default set in Settings. Opened from a row menu.
  */
@@ -101,6 +117,8 @@ export function StudentDetailsDialog({
       ? person.studentLevel
       : 'beginner';
   const [level, setLevel] = useState<keyof typeof studentLevels>(initialLevel);
+  const [name, setName] = useState(person.name);
+  const [username, setUsername] = useState(person.slug);
   const [drafts, setDrafts] = useState<Drafts>(draftsFrom());
   const [pending, setPending] = useState(false);
   const [error, setError] = useState('');
@@ -114,7 +132,15 @@ export function StudentDetailsDialog({
     (key) => drafts[key] !== saved[key],
   );
   const levelChanged = level !== person.studentLevel;
+  const trimmedName = name.trim();
+  const trimmedUsername = username.trim().toLowerCase();
+  const profileChanged =
+    trimmedName !== person.name || trimmedUsername !== person.slug;
+  const nameInvalid = trimmedName.length < 1 || trimmedName.length > 100;
+  const usernameInvalid = invalidUsername(trimmedUsername);
   const anyInvalid =
+    nameInvalid ||
+    usernameInvalid ||
     goalFields.some(({ key }) => invalid(drafts[key], 180)) ||
     invalid(drafts.weeklyHours, 168);
 
@@ -124,6 +150,32 @@ export function StudentDetailsDialog({
     setError('');
     try {
       const memberPath = `/seasons/${encodeURIComponent(seasonId)}/members/${encodeURIComponent(enrollmentId)}`;
+      if (profileChanged) {
+        const body: StudentProfileUpdate = {
+          name: trimmedName,
+          slug: trimmedUsername,
+        };
+        const saved = demoMode
+          ? body
+          : await apiRequest<StudentProfileUpdate>(`${memberPath}/profile`, {
+              method: 'PATCH',
+              body: JSON.stringify(body),
+            });
+        queryClient.setQueryData<Page<Person>>(
+          ['season-people', seasonId],
+          (current) =>
+            current
+              ? {
+                  ...current,
+                  items: current.items.map((item) =>
+                    item.enrollmentId === enrollmentId
+                      ? { ...item, name: saved.name, slug: saved.slug }
+                      : item,
+                  ),
+                }
+              : current,
+        );
+      }
       if (levelChanged) {
         if (!demoMode) {
           const body: StudentLevelUpdate = { studentLevel: level };
@@ -228,6 +280,8 @@ export function StudentDetailsDialog({
         onOpenChange(next);
         if (next) {
           setLevel(initialLevel);
+          setName(person.name);
+          setUsername(person.slug);
           setDrafts(draftsFrom(requirements.data));
           setError('');
         }
@@ -239,6 +293,38 @@ export function StudentDetailsDialog({
             {error}
           </p>
         ) : null}
+        <Field>
+          <FieldLabel htmlFor={`${levelId}-name`}>Name</FieldLabel>
+          <Input
+            id={`${levelId}-name`}
+            value={name}
+            disabled={pending}
+            aria-invalid={nameInvalid}
+            onChange={(event) => setName(event.target.value)}
+          />
+          {nameInvalid ? <FieldError>Enter their name.</FieldError> : null}
+        </Field>
+        <Field>
+          <FieldLabel htmlFor={`${levelId}-username`}>Username</FieldLabel>
+          <Input
+            id={`${levelId}-username`}
+            value={username}
+            autoCapitalize="none"
+            autoComplete="off"
+            disabled={pending}
+            aria-invalid={usernameInvalid}
+            onChange={(event) => setUsername(event.target.value)}
+          />
+          {usernameInvalid ? (
+            <FieldError>
+              Use 2–50 lowercase letters, numbers and single hyphens.
+            </FieldError>
+          ) : (
+            <FieldDescription>
+              Students can’t change their own name or username.
+            </FieldDescription>
+          )}
+        </Field>
         <Field>
           <FieldLabel htmlFor={levelId}>Student Level</FieldLabel>
           <Select
@@ -287,7 +373,7 @@ export function StudentDetailsDialog({
               pending ||
               !enrollmentId ||
               anyInvalid ||
-              (!levelChanged && !requirementsChanged)
+              (!levelChanged && !requirementsChanged && !profileChanged)
             }
             onClick={() => void save()}
           >

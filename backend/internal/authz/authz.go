@@ -79,6 +79,26 @@ func (a Actor) IsStudentAlumnus() bool {
 	return false
 }
 
+// CanRenameSelf is false for students: their name and username come from
+// their invitation, and their mentor or a coordinator changes them.
+// Directors, System Admins and anyone who has mentored or coordinated keep
+// the choice.
+func (a Actor) CanRenameSelf() bool {
+	if a.IsDirectorOrSystemAdmin() {
+		return true
+	}
+	student := false
+	for _, e := range a.Enrollments {
+		switch e.Role {
+		case Mentor, Coordinator:
+			return true
+		case Student:
+			student = true
+		}
+	}
+	return !student
+}
+
 func (a Actor) CanAccessMemberDirectory() bool {
 	if !a.authenticated() {
 		return false

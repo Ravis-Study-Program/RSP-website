@@ -93,54 +93,70 @@ const currentUser: CurrentUser = {
   mockInterviewCount: 0,
 };
 
+/** Renders the signed-in member's own profile. */
+function renderOwnProfile(me: CurrentUser) {
+  vi.mocked(useCurrentUser).mockReturnValue({
+    data: me,
+    isLoading: false,
+    isError: false,
+    refetch: vi.fn(),
+  } as unknown as ReturnType<typeof useCurrentUser>);
+  vi.mocked(useSeasons).mockReturnValue({
+    data: {
+      items: [
+        {
+          id: 'season-1',
+          slug: 'season-one',
+          name: 'Season One',
+          startsAt: '2026-01-01T00:00:00Z',
+          endsAt: '2026-12-31T00:00:00Z',
+        },
+      ],
+    },
+    isLoading: false,
+    isError: false,
+    refetch: vi.fn(),
+  } as unknown as ReturnType<typeof useSeasons>);
+  vi.mocked(useUserProfile).mockReturnValue({
+    isLoading: false,
+    isError: false,
+    refetch: vi.fn(),
+  } as unknown as ReturnType<typeof useUserProfile>);
+  vi.mocked(useUserAttempts).mockReturnValue({
+    data: { items: [] },
+    isLoading: false,
+    isError: false,
+    refetch: vi.fn(),
+  } as unknown as ReturnType<typeof useUserAttempts>);
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  });
+  render(
+    <QueryClientProvider client={queryClient}>
+      <MemoryRouter initialEntries={['/profile']}>
+        <ProfilePage />
+      </MemoryRouter>
+    </QueryClientProvider>,
+  );
+}
+
 describe('username suggestion', () => {
   it('requests a uniqueness-aware suggestion from the API', async () => {
-    vi.mocked(useCurrentUser).mockReturnValue({
-      data: currentUser,
-      isLoading: false,
-      isError: false,
-      refetch: vi.fn(),
-    } as unknown as ReturnType<typeof useCurrentUser>);
-    vi.mocked(useSeasons).mockReturnValue({
-      data: {
-        items: [
-          {
-            id: 'season-1',
-            slug: 'season-one',
-            name: 'Season One',
-            startsAt: '2026-01-01T00:00:00Z',
-            endsAt: '2026-12-31T00:00:00Z',
-          },
-        ],
-      },
-      isLoading: false,
-      isError: false,
-      refetch: vi.fn(),
-    } as unknown as ReturnType<typeof useSeasons>);
-    vi.mocked(useUserProfile).mockReturnValue({
-      isLoading: false,
-      isError: false,
-      refetch: vi.fn(),
-    } as unknown as ReturnType<typeof useUserProfile>);
-    vi.mocked(useUserAttempts).mockReturnValue({
-      data: { items: [] },
-      isLoading: false,
-      isError: false,
-      refetch: vi.fn(),
-    } as unknown as ReturnType<typeof useUserAttempts>);
     vi.mocked(apiRequest).mockResolvedValueOnce({ slug: 'member-one-2' });
-
-    const queryClient = new QueryClient({
-      defaultOptions: { queries: { retry: false } },
-    });
     const user = userEvent.setup();
-    render(
-      <QueryClientProvider client={queryClient}>
-        <MemoryRouter initialEntries={['/profile']}>
-          <ProfilePage />
-        </MemoryRouter>
-      </QueryClientProvider>,
-    );
+    // Someone who has mentored can change their own username.
+    renderOwnProfile({
+      ...currentUser,
+      seasonRoles: [
+        ...currentUser.seasonRoles,
+        {
+          seasonId: 'season-2',
+          seasonSlug: 'season-two',
+          role: 'mentor',
+          state: 'active',
+        },
+      ],
+    });
 
     // Profiles are all time only, with no season picker.
     expect(
@@ -167,6 +183,22 @@ describe('username suggestion', () => {
     expect(apiRequest).toHaveBeenCalledWith('/me/slug-suggestion');
     expect(await screen.findByLabelText('Username')).toHaveValue(
       'member-one-2',
+    );
+  });
+
+  it('tells students to ask their mentor to change their name or username', async () => {
+    const user = userEvent.setup();
+    renderOwnProfile(currentUser);
+    await user.click(screen.getByRole('button', { name: /edit profile/i }));
+
+    expect(screen.getByLabelText('Name')).toHaveAttribute('readonly');
+    expect(screen.getByLabelText('Username')).toHaveAttribute('readonly');
+    expect(screen.getByLabelText('Username')).toHaveValue('member-one');
+    expect(
+      screen.queryByRole('button', { name: 'Suggest' }),
+    ).not.toBeInTheDocument();
+    expect(screen.getByLabelText('Username')).toHaveAccessibleDescription(
+      'Ask your mentor if you want to change your name or username.',
     );
   });
 });
